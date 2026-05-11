@@ -13,9 +13,14 @@ class Agency extends Model
 
     protected $fillable = [
         'name',
+        'short',
+        'slug',
         'description',
         'contact_info',
         'map_link',
+        'logo_url',
+        'location_query',
+        'is_active',
     ];
 
     protected $casts = [

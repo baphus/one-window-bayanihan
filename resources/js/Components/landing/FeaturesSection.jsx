@@ -1,0 +1,76 @@
+import { useState, useEffect } from 'react';
+import { BAYANIHAN_PHOTOS, FEATURE_CARDS } from './appData';
+
+export default function FeaturesSection() {
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActivePhotoIndex((c) => (c + 1) % BAYANIHAN_PHOTOS.length);
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  const photo = BAYANIHAN_PHOTOS[activePhotoIndex];
+
+  const handlePrev = () => setActivePhotoIndex((c) => (c - 1 + BAYANIHAN_PHOTOS.length) % BAYANIHAN_PHOTOS.length);
+  const handleNext = () => setActivePhotoIndex((c) => (c + 1) % BAYANIHAN_PHOTOS.length);
+
+  return (
+    <section id="features" className="bg-surface-container px-8 py-24">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-12 max-w-4xl">
+          <h2 className="font-headline text-3xl font-extrabold text-primary md:text-4xl">
+            What is Bayanihan One Window and Why It Matters
+          </h2>
+        </div>
+
+        <div className="relative overflow-hidden border border-outline-variant/30 bg-surface-container-lowest shadow-md">
+          <figure className="relative">
+            <img src={photo.src} alt={photo.alt} className="h-[340px] w-full object-cover md:h-[520px]" loading="lazy" referrerPolicy="no-referrer" />
+            <button type="button" onClick={handlePrev} className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous photo">
+              <span className="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+            </button>
+            <button type="button" onClick={handleNext} className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Next photo">
+              <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+            </button>
+            <figcaption className="absolute bottom-0 left-0 right-0 bg-black/60 px-5 py-4 text-sm text-white backdrop-blur-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span>Source: <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-2">{photo.sourceLabel}</a></span>
+                <span className="text-xs uppercase tracking-[0.1em] text-white/85">{activePhotoIndex + 1} / {BAYANIHAN_PHOTOS.length}</span>
+              </div>
+            </figcaption>
+          </figure>
+          <div className="flex items-center justify-center gap-2 border-t border-outline-variant/30 bg-white px-4 py-4">
+            {BAYANIHAN_PHOTOS.map((p, i) => (
+              <button key={p.src} type="button" onClick={() => setActivePhotoIndex(i)}
+                className={`h-2.5 rounded-full transition-all ${i === activePhotoIndex ? 'w-8 bg-primary' : 'w-2.5 bg-outline-variant/70 hover:bg-primary/60'}`}
+                aria-label={`Go to photo ${i + 1}`} aria-current={i === activePhotoIndex ? 'true' : undefined}
+              />
+            ))}
+          </div>
+        </div>
+
+        <article className="mb-12 mt-12 max-w-4xl space-y-6 text-base leading-relaxed text-on-surface-variant md:text-lg">
+          <p>One Window Bayanihan Assistance Program (OWBAP) is a unified, ICT-enabled platform designed to transform how assistance is delivered to Overseas Filipino Workers (OFWs).</p>
+          <p>It serves as a centralized inter-agency referral and tracking system, enabling the Department of Migrant Workers (DMW), local government units, and partner agencies to work together through one coordinated digital platform.</p>
+          <p>Built on the principle of<br />&quot;One OFW. One Entry. One Coordinated System.&quot;<br />OWBAP eliminates fragmented processes by introducing a single-entry, assisted case intake, where case managers handle encoding, service assignment, and document management, removing the need for OFWs to repeatedly submit information or navigate multiple offices.</p>
+          <p>Through automated referrals, standardized workflows, and real-time case tracking via a unique tracker number, the system ensures faster response, improved transparency, and seamless coordination from assistance to reintegration.</p>
+          <p>By centralizing case visibility and strengthening inter-agency collaboration, OWBAP delivers efficient, accountable, and people-centered support, ensuring that every OFW receives timely help and that no case is left behind.</p>
+        </article>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {FEATURE_CARDS.map((f) => (
+            <div key={f.title} className="border border-outline-variant/30 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+              <div className="mb-5 flex h-12 w-12 items-center justify-center bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-3xl">{f.icon}</span>
+              </div>
+              <h3 className="mb-3 text-lg font-bold text-primary">{f.title}</h3>
+              <p className="text-sm leading-relaxed text-on-surface-variant">{f.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
