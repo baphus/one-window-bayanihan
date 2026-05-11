@@ -34,6 +34,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/referrals/{referral}', [\App\Http\Controllers\ReferralController::class, 'show'])->name('referrals.show');
     Route::patch('/referrals/{referral}/status', [\App\Http\Controllers\ReferralController::class, 'updateStatus'])->name('referrals.update-status');
     Route::post('/referrals/{referral}/milestones', [\App\Http\Controllers\ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
+
+    Route::get('/analytics', [\App\Http\Controllers\AnalyticsController::class, 'index'])->name('analytics.index');
 });
+
+Route::get('/track', [\App\Http\Controllers\TrackController::class, 'index'])->name('track.index');
+Route::post('/track/send-otp', [\App\Http\Controllers\TrackController::class, 'sendOtp'])->name('track.send-otp');
+Route::post('/track/verify-otp', [\App\Http\Controllers\TrackController::class, 'verifyOtp'])->name('track.verify-otp');
+Route::get('/track/case', [\App\Http\Controllers\TrackController::class, 'show'])->name('track.show');
+
+Route::post('/chatbot/message', [\App\Http\Controllers\ChatbotController::class, 'message'])->name('chatbot.message');
 
 require __DIR__.'/auth.php';

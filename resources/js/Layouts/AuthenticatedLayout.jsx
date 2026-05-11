@@ -4,6 +4,7 @@ import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import ChatBot from '@/Components/ChatBot';
 
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
@@ -41,6 +42,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                     active={route().current('referrals.*')}
                                 >
                                     Referrals
+                                </NavLink>
+                                <NavLink
+                                    href={route('analytics.index')}
+                                    active={route().current('analytics.*')}
+                                >
+                                    Analytics
                                 </NavLink>
                             </div>
                         </div>
@@ -158,6 +165,12 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Referrals
                         </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('analytics.index')}
+                            active={route().current('analytics.*')}
+                        >
+                            Analytics
+                        </ResponsiveNavLink>
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">
@@ -195,6 +208,7 @@ export default function AuthenticatedLayout({ header, children }) {
             )}
 
             <main>{children}</main>
+            <ChatBot />
         </div>
     );
 }
