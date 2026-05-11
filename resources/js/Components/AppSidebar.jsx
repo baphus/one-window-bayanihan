@@ -47,7 +47,7 @@ const navByRole = {
     ]},
     { label: 'Settings', items: [
       { name: 'Activity Logs', href: '/activity-logs', icon: 'history' },
-      { name: 'System Settings', href: '/system-settings', icon: 'settings' },
+      { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
     ]},
   ],
 };

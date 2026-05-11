@@ -1,14 +1,25 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 
-export default function TrackingVerify({ tracker_number, hint }) {
+export default function TrackingVerify({ tracker_number, hint, debug_otp }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
   const otpRefs = useRef([]);
+  const autoFilled = useRef(false);
+
+  useEffect(() => {
+    if (debug_otp && !autoFilled.current) {
+      autoFilled.current = true;
+      const digits = debug_otp.split('').slice(0, 6);
+      const filled = ['', '', '', '', '', ''];
+      digits.forEach((d, i) => { filled[i] = d; });
+      setOtp(filled);
+    }
+  }, [debug_otp]);
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) return;
@@ -100,6 +111,12 @@ export default function TrackingVerify({ tracker_number, hint }) {
             </div>
 
             {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
+
+            {debug_otp && (
+              <div className="mt-4 rounded bg-amber-50 border border-amber-300 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">
+                Debug Mode — OTP: {debug_otp}
+              </div>
+            )}
 
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
               <button

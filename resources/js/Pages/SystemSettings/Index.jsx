@@ -1,50 +1,86 @@
+import { useState } from 'react';
+import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
 
-export default function SystemSettings() {
-  return (
-    <AppLayout title="System Settings">
-      <Head title="System Settings" />
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">System Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage system-wide configuration and preferences.</p>
-      </div>
+export default function SystemSettings({ debug_otp_enabled }) {
+    const [debugOtp, setDebugOtp] = useState(debug_otp_enabled);
 
-      <div className="grid grid-cols-1 gap-6 max-w-2xl">
-        <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">Application Information</h3>
-          <dl className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Application Name</dt>
-              <dd className="font-medium text-slate-900">One Window Bayanihan</dd>
+    const toggleDebugOtp = () => {
+        const next = !debugOtp;
+        setDebugOtp(next);
+        router.post(route('admin.system-settings.update'), {
+            debug_otp_enabled: next,
+        }, {
+            preserveScroll: true,
+            onError: () => setDebugOtp(!next),
+        });
+    };
+
+    return (
+        <AppLayout title="System Settings">
+            <Head title="System Settings" />
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold text-slate-900">System Settings</h1>
+                <p className="text-sm text-slate-500 mt-1">Manage system-wide configuration and preferences.</p>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Version</dt>
-              <dd className="font-medium text-slate-900">1.0.0</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Region</dt>
-              <dd className="font-medium text-slate-900">Central Visayas (Region VII)</dd>
-            </div>
-          </dl>
-        </div>
 
-        <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">SERVQUAL Configuration</h3>
-          <p className="text-sm text-slate-600">
-            SERVQUAL (Service Quality) dimensions and parameters are used to measure client satisfaction across agencies.
-            Configuration management will be available in a future update.
-          </p>
-        </div>
+            <div className="grid grid-cols-1 gap-6 max-w-2xl">
+                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+                    <h3 className="text-base font-semibold text-slate-900 mb-4">Application Information</h3>
+                    <dl className="space-y-3 text-sm">
+                        <div className="flex justify-between">
+                            <dt className="text-slate-500">Application Name</dt>
+                            <dd className="font-medium text-slate-900">One Window Bayanihan</dd>
+                        </div>
+                        <div className="flex justify-between">
+                            <dt className="text-slate-500">Version</dt>
+                            <dd className="font-medium text-slate-900">1.0.0</dd>
+                        </div>
+                        <div className="flex justify-between">
+                            <dt className="text-slate-500">Region</dt>
+                            <dd className="font-medium text-slate-900">Central Visayas (Region VII)</dd>
+                        </div>
+                    </dl>
+                </div>
 
-        <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">OTP Settings</h3>
-          <p className="text-sm text-slate-600">
-            One-Time Password settings for the public case tracking system. Currently using database-backed OTP storage.
-            SMS integration will be available in a future update.
-          </p>
-        </div>
-      </div>
-    </AppLayout>
-  );
+                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+                    <h3 className="text-base font-semibold text-slate-900 mb-4">SERVQUAL Configuration</h3>
+                    <p className="text-sm text-slate-600">
+                        SERVQUAL (Service Quality) dimensions and parameters are used to measure client satisfaction across agencies.
+                        Configuration management will be available in a future update.
+                    </p>
+                </div>
+
+                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+                    <h3 className="text-base font-semibold text-slate-900 mb-4">OTP Settings</h3>
+                    <p className="text-sm text-slate-600">
+                        One-Time Password settings for the public case tracking system.
+                    </p>
+                </div>
+
+                <div className="rounded-lg bg-white shadow-sm border border-amber-200 p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-base font-semibold text-slate-900">Debug Mode</h3>
+                            <p className="text-sm text-slate-500 mt-1">
+                                When enabled, OTP values will be auto-filled on verification screens for testing purposes.
+                            </p>
+                            <p className="text-xs text-amber-600 font-medium mt-2">
+                                This setting also exposes OTP values in page responses. Disable in production.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={debugOtp}
+                            onClick={toggleDebugOtp}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${debugOtp ? 'bg-amber-500' : 'bg-slate-300'}`}
+                        >
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${debugOtp ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </AppLayout>
+    );
 }

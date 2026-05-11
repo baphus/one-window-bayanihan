@@ -4,10 +4,13 @@ namespace App\Services;
 
 use App\Models\CaseFile;
 use App\Models\AuditLog;
-use Illuminate\Support\Facades\Cache;
 
 class TrackingService
 {
+    public function __construct(
+        private readonly OtpService $otpService,
+    ) {}
+
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
     {
         return CaseFile::with([
@@ -20,24 +23,14 @@ class TrackingService
         ])->where('tracker_number', $trackerNumber)->first();
     }
 
-    public function generateOtp(string $trackerNumber): string
+    public function generateOtp(string $identifier, string $purpose = 'track'): string
     {
-        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        Cache::put("otp:{$trackerNumber}", $otp, now()->addMinutes(5));
-        return $otp;
+        return $this->otpService->generate($identifier, $purpose);
     }
 
-    public function verifyOtp(string $trackerNumber, string $otp): bool
+    public function verifyOtp(string $identifier, string $otp, string $purpose = 'track'): bool
     {
-        $cached = Cache::get("otp:{$trackerNumber}");
-        if (!$cached) {
-            return false;
-        }
-        if ($cached !== $otp) {
-            return false;
-        }
-        Cache::forget("otp:{$trackerNumber}");
-        return true;
+        return $this->otpService->verify($identifier, $purpose, $otp);
     }
 
     public function buildTrackingData(CaseFile $case): array

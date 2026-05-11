@@ -71,11 +71,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users', [\App\Http\Controllers\AdminUserController::class, 'store'])->name('users.store');
         Route::patch('/users/{user}', [\App\Http\Controllers\AdminUserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [\App\Http\Controllers\AdminUserController::class, 'destroy'])->name('users.destroy');
-    });
 
-    Route::get('/system-settings', function () {
-        return Inertia::render('SystemSettings/Index');
-    })->name('system-settings.index');
+        Route::get('/system-settings', [\App\Http\Controllers\SystemSettingsController::class, 'index'])->name('system-settings.index');
+        Route::post('/system-settings', [\App\Http\Controllers\SystemSettingsController::class, 'update'])->name('system-settings.update');
+    });
 });
 
 Route::get('/partners', function () {
