@@ -13,6 +13,7 @@ const navByRole = {
       { name: 'Stakeholders', href: '/stakeholders', icon: 'account_balance' },
     ]},
     { label: 'Reports', items: [
+      { name: 'Reports', href: '/reports', icon: 'summarize' },
       { name: 'Analytics', href: '/analytics', icon: 'bar_chart' },
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},

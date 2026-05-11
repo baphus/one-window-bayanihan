@@ -1,0 +1,158 @@
+import AppLayout from '@/Layouts/AppLayout';
+import { Head, Link } from '@inertiajs/react';
+import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
+
+const statusStyles = {
+    OPEN: 'bg-green-100 text-green-800',
+    CLOSED: 'bg-slate-100 text-slate-800',
+};
+
+export default function ClientShow({ client }) {
+    const fullName = [client.first_name, client.middle_name, client.last_name, client.suffix]
+        .filter(Boolean)
+        .join(' ');
+
+    return (
+        <AppLayout title={fullName}>
+            <Head title={fullName} />
+
+            <div className="mb-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">Client Details</h1>
+                        <p className="text-sm text-slate-500 mt-1">Client profile, associated cases, and activity.</p>
+                    </div>
+                    <Link
+                        href={route('clients.index')}
+                        className="text-sm text-indigo-600 hover:text-indigo-900"
+                    >
+                        &larr; Back to Clients
+                    </Link>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    <CardSection title="Client Information">
+                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8] border-b border-[#d8dee8]">
+                            <InfoCell label="Full Name" value={fullName} />
+                            <InfoCell label="Sex" value={client.sex || 'N/A'} />
+                            <InfoCell label="Date of Birth" value={client.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'} />
+                        </div>
+                        {client.caseFile && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8]">
+                                <InfoCell label="Case Number" value={
+                                    <Link href={route('cases.show', client.caseFile.id)} className="text-indigo-600 hover:text-indigo-900">
+                                        {client.caseFile.case_number}
+                                    </Link>
+                                } />
+                                <InfoCell label="Client Type" value={
+                                    client.caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'
+                                } />
+                                <InfoCell label="Case Status" value={
+                                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${statusStyles[client.caseFile.status] || 'bg-slate-100 text-slate-800'}`}>
+                                        {client.caseFile.status}
+                                    </span>
+                                } />
+                            </div>
+                        )}
+                    </CardSection>
+
+                    {client.caseFile?.summary && (
+                        <CardSection title="Case Summary">
+                            <p className="text-sm text-slate-700">{client.caseFile.summary}</p>
+                        </CardSection>
+                    )}
+
+                    {client.addresses?.length > 0 && (
+                        <CardSection title="Addresses">
+                            {client.addresses.map((addr) => (
+                                <SubsectionCard key={addr.id} title="Address">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <MetaTile label="Street" value={[addr.line1, addr.line2].filter(Boolean).join(', ') || 'N/A'} />
+                                        <MetaTile label="City" value={addr.city || 'N/A'} />
+                                        <MetaTile label="Province" value={addr.province || 'N/A'} />
+                                        <MetaTile label="Postal Code" value={addr.postal_code || 'N/A'} />
+                                        <MetaTile label="Country" value={addr.country || 'N/A'} />
+                                    </div>
+                                </SubsectionCard>
+                            ))}
+                        </CardSection>
+                    )}
+
+                    {client.employments?.length > 0 && (
+                        <CardSection title="Employment History">
+                            {client.employments.map((emp) => (
+                                <div key={emp.id} className="mb-3 last:mb-0">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <MetaTile label="Employer" value={emp.employer_name || 'N/A'} />
+                                        <MetaTile label="Position" value={emp.position || 'N/A'} />
+                                        <MetaTile label="Country" value={emp.country || 'N/A'} />
+                                        <MetaTile label="Period" value={
+                                            `${emp.start_date ? new Date(emp.start_date).toLocaleDateString() : '?'} \u2014 ${emp.end_date ? new Date(emp.end_date).toLocaleDateString() : 'Present'}`
+                                        } />
+                                    </div>
+                                </div>
+                            ))}
+                        </CardSection>
+                    )}
+
+                    {client.caseFile?.referrals?.length > 0 && (
+                        <CardSection title={`Associated Referrals (${client.caseFile.referrals.length})`}>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Agency</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Service</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {client.caseFile.referrals.map((ref) => (
+                                            <tr key={ref.id} className="hover:bg-slate-50">
+                                                <td className="px-4 py-2 text-sm text-slate-900">{ref.agency?.name ?? 'N/A'}</td>
+                                                <td className="px-4 py-2 text-sm text-slate-500">{ref.required_services}</td>
+                                                <td className="px-4 py-2">
+                                                    <span className="inline-flex rounded-full bg-blue-100 px-2 text-xs font-semibold leading-5 text-blue-800">
+                                                        {ref.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-2 text-sm">
+                                                    <Link href={route('referrals.show', ref.id)} className="text-indigo-600 hover:text-indigo-900">View</Link>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardSection>
+                    )}
+                </div>
+
+                <div className="space-y-6">
+                    <CardSection title="Overview">
+                        <div className="space-y-2">
+                            <MetaTile label="Full Name" value={fullName} />
+                            <MetaTile label="Sex" value={client.sex || 'N/A'} />
+                            <MetaTile label="Date of Birth" value={client.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'} />
+                            {client.caseFile && (
+                                <>
+                                    <MetaTile label="Case Number" value={
+                                        <Link href={route('cases.show', client.caseFile.id)} className="text-indigo-600 hover:text-indigo-900">
+                                            {client.caseFile.case_number}
+                                        </Link>
+                                    } />
+                                    <MetaTile label="Client Type" value={client.caseFile.client_type === 'OFW' ? 'OFW' : 'Next of Kin'} />
+                                    <MetaTile label="Referrals" value={client.caseFile.referrals?.length ?? 0} />
+                                </>
+                            )}
+                            <MetaTile label="Created" value={new Date(client.created_at).toLocaleDateString()} />
+                        </div>
+                    </CardSection>
+                </div>
+            </div>
+        </AppLayout>
+    );
+}

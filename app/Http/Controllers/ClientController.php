@@ -19,4 +19,19 @@ class ClientController extends Controller
             'clients' => $clients,
         ]);
     }
+
+    public function show(string $id)
+    {
+        $client = Client::with([
+            'caseFile' => function ($q) {
+                $q->with(['referrals.agency', 'referrals.milestones', 'user']);
+            },
+            'addresses',
+            'employments',
+        ])->findOrFail($id);
+
+        return Inertia::render('Client/Show', [
+            'client' => $client,
+        ]);
+    }
 }

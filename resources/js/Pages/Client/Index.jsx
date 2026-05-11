@@ -20,11 +20,12 @@ export default function ClientIndex({ clients }) {
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Date of Birth</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Case #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Referrals</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {clients.data.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-4 text-center text-sm text-slate-500">No clients found.</td></tr>
+                <tr><td colSpan={6} className="px-6 py-4 text-center text-sm text-slate-500">No clients found.</td></tr>
               ) : (
                 clients.data.map((client) => (
                   <tr key={client.id} className="hover:bg-slate-50">
@@ -41,6 +42,11 @@ export default function ClientIndex({ clients }) {
                           {client.case_file.case_number}
                         </Link>
                       ) : 'N/A'}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                      <Link href={route('clients.show', client.id)} className="text-indigo-600 hover:text-indigo-900 font-medium">
+                        View Details
+                      </Link>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {client.case_file?.referrals?.length ?? 0}

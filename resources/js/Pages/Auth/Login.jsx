@@ -3,13 +3,13 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 
 export default function Login({ status, canResetPassword }) {
-    const { errors: pageErrors, step: initialStep, debug_otp } = usePage().props;
+    const { errors: pageErrors, step: initialStep, email: initialEmail, hint: initialHint, debug_otp } = usePage().props;
     const [step, setStep] = useState(initialStep || 'login');
-    const [email, setEmail] = useState('');
+    const [email, setEmail] = useState(initialEmail || '');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loginError, setLoginError] = useState('');
-    const [hint, setHint] = useState('');
+    const [hint, setHint] = useState(initialHint || '');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [otpError, setOtpError] = useState('');
     const [processing, setProcessing] = useState(false);

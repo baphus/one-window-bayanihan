@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
-import TrackerInput from '@/Components/TrackerInput';
+import AppButton from '@/Components/landing/AppButton';
 import FaqSection from '@/Components/landing/FaqSection';
 import ChatBot from '@/Components/ChatBot';
 
 export default function TrackingPortal() {
   const { data, setData, post, processing, errors } = useForm({
     tracker_number: '',
+    email: '',
   });
   const [inputError, setInputError] = useState('');
 
@@ -25,6 +26,11 @@ export default function TrackingPortal() {
       return;
     }
 
+    if (!data.email.trim()) {
+      setInputError('Please enter your email address.');
+      return;
+    }
+
     setInputError('');
     setData('tracker_number', normalized);
     post(route('track.send-otp'));
@@ -35,7 +41,7 @@ export default function TrackingPortal() {
     if (inputError) setInputError('');
   };
 
-  const displayError = inputError || errors.tracker_number;
+  const displayError = inputError || errors.tracker_number || errors.email;
 
   return (
     <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface">
@@ -70,13 +76,44 @@ export default function TrackingPortal() {
                 <h2 className="font-headline text-lg font-bold text-on-surface">Tracking ID Details</h2>
               </div>
 
-              <TrackerInput
-                trackerNumber={data.tracker_number}
-                errorMessage={displayError}
-                onTrackerChange={handleTrackerChange}
-                onSubmit={handleTrackSubmit}
-                isDisabled={processing}
-              />
+              <form
+                className="flex flex-col gap-4"
+                onSubmit={(e) => { e.preventDefault(); handleTrackSubmit(); }}
+              >
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">confirmation_number</span>
+                  <input
+                    type="text"
+                    value={data.tracker_number}
+                    onChange={(e) => handleTrackerChange(e.target.value)}
+                    placeholder="Enter Tracking Number"
+                    className="w-full border border-outline bg-surface-container px-4 py-4 pl-12 text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:py-5 md:pl-14"
+                    aria-label="Tracker Number"
+                  />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
+                  <input
+                    type="email"
+                    value={data.email}
+                    onChange={(e) => setData('email', e.target.value)}
+                    placeholder="Enter your email address"
+                    className="w-full border border-outline bg-surface-container px-4 py-4 pl-12 text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:py-5 md:pl-14"
+                    aria-label="Email Address"
+                    required
+                  />
+                </div>
+                {displayError && <p className="text-sm text-error font-medium">{displayError}</p>}
+                <AppButton
+                  type="submit"
+                  disabled={processing}
+                  variant="mint"
+                  icon="search"
+                  className="md:py-5 w-full"
+                >
+                  {processing ? 'Sending OTP...' : 'Go to Tracking'}
+                </AppButton>
+              </form>
 
               <div className="mt-8 bg-surface-container-highest/30 p-4">
                 <div className="flex gap-3">

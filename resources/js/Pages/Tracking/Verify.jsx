@@ -4,7 +4,7 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 
-export default function TrackingVerify({ tracker_number, hint, debug_otp }) {
+export default function TrackingVerify({ tracker_number, email, hint, debug_otp }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -65,6 +65,7 @@ export default function TrackingVerify({ tracker_number, hint, debug_otp }) {
 
     router.post(route('track.verify-otp'), {
       tracker_number,
+      email,
       otp: otpValue,
     }, {
       onError: (err) => {

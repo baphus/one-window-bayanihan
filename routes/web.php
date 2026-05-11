@@ -50,8 +50,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals/{referral}/milestones', [\App\Http\Controllers\ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
 
     Route::get('/analytics', [\App\Http\Controllers\AnalyticsController::class, 'index'])->name('analytics.index');
+    Route::get('/reports', [\App\Http\Controllers\ReportsController::class, 'index'])->name('reports.index');
 
     Route::get('/clients', [\App\Http\Controllers\ClientController::class, 'index'])->name('clients.index');
+    Route::get('/clients/{client}', [\App\Http\Controllers\ClientController::class, 'show'])->name('clients.show');
     Route::get('/stakeholders', [\App\Http\Controllers\StakeholderController::class, 'index'])->name('stakeholders.index');
     Route::get('/audit-logs', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/feedbacks', [\App\Http\Controllers\FeedbackController::class, 'index'])->name('feedbacks.index');
