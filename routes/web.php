@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Models\Agency;
+use App\Services\AnalyticsService;
 use App\Services\DashboardService;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,7 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
         $service = app(DashboardService::class);
+        $analytics = app(AnalyticsService::class);
         $user = request()->user();
 
         $data = match ($user->role) {
@@ -29,6 +31,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         };
 
         $data['role'] = $user->role;
+        $data['caseTrends'] = $analytics->getCaseTrends();
+        $data['referralStatusDistribution'] = $analytics->getReferralStatusDistribution();
+        $data['caseTypeDistribution'] = $analytics->getCaseTypeDistribution();
 
         return Inertia::render('Dashboard', $data);
     })->name('dashboard');
@@ -55,6 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/clients', [\App\Http\Controllers\ClientController::class, 'index'])->name('clients.index');
     Route::get('/clients/{client}', [\App\Http\Controllers\ClientController::class, 'show'])->name('clients.show');
     Route::get('/stakeholders', [\App\Http\Controllers\StakeholderController::class, 'index'])->name('stakeholders.index');
+    Route::get('/stakeholders/{stakeholder}', [\App\Http\Controllers\StakeholderController::class, 'show'])->name('stakeholders.show');
     Route::get('/audit-logs', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/feedbacks', [\App\Http\Controllers\FeedbackController::class, 'index'])->name('feedbacks.index');
 

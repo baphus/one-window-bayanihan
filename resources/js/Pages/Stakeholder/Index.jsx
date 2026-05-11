@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 
 export default function StakeholderIndex({ agencies }) {
   return (
@@ -50,6 +50,16 @@ export default function StakeholderIndex({ agencies }) {
                 </div>
               </div>
             )}
+
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <Link
+                href={route('stakeholders.show', agency.id)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-900"
+              >
+                View Details
+                <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+              </Link>
+            </div>
           </div>
         ))}
       </div>

@@ -24,6 +24,15 @@ class StoreCaseRequest extends FormRequest
             'client.suffix' => ['nullable', 'string', 'max:50'],
             'client.date_of_birth' => ['nullable', 'date'],
             'client.sex' => ['nullable', 'string', 'max:50'],
+            'client.email' => ['nullable', 'email', 'max:255'],
+            'client.contact' => ['nullable', 'string', 'max:50'],
+
+            'next_of_kin.first_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.last_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.relationship' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.contact' => ['nullable', 'string', 'max:50'],
+
+            'consent' => ['nullable', 'boolean'],
 
             'address.line1' => ['nullable', 'string', 'max:255'],
             'address.line2' => ['nullable', 'string', 'max:255'],

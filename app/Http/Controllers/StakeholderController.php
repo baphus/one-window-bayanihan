@@ -21,4 +21,27 @@ class StakeholderController extends Controller
             'agencies' => $agencies,
         ]);
     }
+
+    public function show(Agency $stakeholder)
+    {
+        $stakeholder->load([
+            'services',
+            'referrals' => function ($q) {
+                $q->select('id', 'agcy_id', 'status');
+            },
+        ]);
+
+        $referrals = $stakeholder->referrals;
+        $activeReferrals = $referrals->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])->count();
+        $completedReferrals = $referrals->where('status', 'COMPLETED')->count();
+
+        return Inertia::render('Stakeholder/Show', [
+            'stakeholder' => $stakeholder->toArray(),
+            'stats' => [
+                'total_referrals' => $referrals->count(),
+                'active_referrals' => $activeReferrals,
+                'completed_referrals' => $completedReferrals,
+            ],
+        ]);
+    }
 }

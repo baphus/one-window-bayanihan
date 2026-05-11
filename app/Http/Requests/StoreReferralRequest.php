@@ -16,8 +16,11 @@ class StoreReferralRequest extends FormRequest
         return [
             'case_id' => ['required', 'string', 'exists:cases,id'],
             'agcy_id' => ['required', 'string', 'exists:agencies,id'],
-            'required_services' => ['required', 'string', 'max:5000'],
+            'required_services' => ['nullable', 'string', 'max:5000'],
+            'services' => ['nullable', 'array'],
+            'services.*' => ['string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
+            'documents' => ['nullable', 'array'],
         ];
     }
 }

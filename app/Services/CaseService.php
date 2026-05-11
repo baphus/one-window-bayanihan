@@ -6,6 +6,7 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
+use App\Models\NextOfKin;
 use App\Models\AuditLog;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class CaseService
                 'client_type' => $data['client_type'],
                 'summary' => $data['summary'] ?? null,
                 'status' => 'OPEN',
+                'consent_given_at' => !empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
             ]);
 
@@ -31,6 +33,8 @@ class CaseService
                 'suffix' => $data['client']['suffix'] ?? null,
                 'date_of_birth' => $data['client']['date_of_birth'] ?? null,
                 'sex' => $data['client']['sex'] ?? null,
+                'email' => $data['client']['email'] ?? null,
+                'contact' => $data['client']['contact'] ?? null,
                 'case_id' => $case->id,
             ]);
 
@@ -57,6 +61,16 @@ class CaseService
                 ]);
             }
 
+            if (!empty($data['next_of_kin']) && !empty($data['next_of_kin']['first_name'])) {
+                NextOfKin::create([
+                    'case_id' => $case->id,
+                    'first_name' => $data['next_of_kin']['first_name'],
+                    'last_name' => $data['next_of_kin']['last_name'] ?? null,
+                    'relationship' => $data['next_of_kin']['relationship'] ?? null,
+                    'contact' => $data['next_of_kin']['contact'] ?? null,
+                ]);
+            }
+
             AuditLog::create([
                 'action' => 'CREATE',
                 'module' => 'CASE',
@@ -65,7 +79,7 @@ class CaseService
                 'user_id' => $userId,
             ]);
 
-            return $case->load(['client.addresses', 'client.employments', 'user']);
+            return $case->load(['client.addresses', 'client.employments', 'nextOfKin', 'user']);
         });
     }
 
@@ -95,6 +109,7 @@ class CaseService
         return CaseFile::with([
             'client.addresses',
             'client.employments',
+            'nextOfKin',
             'referrals.milestones',
             'referrals.agency',
             'referrals.attachments',

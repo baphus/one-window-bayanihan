@@ -18,6 +18,8 @@ class Client extends Model
         'suffix',
         'date_of_birth',
         'sex',
+        'email',
+        'contact',
         'case_id',
     ];
 

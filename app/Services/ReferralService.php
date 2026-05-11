@@ -12,8 +12,12 @@ class ReferralService
     public function createReferral(array $data, string $userId): Referral
     {
         return DB::transaction(function () use ($data, $userId) {
+            $services = !empty($data['services']) && is_array($data['services'])
+                ? implode(', ', $data['services'])
+                : ($data['required_services'] ?? '');
+
             $referral = Referral::create([
-                'required_services' => $data['required_services'],
+                'required_services' => $services,
                 'notes' => $data['notes'] ?? null,
                 'status' => 'PENDING',
                 'case_id' => $data['case_id'],

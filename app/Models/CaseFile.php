@@ -19,11 +19,13 @@ class CaseFile extends Model
         'tracker_number',
         'summary',
         'status',
+        'consent_given_at',
         'user_id',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
+        'consent_given_at' => 'datetime',
     ];
 
     public function user()
@@ -39,5 +41,10 @@ class CaseFile extends Model
     public function referrals()
     {
         return $this->hasMany(Referral::class, 'case_id');
+    }
+
+    public function nextOfKin()
+    {
+        return $this->hasOne(NextOfKin::class, 'case_id');
     }
 }

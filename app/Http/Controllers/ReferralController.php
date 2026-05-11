@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Http\Requests\StoreMilestoneRequest;
+use App\Models\CaseFile;
+use App\Models\ReferralAttachment;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,10 +35,15 @@ class ReferralController extends Controller
     public function create(Request $request)
     {
         $agencies = $this->referralService->getAgenciesWithServices();
+        $cases = CaseFile::with('client')
+            ->where('status', 'OPEN')
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         return Inertia::render('Referral/Create', [
             'case_id' => $request->query('case_id'),
             'agencies' => $agencies,
+            'cases' => $cases,
         ]);
     }
 
@@ -46,6 +53,21 @@ class ReferralController extends Controller
             $request->validated(),
             $request->user()->id,
         );
+
+        if ($request->hasFile('documents')) {
+            foreach ($request->file('documents') as $key => $file) {
+                $path = $file->store('referrals', 'public');
+
+                ReferralAttachment::create([
+                    'referral_id' => $referral->id,
+                    'file_name' => implode(' - ', [str_replace('::', ' / ', $key), $file->getClientOriginalName()]),
+                    'file_url' => $path,
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'uploaded_by' => $request->user()->id,
+                ]);
+            }
+        }
 
         return redirect()
             ->route('referrals.show', $referral)
