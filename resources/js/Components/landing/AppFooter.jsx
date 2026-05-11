@@ -1,4 +1,5 @@
-import { FOOTER_COVER, FOOTER_LINKS } from './appData';
+import { Link } from '@inertiajs/react';
+import { FOOTER_COVER } from './appData';
 
 export default function AppFooter() {
   return (
@@ -23,9 +24,9 @@ export default function AppFooter() {
 
         <div className="flex flex-col gap-6 md:items-end">
           <div className="flex flex-wrap justify-center gap-6 md:justify-end">
-            {FOOTER_LINKS.map((l) => (
-              <a key={l} href="#" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">{l}</a>
-            ))}
+            <Link href={route('partners')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Partner Agencies</Link>
+            <Link href={route('contact')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Contact Support</Link>
+            <Link href={route('track.index')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Track Your Case</Link>
           </div>
           <div className="text-center text-[9px] uppercase tracking-widest text-slate-500 md:text-right">
             &copy; 2026 Bayanihan One Window System. All Rights Reserved. Bureau of Migrant Workers.

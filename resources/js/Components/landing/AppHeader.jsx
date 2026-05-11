@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import AppButton from './AppButton';
 
 export default function AppHeader({ onTrackCaseClick }) {
@@ -16,9 +16,18 @@ export default function AppHeader({ onTrackCaseClick }) {
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
-          <a href="#features" className="font-label text-[14px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#005288]">Track Your Case</a>
-          <a href="#partners" className="font-label text-[14px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#005288]">Partner Agencies</a>
-          <a href="#faq" className="font-label text-[14px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#005288]">FAQ</a>
+          <Link href="/" className="font-label text-[14px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#005288]">
+            Home
+          </Link>
+          <Link href={route('track.index')} className="font-label text-[14px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#005288]">
+            Track Your Case
+          </Link>
+          <Link href={route('partners')} className="font-label text-[14px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#005288]">
+            Partners
+          </Link>
+          <Link href={route('contact')} className="font-label text-[14px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#005288]">
+            Contact
+          </Link>
         </div>
 
         <div className="flex items-center gap-4">

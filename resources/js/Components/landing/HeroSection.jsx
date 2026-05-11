@@ -23,14 +23,13 @@ export default function HeroSection({ title, description, onTrackAction }) {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <AppButton
-              variant="primary"
-              icon="travel_explore"
-              className="bg-white text-[#005288] px-8 py-4 text-base font-bold shadow-xl hover:bg-slate-100"
+            <button
               onClick={onTrackAction}
+              className="inline-flex items-center justify-center gap-2 bg-white px-8 py-4 text-base font-bold text-[#005288] shadow-xl transition-all hover:bg-slate-100 active:scale-95"
             >
+              <span className="material-symbols-outlined text-[22px]">travel_explore</span>
               Track Your Case
-            </AppButton>
+            </button>
             <a href="#features" className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-8 py-4 text-base font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95">
               Learn More
             </a>

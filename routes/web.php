@@ -78,6 +78,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('system-settings.index');
 });
 
+Route::get('/partners', function () {
+    $agencies = Agency::with('services')->where('is_active', true)->get()->toArray();
+    return Inertia::render('PublicAgencies/Index', ['agencies' => $agencies]);
+})->name('partners');
+
+Route::get('/contact', function () {
+    return Inertia::render('Contact/Index');
+})->name('contact');
+
 Route::get('/track', [\App\Http\Controllers\TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [\App\Http\Controllers\TrackController::class, 'sendOtp'])->name('track.send-otp');
 Route::post('/track/verify-otp', [\App\Http\Controllers\TrackController::class, 'verifyOtp'])->name('track.verify-otp');
