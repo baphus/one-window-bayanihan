@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Concerns\SoftDeleteFlag;
+use App\Models\Concerns\UsesUuid;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Milestone extends Model
+{
+    use HasFactory, UsesUuid, SoftDeleteFlag;
+
+    protected $fillable = [
+        'title',
+        'description',
+        'refr_id',
+        'user_id',
+    ];
+
+    protected $casts = [
+        'is_deleted' => 'boolean',
+    ];
+
+    public function referral()
+    {
+        return $this->belongsTo(Referral::class, 'refr_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+}

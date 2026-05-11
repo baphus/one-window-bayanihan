@@ -17,13 +17,17 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->uuid('agency_id')->nullable();
+            $table->enum('role', ['ADMIN', 'AGENCY', 'CASE_MANAGER']);
+            $table->uuid('agcy_id')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->rememberToken();
             $table->timestamps();
 
             $table->boolean('is_deleted')->default(false);
             $table->timestamp('deleted_at')->nullable();
             $table->uuid('deleted_by')->nullable();
+
+            $table->foreign('agcy_id')->references('id')->on('agencies')->onDelete('restrict');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

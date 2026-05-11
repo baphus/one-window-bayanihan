@@ -1,43 +1,62 @@
-# Project Instructions: Bayanihan One Window System
+# System Requirements: Bayanihan One Window
 
-## 1. Project Overview
-**Project Title:** Bayanihan One Window: An Inter-Agency Referral and Tracking System for Distressed OFWs in Region VII.
-**Core Objective:** To transform fragmented manual processes into a unified "One OFW, One Entry" digital platform for inter-agency coordination.
+## 1. Project Context & Purpose
+The Bayanihan One Window is a web-based inter-agency referral and tracking system designed to streamline assistance for distressed Overseas Filipino Workers (OFWs) in Region VII. It replaces fragmented manual processes with a "One OFW, One Entry" digital model, using a Unified Master Case File accessible to multiple government agencies.
 
-## 2. Technical Stack
-- **Frontend:** React with Tailwind CSS and Inertia.js (for seamless integration with Laravel).
-- **Backend:** Laravel (Latest Version) using PHP.
-- **Database:** PostgreSQL managed via Supabase.
-- **Storage:** Cloudinary for document management and media hosting.
-- **Deployment:** Render (Hosting) and GitHub (Version Control).
+## 2. Technical Stack & Architecture
+- Architecture: Modular Model-View-Controller (MVC).
+- Frontend: React with Tailwind CSS, using Inertia.js for server-side routing.
+- Backend: PHP Laravel (latest version).
+- Database: PostgreSQL (hosted via Supabase) for ACID-compliant transactions.
+- Storage: Cloudinary for secure document management and CDN delivery.
+- Deployment: Render (cloud hosting).
+- Communication: Pusher/Redis for real-time dashboard updates.
 
-## 3. Core Architectural Rules
-- **Primary Keys:** Use **UUID (128-bit)** for all table identifiers to ensure unique tracking across distributed systems.
-- **Design Pattern:** Follow the **Model-View-Controller (MVC)** architecture.
-- **Database Integrity:** Enforce ACID compliance (PostgreSQL) for all transactions involving case and referral data.
-- **Auditability:** Implement an **immutable, append-only audit trail**. Every record must include `is_deleted`, `deleted_at`, and `deleted_by` for soft deletes to maintain a permanent history.
-- **Real-Time Capability:** Use WebSocket protocols (Pusher/Redis) for live dashboard updates when referrals are dispatched or updated.
+## 3. Core Functional Modules
+### A. Case Intake & Profiling
+- Single-entry intake: DMW Case Managers create a centralized record containing personal details, employment history, and vulnerability indicators.
+- Tracking IDs: the system must auto-generate a unique Case Number and Tracker Number for every new entry.
 
-## 4. Security & Access Control
-- **Role-Based Access Control (RBAC):** Users are divided into ADMIN, CASE_MANAGER, and AGENCY_FOCAL_PERSON.
-- **Lane-Based Restrictions:** Implement strict middleware logic where Agency users can only view cases and referrals specifically assigned to their "lane" (agency ID).
-- **Authentication:** Implement secure login with **One-Time Password (OTP)** verification for all administrative users.
-- **Data Privacy:** All code must comply with the **Data Privacy Act of 2012**. PII (Personally Identifiable Information) must be encrypted at rest and in transit.
+### B. Referral Management
+- Parallel referrals: Case Managers can dispatch multiple referrals to different agencies simultaneously.
+- Lane-based logic: Agency users can only view and process referrals assigned to their agency lane.
+- Status workflow: PENDING, PROCESSING, COMPLETED, REJECTED, or FOR COMPLIANCE.
 
-## 5. Module Logic & Requirements
-- **Case Intake:** DMW Case Managers create a **Unified Master Case File**. A unique `CASE_NUMBER` and `TRACKER_NUMBER` must be generated upon creation.
-- **Referral Management:**
-  - DMW can initiate multiple parallel referrals for a single case.
-  - Referrals have statuses: PENDING, PROCESSING, COMPLETED, REJECTED, or FOR COMPLIANCE.
-  - Agency users must provide a mandatory comment when accepting or rejecting a referral.
-- **Milestones:** Agencies record "milestones" for each referral to provide granular progress tracking for the OFW.
-- **OFW Tracking:** A public-facing route allows OFWs to enter a tracker number. Access is **view-only** and must hide internal sensitive comments or documents.
+### C. Case Tracking & Monitoring
+- Unified timeline: real-time view of all agency actions, milestones, and status updates linked to a single case.
+- Public portal: OFWs can track using their Tracker Number, protected by OTP.
 
-## 6. Coding Standards for Copilot
-- **Eloquent Models:** Always define `$fillable` arrays and relationships (`belongsTo`, `hasMany`) based on the Data Dictionary.
-- **Migrations:** Ensure all foreign keys are clearly defined and use `onDelete('restrict')` for data integrity unless specified otherwise.
-- **UI/UX:** Adhere to the "Interia.js" pattern—controllers should return `Inertia::render()` with React components.
-- **Analytics:** Use **Chart.js** for dashboard visualizations, focusing on case statistics and agency performance metrics.
+### D. Support Features
+- AI chatbot: automated guidance on service requirements and case status inquiries.
+- Reporting & analytics: charts and graphs for case trends and agency performance.
+
+## 4. Database & Data Integrity Rules
+- Primary keys: all tables must use UUIDs (128-bit).
+- Soft deletes: every table must include `is_deleted` and `deleted_at`.
+- Audit logging: append-only AUDIT_LOG table must record CREATE, UPDATE, DELETE, and LOGIN actions with user ID, module, and timestamps.
+
+## 5. Security & User Roles
+### User Roles (RBAC)
+1. System Administrator: manages users, agencies, and global configurations.
+2. DMW Case Manager: primary coordinator (intake, referral, case closure).
+3. Agency Focal Person: manages interventions and milestones for assigned lane.
+4. OFW Tracking User: view-only access to their own case status.
+
+### Security Protocols
+- Authentication: OTP required for administrative logins and OFW tracking portal.
+- Data privacy: encrypt PII at rest and in transit; comply with the Data Privacy Act of 2012.
+- Network security: SSL/TLS, WAF, and IP whitelisting for agency backends.
+
+## 6. Developer Guidelines for AI
+- Eloquent relationships: define relationships in models (Case hasMany Referral, Referral hasMany Milestone).
+- Validation: enforce strict backend validation for all required fields in the Data Dictionary.
+- Closure logic: a case cannot be closed unless all associated referrals are in terminal states (COMPLETED or REJECTED).
+
+## 7. Additional Technical Standards
+- Eloquent models: always define `$fillable` arrays and relationships (`belongsTo`, `hasMany`).
+- Migrations: define foreign keys and use `onDelete('restrict')` unless specified otherwise.
+- UI/UX: controllers return `Inertia::render()` with React components.
+- Analytics: use Chart.js for dashboard visualizations.
 
 ---
 
