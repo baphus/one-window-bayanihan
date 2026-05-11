@@ -36,4 +36,16 @@ class Agency extends Model
     {
         return $this->hasMany(Referral::class, 'agcy_id');
     }
+
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'agency_service')
+            ->withPivot(['required_documents', 'processing_days'])
+            ->withTimestamps();
+    }
+
+    public function feedback()
+    {
+        return $this->hasMany(Feedback::class, 'agency_id');
+    }
 }

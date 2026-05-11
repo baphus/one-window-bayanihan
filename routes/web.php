@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Models\Agency;
+use App\Services\DashboardService;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -16,11 +17,22 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', function () {
+        $service = app(DashboardService::class);
+        $user = request()->user();
 
-Route::middleware('auth')->group(function () {
+        $data = match ($user->role) {
+            'AGENCY' => $service->getAgencyData($user->agcy_id),
+            'ADMIN' => $service->getAdminData(),
+            default => $service->getCaseManagerData(),
+        };
+
+        $data['role'] = $user->role;
+
+        return Inertia::render('Dashboard', $data);
+    })->name('dashboard');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -38,6 +50,32 @@ Route::middleware('auth')->group(function () {
     Route::post('/referrals/{referral}/milestones', [\App\Http\Controllers\ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
 
     Route::get('/analytics', [\App\Http\Controllers\AnalyticsController::class, 'index'])->name('analytics.index');
+
+    Route::get('/clients', [\App\Http\Controllers\ClientController::class, 'index'])->name('clients.index');
+    Route::get('/stakeholders', [\App\Http\Controllers\StakeholderController::class, 'index'])->name('stakeholders.index');
+    Route::get('/audit-logs', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('audit-logs.index');
+    Route::get('/feedbacks', [\App\Http\Controllers\FeedbackController::class, 'index'])->name('feedbacks.index');
+
+    Route::prefix('admin')->name('admin.')->middleware('role:ADMIN')->group(function () {
+        Route::get('/agencies', [\App\Http\Controllers\AdminAgencyController::class, 'index'])->name('agencies.index');
+        Route::post('/agencies', [\App\Http\Controllers\AdminAgencyController::class, 'store'])->name('agencies.store');
+        Route::patch('/agencies/{agency}', [\App\Http\Controllers\AdminAgencyController::class, 'update'])->name('agencies.update');
+        Route::delete('/agencies/{agency}', [\App\Http\Controllers\AdminAgencyController::class, 'destroy'])->name('agencies.destroy');
+
+        Route::get('/services', [\App\Http\Controllers\AdminServiceController::class, 'index'])->name('services.index');
+        Route::post('/services', [\App\Http\Controllers\AdminServiceController::class, 'store'])->name('services.store');
+        Route::patch('/services/{service}', [\App\Http\Controllers\AdminServiceController::class, 'update'])->name('services.update');
+        Route::delete('/services/{service}', [\App\Http\Controllers\AdminServiceController::class, 'destroy'])->name('services.destroy');
+
+        Route::get('/users', [\App\Http\Controllers\AdminUserController::class, 'index'])->name('users.index');
+        Route::post('/users', [\App\Http\Controllers\AdminUserController::class, 'store'])->name('users.store');
+        Route::patch('/users/{user}', [\App\Http\Controllers\AdminUserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{user}', [\App\Http\Controllers\AdminUserController::class, 'destroy'])->name('users.destroy');
+    });
+
+    Route::get('/system-settings', function () {
+        return Inertia::render('SystemSettings/Index');
+    })->name('system-settings.index');
 });
 
 Route::get('/track', [\App\Http\Controllers\TrackController::class, 'index'])->name('track.index');

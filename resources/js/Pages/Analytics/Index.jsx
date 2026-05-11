@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AppLayout from '@/Layouts/AppLayout';
 import { Head } from '@inertiajs/react';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import {
@@ -78,94 +78,89 @@ export default function AnalyticsIndex({ overview, caseTrends, referralStatusDis
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Analytics & Reporting
-                </h2>
-            }
-        >
+        <AppLayout title="Analytics">
             <Head title="Analytics" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500">Total Cases</p>
-                            <p className="mt-2 text-3xl font-bold text-gray-900">{overview.totalCases}</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500">Open Cases</p>
-                            <p className="mt-2 text-3xl font-bold text-green-600">{overview.openCases}</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500">Total Referrals</p>
-                            <p className="mt-2 text-3xl font-bold text-gray-900">{overview.totalReferrals}</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500">Active Agencies</p>
-                            <p className="mt-2 text-3xl font-bold text-gray-900">{overview.activeAgencies}</p>
-                        </div>
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold text-slate-900">Analytics & Reporting</h1>
+                <p className="text-sm text-slate-500 mt-1">System-wide data, trends, and performance metrics.</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <p className="text-sm font-medium text-slate-500">Total Cases</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">{overview.totalCases}</p>
+                </div>
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <p className="text-sm font-medium text-slate-500">Open Cases</p>
+                    <p className="mt-2 text-3xl font-bold text-green-600">{overview.openCases}</p>
+                </div>
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <p className="text-sm font-medium text-slate-500">Total Referrals</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">{overview.totalReferrals}</p>
+                </div>
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <p className="text-sm font-medium text-slate-500">Active Agencies</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">{overview.activeAgencies}</p>
+                </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <h3 className="mb-4 text-base font-semibold text-slate-900">Case Trends</h3>
+                    <Line
+                        data={caseTrendsChart}
+                        options={{
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                        }}
+                    />
+                </div>
+
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <h3 className="mb-4 text-base font-semibold text-slate-900">Referral Status</h3>
+                    <div className="mx-auto max-w-xs">
+                        <Doughnut
+                            data={statusChart}
+                            options={{
+                                responsive: true,
+                                plugins: {
+                                    legend: { position: 'bottom' },
+                                },
+                            }}
+                        />
                     </div>
+                </div>
 
-                    <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <h3 className="mb-4 text-base font-medium text-gray-900">Case Trends</h3>
-                            <Line
-                                data={caseTrendsChart}
-                                options={{
-                                    responsive: true,
-                                    plugins: { legend: { display: false } },
-                                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                                }}
-                            />
-                        </div>
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <h3 className="mb-4 text-base font-semibold text-slate-900">Agency Workload</h3>
+                    <Bar
+                        data={workloadChart}
+                        options={{
+                            responsive: true,
+                            indexAxis: 'y',
+                            plugins: { legend: { display: false } },
+                            scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                        }}
+                    />
+                </div>
 
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <h3 className="mb-4 text-base font-medium text-gray-900">Referral Status</h3>
-                            <div className="mx-auto max-w-xs">
-                                <Doughnut
-                                    data={statusChart}
-                                    options={{
-                                        responsive: true,
-                                        plugins: {
-                                            legend: { position: 'bottom' },
-                                        },
-                                    }}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <h3 className="mb-4 text-base font-medium text-gray-900">Agency Workload</h3>
-                            <Bar
-                                data={workloadChart}
-                                options={{
-                                    responsive: true,
-                                    indexAxis: 'y',
-                                    plugins: { legend: { display: false } },
-                                    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                                }}
-                            />
-                        </div>
-
-                        <div className="rounded-lg bg-white p-6 shadow-sm">
-                            <h3 className="mb-4 text-base font-medium text-gray-900">Case Types</h3>
-                            <div className="mx-auto max-w-xs">
-                                <Doughnut
-                                    data={caseTypeChart}
-                                    options={{
-                                        responsive: true,
-                                        plugins: {
-                                            legend: { position: 'bottom' },
-                                        },
-                                    }}
-                                />
-                            </div>
-                        </div>
+                <div className="rounded-lg bg-white p-6 shadow-sm border border-slate-200">
+                    <h3 className="mb-4 text-base font-semibold text-slate-900">Case Types</h3>
+                    <div className="mx-auto max-w-xs">
+                        <Doughnut
+                            data={caseTypeChart}
+                            options={{
+                                responsive: true,
+                                plugins: {
+                                    legend: { position: 'bottom' },
+                                },
+                            }}
+                        />
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }

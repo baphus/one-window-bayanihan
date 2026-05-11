@@ -19,4 +19,11 @@ class Service extends Model
     protected $casts = [
         'is_deleted' => 'boolean',
     ];
+
+    public function agencies()
+    {
+        return $this->belongsToMany(Agency::class, 'agency_service')
+            ->withPivot(['required_documents', 'processing_days'])
+            ->withTimestamps();
+    }
 }

@@ -1,0 +1,123 @@
+import AppLayout from '@/Layouts/AppLayout';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+
+function ServiceForm({ service, allAgencies, onClose }) {
+  const isEdit = !!service;
+  const { data, setData, post, patch, processing, errors } = useForm({
+    name: service?.name ?? '',
+    description: service?.description ?? '',
+    agency_ids: service?.agencies?.map(a => a.id) ?? [],
+  });
+
+  function handleAgencyToggle(agencyId) {
+    const current = data.agency_ids;
+    if (current.includes(agencyId)) {
+      setData('agency_ids', current.filter(id => id !== agencyId));
+    } else {
+      setData('agency_ids', [...current, agencyId]);
+    }
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (isEdit) {
+      patch(route('admin.services.update', service.id), { onSuccess: onClose });
+    } else {
+      post(route('admin.services.store'), { onSuccess: onClose });
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">{isEdit ? 'Edit Service' : 'New Service'}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Name *</label>
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Description</label>
+            <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Assign to Agencies</label>
+            <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-md p-2 space-y-1">
+              {allAgencies.map((agency) => (
+                <label key={agency.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 p-1 rounded">
+                  <input type="checkbox" checked={data.agency_ids.includes(agency.id)} onChange={() => handleAgencyToggle(agency.id)} className="rounded border-slate-300" />
+                  {agency.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50">
+              {isEdit ? 'Update' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminServiceIndex({ services, allAgencies }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+
+  return (
+    <AppLayout title="Manage Services">
+      {showForm && <ServiceForm service={editingService} allAgencies={allAgencies} onClose={() => { setShowForm(false); setEditingService(null); }} />}
+      <Head title="Manage Services" />
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Services</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage all services offered through the system.</p>
+        </div>
+        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500">
+          + New Service
+        </button>
+      </div>
+
+      <div className="rounded-lg bg-white shadow-sm border border-slate-200">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Agencies</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {services.data.length === 0 ? (
+                <tr><td colSpan={4} className="px-6 py-4 text-center text-sm text-slate-500">No services found.</td></tr>
+              ) : (
+                services.data.map((service) => (
+                  <tr key={service.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{service.name}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500 max-w-xs truncate">{service.description || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      {service.agencies?.length ?? 0} agency(ies)
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <button onClick={() => { setEditingService(service); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
