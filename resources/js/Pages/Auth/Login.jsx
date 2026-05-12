@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
+import AppHeader from '@/Components/landing/AppHeader';
 
 export default function Login({ status, canResetPassword }) {
     const { errors: pageErrors, step: initialStep, email: initialEmail, hint: initialHint, debug_otp } = usePage().props;
@@ -103,23 +104,18 @@ export default function Login({ status, canResetPassword }) {
     };
 
     return (
-        <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface">
+        <div className="min-h-dvh bg-gradient-to-br from-primary via-primary/95 to-primary-container/30 font-body text-on-surface">
             <Head title="Log in" />
 
             <AppHeader minimal />
 
-            <main className="flex-1 flex flex-col">
-                <div className="bg-primary pt-16 pb-32">
-                    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/95 to-primary-container/30" />
-                    </div>
-                </div>
-
-                <div className="relative z-10 mx-auto -mt-32 mb-24 w-full max-w-6xl px-4 lg:px-8">
-                    <div className="flex flex-col lg:flex-row shadow-2xl bg-surface border border-outline-variant/30 overflow-hidden">
+            <main className="min-h-dvh pt-[72px] flex flex-col">
+                <div className="flex-1 flex items-center justify-center p-8">
+                    <div className="w-full max-w-5xl">
+                        <div className="flex flex-col lg:flex-row shadow-2xl bg-surface border border-outline-variant/30 overflow-hidden">
 
                         {/* Left: Branding */}
-                        <div className="lg:w-2/5 relative min-h-[500px] flex flex-col justify-center text-white overflow-hidden">
+                        <div className="lg:w-1/2 relative min-h-[500px] flex flex-col justify-center text-white overflow-hidden">
                             <div className="absolute inset-0 z-0">
                                 <img
                                     src="https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80"
@@ -148,7 +144,7 @@ export default function Login({ status, canResetPassword }) {
                         </div>
 
                         {/* Right: Form */}
-                        <div className="lg:w-3/5 p-10 lg:p-14 bg-surface">
+                        <div className="lg:w-1/2 p-10 lg:p-14 bg-surface">
                             {step === 'login' && (
                                 <div className="max-w-md mx-auto">
                                     <div className="mb-8 flex items-center gap-3 border-b border-outline-variant pb-4">
@@ -291,38 +287,10 @@ export default function Login({ status, canResetPassword }) {
                         </div>
                     </div>
                 </div>
-            </main>
-
-            <AppFooter />
-        </div>
-    );
-}
-
-function AppHeader({ minimal }) {
-    return (
-        <nav className="fixed top-0 z-50 w-full border-b border-outline-variant bg-surface-bright">
-            <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-8">
-                <Link href="/" className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-outline-variant bg-surface-bright">
-                        <span className="material-symbols-outlined text-2xl text-primary">handshake</span>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="font-headline text-[18px] font-bold text-primary">Bayanihan One Window</span>
-                        <span className="font-label text-[12px] font-medium uppercase tracking-wide text-on-surface-variant">DMW Region VII</span>
-                    </div>
-                </Link>
-                {!minimal && (
-                    <div className="hidden items-center gap-8 md:flex">
-                        <Link href="/" className="font-label text-[14px] font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary">Home</Link>
-                        <Link href={route('track.index')} className="font-label text-[14px] font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary">Track Your Case</Link>
-                        <Link href={route('partners')} className="font-label text-[14px] font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary">Partners</Link>
-                        <Link href={route('contact')} className="font-label text-[14px] font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary">Contact</Link>
-                    </div>
-                )}
-                <Link href={route('register')}>
-                    <button className="font-label text-sm font-semibold text-primary hover:underline bg-transparent border-none cursor-pointer">Create Account</button>
-                </Link>
             </div>
-        </nav>
+        </main>
+
+        <AppFooter />
+        </div>
     );
 }

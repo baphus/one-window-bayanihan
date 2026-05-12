@@ -2,7 +2,6 @@ import { Head } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import HeroSection from '@/Components/landing/HeroSection';
-import LogoMarquee from '@/Components/landing/LogoMarquee';
 import FeaturesSection from '@/Components/landing/FeaturesSection';
 import PartnersSection from '@/Components/landing/PartnersSection';
 import FaqSection from '@/Components/landing/FaqSection';
@@ -22,16 +21,14 @@ export default function Welcome({ agencies }) {
           title="Connecting Government Services Through One Window"
           description="A unified platform for inter-agency referrals, ensuring secure, transparent, and efficient assistance for migrant workers and their families."
           onTrackAction={() => router.get(route('track.index'))}
+          agencies={agencies}
         />
 
-        <section className="bg-surface py-12">
-          <div className="container mx-auto px-8">
-            <h3 className="mb-8 text-center font-headline text-sm font-bold uppercase tracking-widest text-on-surface-variant/70">
-              Trusted by Partner Agencies & Stakeholders
-            </h3>
-            <LogoMarquee agencies={agencies} />
-          </div>
-        </section>
+        <div className="leading-none -mt-px">
+          <svg viewBox="0 0 1440 80" preserveAspectRatio="none" className="block w-full h-24 md:h-32">
+            <path fill="#ebeef4" d="M0,45 C160,100 320,-10 480,45 C640,100 800,-10 960,45 C1120,100 1280,-10 1440,45 L1440,80 L0,80 Z" />
+          </svg>
+        </div>
 
         <FeaturesSection />
         <PartnersSection agencies={agencies} />
@@ -42,22 +39,6 @@ export default function Welcome({ agencies }) {
 
       <AppFooter />
 
-      <style>{`
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes marquee2 {
-          0% { transform: translateX(50%); }
-          100% { transform: translateX(0%); }
-        }
-        .animate-marquee {
-          animation: marquee 60s linear infinite;
-        }
-        .animate-marquee2 {
-          animation: marquee 60s linear infinite;
-        }
-      `}</style>
     </div>
   );
 }
