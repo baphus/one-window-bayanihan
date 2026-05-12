@@ -61,9 +61,20 @@ return new class extends Migration
         // --- 4. ADD CHECK CONSTRAINTS ---
         if (DB::getDriverName() !== 'sqlite') {
             DB::statement("ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_sex_check");
+
+            // Normalize existing data before adding strict constraint
+            DB::table('clients')->whereNotNull('sex')->whereNotIn('sex', ['MALE', 'FEMALE'])->update([
+                'sex' => DB::raw("UPPER(sex)"),
+            ]);
+
             DB::statement("ALTER TABLE clients ADD CONSTRAINT clients_sex_check CHECK (sex IS NULL OR sex IN ('MALE', 'FEMALE'))");
 
             DB::statement("ALTER TABLE referrals DROP CONSTRAINT IF EXISTS referrals_decision_check");
+
+            DB::table('referrals')->whereNotNull('decision')->whereNotIn('decision', ['ACCEPT', 'REJECT'])->update([
+                'decision' => DB::raw("UPPER(decision)"),
+            ]);
+
             DB::statement("ALTER TABLE referrals ADD CONSTRAINT referrals_decision_check CHECK (decision IS NULL OR decision IN ('ACCEPT', 'REJECT'))");
 
             DB::statement("ALTER TABLE services DROP CONSTRAINT IF EXISTS services_processing_days_check");

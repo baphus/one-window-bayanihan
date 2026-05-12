@@ -13,9 +13,9 @@ return new class extends Migration
         });
 
         Schema::table('client_addresses', function (Blueprint $table) {
-            $table->string('region')->after('client_id');
-            $table->string('city_municipality')->after('province');
-            $table->string('barangay')->after('city_municipality');
+            $table->string('region')->nullable()->after('client_id');
+            $table->string('city_municipality')->nullable()->after('province');
+            $table->string('barangay')->nullable()->after('city_municipality');
             $table->text('street')->nullable()->after('barangay');
         });
     }

@@ -23,8 +23,11 @@ return new class extends Migration
             $table->uuid('deleted_by')->nullable();
 
             $table->foreign('refr_id')->references('id')->on('referrals')->onDelete('restrict');
-            $table->foreign('parent_id')->references('id')->on('referral_comments')->onDelete('restrict');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
+        });
+
+        Schema::table('referral_comments', function (Blueprint $table) {
+            $table->foreign('parent_id')->references('id')->on('referral_comments')->onDelete('restrict');
         });
     }
 
