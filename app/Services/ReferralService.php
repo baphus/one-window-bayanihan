@@ -70,7 +70,7 @@ class ReferralService
             'caseFile.user',
             'agency',
             'milestones.user',
-            'attachments.uploader',
+            'attachments.user',
         ])->findOrFail($id);
     }
 

@@ -87,7 +87,7 @@ export default function CaseCreate() {
             date_of_birth: '',
             sex: '',
             email: '',
-            contact: '',
+            contact_number: '',
         },
         address: {
             region: '',
@@ -114,7 +114,7 @@ export default function CaseCreate() {
             relationship: '',
             phone_number: '',
             email: '',
-            address: '',
+            full_address: '',
         },
         consent: false,
     });
@@ -178,7 +178,7 @@ export default function CaseCreate() {
             ...data.client,
             sex: clientGender,
             email: clientEmail,
-            contact: clientContact,
+            contact_number: clientContact,
         });
         setData('consent', consent);
         setData('employment', {
@@ -468,7 +468,7 @@ export default function CaseCreate() {
                                                         </Field>
                                                         <div className="md:col-span-2">
                                                             <Field label="Full Address">
-                                                                <Input value={data.next_of_kin.address} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, address: e.target.value })} />
+                                                                <Input value={data.next_of_kin.full_address} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, full_address: e.target.value })} />
                                                             </Field>
                                                         </div>
                                                     </div>

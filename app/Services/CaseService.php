@@ -34,7 +34,7 @@ class CaseService
                 'date_of_birth' => $data['client']['date_of_birth'] ?? null,
                 'sex' => $data['client']['sex'] ?? null,
                 'email' => $data['client']['email'] ?? null,
-                'contact' => $data['client']['contact'] ?? null,
+                'contact_number' => $data['client']['contact_number'] ?? null,
                 'case_id' => $case->id,
             ]);
 
@@ -73,7 +73,7 @@ class CaseService
                     'relationship' => $data['next_of_kin']['relationship'] ?? null,
                     'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
                     'email' => $data['next_of_kin']['email'] ?? null,
-                    'address' => $data['next_of_kin']['address'] ?? null,
+                    'full_address' => $data['next_of_kin']['full_address'] ?? null,
                 ]);
             }
 

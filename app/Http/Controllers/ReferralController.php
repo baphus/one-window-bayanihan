@@ -61,10 +61,10 @@ class ReferralController extends Controller
                 ReferralAttachment::create([
                     'referral_id' => $referral->id,
                     'file_name' => implode(' - ', [str_replace('::', ' / ', $key), $file->getClientOriginalName()]),
-                    'file_url' => $path,
-                    'mime_type' => $file->getMimeType(),
+                    'file_path' => $path,
+                    'file_type' => $file->getMimeType(),
                     'size' => $file->getSize(),
-                    'uploaded_by' => $request->user()->id,
+                    'user_id' => $request->user()->id,
                 ]);
             }
         }

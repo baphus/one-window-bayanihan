@@ -14,10 +14,10 @@ class ReferralAttachment extends Model
     protected $fillable = [
         'referral_id',
         'file_name',
-        'file_url',
-        'mime_type',
+        'file_path',
+        'file_type',
         'size',
-        'uploaded_by',
+        'user_id',
     ];
 
     protected $casts = [
@@ -29,8 +29,8 @@ class ReferralAttachment extends Model
         return $this->belongsTo(Referral::class, 'referral_id');
     }
 
-    public function uploader()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'uploaded_by');
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

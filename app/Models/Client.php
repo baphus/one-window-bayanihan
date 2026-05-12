@@ -19,7 +19,7 @@ class Client extends Model
         'date_of_birth',
         'sex',
         'email',
-        'contact',
+        'contact_number',
         'case_id',
     ];
 

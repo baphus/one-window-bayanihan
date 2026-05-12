@@ -197,13 +197,13 @@ export default function ReferralShow({ referral }) {
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-slate-900 truncate">{att.file_name}</p>
                                                 <p className="text-xs text-slate-500">
-                                                    {att.uploader?.name ?? 'Unknown'} &middot; {new Date(att.created_at).toLocaleDateString()}
+                                                    {att.user?.name ?? 'Unknown'} &middot; {new Date(att.created_at).toLocaleDateString()}
                                                     {att.size ? ` \u00b7 ${(att.size / 1024).toFixed(1)} KB` : ''}
                                                 </p>
                                             </div>
                                         </div>
                                         <a
-                                            href={att.file_url}
+                                            href={att.file_path}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-sm text-indigo-600 hover:text-indigo-900 shrink-0 ml-2"

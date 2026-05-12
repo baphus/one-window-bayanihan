@@ -20,7 +20,7 @@ class NextOfKin extends Model
         'relationship',
         'phone_number',
         'email',
-        'address',
+        'full_address',
     ];
 
     protected $casts = [
