@@ -7,29 +7,29 @@ use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class NextOfKin extends Model
+class CaseDocument extends Model
 {
     use HasFactory, UsesUuid, SoftDeleteFlag;
 
     protected $fillable = [
-        'client_id',
-        'first_name',
-        'middle_initial',
-        'last_name',
-        'is_primary',
-        'relationship',
-        'phone_number',
-        'email',
-        'address',
+        'file_name',
+        'file_path',
+        'file_type',
+        'case_id',
+        'user_id',
     ];
 
     protected $casts = [
-        'is_primary' => 'boolean',
         'is_deleted' => 'boolean',
     ];
 
-    public function client()
+    public function caseFile()
     {
-        return $this->belongsTo(Client::class, 'client_id');
+        return $this->belongsTo(CaseFile::class, 'case_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

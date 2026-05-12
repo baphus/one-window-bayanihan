@@ -75,30 +75,21 @@ export default function StakeholderShow({ stakeholder, stats }) {
                                         {service.description && (
                                             <p className="mt-1 text-[12px] leading-5 text-slate-600">{service.description}</p>
                                         )}
-                                        {service.pivot?.processing_days && (
+                                        {service.processing_days && (
                                             <p className="mt-2 text-[11px] font-semibold text-indigo-600">
-                                                Processing Time: {service.pivot.processing_days} day{service.pivot.processing_days > 1 ? 's' : ''}
+                                                Processing Time: {service.processing_days} day{service.processing_days > 1 ? 's' : ''}
                                             </p>
                                         )}
-                                        {service.pivot?.required_documents && (() => {
-                                            const docs = typeof service.pivot.required_documents === 'string'
-                                                ? (() => { try { return JSON.parse(service.pivot.required_documents); } catch { return []; } })()
-                                                : service.pivot.required_documents;
-                                            return (
-                                                <div className="mt-2">
-                                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Documents</p>
-                                                    {Array.isArray(docs) && docs.length ? (
-                                                        <ul className="mt-1 list-disc pl-5 text-[11px] leading-5 text-slate-600">
-                                                            {docs.map((doc, i) => (
-                                                                <li key={`${service.id}-${i}`}>{doc}</li>
-                                                            ))}
-                                                        </ul>
-                                                    ) : (
-                                                        <p className="mt-1 text-[11px] text-slate-500">No required documents listed.</p>
-                                                    )}
-                                                </div>
-                                            );
-                                        })()}
+                                        {service.requirements?.length > 0 && (
+                                            <div className="mt-2">
+                                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Documents</p>
+                                                <ul className="mt-1 list-disc pl-5 text-[11px] leading-5 text-slate-600">
+                                                    {service.requirements.map((req) => (
+                                                        <li key={req.id}>{req.name}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

@@ -28,24 +28,30 @@ class StoreCaseRequest extends FormRequest
             'client.contact' => ['nullable', 'string', 'max:50'],
 
             'next_of_kin.first_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.middle_initial' => ['nullable', 'string', 'max:10'],
             'next_of_kin.last_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.is_primary' => ['nullable', 'boolean'],
             'next_of_kin.relationship' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.contact' => ['nullable', 'string', 'max:50'],
+            'next_of_kin.phone_number' => ['nullable', 'string', 'max:50'],
+            'next_of_kin.email' => ['nullable', 'email', 'max:255'],
+            'next_of_kin.address' => ['nullable', 'string'],
 
             'consent' => ['nullable', 'boolean'],
 
-            'address.line1' => ['nullable', 'string', 'max:255'],
-            'address.line2' => ['nullable', 'string', 'max:255'],
-            'address.city' => ['nullable', 'string', 'max:255'],
+            'address.region' => ['nullable', 'string', 'max:255'],
             'address.province' => ['nullable', 'string', 'max:255'],
-            'address.postal_code' => ['nullable', 'string', 'max:20'],
-            'address.country' => ['nullable', 'string', 'max:255'],
+            'address.city_municipality' => ['nullable', 'string', 'max:255'],
+            'address.barangay' => ['nullable', 'string', 'max:255'],
+            'address.street' => ['nullable', 'string'],
 
             'employment.employer_name' => ['nullable', 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
             'employment.start_date' => ['nullable', 'date'],
             'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date'],
+            'employment.last_country' => ['nullable', 'string', 'max:255'],
+            'employment.last_position' => ['nullable', 'string', 'max:255'],
+            'employment.date_of_arrival' => ['nullable', 'date'],
         ];
     }
 }

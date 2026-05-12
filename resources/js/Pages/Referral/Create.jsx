@@ -63,10 +63,10 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
 
     const selectedServiceRequirements = useMemo(() => {
         return selectedServiceDetails.flatMap((service) =>
-            (service.pivot?.required_documents || []).map((requirement) => ({
-                key: buildServiceRequirementKey(service.name, requirement),
+            (service.requirements || []).map((req) => ({
+                key: buildServiceRequirementKey(service.name, req.name),
                 serviceTitle: service.name,
-                requirement,
+                requirement: req.name,
             }))
         );
     }, [selectedServiceDetails]);
@@ -127,10 +127,9 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
         setRequirementUploads((current) => ({ ...current, [requirementKey]: file }));
     }
 
-    function parseRequiredDocs(pivot) {
-        if (!pivot?.required_documents) return [];
-        if (Array.isArray(pivot.required_documents)) return pivot.required_documents;
-        try { return JSON.parse(pivot.required_documents); } catch { return []; }
+    function parseRequiredDocs(service) {
+        if (!service?.requirements) return [];
+        return service.requirements.map(r => r.name);
     }
 
     function submitReferral(e) {
@@ -293,15 +292,15 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
 
                                 <FieldLabel label="Service Requirements" full>
                                     <div className="rounded-[3px] border border-[#e2e8f0] bg-slate-50 px-3 py-2">
-                                        {selectedServiceDetails.length ? (
+                                                {selectedServiceDetails.length ? (
                                             <div className="space-y-3">
                                                 {selectedServiceDetails.map((service) => {
-                                                    const docs = parseRequiredDocs(service.pivot);
+                                                    const docs = parseRequiredDocs(service);
                                                     return (
                                                         <div key={service.name} className="rounded-[3px] border border-[#dbe5ef] bg-white px-3 py-3">
                                                             <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">{service.name}</p>
                                                             <p className="mt-1 text-[12px] font-semibold text-slate-700">
-                                                                Processing Time: <span className="text-indigo-600">{service.pivot?.processing_days || 'N/A'} business days</span>
+                                                                Processing Time: <span className="text-indigo-600">{service.processing_days || 'N/A'} business days</span>
                                                             </p>
 
                                                             {docs.length ? (

@@ -1,4 +1,4 @@
-export const HERO_IMAGE = 'https://staging.pssc.org.ph/wp-content/uploads/2024/11/ofw-and-migration-pssc-policy-brief-1024x791.jpg';
+export const HERO_IMAGE = 'https://res.cloudinary.com/dzjshue6h/image/upload/v1778541839/Department_of_Migrant_Workers__EDSA-Ortigas_Avenue__Mandaluyong__03-29-2024_fqa0lz.webp';
 
 export const BAYANIHAN_PHOTOS = [
   { src: 'https://res.cloudinary.com/dzjshue6h/image/upload/v1777287564/660944559_1360051849482631_3105403094835739593_n_yzazps.jpg', alt: 'Bayanihan launch photo 1', sourceLabel: 'Facebook' },

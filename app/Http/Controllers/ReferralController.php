@@ -89,6 +89,7 @@ class ReferralController extends Controller
             $id,
             $request->input('status'),
             $request->input('decision'),
+            $request->input('decision_comment'),
             $request->user()->id,
         );
 

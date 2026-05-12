@@ -32,6 +32,7 @@ export default function ReferralShow({ referral }) {
     const { data, setData, patch, processing, errors } = useForm({
         status: '',
         decision: '',
+        decision_comment: '',
     });
 
     const milestoneForm = useForm({
@@ -123,9 +124,15 @@ export default function ReferralShow({ referral }) {
                             </div>
                         )}
                         {referral.decision && (
-                            <div className="px-3 py-2">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision / Resolution</p>
+                            <div className="px-3 py-2 border-b border-[#d8dee8]">
+                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision</p>
                                 <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision}</p>
+                            </div>
+                        )}
+                        {referral.decision_comment && (
+                            <div className="px-3 py-2">
+                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision Comment</p>
+                                <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision_comment}</p>
                             </div>
                         )}
                     </CardSection>
@@ -149,15 +156,29 @@ export default function ReferralShow({ referral }) {
                                     <InputError message={errors.status} className="mt-2" />
                                 </div>
                                 <div>
-                                    <InputLabel htmlFor="decision" value="Decision / Remarks" />
-                                    <textarea
+                                    <InputLabel htmlFor="decision" value="Decision" />
+                                    <select
                                         id="decision"
                                         className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        rows={3}
                                         value={data.decision}
                                         onChange={(e) => setData('decision', e.target.value)}
-                                    />
+                                    >
+                                        <option value="">Select decision...</option>
+                                        <option value="ACCEPT">Accept</option>
+                                        <option value="REJECT">Reject</option>
+                                    </select>
                                     <InputError message={errors.decision} className="mt-2" />
+                                </div>
+                                <div>
+                                    <InputLabel htmlFor="decision_comment" value="Decision Comment" />
+                                    <textarea
+                                        id="decision_comment"
+                                        className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        rows={3}
+                                        value={data.decision_comment}
+                                        onChange={(e) => setData('decision_comment', e.target.value)}
+                                    />
+                                    <InputError message={errors.decision_comment} className="mt-2" />
                                 </div>
                                 <PrimaryButton disabled={processing || !data.status}>
                                     Update Status

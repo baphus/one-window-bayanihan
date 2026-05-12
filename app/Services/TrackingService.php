@@ -45,16 +45,20 @@ class TrackingService
                 'dateOfBirth' => $client->date_of_birth?->toDateString() ?? '',
                 'gender' => $client->sex ?? '',
                 'homeAddress' => $client->addresses->first()
-                    ? trim("{$client->addresses->first()->line1}, {$client->addresses->first()->city}")
+                    ? trim("{$client->addresses->first()->street}, {$client->addresses->first()->city_municipality}")
                     : '',
                 'homeAddressParts' => $this->formatAddressParts($client->addresses->first()),
                 'specialCategories' => [],
             ] : null,
-            'nextOfKin' => null,
+            'nextOfKin' => $client && $client->nextOfKin->isNotEmpty() ? [
+                'fullName' => $client->nextOfKin->first()->first_name . ' ' . $client->nextOfKin->first()->last_name,
+                'relationship' => $client->nextOfKin->first()->relationship,
+                'contact' => $client->nextOfKin->first()->phone_number ?? $client->nextOfKin->first()->email,
+            ] : null,
             'workHistory' => $client && $client->employments->isNotEmpty() ? [
-                'lastCountry' => $client->employments->first()->country ?? '',
-                'lastPosition' => $client->employments->first()->position ?? '',
-                'arrivalDate' => $client->employments->first()->end_date?->toDateString() ?? '',
+                'lastCountry' => $client->employments->first()->last_country ?? $client->employments->first()->country ?? '',
+                'lastPosition' => $client->employments->first()->last_position ?? $client->employments->first()->position ?? '',
+                'arrivalDate' => $client->employments->first()->date_of_arrival?->toDateString() ?? $client->employments->first()->end_date?->toDateString() ?? '',
             ] : null,
         ];
 
@@ -158,14 +162,14 @@ class TrackingService
         }
         return [
             'regionCode' => '',
-            'regionName' => '',
+            'regionName' => $address->region ?? '',
             'provinceCode' => '',
             'provinceName' => $address->province ?? '',
             'municipalityCode' => '',
-            'municipalityName' => $address->city ?? '',
+            'municipalityName' => $address->city_municipality ?? '',
             'barangayCode' => '',
-            'barangayName' => '',
-            'streetAddress' => $address->line1 ?? '',
+            'barangayName' => $address->barangay ?? '',
+            'streetAddress' => $address->street ?? '',
         ];
     }
 }

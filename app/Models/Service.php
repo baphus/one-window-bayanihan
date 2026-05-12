@@ -14,16 +14,22 @@ class Service extends Model
     protected $fillable = [
         'name',
         'description',
+        'processing_days',
+        'agcy_id',
     ];
 
     protected $casts = [
+        'processing_days' => 'integer',
         'is_deleted' => 'boolean',
     ];
 
-    public function agencies()
+    public function agency()
     {
-        return $this->belongsToMany(Agency::class, 'agency_service')
-            ->withPivot(['required_documents', 'processing_days'])
-            ->withTimestamps();
+        return $this->belongsTo(Agency::class, 'agcy_id');
+    }
+
+    public function requirements()
+    {
+        return $this->hasMany(ServiceRequirement::class, 'service_id');
     }
 }

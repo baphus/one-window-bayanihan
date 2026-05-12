@@ -11,7 +11,7 @@ class AdminServiceController extends Controller
 {
     public function index()
     {
-        $services = Service::with('agencies')
+        $services = Service::with('agency')
             ->orderBy('name')
             ->paginate(15);
 
@@ -28,18 +28,11 @@ class AdminServiceController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'agency_ids' => 'nullable|array',
-            'agency_ids.*' => 'exists:agencies,id',
+            'agcy_id' => 'required|exists:agencies,id',
+            'processing_days' => 'nullable|integer|min:0|max:365',
         ]);
 
-        $service = Service::create([
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-        ]);
-
-        if (!empty($validated['agency_ids'])) {
-            $service->agencies()->attach($validated['agency_ids']);
-        }
+        Service::create($validated);
 
         return redirect()->route('admin.services.index')
             ->with('success', 'Service created successfully.');
@@ -52,18 +45,11 @@ class AdminServiceController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'agency_ids' => 'nullable|array',
-            'agency_ids.*' => 'exists:agencies,id',
+            'agcy_id' => 'required|exists:agencies,id',
+            'processing_days' => 'nullable|integer|min:0|max:365',
         ]);
 
-        $service->update([
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-        ]);
-
-        if (isset($validated['agency_ids'])) {
-            $service->agencies()->sync($validated['agency_ids']);
-        }
+        $service->update($validated);
 
         return redirect()->route('admin.services.index')
             ->with('success', 'Service updated successfully.');
@@ -72,7 +58,6 @@ class AdminServiceController extends Controller
     public function destroy(string $id)
     {
         $service = Service::findOrFail($id);
-        $service->agencies()->detach();
         $service->delete();
 
         return redirect()->route('admin.services.index')

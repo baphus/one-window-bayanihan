@@ -13,12 +13,11 @@ class ClientAddress extends Model
 
     protected $fillable = [
         'client_id',
-        'line1',
-        'line2',
-        'city',
+        'region',
         'province',
-        'postal_code',
-        'country',
+        'city_municipality',
+        'barangay',
+        'street',
     ];
 
     protected $casts = [

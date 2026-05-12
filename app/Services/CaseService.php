@@ -41,12 +41,11 @@ class CaseService
             if (!empty($data['address'])) {
                 ClientAddress::create([
                     'client_id' => $client->id,
-                    'line1' => $data['address']['line1'],
-                    'line2' => $data['address']['line2'] ?? null,
-                    'city' => $data['address']['city'] ?? null,
+                    'region' => $data['address']['region'] ?? null,
                     'province' => $data['address']['province'] ?? null,
-                    'postal_code' => $data['address']['postal_code'] ?? null,
-                    'country' => $data['address']['country'] ?? null,
+                    'city_municipality' => $data['address']['city_municipality'] ?? null,
+                    'barangay' => $data['address']['barangay'] ?? null,
+                    'street' => $data['address']['street'] ?? null,
                 ]);
             }
 
@@ -58,16 +57,23 @@ class CaseService
                     'country' => $data['employment']['country'] ?? null,
                     'start_date' => $data['employment']['start_date'] ?? null,
                     'end_date' => $data['employment']['end_date'] ?? null,
+                    'last_country' => $data['employment']['last_country'] ?? null,
+                    'last_position' => $data['employment']['last_position'] ?? null,
+                    'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
                 ]);
             }
 
             if (!empty($data['next_of_kin']) && !empty($data['next_of_kin']['first_name'])) {
                 NextOfKin::create([
-                    'case_id' => $case->id,
+                    'client_id' => $client->id,
                     'first_name' => $data['next_of_kin']['first_name'],
+                    'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
                     'last_name' => $data['next_of_kin']['last_name'] ?? null,
+                    'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
                     'relationship' => $data['next_of_kin']['relationship'] ?? null,
-                    'contact' => $data['next_of_kin']['contact'] ?? null,
+                    'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
+                    'email' => $data['next_of_kin']['email'] ?? null,
+                    'address' => $data['next_of_kin']['address'] ?? null,
                 ]);
             }
 
@@ -79,7 +85,7 @@ class CaseService
                 'user_id' => $userId,
             ]);
 
-            return $case->load(['client.addresses', 'client.employments', 'nextOfKin', 'user']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user']);
         });
     }
 
@@ -109,7 +115,7 @@ class CaseService
         return CaseFile::with([
             'client.addresses',
             'client.employments',
-            'nextOfKin',
+            'client.nextOfKin',
             'referrals.milestones',
             'referrals.agency',
             'referrals.attachments',

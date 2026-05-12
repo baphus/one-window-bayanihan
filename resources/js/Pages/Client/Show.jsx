@@ -69,11 +69,11 @@ export default function ClientShow({ client }) {
                             {client.addresses.map((addr) => (
                                 <SubsectionCard key={addr.id} title="Address">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <MetaTile label="Street" value={[addr.line1, addr.line2].filter(Boolean).join(', ') || 'N/A'} />
-                                        <MetaTile label="City" value={addr.city || 'N/A'} />
+                                        <MetaTile label="Region" value={addr.region || 'N/A'} />
                                         <MetaTile label="Province" value={addr.province || 'N/A'} />
-                                        <MetaTile label="Postal Code" value={addr.postal_code || 'N/A'} />
-                                        <MetaTile label="Country" value={addr.country || 'N/A'} />
+                                        <MetaTile label="City/Municipality" value={addr.city_municipality || 'N/A'} />
+                                        <MetaTile label="Barangay" value={addr.barangay || 'N/A'} />
+                                        <MetaTile label="Street" value={addr.street || 'N/A'} />
                                     </div>
                                 </SubsectionCard>
                             ))}
@@ -85,12 +85,10 @@ export default function ClientShow({ client }) {
                             {client.employments.map((emp) => (
                                 <div key={emp.id} className="mb-3 last:mb-0">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                        <MetaTile label="Employer" value={emp.employer_name || 'N/A'} />
-                                        <MetaTile label="Position" value={emp.position || 'N/A'} />
-                                        <MetaTile label="Country" value={emp.country || 'N/A'} />
-                                        <MetaTile label="Period" value={
-                                            `${emp.start_date ? new Date(emp.start_date).toLocaleDateString() : '?'} \u2014 ${emp.end_date ? new Date(emp.end_date).toLocaleDateString() : 'Present'}`
-                                        } />
+                                        <MetaTile label="Last Country" value={emp.last_country || emp.country || 'N/A'} />
+                                        <MetaTile label="Last Position" value={emp.last_position || emp.position || 'N/A'} />
+                                        <MetaTile label="Date of Arrival" value={emp.date_of_arrival ? new Date(emp.date_of_arrival).toLocaleDateString() : 'N/A'} />
+                                        {emp.employer_name && <MetaTile label="Employer" value={emp.employer_name} />}
                                     </div>
                                 </div>
                             ))}

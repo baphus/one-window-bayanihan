@@ -74,23 +74,25 @@ class ReferralService
         ])->findOrFail($id);
     }
 
-    public function updateStatus(string $id, string $status, ?string $decision, string $userId): Referral
+    public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
     {
-        return DB::transaction(function () use ($id, $status, $decision, $userId) {
+        return DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId) {
             $referral = Referral::findOrFail($id);
             $oldStatus = $referral->status;
 
             $referral->update([
                 'status' => $status,
                 'decision' => $decision ?? $referral->decision,
+                'decision_comment' => $decisionComment ?? $referral->decision_comment,
             ]);
 
             AuditLog::create([
                 'action' => 'UPDATE',
                 'module' => 'REFERRAL',
                 'entity_id' => $referral->id,
+                'description' => "Referral status changed from {$oldStatus} to {$status}",
                 'old_value' => ['status' => $oldStatus],
-                'new_value' => ['status' => $status, 'decision' => $decision],
+                'new_value' => ['status' => $status, 'decision' => $decision, 'decision_comment' => $decisionComment],
                 'user_id' => $userId,
             ]);
 
@@ -122,6 +124,6 @@ class ReferralService
 
     public function getAgenciesWithServices()
     {
-        return \App\Models\Agency::with('services')->where('is_deleted', false)->get();
+        return \App\Models\Agency::with('services.requirements')->where('is_deleted', false)->get();
     }
 }

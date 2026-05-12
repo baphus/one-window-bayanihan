@@ -12,101 +12,100 @@ class ServiceSeeder extends Seeder
     {
         $now = now();
 
-        $servicesData = [
-            ['id' => Str::uuid(), 'name' => 'EDSP (Emergency Shelter Assistance)', 'description' => 'Emergency shelter assistance for displaced OFWs'],
-            ['id' => Str::uuid(), 'name' => 'Calamity Assistance', 'description' => 'Financial assistance for OFWs affected by calamities'],
-            ['id' => Str::uuid(), 'name' => 'Repatriation Assistance', 'description' => 'Assistance for OFWs needing repatriation'],
-            ['id' => Str::uuid(), 'name' => 'Legal Assistance', 'description' => 'Legal counsel and representation for OFWs'],
-            ['id' => Str::uuid(), 'name' => 'Medical Assistance', 'description' => 'Medical and health assistance for OFWs'],
-            ['id' => Str::uuid(), 'name' => 'Financial Relief', 'description' => 'Financial relief assistance for OFWs in distress'],
-            ['id' => Str::uuid(), 'name' => 'Livelihood Assistance', 'description' => 'Livelihood and business assistance for returning OFWs'],
-            ['id' => Str::uuid(), 'name' => 'Reintegration Seminar', 'description' => 'Seminars for reintegrating OFWs'],
-            ['id' => Str::uuid(), 'name' => 'OEC (Overseas Employment Certificate)', 'description' => 'Processing of Overseas Employment Certificate'],
-            ['id' => Str::uuid(), 'name' => 'TUPAD Program', 'description' => 'Tulong Panghanapbuhay sa Ating Disadvantaged/Displaced Workers'],
-            ['id' => Str::uuid(), 'name' => 'AICS (Assistance to Individuals in Crisis Situation)', 'description' => 'Social welfare assistance for individuals in crisis'],
-            ['id' => Str::uuid(), 'name' => 'National Certification', 'description' => 'Skills assessment and national certification'],
-            ['id' => Str::uuid(), 'name' => 'Skills Training for Returning OFWs', 'description' => 'Skills training programs for returning OFWs'],
-            ['id' => Str::uuid(), 'name' => 'Legal Counseling', 'description' => 'Free legal counseling services'],
-            ['id' => Str::uuid(), 'name' => 'Affidavit/Document Assistance', 'description' => 'Notarization and document preparation assistance'],
-            ['id' => Str::uuid(), 'name' => 'Social Assistance', 'description' => 'Social welfare and assistance programs'],
-            ['id' => Str::uuid(), 'name' => 'Certification/Endorsement', 'description' => 'Issuance of certifications and endorsements'],
-            ['id' => Str::uuid(), 'name' => 'Residency/Indigency Certification', 'description' => 'Certification of residency or indigency'],
-            ['id' => Str::uuid(), 'name' => 'Aid Endorsement/Certification', 'description' => 'Endorsement for aid programs'],
-        ];
-
-        foreach ($servicesData as $svc) {
-            DB::table('services')->insert(array_merge($svc, [
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]));
-        }
-
-        $servicesByName = [];
-        foreach ($servicesData as $svc) {
-            $servicesByName[$svc['name']] = $svc['id'];
-        }
         $agenciesBySlug = [];
         $rawAgencies = DB::table('agencies')->select('id', 'slug')->get();
         foreach ($rawAgencies as $a) {
             $agenciesBySlug[$a->slug] = $a->id;
         }
 
-        $agencyServices = [
-            'owwa' => [
-                ['service' => 'EDSP (Emergency Shelter Assistance)', 'docs' => 'Valid ID, Proof of displacement', 'days' => 7],
-                ['service' => 'Calamity Assistance', 'docs' => 'Barangay certificate, Valid ID', 'days' => 14],
-                ['service' => 'Repatriation Assistance', 'docs' => 'Passport, Employment contract', 'days' => 30],
-                ['service' => 'Legal Assistance', 'docs' => 'Case documents, Valid ID', 'days' => 14],
-                ['service' => 'Medical Assistance', 'docs' => 'Medical certificate, Hospital bills', 'days' => 7],
-                ['service' => 'Financial Relief', 'docs' => 'Proof of need, Valid ID', 'days' => 14],
-                ['service' => 'Livelihood Assistance', 'docs' => 'Business plan, Valid ID', 'days' => 30],
-                ['service' => 'Reintegration Seminar', 'docs' => 'Valid ID', 'days' => 3],
-            ],
-            'dmw' => [
-                ['service' => 'OEC (Overseas Employment Certificate)', 'docs' => 'Passport, Employment contract, Valid ID', 'days' => 3],
-                ['service' => 'Repatriation Assistance', 'docs' => 'Passport, Employment contract', 'days' => 30],
-            ],
-            'doh' => [
-                ['service' => 'Medical Assistance', 'docs' => 'Medical certificate, Valid ID', 'days' => 14],
-            ],
-            'dole' => [
-                ['service' => 'TUPAD Program', 'docs' => 'Valid ID, Barangay certificate', 'days' => 21],
-            ],
-            'dswd' => [
-                ['service' => 'AICS (Assistance to Individuals in Crisis Situation)', 'docs' => 'Valid ID, Barangay certificate', 'days' => 14],
-            ],
-            'tesda' => [
-                ['service' => 'National Certification', 'docs' => 'Valid ID, Previous certificates', 'days' => 30],
-                ['service' => 'Skills Training for Returning OFWs', 'docs' => 'Valid ID, Proof of OFW status', 'days' => 45],
-            ],
-            'law-center-inc' => [
-                ['service' => 'Legal Counseling', 'docs' => 'Valid ID', 'days' => 3],
-                ['service' => 'Affidavit/Document Assistance', 'docs' => 'Valid ID, Supporting documents', 'days' => 7],
-            ],
-            'province-cebu' => [
-                ['service' => 'Social Assistance', 'docs' => 'Valid ID, Barangay certificate', 'days' => 14],
-                ['service' => 'Certification/Endorsement', 'docs' => 'Valid ID', 'days' => 7],
-            ],
-            'city-cebu' => [
-                ['service' => 'Social Assistance', 'docs' => 'Valid ID, Barangay certificate', 'days' => 14],
-                ['service' => 'Certification/Endorsement', 'docs' => 'Valid ID', 'days' => 7],
-            ],
+        $servicesData = [
+            // OWWA services
+            ['name' => 'EDSP (Emergency Shelter Assistance)', 'description' => 'Emergency shelter assistance for displaced OFWs', 'agency_slug' => 'owwa', 'processing_days' => 7],
+            ['name' => 'Calamity Assistance', 'description' => 'Financial assistance for OFWs affected by calamities', 'agency_slug' => 'owwa', 'processing_days' => 14],
+            ['name' => 'Repatriation Assistance', 'description' => 'Assistance for OFWs needing repatriation', 'agency_slug' => 'owwa', 'processing_days' => 30],
+            ['name' => 'Legal Assistance', 'description' => 'Legal counsel and representation for OFWs', 'agency_slug' => 'owwa', 'processing_days' => 14],
+            ['name' => 'Medical Assistance', 'description' => 'Medical and health assistance for OFWs', 'agency_slug' => 'owwa', 'processing_days' => 7],
+            ['name' => 'Financial Relief', 'description' => 'Financial relief assistance for OFWs in distress', 'agency_slug' => 'owwa', 'processing_days' => 14],
+            ['name' => 'Livelihood Assistance', 'description' => 'Livelihood and business assistance for returning OFWs', 'agency_slug' => 'owwa', 'processing_days' => 30],
+            ['name' => 'Reintegration Seminar', 'description' => 'Seminars for reintegrating OFWs', 'agency_slug' => 'owwa', 'processing_days' => 3],
+
+            // DMW services
+            ['name' => 'OEC (Overseas Employment Certificate)', 'description' => 'Processing of Overseas Employment Certificate', 'agency_slug' => 'dmw', 'processing_days' => 3],
+            ['name' => 'Repatriation Assistance (DMW)', 'description' => 'Repatriation assistance by DMW', 'agency_slug' => 'dmw', 'processing_days' => 30],
+
+            // DOH services
+            ['name' => 'Medical Assistance (DOH)', 'description' => 'Medical and health assistance', 'agency_slug' => 'doh', 'processing_days' => 14],
+
+            // DOLE services
+            ['name' => 'TUPAD Program', 'description' => 'Tulong Panghanapbuhay sa Ating Disadvantaged/Displaced Workers', 'agency_slug' => 'dole', 'processing_days' => 21],
+
+            // DSWD services
+            ['name' => 'AICS (Assistance to Individuals in Crisis Situation)', 'description' => 'Social welfare assistance for individuals in crisis', 'agency_slug' => 'dswd', 'processing_days' => 14],
+
+            // TESDA services
+            ['name' => 'National Certification', 'description' => 'Skills assessment and national certification', 'agency_slug' => 'tesda', 'processing_days' => 30],
+            ['name' => 'Skills Training for Returning OFWs', 'description' => 'Skills training programs for returning OFWs', 'agency_slug' => 'tesda', 'processing_days' => 45],
+
+            // Law Center services
+            ['name' => 'Legal Counseling', 'description' => 'Free legal counseling services', 'agency_slug' => 'law-center-inc', 'processing_days' => 3],
+            ['name' => 'Affidavit/Document Assistance', 'description' => 'Notarization and document preparation assistance', 'agency_slug' => 'law-center-inc', 'processing_days' => 7],
+
+            // Province of Cebu services
+            ['name' => 'Social Assistance (Province)', 'description' => 'Social welfare and assistance programs', 'agency_slug' => 'province-cebu', 'processing_days' => 14],
+            ['name' => 'Certification/Endorsement (Province)', 'description' => 'Issuance of certifications and endorsements', 'agency_slug' => 'province-cebu', 'processing_days' => 7],
+
+            // City of Cebu services
+            ['name' => 'Social Assistance (City)', 'description' => 'Social welfare and assistance programs', 'agency_slug' => 'city-cebu', 'processing_days' => 14],
+            ['name' => 'Certification/Endorsement (City)', 'description' => 'Issuance of certifications and endorsements', 'agency_slug' => 'city-cebu', 'processing_days' => 7],
         ];
 
-        foreach ($agencyServices as $slug => $svcs) {
-            $agencyId = $agenciesBySlug[$slug] ?? null;
+        $requirementTemplates = [
+            'EDSP (Emergency Shelter Assistance)' => ['Valid ID', 'Proof of displacement'],
+            'Calamity Assistance' => ['Barangay certificate', 'Valid ID'],
+            'Repatriation Assistance' => ['Passport', 'Employment contract'],
+            'Legal Assistance' => ['Case documents', 'Valid ID'],
+            'Medical Assistance' => ['Medical certificate', 'Hospital bills'],
+            'Financial Relief' => ['Proof of need', 'Valid ID'],
+            'Livelihood Assistance' => ['Business plan', 'Valid ID'],
+            'Reintegration Seminar' => ['Valid ID'],
+            'OEC (Overseas Employment Certificate)' => ['Passport', 'Employment contract', 'Valid ID'],
+            'Repatriation Assistance (DMW)' => ['Passport', 'Employment contract'],
+            'Medical Assistance (DOH)' => ['Medical certificate', 'Valid ID'],
+            'TUPAD Program' => ['Valid ID', 'Barangay certificate'],
+            'AICS (Assistance to Individuals in Crisis Situation)' => ['Valid ID', 'Barangay certificate'],
+            'National Certification' => ['Valid ID', 'Previous certificates'],
+            'Skills Training for Returning OFWs' => ['Valid ID', 'Proof of OFW status'],
+            'Legal Counseling' => ['Valid ID'],
+            'Affidavit/Document Assistance' => ['Valid ID', 'Supporting documents'],
+            'Social Assistance (Province)' => ['Valid ID', 'Barangay certificate'],
+            'Certification/Endorsement (Province)' => ['Valid ID'],
+            'Social Assistance (City)' => ['Valid ID', 'Barangay certificate'],
+            'Certification/Endorsement (City)' => ['Valid ID'],
+        ];
+
+        foreach ($servicesData as $svc) {
+            $agencyId = $agenciesBySlug[$svc['agency_slug']] ?? null;
             if (!$agencyId) continue;
 
-            foreach ($svcs as $svc) {
-                $serviceId = $servicesByName[$svc['service']] ?? null;
-                if (!$serviceId) continue;
+            $serviceId = (string) Str::uuid();
+            DB::table('services')->insert([
+                'id' => $serviceId,
+                'name' => $svc['name'],
+                'description' => $svc['description'],
+                'agcy_id' => $agencyId,
+                'processing_days' => $svc['processing_days'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
 
-                DB::table('agency_service')->insert([
-                    'id' => Str::uuid(),
-                    'agency_id' => $agencyId,
+            $requirements = $requirementTemplates[$svc['name']] ?? ['Valid ID'];
+            foreach ($requirements as $req) {
+                DB::table('service_requirements')->insert([
+                    'id' => (string) Str::uuid(),
+                    'name' => $req,
+                    'description' => $req,
+                    'is_required' => true,
                     'service_id' => $serviceId,
-                    'required_documents' => $svc['docs'],
-                    'processing_days' => $svc['days'],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);

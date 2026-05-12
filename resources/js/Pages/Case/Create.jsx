@@ -90,12 +90,11 @@ export default function CaseCreate() {
             contact: '',
         },
         address: {
-            line1: '',
-            line2: '',
-            city: '',
+            region: '',
             province: '',
-            postal_code: '',
-            country: 'Philippines',
+            city_municipality: '',
+            barangay: '',
+            street: '',
         },
         employment: {
             employer_name: '',
@@ -103,12 +102,19 @@ export default function CaseCreate() {
             country: '',
             start_date: '',
             end_date: '',
+            last_country: '',
+            last_position: '',
+            date_of_arrival: '',
         },
         next_of_kin: {
             first_name: '',
+            middle_initial: '',
             last_name: '',
+            is_primary: false,
             relationship: '',
-            contact: '',
+            phone_number: '',
+            email: '',
+            address: '',
         },
         consent: false,
     });
@@ -175,12 +181,20 @@ export default function CaseCreate() {
             contact: clientContact,
         });
         setData('consent', consent);
+        setData('employment', {
+            ...data.employment,
+            country: lastCountry || data.employment.country,
+            position: lastJob || data.employment.position,
+            last_country: lastCountry,
+            last_position: lastJob,
+            date_of_arrival: arrivalDate,
+        });
         if (hasNextOfKin) {
             setData('next_of_kin', {
                 first_name: nokFirstName,
                 last_name: nokLastName,
                 relationship: nokRelationship,
-                contact: nokContact,
+                phone_number: nokContact,
             });
         }
         post(route('cases.store'), {
@@ -381,28 +395,23 @@ export default function CaseCreate() {
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Address">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div className="md:col-span-2">
-                                                        <Field label="Street Address">
-                                                            <Input value={data.address.line1} onChange={(e) => handleAddressChange('line1', e.target.value)} />
-                                                        </Field>
-                                                    </div>
-                                                    <div className="md:col-span-2">
-                                                        <Field label="Street Address Line 2">
-                                                            <Input value={data.address.line2} onChange={(e) => handleAddressChange('line2', e.target.value)} />
-                                                        </Field>
-                                                    </div>
-                                                    <Field label="City">
-                                                        <Input value={data.address.city} onChange={(e) => handleAddressChange('city', e.target.value)} />
+                                                    <Field label="Region">
+                                                        <Input value={data.address.region} onChange={(e) => handleAddressChange('region', e.target.value)} />
                                                     </Field>
                                                     <Field label="Province">
                                                         <Input value={data.address.province} onChange={(e) => handleAddressChange('province', e.target.value)} />
                                                     </Field>
-                                                    <Field label="Postal Code">
-                                                        <Input value={data.address.postal_code} onChange={(e) => handleAddressChange('postal_code', e.target.value)} />
+                                                    <Field label="City/Municipality">
+                                                        <Input value={data.address.city_municipality} onChange={(e) => handleAddressChange('city_municipality', e.target.value)} />
                                                     </Field>
-                                                    <Field label="Country">
-                                                        <Input value={data.address.country} onChange={(e) => handleAddressChange('country', e.target.value)} />
+                                                    <Field label="Barangay">
+                                                        <Input value={data.address.barangay} onChange={(e) => handleAddressChange('barangay', e.target.value)} />
                                                     </Field>
+                                                    <div className="md:col-span-2">
+                                                        <Field label="Street">
+                                                            <Input value={data.address.street} onChange={(e) => handleAddressChange('street', e.target.value)} />
+                                                        </Field>
+                                                    </div>
                                                 </div>
                                             </Subsection>
                                         </div>
@@ -440,6 +449,9 @@ export default function CaseCreate() {
                                                         <Field label="First Name">
                                                             <Input value={nokFirstName} onChange={(e) => setNokFirstName(e.target.value)} />
                                                         </Field>
+                                                        <Field label="Middle Initial">
+                                                            <Input value={data.next_of_kin.middle_initial} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, middle_initial: e.target.value })} maxLength={10} />
+                                                        </Field>
                                                         <Field label="Last Name">
                                                             <Input value={nokLastName} onChange={(e) => setNokLastName(e.target.value)} />
                                                         </Field>
@@ -448,9 +460,17 @@ export default function CaseCreate() {
                                                                 options={['Mother', 'Father', 'Spouse', 'Sibling', 'Other'].map((r) => ({ label: r, value: r }))}
                                                                 placeholder="Select relationship" />
                                                         </Field>
-                                                        <Field label="Contact Number">
+                                                        <Field label="Phone Number">
                                                             <Input value={nokContact} onChange={(e) => setNokContact(e.target.value)} placeholder="+63 XXX XXX XXXX" />
                                                         </Field>
+                                                        <Field label="Email">
+                                                            <Input type="email" value={data.next_of_kin.email} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, email: e.target.value })} />
+                                                        </Field>
+                                                        <div className="md:col-span-2">
+                                                            <Field label="Full Address">
+                                                                <Input value={data.next_of_kin.address} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, address: e.target.value })} />
+                                                            </Field>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </Subsection>

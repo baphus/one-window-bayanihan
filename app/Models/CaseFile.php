@@ -43,8 +43,4 @@ class CaseFile extends Model
         return $this->hasMany(Referral::class, 'case_id');
     }
 
-    public function nextOfKin()
-    {
-        return $this->hasOne(NextOfKin::class, 'case_id');
-    }
 }

@@ -18,11 +18,15 @@ class ClientEmployment extends Model
         'country',
         'start_date',
         'end_date',
+        'last_country',
+        'last_position',
+        'date_of_arrival',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'date_of_arrival' => 'date',
         'is_deleted' => 'boolean',
     ];
 

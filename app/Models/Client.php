@@ -42,4 +42,9 @@ class Client extends Model
     {
         return $this->hasMany(ClientEmployment::class, 'client_id');
     }
+
+    public function nextOfKin()
+    {
+        return $this->hasMany(NextOfKin::class, 'client_id');
+    }
 }

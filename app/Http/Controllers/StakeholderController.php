@@ -25,7 +25,7 @@ class StakeholderController extends Controller
     public function show(Agency $stakeholder)
     {
         $stakeholder->load([
-            'services',
+            'services.requirements',
             'referrals' => function ($q) {
                 $q->select('id', 'agcy_id', 'status');
             },

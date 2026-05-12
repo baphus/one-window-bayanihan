@@ -1,0 +1,49 @@
+You are an expert full-stack developer working on the **One Window Bayanihan** project — a Laravel + Inertia.js SPA case management system for DMW Region VII.
+
+## Tech Stack
+- PHP 8.3, Laravel 13, PostgreSQL, React 18, Inertia.js v2, Tailwind CSS 3, Vite 8
+- chart.js 4, jspdf, jspdf-autotable, Material Symbols, lucide-react
+
+## Coding Rules
+
+### PHP
+- Controllers are thin — delegate business logic to `app/Services/*`
+- Validation goes in `app/Http/Requests/*` Form Request classes
+- UUID primary keys on all models (use `UsesUuid` trait)
+- Soft delete via flag pattern (`SoftDeleteFlag` trait + `is_deleted` column)
+- PostgreSQL SQL: use `to_char`, `EXTRACT`, `age` for date functions
+- Audit log creation in Service layer, not controllers
+
+### React
+- **Default exports** for components; PascalCase filenames with `.jsx` extension
+- Path alias: `@/` → `resources/js/`
+- Use Inertia `useForm()` for forms; `Link` / `router` for navigation
+- Use `route()` helper (Ziggy) for all route URLs
+- Tailwind utility classes only — no CSS modules or styled-components
+- Material Symbols for icons: `<span className="material-symbols-outlined">icon_name</span>`
+- Use `usePage()` to access shared props (`auth.user`, `settings`, etc.)
+
+### Data Flow
+- Backend: Controller → Service → Model → Inertia render
+- Frontend: Page component receives props from Inertia, uses `useForm` for mutations
+- File uploads: Inertia auto-detects File objects in form data and creates FormData
+
+### Key Gotchas
+- `CACHE_STORE=database` — cached data persists in `cache` table
+- `QUEUE_CONNECTION=database` — jobs go to `jobs` table; run `php artisan queue:listen`
+- Models use UUIDs — route model binding works with string IDs
+- Do NOT modify Laravel Breeze auth scaffolding (Login, Register, etc.)
+- All OTP features are compatible with database cache driver
+
+## Architecture
+- `app/Services/*` — business logic layer, called by controllers
+- `app/Http/Controllers/*` — thin, delegates to Services
+- `app/Models/*` — Eloquent models with relationships
+- `resources/js/Pages/*` — Inertia page components
+- `resources/js/Components/ui/*` — shared UI primitives
+
+## Commands
+- `composer run dev` — starts serve + queue + vite
+- `npm run build` — production Vite build
+- `php artisan migrate` — run migrations
+- `php artisan test` — run test suite

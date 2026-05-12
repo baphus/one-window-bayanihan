@@ -16,7 +16,8 @@ class UpdateReferralStatusRequest extends FormRequest
     {
         return [
             'status' => ['required', Rule::in(['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'])],
-            'decision' => ['nullable', 'string', 'max:5000'],
+            'decision' => ['nullable', Rule::in(['ACCEPT', 'REJECT'])],
+            'decision_comment' => ['nullable', 'string', 'max:5000'],
         ];
     }
 }

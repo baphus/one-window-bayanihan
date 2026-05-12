@@ -16,6 +16,7 @@ class Referral extends Model
         'notes',
         'status',
         'decision',
+        'decision_comment',
         'case_id',
         'agcy_id',
     ];

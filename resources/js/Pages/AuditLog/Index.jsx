@@ -5,6 +5,9 @@ const actionStyles = {
   CREATE: 'bg-green-100 text-green-800',
   UPDATE: 'bg-blue-100 text-blue-800',
   DELETE: 'bg-red-100 text-red-800',
+  VIEW: 'bg-purple-100 text-purple-800',
+  LOGIN: 'bg-slate-100 text-slate-800',
+  LOGOUT: 'bg-slate-100 text-slate-800',
 };
 
 export default function AuditLogIndex({ logs }) {

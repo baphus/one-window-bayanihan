@@ -80,7 +80,7 @@ export default function CaseShow({ case: caseFile }) {
                                     <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">Addresses</p>
                                     {client.addresses.map((addr) => (
                                         <div key={addr.id} className="text-[12px] text-slate-700 mb-1">
-                                            {[addr.line1, addr.line2].filter(Boolean).join(', ')}, {addr.city}, {addr.province} {addr.postal_code}, {addr.country}
+                                            {[addr.street, addr.barangay, addr.city_municipality, addr.province, addr.region].filter(Boolean).join(', ')}
                                         </div>
                                     ))}
                                 </div>
@@ -91,9 +91,10 @@ export default function CaseShow({ case: caseFile }) {
                                     <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">Employment History</p>
                                     {client.employments.map((emp) => (
                                         <div key={emp.id} className="text-[12px] text-slate-700 mb-1">
-                                            <span className="font-semibold">{emp.position || 'N/A'}</span> at {emp.employer_name || 'N/A'}
-                                            {emp.country ? ` (${emp.country})` : ''}
-                                            <span className="text-slate-500"> &mdash; {emp.start_date ? new Date(emp.start_date).toLocaleDateString() : '?'} to {emp.end_date ? new Date(emp.end_date).toLocaleDateString() : 'Present'}</span>
+                                            {emp.last_position && <span className="font-semibold">{emp.last_position}</span>}
+                                            {emp.last_country ? ` (${emp.last_country})` : ''}
+                                            {emp.date_of_arrival ? <span className="text-slate-500"> &mdash; Arrived: {new Date(emp.date_of_arrival).toLocaleDateString()}</span> : ''}
+                                            {emp.employer_name && <div className="text-slate-500">Employer: {emp.employer_name}{emp.country ? ` (${emp.country})` : ''}</div>}
                                         </div>
                                     ))}
                                 </div>

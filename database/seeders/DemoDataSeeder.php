@@ -79,8 +79,8 @@ class DemoDataSeeder extends Seeder
                     'first_name' => 'Ricardo', 'last_name' => 'Mariano', 'middle_name' => 'Javier',
                     'date_of_birth' => '1985-03-15', 'sex' => 'Male',
                 ],
-                'address' => ['line1' => '123 Poblacion St', 'city' => 'Cebu City', 'province' => 'Cebu', 'postal_code' => '6000', 'country' => 'Philippines'],
-                'employment' => ['employer_name' => 'Saudi Construction Co.', 'position' => 'Heavy Equipment Operator', 'country' => 'Saudi Arabia', 'start_date' => '2022-01-15', 'end_date' => '2026-04-30'],
+                'address' => ['region' => 'Central Visayas', 'province' => 'Cebu', 'city_municipality' => 'Cebu City', 'barangay' => 'Poblacion', 'street' => '123 Poblacion St'],
+                'employment' => ['employer_name' => 'Saudi Construction Co.', 'position' => 'Heavy Equipment Operator', 'country' => 'Saudi Arabia', 'start_date' => '2022-01-15', 'end_date' => '2026-04-30', 'last_country' => 'Saudi Arabia', 'last_position' => 'Heavy Equipment Operator', 'date_of_arrival' => '2026-05-01'],
                 'agency_slug' => 'owwa',
             ],
             [
@@ -92,8 +92,8 @@ class DemoDataSeeder extends Seeder
                     'first_name' => 'Elena', 'last_name' => 'Dela Cruz', 'middle_name' => 'Santos',
                     'date_of_birth' => '1990-07-22', 'sex' => 'Female',
                 ],
-                'address' => ['line1' => '456 Mabini St', 'city' => 'Lapu-Lapu City', 'province' => 'Cebu', 'postal_code' => '6015', 'country' => 'Philippines'],
-                'employment' => ['employer_name' => 'HK Domestic Agency', 'position' => 'Domestic Worker', 'country' => 'Hong Kong', 'start_date' => '2023-03-01', 'end_date' => '2026-05-01'],
+                'address' => ['region' => 'Central Visayas', 'province' => 'Cebu', 'city_municipality' => 'Lapu-Lapu City', 'barangay' => 'Mabini', 'street' => '456 Mabini St'],
+                'employment' => ['employer_name' => 'HK Domestic Agency', 'position' => 'Domestic Worker', 'country' => 'Hong Kong', 'start_date' => '2023-03-01', 'end_date' => '2026-05-01', 'last_country' => 'Hong Kong', 'last_position' => 'Domestic Worker', 'date_of_arrival' => '2026-05-02'],
                 'agency_slug' => 'doh',
             ],
             [
@@ -105,8 +105,8 @@ class DemoDataSeeder extends Seeder
                     'first_name' => 'Arturo', 'last_name' => 'Panganiban', 'middle_name' => 'Garcia',
                     'date_of_birth' => '1978-11-08', 'sex' => 'Male',
                 ],
-                'address' => ['line1' => '789 Rizal Ave', 'city' => 'Mandaue City', 'province' => 'Cebu', 'postal_code' => '6014', 'country' => 'Philippines'],
-                'employment' => ['employer_name' => 'Taiwan Electronics Inc.', 'position' => 'Production Supervisor', 'country' => 'Taiwan', 'start_date' => '2020-06-01', 'end_date' => '2026-02-28'],
+                'address' => ['region' => 'Central Visayas', 'province' => 'Cebu', 'city_municipality' => 'Mandaue City', 'barangay' => 'Rizal', 'street' => '789 Rizal Ave'],
+                'employment' => ['employer_name' => 'Taiwan Electronics Inc.', 'position' => 'Production Supervisor', 'country' => 'Taiwan', 'start_date' => '2020-06-01', 'end_date' => '2026-02-28', 'last_country' => 'Taiwan', 'last_position' => 'Production Supervisor', 'date_of_arrival' => '2026-03-01'],
                 'agency_slug' => 'dole',
             ],
         ];
@@ -155,13 +155,8 @@ class DemoDataSeeder extends Seeder
             if ($agencyId) {
                 $refId = (string) Str::uuid();
                 $refServiceName = 'General Assistance';
-                $pivot = DB::table('agency_service')
-                    ->where('agency_id', $agencyId)
-                    ->first();
-                if ($pivot) {
-                    $svc = DB::table('services')->where('id', $pivot->service_id)->first();
-                    if ($svc) $refServiceName = $svc->name;
-                }
+                $svc = DB::table('services')->where('agcy_id', $agencyId)->first();
+                if ($svc) $refServiceName = $svc->name;
 
                 DB::table('referrals')->insert([
                     'id' => $refId,

@@ -7,17 +7,9 @@ function ServiceForm({ service, allAgencies, onClose }) {
   const { data, setData, post, patch, processing, errors } = useForm({
     name: service?.name ?? '',
     description: service?.description ?? '',
-    agency_ids: service?.agencies?.map(a => a.id) ?? [],
+    agcy_id: service?.agcy_id ?? '',
+    processing_days: service?.processing_days ?? '',
   });
-
-  function handleAgencyToggle(agencyId) {
-    const current = data.agency_ids;
-    if (current.includes(agencyId)) {
-      setData('agency_ids', current.filter(id => id !== agencyId));
-    } else {
-      setData('agency_ids', [...current, agencyId]);
-    }
-  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -46,15 +38,18 @@ function ServiceForm({ service, allAgencies, onClose }) {
             <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Assign to Agencies</label>
-            <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-md p-2 space-y-1">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Agency *</label>
+            <select value={data.agcy_id} onChange={(e) => setData('agcy_id', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+              <option value="">Select an agency...</option>
               {allAgencies.map((agency) => (
-                <label key={agency.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 p-1 rounded">
-                  <input type="checkbox" checked={data.agency_ids.includes(agency.id)} onChange={() => handleAgencyToggle(agency.id)} className="rounded border-slate-300" />
-                  {agency.name}
-                </label>
+                <option key={agency.id} value={agency.id}>{agency.name}</option>
               ))}
-            </div>
+            </select>
+            {errors.agcy_id && <p className="mt-1 text-sm text-red-600">{errors.agcy_id}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Processing Days</label>
+            <input type="number" min="0" max="365" value={data.processing_days} onChange={(e) => setData('processing_days', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
@@ -106,7 +101,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
                     <td className="px-6 py-4 text-sm font-medium text-slate-900">{service.name}</td>
                     <td className="px-6 py-4 text-sm text-slate-500 max-w-xs truncate">{service.description || '—'}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">
-                      {service.agencies?.length ?? 0} agency(ies)
+                      {service.agency?.name ?? 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <button onClick={() => { setEditingService(service); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>

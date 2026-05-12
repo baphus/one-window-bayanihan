@@ -7,29 +7,24 @@ use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class NextOfKin extends Model
+class ServiceRequirement extends Model
 {
     use HasFactory, UsesUuid, SoftDeleteFlag;
 
     protected $fillable = [
-        'client_id',
-        'first_name',
-        'middle_initial',
-        'last_name',
-        'is_primary',
-        'relationship',
-        'phone_number',
-        'email',
-        'address',
+        'name',
+        'description',
+        'is_required',
+        'service_id',
     ];
 
     protected $casts = [
-        'is_primary' => 'boolean',
+        'is_required' => 'boolean',
         'is_deleted' => 'boolean',
     ];
 
-    public function client()
+    public function service()
     {
-        return $this->belongsTo(Client::class, 'client_id');
+        return $this->belongsTo(Service::class, 'service_id');
     }
 }
