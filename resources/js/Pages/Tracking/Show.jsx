@@ -264,7 +264,14 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
                     <article key={`${item.date}-${index}`} className="relative grid grid-cols-[28px_1fr] items-start gap-3 sm:gap-4">
                       <div className="z-10 flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm p-0.5">
                         {item.logoUrl ? (
-                          <img src={item.logoUrl} alt={`${item.agency} timeline source`} className="h-full w-full object-contain rounded-full" />
+                          <img
+                            src={item.logoUrl}
+                            alt={`${item.agency} timeline source`}
+                            className="h-full w-full object-contain rounded-full"
+                            referrerPolicy="no-referrer"
+                            loading="lazy"
+                            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class=\"material-symbols-outlined text-[12px] text-slate-400\">account_balance</span>'; }}
+                          />
                         ) : (
                           <span className="material-symbols-outlined text-[12px] text-slate-400">account_balance</span>
                         )}

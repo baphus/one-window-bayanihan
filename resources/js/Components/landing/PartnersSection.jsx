@@ -1,7 +1,31 @@
+import { useState } from 'react';
 import AppButton from './AppButton';
 
 function getMapsUrl(q) {
   return `https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+}
+
+function AgencyLogo({ agency }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError || !agency.logo_url) {
+    return (
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+        <span className="text-lg font-bold text-primary">{agency.short?.charAt(0)}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={agency.logo_url}
+      alt={`${agency.short} Logo`}
+      className="h-full w-full object-contain p-2"
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      onError={() => setHasError(true)}
+    />
+  );
 }
 
 export default function PartnersSection({ agencies }) {
@@ -15,7 +39,7 @@ export default function PartnersSection({ agencies }) {
             <div key={agency.id} className="border border-outline-variant/30 bg-surface-container-lowest p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
-                  <img src={agency.logo_url} alt={`${agency.short} Logo`} className="h-full w-full object-contain p-2" />
+                  <AgencyLogo agency={agency} />
                 </div>
                 <div>
                   <p className="text-xs font-extrabold uppercase tracking-widest text-primary">{agency.short}</p>

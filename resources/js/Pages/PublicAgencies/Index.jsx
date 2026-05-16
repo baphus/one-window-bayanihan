@@ -1,7 +1,29 @@
+import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
+
+function AgencyLogo({ agency }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError || !agency.logo_url) {
+    return (
+      <span className="text-2xl font-bold text-[#0b5c92]">{agency.short?.charAt(0)}</span>
+    );
+  }
+
+  return (
+    <img
+      src={agency.logo_url}
+      alt={agency.short}
+      className="h-full w-full object-contain p-2"
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 export default function PublicAgencies({ agencies }) {
   return (
@@ -30,11 +52,7 @@ export default function PublicAgencies({ agencies }) {
                 <div key={agency.id} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white border border-slate-100">
-                      {agency.logo_url ? (
-                        <img src={agency.logo_url} alt={agency.short} className="h-full w-full object-contain p-2" />
-                      ) : (
-                        <span className="text-2xl font-bold text-[#0b5c92]">{agency.short?.charAt(0)}</span>
-                      )}
+                      <AgencyLogo agency={agency} />
                     </div>
                     <div>
                       <h3 className="text-base font-bold text-slate-900">{agency.short}</h3>

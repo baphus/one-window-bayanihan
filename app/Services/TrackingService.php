@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\CaseFile;
 use App\Models\AuditLog;
+use App\Models\CaseFile;
 
 class TrackingService
 {
@@ -51,7 +51,7 @@ class TrackingService
                 'specialCategories' => [],
             ] : null,
             'nextOfKin' => $client && $client->nextOfKin->isNotEmpty() ? [
-                'fullName' => $client->nextOfKin->first()->first_name . ' ' . $client->nextOfKin->first()->last_name,
+                'fullName' => $client->nextOfKin->first()->first_name.' '.$client->nextOfKin->first()->last_name,
                 'relationship' => $client->nextOfKin->first()->relationship,
                 'contact' => $client->nextOfKin->first()->phone_number ?? $client->nextOfKin->first()->email,
             ] : null,
@@ -64,13 +64,14 @@ class TrackingService
 
         $timeline = collect();
         foreach ($referrals as $ref) {
+            $agencyLogo = $ref->agency?->logo_url ?? '';
             $timeline->push([
                 'date' => $ref->created_at->toISOString(),
                 'agency' => $ref->agency?->name ?? 'Unknown',
                 'title' => "Referral sent to {$ref->agency?->name}",
                 'detail' => $ref->required_services,
                 'icon' => 'send',
-                'logoUrl' => '',
+                'logoUrl' => $agencyLogo,
             ]);
 
             foreach ($ref->milestones as $ms) {
@@ -80,7 +81,7 @@ class TrackingService
                     'title' => $ms->title,
                     'detail' => $ms->description ?? '',
                     'icon' => 'milestone',
-                    'logoUrl' => '',
+                    'logoUrl' => $agencyLogo,
                 ]);
             }
         }
@@ -105,6 +106,7 @@ class TrackingService
 
         $agencyCards = $referrals->map(function ($ref) {
             $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
+
             return [
                 'name' => $ref->agency?->name ?? 'Unknown',
                 'note' => $ref->notes ?? '',
@@ -151,7 +153,7 @@ class TrackingService
 
     private function formatAddressParts($address): array
     {
-        if (!$address) {
+        if (! $address) {
             return [
                 'regionCode' => '', 'regionName' => '',
                 'provinceCode' => '', 'provinceName' => '',
@@ -160,6 +162,7 @@ class TrackingService
                 'streetAddress' => '',
             ];
         }
+
         return [
             'regionCode' => '',
             'regionName' => $address->region ?? '',

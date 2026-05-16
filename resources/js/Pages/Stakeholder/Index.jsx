@@ -1,5 +1,29 @@
+import { useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
+
+function AgencyLogo({ agency }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError || !agency.logo_url) {
+    return (
+      <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">
+        <span className="text-lg font-bold text-blue-900">{agency.short?.charAt(0)}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={agency.logo_url}
+      alt={agency.short}
+      className="w-12 h-12 object-contain rounded"
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 export default function StakeholderIndex({ agencies }) {
   return (
@@ -14,13 +38,7 @@ export default function StakeholderIndex({ agencies }) {
         {agencies.map((agency) => (
           <div key={agency.id} className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
             <div className="flex items-center gap-4 mb-4">
-              {agency.logo_url ? (
-                <img src={agency.logo_url} alt={agency.short} className="w-12 h-12 object-contain rounded" />
-              ) : (
-                <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">
-                  <span className="text-lg font-bold text-blue-900">{agency.short?.charAt(0)}</span>
-                </div>
-              )}
+              <AgencyLogo agency={agency} />
               <div>
                 <h3 className="text-base font-semibold text-slate-900">{agency.short}</h3>
                 <p className="text-xs text-slate-500">{agency.name}</p>

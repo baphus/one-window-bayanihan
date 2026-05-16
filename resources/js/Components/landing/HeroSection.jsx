@@ -65,9 +65,11 @@ export default function HeroSection({ title, description, onTrackAction, agencie
         }
         .animate-marquee {
           animation: marquee 60s linear infinite;
+          will-change: transform;
         }
         .animate-marquee2 {
-          animation: marquee 60s linear infinite;
+          animation: marquee2 60s linear infinite;
+          will-change: transform;
         }
         .group:hover .animate-marquee,
         .group:hover .animate-marquee2 {

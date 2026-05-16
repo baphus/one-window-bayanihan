@@ -1,5 +1,29 @@
+import { useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
+
+function AgencyLogo({ agency }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError || !agency.logo_url) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-blue-100 text-blue-900 text-sm font-bold">
+        {agency.short?.charAt(0)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={agency.logo_url}
+      alt={`${agency.short} logo`}
+      className="h-full w-full object-contain p-[2px]"
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 function InfoItem({ label, value }) {
     return (
@@ -42,13 +66,7 @@ export default function StakeholderShow({ stakeholder, stats }) {
                     <section className="rounded-lg border border-[#d8dee8] bg-white p-6 shadow-sm">
                         <div className="flex items-start gap-4">
                             <div className="h-14 w-14 overflow-hidden rounded-full border border-[#d8dee8] bg-white shrink-0">
-                                {stakeholder.logo_url ? (
-                                    <img src={stakeholder.logo_url} alt={`${stakeholder.short} logo`} className="h-full w-full object-contain p-[2px]" />
-                                ) : (
-                                    <div className="h-full w-full flex items-center justify-center bg-blue-100 text-blue-900 text-sm font-bold">
-                                        {stakeholder.short?.charAt(0)}
-                                    </div>
-                                )}
+                                <AgencyLogo agency={stakeholder} />
                             </div>
                             <div>
                                 <p className="text-[16px] font-bold text-slate-800">{stakeholder.name}</p>
