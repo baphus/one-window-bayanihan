@@ -25,11 +25,14 @@ class AgencySeeder extends Seeder
         ];
 
         foreach ($agencies as $agency) {
-            DB::table('agencies')->insert(array_merge($agency, [
-                'is_active' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]));
+            DB::table('agencies')->updateOrInsert(
+                ['slug' => $agency['slug']],
+                array_merge($agency, [
+                    'is_active' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
+            );
         }
     }
 }

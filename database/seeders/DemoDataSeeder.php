@@ -43,8 +43,8 @@ class DemoDataSeeder extends Seeder
             $uid = (string) Str::uuid();
             DB::table('users')->insert([
                 'id' => $uid,
-                'name' => strtoupper($slug) . ' Focal',
-                'email' => $slug . '@bayanihan.gov.ph',
+                'name' => strtoupper($slug).' Focal',
+                'email' => $slug.'@bayanihan.gov.ph',
                 'password' => Hash::make('password'),
                 'role' => 'AGENCY',
                 'agcy_id' => $id,
@@ -77,7 +77,7 @@ class DemoDataSeeder extends Seeder
                 'summary' => 'Mariano, a returning OFW from Saudi Arabia, needs assistance with repatriation benefits and livelihood support after his contract was abruptly terminated.',
                 'client' => [
                     'first_name' => 'Ricardo', 'last_name' => 'Mariano', 'middle_name' => 'Javier',
-                    'date_of_birth' => '1985-03-15', 'sex' => 'Male',
+                    'date_of_birth' => '1985-03-15', 'sex' => 'MALE',
                 ],
                 'address' => ['region' => 'Central Visayas', 'province' => 'Cebu', 'city_municipality' => 'Cebu City', 'barangay' => 'Poblacion', 'street' => '123 Poblacion St'],
                 'employment' => ['employer_name' => 'Saudi Construction Co.', 'position' => 'Heavy Equipment Operator', 'country' => 'Saudi Arabia', 'start_date' => '2022-01-15', 'end_date' => '2026-04-30', 'last_country' => 'Saudi Arabia', 'last_position' => 'Heavy Equipment Operator', 'date_of_arrival' => '2026-05-01'],
@@ -90,7 +90,7 @@ class DemoDataSeeder extends Seeder
                 'summary' => 'Dela Cruz family seeking assistance for Elena who suffered a work-related injury in Hong Kong.',
                 'client' => [
                     'first_name' => 'Elena', 'last_name' => 'Dela Cruz', 'middle_name' => 'Santos',
-                    'date_of_birth' => '1990-07-22', 'sex' => 'Female',
+                    'date_of_birth' => '1990-07-22', 'sex' => 'FEMALE',
                 ],
                 'address' => ['region' => 'Central Visayas', 'province' => 'Cebu', 'city_municipality' => 'Lapu-Lapu City', 'barangay' => 'Mabini', 'street' => '456 Mabini St'],
                 'employment' => ['employer_name' => 'HK Domestic Agency', 'position' => 'Domestic Worker', 'country' => 'Hong Kong', 'start_date' => '2023-03-01', 'end_date' => '2026-05-01', 'last_country' => 'Hong Kong', 'last_position' => 'Domestic Worker', 'date_of_arrival' => '2026-05-02'],
@@ -103,7 +103,7 @@ class DemoDataSeeder extends Seeder
                 'summary' => 'Panganiban completed his contract in Taiwan and is seeking livelihood assistance and reintegration support.',
                 'client' => [
                     'first_name' => 'Arturo', 'last_name' => 'Panganiban', 'middle_name' => 'Garcia',
-                    'date_of_birth' => '1978-11-08', 'sex' => 'Male',
+                    'date_of_birth' => '1978-11-08', 'sex' => 'MALE',
                 ],
                 'address' => ['region' => 'Central Visayas', 'province' => 'Cebu', 'city_municipality' => 'Mandaue City', 'barangay' => 'Rizal', 'street' => '789 Rizal Ave'],
                 'employment' => ['employer_name' => 'Taiwan Electronics Inc.', 'position' => 'Production Supervisor', 'country' => 'Taiwan', 'start_date' => '2020-06-01', 'end_date' => '2026-02-28', 'last_country' => 'Taiwan', 'last_position' => 'Production Supervisor', 'date_of_arrival' => '2026-03-01'],
@@ -156,7 +156,9 @@ class DemoDataSeeder extends Seeder
                 $refId = (string) Str::uuid();
                 $refServiceName = 'General Assistance';
                 $svc = DB::table('services')->where('agcy_id', $agencyId)->first();
-                if ($svc) $refServiceName = $svc->name;
+                if ($svc) {
+                    $refServiceName = $svc->name;
+                }
 
                 DB::table('referrals')->insert([
                     'id' => $refId,
