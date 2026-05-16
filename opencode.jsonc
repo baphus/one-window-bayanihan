@@ -1,0 +1,40 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "default_agent": "coder",
+  "formatter": true,
+  "lsp": true,
+  "shell": "pwsh",
+  "agent": {
+    "coder": {
+      "description": "Primary coding agent for One Window Bayanihan — Laravel backend, Inertia+React frontend, Tailwind styling, database work",
+      "mode": "primary",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow"
+      }
+    },
+    "explore": {
+      "description": "Exploration agent for searching files, understanding code structure, finding routes, controllers, models, pages, or components",
+      "mode": "subagent",
+      "permission": {
+        "edit": "deny",
+        "bash": "ask"
+      }
+    }
+  },
+  "permission": {
+    "bash": {
+      "git push": "ask"
+    }
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      ".opencode/node_modules/**",
+      "vendor/**",
+      "storage/**",
+      "public/build/**"
+    ]
+  }
+}
