@@ -38,7 +38,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className={`px-4 py-2 rounded-md text-[14px] font-label font-medium transition-colors duration-200 ${
+                    className={`px-4 py-2 rounded text-[14px] font-label font-medium transition-colors duration-200 ${
                       active
                         ? 'bg-[#005288]/10 text-[#005288] font-bold'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-[#005288]'

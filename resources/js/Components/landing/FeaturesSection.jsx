@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BAYANIHAN_PHOTOS, FEATURE_CARDS } from './appData';
+import { BAYANIHAN_PHOTOS, FEATURE_SCREENSHOTS } from './appData';
 
 export default function FeaturesSection() {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
@@ -60,13 +60,22 @@ export default function FeaturesSection() {
         </article>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {FEATURE_CARDS.map((f) => (
-            <div key={f.title} className="border border-outline-variant/30 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center bg-primary/10 text-primary">
-                <span className="material-symbols-outlined text-3xl">{f.icon}</span>
+          {FEATURE_SCREENSHOTS.map((f) => (
+            <div key={f.title} className="border border-outline-variant/30 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+              {f.src ? (
+                <img src={f.src} alt={f.alt} className="h-48 w-full object-cover md:h-56" loading="lazy" />
+              ) : (
+                <div className="flex h-48 w-full items-center justify-center bg-surface-container-high md:h-56">
+                  <div className="text-center">
+                    <span className="material-symbols-outlined block text-4xl text-outline-variant">image</span>
+                    <span className="mt-2 block text-xs text-outline-variant">Screenshot placeholder</span>
+                  </div>
+                </div>
+              )}
+              <div className="p-5">
+                <h3 className="mb-2 text-lg font-bold text-primary">{f.title}</h3>
+                <p className="text-sm leading-relaxed text-on-surface-variant">{f.description}</p>
               </div>
-              <h3 className="mb-3 text-lg font-bold text-primary">{f.title}</h3>
-              <p className="text-sm leading-relaxed text-on-surface-variant">{f.description}</p>
             </div>
           ))}
         </div>

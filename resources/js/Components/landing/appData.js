@@ -15,21 +15,24 @@ export const BAYANIHAN_PHOTOS = [
   { src: 'https://res.cloudinary.com/dzjshue6h/image/upload/v1777287567/657584302_1360051739482642_354477979701982341_n_xm6pho.jpg', alt: 'Bayanihan launch photo 12', sourceLabel: 'Facebook' },
 ];
 
-export const FEATURE_CARDS = [
+export const FEATURE_SCREENSHOTS = [
   {
     title: 'Unified Tracking',
     description: 'Monitor your case progress across different government agencies in one place. No more jumping between different websites.',
-    icon: 'device_hub',
+    src: '',
+    alt: 'Unified Tracking screenshot placeholder',
   },
   {
     title: 'Secure & Private',
     description: 'Your data is protected following the Data Privacy Act of 2012. We ensure that sensitive information is only accessible by authorized personnel.',
-    icon: 'shield',
+    src: '',
+    alt: 'Secure & Private screenshot placeholder',
   },
   {
     title: 'Faster Referrals',
     description: 'Seamless coordination between DMW, OWWA, DOH, DOLE, DSWD, TESDA, and other partners ensures your needs are addressed with minimal delay.',
-    icon: 'speed',
+    src: '',
+    alt: 'Faster Referrals screenshot placeholder',
   },
 ];
 
