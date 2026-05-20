@@ -120,6 +120,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/helpdesk/tags', [HelpdeskTagController::class, 'store'])->name('helpdesk.tags.store');
         Route::patch('/helpdesk/tags/{tag}', [HelpdeskTagController::class, 'update'])->name('helpdesk.tags.update');
         Route::delete('/helpdesk/tags/{tag}', [HelpdeskTagController::class, 'destroy'])->name('helpdesk.tags.destroy');
+
+        Route::post('/helpdesk/articles/upload-image', [HelpdeskArticleController::class, 'uploadImage'])->name('helpdesk.articles.upload-image');
     });
 });
 

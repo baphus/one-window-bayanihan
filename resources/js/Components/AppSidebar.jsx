@@ -52,6 +52,11 @@ const navByRole = {
       { name: 'Referrals', href: '/referrals', icon: 'send' },
       { name: 'Users', href: '/users', icon: 'manage_accounts' },
     ]},
+    { label: 'Content', items: [
+      { name: 'Articles', href: '/admin/helpdesk/articles', icon: 'article' },
+      { name: 'Categories', href: '/admin/helpdesk/categories', icon: 'category' },
+      { name: 'Tags', href: '/admin/helpdesk/tags', icon: 'label' },
+    ]},
     { label: 'Settings', items: [
       { name: 'Activity Logs', href: '/activity-logs', icon: 'history' },
       { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },

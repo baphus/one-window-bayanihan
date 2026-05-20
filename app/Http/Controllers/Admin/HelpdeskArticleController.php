@@ -106,4 +106,17 @@ class HelpdeskArticleController extends Controller
             'revisions' => $this->helpdeskService->getRevisions($id),
         ]);
     }
+
+    public function uploadImage(Request $request)
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+        ]);
+
+        $path = $request->file('image')->store('helpdesk-images', 'public');
+
+        return response()->json([
+            'url' => asset('storage/'.$path),
+        ]);
+    }
 }

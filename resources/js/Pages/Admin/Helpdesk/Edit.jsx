@@ -148,6 +148,7 @@ export default function Edit({ article, categories, tags }) {
                   <MarkdownEditor
                     value={data.content_markdown}
                     onChange={(value) => setData('content_markdown', value || '')}
+                    uploadUrl={route('admin.helpdesk.articles.upload-image')}
                   />
                   {errors.content_markdown && (
                     <p className="mt-1 text-xs text-red-500">{errors.content_markdown}</p>
