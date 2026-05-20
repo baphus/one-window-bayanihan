@@ -6,7 +6,7 @@ import FeedbackWidget from '@/Components/Helpdesk/FeedbackWidget';
 import RelatedArticles from '@/Components/Helpdesk/RelatedArticles';
 import TagBadge from '@/Components/Helpdesk/TagBadge';
 
-export default function Show({ article, relatedArticles, categoryPath }) {
+export default function Show({ article, relatedArticles, categoryPath, categories }) {
   const breadcrumbItems = categoryPath.map((cat) => ({
     label: cat.label,
     href: `/helpdesk?category=${cat.slug}`,
