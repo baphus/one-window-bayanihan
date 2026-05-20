@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             AgencySeeder::class,
             ServiceSeeder::class,
             DemoDataSeeder::class,
+            HelpdeskSeeder::class,
         ]);
     }
 }

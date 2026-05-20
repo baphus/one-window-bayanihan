@@ -8,6 +8,7 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
+use App\Models\HelpdeskArticle;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
             Agency::class,
             User::class,
             Service::class,
+            HelpdeskArticle::class,
         ];
 
         foreach ($auditableModels as $model) {
