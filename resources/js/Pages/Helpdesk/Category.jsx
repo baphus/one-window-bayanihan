@@ -14,7 +14,7 @@ export default function Category({ category, articles, categories, categoryPath 
   }));
 
   return (
-    <HelpdeskLayout title={category?.name || 'Category'} categories={categories} activeSlug={category?.slug}>
+    <HelpdeskLayout title={category?.name || 'Category'} categories={categories} activeSlug={category?.slug} showSearchHero={false}>
       <Head>
         <title>{category?.name || 'Category'} - Help Center</title>
       </Head>

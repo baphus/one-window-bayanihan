@@ -18,7 +18,7 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
   const roleInfo = user ? roleGreeting[user.role] : null;
 
   return (
-    <HelpdeskLayout title="Help Center" categories={categories}>
+    <HelpdeskLayout title="Help Center" categories={categories} showSearchHero={true}>
       <Head>
         <title>Help Center - One Window Bayanihan</title>
       </Head>

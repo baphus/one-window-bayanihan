@@ -49,6 +49,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Analytics
                                 </NavLink>
+                                <NavLink
+                                    href={route('helpdesk.index')}
+                                    active={route().current('helpdesk.*')}
+                                >
+                                    Help Center
+                                </NavLink>
                             </div>
                         </div>
 
@@ -170,6 +176,12 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('analytics.*')}
                         >
                             Analytics
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('helpdesk.index')}
+                            active={route().current('helpdesk.*')}
+                        >
+                            Help Center
                         </ResponsiveNavLink>
                     </div>
 

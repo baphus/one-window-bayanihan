@@ -8,7 +8,7 @@ export default function Search({ query, results, categories }) {
   const pagination = results ?? {};
 
   return (
-    <HelpdeskLayout title="Search Results" categories={categories} query={query}>
+    <HelpdeskLayout title="Search Results" categories={categories} query={query} showSearchHero={false}>
       <Head>
         <title>{query ? `Search: ${query} - Help Center` : 'Search - Help Center'}</title>
       </Head>

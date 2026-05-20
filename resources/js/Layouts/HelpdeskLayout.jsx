@@ -1,8 +1,8 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import AppHeader from '@/Components/landing/AppHeader';
 
-function SearchBar({ query, onSearch }) {
+function SearchBar({ query, onSearch, large }) {
   const [value, setValue] = useState(query || '');
 
   const handleSubmit = (e) => {
@@ -13,7 +13,7 @@ function SearchBar({ query, onSearch }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="relative w-full max-w-2xl">
+    <form onSubmit={handleSubmit} className={`relative w-full ${large ? 'max-w-2xl' : 'max-w-xl'}`}>
       <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">
         search
       </span>
@@ -22,7 +22,9 @@ function SearchBar({ query, onSearch }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Search the help center..."
-        className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-4 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        className={`w-full rounded-lg border border-slate-200 bg-white text-slate-900 placeholder-slate-400 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${
+          large ? 'py-4 pl-12 pr-4 text-base' : 'py-2.5 pl-10 pr-3 text-sm'
+        }`}
       />
     </form>
   );
@@ -87,7 +89,7 @@ function CategoryNav({ categories, activeSlug }) {
   );
 }
 
-export default function HelpdeskLayout({ title, children, categories, activeSlug, query }) {
+export default function HelpdeskLayout({ title, children, categories, activeSlug, query, showSearchHero }) {
   const { auth } = usePage().props;
 
   const handleSearch = (q) => {
@@ -98,41 +100,24 @@ export default function HelpdeskLayout({ title, children, categories, activeSlug
     <div className="min-h-screen bg-slate-50">
       <Head title={`${title} - Help Center`} />
 
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/helpdesk" className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-2xl">help</span>
-            <span className="text-lg font-bold text-slate-900">Help Center</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:block">
+      <AppHeader onTrackCaseClick={() => window.location.href = route('track.index')} />
+
+      <div className="mx-auto max-w-7xl px-4 pt-6 pb-2 sm:px-6 lg:px-8">
+        {showSearchHero && (
+          <div className="mb-6 flex justify-center">
+            <SearchBar query={query} onSearch={handleSearch} large />
+          </div>
+        )}
+        {!showSearchHero && (
+          <div className="mb-4 flex justify-end">
+            <div className="w-full max-w-xs">
               <SearchBar query={query} onSearch={handleSearch} />
             </div>
-            {auth.user ? (
-              <Link
-                href={route('dashboard')}
-                className="rounded-md bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white"
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <Link
-                href={route('login')}
-                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-700"
-              >
-                Sign In
-              </Link>
-            )}
           </div>
-        </div>
-        <div className="border-t border-slate-100 sm:hidden">
-          <div className="mx-auto max-w-7xl px-4 py-2">
-            <SearchBar query={query} onSearch={handleSearch} />
-          </div>
-        </div>
-      </header>
+        )}
+      </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex gap-8">
           <aside className="hidden w-64 flex-shrink-0 lg:block">
             <div className="sticky top-24">

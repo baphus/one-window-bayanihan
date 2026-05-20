@@ -55,6 +55,7 @@ class HelpdeskController extends Controller
             'article' => $article,
             'relatedArticles' => $this->helpdeskService->getRelatedArticles($article->id),
             'categoryPath' => $article->category ? $this->buildCategoryPath($article->category) : [],
+            'categories' => $this->helpdeskService->getCategoryTree(),
         ]);
     }
 

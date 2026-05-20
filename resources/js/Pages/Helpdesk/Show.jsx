@@ -16,7 +16,7 @@ export default function Show({ article, relatedArticles, categoryPath }) {
   const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
   return (
-    <HelpdeskLayout title={article.title}>
+    <HelpdeskLayout title={article.title} categories={categories}>
       <Head title={`${article.title} - Help Center`} />
 
       <Breadcrumbs items={breadcrumbItems} />
