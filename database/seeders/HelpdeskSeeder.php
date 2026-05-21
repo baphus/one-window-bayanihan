@@ -17,7 +17,7 @@ class HelpdeskSeeder extends Seeder
             return;
         }
 
-        // --- Categories ---
+        // --- Categories (idempotent: upsert by slug) ---
         $categories = [];
         $catData = [
             ['name' => 'OFW Assistance', 'slug' => 'ofw-assistance', 'description' => 'Guides and resources for Overseas Filipino Workers on case submission, document requirements, and rights.', 'icon' => 'badge', 'sort_order' => 0],
@@ -28,31 +28,76 @@ class HelpdeskSeeder extends Seeder
         ];
 
         foreach ($catData as $c) {
-            $id = (string) Str::uuid();
-            DB::table('helpdesk_categories')->insert(array_merge($c, [
-                'id' => $id,
-                'is_active' => true,
-                'is_deleted' => false,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]));
-            $categories[$c['slug']] = $id;
+            $existing = DB::table('helpdesk_categories')->where('slug', $c['slug'])->first();
+            if ($existing) {
+                $categories[$c['slug']] = $existing->id;
+            } else {
+                $id = (string) Str::uuid();
+                DB::table('helpdesk_categories')->insert(array_merge($c, [
+                    'id' => $id,
+                    'is_active' => true,
+                    'is_deleted' => false,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]));
+                $categories[$c['slug']] = $id;
+            }
         }
 
-        // --- Tags ---
+        // --- Subcategories (idempotent: upsert by slug) ---
+        $subcatData = [
+            ['name' => 'Case Submission', 'slug' => 'case-submission', 'parent_slug' => 'ofw-assistance', 'icon' => 'add_circle', 'sort_order' => 0, 'description' => 'Guides on submitting cases and required documents.'],
+            ['name' => 'OFW Rights & Protection', 'slug' => 'ofw-rights', 'parent_slug' => 'ofw-assistance', 'icon' => 'gavel', 'sort_order' => 1, 'description' => 'Information on OFW rights, repatriation, and legal assistance.'],
+            ['name' => 'Case Manager Workflow', 'slug' => 'cm-workflow', 'parent_slug' => 'case-management', 'icon' => 'assignment', 'sort_order' => 0, 'description' => 'Standard procedures for case intake and management.'],
+            ['name' => 'Referrals & Escalations', 'slug' => 'referrals-escalations', 'parent_slug' => 'case-management', 'icon' => 'swap_horiz', 'sort_order' => 1, 'description' => 'Guides on creating, processing, and escalating referrals.'],
+            ['name' => 'Referral Processing', 'slug' => 'referral-processing', 'parent_slug' => 'agency-partnership', 'icon' => 'handshake', 'sort_order' => 0, 'description' => 'Step-by-step guides for agency focal persons.'],
+            ['name' => 'Coordination & Communication', 'slug' => 'coordination-communication', 'parent_slug' => 'agency-partnership', 'icon' => 'forum', 'sort_order' => 1, 'description' => 'Guidelines for inter-agency coordination.'],
+            ['name' => 'User & Account Management', 'slug' => 'user-account-management', 'parent_slug' => 'system-administration', 'icon' => 'manage_accounts', 'sort_order' => 0, 'description' => 'Managing user accounts, roles, and permissions.'],
+            ['name' => 'System Configuration', 'slug' => 'system-config', 'parent_slug' => 'system-administration', 'icon' => 'tune', 'sort_order' => 1, 'description' => 'System settings, agencies, services, and troubleshooting.'],
+        ];
+
+        foreach ($subcatData as $sc) {
+            $existing = DB::table('helpdesk_categories')->where('slug', $sc['slug'])->first();
+            if ($existing) {
+                $categories[$sc['slug']] = $existing->id;
+            } else {
+                $id = (string) Str::uuid();
+                DB::table('helpdesk_categories')->insert([
+                    'id' => $id,
+                    'name' => $sc['name'],
+                    'slug' => $sc['slug'],
+                    'description' => $sc['description'],
+                    'parent_id' => $categories[$sc['parent_slug']],
+                    'icon' => $sc['icon'],
+                    'sort_order' => $sc['sort_order'],
+                    'is_active' => true,
+                    'is_deleted' => false,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $categories[$sc['slug']] = $id;
+            }
+        }
+
+        // --- Tags (idempotent: upsert by slug) ---
         $tagNames = ['cases', 'referrals', 'documents', 'tracking', 'repatriation', 'compliance', 'escalation', 'training', 'troubleshooting', 'onboarding'];
         $tags = [];
         foreach ($tagNames as $name) {
-            $id = (string) Str::uuid();
-            DB::table('helpdesk_tags')->insert([
-                'id' => $id,
-                'name' => $name,
-                'slug' => $name,
-                'is_deleted' => false,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-            $tags[$name] = $id;
+            $existing = DB::table('helpdesk_tags')->where('slug', $name)->first();
+            if ($existing) {
+                $tags[$name] = $existing->id;
+            } else {
+                $id = (string) Str::uuid();
+                DB::table('helpdesk_tags')->insert([
+                    'id' => $id,
+                    'name' => $name,
+                    'slug' => $name,
+                    'is_deleted' => false,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $tags[$name] = $id;
+            }
         }
 
         // --- Articles ---
@@ -85,7 +130,7 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Required Documents for OFW Cases',
             'slug' => 'required-documents-ofw-cases',
-            'category_slug' => 'ofw-assistance',
+            'category_slug' => 'case-submission',
             'tag_slugs' => ['documents', 'cases'],
             'visibility' => 'public',
             'target_roles' => null,
@@ -97,7 +142,7 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Understanding Your Rights as an OFW',
             'slug' => 'understanding-your-rights-as-ofw',
-            'category_slug' => 'ofw-assistance',
+            'category_slug' => 'ofw-rights',
             'tag_slugs' => ['documents', 'repatriation'],
             'visibility' => 'public',
             'target_roles' => null,
@@ -109,10 +154,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Case Intake and Processing Workflow',
             'slug' => 'case-intake-processing-workflow',
-            'category_slug' => 'case-management',
+            'category_slug' => 'cm-workflow',
             'tag_slugs' => ['cases', 'onboarding', 'compliance'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['CASE_MANAGER', 'ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article5(),
             'featured' => true,
             'excerpt' => 'Standard operating procedure for case intake, assessment, referral, management, and closure for Case Managers.',
@@ -121,10 +166,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Creating and Managing Referrals',
             'slug' => 'creating-managing-referrals',
-            'category_slug' => 'case-management',
+            'category_slug' => 'referrals-escalations',
             'tag_slugs' => ['referrals', 'compliance'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['CASE_MANAGER', 'ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article6(),
             'featured' => false,
             'excerpt' => 'Guide for Case Managers on creating, monitoring, and closing referrals to partner agencies.',
@@ -133,10 +178,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Escalation Procedures',
             'slug' => 'escalation-procedures',
-            'category_slug' => 'case-management',
+            'category_slug' => 'referrals-escalations',
             'tag_slugs' => ['escalation', 'compliance'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['CASE_MANAGER', 'ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article7(),
             'featured' => false,
             'excerpt' => 'Standard escalation procedures for Case Managers, including when to escalate and how to document escalation requests.',
@@ -145,10 +190,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Processing Received Referrals',
             'slug' => 'processing-received-referrals',
-            'category_slug' => 'agency-partnership',
+            'category_slug' => 'referral-processing',
             'tag_slugs' => ['referrals', 'compliance', 'onboarding'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['AGENCY', 'ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article8(),
             'featured' => true,
             'excerpt' => 'Step-by-step guide for agency focal persons on receiving, processing, and closing case referrals.',
@@ -157,10 +202,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Updating Referral Status and Milestones',
             'slug' => 'updating-referral-status-milestones',
-            'category_slug' => 'agency-partnership',
+            'category_slug' => 'referral-processing',
             'tag_slugs' => ['referrals', 'tracking', 'compliance'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['AGENCY', 'CASE_MANAGER', 'ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article9(),
             'featured' => false,
             'excerpt' => 'Instructions for updating referral statuses and adding milestone events to track case progress.',
@@ -169,10 +214,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'Inter-Agency Coordination Guidelines',
             'slug' => 'inter-agency-coordination-guidelines',
-            'category_slug' => 'agency-partnership',
+            'category_slug' => 'coordination-communication',
             'tag_slugs' => ['referrals', 'compliance', 'escalation'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['AGENCY', 'CASE_MANAGER', 'ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article10(),
             'featured' => false,
             'excerpt' => 'Guidelines for effective communication and coordination between DMW Case Managers and partner agency focal persons.',
@@ -181,10 +226,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'User Account Management Guide',
             'slug' => 'user-account-management-guide',
-            'category_slug' => 'system-administration',
+            'category_slug' => 'user-account-management',
             'tag_slugs' => ['onboarding', 'troubleshooting'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article11(),
             'featured' => true,
             'excerpt' => 'Comprehensive guide for administrators on creating, managing, and deactivating user accounts across all roles.',
@@ -193,10 +238,10 @@ class HelpdeskSeeder extends Seeder
         $articles[] = [
             'title' => 'System Configuration and Settings',
             'slug' => 'system-configuration-settings',
-            'category_slug' => 'system-administration',
+            'category_slug' => 'system-config',
             'tag_slugs' => ['troubleshooting', 'onboarding'],
-            'visibility' => 'role_restricted',
-            'target_roles' => ['ADMIN'],
+            'visibility' => 'public',
+            'target_roles' => null,
             'content_markdown' => $this->article12(),
             'featured' => false,
             'excerpt' => 'Configuration reference for system settings, agency management, service management, and common troubleshooting.',
@@ -219,6 +264,26 @@ class HelpdeskSeeder extends Seeder
             $tagIds = array_map(fn ($s) => $tags[$s], $articleData['tag_slugs']);
             $categoryId = $categories[$articleData['category_slug']] ?? null;
 
+            $existing = DB::table('helpdesk_articles')->where('slug', $articleData['slug'])->first();
+            if ($existing) {
+                // Update existing article (category may have changed to a subcategory)
+                DB::table('helpdesk_articles')
+                    ->where('id', $existing->id)
+                    ->update([
+                        'category_id' => $categoryId,
+                        'title' => $articleData['title'],
+                        'content_markdown' => $articleData['content_markdown'],
+                        'excerpt' => $articleData['excerpt'],
+                        'featured' => $articleData['featured'],
+                        'visibility' => $articleData['visibility'],
+                        'target_roles' => $articleData['target_roles'] ? json_encode($articleData['target_roles']) : null,
+                        'updated_at' => $now,
+                    ]);
+                $this->command->info("Updated article: {$articleData['title']} -> category_id={$categoryId}");
+
+                continue;
+            }
+
             DB::table('helpdesk_articles')->insert([
                 'id' => $articleId,
                 'title' => $articleData['title'],
@@ -235,6 +300,7 @@ class HelpdeskSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+            $this->command->info("Created article: {$articleData['title']} -> category_id={$categoryId}");
 
             foreach ($tagIds as $tagId) {
                 DB::table('helpdesk_article_tag')->insert([

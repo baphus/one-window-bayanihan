@@ -41,6 +41,16 @@ class HelpdeskService
         return $this->applyVisibilityFilter($query)->first();
     }
 
+    public function getSubcategories(string $categoryId)
+    {
+        return HelpdeskCategory::where('parent_id', $categoryId)
+            ->where('is_active', true)
+            ->where('is_deleted', false)
+            ->withCount('publishedArticles')
+            ->orderBy('sort_order')
+            ->get();
+    }
+
     public function getCategories()
     {
         return HelpdeskCategory::where('is_active', true)
@@ -52,15 +62,24 @@ class HelpdeskService
 
     public function getCategoryTree()
     {
-        return HelpdeskCategory::where('is_active', true)
+        $parents = HelpdeskCategory::where('is_active', true)
             ->where('is_deleted', false)
             ->whereNull('parent_id')
             ->with(['children' => function ($q) {
-                $q->where('is_active', true)->where('is_deleted', false)->orderBy('sort_order');
+                $q->where('is_active', true)->where('is_deleted', false)->orderBy('sort_order')
+                    ->withCount('publishedArticles');
             }])
             ->withCount('publishedArticles')
             ->orderBy('sort_order')
             ->get();
+
+        // Sum direct + child article counts for each parent category
+        return $parents->map(function ($cat) {
+            $cat->total_articles = $cat->published_articles_count
+                + $cat->children->sum('published_articles_count');
+
+            return $cat;
+        });
     }
 
     public function getTags()

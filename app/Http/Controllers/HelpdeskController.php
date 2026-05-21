@@ -21,15 +21,20 @@ class HelpdeskController extends Controller
         if ($category) {
             $slug = $category;
             $cat = HelpdeskCategory::where('slug', $slug)->first();
-            $articles = $cat
-                ? $this->helpdeskService->getPublishedArticles(['category_id' => $cat->id])
-                : null;
+
+            if (! $cat) {
+                abort(404);
+            }
+
+            $subcategories = $this->helpdeskService->getSubcategories($cat->id);
+            $hasSubcategories = $subcategories->isNotEmpty();
 
             return Inertia::render('Helpdesk/Category', [
                 'category' => $cat,
-                'articles' => $articles,
+                'subcategories' => $hasSubcategories ? $subcategories : null,
+                'articles' => $hasSubcategories ? null : $this->helpdeskService->getPublishedArticles(['category_id' => $cat->id]),
                 'categories' => $this->helpdeskService->getCategoryTree(),
-                'categoryPath' => $cat ? $this->buildCategoryPath($cat) : [],
+                'categoryPath' => $this->buildCategoryPath($cat),
             ]);
         }
 

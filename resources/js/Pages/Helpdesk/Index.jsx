@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import ArticleCard from '@/Components/Helpdesk/ArticleCard';
 import TagBadge from '@/Components/Helpdesk/TagBadge';
@@ -19,9 +19,6 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
 
   return (
     <HelpdeskLayout title="Help Center" categories={categories} showSearchHero={true}>
-      <Head>
-        <title>Help Center - One Window Bayanihan</title>
-      </Head>
 
       <div className="mb-8">
         <div className="mb-6">
@@ -81,9 +78,9 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
                     <h3 className="text-sm font-semibold text-slate-900 group-hover:text-primary transition-colors">
                       {cat.name}
                     </h3>
-                    {cat.published_articles_count > 0 && (
+                    {(cat.total_articles ?? cat.published_articles_count) > 0 && (
                       <p className="text-xs text-slate-400">
-                        {cat.published_articles_count} article{cat.published_articles_count > 1 ? 's' : ''}
+                        {cat.total_articles ?? cat.published_articles_count} article{(cat.total_articles ?? cat.published_articles_count) > 1 ? 's' : ''}
                       </p>
                     )}
                   </div>

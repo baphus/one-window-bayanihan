@@ -31,6 +31,20 @@ function SearchBar({ query, onSearch, large }) {
 }
 
 function CategoryNav({ categories, activeSlug }) {
+  const hasActiveChild = (cat) => cat.children?.some((ch) => ch.slug === activeSlug);
+  const [expanded, setExpanded] = useState(() => {
+    if (!categories) return {};
+    const map = {};
+    categories.forEach((cat) => {
+      if (cat.children?.length > 0 && (activeSlug === cat.slug || hasActiveChild(cat))) {
+        map[cat.id] = true;
+      }
+    });
+    return map;
+  });
+
+  const toggle = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+
   return (
     <nav className="space-y-1">
       <Link
@@ -44,47 +58,76 @@ function CategoryNav({ categories, activeSlug }) {
         <span className="material-symbols-outlined text-lg">home</span>
         All Articles
       </Link>
-      {categories?.map((cat) => (
-        <div key={cat.id}>
-          <Link
-            href={`/helpdesk?category=${cat.slug}`}
-            className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              activeSlug === cat.slug
-                ? 'bg-primary/10 text-primary'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {cat.icon && (
-              <span className="material-symbols-outlined text-lg text-slate-400">
-                {cat.icon}
-              </span>
-            )}
-            <span>{cat.name}</span>
-            {cat.published_articles_count > 0 && (
-              <span className="ml-auto text-xs text-slate-400">
-                {cat.published_articles_count}
-              </span>
-            )}
-          </Link>
-          {cat.children?.length > 0 && (
-            <div className="ml-4 space-y-1">
-              {cat.children.map((child) => (
-                <Link
-                  key={child.id}
-                  href={`/helpdesk?category=${child.slug}`}
-                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                    activeSlug === child.slug
+      {categories?.map((cat) => {
+        const isActive = activeSlug === cat.slug;
+        const hasChildren = cat.children?.length > 0;
+        const isExpanded = expanded[cat.id] ?? false;
+
+        return (
+          <div key={cat.id}>
+            <div className="group flex items-center gap-0">
+              <Link
+                href={`/helpdesk?category=${cat.slug}`}
+                className={`flex flex-1 items-center gap-2 rounded-l-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {cat.icon && (
+                  <span className="material-symbols-outlined text-lg text-slate-400">
+                    {cat.icon}
+                  </span>
+                )}
+                <span>{cat.name}</span>
+                {(hasChildren ? cat.total_articles : cat.published_articles_count) > 0 && (
+                  <span className="ml-auto text-xs text-slate-400">
+                    {hasChildren ? cat.total_articles : cat.published_articles_count}
+                  </span>
+                )}
+              </Link>
+              {hasChildren && (
+                <button
+                  onClick={() => toggle(cat.id)}
+                  className={`flex items-center justify-center rounded-r-md px-1.5 py-2 text-sm transition-colors ${
+                    isActive
                       ? 'bg-primary/10 text-primary'
-                      : 'text-slate-500 hover:bg-slate-100'
+                      : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
                   }`}
+                  title={isExpanded ? 'Collapse' : 'Expand'}
                 >
-                  {child.name}
-                </Link>
-              ))}
+                  <span className="material-symbols-outlined text-base transition-transform duration-200 {isExpanded ? 'rotate-90' : ''}">
+                    {isExpanded ? 'expand_more' : 'chevron_right'}
+                  </span>
+                </button>
+              )}
             </div>
-          )}
-        </div>
-      ))}
+            {hasChildren && isExpanded && (
+              <div className="ml-4 space-y-1">
+                {cat.children.map((child) => {
+                  const isChildActive = activeSlug === child.slug;
+                  return (
+                    <Link
+                      key={child.id}
+                      href={`/helpdesk?category=${child.slug}`}
+                      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                        isChildActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>{child.name}</span>
+                      {child.published_articles_count > 0 && (
+                        <span className="ml-auto text-xs text-slate-400">{child.published_articles_count}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 }

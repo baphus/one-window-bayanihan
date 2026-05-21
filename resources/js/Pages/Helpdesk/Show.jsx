@@ -1,4 +1,3 @@
-import { Head } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import MarkdownRenderer from '@/Components/Helpdesk/MarkdownRenderer';
 import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
@@ -17,8 +16,6 @@ export default function Show({ article, relatedArticles, categoryPath, categorie
 
   return (
     <HelpdeskLayout title={article.title} categories={categories}>
-      <Head title={`${article.title} - Help Center`} />
-
       <Breadcrumbs items={breadcrumbItems} />
 
       <article>

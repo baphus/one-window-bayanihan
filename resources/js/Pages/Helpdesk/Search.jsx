@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import ArticleCard from '@/Components/Helpdesk/ArticleCard';
 import EmptyState from '@/Components/Helpdesk/EmptyState';
@@ -8,10 +8,7 @@ export default function Search({ query, results, categories }) {
   const pagination = results ?? {};
 
   return (
-    <HelpdeskLayout title="Search Results" categories={categories} query={query} showSearchHero={false}>
-      <Head>
-        <title>{query ? `Search: ${query} - Help Center` : 'Search - Help Center'}</title>
-      </Head>
+    <HelpdeskLayout title={query ? `Search: ${query}` : 'Search Results'} categories={categories} query={query} showSearchHero={false}>
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">
