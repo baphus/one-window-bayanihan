@@ -15,8 +15,6 @@ export default function Edit({ article, categories, tags }) {
     category_id: article?.category_id || '',
     status: article?.status || 'draft',
     featured: article?.featured || false,
-    visibility: article?.visibility || 'public',
-    target_roles: article?.target_roles || [],
     tag_ids: article?.tags?.map((t) => t.id) || [],
     edit_notes: '',
   });
@@ -46,15 +44,6 @@ export default function Edit({ article, categories, tags }) {
       post(route('admin.helpdesk.articles.store'), {
         preserveScroll: true,
       });
-    }
-  };
-
-  const toggleRole = (role) => {
-    const current = data.target_roles || [];
-    if (current.includes(role)) {
-      setData('target_roles', current.filter((r) => r !== role));
-    } else {
-      setData('target_roles', [...current, role]);
     }
   };
 
@@ -208,46 +197,6 @@ export default function Edit({ article, categories, tags }) {
                     Featured article
                   </label>
                 </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-4">
-                Visibility
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <select
-                    value={data.visibility}
-                    onChange={(e) => setData('visibility', e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="public">Public (everyone)</option>
-                    <option value="authenticated">Authenticated users only</option>
-                    <option value="role_restricted">Role-restricted</option>
-                  </select>
-                </div>
-
-                {data.visibility === 'role_restricted' && (
-                  <div>
-                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-2">
-                      Target Roles
-                    </p>
-                    <div className="space-y-1.5">
-                      {['OFW', 'CASE_MANAGER', 'AGENCY', 'ADMIN'].map((role) => (
-                        <label key={role} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={data.target_roles?.includes(role)}
-                            onChange={() => toggleRole(role)}
-                            className="rounded border-slate-300 text-primary focus:ring-primary"
-                          />
-                          <span className="text-xs text-slate-700">{role}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 

@@ -18,7 +18,6 @@ class HelpdeskService
             ->with(['category', 'tags', 'author'])
             ->orderBy('created_at', 'desc');
 
-        $query = $this->applyVisibilityFilter($query);
         $query = $this->applySearchFilter($query, $filters);
 
         if (! empty($filters['category_id'])) {
@@ -38,7 +37,7 @@ class HelpdeskService
             ->with(['category', 'tags', 'author', 'feedback'])
             ->where('slug', $slug);
 
-        return $this->applyVisibilityFilter($query)->first();
+        return $query->first();
     }
 
     public function getSubcategories(string $categoryId)
@@ -97,7 +96,7 @@ class HelpdeskService
             ->orderBy('updated_at', 'desc')
             ->limit($limit);
 
-        return $this->applyVisibilityFilter($query)->get();
+        return $query->get();
     }
 
     public function getRecentArticles(int $limit = 5)
@@ -107,7 +106,7 @@ class HelpdeskService
             ->orderBy('updated_at', 'desc')
             ->limit($limit);
 
-        return $this->applyVisibilityFilter($query)->get();
+        return $query->get();
     }
 
     public function getPopularArticles(int $limit = 5)
@@ -118,7 +117,7 @@ class HelpdeskService
             ->orderBy('helpful_count', 'desc')
             ->limit($limit);
 
-        return $this->applyVisibilityFilter($query)->get();
+        return $query->get();
     }
 
     public function searchArticles(string $query, array $filters = [])
@@ -133,8 +132,6 @@ class HelpdeskService
             })
             ->orderByRaw('CASE WHEN title ILIKE ? THEN 0 WHEN excerpt ILIKE ? THEN 1 ELSE 2 END', [$query.'%', $query.'%'])
             ->orderBy('updated_at', 'desc');
-
-        $q = $this->applyVisibilityFilter($q);
 
         if (! empty($filters['category_id'])) {
             $q->where('category_id', $filters['category_id']);
@@ -164,7 +161,7 @@ class HelpdeskService
             $query->where('category_id', $article->category_id);
         }
 
-        return $this->applyVisibilityFilter($query)->get();
+        return $query->get();
     }
 
     public function createArticle(array $data, string $userId): HelpdeskArticle
@@ -355,25 +352,6 @@ class HelpdeskService
             'edited_by' => $userId,
             'edit_notes' => $notes,
         ]);
-    }
-
-    private function applyVisibilityFilter(Builder $query): Builder
-    {
-        $user = request()->user();
-
-        $query->where(function (Builder $q) use ($user) {
-            $q->where('visibility', 'public');
-
-            if ($user) {
-                $q->orWhere('visibility', 'authenticated');
-                $q->orWhere(function (Builder $q2) use ($user) {
-                    $q2->where('visibility', 'role_restricted')
-                        ->whereJsonContains('target_roles', $user->role);
-                });
-            }
-        });
-
-        return $query;
     }
 
     private function applySearchFilter(Builder $query, array $filters): Builder

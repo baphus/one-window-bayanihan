@@ -24,8 +24,6 @@ class HelpdeskArticle extends Model
         'category_id',
         'status',
         'featured',
-        'visibility',
-        'target_roles',
         'author_id',
         'published_at',
     ];
@@ -33,7 +31,6 @@ class HelpdeskArticle extends Model
     protected $casts = [
         'featured' => 'boolean',
         'is_deleted' => 'boolean',
-        'target_roles' => 'array',
         'published_at' => 'datetime',
     ];
 

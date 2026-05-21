@@ -22,9 +22,6 @@ class StoreHelpdeskArticleRequest extends FormRequest
             'category_id' => ['nullable', 'string', 'exists:helpdesk_categories,id'],
             'status' => ['required', Rule::in(['draft', 'published'])],
             'featured' => ['nullable', 'boolean'],
-            'visibility' => ['required', Rule::in(['public', 'authenticated', 'role_restricted'])],
-            'target_roles' => ['nullable', 'array'],
-            'target_roles.*' => ['string', Rule::in(['OFW', 'CASE_MANAGER', 'AGENCY', 'ADMIN'])],
             'tag_ids' => ['nullable', 'array'],
             'tag_ids.*' => ['string', 'exists:helpdesk_tags,id'],
         ];
