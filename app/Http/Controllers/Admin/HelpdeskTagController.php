@@ -22,7 +22,16 @@ class HelpdeskTagController extends Controller
 
     public function store(StoreHelpdeskTagRequest $request)
     {
-        $this->helpdeskService->createTag($request->validated());
+        $tag = $this->helpdeskService->createTag($request->validated());
+
+        if ($request->input('_quick')) {
+            return response()->json([
+                'id' => $tag->id,
+                'name' => $tag->name,
+                'slug' => $tag->slug,
+                'articles_count' => 0,
+            ]);
+        }
 
         return redirect()
             ->route('admin.helpdesk.tags.index')

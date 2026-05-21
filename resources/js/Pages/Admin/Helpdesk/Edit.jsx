@@ -1,11 +1,175 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import MarkdownEditor from '@/Components/Helpdesk/MarkdownEditor';
-import { useEffect } from 'react';
+import { useState } from 'react';
 
+/* ---------- Inline Tag Creator ---------- */
+function CreateTagModal({ open, onClose, onCreated }) {
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreate = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setCreating(true);
+    setError('');
+    try {
+      const res = await fetch(route('admin.helpdesk.tags.store'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ name: trimmed, _quick: 1 }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data?.errors?.name?.[0] || 'Failed to create tag');
+        return;
+      }
+      const tag = await res.json();
+      onCreated(tag);
+      setName('');
+      onClose();
+    } catch {
+      setError('Network error');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h4 className="text-sm font-bold text-slate-900 mb-3">New Tag</h4>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => { setName(e.target.value); setError(''); }}
+          onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+          placeholder="Tag name"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary mb-3"
+          autoFocus
+        />
+        {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+            Cancel
+          </button>
+          <button type="button" onClick={handleCreate} disabled={creating || !name.trim()} className="rounded-md bg-gray-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-50">
+            {creating ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Inline Category Creator ---------- */
+function CreateCategoryModal({ open, onClose, onCreated, existingCategories }) {
+  const [name, setName] = useState('');
+  const [parentId, setParentId] = useState('');
+  const [icon, setIcon] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreate = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setCreating(true);
+    setError('');
+    try {
+      const body = { name: trimmed, _quick: 1 };
+      if (parentId) body.parent_id = parentId;
+      if (icon.trim()) body.icon = icon.trim();
+
+      const res = await fetch(route('admin.helpdesk.categories.store'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data?.errors?.name?.[0] || 'Failed to create category');
+        return;
+      }
+      const cat = await res.json();
+      onCreated(cat);
+      setName('');
+      setParentId('');
+      setIcon('');
+      onClose();
+    } catch {
+      setError('Network error');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const parents = existingCategories?.filter((c) => !c.parent_id) || [];
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h4 className="text-sm font-bold text-slate-900 mb-3">New Category</h4>
+
+        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => { setName(e.target.value); setError(''); }}
+          onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+          placeholder="Category name"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary mb-3"
+          autoFocus
+        />
+
+        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Parent (optional — leave blank for top-level)</label>
+        <select
+          value={parentId}
+          onChange={(e) => setParentId(e.target.value)}
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary mb-3"
+        >
+          <option value="">— Top-level category —</option>
+          {parents.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+
+        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Icon (optional — Material Symbol name)</label>
+        <input
+          type="text"
+          value={icon}
+          onChange={(e) => setIcon(e.target.value)}
+          placeholder="e.g. folder, description, settings"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary mb-3"
+        />
+
+        {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+            Cancel
+          </button>
+          <button type="button" onClick={handleCreate} disabled={creating || !name.trim()} className="rounded-md bg-gray-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-50">
+            {creating ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Main Component ---------- */
 export default function Edit({ article, categories, tags }) {
   const isEditing = !!article;
   const { auth } = usePage().props;
+
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [localCategories, setLocalCategories] = useState(categories || []);
+  const [localTags, setLocalTags] = useState(tags || []);
 
   const { data, setData, post, patch, processing, errors } = useForm({
     title: article?.title || '',
@@ -56,9 +220,23 @@ export default function Edit({ article, categories, tags }) {
     }
   };
 
+  const handleTagCreated = (tag) => {
+    setLocalTags((prev) => [...prev, tag]);
+    setData('tag_ids', [...(data.tag_ids || []), tag.id]);
+  };
+
+  const handleCategoryCreated = (cat) => {
+    setLocalCategories((prev) => [...prev, cat]);
+    setData('category_id', cat.id);
+  };
+
+  const parentCategories = localCategories?.filter((c) => !c.parent_id) || [];
+
   return (
     <AppLayout title={isEditing ? 'Edit Article' : 'New Article'}>
       <Head title={isEditing ? 'Edit Article' : 'New Article'} />
+      <CreateTagModal open={showTagModal} onClose={() => setShowTagModal(false)} onCreated={handleTagCreated} />
+      <CreateCategoryModal open={showCatModal} onClose={() => setShowCatModal(false)} onCreated={handleCategoryCreated} existingCategories={localCategories} />
 
       <div className="mb-8 flex items-center justify-between">
         <div>
@@ -168,20 +346,37 @@ export default function Edit({ article, categories, tags }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-1">
-                    Category
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                      Category
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowCatModal(true)}
+                      className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                    >
+                      + New
+                    </button>
+                  </div>
                   <select
                     value={data.category_id}
                     onChange={(e) => setData('category_id', e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="">No category</option>
-                    {categories?.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {parentCategories.map((cat) => {
+                      const subcats = localCategories?.filter((c) => c.parent_id === cat.id) || [];
+                      return (
+                        <optgroup key={cat.id} label={cat.name}>
+                          <option value={cat.id}>{cat.name}</option>
+                          {subcats.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              &nbsp;&nbsp;&nbsp;{sub.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -201,11 +396,20 @@ export default function Edit({ article, categories, tags }) {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-4">
-                Tags
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                  Tags
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowTagModal(true)}
+                  className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                >
+                  + New
+                </button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
-                {tags?.map((tag) => (
+                {localTags?.map((tag) => (
                   <button
                     key={tag.id}
                     type="button"
@@ -219,6 +423,9 @@ export default function Edit({ article, categories, tags }) {
                     {tag.name}
                   </button>
                 ))}
+                {(!localTags || localTags.length === 0) && (
+                  <p className="text-xs text-slate-400">No tags yet.</p>
+                )}
               </div>
             </div>
 

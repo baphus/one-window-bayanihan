@@ -23,7 +23,21 @@ class HelpdeskCategoryController extends Controller
 
     public function store(StoreHelpdeskCategoryRequest $request)
     {
-        $this->helpdeskService->createCategory($request->validated());
+        $category = $this->helpdeskService->createCategory($request->validated());
+
+        if ($request->input('_quick')) {
+            return response()->json([
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'parent_id' => $category->parent_id,
+                'icon' => $category->icon,
+                'sort_order' => $category->sort_order,
+                'articles_count' => 0,
+                'children' => [],
+            ]);
+        }
 
         return redirect()
             ->route('admin.helpdesk.categories.index')
