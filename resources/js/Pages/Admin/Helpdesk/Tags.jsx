@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 
 function TagForm({ show, onClose, tag }) {
   const isEditing = !!tag;
@@ -103,6 +104,43 @@ export default function Tags({ tags }) {
     }
   };
 
+  const columns = useMemo(() => [
+    {
+      key: 'name',
+      title: 'Name',
+      sortable: true,
+      render: (row) => (
+        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+          {row.name}
+        </span>
+      ),
+    },
+    {
+      key: 'slug',
+      title: 'Slug',
+      sortable: true,
+      render: (row) => row.slug,
+    },
+    {
+      key: 'articles_count',
+      title: 'Articles',
+      sortable: true,
+      render: (row) => row.articles_count || 0,
+    },
+    {
+      key: 'id',
+      title: 'Actions',
+      sortable: false,
+      className: 'text-right',
+      render: (row) => (
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={() => openEdit(row)} className="text-xs font-semibold text-primary hover:underline">Edit</button>
+          <button onClick={() => deleteTag(row.id)} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
+        </div>
+      ),
+    },
+  ], []);
+
   return (
     <AppLayout title="Helpdesk Tags">
       <Head title="Helpdesk Tags" />
@@ -120,44 +158,12 @@ export default function Tags({ tags }) {
         </button>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Slug</th>
-              <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-slate-500">Articles</th>
-              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {tags?.map((tag) => (
-              <tr key={tag.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4">
-                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                    {tag.name}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-xs text-slate-500">{tag.slug}</td>
-                <td className="px-6 py-4 text-center text-xs text-slate-500">{tag.articles_count || 0}</td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => openEdit(tag)} className="text-xs font-semibold text-primary hover:underline">Edit</button>
-                    <button onClick={() => deleteTag(tag.id)} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {(!tags || tags.length === 0) && (
-          <div className="py-12 text-center">
-            <span className="material-symbols-outlined text-4xl text-slate-300 mb-3">label</span>
-            <p className="text-sm text-slate-500">No tags yet. Create your first tag.</p>
-          </div>
-        )}
-      </div>
+      <UnifiedTable
+        columns={columns}
+        data={tags ?? []}
+        keyExtractor={(row) => row.id}
+        hidePagination
+      />
 
       <TagForm
         show={showForm}

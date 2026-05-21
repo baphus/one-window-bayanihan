@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, useForm } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 
 function ServiceForm({ service, allAgencies, onClose }) {
   const isEdit = !!service;
@@ -67,6 +68,58 @@ export default function AdminServiceIndex({ services, allAgencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
 
+  function paginatorProps(paginator) {
+    return {
+      totalRecords: paginator.total,
+      startIndex: paginator.from,
+      endIndex: paginator.to,
+      currentPage: paginator.current_page,
+      totalPages: paginator.last_page,
+      rowsPerPage: paginator.per_page,
+      hideControlBar: true,
+      onPageChange: (page) => {
+        const url = new URL(window.location);
+        url.searchParams.set('page', page);
+        window.location = url.toString();
+      },
+      onRowsPerPageChange: (n) => {
+        const url = new URL(window.location);
+        url.searchParams.set('per_page', n);
+        url.searchParams.delete('page');
+        window.location = url.toString();
+      },
+    };
+  }
+
+  const columns = useMemo(() => [
+    {
+      key: 'name',
+      title: 'Name',
+      sortable: true,
+      render: (row) => row.name,
+    },
+    {
+      key: 'description',
+      title: 'Description',
+      sortable: false,
+      render: (row) => <span className="max-w-xs truncate block">{row.description || '—'}</span>,
+    },
+    {
+      key: 'agency',
+      title: 'Agencies',
+      sortable: true,
+      render: (row) => row.agency?.name ?? 'N/A',
+    },
+    {
+      key: 'id',
+      title: 'Actions',
+      sortable: false,
+      render: (row) => (
+        <button onClick={() => { setEditingService(row); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+      ),
+    },
+  ], []);
+
   return (
     <AppLayout title="Manage Services">
       {showForm && <ServiceForm service={editingService} allAgencies={allAgencies} onClose={() => { setShowForm(false); setEditingService(null); }} />}
@@ -81,38 +134,12 @@ export default function AdminServiceIndex({ services, allAgencies }) {
         </button>
       </div>
 
-      <div className="rounded-lg bg-white shadow-sm border border-slate-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Agencies</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {services.data.length === 0 ? (
-                <tr><td colSpan={4} className="px-6 py-4 text-center text-sm text-slate-500">No services found.</td></tr>
-              ) : (
-                services.data.map((service) => (
-                  <tr key={service.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{service.name}</td>
-                    <td className="px-6 py-4 text-sm text-slate-500 max-w-xs truncate">{service.description || '—'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-500">
-                      {service.agency?.name ?? 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <button onClick={() => { setEditingService(service); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <UnifiedTable
+        columns={columns}
+        data={services.data}
+        keyExtractor={(row) => row.id}
+        {...paginatorProps(services)}
+      />
     </AppLayout>
   );
 }

@@ -7,7 +7,7 @@ import {
     CategoryScale, LinearScale, BarElement,
     ArcElement, Title, Tooltip, Legend,
 } from 'chart.js';
-import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight } from 'lucide-react';
+import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, Loader2, XCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
 import RecentTable from '@/Components/ui/RecentTable';
 import NotificationBell from '@/Components/ui/NotificationBell';
@@ -207,6 +207,43 @@ const barOptions = {
   },
 }
 
+function getCaseAgeInDays(timestamp) {
+  const parsed = new Date(timestamp)
+  if (Number.isNaN(parsed.getTime())) return 0
+  return Math.floor(Math.max(0, Date.now() - parsed.getTime()) / (24 * 60 * 60 * 1000))
+}
+
+function statusIcon(status) {
+  switch (status) {
+    case 'PENDING': return <Loader2 className="w-3 h-3 text-amber-500" />
+    case 'PROCESSING': return <Clock className="w-3 h-3 text-blue-500" />
+    case 'COMPLETED': return <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+    case 'REJECTED': return <XCircle className="w-3 h-3 text-rose-500" />
+    case 'OPEN': return <Loader2 className="w-3 h-3 text-blue-900" />
+    case 'CLOSED': return <CheckCircle2 className="w-3 h-3 text-slate-400" />
+    default: return null
+  }
+}
+
+function StatusBadge({ status, size = 'sm' }) {
+  const base = 'inline-flex items-center gap-1 rounded-full font-bold leading-none'
+  const sz = size === 'sm' ? 'px-2 py-[3px] text-[10px]' : 'px-2.5 py-1 text-[11px]'
+  const colors = {
+    PENDING: 'bg-amber-50 text-amber-700',
+    PROCESSING: 'bg-blue-50 text-blue-700',
+    COMPLETED: 'bg-emerald-50 text-emerald-700',
+    REJECTED: 'bg-rose-50 text-rose-700',
+    OPEN: 'bg-blue-50 text-blue-800',
+    CLOSED: 'bg-slate-100 text-slate-500',
+  }
+  return (
+    <span className={`${base} ${sz} ${colors[status] || 'bg-slate-50 text-slate-600'}`}>
+      {statusIcon(status)}
+      {status}
+    </span>
+  )
+}
+
 function CaseManagerDashboard({
   stats,
   allCases = [],
@@ -233,23 +270,74 @@ function CaseManagerDashboard({
     return acc
   }, [allReferrals])
 
-  const recentCaseRows = sortedCases.slice(0, 5).map((item) => ({
-    rowId: item.id,
-    caseNo: item.caseNo,
-    clientName: item.clientName,
-    clientType: item.clientType,
-    createdOn: formatDisplayDate(item.createdAt),
-    caseAge: formatCaseAge(item.createdAt),
-    referredTo: latestReferralByCaseId[item.id]?.agencyName ?? '—',
-  }))
-
   const openCount = allCases.filter((c) => c.status === 'OPEN').length
   const closedCount = allCases.filter((c) => c.status === 'CLOSED').length
   const totalReferrals = allReferrals.length
   const completedReferralsCount = allReferrals.filter((r) => r.status === 'COMPLETED').length
   const pendingCount = allReferrals.filter((r) => r.status === 'PENDING').length
-  const closureReadyCount = completedReferralsCount
+  const processingCount = allReferrals.filter((r) => r.status === 'PROCESSING').length
+  const rejectedCount = allReferrals.filter((r) => r.status === 'REJECTED').length
   const averageReferralCompletionRate = totalReferrals > 0 ? Math.round((completedReferralsCount / totalReferrals) * 100) : 0
+
+  const attentionItems = useMemo(() => {
+    const items = []
+
+    allReferrals.forEach((ref) => {
+      const daysOld = getCaseAgeInDays(ref.createdAt)
+      if (ref.status === 'PENDING' && daysOld >= 5) {
+        items.push({
+          id: `pending-${ref.id}`,
+          type: 'warning',
+          title: 'Overdue Referral Follow-up',
+          desc: `${ref.caseNo} · ${ref.agencyName} · ${daysOld} days pending`,
+          action: () => router.visit(`/referrals`),
+        })
+      }
+      if (ref.status === 'REJECTED') {
+        items.push({
+          id: `rejected-${ref.id}`,
+          type: 'error',
+          title: 'Referral Returned — Needs Re-assignment',
+          desc: `${ref.caseNo} · ${ref.agencyName} · ${ref.service}`,
+          action: () => router.visit(`/referrals`),
+        })
+      }
+    })
+
+    allCases.forEach((c) => {
+      const caseReferrals = allReferrals.filter((r) => r.caseId === c.id)
+      const daysOpen = getCaseAgeInDays(c.createdAt)
+      if (c.status === 'OPEN' && caseReferrals.length === 0 && daysOpen >= 7) {
+        items.push({
+          id: `no-ref-${c.id}`,
+          type: 'info',
+          title: 'Case Requires Referral',
+          desc: `${c.caseNo} · ${c.clientName} · Open for ${daysOpen} days without referral`,
+          action: () => router.visit(`/cases/${c.id}`),
+        })
+      }
+    })
+
+    return items.slice(0, 4)
+  }, [allCases, allReferrals])
+
+  const recentCaseRows = sortedCases.slice(0, 6).map((item) => {
+    const latestRef = latestReferralByCaseId[item.id]
+    const ageDays = getCaseAgeInDays(item.createdAt)
+    const ageColor = ageDays <= 3 ? 'text-emerald-600' : ageDays <= 10 ? 'text-amber-600' : 'text-rose-600'
+    return {
+      rowId: item.id,
+      caseNo: item.caseNo,
+      clientName: item.clientName,
+      clientType: item.clientType === 'Overseas Filipino Worker' ? 'OFW' : 'NOK',
+      age: formatCaseAge(item.createdAt),
+      ageDays,
+      ageColor,
+      agencyName: latestRef?.agencyName ?? '—',
+      status: item.status,
+      referralStatus: latestRef?.status ?? null,
+    }
+  })
 
   const referralStatusStats = useMemo(() => {
     const total = totalReferrals || 1
@@ -264,32 +352,33 @@ function CaseManagerDashboard({
     return [
       { label: 'Open', count: openCount, hex: '#1e3a8a', percent: Math.round((openCount / total) * 100) },
       { label: 'Closed', count: closedCount, hex: '#cbd5e1', percent: Math.round((closedCount / total) * 100) },
-    ].filter((s) => s.count > 0)
+    ]
   }, [allCases, openCount, closedCount])
 
-  const casesByProvinceStats = useMemo(() => {
-    const total = allCases.length || 1
-    const colors = ['#0f766e', '#ea580c', '#1e3a8a', '#6d28d9', '#be123c', '#4338ca', '#0e7490', '#a21caf']
-    return casesByProvince.map((item, i) => ({
-      label: item.province,
-      count: item.count,
-      hex: colors[i % colors.length],
-      percent: Math.round((item.count / total) * 100),
-    }))
-  }, [casesByProvince, allCases])
+  const agencyChartData = useMemo(() => ({
+    labels: agencyBreakdown.map((a) => a.agencyName),
+    datasets: [{
+      label: 'Referrals',
+      data: agencyBreakdown.map((a) => a.count),
+      backgroundColor: ['#1e3a8a', '#0f766e', '#ea580c', '#6d28d9', '#be123c'],
+      borderRadius: 3,
+      barThickness: 20,
+    }],
+  }), [agencyBreakdown])
 
-  const agencyStats = useMemo(() => {
-    const total = agencyBreakdown.reduce((s, a) => s + a.count, 0) || 1
-    const colors = ['#1e3a8a', '#0f766e', '#ea580c', '#6d28d9', '#be123c', '#4338ca', '#0e7490', '#a21caf']
-    return agencyBreakdown.map((item, i) => ({
-      label: item.agencyName,
-      count: item.count,
-      hex: colors[i % colors.length],
-      percent: Math.round((item.count / total) * 100),
-    }))
-  }, [agencyBreakdown])
-
-  const casesOverTimeMax = casesOverTime.reduce((acc, item) => Math.max(acc, item.count), 1)
+  const provinceChartData = useMemo(() => {
+    const sorted = [...casesByProvince].sort((a, b) => b.count - a.count)
+    return {
+      labels: sorted.map((p) => p.province),
+      datasets: [{
+        label: 'Cases',
+        data: sorted.map((p) => p.count),
+        backgroundColor: '#1e3a8a',
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    }
+  }, [casesByProvince])
 
   const casesOverTimeChart = useMemo(() => ({
     labels: casesOverTime.map((m) => m.label),
@@ -313,185 +402,212 @@ function CaseManagerDashboard({
     datasets: [{ data: casesStatusStats.map((s) => s.count), backgroundColor: casesStatusStats.map((s) => s.hex), borderWidth: 0 }],
   }), [casesStatusStats])
 
-  const provincePieChart = useMemo(() => ({
-    labels: casesByProvinceStats.map((s) => s.label),
-    datasets: [{ data: casesByProvinceStats.map((s) => s.count), backgroundColor: casesByProvinceStats.map((s) => s.hex), borderWidth: 0 }],
-  }), [casesByProvinceStats])
-
-  const agencyPieChart = useMemo(() => ({
-    labels: agencyStats.map((s) => s.label),
-    datasets: [{ data: agencyStats.map((s) => s.count), backgroundColor: agencyStats.map((s) => s.hex), borderWidth: 0 }],
-  }), [agencyStats])
+  const barOptionsHorizontal = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+      y: { ticks: { font: { size: 10 } }, grid: { display: false } },
+    },
+  }
 
   const todayLabel = new Intl.DateTimeFormat('en-US', {
     weekday: 'long', month: 'long', day: '2-digit', year: 'numeric',
   }).format(new Date())
 
-  const recentCasesColumns = [
-    { key: 'caseNo', title: 'TRACKING ID', render: (row) => <span className="text-xs text-slate-900 font-body">{row.caseNo}</span> },
-    { key: 'clientName', title: 'CLIENT NAME', render: (row) => <span className="text-xs text-slate-900 font-body">{row.clientName}</span> },
-    { key: 'clientType', title: 'CLIENT TYPE', render: (row) => <span className="text-xs text-slate-900 font-body">{row.clientType}</span> },
-    { key: 'createdOn', title: 'CREATED ON', render: (row) => <span className="text-xs text-slate-900 font-body">{row.createdOn}</span> },
-    { key: 'caseAge', title: 'CASE AGE', render: (row) => <span className="text-xs text-slate-900 font-body">{row.caseAge}</span> },
-    { key: 'referredTo', title: 'REFERRED TO', render: (row) => <span className="text-xs text-slate-900 font-body">{row.referredTo}</span> },
+  const activeCasesColumns = [
+    {
+      key: 'caseNo',
+      title: 'CASE',
+      render: (row) => (
+        <button onClick={() => router.visit(`/cases/${row.rowId}`)} className="text-xs font-bold text-blue-900 hover:underline font-body">{row.caseNo}</button>
+      ),
+    },
+    {
+      key: 'clientName',
+      title: 'CLIENT',
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-slate-900 font-body">{row.clientName}</span>
+          <span className="text-[9px] font-bold uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{row.clientType}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'age',
+      title: 'AGE',
+      render: (row) => <span className={`text-xs font-bold font-body ${row.ageColor}`}>{row.age}</span>,
+    },
+    {
+      key: 'agencyName',
+      title: 'AGENCY',
+      render: (row) => <span className="text-xs text-slate-600 font-body">{row.agencyName}</span>,
+    },
+    {
+      key: 'status',
+      title: 'STATUS',
+      render: (row) => (
+        <div className="flex items-center gap-1">
+          <StatusBadge status={row.status} />
+          {row.referralStatus && <StatusBadge status={row.referralStatus} />}
+        </div>
+      ),
+    },
   ]
 
   return (
-    <div className="max-w-7xl mx-auto pb-4">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-2 mb-4">
+    <div className="max-w-7xl mx-auto pb-6">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight leading-tight text-blue-900 flex items-center gap-2 mb-1">
-            Welcome back! <span role="img" aria-label="wave">👋</span>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900 flex items-center gap-2">
+            Good morning! <span role="img" aria-label="wave">👋</span>
           </h1>
-          <p className="text-xs text-slate-500 font-body mt-0 flex items-center gap-2">
-            Today is {todayLabel}
-          </p>
+          <p className="text-sm text-slate-400 font-body mt-0.5">{todayLabel}</p>
         </div>
-        <div className="self-start md:self-auto">
+        <div className="flex items-center gap-3">
+          <div className="relative hidden md:block">
+            <input
+              type="text"
+              placeholder="Search cases, clients..."
+              className="w-64 h-10 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-slate-600 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-900/20 focus:border-blue-900/30 transition"
+              onFocus={() => router.visit('/cases')}
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <NotificationBell notifications={dashboardNotifications} />
         </div>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
-        <KpiCard
-          title="TOTAL CASES"
-          value={String(openCount)}
-          trend="OPEN CASES"
-          description={`Out of ${stats.totalCases} total managed cases`}
-          icon={<FolderCheck className="w-5 h-5 text-blue-800 opacity-50" />}
-        />
-        <KpiCard
-          title="TOTAL CLIENTS"
-          value={String(stats.uniqueClientCount ?? 0)}
-          trend={`${stats.ofwCount ?? 0} OFW • ${stats.nokCount ?? 0} NOK`}
-          description="Overseas Filipino Workers / Next of Kin"
-          icon={<Users className="w-5 h-5 text-blue-800 opacity-50" />}
-        />
-        <KpiCard
-          title="PENDING REFERRALS"
-          value={String(pendingCount)}
-          description="Awaiting agency confirmation"
-          icon={<ArrowRightLeft className="w-5 h-5 text-blue-800 opacity-50" />}
-        />
-        <KpiCard
-          title="READY FOR CLOSURE"
-          value={String(closureReadyCount)}
-          trend="Referrals marked as Completed"
-          description="Milestones completed"
-          icon={<FolderCheck className="w-5 h-5 text-blue-800 opacity-50" />}
-        />
-        <KpiCard
-          title="AVG REFERRAL COMPLETION RATE"
-          value={`${averageReferralCompletionRate}%`}
-          trend={`${completedReferralsCount} completed referrals`}
-          description="Completed out of total referrals"
-          icon={<FolderCheck className="w-5 h-5 text-blue-800 opacity-50" />}
-        />
-        <KpiCard
-          title="AVG DAYS TO CASE CLOSURE"
-          value={Number(stats.averageCaseDaysToClose ?? 0).toFixed(1)}
-          trend={`${closedCount} closed cases`}
-          description="Average days from case creation to closure"
-          icon={<FolderCheck className="w-5 h-5 text-blue-800 opacity-50" />}
-        />
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Cases</p>
+            <span className="p-1.5 bg-blue-50 rounded-lg"><FolderCheck className="w-4 h-4 text-blue-900" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{openCount}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <TrendingUp className="w-3 h-3 text-emerald-500" />
+            <span className="text-[11px] font-bold text-emerald-600">+{sortedCases.filter((c) => getCaseAgeInDays(c.createdAt) <= 7 && c.status === 'OPEN').length} this week</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">Out of {stats.totalCases} total cases</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Clients Served</p>
+            <span className="p-1.5 bg-violet-50 rounded-lg"><Users className="w-4 h-4 text-violet-600" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{stats.uniqueClientCount ?? 0}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="text-[11px] font-medium text-slate-500">{stats.ofwCount ?? 0} OFW · {stats.nokCount ?? 0} NOK</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">Overseas Filipino Workers / Next of Kin</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Referrals</p>
+            <span className="p-1.5 bg-amber-50 rounded-lg"><ArrowRightLeft className="w-4 h-4 text-amber-600" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{pendingCount}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {pendingCount > 0 ? (
+              <><AlertTriangle className="w-3 h-3 text-amber-500" /><span className="text-[11px] font-bold text-amber-600">Needs attention</span></>
+            ) : (
+              <><CheckCircle2 className="w-3 h-3 text-emerald-500" /><span className="text-[11px] font-bold text-emerald-600">All clear</span></>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">{processingCount} processing · {rejectedCount} rejected</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Avg Resolution Time</p>
+            <span className="p-1.5 bg-teal-50 rounded-lg"><Clock className="w-4 h-4 text-teal-600" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{Number(stats.averageCaseDaysToClose ?? 0).toFixed(1)} <span className="text-sm font-bold text-slate-400">days</span></p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <TrendingDown className="w-3 h-3 text-emerald-500" />
+            <span className="text-[11px] font-bold text-emerald-600">{completedReferralsCount} completed referrals</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">{averageReferralCompletionRate}% completion rate</p>
+        </div>
       </section>
+
+      {attentionItems.length > 0 && (
+        <section className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            <h2 className="text-[13px] font-bold font-headline text-slate-700">Attention Required</h2>
+            <span className="text-[10px] font-bold text-white bg-amber-500 px-1.5 py-0.5 rounded-full">{attentionItems.length}</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {attentionItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={item.action}
+                className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-300/50 transition-all text-left group"
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.type === 'error' ? 'bg-rose-500' : item.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                  <span className="text-[11px] font-bold text-slate-700 group-hover:text-blue-900 transition-colors">{item.title}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed pl-3.5">{item.desc}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 lg:col-span-8 space-y-4">
           <RecentTable
-            title="Recent Cases"
+            title="Active Cases"
             data={recentCaseRows}
-            columns={recentCasesColumns}
+            columns={activeCasesColumns}
             keyExtractor={(row) => row.rowId}
             onViewAll={() => router.visit('/cases')}
           />
 
-          <h2 className="text-[13px] font-bold font-headline text-slate-500 mb-3 uppercase tracking-wider">Cases Breakdown</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="text-[15px] font-bold font-headline text-blue-900 mb-4">Cases by Status</h3>
-              <div className="relative flex justify-center items-center py-2">
-                <div className="w-24 h-24 shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Status</h3>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 shrink-0">
                   <Doughnut data={casesStatusPieChart} options={doughnutOptions} />
                 </div>
-                <div className="ml-6 space-y-1.5 flex-1">
-                  {casesStatusStats.map((stat) => (
+                <div className="space-y-2 flex-1">
+                  {casesStatusStats.filter((s) => s.count > 0).map((stat) => (
                     <div key={stat.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${stat.label === 'Open' ? 'bg-blue-900' : 'bg-slate-300'}`} />
-                        <span className="text-[11px] font-medium text-slate-800 font-label truncate">{stat.label}</span>
+                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-500 ml-2">{stat.percent}%</span>
+                      <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="text-[15px] font-bold font-headline text-blue-900 mb-4">Cases by Province</h3>
-              <div className="relative flex justify-center items-center py-2">
-                <div className="w-24 h-24 shrink-0">
-                  <Doughnut data={provincePieChart} options={doughnutOptions} />
-                </div>
-                <div className="ml-6 space-y-1.5 flex-1">
-                  {casesByProvinceStats.map((stat) => (
-                    <div key={stat.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                        <span className="text-[11px] font-medium text-slate-800 font-label truncate">{stat.label}</span>
-                      </div>
-                      <span className="text-[11px] font-bold text-slate-500 ml-2">{stat.percent}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <section className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
-            <h3 className="text-[15px] font-bold font-headline text-blue-900 mb-3">Cases Over Time</h3>
-            <div className="h-36">
-              <Bar data={casesOverTimeChart} options={barOptions} />
-            </div>
-          </section>
-
-          <h2 className="text-[13px] font-bold font-headline text-slate-500 mb-3 uppercase tracking-wider">Referrals Breakdown</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="text-[15px] font-bold font-headline text-blue-900 mb-4">Referrals by Status</h3>
-              <div className="relative flex justify-center items-center py-2">
-                <div className="w-24 h-24 shrink-0">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Referral Status</h3>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 shrink-0">
                   <Doughnut data={referralPieChart} options={doughnutOptions} />
                 </div>
-                <div className="ml-6 space-y-1.5 flex-1">
+                <div className="space-y-2 flex-1">
                   {referralStatusStats.map((stat) => (
                     <div key={stat.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                        <span className="text-[11px] font-medium text-slate-800 font-label truncate">{stat.label}</span>
+                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-500 ml-2">{stat.percent}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="text-[15px] font-bold font-headline text-blue-900 mb-4">Referrals by Agency</h3>
-              <div className="relative flex justify-center items-center py-2">
-                <div className="w-24 h-24 shrink-0">
-                  <Doughnut data={agencyPieChart} options={doughnutOptions} />
-                </div>
-                <div className="ml-6 space-y-1.5 flex-1 h-24 overflow-y-auto pr-1">
-                  {agencyStats.map((stat) => (
-                    <div key={stat.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                        <span className="text-[11px] font-medium text-slate-800 font-label truncate max-w-[120px]">{stat.label}</span>
-                      </div>
-                      <span className="text-[11px] font-bold text-slate-500 ml-2">{stat.percent}%</span>
+                      <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                     </div>
                   ))}
                 </div>
@@ -499,72 +615,105 @@ function CaseManagerDashboard({
             </div>
           </div>
 
-          <section className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[15px] font-bold font-headline text-blue-900">Client Breakdown: <span className="text-slate-900 text-xs">Current referral load</span></h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Province</h3>
+              <div className="h-44">
+                <Bar data={provinceChartData} options={barOptionsHorizontal} />
+              </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <div className="bg-white p-3 rounded-lg border border-slate-200 hover:border-blue-900/30 transition-all cursor-default group shadow-sm flex flex-col">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-0.5 group-hover:text-blue-900">OFW CLIENTS</p>
-                <p className="text-xl font-black text-slate-900">{stats.ofwCount ?? 0}</p>
-                <p className="text-[10px] font-medium text-teal-700 font-label mt-auto">Current records</p>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Agency Referral Load</h3>
+              <div className="h-44">
+                <Bar data={agencyChartData} options={barOptionsHorizontal} />
               </div>
-              <div className="bg-white p-3 rounded-lg border border-slate-200 hover:border-blue-900/30 transition-all cursor-default group shadow-sm flex flex-col">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-0.5 group-hover:text-blue-900">NEXT OF KIN</p>
-                <p className="text-xl font-black text-slate-900">{stats.nokCount ?? 0}</p>
-                <p className="text-[10px] font-medium text-teal-700 font-label mt-auto">Current records</p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-slate-200 hover:border-blue-900/30 transition-all cursor-default group shadow-sm flex flex-col">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-0.5 group-hover:text-blue-900">PROCESSING</p>
-                <p className="text-xl font-black text-slate-900">{stats.processingReferrals ?? 0}</p>
-                <p className="text-[10px] font-medium text-teal-700 font-label mt-auto">In progress</p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-slate-200 hover:border-blue-900/30 transition-all cursor-default group shadow-sm flex flex-col">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-0.5 group-hover:text-blue-900">REJECTED</p>
-                <p className="text-xl font-black text-slate-900">{stats.rejectedReferrals ?? 0}</p>
-                <p className="text-[10px] font-medium text-teal-700 font-label mt-auto">Requires follow-up</p>
-              </div>
+            </div>
+          </div>
+
+          <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Case Creation Trend</h3>
+            <div className="h-32">
+              <Bar data={casesOverTimeChart} options={barOptions} />
             </div>
           </section>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 space-y-4">
-          <section className="space-y-2">
-            <button
-              onClick={() => router.visit('/cases/create')}
-              className="w-full py-3 px-4 bg-orange-500 text-white rounded-lg flex items-center justify-between shadow-sm shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-            >
-              <span className="flex items-center gap-2 text-[12px] font-bold font-label">
-                <Plus className="w-4 h-4" /> Create New Case
-              </span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => router.visit('/referrals')}
-              className="w-full py-3 px-4 bg-white text-blue-900 border border-slate-200 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
-            >
-              <Send className="w-4 h-4 text-blue-900 opacity-80" />
-              <span className="text-[12px] font-bold font-label">Create Referral</span>
-            </button>
-            <button
-              onClick={() => router.visit('/referrals')}
-              className="w-full py-3 px-4 bg-white text-blue-900 border border-slate-200 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
-            >
-              <Eye className="w-4 h-4 text-blue-900 opacity-80" />
-              <span className="text-[12px] font-bold font-label">View Referrals</span>
-            </button>
-          </section>
+        <div className="col-span-12 lg:col-span-4 space-y-3">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Quick Actions</h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => router.visit('/cases/create')}
+                className="w-full py-2.5 px-3.5 bg-blue-900 text-white rounded-lg flex items-center justify-between hover:bg-blue-800 active:scale-[0.98] transition-all shadow-sm"
+              >
+                <span className="flex items-center gap-2 text-[12px] font-bold">
+                  <Plus className="w-3.5 h-3.5" /> New Case
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+              </button>
+              <button
+                onClick={() => router.visit('/referrals')}
+                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
+              >
+                <span className="flex items-center gap-2 text-[12px] font-bold">
+                  <Send className="w-3.5 h-3.5 text-slate-400" /> New Referral
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+              </button>
+              <button
+                onClick={() => router.visit('/cases')}
+                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
+              >
+                <span className="flex items-center gap-2 text-[12px] font-bold">
+                  <FolderCheck className="w-3.5 h-3.5 text-slate-400" /> All Cases
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+              </button>
+              <button
+                onClick={() => router.visit('/referrals')}
+                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
+              >
+                <span className="flex items-center gap-2 text-[12px] font-bold">
+                  <Eye className="w-3.5 h-3.5 text-slate-400" /> All Referrals
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+              </button>
+            </div>
+          </div>
 
-          <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Client Snapshot</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">OFW</p>
+                <p className="text-lg font-black text-slate-900">{stats.ofwCount ?? 0}</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">NOK</p>
+                <p className="text-lg font-black text-slate-900">{stats.nokCount ?? 0}</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Processing</p>
+                <p className="text-lg font-black text-amber-600">{processingCount}</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Rejected</p>
+                <p className="text-lg font-black text-rose-600">{rejectedCount}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100">
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-900">Recent Activity</h3>
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Activity</h3>
             </div>
             <div className="p-4">
-              <div className="relative pl-4 border-l-2 border-slate-100 space-y-6">
+              <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
                 {recentActivity.length === 0 ? (
                   <p className="text-xs text-slate-400 py-2">No recent activity.</p>
                 ) : (
-                  recentActivity.slice(0, 4).map((activity) => (
+                  recentActivity.slice(0, 5).map((activity) => (
                     <ActivityItem
                       key={activity.id}
                       title={activity.title}
@@ -577,12 +726,12 @@ function CaseManagerDashboard({
               </div>
               <button
                 onClick={() => router.visit('/audit-logs')}
-                className="w-full mt-4 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors"
+                className="w-full mt-3 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors text-center"
               >
-                VIEW ALL ACTIVITIES
+                VIEW ALL ACTIVITY
               </button>
             </div>
-          </section>
+          </div>
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 
 export default function Index({ articles, filters, categories }) {
-  const { auth } = usePage().props;
   const articleList = articles?.data ?? [];
   const pagination = articles ?? {};
 
@@ -36,11 +36,112 @@ export default function Index({ articles, filters, categories }) {
     }
   };
 
-  const restoreArticle = (id) => {
-    router.post(route('admin.helpdesk.articles.restore', id), {}, {
-      preserveScroll: true,
-    });
-  };
+  function paginatorProps(paginator) {
+    return {
+      totalRecords: paginator.total,
+      startIndex: paginator.from,
+      endIndex: paginator.to,
+      currentPage: paginator.current_page,
+      totalPages: paginator.last_page,
+      rowsPerPage: paginator.per_page,
+      hideControlBar: true,
+      onPageChange: (page) => {
+        router.get(route('admin.helpdesk.articles.index'), { ...filters, page }, { preserveState: true });
+      },
+      onRowsPerPageChange: (n) => {
+        router.get(route('admin.helpdesk.articles.index'), { ...filters, per_page: n, page: undefined }, { preserveState: true });
+      },
+    };
+  }
+
+  const columns = useMemo(() => [
+    {
+      key: 'title',
+      title: 'Title',
+      sortable: true,
+      render: (row) => (
+        <div>
+          <Link
+            href={route('admin.helpdesk.articles.edit', row.id)}
+            className="text-sm font-semibold text-slate-800 hover:text-primary"
+          >
+            {row.title}
+          </Link>
+          <div className="mt-0.5 text-xs text-slate-400">
+            /helpdesk/{row.slug}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      title: 'Category',
+      sortable: true,
+      render: (row) => row.category?.name || '-',
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      sortable: true,
+      render: (row) => (
+        <span
+          className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+            row.status === 'published'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-yellow-100 text-yellow-800'
+          }`}
+        >
+          {row.status}
+        </span>
+      ),
+    },
+    {
+      key: 'featured',
+      title: 'Featured',
+      sortable: false,
+      render: (row) => (
+        <button
+          onClick={() => toggleFeatured(row.id)}
+          className={`text-sm ${row.featured ? 'text-yellow-500' : 'text-slate-300'}`}
+        >
+          <span className="material-symbols-outlined">star</span>
+        </button>
+      ),
+    },
+    {
+      key: 'updated_at',
+      title: 'Updated',
+      sortable: true,
+      render: (row) => new Date(row.updated_at).toLocaleDateString(),
+    },
+    {
+      key: 'id',
+      title: 'Actions',
+      sortable: false,
+      render: (row) => (
+        <div className="flex items-center justify-end gap-2">
+          <Link
+            href={route('admin.helpdesk.articles.edit', row.id)}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Edit
+          </Link>
+          <Link
+            href={route('admin.helpdesk.articles.versions', row.id)}
+            className="text-xs font-semibold text-slate-500 hover:underline"
+          >
+            Versions
+          </Link>
+          <button
+            onClick={() => deleteArticle(row.id)}
+            className="text-xs font-semibold text-red-600 hover:underline"
+          >
+            Delete
+          </button>
+        </div>
+      ),
+    },
+  ], []);
 
   return (
     <AppLayout title="Helpdesk Articles">
@@ -93,110 +194,12 @@ export default function Index({ articles, filters, categories }) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Title</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Category</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Featured</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Updated</th>
-              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {articleList.map((article) => (
-              <tr key={article.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4">
-                  <Link
-                    href={route('admin.helpdesk.articles.edit', article.id)}
-                    className="text-sm font-semibold text-slate-800 hover:text-primary"
-                  >
-                    {article.title}
-                  </Link>
-                  <div className="mt-0.5 text-xs text-slate-400">
-                    /helpdesk/{article.slug}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-xs text-slate-500">
-                  {article.category?.name || '-'}
-                </td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                      article.status === 'published'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {article.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button
-                    onClick={() => toggleFeatured(article.id)}
-                    className={`text-sm ${article.featured ? 'text-yellow-500' : 'text-slate-300'}`}
-                  >
-                    <span className="material-symbols-outlined">star</span>
-                  </button>
-                </td>
-                <td className="px-6 py-4 text-xs text-slate-500">
-                  {new Date(article.updated_at).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Link
-                      href={route('admin.helpdesk.articles.edit', article.id)}
-                      className="text-xs font-semibold text-primary hover:underline"
-                    >
-                      Edit
-                    </Link>
-                    <Link
-                      href={route('admin.helpdesk.articles.versions', article.id)}
-                      className="text-xs font-semibold text-slate-500 hover:underline"
-                    >
-                      Versions
-                    </Link>
-                    <button
-                      onClick={() => deleteArticle(article.id)}
-                      className="text-xs font-semibold text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {articleList.length === 0 && (
-          <div className="py-12 text-center">
-            <span className="material-symbols-outlined text-4xl text-slate-300 mb-3">article</span>
-            <p className="text-sm text-slate-500">No articles found.</p>
-          </div>
-        )}
-      </div>
-
-      {pagination?.last_page > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          {pagination.links?.map((link, i) => (
-            <Link
-              key={i}
-              href={link.url || '#'}
-              dangerouslySetInnerHTML={{ __html: link.label }}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-                link.active
-                  ? 'bg-primary text-white'
-                  : link.url
-                  ? 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100'
-                  : 'text-slate-300 cursor-default'
-              }`}
-            />
-          ))}
-        </div>
-      )}
+      <UnifiedTable
+        columns={columns}
+        data={articleList}
+        keyExtractor={(row) => row.id}
+        {...paginatorProps(pagination)}
+      />
     </AppLayout>
   );
 }

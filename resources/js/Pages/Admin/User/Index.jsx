@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, useForm } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 
 const roleOptions = [
   { value: 'CASE_MANAGER', label: 'Case Manager' },
@@ -100,6 +101,71 @@ export default function AdminUserIndex({ users, agencies }) {
 
   const roleLabels = { CASE_MANAGER: 'Case Manager', AGENCY: 'Agency Focal', ADMIN: 'System Admin' };
 
+  function paginatorProps(paginator) {
+    return {
+      totalRecords: paginator.total,
+      startIndex: paginator.from,
+      endIndex: paginator.to,
+      currentPage: paginator.current_page,
+      totalPages: paginator.last_page,
+      rowsPerPage: paginator.per_page,
+      hideControlBar: true,
+      onPageChange: (page) => {
+        const url = new URL(window.location);
+        url.searchParams.set('page', page);
+        window.location = url.toString();
+      },
+      onRowsPerPageChange: (n) => {
+        const url = new URL(window.location);
+        url.searchParams.set('per_page', n);
+        url.searchParams.delete('page');
+        window.location = url.toString();
+      },
+    };
+  }
+
+  const columns = useMemo(() => [
+    { key: 'name', title: 'Name', sortable: true,
+      render: (row) => row.name,
+    },
+    {
+      key: 'email',
+      title: 'Email',
+      sortable: true,
+      render: (row) => row.email,
+    },
+    {
+      key: 'role',
+      title: 'Role',
+      sortable: true,
+      render: (row) => roleLabels[row.role] || row.role,
+    },
+    {
+      key: 'agency',
+      title: 'Agency',
+      sortable: false,
+      render: (row) => row.agency?.name || '—',
+    },
+    {
+      key: 'is_active',
+      title: 'Status',
+      sortable: true,
+      render: (row) => (
+        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${row.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {row.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      key: 'id',
+      title: 'Actions',
+      sortable: false,
+      render: (row) => (
+        <button onClick={() => { setEditingUser(row); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+      ),
+    },
+  ], []);
+
   return (
     <AppLayout title="Manage Users">
       {showForm && <UserForm user={editingUser} agencies={agencies} onClose={() => { setShowForm(false); setEditingUser(null); }} />}
@@ -114,40 +180,12 @@ export default function AdminUserIndex({ users, agencies }) {
         </button>
       </div>
 
-      <div className="rounded-lg bg-white shadow-sm border border-slate-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Agency</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {users.data.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{user.name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{user.email}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{roleLabels[user.role] || user.role}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{user.agency?.name || '—'}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <button onClick={() => { setEditingUser(user); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900">Edit</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <UnifiedTable
+        columns={columns}
+        data={users.data}
+        keyExtractor={(row) => row.id}
+        {...paginatorProps(users)}
+      />
     </AppLayout>
   );
 }

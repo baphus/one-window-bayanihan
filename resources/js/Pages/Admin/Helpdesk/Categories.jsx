@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, router, useForm } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 
 function CategoryForm({ show, onClose, category, allCategories }) {
   const isEditing = !!category;
@@ -166,6 +167,62 @@ export default function Categories({ categories, allCategories }) {
     }
   };
 
+  const columns = useMemo(() => [
+    {
+      key: 'name',
+      title: 'Name',
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          {row.icon && (
+            <span className="material-symbols-outlined text-sm text-slate-400">{row.icon}</span>
+          )}
+          <span className="text-sm font-semibold text-slate-800">{row.name}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'slug',
+      title: 'Slug',
+      sortable: true,
+      render: (row) => row.slug,
+    },
+    {
+      key: 'parent',
+      title: 'Parent',
+      sortable: false,
+      render: (row) => row.parent?.name || '-',
+    },
+    {
+      key: 'articles_count',
+      title: 'Articles',
+      sortable: true,
+      className: 'text-center',
+      render: (row) => row.articles_count || 0,
+    },
+    {
+      key: 'is_active',
+      title: 'Active',
+      sortable: true,
+      className: 'text-center',
+      render: (row) => (
+        <span className={`inline-block h-2 w-2 rounded-full ${row.is_active ? 'bg-green-500' : 'bg-slate-300'}`} />
+      ),
+    },
+    {
+      key: 'id',
+      title: 'Actions',
+      sortable: false,
+      className: 'text-right',
+      render: (row) => (
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={() => openEdit(row)} className="text-xs font-semibold text-primary hover:underline">Edit</button>
+          <button onClick={() => deleteCategory(row.id)} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
+        </div>
+      ),
+    },
+  ], []);
+
   return (
     <AppLayout title="Helpdesk Categories">
       <Head title="Helpdesk Categories" />
@@ -183,53 +240,12 @@ export default function Categories({ categories, allCategories }) {
         </button>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Slug</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Parent</th>
-              <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-slate-500">Articles</th>
-              <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-slate-500">Active</th>
-              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {categories?.map((cat) => (
-              <tr key={cat.id} className="hover:bg-slate-50">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    {cat.icon && (
-                      <span className="material-symbols-outlined text-sm text-slate-400">{cat.icon}</span>
-                    )}
-                    <span className="text-sm font-semibold text-slate-800">{cat.name}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-xs text-slate-500">{cat.slug}</td>
-                <td className="px-6 py-4 text-xs text-slate-500">{cat.parent?.name || '-'}</td>
-                <td className="px-6 py-4 text-center text-xs text-slate-500">{cat.articles_count || 0}</td>
-                <td className="px-6 py-4 text-center">
-                  <span className={`inline-block h-2 w-2 rounded-full ${cat.is_active ? 'bg-green-500' : 'bg-slate-300'}`} />
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => openEdit(cat)} className="text-xs font-semibold text-primary hover:underline">Edit</button>
-                    <button onClick={() => deleteCategory(cat.id)} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {(!categories || categories.length === 0) && (
-          <div className="py-12 text-center">
-            <span className="material-symbols-outlined text-4xl text-slate-300 mb-3">category</span>
-            <p className="text-sm text-slate-500">No categories yet. Create your first category.</p>
-          </div>
-        )}
-      </div>
+      <UnifiedTable
+        columns={columns}
+        data={categories ?? []}
+        keyExtractor={(row) => row.id}
+        hidePagination
+      />
 
       <CategoryForm
         show={showForm}
