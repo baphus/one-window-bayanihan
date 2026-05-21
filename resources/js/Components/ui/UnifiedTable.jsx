@@ -16,6 +16,8 @@ export function UnifiedTable({
   isAdvancedFiltersOpen = false,
   advancedFiltersContent,
   onColumnsControl,
+  isColumnsControlOpen = false,
+  columnsControlContent,
   onNewRecord,
   newRecordLabel = "+ New Record",
 
@@ -314,20 +316,27 @@ export function UnifiedTable({
             )}
             
             {onColumnsControl && (
-              <button 
-                onClick={onColumnsControl}
-                className="h-[40px] px-4 border border-[#cbd5e1] text-[14px] font-bold text-slate-600 rounded-[2px] bg-white flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors whitespace-nowrap"
-              >
-                <span className="material-symbols-outlined text-[18px]">view_column</span> Columns
-              </button>
+              <div className="relative shrink-0">
+                <button 
+                  onClick={onColumnsControl}
+                  className="h-[40px] px-4 border border-[#cbd5e1] text-[14px] font-bold text-slate-600 rounded-[2px] bg-white flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors whitespace-nowrap"
+                >
+                  <span className="material-symbols-outlined text-[18px]">view_column</span> Columns
+                </button>
+
+                {isColumnsControlOpen && columnsControlContent ? (
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-[3px] border border-[#cbd5e1] bg-white p-5 shadow-lg">
+                    {columnsControlContent}
+                  </div>
+                ) : null}
+              </div>
             )}
 
-            {showSortReset && hasSortableColumns && (
+            {showSortReset && hasSortableColumns && canResetSort && (
               <button
                 type="button"
                 onClick={handleResetSort}
-                disabled={!canResetSort}
-                className="h-[40px] px-4 border border-[#cbd5e1] text-[14px] font-bold text-slate-600 rounded-[2px] bg-white flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-[40px] px-4 border border-[#cbd5e1] text-[14px] font-bold text-slate-600 rounded-[2px] bg-white flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors whitespace-nowrap"
               >
                 <span className="material-symbols-outlined text-[18px]">restart_alt</span> Reset Sort
               </button>

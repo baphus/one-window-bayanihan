@@ -2,14 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
-use App\Models\AuditLog;
-use Illuminate\Support\Str;
+use App\Models\Referral;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class CaseService
 {
@@ -22,7 +23,7 @@ class CaseService
                 'client_type' => $data['client_type'],
                 'summary' => $data['summary'] ?? null,
                 'status' => 'OPEN',
-                'consent_given_at' => !empty($data['consent']) ? now() : null,
+                'consent_given_at' => ! empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
             ]);
 
@@ -38,7 +39,7 @@ class CaseService
                 'case_id' => $case->id,
             ]);
 
-            if (!empty($data['address'])) {
+            if (! empty($data['address'])) {
                 ClientAddress::create([
                     'client_id' => $client->id,
                     'region' => $data['address']['region'] ?? null,
@@ -49,7 +50,7 @@ class CaseService
                 ]);
             }
 
-            if (!empty($data['employment'])) {
+            if (! empty($data['employment'])) {
                 ClientEmployment::create([
                     'client_id' => $client->id,
                     'employer_name' => $data['employment']['employer_name'] ?? null,
@@ -63,7 +64,7 @@ class CaseService
                 ]);
             }
 
-            if (!empty($data['next_of_kin']) && !empty($data['next_of_kin']['first_name'])) {
+            if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
                 NextOfKin::create([
                     'client_id' => $client->id,
                     'first_name' => $data['next_of_kin']['first_name'],
@@ -94,16 +95,20 @@ class CaseService
         $query = CaseFile::with(['client', 'user', 'referrals'])
             ->orderBy('created_at', 'desc');
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['client_type'])) {
+            $query->where('client_type', $filters['client_type']);
+        }
+
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('case_number', 'like', "%{$search}%")
-                  ->orWhere('tracker_number', 'like', "%{$search}%")
-                  ->orWhere('summary', 'like', "%{$search}%");
+                    ->orWhere('tracker_number', 'like', "%{$search}%")
+                    ->orWhere('summary', 'like', "%{$search}%");
             });
         }
 
@@ -127,12 +132,33 @@ class CaseService
     {
         $date = now()->format('Ymd');
         $random = strtoupper(Str::random(6));
+
         return "CASE-{$date}-{$random}";
     }
 
     private function generateTrackerNumber(): string
     {
         $random = strtoupper(Str::random(10));
+
         return "TRK-{$random}";
+    }
+
+    public function getCaseStats(): array
+    {
+        $total = CaseFile::count();
+        $open = CaseFile::where('status', 'OPEN')->count();
+        $closed = CaseFile::where('status', 'CLOSED')->count();
+        $ofw = CaseFile::where('client_type', 'OFW')->count();
+        $nok = CaseFile::where('client_type', 'NOK')->count();
+        $totalReferrals = Referral::count();
+
+        return [
+            'total_cases' => $total,
+            'open_cases' => $open,
+            'closed_cases' => $closed,
+            'ofw_cases' => $ofw,
+            'nok_cases' => $nok,
+            'total_referrals' => $totalReferrals,
+        ];
     }
 }

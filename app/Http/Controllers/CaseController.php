@@ -21,7 +21,8 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => $request->only(['status', 'search']),
+            'filters' => $request->only(['status', 'search', 'client_type']),
+            'stats' => $this->caseService->getCaseStats(),
         ]);
     }
 

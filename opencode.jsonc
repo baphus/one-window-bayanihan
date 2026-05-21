@@ -34,7 +34,8 @@
       ".opencode/node_modules/**",
       "vendor/**",
       "storage/**",
-      "public/build/**"
+      "public/build/**",
+      ".gitnexus/**"
     ]
   }
 }
