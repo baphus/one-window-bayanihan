@@ -14,6 +14,7 @@ export default function Login({ status, canResetPassword }) {
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [otpError, setOtpError] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [selectedRole, setSelectedRole] = useState(null);
     const otpRefs = useRef([]);
     const autoFilled = useRef(false);
 
@@ -35,6 +36,19 @@ export default function Login({ status, canResetPassword }) {
         setEmail(creds.email);
         setPassword(creds.password);
         setLoginError('');
+        setSelectedRole(null);
+    };
+
+    const handleRoleSelect = (role) => {
+        setSelectedRole(role);
+        setLoginError('');
+        if (role === 'case_manager') {
+            setEmail('case@bayanihan.gov.ph');
+            setPassword('password');
+        } else if (role === 'agency') {
+            setEmail('owwa@bayanihan.gov.ph');
+            setPassword('password');
+        }
     };
 
     const handleLoginSubmit = (e) => {
@@ -150,6 +164,34 @@ export default function Login({ status, canResetPassword }) {
                                     <div className="mb-8 flex items-center gap-3 border-b border-outline-variant pb-4">
                                         <span className="material-symbols-outlined text-primary text-2xl">lock_open</span>
                                         <h2 className="font-headline text-xl font-bold">Sign In</h2>
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Log in as</p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRoleSelect('case_manager')}
+                                                className={`flex flex-col items-center gap-2 p-4 border-2 text-center transition-all ${selectedRole === 'case_manager' ? 'bg-primary text-on-primary border-primary' : 'bg-surface text-on-surface-variant border-outline-variant hover:border-primary hover:text-primary'}`}
+                                            >
+                                                <span className="material-symbols-outlined text-[28px]">badge</span>
+                                                <div>
+                                                    <p className="text-sm font-bold leading-tight">Case Manager</p>
+                                                    <p className={`text-[10px] mt-0.5 leading-tight ${selectedRole === 'case_manager' ? 'text-on-primary/70' : 'text-on-surface-variant/60'}`}>Manage cases and referrals</p>
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRoleSelect('agency')}
+                                                className={`flex flex-col items-center gap-2 p-4 border-2 text-center transition-all ${selectedRole === 'agency' ? 'bg-primary text-on-primary border-primary' : 'bg-surface text-on-surface-variant border-outline-variant hover:border-primary hover:text-primary'}`}
+                                            >
+                                                <span className="material-symbols-outlined text-[28px]">account_balance</span>
+                                                <div>
+                                                    <p className="text-sm font-bold leading-tight">Agency Focal</p>
+                                                    <p className={`text-[10px] mt-0.5 leading-tight ${selectedRole === 'agency' ? 'text-on-primary/70' : 'text-on-surface-variant/60'}`}>Agency-level access</p>
+                                                </div>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="mb-8 bg-surface-container-highest/20 p-5 border border-outline-variant/20 italic">
