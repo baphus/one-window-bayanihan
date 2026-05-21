@@ -168,17 +168,17 @@ export default function Login({ status, canResetPassword }) {
 
                                     <div className="mb-6">
                                         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Log in as</p>
-                                        <div className="relative flex rounded-full border-2 border-outline-variant bg-surface-container p-0.5">
+                                        <div className="relative flex border-2 border-outline-variant bg-surface-container">
                                             <div
-                                                className={`absolute top-0.5 bottom-0.5 w-1/2 rounded-full bg-primary transition-all duration-200 ease-in-out ${
-                                                    selectedRole === 'agency' ? 'left-1/2' : 'left-0.5'
+                                                className={`absolute top-0 bottom-0 w-1/2 bg-primary transition-all duration-200 ease-in-out ${
+                                                    selectedRole === 'agency' ? 'left-1/2' : 'left-0'
                                                 }`}
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => handleRoleSelect('case_manager')}
-                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 rounded-full py-3 text-sm font-bold transition-colors duration-200 ${
-                                                    selectedRole === 'case_manager'
+                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 py-3 text-sm font-bold transition-colors duration-200 ${
+                                                    selectedRole !== 'agency'
                                                         ? 'text-on-primary'
                                                         : 'text-on-surface-variant hover:text-primary'
                                                 }`}
@@ -189,7 +189,7 @@ export default function Login({ status, canResetPassword }) {
                                             <button
                                                 type="button"
                                                 onClick={() => handleRoleSelect('agency')}
-                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 rounded-full py-3 text-sm font-bold transition-colors duration-200 ${
+                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 py-3 text-sm font-bold transition-colors duration-200 ${
                                                     selectedRole === 'agency'
                                                         ? 'text-on-primary'
                                                         : 'text-on-surface-variant hover:text-primary'
