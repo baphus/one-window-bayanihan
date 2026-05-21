@@ -168,28 +168,35 @@ export default function Login({ status, canResetPassword }) {
 
                                     <div className="mb-6">
                                         <p className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Log in as</p>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="relative flex rounded-full border-2 border-outline-variant bg-surface-container p-0.5">
+                                            <div
+                                                className={`absolute top-0.5 bottom-0.5 w-1/2 rounded-full bg-primary transition-all duration-200 ease-in-out ${
+                                                    selectedRole === 'agency' ? 'left-1/2' : 'left-0.5'
+                                                }`}
+                                            />
                                             <button
                                                 type="button"
                                                 onClick={() => handleRoleSelect('case_manager')}
-                                                className={`flex flex-col items-center gap-2 p-4 border-2 text-center transition-all ${selectedRole === 'case_manager' ? 'bg-primary text-on-primary border-primary' : 'bg-surface text-on-surface-variant border-outline-variant hover:border-primary hover:text-primary'}`}
+                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 rounded-full py-3 text-sm font-bold transition-colors duration-200 ${
+                                                    selectedRole === 'case_manager'
+                                                        ? 'text-on-primary'
+                                                        : 'text-on-surface-variant hover:text-primary'
+                                                }`}
                                             >
-                                                <span className="material-symbols-outlined text-[28px]">badge</span>
-                                                <div>
-                                                    <p className="text-sm font-bold leading-tight">Case Manager</p>
-                                                    <p className={`text-[10px] mt-0.5 leading-tight ${selectedRole === 'case_manager' ? 'text-on-primary/70' : 'text-on-surface-variant/60'}`}>Manage cases and referrals</p>
-                                                </div>
+                                                <span className="material-symbols-outlined text-[18px]">badge</span>
+                                                Case Manager
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => handleRoleSelect('agency')}
-                                                className={`flex flex-col items-center gap-2 p-4 border-2 text-center transition-all ${selectedRole === 'agency' ? 'bg-primary text-on-primary border-primary' : 'bg-surface text-on-surface-variant border-outline-variant hover:border-primary hover:text-primary'}`}
+                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 rounded-full py-3 text-sm font-bold transition-colors duration-200 ${
+                                                    selectedRole === 'agency'
+                                                        ? 'text-on-primary'
+                                                        : 'text-on-surface-variant hover:text-primary'
+                                                }`}
                                             >
-                                                <span className="material-symbols-outlined text-[28px]">account_balance</span>
-                                                <div>
-                                                    <p className="text-sm font-bold leading-tight">Agency Focal</p>
-                                                    <p className={`text-[10px] mt-0.5 leading-tight ${selectedRole === 'agency' ? 'text-on-primary/70' : 'text-on-surface-variant/60'}`}>Agency-level access</p>
-                                                </div>
+                                                <span className="material-symbols-outlined text-[18px]">account_balance</span>
+                                                Agency Focal
                                             </button>
                                         </div>
                                     </div>
