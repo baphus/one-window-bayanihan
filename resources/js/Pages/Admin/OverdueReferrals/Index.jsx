@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { formatDisplayDate } from '@/lib/utils';
 
 const statusStyles = {
     PENDING: 'bg-yellow-100 text-yellow-800',
@@ -31,7 +32,7 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
             <span className="text-sm text-slate-600 max-w-xs truncate block">{row.required_services}</span>
         )},
         { key: 'created', title: 'Created', render: (row) => (
-            <span className="text-sm text-slate-600">{new Date(row.created_at).toLocaleDateString()}</span>
+            <span className="text-sm text-slate-600">{formatDisplayDate(row.created_at)}</span>
         )},
         { key: 'overdue', title: 'Overdue', render: (row) => (
             <span className="inline-flex rounded-full px-2 text-xs font-semibold leading-5 bg-red-100 text-red-800">

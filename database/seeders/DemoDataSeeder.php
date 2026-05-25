@@ -71,8 +71,8 @@ class DemoDataSeeder extends Seeder
 
         $sampleCases = [
             [
-                'case_number' => 'CASE-20260511-000001',
-                'tracker_number' => 'OW-A7K2M9Q',
+                'case_number' => 'CASE-20260511-0001',
+                'tracker_number' => 'OWBAP-A7K2M9Q3',
                 'client_type' => 'OFW',
                 'summary' => 'Mariano, a returning OFW from Saudi Arabia, needs assistance with repatriation benefits and livelihood support after his contract was abruptly terminated.',
                 'client' => [
@@ -84,8 +84,8 @@ class DemoDataSeeder extends Seeder
                 'agency_slug' => 'owwa',
             ],
             [
-                'case_number' => 'CASE-20260511-000002',
-                'tracker_number' => 'OW-P4T8X1L',
+                'case_number' => 'CASE-20260511-0002',
+                'tracker_number' => 'OWBAP-P4T8X1L2',
                 'client_type' => 'OFW',
                 'summary' => 'Dela Cruz family seeking assistance for Elena who suffered a work-related injury in Hong Kong.',
                 'client' => [
@@ -97,8 +97,8 @@ class DemoDataSeeder extends Seeder
                 'agency_slug' => 'doh',
             ],
             [
-                'case_number' => 'CASE-20260511-000003',
-                'tracker_number' => 'OW-Z9D3R6N',
+                'case_number' => 'CASE-20260511-0003',
+                'tracker_number' => 'OWBAP-Z9D3R6N1',
                 'client_type' => 'OFW',
                 'summary' => 'Panganiban completed his contract in Taiwan and is seeking livelihood assistance and reintegration support.',
                 'client' => [

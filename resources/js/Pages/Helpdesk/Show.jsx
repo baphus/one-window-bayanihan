@@ -4,6 +4,7 @@ import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
 import FeedbackWidget from '@/Components/Helpdesk/FeedbackWidget';
 import RelatedArticles from '@/Components/Helpdesk/RelatedArticles';
 import TagBadge from '@/Components/Helpdesk/TagBadge';
+import { formatDisplayDate } from '@/lib/utils';
 
 export default function Show({ article, relatedArticles, categoryPath, categories }) {
   const breadcrumbItems = categoryPath.map((cat) => ({
@@ -26,11 +27,7 @@ export default function Show({ article, relatedArticles, categoryPath, categorie
               <span>By {article.author.name}</span>
             )}
             <span>
-              Updated {new Date(article.updated_at).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
+              Updated {formatDisplayDate(article.updated_at)}
             </span>
             <span>{readTime} min read</span>
           </div>

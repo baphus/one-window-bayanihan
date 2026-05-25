@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
+import { formatDisplayDate } from '@/lib/utils';
 
 const statusStyles = {
     OPEN: 'bg-green-100 text-green-800',
@@ -38,7 +39,7 @@ export default function ClientShow({ client }) {
                         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8] border-b border-[#d8dee8]">
                             <InfoCell label="Full Name" value={fullName} />
                             <InfoCell label="Sex" value={client.sex || 'N/A'} />
-                            <InfoCell label="Date of Birth" value={client.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'} />
+                            <InfoCell label="Date of Birth" value={client.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
                         </div>
                         {client.caseFile && (
                             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8]">
@@ -88,7 +89,7 @@ export default function ClientShow({ client }) {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                         <MetaTile label="Last Country" value={emp.last_country || emp.country || 'N/A'} />
                                         <MetaTile label="Last Position" value={emp.last_position || emp.position || 'N/A'} />
-                                        <MetaTile label="Date of Arrival" value={emp.date_of_arrival ? new Date(emp.date_of_arrival).toLocaleDateString() : 'N/A'} />
+                                        <MetaTile label="Date of Arrival" value={emp.date_of_arrival ? formatDisplayDate(emp.date_of_arrival) : 'N/A'} />
                                         {emp.employer_name && <MetaTile label="Employer" value={emp.employer_name} />}
                                     </div>
                                 </div>
@@ -124,7 +125,7 @@ export default function ClientShow({ client }) {
                         <div className="space-y-2">
                             <MetaTile label="Full Name" value={fullName} />
                             <MetaTile label="Sex" value={client.sex || 'N/A'} />
-                            <MetaTile label="Date of Birth" value={client.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'} />
+                            <MetaTile label="Date of Birth" value={client.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
                             {client.caseFile && (
                                 <>
                                     <MetaTile label="Case Number" value={
@@ -136,7 +137,7 @@ export default function ClientShow({ client }) {
                                     <MetaTile label="Referrals" value={client.caseFile.referrals?.length ?? 0} />
                                 </>
                             )}
-                            <MetaTile label="Created" value={new Date(client.created_at).toLocaleDateString()} />
+                            <MetaTile label="Created" value={formatDisplayDate(client.created_at)} />
                         </div>
                     </CardSection>
                 </div>

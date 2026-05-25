@@ -4,6 +4,7 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TrackingNotFoundState from '@/Components/TrackingNotFoundState';
 import ChatBot from '@/Components/ChatBot';
+import { formatDisplayDateTime } from '@/lib/utils';
 
 function AgencyCard({ name, note, status, statusTone, borderTone, textTone, lineTone, steps, latestMilestoneLabel, latestMilestonePath }) {
   const completedCount = steps.filter((s) => s.state === 'complete').length;
@@ -277,7 +278,7 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="mb-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.1em] text-primary">{new Date(item.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="mb-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.1em] text-primary">{formatDisplayDateTime(item.date)}</p>
                         <h3 className="mb-1 text-[12px] sm:text-[13px] font-bold leading-[1.35] text-on-surface">{item.title}</h3>
                         <p className="whitespace-pre-wrap text-[11px] sm:text-[12px] leading-[1.45] text-slate-500">{item.detail}</p>
                       </div>

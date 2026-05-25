@@ -1,14 +1,16 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { Eye } from 'lucide-react';
-import AppToast from '@/Components/ui/AppToast';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
+import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 
 const caseStatusStyles = {
   OPEN: 'border-[#bae6fd] bg-[#e0f2fe] text-[#0369a1]',
   CLOSED: 'border-[#cbd5e1] bg-slate-100 text-slate-700',
+  DRAFT: 'border-amber-200 bg-amber-50 text-amber-800',
+  ARCHIVED: 'border-gray-300 bg-gray-100 text-gray-700',
 };
 
 const referralStatusStyles = {
@@ -25,14 +27,6 @@ const vulnConfig = {
   'Solo Parent': { icon: 'single_parent', className: 'bg-pink-100 text-pink-800 border-pink-200' },
   'Indigenous Person': { icon: 'groups', className: 'bg-teal-100 text-teal-800 border-teal-200' },
 };
-
-function formatDisplayDateTime(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
 
 function getCaseAgeDays(createdAt, status, updatedAt) {
   const created = new Date(createdAt).getTime();
@@ -57,9 +51,7 @@ function Subsection({ title, children }) {
 }
 
 export default function CaseShow({ case: caseFile }) {
-  const { flash } = usePage().props;
   const client = caseFile.client;
-  const [toastMessage, setToastMessage] = useState(flash?.success || '');
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
@@ -226,13 +218,21 @@ export default function CaseShow({ case: caseFile }) {
     });
   }
 
+  function handleArchive() {
+    router.post(route('cases.archive', caseFile.id), {}, {
+      preserveScroll: true,
+    });
+  }
+
+  function handleUnarchive() {
+    router.post(route('cases.unarchive', caseFile.id), {}, {
+      preserveScroll: true,
+    });
+  }
+
   return (
     <AppLayout title="Case Details">
       <Head title="Case Details" />
-
-      {toastMessage ? (
-        <AppToast message={toastMessage} onClose={() => setToastMessage('')} tone="success" />
-      ) : null}
 
       <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-5">
         <Link href={route('cases.index')} className="transition hover:text-[#0b5384]">Cases</Link>
@@ -268,6 +268,23 @@ export default function CaseShow({ case: caseFile }) {
           >
             {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
           </button>
+          {caseFile.status === 'ARCHIVED' ? (
+            <button
+              type="button"
+              onClick={handleUnarchive}
+              className="px-3 min-h-[32px] bg-gray-200 text-gray-700 hover:bg-gray-300 text-[12px] font-bold rounded-[3px] transition-colors border border-gray-300"
+            >
+              Restore from Archive
+            </button>
+          ) : caseFile.status === 'CLOSED' ? (
+            <button
+              type="button"
+              onClick={handleArchive}
+              className="px-3 min-h-[32px] bg-gray-100 text-gray-600 hover:bg-gray-200 text-[12px] font-bold rounded-[3px] transition-colors border border-gray-300"
+            >
+              Archive Case
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -275,8 +292,8 @@ export default function CaseShow({ case: caseFile }) {
         <main className="xl:col-span-8 space-y-4">
           <CardSection title="Case Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-              <MetaTile label="Case No." value={caseFile.id} />
-              <MetaTile label="Tracking ID" value={caseFile.case_number} />
+              <MetaTile label="Case No." value={caseFile.case_number} />
+              <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
               <MetaTile label="Client Type" value={clientTypeLabel} />
               <MetaTile label="Date Created" value={formatDisplayDateTime(caseFile.created_at)} />
               <MetaTile label="Case Age" value={getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)} />
@@ -288,7 +305,7 @@ export default function CaseShow({ case: caseFile }) {
               <Subsection title="Client Profile">
                 <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
                   <InfoCell label="Full Name" value={client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : 'N/A'} />
-                  <InfoCell label="Date of Birth" value={client?.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'} />
+                  <InfoCell label="Date of Birth" value={client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
                   <InfoCell label="Gender" value={client?.sex || 'N/A'} />
                   <InfoCell label="Email Address" value={client?.email || 'N/A'} />
                   <InfoCell label="Contact Number" value={client?.contact_number || 'N/A'} />
@@ -318,7 +335,7 @@ export default function CaseShow({ case: caseFile }) {
                   <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
                     <InfoCell label="Last Country" value={primaryEmployment.last_country || primaryEmployment.country || 'N/A'} />
                     <InfoCell label="Last Position" value={primaryEmployment.last_position || primaryEmployment.position || 'N/A'} />
-                    <InfoCell label="Arrival Date" value={primaryEmployment.date_of_arrival ? new Date(primaryEmployment.date_of_arrival).toLocaleDateString() : 'N/A'} />
+                    <InfoCell label="Arrival Date" value={primaryEmployment.date_of_arrival ? formatDisplayDate(primaryEmployment.date_of_arrival) : 'N/A'} />
                   </div>
                 ) : (
                   <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2 text-[12px] text-slate-600">

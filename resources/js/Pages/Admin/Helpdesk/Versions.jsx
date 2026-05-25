@@ -1,5 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
+import { formatDisplayDateTime } from '@/lib/utils';
 
 export default function Versions({ article, revisions }) {
   return (
@@ -42,13 +43,7 @@ export default function Versions({ article, revisions }) {
                       {revision.editor?.name || 'Unknown'}
                     </h3>
                     <span className="text-xs text-slate-400">
-                      {new Date(revision.created_at).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatDisplayDateTime(revision.created_at)}
                     </span>
                   </div>
                   {revision.edit_notes && (

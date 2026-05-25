@@ -20,6 +20,7 @@ export function UnifiedTable({
   columnsControlContent,
   onNewRecord,
   newRecordLabel = "+ New Record",
+  extraActions,
 
   viewMode = "list",
   onViewModeChange,
@@ -383,6 +384,7 @@ export function UnifiedTable({
               </div>
             )}
             
+            {extraActions}
             {onNewRecord && (
               <button 
                 onClick={onNewRecord}

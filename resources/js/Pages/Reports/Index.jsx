@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { formatDisplayDate } from '@/lib/utils';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -129,7 +130,7 @@ export default function ReportsIndex({
         },
         {
             key: 'created_at', title: 'Created', sortable: true,
-            render: (row) => new Date(row.created_at).toLocaleDateString(),
+            render: (row) => formatDisplayDate(row.created_at),
         },
         {
             key: 'id', title: 'Actions', sortable: false,
@@ -170,7 +171,7 @@ export default function ReportsIndex({
         { key: 'sex', title: 'Sex', sortable: true },
         {
             key: 'date_of_birth', title: 'Date of Birth', sortable: true,
-            render: (row) => row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString() : 'N/A',
+            render: (row) => row.date_of_birth ? formatDisplayDate(row.date_of_birth) : 'N/A',
         },
         {
             key: 'case_number', title: 'Case #', sortable: true,

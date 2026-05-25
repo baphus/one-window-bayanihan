@@ -34,7 +34,7 @@ class ReportsService
 
     private function caseQuery(?string $userId = null, ?string $role = null)
     {
-        $query = CaseFile::where('status', '!=', 'DRAFT');
+        $query = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->where('user_id', $userId);
         }

@@ -2,8 +2,8 @@ import type { AddressParts, ReferralStatus } from '@/types';
 
 export function formatDisplayDateTime(iso: string): string {
     return new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: '2-digit',
+        month: 'long',
+        day: 'numeric',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
@@ -13,8 +13,8 @@ export function formatDisplayDateTime(iso: string): string {
 
 export function formatDisplayDate(iso: string): string {
     return new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: '2-digit',
+        month: 'long',
+        day: 'numeric',
         year: 'numeric',
     }).format(new Date(iso));
 }

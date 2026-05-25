@@ -93,4 +93,28 @@ class CaseController extends Controller
             ->route('cases.show', $case)
             ->with('success', 'Draft published successfully.');
     }
+
+    public function archive(Request $request, string $id)
+    {
+        $case = $this->caseService->archiveCase(
+            $id,
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->route('cases.show', $case)
+            ->with('success', 'Case archived successfully.');
+    }
+
+    public function unarchive(Request $request, string $id)
+    {
+        $case = $this->caseService->unarchiveCase(
+            $id,
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->route('cases.show', $case)
+            ->with('success', 'Case restored from archive successfully.');
+    }
 }

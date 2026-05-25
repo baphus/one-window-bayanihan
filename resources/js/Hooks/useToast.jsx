@@ -4,19 +4,27 @@ const ToastContext = createContext(null);
 
 let toastId = 0;
 
+const EXIT_ANIMATION_MS = 300;
+
 export function ToastProviderInner({ children }) {
   const [toasts, setToasts] = useState([]);
   const timersRef = useRef({});
 
   const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
+    );
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+      delete timersRef.current[id];
+    }, EXIT_ANIMATION_MS);
     clearTimeout(timersRef.current[id]);
     delete timersRef.current[id];
   }, []);
 
   const addToast = useCallback((message, tone = 'info', duration = 4000) => {
     const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, tone }]);
+    setToasts((prev) => [...prev, { id, message, tone, exiting: false }]);
     timersRef.current[id] = setTimeout(() => removeToast(id), duration);
     return id;
   }, [removeToast]);
@@ -50,7 +58,10 @@ export function ToastProviderInner({ children }) {
     if (id) {
       removeToast(id);
     } else {
-      setToasts([]);
+      setToasts((prev) =>
+        prev.map((t) => ({ ...t, exiting: true })),
+      );
+      setTimeout(() => setToasts([]), EXIT_ANIMATION_MS);
     }
   }, [removeToast]);
 

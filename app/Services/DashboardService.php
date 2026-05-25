@@ -34,11 +34,11 @@ class DashboardService
             ->unique()
             ->count();
 
-        $ofwCount = CaseFile::where('client_type', 'OFW')->where('status', '!=', 'DRAFT')->count();
-        $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->where('status', '!=', 'DRAFT')->count();
+        $ofwCount = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
+        $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
 
         $casesByProvince = CaseFile::select('ca.province', DB::raw('count(*) as total'))
-            ->where('cases.status', '!=', 'DRAFT')
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->leftJoin('clients as c', 'c.case_id', '=', 'cases.id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->groupBy('ca.province')
@@ -61,7 +61,7 @@ class DashboardService
             DB::raw("to_char(created_at, 'YYYY-MM') as month"),
             DB::raw('count(*) as total')
         )
-            ->where('status', '!=', 'DRAFT')
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->where('created_at', '>=', now()->subMonths(6))
             ->groupBy('month')
             ->orderBy('month')
@@ -83,7 +83,7 @@ class DashboardService
             ->toArray();
 
         $recentCases = CaseFile::with(['client', 'user'])
-            ->where('status', '!=', 'DRAFT')
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()
@@ -99,7 +99,7 @@ class DashboardService
             ->toArray();
 
         $allCases = CaseFile::with(['client', 'user'])
-            ->where('status', '!=', 'DRAFT')
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(fn ($c) => [
@@ -203,7 +203,7 @@ class DashboardService
         $totalAgencies = Agency::count();
 
         $recentCases = CaseFile::with(['client', 'user'])
-            ->where('status', '!=', 'DRAFT')
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()

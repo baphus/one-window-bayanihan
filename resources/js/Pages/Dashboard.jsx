@@ -11,6 +11,7 @@ import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, Aler
 import KpiCard from '@/Components/ui/KpiCard';
 import RecentTable from '@/Components/ui/RecentTable';
 import NotificationBell from '@/Components/ui/NotificationBell';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
 
 ChartJS.register(
     CategoryScale, LinearScale, BarElement,
@@ -83,7 +84,7 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
                         { key: 'status', title: 'Status', render: (row) => (
                             <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${row.status === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>{row.status}</span>
                         )},
-                        { key: 'created', title: 'Created', render: (row) => new Date(row.created_at).toLocaleDateString() },
+                        { key: 'created', title: 'Created', render: (row) => formatDisplayDate(row.created_at) },
                     ]}
                     keyExtractor={(row) => row.id}
                     onViewAll={() => router.visit(route('cases.index'))}
@@ -103,7 +104,7 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
                                     <p className="text-sm text-slate-900">
                                         <span className="font-medium">{log.user?.name ?? 'System'}</span> {log.action} {log.module}
                                     </p>
-                                    <p className="text-xs text-slate-500 mt-0.5">{new Date(log.timestamp).toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{formatDisplayDateTime(log.timestamp)}</p>
                                 </div>
                             ))
                         )}
@@ -112,11 +113,6 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
             </div>
         </>
     );
-}
-
-function formatDisplayDate(dateStr) {
-  if (!dateStr) return 'N/A'
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
 }
 
 function formatCaseAge(timestamp) {

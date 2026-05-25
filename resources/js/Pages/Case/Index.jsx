@@ -3,11 +3,13 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/utils';
 
 const statusStyles = {
   OPEN: 'bg-green-100 text-green-800',
   CLOSED: 'bg-slate-100 text-slate-800',
   DRAFT: 'bg-amber-100 text-amber-800',
+  ARCHIVED: 'bg-gray-200 text-gray-700',
 };
 
 const vulnStyles = {
@@ -204,7 +206,7 @@ export default function CaseIndex({ cases, filters, stats }) {
           case 'created_at':
             return {
               ...base,
-              render: (row) => new Date(row.created_at).toLocaleDateString(),
+              render: (row) => formatDisplayDate(row.created_at),
             };
           case 'actions':
             return {
@@ -212,13 +214,27 @@ export default function CaseIndex({ cases, filters, stats }) {
               sortable: false,
               title: 'Actions',
               render: (row) => (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => router.visit(route('cases.show', row.id))}
-                    className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                    className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]"
                   >
                     View
                   </button>
+                  <button
+                    onClick={() => router.visit(route('cases.show', row.id))}
+                    className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+                  >
+                    Edit
+                  </button>
+                  {row.status === 'CLOSED' && (
+                    <button
+                      onClick={() => router.post(route('cases.archive', row.id))}
+                      className="min-h-[28px] px-2.5 bg-gray-100 text-gray-600 hover:bg-gray-200 text-[11px] font-bold rounded-[3px] transition-colors border border-gray-300"
+                    >
+                      Archive
+                    </button>
+                  )}
                 </div>
               ),
             };
@@ -246,6 +262,7 @@ export default function CaseIndex({ cases, filters, stats }) {
           <option value="OPEN">Open</option>
           <option value="CLOSED">Closed</option>
           <option value="DRAFT">Drafts</option>
+          <option value="ARCHIVED">Archived</option>
         </select>
       </div>
       <div>
@@ -338,6 +355,7 @@ export default function CaseIndex({ cases, filters, stats }) {
             <span className="text-[11px] font-bold text-emerald-600">
               {stats?.open_cases ?? 0} open &middot; {stats?.closed_cases ?? 0} closed
               {stats?.draft_cases > 0 && <> &middot; {stats.draft_cases} draft</>}
+              {stats?.archived_cases > 0 && <> &middot; {stats.archived_cases} archived</>}
             </span>
           </div>
         </div>
@@ -403,6 +421,42 @@ export default function CaseIndex({ cases, filters, stats }) {
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
+        extraActions={
+          <>
+            <button
+              onClick={() => {
+                const url = new URL(window.location);
+                if (filters?.status === 'DRAFT') {
+                  url.searchParams.delete('status');
+                } else {
+                  url.searchParams.set('status', 'DRAFT');
+                }
+                url.searchParams.delete('page');
+                window.location = url.toString();
+              }}
+              className="h-[40px] px-4 border border-amber-300 text-[14px] font-bold text-amber-700 rounded-[3px] bg-amber-50 flex items-center gap-2 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0"
+            >
+              <span className="material-symbols-outlined text-[18px]">edit_note</span>
+              {filters?.status === 'DRAFT' ? 'Active Cases' : `View Drafts${stats?.draft_cases > 0 ? ` (${stats.draft_cases})` : ''}`}
+            </button>
+            <button
+              onClick={() => {
+                const url = new URL(window.location);
+                if (filters?.status === 'ARCHIVED') {
+                  url.searchParams.delete('status');
+                } else {
+                  url.searchParams.set('status', 'ARCHIVED');
+                }
+                url.searchParams.delete('page');
+                window.location = url.toString();
+              }}
+              className="h-[40px] px-4 border border-gray-300 text-[14px] font-bold text-gray-700 rounded-[3px] bg-gray-50 flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap shrink-0"
+            >
+              <span className="material-symbols-outlined text-[18px]">archive</span>
+              {filters?.status === 'ARCHIVED' ? 'Active Cases' : `Archived${stats?.archived_cases > 0 ? ` (${stats.archived_cases})` : ''}`}
+            </button>
+          </>
+        }
       />
     </AppLayout>
   );

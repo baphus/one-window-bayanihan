@@ -34,7 +34,7 @@ class CaseService
                 'middle_name' => $data['client']['middle_name'] ?? null,
                 'suffix' => $data['client']['suffix'] ?? null,
                 'date_of_birth' => $data['client']['date_of_birth'] ?? null,
-                'sex' => $data['client']['sex'] ?? null,
+                'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
                 'email' => $data['client']['email'] ?? null,
                 'contact_number' => $data['client']['contact_number'] ?? null,
                 'case_id' => $case->id,
@@ -122,7 +122,7 @@ class CaseService
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         } else {
-            $query->where('status', '!=', 'DRAFT');
+            $query->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
         }
 
         if (! empty($filters['client_type'])) {
@@ -187,6 +187,71 @@ class CaseService
         });
     }
 
+    public function archiveCase(string $id, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($id, $userId) {
+            $case = CaseFile::findOrFail($id);
+
+            abort_unless($case->status === 'CLOSED', 422, 'Only closed cases can be archived.');
+
+            $old = $case->toArray();
+
+            $case->update([
+                'status' => 'ARCHIVED',
+            ]);
+
+            AuditLog::create([
+                'action' => 'ARCHIVE',
+                'module' => 'CASE',
+                'entity_id' => $case->id,
+                'old_value' => $old,
+                'new_value' => $case->toArray(),
+                'user_id' => $userId,
+            ]);
+
+            return $case->load([
+                'client.addresses',
+                'client.employments',
+                'client.nextOfKin',
+                'referrals.milestones',
+                'referrals.agency',
+                'referrals.attachments.user',
+                'user',
+            ]);
+        });
+    }
+
+    public function unarchiveCase(string $id, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($id, $userId) {
+            $case = CaseFile::findOrFail($id);
+            $old = $case->toArray();
+
+            $case->update([
+                'status' => 'OPEN',
+            ]);
+
+            AuditLog::create([
+                'action' => 'UNARCHIVE',
+                'module' => 'CASE',
+                'entity_id' => $case->id,
+                'old_value' => $old,
+                'new_value' => $case->toArray(),
+                'user_id' => $userId,
+            ]);
+
+            return $case->load([
+                'client.addresses',
+                'client.employments',
+                'client.nextOfKin',
+                'referrals.milestones',
+                'referrals.agency',
+                'referrals.attachments.user',
+                'user',
+            ]);
+        });
+    }
+
     public function toggleCaseStatus(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $userId) {
@@ -221,33 +286,33 @@ class CaseService
     private function generateCaseNumber(): string
     {
         $date = now()->format('Ymd');
-        $random = strtoupper(Str::random(6));
+        $count = CaseFile::whereDate('created_at', today())->count();
 
-        return "CASE-{$date}-{$random}";
+        return "CASE-{$date}-".str_pad($count + 1, 4, '0', STR_PAD_LEFT);
     }
 
     private function generateTrackerNumber(): string
     {
-        $random = strtoupper(Str::random(10));
-
-        return "TRK-{$random}";
+        return 'OWBAP-'.strtoupper(Str::random(8));
     }
 
     public function getCaseStats(): array
     {
-        $total = CaseFile::where('status', '!=', 'DRAFT')->count();
+        $active = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $open = CaseFile::where('status', 'OPEN')->count();
         $closed = CaseFile::where('status', 'CLOSED')->count();
         $draft = CaseFile::where('status', 'DRAFT')->count();
-        $ofw = CaseFile::where('client_type', 'OFW')->where('status', '!=', 'DRAFT')->count();
-        $nok = CaseFile::where('client_type', 'NOK')->where('status', '!=', 'DRAFT')->count();
+        $archived = CaseFile::where('status', 'ARCHIVED')->count();
+        $ofw = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
+        $nok = CaseFile::where('client_type', 'NOK')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $totalReferrals = Referral::count();
 
         return [
-            'total_cases' => $total,
+            'total_cases' => $active,
             'open_cases' => $open,
             'closed_cases' => $closed,
             'draft_cases' => $draft,
+            'archived_cases' => $archived,
             'ofw_cases' => $ofw,
             'nok_cases' => $nok,
             'total_referrals' => $totalReferrals,

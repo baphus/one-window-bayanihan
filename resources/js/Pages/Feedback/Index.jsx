@@ -1,5 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
+import { formatDisplayDate } from '@/lib/utils';
 
 function StarRating({ rating }) {
   return (
@@ -38,7 +39,7 @@ export default function FeedbackIndex({ feedbacks }) {
                       : 'Anonymous'}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {fb.agency?.name ?? 'N/A'} &middot; {new Date(fb.created_at).toLocaleDateString()}
+                    {fb.agency?.name ?? 'N/A'} &middot; {formatDisplayDate(fb.created_at)}
                   </p>
                 </div>
                 {fb.overall_rating && (

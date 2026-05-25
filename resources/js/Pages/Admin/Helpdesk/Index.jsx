@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { formatDisplayDate } from '@/lib/utils';
 
 export default function Index({ articles, filters, categories }) {
   const articleList = articles?.data ?? [];
@@ -112,7 +113,7 @@ export default function Index({ articles, filters, categories }) {
       key: 'updated_at',
       title: 'Updated',
       sortable: true,
-      render: (row) => new Date(row.updated_at).toLocaleDateString(),
+      render: (row) => formatDisplayDate(row.updated_at),
     },
     {
       key: 'id',

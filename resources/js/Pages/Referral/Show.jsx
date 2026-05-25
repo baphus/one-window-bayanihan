@@ -7,6 +7,7 @@ import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import Timeline from '@/Components/Timeline';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
+import { formatDisplayDate } from '@/lib/utils';
 
 const statusStyles = {
     PENDING: 'bg-yellow-100 text-yellow-800',
@@ -108,8 +109,8 @@ export default function ReferralShow({ referral }) {
                                     ? `${referral.case_file.client.first_name} ${referral.case_file.client.last_name}`
                                     : 'N/A'
                             } />
-                            <InfoCell label="Date Referred" value={new Date(referral.created_at).toLocaleDateString()} />
-                            <InfoCell label="Last Updated" value={new Date(referral.updated_at).toLocaleDateString()} />
+                            <InfoCell label="Date Referred" value={formatDisplayDate(referral.created_at)} />
+                            <InfoCell label="Last Updated" value={formatDisplayDate(referral.updated_at)} />
                         </div>
                         {referral.required_services && (
                             <div className="px-3 py-2 border-b border-[#d8dee8]">
@@ -197,7 +198,7 @@ export default function ReferralShow({ referral }) {
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-slate-900 truncate">{att.file_name}</p>
                                                 <p className="text-xs text-slate-500">
-                                                    {att.user?.name ?? 'Unknown'} &middot; {new Date(att.created_at).toLocaleDateString()}
+                                                    {att.user?.name ?? 'Unknown'} &middot; {formatDisplayDate(att.created_at)}
                                                     {att.size ? ` \u00b7 ${(att.size / 1024).toFixed(1)} KB` : ''}
                                                 </p>
                                             </div>
@@ -268,8 +269,8 @@ export default function ReferralShow({ referral }) {
                                     ? `${referral.case_file.client.first_name} ${referral.case_file.client.last_name}`
                                     : 'N/A'
                             } />
-                            <MetaTile label="Referred" value={new Date(referral.created_at).toLocaleDateString()} />
-                            <MetaTile label="Updated" value={new Date(referral.updated_at).toLocaleDateString()} />
+                            <MetaTile label="Referred" value={formatDisplayDate(referral.created_at)} />
+                            <MetaTile label="Updated" value={formatDisplayDate(referral.updated_at)} />
                         </div>
                     </CardSection>
 

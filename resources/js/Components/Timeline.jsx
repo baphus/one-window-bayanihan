@@ -1,3 +1,5 @@
+import { formatDisplayDate } from '@/lib/utils';
+
 const dotColors = {
     PENDING: 'bg-yellow-500',
     PROCESSING: 'bg-blue-500',
@@ -45,7 +47,7 @@ export default function Timeline({ items, dotColorKey = 'default' }) {
                                     )}
                                 </div>
                                 <span className="text-xs text-slate-400 whitespace-nowrap">
-                                    {item.date ? new Date(item.date).toLocaleDateString() : ''}
+                                    {item.date ? formatDisplayDate(item.date) : ''}
                                 </span>
                             </div>
                             {item.meta && (

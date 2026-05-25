@@ -11,7 +11,7 @@ class AnalyticsService
 {
     public function getOverview(): array
     {
-        $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
+        $totalCases = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $openCases = CaseFile::where('status', 'OPEN')->count();
         $closedCases = CaseFile::where('status', 'CLOSED')->count();
         $totalReferrals = Referral::count();
@@ -34,7 +34,7 @@ class AnalyticsService
             DB::raw("to_char(created_at, 'YYYY-MM') as month"),
             DB::raw('count(*) as total')
         )
-            ->where('status', '!=', 'DRAFT')
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->where('created_at', '>=', now()->subMonths($months))
             ->groupBy('month')
             ->orderBy('month')
@@ -100,7 +100,7 @@ class AnalyticsService
             'client_type',
             DB::raw('count(*) as total')
         )
-            ->where('status', '!=', 'DRAFT')
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->groupBy('client_type')
             ->get()
             ->keyBy('client_type');

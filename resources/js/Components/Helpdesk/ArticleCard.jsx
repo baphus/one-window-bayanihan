@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import clsx from 'clsx';
+import { formatDisplayDate } from '@/lib/utils';
 
 export default function ArticleCard({ article, variant = 'default' }) {
   if (variant === 'compact') {
@@ -46,7 +47,7 @@ export default function ArticleCard({ article, variant = 'default' }) {
               </span>
             )}
             <span>
-              Updated {new Date(article.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Updated {formatDisplayDate(article.updated_at)}
             </span>
           </div>
         </div>

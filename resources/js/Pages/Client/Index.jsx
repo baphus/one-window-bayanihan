@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { formatDisplayDate } from '@/lib/utils';
 
 const COLUMN_DEFS = [
   { key: 'name', label: 'Name', default: true },
@@ -111,7 +112,7 @@ export default function ClientIndex({ clients, filters }) {
             return {
               ...base,
               render: (row) =>
-                row.date_of_birth ? new Date(row.date_of_birth).toLocaleDateString() : 'N/A',
+                row.date_of_birth ? formatDisplayDate(row.date_of_birth) : 'N/A',
             };
           case 'case_number':
             return {

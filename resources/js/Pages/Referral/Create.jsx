@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import { formatDisplayDate } from '@/lib/utils';
 
 const STEPS = [
     { index: 1, label: 'Select Case' },
@@ -218,7 +219,7 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
                                             <InfoRow label="Client Name" value={`${selectedCase.client?.first_name || ''} ${selectedCase.client?.last_name || ''}`} />
                                             <InfoRow label="Client Type" value={selectedCase.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'} />
                                             <InfoRow label="Status" value={selectedCase.status} />
-                                            <InfoRow label="Date Created" value={new Date(selectedCase.created_at).toLocaleDateString()} />
+                                            <InfoRow label="Date Created" value={formatDisplayDate(selectedCase.created_at)} />
                                             {selectedCase.summary && (
                                                 <div className="md:col-span-2">
                                                     <InfoRow label="Case Narrative" value={selectedCase.summary} />

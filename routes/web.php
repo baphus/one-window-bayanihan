@@ -67,6 +67,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show');
     Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
+    Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
+    Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
     Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
     Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
 

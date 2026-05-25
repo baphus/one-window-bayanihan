@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head } from '@inertiajs/react';
 import { useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { formatDisplayDateTime } from '@/lib/utils';
 
 const actionStyles = {
   CREATE: 'bg-green-100 text-green-800',
@@ -41,7 +42,7 @@ export default function AuditLogIndex({ logs }) {
       key: 'timestamp',
       title: 'Timestamp',
       sortable: true,
-      render: (row) => new Date(row.timestamp).toLocaleString(),
+      render: (row) => formatDisplayDateTime(row.timestamp),
     },
     {
       key: 'user',
