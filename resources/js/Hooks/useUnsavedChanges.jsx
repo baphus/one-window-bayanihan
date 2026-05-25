@@ -10,21 +10,21 @@ export default function useUnsavedChanges(dirty) {
   dirtyRef.current = dirty;
 
   useEffect(() => {
-    const handler = (visit) => {
+    const handler = (event) => {
       if (bypassRef.current) {
         bypassRef.current = false;
         return;
       }
       if (dirtyRef.current) {
-        pendingVisitRef.current = visit;
+        pendingVisitRef.current = event.detail.visit;
         setShowModal(true);
         return false;
       }
     };
 
-    const cleanup = router.on('before', handler);
+    const remove = router.on('before', handler);
     return () => {
-      if (typeof cleanup === 'function') cleanup();
+      if (typeof remove === 'function') remove();
     };
   }, []);
 
