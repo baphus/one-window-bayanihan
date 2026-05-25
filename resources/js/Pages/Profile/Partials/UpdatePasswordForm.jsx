@@ -4,11 +4,12 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { useForm } from '@inertiajs/react';
-import { useRef } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 
-export default function UpdatePasswordForm({ className = '' }) {
+export default function UpdatePasswordForm({ className = '', onDirtyChange }) {
     const passwordInput = useRef();
     const currentPasswordInput = useRef();
+    const initialRef = useRef({ current_password: '', password: '', password_confirmation: '' });
 
     const {
         data,
@@ -24,12 +25,22 @@ export default function UpdatePasswordForm({ className = '' }) {
         password_confirmation: '',
     });
 
+    const isDirty = useMemo(() => (
+        data.current_password !== initialRef.current.current_password
+        || data.password !== initialRef.current.password
+        || data.password_confirmation !== initialRef.current.password_confirmation
+    ), [data]);
+    useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
+
     const updatePassword = (e) => {
         e.preventDefault();
 
         put(route('password.update'), {
             preserveScroll: true,
-            onSuccess: () => reset(),
+            onSuccess: () => {
+                reset();
+                onDirtyChange?.(false);
+            },
             onError: (errors) => {
                 if (errors.password) {
                     reset('password', 'password_confirmation');

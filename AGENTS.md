@@ -44,6 +44,8 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 | **DB** | PostgreSQL. `.env.example` shows Redis/Pusher/Cloudinary defaults — actual `.env` uses database drivers |
 | **Route bindings** | All PKs are UUIDs; implicit route model binding works with string IDs |
 | **Blade** | Inertia SPA — no Blade views except the root layout; all rendering is JSX |
+| **Toast/Flash** | Universal auto-toast via `HandleInertiaRequests.php` → `usePage().props.flash` → `FlashMessageWatcher` (in all 3 layouts). Any `->with('success', '...')` works. DO NOT add `seenRef` — each navigation gives a new `props.flash` object, so `useEffect` fires exactly once naturally. Files: `ToastProvider.jsx`, `useToast.jsx`, `HandleInertiaRequests.php` |
+| **Unsaved Changes** | All form pages must use `useUnsavedChanges(dirty)` hook + `<UnsavedChangesModal>`. Hook in `resources/js/Hooks/useUnsavedChanges.jsx`, modal in `resources/js/Components/UnsavedChangesModal.jsx`. Pass a `dirty` boolean. For `useForm` pages, compare `data` against a `useRef` snapshot of initial values. For `useState` forms, compare each field. For inline modal forms (admin CRUD), guard on `showForm`. For pages with multiple form partials, lift dirty state to the parent. See existing pages for patterns. |
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
@@ -54,6 +56,7 @@ This project is indexed by GitNexus as **one-window-bayanihan** (1995 symbols, 3
 
 ## Always Do
 
+- **MUST add `useUnsavedChanges(dirty)` + `<UnsavedChangesModal>` to every new page with form fields.** See the Unsaved Changes gotcha for patterns per form type.
 - **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
 - **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.

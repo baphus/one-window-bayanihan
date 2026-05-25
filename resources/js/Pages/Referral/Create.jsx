@@ -1,6 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { formatDisplayDate } from '@/lib/utils';
 
 const STEPS = [
@@ -42,8 +44,15 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
     const [createStep, setCreateStep] = useState(1);
     const [requirementUploads, setRequirementUploads] = useState({});
     const [notesValue, setNotesValue] = useState('');
-
-    const openCases = cases || [];
+    const initialFormRef = useRef({ case_id: data.case_id, agcy_id: '', services: [] });
+    const hasDirty = useMemo(() => (
+        data.case_id !== initialFormRef.current.case_id
+        || data.agcy_id !== initialFormRef.current.agcy_id
+        || JSON.stringify(data.services) !== JSON.stringify(initialFormRef.current.services)
+        || notesValue !== ''
+        || Object.keys(requirementUploads).length > 0
+    ), [data.case_id, data.agcy_id, data.services, notesValue, requirementUploads]);
+    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
     const initialAgencyId = agencies[0]?.id || '';
     const selectedCase = openCases.find((item) => item.id === data.case_id);
     const selectedAgency = agencies.find((item) => item.id === data.agcy_id);
@@ -406,6 +415,7 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
                     </div>
                 </section>
             </form>
+            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </AppLayout>
     );
 }

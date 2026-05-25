@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 const roleOptions = [
   { value: 'CASE_MANAGER', label: 'Case Manager' },
@@ -98,6 +100,7 @@ function UserForm({ user, agencies, onClose }) {
 export default function AdminUserIndex({ users, agencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
 
   const roleLabels = { CASE_MANAGER: 'Case Manager', AGENCY: 'Agency Focal', ADMIN: 'System Admin' };
 
@@ -186,6 +189,7 @@ export default function AdminUserIndex({ users, agencies }) {
         keyExtractor={(row) => row.id}
         {...paginatorProps(users)}
       />
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
 }

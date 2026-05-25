@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 function CategoryForm({ show, onClose, category, allCategories }) {
   const isEditing = !!category;
@@ -143,6 +145,7 @@ function CategoryForm({ show, onClose, category, allCategories }) {
 export default function Categories({ categories, allCategories }) {
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
 
   const openCreate = () => {
     setEditingCategory(null);
@@ -253,6 +256,7 @@ export default function Categories({ categories, allCategories }) {
         category={editingCategory}
         allCategories={allCategories}
       />
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
 }

@@ -1,6 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 const STEPS = [
     { id: 1, title: 'Case Setup', description: 'Define case parameters and tracking' },
@@ -137,6 +139,83 @@ export default function CaseCreate() {
     const [lastJob, setLastJob] = useState('');
     const [arrivalDate, setArrivalDate] = useState('');
     const [consent, setConsent] = useState(false);
+
+    const initialFormRef = useRef({
+        formData: {
+            client_type: 'OFW',
+            vulnerability_indicator: '',
+            summary: '',
+            client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
+            address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
+            employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
+            next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' },
+            consent: false,
+            is_draft: false,
+        },
+        useState: {
+            clientSource: 'new',
+            nokFirstName: '', nokLastName: '', nokContact: '', nokRelationship: '',
+            clientGender: 'Male', clientEmail: '', clientContact: '',
+            lastCountry: '', lastJob: '', arrivalDate: '',
+            hasNextOfKin: true, consent: false,
+        },
+    });
+
+    function formDataEqual(a, b) {
+        return a.client_type === b.client_type
+            && a.vulnerability_indicator === b.vulnerability_indicator
+            && a.summary === b.summary
+            && a.client.first_name === b.client.first_name
+            && a.client.last_name === b.client.last_name
+            && a.client.middle_name === b.client.middle_name
+            && a.client.suffix === b.client.suffix
+            && a.client.date_of_birth === b.client.date_of_birth
+            && a.client.sex === b.client.sex
+            && a.client.email === b.client.email
+            && a.client.contact_number === b.client.contact_number
+            && a.address.region === b.address.region
+            && a.address.province === b.address.province
+            && a.address.city_municipality === b.address.city_municipality
+            && a.address.barangay === b.address.barangay
+            && a.address.street === b.address.street
+            && a.employment.employer_name === b.employment.employer_name
+            && a.employment.position === b.employment.position
+            && a.employment.country === b.employment.country
+            && a.employment.start_date === b.employment.start_date
+            && a.employment.end_date === b.employment.end_date
+            && a.employment.last_country === b.employment.last_country
+            && a.employment.last_position === b.employment.last_position
+            && a.employment.date_of_arrival === b.employment.date_of_arrival
+            && a.next_of_kin.first_name === b.next_of_kin.first_name
+            && a.next_of_kin.middle_initial === b.next_of_kin.middle_initial
+            && a.next_of_kin.last_name === b.next_of_kin.last_name
+            && a.next_of_kin.is_primary === b.next_of_kin.is_primary
+            && a.next_of_kin.relationship === b.next_of_kin.relationship
+            && a.next_of_kin.phone_number === b.next_of_kin.phone_number
+            && a.next_of_kin.email === b.next_of_kin.email
+            && a.next_of_kin.full_address === b.next_of_kin.full_address
+            && a.consent === b.consent
+            && a.is_draft === b.is_draft;
+    }
+
+    const hasDirty = useMemo(() => {
+        const i = initialFormRef.current;
+        return !formDataEqual(data, i.formData)
+            || clientSource !== i.useState.clientSource
+            || nokFirstName !== i.useState.nokFirstName
+            || nokLastName !== i.useState.nokLastName
+            || nokContact !== i.useState.nokContact
+            || nokRelationship !== i.useState.nokRelationship
+            || clientGender !== i.useState.clientGender
+            || clientEmail !== i.useState.clientEmail
+            || clientContact !== i.useState.clientContact
+            || lastCountry !== i.useState.lastCountry
+            || lastJob !== i.useState.lastJob
+            || arrivalDate !== i.useState.arrivalDate
+            || hasNextOfKin !== i.useState.hasNextOfKin
+            || consent !== i.useState.consent;
+    }, [data, clientSource, nokFirstName, nokLastName, nokContact, nokRelationship, clientGender, clientEmail, clientContact, lastCountry, lastJob, arrivalDate, hasNextOfKin, consent]);
+    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
 
     const stepProgress = Math.round((currentStep / STEPS.length) * 100);
 
@@ -596,6 +675,7 @@ export default function CaseCreate() {
                     </div>
                 </section>
             </form>
+            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </AppLayout>
     );
 }

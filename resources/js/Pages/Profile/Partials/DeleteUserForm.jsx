@@ -5,9 +5,9 @@ import Modal from '@/Components/Modal';
 import SecondaryButton from '@/Components/SecondaryButton';
 import TextInput from '@/Components/TextInput';
 import { useForm } from '@inertiajs/react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
-export default function DeleteUserForm({ className = '' }) {
+export default function DeleteUserForm({ className = '', onDirtyChange }) {
     const [confirmingUserDeletion, setConfirmingUserDeletion] = useState(false);
     const passwordInput = useRef();
 
@@ -22,6 +22,9 @@ export default function DeleteUserForm({ className = '' }) {
     } = useForm({
         password: '',
     });
+
+    const isDirty = confirmingUserDeletion && data.password.length > 0;
+    useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
 
     const confirmUserDeletion = () => {
         setConfirmingUserDeletion(true);
@@ -40,6 +43,7 @@ export default function DeleteUserForm({ className = '' }) {
 
     const closeModal = () => {
         setConfirmingUserDeletion(false);
+        onDirtyChange?.(false);
 
         clearErrors();
         reset();

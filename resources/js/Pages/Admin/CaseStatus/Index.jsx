@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, useForm, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 const typeColors = {
   case: 'bg-blue-100 text-blue-800',
@@ -111,6 +113,7 @@ function StatusForm({ status, onClose }) {
 export default function CaseStatusIndex({ statuses }) {
   const [showForm, setShowForm] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
 
   const caseStatuses = useMemo(() => statuses.filter((s) => s.type === 'case'), [statuses]);
   const referralStatuses = useMemo(() => statuses.filter((s) => s.type === 'referral'), [statuses]);
@@ -198,6 +201,7 @@ export default function CaseStatusIndex({ statuses }) {
         {renderSection('Case Statuses', caseStatuses)}
         {renderSection('Referral Statuses', referralStatuses)}
       </div>
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
 }

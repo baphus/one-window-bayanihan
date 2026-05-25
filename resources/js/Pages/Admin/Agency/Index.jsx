@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, useForm } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 function AgencyForm({ agency, onClose }) {
   const isEdit = !!agency;
@@ -79,6 +81,7 @@ function AgencyForm({ agency, onClose }) {
 export default function AdminAgencyIndex({ agencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState(null);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
 
   function paginatorProps(paginator) {
     return {
@@ -162,6 +165,7 @@ export default function AdminAgencyIndex({ agencies }) {
         keyExtractor={(row) => row.id}
         {...paginatorProps(agencies)}
       />
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
 }

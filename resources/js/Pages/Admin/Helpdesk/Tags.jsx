@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 function TagForm({ show, onClose, tag }) {
   const isEditing = !!tag;
@@ -80,6 +82,7 @@ function TagForm({ show, onClose, tag }) {
 export default function Tags({ tags }) {
   const [showForm, setShowForm] = useState(false);
   const [editingTag, setEditingTag] = useState(null);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
 
   const openCreate = () => {
     setEditingTag(null);
@@ -170,6 +173,7 @@ export default function Tags({ tags }) {
         onClose={closeForm}
         tag={editingTag}
       />
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
 }

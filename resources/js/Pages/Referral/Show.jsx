@@ -1,6 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useRef, useMemo } from 'react';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
@@ -40,6 +42,17 @@ export default function ReferralShow({ referral }) {
         title: '',
         description: '',
     });
+
+    const statusInitialRef = useRef({ status: '', decision: '', decision_comment: '' });
+    const milestoneInitialRef = useRef({ title: '', description: '' });
+    const hasDirty = useMemo(() => (
+        data.status !== statusInitialRef.current.status
+        || data.decision !== statusInitialRef.current.decision
+        || data.decision_comment !== statusInitialRef.current.decision_comment
+        || milestoneForm.data.title !== milestoneInitialRef.current.title
+        || milestoneForm.data.description !== milestoneInitialRef.current.description
+    ), [data, milestoneForm.data]);
+    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
 
     function handleStatusUpdate(e) {
         e.preventDefault();
@@ -279,6 +292,7 @@ export default function ReferralShow({ referral }) {
                     </CardSection>
                 </div>
             </div>
+            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </AppLayout>
     );
 }

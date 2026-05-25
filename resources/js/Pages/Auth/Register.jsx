@@ -4,6 +4,9 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { useRef, useMemo } from 'react';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -12,6 +15,14 @@ export default function Register() {
         password: '',
         password_confirmation: '',
     });
+    const initialRef = useRef({ name: '', email: '', password: '', password_confirmation: '' });
+    const hasDirty = useMemo(() => (
+        data.name !== initialRef.current.name
+        || data.email !== initialRef.current.email
+        || data.password !== initialRef.current.password
+        || data.password_confirmation !== initialRef.current.password_confirmation
+    ), [data]);
+    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
 
     const submit = (e) => {
         e.preventDefault();
@@ -115,6 +126,7 @@ export default function Register() {
                     </PrimaryButton>
                 </div>
             </form>
+            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </GuestLayout>
     );
 }

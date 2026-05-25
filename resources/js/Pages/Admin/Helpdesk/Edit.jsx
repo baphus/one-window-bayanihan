@@ -1,7 +1,9 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import MarkdownEditor from '@/Components/Helpdesk/MarkdownEditor';
-import { useState } from 'react';
+import { useState, useRef, useMemo } from 'react';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 /* ---------- Inline Tag Creator ---------- */
 function CreateTagModal({ open, onClose, onCreated }) {
@@ -182,6 +184,28 @@ export default function Edit({ article, categories, tags }) {
     tag_ids: article?.tags?.map((t) => t.id) || [],
     edit_notes: '',
   });
+
+  const articleInitialRef = useRef({
+    title: article?.title || '',
+    slug: article?.slug || '',
+    content_markdown: article?.content_markdown || '',
+    excerpt: article?.excerpt || '',
+    category_id: article?.category_id || '',
+    status: article?.status || 'draft',
+    featured: article?.featured || false,
+    tag_ids: article?.tags?.map((t) => t.id) || [],
+  });
+  const hasArticleDirty = useMemo(() => (
+    data.title !== articleInitialRef.current.title
+    || data.slug !== articleInitialRef.current.slug
+    || data.content_markdown !== articleInitialRef.current.content_markdown
+    || data.excerpt !== articleInitialRef.current.excerpt
+    || data.category_id !== articleInitialRef.current.category_id
+    || data.status !== articleInitialRef.current.status
+    || data.featured !== articleInitialRef.current.featured
+    || JSON.stringify(data.tag_ids) !== JSON.stringify(articleInitialRef.current.tag_ids)
+  ), [data]);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasArticleDirty || showTagModal || showCatModal);
 
   const titleToSlug = (title) => {
     return title
@@ -456,6 +480,7 @@ export default function Edit({ article, categories, tags }) {
           </div>
         </div>
       </form>
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
 }

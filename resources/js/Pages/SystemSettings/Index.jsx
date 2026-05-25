@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 export default function SystemSettings({ debug_otp_enabled, referral_overdue_days }) {
     const [debugOtp, setDebugOtp] = useState(debug_otp_enabled);
     const [overdueDays, setOverdueDays] = useState(referral_overdue_days);
+    const initialRef = useRef({ debugOtp: debug_otp_enabled, overdueDays: referral_overdue_days });
+    const hasDirty = useMemo(() => (
+        debugOtp !== initialRef.current.debugOtp
+        || overdueDays !== initialRef.current.overdueDays
+    ), [debugOtp, overdueDays]);
+    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
 
     const toggleDebugOtp = () => {
         const next = !debugOtp;
@@ -118,6 +126,7 @@ export default function SystemSettings({ debug_otp_enabled, referral_overdue_day
                     </div>
                 </div>
             </div>
+            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </AppLayout>
     );
 }

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 export default function ForgotPassword({ status }) {
     const { errors: pageErrors } = usePage().props;
@@ -8,6 +10,9 @@ export default function ForgotPassword({ status }) {
     const [processing, setProcessing] = useState(false);
     const [successMsg, setSuccessMsg] = useState(status || '');
     const [errorMsg, setErrorMsg] = useState(pageErrors?.email || '');
+    const initialRef = useRef('');
+    const hasDirty = email !== initialRef.current;
+    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -136,6 +141,7 @@ export default function ForgotPassword({ status }) {
             </main>
 
             <AppFooter />
+            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </div>
     );
 }

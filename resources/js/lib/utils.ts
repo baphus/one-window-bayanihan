@@ -80,6 +80,10 @@ export function isValidReferralStatusTransition(
     return getAllowedReferralStatusTransitions(currentStatus).includes(nextStatus);
 }
 
+export function isDirty<T extends Record<string, unknown>>(initial: T, current: T): boolean {
+  return (Object.keys(initial) as (keyof T)[]).some(key => initial[key] !== current[key]);
+}
+
 export function getGoogleMapsEmbedUrl(locationQuery: string): string {
     return `https://www.google.com/maps?q=${encodeURIComponent(locationQuery)}&output=embed`;
 }

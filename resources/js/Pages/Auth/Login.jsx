@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 export default function Login({ status, canResetPassword }) {
     const { errors: pageErrors, step: initialStep, email: initialEmail, hint: initialHint, debug_otp } = usePage().props;
@@ -17,6 +19,13 @@ export default function Login({ status, canResetPassword }) {
     const [selectedRole, setSelectedRole] = useState(null);
     const otpRefs = useRef([]);
     const autoFilled = useRef(false);
+    const initialFormRef = useRef({ email: '', password: '', otp: ['', '', '', '', '', ''] });
+    const hasFormDirty = useMemo(() => {
+        return email !== initialFormRef.current.email
+            || password !== initialFormRef.current.password
+            || otp.some((d, i) => d !== initialFormRef.current.otp[i]);
+    }, [email, password, otp]);
+    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasFormDirty);
 
     useEffect(() => {
         if (debug_otp && step === 'otp' && !autoFilled.current) {
@@ -340,6 +349,7 @@ export default function Login({ status, canResetPassword }) {
         </main>
 
         <AppFooter />
+        <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </div>
     );
 }

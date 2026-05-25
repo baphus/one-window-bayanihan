@@ -1,11 +1,16 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 export default function TrackingVerify({ tracker_number, email, hint, debug_otp }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const initialOtpRef = useRef(['', '', '', '', '', '']);
+  const hasDirty = useMemo(() => otp.some((d, i) => d !== initialOtpRef.current[i]), [otp]);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
   const otpRefs = useRef([]);
@@ -141,6 +146,7 @@ export default function TrackingVerify({ tracker_number, email, hint, debug_otp 
 
       <AppFooter />
       <ChatBot />
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </div>
   );
 }

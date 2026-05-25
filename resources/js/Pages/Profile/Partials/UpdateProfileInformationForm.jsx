@@ -4,13 +4,17 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { useRef, useEffect } from 'react';
 
 export default function UpdateProfileInformation({
     mustVerifyEmail,
     status,
     className = '',
+    onDirtyChange,
 }) {
     const user = usePage().props.auth.user;
+
+    const initialRef = useRef({ name: user.name, email: user.email });
 
     const { data, setData, patch, errors, processing, recentlySuccessful } =
         useForm({
@@ -18,10 +22,15 @@ export default function UpdateProfileInformation({
             email: user.email,
         });
 
+    const isDirty = data.name !== initialRef.current.name || data.email !== initialRef.current.email;
+    useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
+
     const submit = (e) => {
         e.preventDefault();
 
-        patch(route('profile.update'));
+        patch(route('profile.update'), {
+            onSuccess: () => onDirtyChange?.(false),
+        });
     };
 
     return (

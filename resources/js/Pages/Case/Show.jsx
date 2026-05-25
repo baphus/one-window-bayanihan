@@ -1,6 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { Eye } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
@@ -57,6 +59,13 @@ export default function CaseShow({ case: caseFile }) {
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
   const [saving, setSaving] = useState(false);
+  const initialEditRef = useRef({ clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', summary: caseFile.summary || '' });
+  const hasEditDirty = useMemo(() => (
+    formClientType !== initialEditRef.current.clientType
+    || formVulnerability !== initialEditRef.current.vulnerability
+    || formSummary !== initialEditRef.current.summary
+  ), [formClientType, formVulnerability, formSummary]);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
@@ -543,6 +552,8 @@ export default function CaseShow({ case: caseFile }) {
           </div>
         </div>
       )}
+
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
 }

@@ -1,16 +1,24 @@
-import { useState } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppButton from '@/Components/landing/AppButton';
 import FaqSection from '@/Components/landing/FaqSection';
 import ChatBot from '@/Components/ChatBot';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 export default function TrackingPortal() {
   const { data, setData, post, processing, errors } = useForm({
     tracker_number: '',
     email: '',
   });
+  const initialRef = useRef({ tracker_number: '', email: '' });
+  const hasDirty = useMemo(() => (
+    data.tracker_number !== initialRef.current.tracker_number
+    || data.email !== initialRef.current.email
+  ), [data]);
+  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
   const [inputError, setInputError] = useState('');
 
   const handleTrackSubmit = () => {
@@ -133,6 +141,7 @@ export default function TrackingPortal() {
 
       <AppFooter />
       <ChatBot />
+      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </div>
   );
 }
