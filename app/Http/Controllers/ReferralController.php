@@ -7,6 +7,7 @@ use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\CaseFile;
 use App\Models\ReferralAttachment;
+use App\Models\SystemSetting;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -78,10 +79,12 @@ class ReferralController extends Controller
     {
         $referral = $this->referralService->getReferral($id);
         $serviceRequirements = $this->referralService->getServiceRequirements($referral->agcy_id);
+        $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
         return Inertia::render('Referral/Show', [
             'referral' => $referral,
             'serviceRequirements' => $serviceRequirements,
+            'overdueDays' => $overdueDays,
         ]);
     }
 

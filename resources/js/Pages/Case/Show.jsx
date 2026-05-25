@@ -6,7 +6,7 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { Eye } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
-import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
+import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
 const caseStatusStyles = {
   OPEN: 'border-[#bae6fd] bg-[#e0f2fe] text-[#0369a1]',
@@ -21,6 +21,7 @@ const referralStatusStyles = {
   FOR_COMPLIANCE: 'border-[#fed7aa] bg-[#ffedd5] text-[#c2410c]',
   COMPLETED: 'border-[#bbf7d0] bg-[#dcfce7] text-[#15803d]',
   REJECTED: 'border-[#fecaca] bg-[#fee2e2] text-[#b91c1c]',
+  OVERDUE: 'border-red-200 bg-red-50 text-red-700',
 };
 
 const vulnConfig = {
@@ -52,9 +53,10 @@ function Subsection({ title, children }) {
   );
 }
 
-export default function CaseShow({ case: caseFile }) {
+export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const client = caseFile.client;
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [showOverdueInfo, setShowOverdueInfo] = useState(false);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
@@ -79,16 +81,26 @@ export default function CaseShow({ case: caseFile }) {
       const latest = milestones.length > 0
         ? milestones.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b)
         : null;
+      const lastActivity = latest
+        ? new Date(latest.created_at)
+        : ref.status === 'PENDING'
+          ? new Date(ref.created_at)
+          : new Date(ref.updated_at);
+      const daysSinceActivity = Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
+      const isOverdue = !['COMPLETED', 'REJECTED'].includes(ref.status) && daysSinceActivity > overdueDays;
       return {
         id: ref.id,
         agency: ref.agency?.name || 'N/A',
         referralStatus: ref.status,
+        isOverdue,
         service: ref.required_services,
         latestMilestone: latest?.title || 'Referral Sent',
         dateReferred: formatDisplayDateTime(ref.created_at),
       };
     });
-  }, [caseFile.referrals]);
+  }, [caseFile.referrals, overdueDays]);
+
+  const hasOverdueReferrals = useMemo(() => referralRows.some((r) => r.isOverdue), [referralRows]);
 
   const timelineItems = useMemo(() => {
     const items = [];
@@ -173,7 +185,8 @@ export default function CaseShow({ case: caseFile }) {
       title: 'REFERRAL STATUS',
       className: 'w-[14%] whitespace-nowrap align-top',
       render: (row) => (
-        <span className={`inline-flex rounded-[3px] border px-2 py-0.5 text-[10px] font-extrabold uppercase ${referralStatusStyles[row.referralStatus] || ''}`}>
+        <span className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-extrabold uppercase ${row.isOverdue ? referralStatusStyles.OVERDUE : referralStatusStyles[row.referralStatus] || ''}`}>
+          {row.isOverdue && <span className="material-symbols-outlined text-[12px]">warning</span>}
           {row.referralStatus}
         </span>
       ),
@@ -304,7 +317,7 @@ export default function CaseShow({ case: caseFile }) {
               <MetaTile label="Case No." value={caseFile.case_number} />
               <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
               <MetaTile label="Client Type" value={clientTypeLabel} />
-              <MetaTile label="Date Created" value={formatDisplayDateTime(caseFile.created_at)} />
+              <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
               <MetaTile label="Case Age" value={getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)} />
             </div>
           </CardSection>
@@ -372,8 +385,28 @@ export default function CaseShow({ case: caseFile }) {
           </CardSection>
 
           <CardSection title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#64748b]">Agency Referrals</h4>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#64748b]">Agency Referrals</h4>
+                {hasOverdueReferrals && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowOverdueInfo((prev) => !prev)}
+                      className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-red-500 hover:bg-red-100 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">info</span>
+                    </button>
+                    {showOverdueInfo && (
+                      <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-[3px] border border-red-200 bg-red-50 px-3 py-2 shadow-md">
+                        <p className="text-[10px] leading-5 text-red-800">
+                          A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <Link
                 href={route('referrals.create', { case_id: caseFile.id })}
                 className="px-3 min-h-[30px] inline-flex items-center bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"

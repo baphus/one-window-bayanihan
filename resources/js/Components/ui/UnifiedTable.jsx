@@ -540,7 +540,7 @@ export function UnifiedTable({
               <select 
                 value={rowsPerPage} 
                 onChange={(e) => onRowsPerPageChange?.(Number(e.target.value))}
-                className="bg-white border border-[#cbd5e1] text-[13px] font-bold text-slate-700 rounded-[2px] px-3 py-1.5 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                className="bg-white border border-[#cbd5e1] text-[13px] font-bold text-slate-700 rounded-[2px] pl-3 pr-7 py-1.5 outline-none focus:ring-1 focus:ring-[#0b5384]"
               >
                 {rowsPerPageOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>

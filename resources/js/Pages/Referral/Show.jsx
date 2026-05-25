@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -16,15 +16,39 @@ const statusStyles = {
     'FOR COMPLIANCE': 'border-[#fed7aa] bg-[#ffedd5] text-[#c2410c]',
     COMPLETED: 'border-[#bbf7d0] bg-[#dcfce7] text-[#15803d]',
     REJECTED: 'border-[#fecaca] bg-[#fee2e2] text-[#b91c1c]',
+    OVERDUE: 'border-red-200 bg-red-50 text-red-700',
 };
 
-const statusTransitions = {
-    PENDING: ['PROCESSING', 'FOR COMPLIANCE', 'REJECTED'],
-    PROCESSING: ['FOR COMPLIANCE', 'COMPLETED', 'REJECTED'],
-    'FOR COMPLIANCE': ['PROCESSING', 'COMPLETED', 'REJECTED'],
-    COMPLETED: [],
-    REJECTED: [],
-};
+const avatarColors = [
+    'bg-[#0b5384]', 'bg-[#6b21a8]', 'bg-[#15803d]', 'bg-[#b45309]',
+    'bg-[#be123c]', 'bg-[#1d4ed8]', 'bg-[#0d9488]', 'bg-[#a21caf]',
+];
+
+function getAvatarColor(name) {
+    if (!name) return avatarColors[0];
+    const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return avatarColors[hash % avatarColors.length];
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    return name.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+}
+
+function UserAvatar({ user, size = 'sm' }) {
+    const sizeMap = { sm: 'h-6 w-6 text-[9px]', md: 'h-8 w-8 text-[11px]', lg: 'h-10 w-10 text-[13px]' };
+    const classes = `${sizeMap[size] || sizeMap.sm} rounded-full flex-shrink-0`;
+
+    if (user?.avatar_url) {
+        return <img src={user.avatar_url} alt={user.name || 'Avatar'} className={`${classes} object-cover`} />;
+    }
+
+    return (
+        <span className={`${classes} inline-flex items-center justify-center rounded-full text-white font-bold ${getAvatarColor(user?.name)}`}>
+            {getInitials(user?.name)}
+        </span>
+    );
+}
 
 function parseReferredServices(serviceValue) {
     if (!serviceValue) return [];
@@ -69,29 +93,34 @@ function matchRequirementsToDocuments(requirements, documents) {
     return { matches, unassignedDocuments: remaining };
 }
 
-export default function ReferralShow({ referral, serviceRequirements }) {
+export default function ReferralShow({ referral, serviceRequirements, overdueDays = 7 }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
-    const isCaseManager = auth.user.role === 'CASE_MANAGER';
-    const currentUser = auth.user;
 
-    const statusForm = useForm({ status: '', decision: '', decision_comment: '' });
     const milestoneForm = useForm({ title: '', description: '' });
 
-    const statusInitialRef = useRef({ status: '', decision: '', decision_comment: '' });
     const milestoneInitialRef = useRef({ title: '', description: '' });
     const hasDirty = useMemo(() => (
-        statusForm.data.status !== statusInitialRef.current.status
-        || statusForm.data.decision !== statusInitialRef.current.decision
-        || statusForm.data.decision_comment !== statusInitialRef.current.decision_comment
-        || milestoneForm.data.title !== milestoneInitialRef.current.title
+        milestoneForm.data.title !== milestoneInitialRef.current.title
         || milestoneForm.data.description !== milestoneInitialRef.current.description
-    ), [statusForm.data, milestoneForm.data]);
+    ), [milestoneForm.data]);
     const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
 
     const documents = referral.attachments?.filter((a) => !a.is_archived) ?? [];
     const allDocuments = referral.attachments ?? [];
     const referredServices = parseReferredServices(referral.required_services);
+    const refMilestones = referral.milestones || [];
+    const latestMilestone = refMilestones.length > 0
+      ? refMilestones.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b)
+      : null;
+    const lastActivity = latestMilestone
+      ? new Date(latestMilestone.created_at)
+      : referral.status === 'PENDING'
+        ? new Date(referral.created_at)
+        : new Date(referral.updated_at);
+    const referralAge = Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
+    const isOverdue = !['COMPLETED', 'REJECTED'].includes(referral.status) && referralAge > overdueDays;
+
     const serviceRequirementGroups = referredServices.map((serviceTitle) => {
         const matched = (serviceRequirements ?? []).find(
             (s) => s.title.toLowerCase() === serviceTitle.toLowerCase()
@@ -115,36 +144,20 @@ export default function ReferralShow({ referral, serviceRequirements }) {
     const comments = referral.comments ?? [];
     const topLevelComments = comments.filter((c) => !c.parent_id);
 
-    const [isAddCommentOpen, setIsAddCommentOpen] = useState(false);
+    const [showOverdueInfo, setShowOverdueInfo] = useState(false);
+
     const [commentDraft, setCommentDraft] = useState('');
-    const [pendingComment, setPendingComment] = useState(null);
-    const [pendingReplyToCommentId, setPendingReplyToCommentId] = useState(null);
-    const [pendingReplacements, setPendingReplacements] = useState({});
-    const [pendingAttachments, setPendingAttachments] = useState([]);
-    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [replyToCommentId, setReplyToCommentId] = useState(null);
+    const [postingComment, setPostingComment] = useState(false);
     const [activeVersionGroupId, setActiveVersionGroupId] = useState(null);
-    const [saveMessage, setSaveMessage] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
 
     const fileInputRefs = useRef({});
     const attachInputRef = useRef(null);
+    const commentsEndRef = useRef(null);
 
-    const replyToComment = pendingReplyToCommentId
-        ? comments.find((c) => c.id === pendingReplyToCommentId) ?? null
+    const replyToComment = replyToCommentId
+        ? comments.find((c) => c.id === replyToCommentId) ?? null
         : null;
-
-    const hasPendingChanges = Boolean(pendingComment?.trim()) || Object.keys(pendingReplacements).length > 0 || pendingAttachments.length > 0;
-
-    const pendingChangeSummary = [
-        pendingComment?.trim()
-            ? `${replyToComment ? `Reply to ${replyToComment.user?.name ?? 'comment'}` : 'Add comment'}: "${pendingComment.trim().slice(0, 90)}${pendingComment.trim().length > 90 ? '...' : ''}"`
-            : null,
-        ...Object.entries(pendingReplacements).map(([docId, file]) => {
-            const targetDoc = documents.find((d) => d.id === docId);
-            return `Replace document: ${targetDoc?.file_name ?? 'Unknown'} -> ${file.name}`;
-        }),
-        ...pendingAttachments.map((file) => `Attach document: ${file.name}`),
-    ].filter(Boolean);
 
     const timelineItems = (referral.milestones || []).map((ms) => ({
         id: ms.id,
@@ -162,11 +175,6 @@ export default function ReferralShow({ referral, serviceRequirements }) {
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         : [];
 
-    function handleStatusUpdate(e) {
-        e.preventDefault();
-        statusForm.patch(route('referrals.update-status', referral.id));
-    }
-
     function handleMilestoneSubmit(e) {
         e.preventDefault();
         milestoneForm.post(route('referrals.milestones.store', referral.id), {
@@ -175,113 +183,59 @@ export default function ReferralShow({ referral, serviceRequirements }) {
         });
     }
 
-    function queueComment() {
+    function handlePostComment() {
         const trimmed = commentDraft.trim();
-        if (!trimmed) return;
-        setPendingComment(trimmed);
-        setIsAddCommentOpen(false);
-        setCommentDraft('');
+        if (!trimmed || postingComment) return;
+        setPostingComment(true);
+        const routeName = replyToComment
+            ? 'referrals.comments.reply'
+            : 'referrals.comments.store';
+        const routeParams = replyToComment
+            ? [referral.id, replyToComment.id]
+            : [referral.id];
+        router.post(route(routeName, routeParams), {
+            content: trimmed,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setCommentDraft('');
+                setReplyToCommentId(null);
+                setPostingComment(false);
+            },
+            onError: () => setPostingComment(false),
+        });
     }
 
-    function discardPendingChanges() {
-        setPendingComment(null);
-        setPendingReplyToCommentId(null);
-        setPendingReplacements({});
-        setPendingAttachments([]);
-        setIsConfirmModalOpen(false);
-    }
-
-    async function saveConfirmedChanges() {
-        if (!hasPendingChanges || isSaving) return;
-        setIsSaving(true);
-
-        try {
-            if (pendingComment?.trim()) {
-                if (replyToComment) {
-                    await new Promise((resolve, reject) => {
-                        router.post(route('referrals.comments.reply', [referral.id, replyToComment.id]), {
-                            content: pendingComment.trim(),
-                        }, {
-                            preserveScroll: true,
-                            onSuccess: () => resolve(),
-                            onError: (err) => reject(new Error(Object.values(err).join(', '))),
-                        });
-                    });
-                } else {
-                    await new Promise((resolve, reject) => {
-                        router.post(route('referrals.comments.store', referral.id), {
-                            content: pendingComment.trim(),
-                        }, {
-                            preserveScroll: true,
-                            onSuccess: () => resolve(),
-                            onError: (err) => reject(new Error(Object.values(err).join(', '))),
-                        });
-                    });
-                }
-            }
-
-            for (const [docId, file] of Object.entries(pendingReplacements)) {
-                const formData = new FormData();
-                formData.append('file', file);
-                await new Promise((resolve, reject) => {
-                    router.post(route('referrals.attachments.replace', [referral.id, docId]), formData, {
-                        preserveScroll: true,
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                        onSuccess: () => resolve(),
-                        onError: (err) => reject(new Error(Object.values(err).join(', '))),
-                    });
-                });
-            }
-
-            for (const file of pendingAttachments) {
-                const formData = new FormData();
-                formData.append('file', file);
-                await new Promise((resolve, reject) => {
-                    router.post(route('referrals.attachments.store', referral.id), formData, {
-                        preserveScroll: true,
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                        onSuccess: () => resolve(),
-                        onError: (err) => reject(new Error(Object.values(err).join(', '))),
-                    });
-                });
-            }
-
-            setPendingComment(null);
-            setPendingReplyToCommentId(null);
-            setPendingReplacements({});
-            setPendingAttachments([]);
-            setIsConfirmModalOpen(false);
-            setSaveMessage(`Saved ${formatDisplayDateTime(new Date().toISOString())}.`);
-
-            router.reload({ preserveScroll: true });
-        } catch (err) {
-            alert('Failed to save changes: ' + err.message);
-        } finally {
-            setIsSaving(false);
-        }
-    }
-
-    function handleDocumentSelect(event) {
+    function handleDocumentReplace(event) {
         const files = Array.from(event.target.files ?? []);
         const targetId = event.target.dataset.docId;
         if (!targetId || !files[0]) return;
-        setPendingReplacements((prev) => ({ ...prev, [targetId]: files[0] }));
         event.target.value = '';
+        const formData = new FormData();
+        formData.append('file', files[0]);
+        router.post(route('referrals.attachments.replace', [referral.id, targetId]), formData, {
+            preserveScroll: true,
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
     }
 
-    function handleAttachDocumentsSelect(event) {
+    function handleAttachDocuments(event) {
         const files = Array.from(event.target.files ?? []);
         if (!files.length) return;
-        setPendingAttachments((prev) => [...prev, ...files]);
         event.target.value = '';
+        files.forEach((file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            router.post(route('referrals.attachments.store', referral.id), formData, {
+                preserveScroll: true,
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+        });
     }
 
-    function removePendingAttachment(index) {
-        setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
+    function cancelReply() {
+        setReplyToCommentId(null);
     }
-
-    const allowedTransitions = statusTransitions[referral.status] || [];
-    const canUpdateStatus = allowedTransitions.length > 0 && (isAgency || isCaseManager);
 
     return (
         <AppLayout title="Referral Detail">
@@ -306,10 +260,33 @@ export default function ReferralShow({ referral, serviceRequirements }) {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                 <main className="xl:col-span-8 space-y-4">
                     <CardSection title="Referral Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                        {isOverdue && (
+                            <div className="mb-3 rounded-[3px] border border-red-200 bg-red-50">
+                                <div className="flex items-center gap-2 px-3 py-2">
+                                    <span className="material-symbols-outlined text-[18px] text-red-600">warning</span>
+                                    <p className="flex-1 text-[12px] font-bold text-red-700">This referral is overdue by {referralAge} day{referralAge > 1 ? 's' : ''}</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowOverdueInfo((prev) => !prev)}
+                                        className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-red-500 hover:bg-red-200 transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[16px]">{showOverdueInfo ? 'close' : 'info'}</span>
+                                    </button>
+                                </div>
+                                {showOverdueInfo && (
+                                    <div className="border-t border-red-200 px-3 py-2">
+                                        <p className="text-[11px] leading-5 text-red-800">
+                                            A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-[#d8dee8]">
                             <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
                             <InfoCell label="Status" value={
-                                <span className={`inline-flex rounded-[2px] border px-2 py-0.5 text-[10px] font-extrabold uppercase ${statusStyles[referral.status] || ''}`}>
+                                <span className={`inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[10px] font-extrabold uppercase ${isOverdue ? statusStyles.OVERDUE : statusStyles[referral.status] || ''}`}>
+                                    {isOverdue && <span className="material-symbols-outlined text-[12px]">warning</span>}
                                     {referral.status}
                                 </span>
                             } />
@@ -362,30 +339,10 @@ export default function ReferralShow({ referral, serviceRequirements }) {
                                 ref={attachInputRef}
                                 type="file"
                                 multiple
-                                onChange={handleAttachDocumentsSelect}
+                                onChange={handleAttachDocuments}
                                 className="hidden"
                             />
                         </div>
-
-                        {pendingAttachments.length > 0 && (
-                            <div className="mb-3 rounded-[3px] border border-amber-200 bg-amber-50 px-3 py-2 space-y-2">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-700">Pending Attachments</p>
-                                <div className="space-y-1.5">
-                                    {pendingAttachments.map((file, index) => (
-                                        <div key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between gap-2 rounded-[2px] border border-amber-200 bg-white px-2 py-1.5">
-                                            <p className="min-w-0 truncate text-[11px] text-slate-700">{file.name}</p>
-                                            <button
-                                                type="button"
-                                                onClick={() => removePendingAttachment(index)}
-                                                className="text-[10px] font-semibold text-amber-700 hover:underline"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
 
                         {documents.length > 0 ? (
                             <div className="space-y-3">
@@ -422,11 +379,6 @@ export default function ReferralShow({ referral, serviceRequirements }) {
                                                                             <p className="text-[9px] text-slate-500 truncate">
                                                                                 {document.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(document.created_at)}
                                                                             </p>
-                                                                            {pendingReplacements[document.id] && (
-                                                                                <p className="mt-1 text-[10px] font-semibold text-amber-700">
-                                                                                    Pending replacement: {pendingReplacements[document.id].name}
-                                                                                </p>
-                                                                            )}
                                                                         </div>
                                                                         <div className="flex items-center gap-2 shrink-0">
                                                                             <a href={document.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
@@ -450,7 +402,7 @@ export default function ReferralShow({ referral, serviceRequirements }) {
                                                                                 ref={(el) => { fileInputRefs.current[document.id] = el; }}
                                                                                 data-doc-id={document.id}
                                                                                 type="file"
-                                                                                onChange={handleDocumentSelect}
+                                                                                onChange={handleDocumentReplace}
                                                                                 className="hidden"
                                                                             />
                                                                         </div>
@@ -477,11 +429,6 @@ export default function ReferralShow({ referral, serviceRequirements }) {
                                                     <p className="text-[9px] text-slate-400 truncate">
                                                         {doc.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(doc.created_at)}
                                                     </p>
-                                                    {pendingReplacements[doc.id] && (
-                                                        <p className="mt-1 text-[10px] font-semibold text-amber-700">
-                                                            Pending replacement: {pendingReplacements[doc.id].name}
-                                                        </p>
-                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
@@ -505,7 +452,7 @@ export default function ReferralShow({ referral, serviceRequirements }) {
                                                         ref={(el) => { fileInputRefs.current[doc.id] = el; }}
                                                         data-doc-id={doc.id}
                                                         type="file"
-                                                        onChange={handleDocumentSelect}
+                                                        onChange={handleDocumentReplace}
                                                         className="hidden"
                                                     />
                                                 </div>
@@ -520,56 +467,6 @@ export default function ReferralShow({ referral, serviceRequirements }) {
                             </div>
                         )}
                     </CardSection>
-
-                    {canUpdateStatus && (
-                        <CardSection title="Update Status" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-                            <form onSubmit={handleStatusUpdate} className="space-y-4">
-                                <div>
-                                    <InputLabel htmlFor="status" value="New Status" />
-                                    <select
-                                        id="status"
-                                        className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        value={statusForm.data.status}
-                                        onChange={(e) => statusForm.setData('status', e.target.value)}
-                                    >
-                                        <option value="">Select status...</option>
-                                        {allowedTransitions.map((s) => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                    <InputError message={statusForm.errors.status} className="mt-2" />
-                                </div>
-                                <div>
-                                    <InputLabel htmlFor="decision" value="Decision" />
-                                    <select
-                                        id="decision"
-                                        className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        value={statusForm.data.decision}
-                                        onChange={(e) => statusForm.setData('decision', e.target.value)}
-                                    >
-                                        <option value="">Select decision...</option>
-                                        <option value="ACCEPT">Accept</option>
-                                        <option value="REJECT">Reject</option>
-                                    </select>
-                                    <InputError message={statusForm.errors.decision} className="mt-2" />
-                                </div>
-                                <div>
-                                    <InputLabel htmlFor="decision_comment" value="Decision Comment" />
-                                    <textarea
-                                        id="decision_comment"
-                                        className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        rows={3}
-                                        value={statusForm.data.decision_comment}
-                                        onChange={(e) => statusForm.setData('decision_comment', e.target.value)}
-                                    />
-                                    <InputError message={statusForm.errors.decision_comment} className="mt-2" />
-                                </div>
-                                <PrimaryButton disabled={statusForm.processing || !statusForm.data.status}>
-                                    Update Status
-                                </PrimaryButton>
-                            </form>
-                        </CardSection>
-                    )}
 
                     {isAgency && (
                         <CardSection title="Add Milestone" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
@@ -634,184 +531,106 @@ export default function ReferralShow({ referral, serviceRequirements }) {
                     </CardSection>
 
                     <CardSection title="Case Comments" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsAddCommentOpen((prev) => !prev);
-                                    if (!isAddCommentOpen) setPendingReplyToCommentId(null);
-                                }}
-                                className="h-[28px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a]"
-                            >
-                                {pendingReplyToCommentId ? 'Reply' : 'Add Comment'}
-                            </button>
-                        </div>
-
-                        <div className="max-h-[340px] border border-[#d8dee8] bg-[#f8fafc] p-3 overflow-y-auto">
-                            {isAddCommentOpen && (
-                                <div className="mb-3 space-y-2 border border-[#d8dee8] bg-white p-3">
-                                    {replyToComment && (
-                                        <div className="flex items-center justify-between gap-2 rounded-[2px] border border-[#d8dee8] bg-[#f8fafc] px-2.5 py-1.5">
-                                            <p className="text-[10px] text-slate-600">Replying to {replyToComment.user?.name ?? 'comment'}</p>
-                                            <button
-                                                type="button"
-                                                onClick={() => setPendingReplyToCommentId(null)}
-                                                className="text-[10px] font-semibold text-slate-600 hover:underline"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    )}
-                                    <textarea
-                                        value={commentDraft}
-                                        onChange={(e) => setCommentDraft(e.target.value)}
-                                        rows={3}
-                                        className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-2 text-[12px] text-slate-700 outline-none focus:border-[#0b5384]"
-                                        placeholder={replyToComment ? 'Write a reply...' : 'Write a comment...'}
-                                    />
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsAddCommentOpen(false);
-                                                setCommentDraft('');
-                                                setPendingReplyToCommentId(null);
-                                            }}
-                                            className="h-[28px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[10px] font-bold rounded-[3px] hover:bg-slate-50"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={queueComment}
-                                            className="h-[28px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a]"
-                                        >
-                                            {replyToComment ? 'Queue Reply' : 'Queue Comment'}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {pendingComment?.trim() && (
-                                <div className="mb-3 rounded-[3px] border border-amber-200 bg-amber-50 px-3 py-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-700">
-                                        {replyToComment ? 'Pending Reply' : 'Pending Comment'}
-                                    </p>
-                                    {replyToComment && (
-                                        <p className="mt-1 text-[10px] text-amber-700">Replying to {replyToComment.user?.name ?? 'comment'}</p>
-                                    )}
-                                    <p className="mt-1 text-[11px] text-amber-900">{pendingComment}</p>
-                                </div>
-                            )}
-
+                        <div className="max-h-[340px] overflow-y-auto space-y-3">
                             {topLevelComments.length > 0 ? (
-                                <div className="space-y-3">
-                                    {topLevelComments.map((comment) => {
-                                        const replies = comment.replies ?? [];
-                                        return (
-                                            <div key={comment.id} className="border border-[#e2e8f0] bg-white rounded-[2px] px-2.5 py-2">
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div className="min-w-0">
-                                                        <p className="text-[11px] text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                                                        <p className="mt-1 text-[9px] text-slate-400">
-                                                            {comment.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(comment.created_at)}
-                                                            {comment.is_edited && ' (edited)'}
-                                                        </p>
+                                topLevelComments.map((comment) => {
+                                    const replies = comment.replies ?? [];
+                                    return (
+                                        <div key={comment.id} className="rounded-[3px] border border-[#e2e8f0] bg-white shadow-sm">
+                                            <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
+                                                <UserAvatar user={comment.user} size="sm" />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className="text-[11px] font-bold text-slate-800">{comment.user?.name ?? 'Unknown'}</span>
+                                                        <span className="text-[9px] text-slate-400">{formatDisplayDateTime(comment.created_at)}</span>
+                                                        {comment.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
                                                     </div>
-                                                </div>
-                                                <div className="mt-1.5 flex items-center gap-2">
+                                                    <p className="mt-0.5 text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{comment.content}</p>
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            setPendingReplyToCommentId(comment.id);
-                                                            setIsAddCommentOpen(true);
+                                                            setReplyToCommentId(comment.id);
                                                             setCommentDraft('');
                                                         }}
-                                                        className="text-[9px] font-bold text-[#0b5384] hover:underline"
+                                                        className="mt-1 text-[9px] font-bold text-[#0b5384] hover:text-[#09416a] transition-colors"
                                                     >
                                                         Reply
                                                     </button>
                                                 </div>
-                                                {replies.length > 0 && (
-                                                    <div className="mt-2 ml-3 pl-3 border-l-2 border-[#d8dee8] space-y-2">
-                                                        {replies.map((reply) => (
-                                                            <div key={reply.id}>
-                                                                <p className="text-[11px] text-slate-700 whitespace-pre-wrap">{reply.content}</p>
-                                                                <p className="mt-0.5 text-[9px] text-slate-400">
-                                                                    {reply.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(reply.created_at)}
-                                                                    {reply.is_edited && ' (edited)'}
-                                                                </p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                            {replies.length > 0 && (
+                                                <div className="ml-8 mr-3 pb-2.5 space-y-2">
+                                                    {replies.map((reply) => (
+                                                        <div key={reply.id} className="flex items-start gap-2 rounded-[2px] bg-[#f8fafc] px-2.5 py-2">
+                                                            <UserAvatar user={reply.user} size="sm" />
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-baseline gap-2">
+                                                                    <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
+                                                                    <span className="text-[9px] text-slate-400">{formatDisplayDateTime(reply.created_at)}</span>
+                                                                    {reply.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
+                                                                </div>
+                                                                <p className="text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{reply.content}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
                             ) : (
-                                <p className="text-[11px] text-slate-500 text-center py-4">No comments yet.</p>
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f5f9] border border-[#e2e8f0]">
+                                        <span className="material-symbols-outlined text-[18px] text-slate-400">chat_bubble_outline</span>
+                                    </div>
+                                    <p className="mt-2 text-[11px] font-semibold text-slate-500">No comments yet</p>
+                                    <p className="text-[10px] text-slate-400">Start the conversation below.</p>
+                                </div>
                             )}
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-[#e2e8f0]">
+                            {replyToComment && (
+                                <div className="mb-2 flex items-center justify-between rounded-[3px] bg-[#f0f7ff] border border-[#bfdbfe] px-2.5 py-1.5">
+                                    <p className="text-[10px] text-[#0b5384] font-semibold truncate">
+                                        Replying to <span className="font-bold">{replyToComment.user?.name ?? 'comment'}</span>
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={cancelReply}
+                                        className="text-[10px] font-bold text-[#0b5384] hover:underline shrink-0 ml-2"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
+                            <div className="flex items-start gap-2">
+                                <UserAvatar user={auth.user} size="sm" />
+                                <div className="flex-1 min-w-0">
+                                    <textarea
+                                        value={commentDraft}
+                                        onChange={(e) => setCommentDraft(e.target.value)}
+                                        rows={2}
+                                        className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-[#0b5384] focus:ring-1 focus:ring-[#0b5384]/20 resize-none transition-colors"
+                                        placeholder={replyToComment ? 'Write a reply...' : 'Write a comment...'}
+                                    />
+                                    <div className="mt-1.5 flex items-center justify-between">
+                                        <span className="text-[9px] text-slate-400">{replyToComment ? 'Your reply will be posted immediately' : 'Your comment will be posted immediately'}</span>
+                                        <button
+                                            type="button"
+                                            onClick={handlePostComment}
+                                            disabled={postingComment || !commentDraft.trim()}
+                                            className="h-[26px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a] disabled:opacity-60 transition-colors"
+                                        >
+                                            {postingComment ? 'Posting...' : 'Post'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </CardSection>
                 </aside>
             </div>
-
-            {saveMessage && (
-                <p className="mt-4 text-[11px] font-semibold text-[#0b5384]">{saveMessage}</p>
-            )}
-
-            {hasPendingChanges && (
-                <button
-                    type="button"
-                    onClick={() => setIsConfirmModalOpen(true)}
-                    className="fixed bottom-6 right-6 z-30 h-[38px] px-4 bg-[#0b5384] text-white text-[11px] font-bold rounded-[3px] border border-[#0b5384] shadow-lg hover:bg-[#09416a]"
-                >
-                    Review Pending Changes
-                </button>
-            )}
-
-            {isConfirmModalOpen && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4">
-                    <div className="w-full max-w-lg rounded-[3px] border border-[#d8dee8] bg-white p-4 shadow-xl">
-                        <h3 className="text-[14px] font-extrabold text-slate-800">Confirm Referral Changes</h3>
-                        <p className="mt-1 text-[11px] text-slate-500">Review what will be saved to comments and documents.</p>
-                        <div className="mt-3 max-h-[260px] space-y-2 overflow-y-auto border border-[#e2e8f0] bg-[#f8fafc] p-3">
-                            {pendingChangeSummary.length > 0 ? (
-                                pendingChangeSummary.map((change) => (
-                                    <p key={change} className="text-[11px] text-slate-700">&bull; {change}</p>
-                                ))
-                            ) : (
-                                <p className="text-[11px] text-slate-500">No pending changes.</p>
-                            )}
-                        </div>
-                        <div className="mt-4 flex items-center justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setIsConfirmModalOpen(false)}
-                                className="h-[32px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] hover:bg-slate-50"
-                            >
-                                Back
-                            </button>
-                            <button
-                                type="button"
-                                onClick={discardPendingChanges}
-                                className="h-[32px] px-3 border border-red-200 bg-red-50 text-red-700 text-[11px] font-bold rounded-[3px] hover:bg-red-100"
-                            >
-                                Discard
-                            </button>
-                            <button
-                                type="button"
-                                onClick={saveConfirmedChanges}
-                                disabled={isSaving}
-                                className="h-[32px] px-3 bg-[#0b5384] text-white text-[11px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a] disabled:opacity-60"
-                            >
-                                {isSaving ? 'Saving...' : 'Save Changes'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {activeVersionGroupId && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setActiveVersionGroupId(null)}>

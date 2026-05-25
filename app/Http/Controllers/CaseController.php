@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Models\CaseFile;
+use App\Models\SystemSetting;
 use App\Services\CaseService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -57,9 +58,11 @@ class CaseController extends Controller
     public function show(string $id)
     {
         $case = $this->caseService->getCase($id);
+        $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
         return Inertia::render('Case/Show', [
             'case' => $case,
+            'overdueDays' => $overdueDays,
         ]);
     }
 

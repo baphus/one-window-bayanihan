@@ -3,7 +3,7 @@ import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
-import { formatDisplayDate } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
 const STEPS = [
     { index: 1, label: 'Select Case' },
@@ -24,11 +24,12 @@ function FieldLabel({ label, children, full }) {
     );
 }
 
-function InfoRow({ label, value }) {
+function InfoRow({ label, value, subtext }) {
     return (
         <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">{label}</p>
             <p className="mt-1 text-[13px] font-semibold text-slate-700">{value}</p>
+            {subtext && <p className="text-[11px] text-slate-500 mt-0.5">{subtext}</p>}
         </div>
     );
 }
@@ -228,7 +229,7 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
                                             <InfoRow label="Client Name" value={`${selectedCase.client?.first_name || ''} ${selectedCase.client?.last_name || ''}`} />
                                             <InfoRow label="Client Type" value={selectedCase.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'} />
                                             <InfoRow label="Status" value={selectedCase.status} />
-                                            <InfoRow label="Date Created" value={formatDisplayDate(selectedCase.created_at)} />
+                                            <InfoRow label="Date Created" value={formatDisplayDate(selectedCase.created_at)} subtext={formatDisplayTime(selectedCase.created_at)} />
                                             {selectedCase.summary && (
                                                 <div className="md:col-span-2">
                                                     <InfoRow label="Case Narrative" value={selectedCase.summary} />

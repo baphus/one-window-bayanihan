@@ -3,7 +3,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
-import { formatDisplayDate } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
 const statusStyles = {
   OPEN: 'bg-green-100 text-green-800',
@@ -206,7 +206,12 @@ export default function CaseIndex({ cases, filters, stats }) {
           case 'created_at':
             return {
               ...base,
-              render: (row) => formatDisplayDate(row.created_at),
+              render: (row) => (
+                <div>
+                  <div className="text-xs text-slate-700">{formatDisplayDate(row.created_at)}</div>
+                  <div className="text-[10px] text-slate-500">{formatDisplayTime(row.created_at)}</div>
+                </div>
+              ),
             };
           case 'actions':
             return {
