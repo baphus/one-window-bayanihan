@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCaseRequest;
+use App\Http\Requests\UpdateCaseRequest;
 use App\Services\CaseService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -50,5 +51,27 @@ class CaseController extends Controller
         return Inertia::render('Case/Show', [
             'case' => $case,
         ]);
+    }
+
+    public function update(UpdateCaseRequest $request, string $id)
+    {
+        $case = $this->caseService->updateCase(
+            $id,
+            $request->validated(),
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->route('cases.show', $case)
+            ->with('success', 'Case details updated successfully.');
+    }
+
+    public function toggleStatus(Request $request, string $id)
+    {
+        $case = $this->caseService->toggleCaseStatus($id, $request->user()->id);
+
+        return redirect()
+            ->route('cases.show', $case)
+            ->with('success', 'Case status updated successfully.');
     }
 }

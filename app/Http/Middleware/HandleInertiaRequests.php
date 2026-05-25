@@ -22,6 +22,13 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
+                'warning' => $request->session()->get('warning'),
+                'info' => $request->session()->get('info'),
+                'status' => $request->session()->get('status'),
+            ],
             'settings' => [
                 'debug_otp_enabled' => SystemSetting::getValue('debug_otp_enabled', false),
             ],

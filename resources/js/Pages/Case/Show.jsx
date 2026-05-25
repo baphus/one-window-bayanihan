@@ -1,159 +1,531 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link } from '@inertiajs/react';
-import Timeline from '@/Components/Timeline';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
+import { Eye } from 'lucide-react';
+import AppToast from '@/Components/ui/AppToast';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
-import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
+import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
+
+const caseStatusStyles = {
+  OPEN: 'border-[#bae6fd] bg-[#e0f2fe] text-[#0369a1]',
+  CLOSED: 'border-[#cbd5e1] bg-slate-100 text-slate-700',
+};
+
+const referralStatusStyles = {
+  PENDING: 'border-[#fde68a] bg-[#fef3c7] text-[#b45309]',
+  PROCESSING: 'border-[#bae6fd] bg-[#e0f2fe] text-[#0369a1]',
+  FOR_COMPLIANCE: 'border-[#fed7aa] bg-[#ffedd5] text-[#c2410c]',
+  COMPLETED: 'border-[#bbf7d0] bg-[#dcfce7] text-[#15803d]',
+  REJECTED: 'border-[#fecaca] bg-[#fee2e2] text-[#b91c1c]',
+};
+
+const vulnConfig = {
+  'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
+  'Senior Citizen': { icon: 'elderly', className: 'bg-orange-100 text-orange-800 border-orange-200' },
+  'Solo Parent': { icon: 'single_parent', className: 'bg-pink-100 text-pink-800 border-pink-200' },
+  'Indigenous Person': { icon: 'groups', className: 'bg-teal-100 text-teal-800 border-teal-200' },
+};
+
+function formatDisplayDateTime(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function getCaseAgeDays(createdAt, status, updatedAt) {
+  const created = new Date(createdAt).getTime();
+  const end = status === 'CLOSED' ? new Date(updatedAt).getTime() : Date.now();
+  const days = Math.max(1, Math.round((end - created) / (1000 * 60 * 60 * 24)));
+  return `${days} day${days > 1 ? 's' : ''}`;
+}
+
+function formatAddress(addr) {
+  if (!addr) return '';
+  return [addr.street, addr.barangay, addr.city_municipality, addr.province, addr.region]
+    .filter(Boolean).join(', ');
+}
+
+function Subsection({ title, children }) {
+  return (
+    <div className="space-y-2.5">
+      <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#334155]">{title}</h4>
+      {children}
+    </div>
+  );
+}
 
 export default function CaseShow({ case: caseFile }) {
-    const client = caseFile.client;
+  const { flash } = usePage().props;
+  const client = caseFile.client;
+  const [toastMessage, setToastMessage] = useState(flash?.success || '');
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [formClientType, setFormClientType] = useState(caseFile.client_type);
+  const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
+  const [formSummary, setFormSummary] = useState(caseFile.summary || '');
+  const [saving, setSaving] = useState(false);
 
-    const timelineItems = (caseFile.referrals || []).flatMap((ref) => [
-        ...(ref.milestones || []).map((ms) => ({
-            id: ms.id,
-            title: `Referral to ${ref.agency?.name || 'Agency'}: ${ms.title}`,
-            description: ms.description,
-            date: ms.created_at,
-            meta: ms.user?.name ? `by ${ms.user.name}` : '',
-        })),
-        {
-            id: `${ref.id}-created`,
-            title: `Referred to ${ref.agency?.name || 'Agency'}`,
-            description: ref.required_services,
-            date: ref.created_at,
-            meta: `Status: ${ref.status}`,
-        },
-    ]).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
-    return (
-        <AppLayout title={`Case ${caseFile.case_number}`}>
-            <Head title={`Case ${caseFile.case_number}`} />
+  const primaryAddress = client?.addresses?.[0] || null;
+  const primaryEmployment = client?.employments?.[0] || null;
+  const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
 
-            <div className="mb-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Case {caseFile.case_number}</h1>
-                        <p className="text-sm text-slate-500 mt-1">View detailed case information and referral progress.</p>
-                    </div>
-                    <Link
-                        href={route('cases.index')}
-                        className="text-sm text-indigo-600 hover:text-indigo-900"
-                    >
-                        &larr; Back to Cases
-                    </Link>
-                </div>
-            </div>
+  const referralRows = useMemo(() => {
+    return (caseFile.referrals || []).map((ref) => {
+      const milestones = ref.milestones || [];
+      const latest = milestones.length > 0
+        ? milestones.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b)
+        : null;
+      return {
+        id: ref.id,
+        agency: ref.agency?.name || 'N/A',
+        referralStatus: ref.status,
+        service: ref.required_services,
+        latestMilestone: latest?.title || 'Referral Sent',
+        dateReferred: formatDisplayDateTime(ref.created_at),
+      };
+    });
+  }, [caseFile.referrals]);
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <CardSection title="Case Details">
-                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8] border-b border-[#d8dee8]">
-                            <InfoCell label="Case Number" value={caseFile.case_number} />
-                            <InfoCell label="Tracker Number" value={caseFile.tracker_number} />
-                            <InfoCell label="Status" value={
-                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${caseFile.status === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>
-                                    {caseFile.status}
-                                </span>
-                            } />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8]">
-                            <InfoCell label="Client Type" value={caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'} />
-                            <InfoCell label="Created By" value={caseFile.user?.name ?? 'N/A'} />
-                            <InfoCell label="Created At" value={new Date(caseFile.created_at).toLocaleString()} />
-                        </div>
-                        {caseFile.summary && (
-                            <div className="px-3 py-2">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Summary</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700">{caseFile.summary}</p>
-                            </div>
-                        )}
-                    </CardSection>
+  const timelineItems = useMemo(() => {
+    const items = [];
+    items.push({
+      id: `${caseFile.id}-created`,
+      type: 'system',
+      actor: caseFile.user?.name || 'Case Manager',
+      agency: 'Bayanihan',
+      title: 'Case Created',
+      description: 'Case record was created in the Bayanihan portal.',
+      timestamp: caseFile.created_at,
+    });
+    (caseFile.referrals || []).forEach((ref) => {
+      items.push({
+        id: `${ref.id}-referred`,
+        type: 'referral',
+        actor: caseFile.user?.name || 'Case Manager',
+        agency: ref.agency?.name || 'Agency',
+        title: `Referral Sent to ${ref.agency?.name || 'Agency'}`,
+        description: `Case was referred for ${ref.required_services || 'services'}.`,
+        timestamp: ref.created_at,
+      });
+      const milestones = ref.milestones || [];
+      if (milestones.length > 0) {
+        const latest = milestones.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+        items.push({
+          id: latest.id,
+          type: 'milestone',
+          actor: latest.user?.name || 'System',
+          agency: ref.agency?.name || 'Agency',
+          title: latest.title,
+          description: latest.description || '',
+          timestamp: latest.created_at,
+        });
+      }
+    });
+    if (caseFile.status === 'CLOSED') {
+      items.push({
+        id: `${caseFile.id}-closed`,
+        type: 'system',
+        actor: 'System',
+        agency: 'Bayanihan',
+        title: 'Case Closed',
+        description: 'Case was closed after processing.',
+        timestamp: caseFile.updated_at,
+      });
+    }
+    items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    return items;
+  }, [caseFile]);
 
-                    {client && (
-                        <CardSection title="Client Profile">
-                            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8] border-b border-[#d8dee8]">
-                                <InfoCell label="Full Name" value={[client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ')} />
-                                <InfoCell label="Date of Birth" value={client.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'} />
-                                <InfoCell label="Sex" value={client.sex || 'N/A'} />
-                            </div>
+  const timelineAgencies = useMemo(() => {
+    const unique = new Set(timelineItems.map((item) => item.agency));
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [timelineItems]);
 
-                            {client.addresses?.length > 0 && (
-                                <div className="px-3 py-2 border-b border-[#d8dee8]">
-                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">Addresses</p>
-                                    {client.addresses.map((addr) => (
-                                        <div key={addr.id} className="text-[12px] text-slate-700 mb-1">
-                                            {[addr.street, addr.barangay, addr.city_municipality, addr.province, addr.region].filter(Boolean).join(', ')}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+  const [timelineFilter, setTimelineFilter] = useState('ALL');
 
-                            {client.employments?.length > 0 && (
-                                <div className="px-3 py-2">
-                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">Employment History</p>
-                                    {client.employments.map((emp) => (
-                                        <div key={emp.id} className="text-[12px] text-slate-700 mb-1">
-                                            {emp.last_position && <span className="font-semibold">{emp.last_position}</span>}
-                                            {emp.last_country ? ` (${emp.last_country})` : ''}
-                                            {emp.date_of_arrival ? <span className="text-slate-500"> &mdash; Arrived: {new Date(emp.date_of_arrival).toLocaleDateString()}</span> : ''}
-                                            {emp.employer_name && <div className="text-slate-500">Employer: {emp.employer_name}{emp.country ? ` (${emp.country})` : ''}</div>}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardSection>
-                    )}
+  const filteredTimeline = useMemo(() => {
+    if (timelineFilter === 'ALL') return timelineItems;
+    return timelineItems.filter((item) => item.agency === timelineFilter);
+  }, [timelineItems, timelineFilter]);
 
-                    <CardSection title={`Referrals (${caseFile.referrals?.length ?? 0})`}>
-                        <div className="flex justify-end mb-3">
-                            <Link
-                                href={route('referrals.create', { case_id: caseFile.id })}
-                                className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500"
-                            >
-                                + New Referral
-                            </Link>
-                        </div>
-                        <UnifiedTable
-                            columns={[
-                                { key: 'agency', title: 'Agency', render: (row) => row.agency?.name ?? 'N/A' },
-                                { key: 'service', title: 'Service', render: (row) => row.required_services },
-                                { key: 'status', title: 'Status', render: (row) => (
-                                    <span className="inline-flex rounded-full bg-blue-100 px-2 text-xs font-semibold leading-5 text-blue-800">{row.status}</span>
-                                )},
-                                { key: 'actions', title: 'Actions', render: (row) => (
-                                    <Link href={route('referrals.show', row.id)} className="text-indigo-600 hover:text-indigo-900 font-medium">View</Link>
-                                )},
-                            ]}
-                            data={caseFile.referrals ?? []}
-                            keyExtractor={(row) => row.id}
-                            variant="embedded"
-                            hideControlBar
-                            hidePagination
-                        />
-                    </CardSection>
-                </div>
-
-                <div className="space-y-6">
-                    <CardSection title="Overview">
-                        <div className="space-y-2">
-                            <MetaTile label="Case Number" value={caseFile.case_number} />
-                            <MetaTile label="Tracker Number" value={caseFile.tracker_number} />
-                            <MetaTile label="Status" value={
-                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${caseFile.status === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>
-                                    {caseFile.status}
-                                </span>
-                            } />
-                            {client && <MetaTile label="Client" value={`${client.first_name} ${client.last_name}`} />}
-                            {client && <MetaTile label="Client Type" value={caseFile.client_type === 'OFW' ? 'OFW' : 'Next of Kin'} />}
-                            <MetaTile label="Referrals" value={caseFile.referrals?.length ?? 0} />
-                            <MetaTile label="Created" value={new Date(caseFile.created_at).toLocaleDateString()} />
-                        </div>
-                    </CardSection>
-
-                    <CardSection title={`Timeline (${timelineItems.length})`}>
-                        <Timeline items={timelineItems} />
-                    </CardSection>
-                </div>
-            </div>
-        </AppLayout>
+  const allAttachments = useMemo(() => {
+    return (caseFile.referrals || []).flatMap((ref) =>
+      (ref.attachments || []).map((att) => ({
+        ...att,
+        agencyName: ref.agency?.name || '',
+      }))
     );
+  }, [caseFile.referrals]);
+
+  const referralColumns = [
+    {
+      key: 'agency',
+      title: 'AGENCY',
+      className: 'w-[34%] whitespace-normal leading-5 align-top',
+      render: (row) => <span className="text-[12px] font-semibold text-slate-700">{row.agency}</span>,
+    },
+    {
+      key: 'referralStatus',
+      title: 'REFERRAL STATUS',
+      className: 'w-[14%] whitespace-nowrap align-top',
+      render: (row) => (
+        <span className={`inline-flex rounded-[3px] border px-2 py-0.5 text-[10px] font-extrabold uppercase ${referralStatusStyles[row.referralStatus] || ''}`}>
+          {row.referralStatus}
+        </span>
+      ),
+    },
+    {
+      key: 'latestMilestone',
+      title: 'LATEST MILESTONE',
+      className: 'w-[29%] whitespace-normal leading-5 align-top',
+      render: (row) => <span className="text-[12px] text-slate-600">{row.latestMilestone}</span>,
+    },
+    {
+      key: 'dateReferred',
+      title: 'DATE REFERRED',
+      className: 'w-[16%] whitespace-nowrap align-top',
+      render: (row) => <span className="text-[12px] text-slate-500">{row.dateReferred}</span>,
+    },
+    {
+      key: 'action',
+      title: 'ACTION',
+      className: 'w-[7%] whitespace-nowrap text-right align-top',
+      render: (row) => (
+        <Link
+          href={route('referrals.show', row.id)}
+          className="inline-flex px-2 min-h-[28px] items-center bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+        >
+          View
+        </Link>
+      ),
+    },
+  ];
+
+  function handleSaveDetails() {
+    setSaving(true);
+    router.patch(route('cases.update', caseFile.id), {
+      client_type: formClientType,
+      vulnerability_indicator: formVulnerability,
+      summary: formSummary,
+    }, {
+      preserveScroll: true,
+      onSuccess: () => {
+        setIsEditOpen(false);
+        setSaving(false);
+      },
+      onError: () => setSaving(false),
+    });
+  }
+
+  function handleToggleStatus() {
+    router.post(route('cases.toggle-status', caseFile.id), {}, {
+      preserveScroll: true,
+    });
+  }
+
+  return (
+    <AppLayout title="Case Details">
+      <Head title="Case Details" />
+
+      {toastMessage ? (
+        <AppToast message={toastMessage} onClose={() => setToastMessage('')} tone="success" />
+      ) : null}
+
+      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-5">
+        <Link href={route('cases.index')} className="transition hover:text-[#0b5384]">Cases</Link>
+        <span className="mx-2">&gt;</span>
+        <span>{caseFile.case_number}</span>
+      </div>
+
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+        <div>
+          <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Case Details</h1>
+          <p className="mt-1 text-[14px] leading-6 text-slate-600">Overview of client profile, referral progress, and timeline updates.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`px-2 py-0.5 text-[11px] font-extrabold uppercase rounded-[3px] border ${caseStatusStyles[caseFile.status] || ''}`}>
+            {caseFile.status}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFormClientType(caseFile.client_type);
+              setFormVulnerability(caseFile.vulnerability_indicator || '');
+              setFormSummary(caseFile.summary || '');
+              setIsEditOpen(true);
+            }}
+            className="px-3 min-h-[32px] bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-[3px] transition-colors border border-slate-300"
+          >
+            Edit Details
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleStatus}
+            className="px-3 min-h-[32px] bg-[#0b5384] text-white hover:bg-[#09416a] text-[12px] font-bold rounded-[3px] transition-colors border border-[#0b5384]"
+          >
+            {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <main className="xl:col-span-8 space-y-4">
+          <CardSection title="Case Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              <MetaTile label="Case No." value={caseFile.id} />
+              <MetaTile label="Tracking ID" value={caseFile.case_number} />
+              <MetaTile label="Client Type" value={clientTypeLabel} />
+              <MetaTile label="Date Created" value={formatDisplayDateTime(caseFile.created_at)} />
+              <MetaTile label="Case Age" value={getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)} />
+            </div>
+          </CardSection>
+
+          <CardSection title="Client Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <div className="space-y-5">
+              <Subsection title="Client Profile">
+                <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
+                  <InfoCell label="Full Name" value={client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : 'N/A'} />
+                  <InfoCell label="Date of Birth" value={client?.date_of_birth ? new Date(client.date_of_birth).toLocaleDateString() : 'N/A'} />
+                  <InfoCell label="Gender" value={client?.sex || 'N/A'} />
+                  <InfoCell label="Email Address" value={client?.email || 'N/A'} />
+                  <InfoCell label="Contact Number" value={client?.contact_number || 'N/A'} />
+                  <InfoCell label=" " value=" " />
+                  {primaryAddress ? (
+                    <InfoCell label="Home Address" value={formatAddress(primaryAddress)} fullRow />
+                  ) : (
+                    <InfoCell label="Home Address" value="No address recorded" fullRow />
+                  )}
+                </div>
+
+                {caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None' && (
+                  <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] p-3">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#7c889b]">Vulnerability</p>
+                    <div className="mt-2">
+                      <span className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[11px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                        <span className="material-symbols-outlined text-[16px]">{vulnConfig[caseFile.vulnerability_indicator]?.icon || 'warning'}</span>
+                        {caseFile.vulnerability_indicator}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </Subsection>
+
+              <Subsection title="Work History">
+                {primaryEmployment ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
+                    <InfoCell label="Last Country" value={primaryEmployment.last_country || primaryEmployment.country || 'N/A'} />
+                    <InfoCell label="Last Position" value={primaryEmployment.last_position || primaryEmployment.position || 'N/A'} />
+                    <InfoCell label="Arrival Date" value={primaryEmployment.date_of_arrival ? new Date(primaryEmployment.date_of_arrival).toLocaleDateString() : 'N/A'} />
+                  </div>
+                ) : (
+                  <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2 text-[12px] text-slate-600">
+                    No work history recorded for this case.
+                  </div>
+                )}
+              </Subsection>
+
+              <Subsection title="Next of Kin Information">
+                {primaryNok ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
+                    <InfoCell label="Full Name" value={[primaryNok.first_name, primaryNok.last_name].filter(Boolean).join(' ')} />
+                    <InfoCell label="Relationship" value={primaryNok.relationship || 'N/A'} />
+                    <InfoCell label="Contact Number" value={primaryNok.phone_number || 'N/A'} />
+                    <InfoCell label="Email Address" value={primaryNok.email || 'N/A'} />
+                    <InfoCell label="Home Address" value={primaryNok.full_address || 'N/A'} fullRow />
+                  </div>
+                ) : (
+                  <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2 text-[12px] text-slate-600">
+                    No next of kin indicated for this case.
+                  </div>
+                )}
+              </Subsection>
+            </div>
+          </CardSection>
+
+          <CardSection title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#64748b]">Agency Referrals</h4>
+              <Link
+                href={route('referrals.create', { case_id: caseFile.id })}
+                className="px-3 min-h-[30px] inline-flex items-center bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+              >
+                + Refer to Agency
+              </Link>
+            </div>
+            <UnifiedTable
+              variant="embedded"
+              data={referralRows}
+              columns={referralColumns}
+              keyExtractor={(row) => row.id}
+              hideControlBar
+              hidePagination
+            />
+          </CardSection>
+
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <CardSection title="Case Documents" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+              {allAttachments.length > 0 ? (
+                <div className="space-y-2">
+                  {allAttachments.map((att) => (
+                    <div key={att.id} className="flex items-center justify-between rounded-[3px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold text-slate-700 truncate">{att.file_name}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {att.user?.name || 'Unknown'} &middot; {att.created_at ? formatDisplayDateTime(att.created_at) : ''}
+                          {att.size ? ` \u00b7 ${(att.size / 1024).toFixed(1)} KB` : ''}
+                        </p>
+                      </div>
+                      <a
+                        href={att.file_path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-500 hover:text-[#0b5384] shrink-0 ml-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[12px] text-slate-500 py-2">No documents attached to this case.</p>
+              )}
+            </CardSection>
+
+            <div className="bg-white border border-dashed border-[#cbd5e1] rounded-[3px] p-4 flex items-center justify-center">
+              <div className="text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#eff6ff] text-[#0b5384] border border-[#bfdbfe]">
+                  <span className="material-symbols-outlined text-[20px]">upload</span>
+                </div>
+                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#0b5384]">Upload New File</p>
+                <p className="mt-1 text-[10px] text-slate-500">PDF or image up to 10MB</p>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <aside className="xl:col-span-4 space-y-4">
+          <CardSection title="Case Narrative" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            {caseFile.summary ? (
+              <p className="text-[12px] leading-5 text-slate-600 whitespace-pre-wrap">{caseFile.summary}</p>
+            ) : (
+              <p className="text-[12px] text-slate-500 italic">No narrative recorded for this case.</p>
+            )}
+          </CardSection>
+
+          <CardSection title="Case Timeline" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <select
+                value={timelineFilter}
+                onChange={(e) => setTimelineFilter(e.target.value)}
+                className="h-[30px] w-[170px] max-w-full shrink-0 rounded-[3px] border border-[#cbd5e1] bg-white px-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600"
+              >
+                <option value="ALL">All agencies</option>
+                {timelineAgencies.map((agency) => (
+                  <option key={agency} value={agency}>{agency}</option>
+                ))}
+              </select>
+            </div>
+            {filteredTimeline.length > 0 ? (
+              <div className="relative mt-4">
+                <div className="absolute left-[10px] top-1 bottom-1 w-px bg-[#cbd5e1]" />
+                <div className="flex flex-col-reverse gap-4">
+                  {filteredTimeline.map((item) => (
+                    <div key={item.id} className="relative grid grid-cols-[22px_1fr] items-start gap-3">
+                      <div className={`z-10 mt-0.5 flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full border border-white bg-white shadow-sm ${item.type === 'system' ? 'text-[#0b5384]' : 'text-slate-500'}`}>
+                        <span className="material-symbols-outlined text-[13px]">
+                          {item.type === 'system' ? 'account_balance' : 'business'}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] leading-5 font-semibold text-slate-700">{item.title}</p>
+                        {item.description && (
+                          <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
+                        )}
+                        <p className="mt-0.5 text-[10px] text-slate-400">
+                          {formatDisplayDateTime(item.timestamp)} &middot; {item.actor}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[12px] text-slate-500 py-4 text-center">No timeline events recorded.</p>
+            )}
+          </CardSection>
+        </aside>
+      </div>
+
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={() => setIsEditOpen(false)}>
+          <div className="w-full max-w-2xl rounded-[3px] border border-[#cbd5e1] bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-[#e2e8f0] px-5 py-4">
+              <h2 className="text-[16px] font-extrabold text-slate-900">Edit Case Details</h2>
+              <p className="mt-1 text-[12px] text-slate-500">Update visible case details for this record.</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 px-5 py-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Client Type</label>
+                <select
+                  value={formClientType}
+                  onChange={(e) => setFormClientType(e.target.value)}
+                  className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                >
+                  <option value="OFW">Overseas Filipino Worker</option>
+                  <option value="NEXT_OF_KIN">Next of Kin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Vulnerability</label>
+                <select
+                  value={formVulnerability}
+                  onChange={(e) => setFormVulnerability(e.target.value)}
+                  className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                >
+                  <option value="">None</option>
+                  <option value="PWD">PWD</option>
+                  <option value="Senior Citizen">Senior Citizen</option>
+                  <option value="Solo Parent">Solo Parent</option>
+                  <option value="Indigenous Person">Indigenous Person</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Case Narrative</label>
+                <textarea
+                  rows={5}
+                  value={formSummary}
+                  onChange={(e) => setFormSummary(e.target.value)}
+                  className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#e2e8f0] px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setIsEditOpen(false)}
+                className="h-9 rounded-[3px] border border-[#cbd5e1] px-3 text-[12px] font-bold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDetails}
+                disabled={saving}
+                className="h-9 rounded-[3px] bg-[#0b5384] px-3 text-[12px] font-bold text-white disabled:opacity-60"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AppLayout>
+  );
 }

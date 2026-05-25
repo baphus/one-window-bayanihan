@@ -124,9 +124,73 @@ class CaseService
             'client.nextOfKin',
             'referrals.milestones',
             'referrals.agency',
-            'referrals.attachments',
+            'referrals.attachments.user',
             'user',
         ])->findOrFail($id);
+    }
+
+    public function updateCase(string $id, array $data, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($id, $data, $userId) {
+            $case = CaseFile::findOrFail($id);
+            $old = $case->toArray();
+
+            $case->update([
+                'client_type' => $data['client_type'],
+                'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
+                'summary' => $data['summary'] ?? null,
+            ]);
+
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'CASE',
+                'entity_id' => $case->id,
+                'old_value' => $old,
+                'new_value' => $case->toArray(),
+                'user_id' => $userId,
+            ]);
+
+            return $case->load([
+                'client.addresses',
+                'client.employments',
+                'client.nextOfKin',
+                'referrals.milestones',
+                'referrals.agency',
+                'referrals.attachments.user',
+                'user',
+            ]);
+        });
+    }
+
+    public function toggleCaseStatus(string $id, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($id, $userId) {
+            $case = CaseFile::findOrFail($id);
+            $old = $case->toArray();
+
+            $case->update([
+                'status' => $case->status === 'OPEN' ? 'CLOSED' : 'OPEN',
+            ]);
+
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'CASE',
+                'entity_id' => $case->id,
+                'old_value' => $old,
+                'new_value' => $case->toArray(),
+                'user_id' => $userId,
+            ]);
+
+            return $case->load([
+                'client.addresses',
+                'client.employments',
+                'client.nextOfKin',
+                'referrals.milestones',
+                'referrals.agency',
+                'referrals.attachments.user',
+                'user',
+            ]);
+        });
     }
 
     private function generateCaseNumber(): string
