@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Referral;
 use App\Models\Client;
 use App\Models\ClientEmployment;
-use App\Models\Agency;
+use App\Models\Referral;
 use Illuminate\Support\Facades\DB;
 
 class ReportsService
@@ -34,10 +34,11 @@ class ReportsService
 
     private function caseQuery(?string $userId = null, ?string $role = null)
     {
-        $query = CaseFile::query();
+        $query = CaseFile::where('status', '!=', 'DRAFT');
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->where('user_id', $userId);
         }
+
         return $query;
     }
 
@@ -47,6 +48,7 @@ class ReportsService
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
         }
+
         return $query;
     }
 
@@ -86,8 +88,8 @@ class ReportsService
 
         return [
             'labels' => $allStatuses,
-            'data' => array_map(fn($s) => (int) ($statuses[$s] ?? 0), $allStatuses),
-            'colors' => array_map(fn($s) => $colorMap[$s], $allStatuses),
+            'data' => array_map(fn ($s) => (int) ($statuses[$s] ?? 0), $allStatuses),
+            'colors' => array_map(fn ($s) => $colorMap[$s], $allStatuses),
         ];
     }
 
@@ -173,7 +175,7 @@ class ReportsService
 
         return [
             'labels' => $groups,
-            'data' => array_map(fn($g) => (int) ($ages[$g] ?? 0), $groups),
+            'data' => array_map(fn ($g) => (int) ($ages[$g] ?? 0), $groups),
             'colors' => $colors,
         ];
     }
@@ -254,8 +256,8 @@ class ReportsService
 
         return [
             'labels' => $allStatuses,
-            'data' => array_map(fn($s) => (int) ($statuses[$s] ?? 0), $allStatuses),
-            'colors' => array_map(fn($s) => $colorMap[$s], $allStatuses),
+            'data' => array_map(fn ($s) => (int) ($statuses[$s] ?? 0), $allStatuses),
+            'colors' => array_map(fn ($s) => $colorMap[$s], $allStatuses),
         ];
     }
 
@@ -271,7 +273,7 @@ class ReportsService
         $agencyNames = Agency::whereIn('id', $agencies->pluck('agcy_id'))->pluck('name', 'id');
 
         return [
-            'labels' => $agencies->map(fn($r) => $agencyNames[$r->agcy_id] ?? 'Unknown')->toArray(),
+            'labels' => $agencies->map(fn ($r) => $agencyNames[$r->agcy_id] ?? 'Unknown')->toArray(),
             'data' => $agencies->pluck('total')->toArray(),
         ];
     }

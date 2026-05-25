@@ -13,7 +13,7 @@ class DashboardService
 {
     public function getCaseManagerData(): array
     {
-        $totalCases = CaseFile::count();
+        $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $openCases = CaseFile::where('status', 'OPEN')->count();
         $closedCases = CaseFile::where('status', 'CLOSED')->count();
         $pendingReferrals = Referral::where('status', 'PENDING')->count();
@@ -34,10 +34,11 @@ class DashboardService
             ->unique()
             ->count();
 
-        $ofwCount = CaseFile::where('client_type', 'OFW')->count();
-        $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->count();
+        $ofwCount = CaseFile::where('client_type', 'OFW')->where('status', '!=', 'DRAFT')->count();
+        $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->where('status', '!=', 'DRAFT')->count();
 
         $casesByProvince = CaseFile::select('ca.province', DB::raw('count(*) as total'))
+            ->where('cases.status', '!=', 'DRAFT')
             ->leftJoin('clients as c', 'c.case_id', '=', 'cases.id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->groupBy('ca.province')
@@ -60,6 +61,7 @@ class DashboardService
             DB::raw("to_char(created_at, 'YYYY-MM') as month"),
             DB::raw('count(*) as total')
         )
+            ->where('status', '!=', 'DRAFT')
             ->where('created_at', '>=', now()->subMonths(6))
             ->groupBy('month')
             ->orderBy('month')
@@ -81,6 +83,7 @@ class DashboardService
             ->toArray();
 
         $recentCases = CaseFile::with(['client', 'user'])
+            ->where('status', '!=', 'DRAFT')
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()
@@ -96,6 +99,7 @@ class DashboardService
             ->toArray();
 
         $allCases = CaseFile::with(['client', 'user'])
+            ->where('status', '!=', 'DRAFT')
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(fn ($c) => [
@@ -193,12 +197,13 @@ class DashboardService
 
     public function getAdminData(): array
     {
-        $totalCases = CaseFile::count();
+        $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $totalReferrals = Referral::count();
         $totalUsers = User::count();
         $totalAgencies = Agency::count();
 
         $recentCases = CaseFile::with(['client', 'user'])
+            ->where('status', '!=', 'DRAFT')
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()

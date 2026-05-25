@@ -1,27 +1,31 @@
-import { useEffect, useRef, useContext } from 'react';
-import { usePage } from '@inertiajs/react';
+import { useEffect, useRef, useContext, useCallback } from 'react';
+import { router } from '@inertiajs/react';
 import { ToastProviderInner, ToastContext } from '@/Hooks/useToast.jsx';
 import AppToast from '@/Components/ui/AppToast';
 
 function FlashMessageWatcher() {
-  const { props } = usePage();
   const { toast } = useContext(ToastContext);
   const seenRef = useRef(new Set());
 
-  useEffect(() => {
-    const flash = props.flash;
+  const processFlash = useCallback((flash) => {
     if (!flash) return;
-
     const key = JSON.stringify(flash);
     if (seenRef.current.has(key)) return;
     seenRef.current.add(key);
-
     if (flash.success) toast.success(flash.success);
     if (flash.error) toast.error(flash.error);
     if (flash.warning) toast.warning(flash.warning);
     if (flash.info) toast.info(flash.info);
     if (flash.status) toast.info(flash.status);
-  }, [props, toast]);
+  }, [toast]);
+
+  useEffect(() => {
+    processFlash(router.page?.props?.flash);
+    const cleanup = router.on('navigate', (event) => {
+      processFlash(event.detail.page.props.flash);
+    });
+    return cleanup;
+  }, [processFlash]);
 
   return null;
 }

@@ -14,23 +14,23 @@ use Illuminate\Support\Str;
 
 class CaseService
 {
-    public function createCase(array $data, string $userId): CaseFile
+    public function createCase(array $data, string $userId, bool $isDraft = false): CaseFile
     {
-        return DB::transaction(function () use ($data, $userId) {
+        return DB::transaction(function () use ($data, $userId, $isDraft) {
             $case = CaseFile::create([
                 'case_number' => $this->generateCaseNumber(),
                 'tracker_number' => $this->generateTrackerNumber(),
                 'client_type' => $data['client_type'],
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
-                'status' => 'OPEN',
+                'status' => $isDraft ? 'DRAFT' : 'OPEN',
                 'consent_given_at' => ! empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
             ]);
 
             $client = Client::create([
-                'first_name' => $data['client']['first_name'],
-                'last_name' => $data['client']['last_name'],
+                'first_name' => $data['client']['first_name'] ?? '',
+                'last_name' => $data['client']['last_name'] ?? '',
                 'middle_name' => $data['client']['middle_name'] ?? null,
                 'suffix' => $data['client']['suffix'] ?? null,
                 'date_of_birth' => $data['client']['date_of_birth'] ?? null,
@@ -79,12 +79,35 @@ class CaseService
                 ]);
             }
 
+            if (! $isDraft) {
+                AuditLog::create([
+                    'action' => 'CREATE',
+                    'module' => 'CASE',
+                    'entity_id' => $case->id,
+                    'new_value' => $case->toArray(),
+                    'user_id' => $userId,
+                ]);
+            }
+
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user']);
+        });
+    }
+
+    public function publishDraft(string $id): CaseFile
+    {
+        return DB::transaction(function () use ($id) {
+            $case = CaseFile::where('status', 'DRAFT')->findOrFail($id);
+
+            $case->update([
+                'status' => 'OPEN',
+            ]);
+
             AuditLog::create([
-                'action' => 'CREATE',
+                'action' => 'PUBLISH',
                 'module' => 'CASE',
                 'entity_id' => $case->id,
                 'new_value' => $case->toArray(),
-                'user_id' => $userId,
+                'user_id' => request()->user()->id,
             ]);
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user']);
@@ -98,6 +121,8 @@ class CaseService
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
+        } else {
+            $query->where('status', '!=', 'DRAFT');
         }
 
         if (! empty($filters['client_type'])) {
@@ -210,17 +235,19 @@ class CaseService
 
     public function getCaseStats(): array
     {
-        $total = CaseFile::count();
+        $total = CaseFile::where('status', '!=', 'DRAFT')->count();
         $open = CaseFile::where('status', 'OPEN')->count();
         $closed = CaseFile::where('status', 'CLOSED')->count();
-        $ofw = CaseFile::where('client_type', 'OFW')->count();
-        $nok = CaseFile::where('client_type', 'NOK')->count();
+        $draft = CaseFile::where('status', 'DRAFT')->count();
+        $ofw = CaseFile::where('client_type', 'OFW')->where('status', '!=', 'DRAFT')->count();
+        $nok = CaseFile::where('client_type', 'NOK')->where('status', '!=', 'DRAFT')->count();
         $totalReferrals = Referral::count();
 
         return [
             'total_cases' => $total,
             'open_cases' => $open,
             'closed_cases' => $closed,
+            'draft_cases' => $draft,
             'ofw_cases' => $ofw,
             'nok_cases' => $nok,
             'total_referrals' => $totalReferrals,

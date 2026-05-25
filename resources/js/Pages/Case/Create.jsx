@@ -118,6 +118,7 @@ export default function CaseCreate() {
             full_address: '',
         },
         consent: false,
+        is_draft: false,
     });
 
     const [currentStep, setCurrentStep] = useState(1);
@@ -173,8 +174,7 @@ export default function CaseCreate() {
             && (clientSource === 'existing' || consent);
     }
 
-    function handleSubmit(e) {
-        e.preventDefault();
+    function syncFormData() {
         setData('client', {
             ...data.client,
             sex: clientGender,
@@ -198,6 +198,22 @@ export default function CaseCreate() {
                 phone_number: nokContact,
             });
         }
+    }
+
+    function handleSaveDraft(e) {
+        e.preventDefault();
+        syncFormData();
+        setData('is_draft', true);
+        setData('consent', consent);
+        post(route('cases.store'), {
+            onSuccess: () => { },
+            preserveState: false,
+        });
+    }
+
+    function handleSubmit(e) {
+        e.preventDefault();
+        syncFormData();
         post(route('cases.store'), {
             onSuccess: () => { },
         });
@@ -554,10 +570,17 @@ export default function CaseCreate() {
                         </div>
 
                         <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
-                            <button type="button" onClick={handleBack} disabled={currentStep === 1}
-                                className="inline-flex items-center gap-2 rounded-md border border-[#cbd5e1] bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
-                                <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button type="button" onClick={handleBack} disabled={currentStep === 1}
+                                    className="inline-flex items-center gap-2 rounded-md border border-[#cbd5e1] bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
+                                </button>
+                                <button type="button" onClick={handleSaveDraft} disabled={processing}
+                                    className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-5 py-2.5 text-[13px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <span className="material-symbols-outlined text-[18px]">save</span>
+                                    {processing ? 'Saving...' : 'Save as Draft'}
+                                </button>
+                            </div>
                             {currentStep < 3 ? (
                                 <button type="button" onClick={handleNext} disabled={!canProceed()}
                                     className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">

@@ -2,16 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
-use App\Models\Agency;
 use Illuminate\Support\Facades\DB;
 
 class AnalyticsService
 {
     public function getOverview(): array
     {
-        $totalCases = CaseFile::count();
+        $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $openCases = CaseFile::where('status', 'OPEN')->count();
         $closedCases = CaseFile::where('status', 'CLOSED')->count();
         $totalReferrals = Referral::count();
@@ -34,6 +34,7 @@ class AnalyticsService
             DB::raw("to_char(created_at, 'YYYY-MM') as month"),
             DB::raw('count(*) as total')
         )
+            ->where('status', '!=', 'DRAFT')
             ->where('created_at', '>=', now()->subMonths($months))
             ->groupBy('month')
             ->orderBy('month')
@@ -99,6 +100,7 @@ class AnalyticsService
             'client_type',
             DB::raw('count(*) as total')
         )
+            ->where('status', '!=', 'DRAFT')
             ->groupBy('client_type')
             ->get()
             ->keyBy('client_type');

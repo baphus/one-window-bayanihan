@@ -7,6 +7,7 @@ import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-re
 const statusStyles = {
   OPEN: 'bg-green-100 text-green-800',
   CLOSED: 'bg-slate-100 text-slate-800',
+  DRAFT: 'bg-amber-100 text-amber-800',
 };
 
 const vulnStyles = {
@@ -244,6 +245,7 @@ export default function CaseIndex({ cases, filters, stats }) {
           <option value="">All Statuses</option>
           <option value="OPEN">Open</option>
           <option value="CLOSED">Closed</option>
+          <option value="DRAFT">Drafts</option>
         </select>
       </div>
       <div>
@@ -335,6 +337,7 @@ export default function CaseIndex({ cases, filters, stats }) {
             <TrendingUp className="w-3 h-3 text-emerald-500" />
             <span className="text-[11px] font-bold text-emerald-600">
               {stats?.open_cases ?? 0} open &middot; {stats?.closed_cases ?? 0} closed
+              {stats?.draft_cases > 0 && <> &middot; {stats.draft_cases} draft</>}
             </span>
           </div>
         </div>
