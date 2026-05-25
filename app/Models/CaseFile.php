@@ -9,13 +9,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class CaseFile extends Model
 {
-    use HasFactory, UsesUuid, SoftDeleteFlag;
+    use HasFactory, SoftDeleteFlag, UsesUuid;
 
     protected $table = 'cases';
 
     protected $fillable = [
         'case_number',
         'client_type',
+        'vulnerability_indicator',
         'tracker_number',
         'summary',
         'status',
@@ -42,5 +43,4 @@ class CaseFile extends Model
     {
         return $this->hasMany(Referral::class, 'case_id');
     }
-
 }

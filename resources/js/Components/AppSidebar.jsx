@@ -10,6 +10,7 @@ const navByRole = {
       { name: 'Cases', href: '/cases', icon: 'folder' },
       { name: 'Clients', href: '/clients', icon: 'people' },
       { name: 'Referrals', href: '/referrals', icon: 'send' },
+      { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
       { name: 'Stakeholders', href: '/stakeholders', icon: 'account_balance' },
     ]},
     { label: 'Reports', items: [
@@ -27,6 +28,7 @@ const navByRole = {
     ]},
     { label: 'Operations', items: [
       { name: 'Referred Cases', href: '/referrals', icon: 'assignment' },
+      { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
       { name: 'Services', href: '/services', icon: 'medical_services' },
     ]},
     { label: 'Feedback', items: [
@@ -50,6 +52,7 @@ const navByRole = {
       { name: 'Agencies', href: '/agencies', icon: 'account_balance' },
       { name: 'Services', href: '/services', icon: 'medical_services' },
       { name: 'Referrals', href: '/referrals', icon: 'send' },
+      { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
       { name: 'Users', href: '/users', icon: 'manage_accounts' },
     ]},
     { label: 'Content', items: [
@@ -59,6 +62,7 @@ const navByRole = {
     ]},
     { label: 'Settings', items: [
       { name: 'Activity Logs', href: '/activity-logs', icon: 'history' },
+      { name: 'Case Statuses', href: '/admin/case-statuses', icon: 'label' },
       { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
     ]},
     { label: 'Resources', items: [

@@ -78,6 +78,7 @@ function Select({ value, onChange, options, placeholder }) {
 export default function CaseCreate() {
     const { data, setData, post, processing, errors } = useForm({
         client_type: 'OFW',
+        vulnerability_indicator: '',
         summary: '',
         client: {
             first_name: '',
@@ -320,7 +321,7 @@ export default function CaseCreate() {
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Who is this case for?</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Pick the client category to tailor the next steps.</p>
-                                            <div className="mt-4">
+                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
                                                 <Field label="Client Type" required>
                                                     <select
                                                         value={data.client_type}
@@ -329,6 +330,20 @@ export default function CaseCreate() {
                                                     >
                                                         <option value="OFW">Overseas Filipino Worker</option>
                                                         <option value="NEXT_OF_KIN">Next of Kin</option>
+                                                    </select>
+                                                </Field>
+                                                <Field label="Vulnerability Indicator">
+                                                    <select
+                                                        value={data.vulnerability_indicator}
+                                                        onChange={(e) => setData('vulnerability_indicator', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select vulnerability...</option>
+                                                        <option value="PWD">PWD</option>
+                                                        <option value="Senior Citizen">Senior Citizen</option>
+                                                        <option value="Solo Parent">Solo Parent</option>
+                                                        <option value="Indigenous Person">Indigenous Person</option>
+                                                        <option value="None">None</option>
                                                     </select>
                                                 </Field>
                                             </div>

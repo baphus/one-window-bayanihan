@@ -2,17 +2,28 @@ import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 
-export default function SystemSettings({ debug_otp_enabled }) {
+export default function SystemSettings({ debug_otp_enabled, referral_overdue_days }) {
     const [debugOtp, setDebugOtp] = useState(debug_otp_enabled);
+    const [overdueDays, setOverdueDays] = useState(referral_overdue_days);
 
     const toggleDebugOtp = () => {
         const next = !debugOtp;
         setDebugOtp(next);
         router.post(route('admin.system-settings.update'), {
             debug_otp_enabled: next,
+            referral_overdue_days: overdueDays,
         }, {
             preserveScroll: true,
             onError: () => setDebugOtp(!next),
+        });
+    };
+
+    const saveOverdueDays = () => {
+        router.post(route('admin.system-settings.update'), {
+            debug_otp_enabled: debugOtp,
+            referral_overdue_days: overdueDays,
+        }, {
+            preserveScroll: true,
         });
     };
 
@@ -49,6 +60,32 @@ export default function SystemSettings({ debug_otp_enabled }) {
                         SERVQUAL (Service Quality) dimensions and parameters are used to measure client satisfaction across agencies.
                         Configuration management will be available in a future update.
                     </p>
+                </div>
+
+                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+                    <h3 className="text-base font-semibold text-slate-900 mb-4">Referral Overdue Threshold</h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                        Referrals are marked overdue when they exceed this number of days without being completed or rejected.
+                    </p>
+                    <div className="flex items-end gap-3">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Overdue after (days)</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="365"
+                                value={overdueDays}
+                                onChange={(e) => setOverdueDays(parseInt(e.target.value) || 7)}
+                                className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                            />
+                        </div>
+                        <button
+                            onClick={saveOverdueDays}
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500"
+                        >
+                            Save
+                        </button>
+                    </div>
                 </div>
 
                 <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">

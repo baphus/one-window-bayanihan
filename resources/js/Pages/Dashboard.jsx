@@ -41,42 +41,20 @@ function AgencyDashboard({ stats, recentReferrals }) {
                 <KpiCard title="Completed" value={stats.completedReferrals} accent="border-l-green-500" icon="check_circle" />
             </div>
 
-            <div className="rounded-lg bg-white shadow-sm border border-slate-200">
-                <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-slate-900">Recent Referrals</h3>
-                    <Link href={route('referrals.index')} className="text-sm text-indigo-600 hover:text-indigo-900">View All</Link>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Case #</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Client</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Service</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                            {recentReferrals?.length === 0 ? (
-                                <tr><td colSpan={4} className="px-6 py-4 text-center text-sm text-slate-500">No referrals yet.</td></tr>
-                            ) : (
-                                recentReferrals?.map((ref) => (
-                                    <tr key={ref.id} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4 text-sm font-medium text-slate-900">{ref.case_file?.case_number ?? 'N/A'}</td>
-                                        <td className="px-6 py-4 text-sm text-slate-500">
-                                            {ref.case_file?.client ? `${ref.case_file.client.first_name} ${ref.case_file.client.last_name}` : 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-slate-500">{ref.required_services}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${statusStyles[ref.status] || 'bg-slate-100 text-slate-800'}`}>{ref.status}</span>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <RecentTable
+                title="Recent Referrals"
+                data={recentReferrals ?? []}
+                columns={[
+                    { key: 'case_number', title: 'Case #', render: (row) => row.case_file?.case_number ?? 'N/A' },
+                    { key: 'client', title: 'Client', render: (row) => row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A' },
+                    { key: 'service', title: 'Service', render: (row) => row.required_services },
+                    { key: 'status', title: 'Status', render: (row) => (
+                        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${statusStyles[row.status] || 'bg-slate-100 text-slate-800'}`}>{row.status}</span>
+                    )},
+                ]}
+                keyExtractor={(row) => row.id}
+                onViewAll={() => router.visit(route('referrals.index'))}
+            />
         </>
     );
 }
@@ -97,38 +75,19 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200">
-                    <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-                        <h3 className="text-base font-semibold text-slate-900">Recent Cases</h3>
-                        <Link href={route('cases.index')} className="text-sm text-indigo-600 hover:text-indigo-900">View All</Link>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-200">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Case #</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Created</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200">
-                                {recentCases?.length === 0 ? (
-                                    <tr><td colSpan={3} className="px-6 py-4 text-center text-sm text-slate-500">No cases yet.</td></tr>
-                                ) : (
-                                    recentCases?.map((c) => (
-                                        <tr key={c.id} className="hover:bg-slate-50">
-                                            <td className="px-6 py-4 text-sm font-medium text-slate-900">{c.case_number}</td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${c.status === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>{c.status}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-500">{new Date(c.created_at).toLocaleDateString()}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <RecentTable
+                    title="Recent Cases"
+                    data={recentCases ?? []}
+                    columns={[
+                        { key: 'case_number', title: 'Case #', render: (row) => row.case_number },
+                        { key: 'status', title: 'Status', render: (row) => (
+                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${row.status === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>{row.status}</span>
+                        )},
+                        { key: 'created', title: 'Created', render: (row) => new Date(row.created_at).toLocaleDateString() },
+                    ]}
+                    keyExtractor={(row) => row.id}
+                    onViewAll={() => router.visit(route('cases.index'))}
+                />
 
                 <div className="rounded-lg bg-white shadow-sm border border-slate-200">
                     <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">

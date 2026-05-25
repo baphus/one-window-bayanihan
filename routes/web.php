@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminCaseStatusController;
 use App\Http\Controllers\Admin\HelpdeskArticleController;
 use App\Http\Controllers\Admin\HelpdeskCategoryController;
 use App\Http\Controllers\Admin\HelpdeskTagController;
+use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
@@ -122,7 +124,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/helpdesk/tags/{tag}', [HelpdeskTagController::class, 'destroy'])->name('helpdesk.tags.destroy');
 
         Route::post('/helpdesk/articles/upload-image', [HelpdeskArticleController::class, 'uploadImage'])->name('helpdesk.articles.upload-image');
+
+        Route::get('/case-statuses', [AdminCaseStatusController::class, 'index'])->name('case-statuses.index');
+        Route::post('/case-statuses', [AdminCaseStatusController::class, 'store'])->name('case-statuses.store');
+        Route::patch('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'update'])->name('case-statuses.update');
+        Route::delete('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'destroy'])->name('case-statuses.destroy');
+
     });
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/overdue-referrals', [OverdueReferralController::class, 'index'])->name('overdue-referrals.index');
+    Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])->name('overdue-referrals.send-reminders');
 });
 
 Route::get('/partners', function () {

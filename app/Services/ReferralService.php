@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Referral;
-use App\Models\Milestone;
+use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\Milestone;
+use App\Models\Referral;
 use Illuminate\Support\Facades\DB;
 
 class ReferralService
@@ -12,7 +13,7 @@ class ReferralService
     public function createReferral(array $data, string $userId): Referral
     {
         return DB::transaction(function () use ($data, $userId) {
-            $services = !empty($data['services']) && is_array($data['services'])
+            $services = ! empty($data['services']) && is_array($data['services'])
                 ? implode(', ', $data['services'])
                 : ($data['required_services'] ?? '');
 
@@ -41,22 +42,22 @@ class ReferralService
         $query = Referral::with([
             'caseFile.client',
             'agency',
-            'milestones' => fn($q) => $q->latest(),
+            'milestones' => fn ($q) => $q->latest(),
         ])->orderBy('created_at', 'desc');
 
         if ($userRole === 'AGENCY' && $userAgencyId) {
             $query->where('agcy_id', $userAgencyId);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['case_id'])) {
+        if (! empty($filters['case_id'])) {
             $query->where('case_id', $filters['case_id']);
         }
 
-        if (!empty($filters['agcy_id'])) {
+        if (! empty($filters['agcy_id'])) {
             $query->where('agcy_id', $filters['agcy_id']);
         }
 
@@ -122,8 +123,26 @@ class ReferralService
         });
     }
 
+    public function getOverdueReferrals(int $overdueDays = 7, ?string $userAgencyId = null, ?string $userRole = null)
+    {
+        $cutoff = now()->subDays($overdueDays);
+
+        $query = Referral::with([
+            'caseFile.client',
+            'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
+        ])
+            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+            ->where('created_at', '<', $cutoff);
+
+        if ($userRole === 'AGENCY' && $userAgencyId) {
+            $query->where('agcy_id', $userAgencyId);
+        }
+
+        return $query->orderBy('created_at')->paginate(15);
+    }
+
     public function getAgenciesWithServices()
     {
-        return \App\Models\Agency::with('services.requirements')->where('is_deleted', false)->get();
+        return Agency::with('services.requirements')->where('is_deleted', false)->get();
     }
 }

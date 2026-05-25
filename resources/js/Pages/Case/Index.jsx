@@ -9,14 +9,43 @@ const statusStyles = {
   CLOSED: 'bg-slate-100 text-slate-800',
 };
 
+const vulnStyles = {
+  'PWD': 'bg-purple-100 text-purple-800',
+  'Senior Citizen': 'bg-orange-100 text-orange-800',
+  'Solo Parent': 'bg-pink-100 text-pink-800',
+  'Indigenous Person': 'bg-teal-100 text-teal-800',
+  'None': 'bg-slate-100 text-slate-500',
+};
+
+function formatCaseAge(createdAt) {
+  const parsed = new Date(createdAt);
+  if (Number.isNaN(parsed.getTime())) return 'N/A';
+  const ageInMs = Math.max(0, Date.now() - parsed.getTime());
+  const oneDayInMs = 24 * 60 * 60 * 1000;
+  const ageInDays = Math.floor(ageInMs / oneDayInMs);
+  if (ageInDays > 0) return `${ageInDays} day${ageInDays === 1 ? '' : 's'}`;
+  const ageInHours = Math.floor(ageInMs / (60 * 60 * 1000));
+  if (ageInHours > 0) return `${ageInHours} hr${ageInHours === 1 ? '' : 's'}`;
+  const ageInMinutes = Math.floor(ageInMs / (60 * 1000));
+  return `${Math.max(1, ageInMinutes)} min`;
+}
+
+function referredToAgencies(referrals) {
+  if (!referrals || referrals.length === 0) return '\u2014';
+  const names = [...new Set(referrals.map((r) => r.agency?.name).filter(Boolean))];
+  return names.length > 0 ? names.join(', ') : '\u2014';
+}
+
 const COLUMN_DEFS = [
-  { key: 'case_number', label: 'Case #', default: true },
-  { key: 'tracker_number', label: 'Tracker #', default: true },
-  { key: 'client_name', label: 'Client', default: true },
-  { key: 'client_type', label: 'Client Type', default: false },
-  { key: 'status', label: 'Status', default: true },
-  { key: 'created_at', label: 'Created', default: true },
-  { key: 'referrals_count', label: 'Referrals', default: false },
+  { key: 'tracker_number', label: 'Tracking ID', default: true },
+  { key: 'client_type', label: 'Client Type', default: true },
+  { key: 'client_name', label: 'Client Name', default: true },
+  { key: 'vulnerability_indicator', label: 'Vulnerability', default: true },
+  { key: 'age', label: 'Age', default: true },
+  { key: 'status', label: 'Case Status', default: true },
+  { key: 'referred_to', label: 'Referred To', default: true },
+  { key: 'created_at', label: 'Date Created', default: true },
+  { key: 'actions', label: 'Actions', default: true },
 ];
 
 export default function CaseIndex({ cases, filters, stats }) {
@@ -36,6 +65,7 @@ export default function CaseIndex({ cases, filters, stats }) {
 
   const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
   const [typeFilter, setTypeFilter] = useState(filters?.client_type ?? '');
+  const [vulnFilter, setVulnFilter] = useState(filters?.vulnerability_indicator ?? '');
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -62,19 +92,22 @@ export default function CaseIndex({ cases, filters, stats }) {
   const activeFilters = useMemo(() => {
     const chips = [];
     if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter });
-    if (typeFilter) chips.push({ key: 'client_type', label: 'Client Type', value: typeFilter });
+    if (typeFilter) chips.push({ key: 'client_type', label: 'Client Type', value: typeFilter === 'OFW' ? 'OFW' : 'NOK' });
+    if (vulnFilter) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: vulnFilter });
     return chips;
-  }, [statusFilter, typeFilter]);
+  }, [statusFilter, typeFilter, vulnFilter]);
 
   const handleRemoveFilter = (filter) => {
     if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
     if (filter.key === 'client_type') { setTypeFilter(''); navigateWith({ client_type: undefined }); }
+    if (filter.key === 'vulnerability_indicator') { setVulnFilter(''); navigateWith({ vulnerability_indicator: undefined }); }
   };
 
   const handleClearFilters = () => {
     setStatusFilter('');
     setTypeFilter('');
-    navigateWith({ status: undefined, client_type: undefined });
+    setVulnFilter('');
+    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -105,6 +138,18 @@ export default function CaseIndex({ cases, filters, stats }) {
       .map((col) => {
         const base = { key: col.key, title: col.label, sortable: true };
         switch (col.key) {
+          case 'tracker_number':
+            return {
+              ...base,
+              render: (row) => (
+                <span className="font-mono text-xs font-bold text-slate-700">{row.tracker_number}</span>
+              ),
+            };
+          case 'client_type':
+            return {
+              ...base,
+              render: (row) => (row.client_type === 'OFW' ? 'OFW' : 'Next of Kin'),
+            };
           case 'client_name':
             return {
               ...base,
@@ -113,10 +158,28 @@ export default function CaseIndex({ cases, filters, stats }) {
               sortAccessor: (row) =>
                 row.client ? `${row.client.last_name}, ${row.client.first_name}` : '',
             };
-          case 'client_type':
+          case 'vulnerability_indicator':
             return {
               ...base,
-              render: (row) => (row.client_type === 'OFW' ? 'OFW' : 'Next of Kin'),
+              sortable: false,
+              render: (row) => {
+                const val = row.vulnerability_indicator;
+                if (!val || val === 'None') return <span className="text-slate-400">&mdash;</span>;
+                return (
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold leading-none ${vulnStyles[val] || 'bg-slate-100 text-slate-700'}`}>
+                    {val}
+                  </span>
+                );
+              },
+            };
+          case 'age':
+            return {
+              ...base,
+              sortable: true,
+              sortAccessor: (row) => new Date(row.created_at).getTime(),
+              render: (row) => (
+                <span className="text-xs text-slate-600">{formatCaseAge(row.created_at)}</span>
+              ),
             };
           case 'status':
             return {
@@ -129,15 +192,34 @@ export default function CaseIndex({ cases, filters, stats }) {
                 </span>
               ),
             };
+          case 'referred_to':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className="text-xs text-slate-600 max-w-[200px] truncate block">{referredToAgencies(row.referrals)}</span>
+              ),
+            };
           case 'created_at':
             return {
               ...base,
               render: (row) => new Date(row.created_at).toLocaleDateString(),
             };
-          case 'referrals_count':
+          case 'actions':
             return {
               ...base,
-              render: (row) => row.referrals?.length ?? 0,
+              sortable: false,
+              title: 'Actions',
+              render: (row) => (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => router.visit(route('cases.show', row.id))}
+                    className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                  >
+                    View
+                  </button>
+                </div>
+              ),
             };
           default:
             return { ...base, render: (row) => row[col.key] };
@@ -181,8 +263,28 @@ export default function CaseIndex({ cases, filters, stats }) {
           <option value="NOK">Next of Kin</option>
         </select>
       </div>
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Vulnerability</label>
+        <select
+          value={vulnFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setVulnFilter(val);
+            setFilterOpen(false);
+            navigateWith({ vulnerability_indicator: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All</option>
+          <option value="PWD">PWD</option>
+          <option value="Senior Citizen">Senior Citizen</option>
+          <option value="Solo Parent">Solo Parent</option>
+          <option value="Indigenous Person">Indigenous Person</option>
+          <option value="None">None</option>
+        </select>
+      </div>
     </div>
-  ), [statusFilter, typeFilter]);
+  ), [statusFilter, typeFilter, vulnFilter]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">

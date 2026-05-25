@@ -21,6 +21,7 @@ class CaseService
                 'case_number' => $this->generateCaseNumber(),
                 'tracker_number' => $this->generateTrackerNumber(),
                 'client_type' => $data['client_type'],
+                'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
                 'status' => 'OPEN',
                 'consent_given_at' => ! empty($data['consent']) ? now() : null,

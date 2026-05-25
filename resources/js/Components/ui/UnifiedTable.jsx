@@ -47,7 +47,11 @@ export function UnifiedTable({
 
   hideControlBar = false,
   hidePagination = false,
-  variant = "default"
+  variant = "default",
+
+  selectable = false,
+  selectedKeys = [],
+  onSelectionChange,
 }) {
   const isColumnSortable = (col) =>
     col.sortable ?? (col.key.toLowerCase() !== "actions" && col.title.toUpperCase() !== "ACTIONS");
@@ -199,6 +203,26 @@ export function UnifiedTable({
     setInternalSortKey(inferredDefault.key);
     setInternalSortDirection(inferredDefault.direction);
   };
+
+  const allSelected = selectable && sortedData.length > 0 && selectedKeys.length === sortedData.length;
+
+  const handleToggleAll = () => {
+    if (!onSelectionChange) return
+    if (allSelected) {
+      onSelectionChange([])
+    } else {
+      onSelectionChange(sortedData.map(row => keyExtractor(row)))
+    }
+  }
+
+  const handleToggleRow = (key) => {
+    if (!onSelectionChange) return
+    if (selectedKeys.includes(key)) {
+      onSelectionChange(selectedKeys.filter(k => k !== key))
+    } else {
+      onSelectionChange([...selectedKeys, key])
+    }
+  }
 
   const renderPagination = () => {
     const pages = [];
@@ -404,6 +428,16 @@ export function UnifiedTable({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#f8fafc] border-b border-[#cbd5e1]">
+                  {selectable && (
+                    <th className="px-5 py-4 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={handleToggleAll}
+                        className="rounded border-slate-300"
+                      />
+                    </th>
+                  )}
                   {columns.map((col) => (
                     <th 
                       key={col.key} 
@@ -430,6 +464,16 @@ export function UnifiedTable({
               <tbody className="divide-y divide-[#cbd5e1] bg-white">
                 {sortedData.map((row) => (
                   <tr key={keyExtractor(row)} className="hover:bg-slate-50 transition-colors group">
+                    {selectable && (
+                      <td className="px-5 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedKeys.includes(keyExtractor(row))}
+                          onChange={() => handleToggleRow(keyExtractor(row))}
+                          className="rounded border-slate-300"
+                        />
+                      </td>
+                    )}
                     {columns.map((col) => (
                       <td key={`${keyExtractor(row)}-${col.key}`} className={`px-5 py-4 ${col.className || ''}`}>
                         {col.render ? col.render(row) : row[col.key]}

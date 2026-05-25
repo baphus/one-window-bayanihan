@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
 import Timeline from '@/Components/Timeline';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
 
 export default function CaseShow({ case: caseFile }) {
@@ -111,38 +112,23 @@ export default function CaseShow({ case: caseFile }) {
                                 + New Referral
                             </Link>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-200">
-                                <thead className="bg-slate-50">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Agency</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Service</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-200">
-                                    {caseFile.referrals?.map((ref) => (
-                                        <tr key={ref.id} className="hover:bg-slate-50">
-                                            <td className="whitespace-nowrap px-4 py-2 text-sm text-slate-900">
-                                                {ref.agency?.name ?? 'N/A'}
-                                            </td>
-                                            <td className="max-w-xs truncate px-4 py-2 text-sm text-slate-500">
-                                                {ref.required_services}
-                                            </td>
-                                            <td className="whitespace-nowrap px-4 py-2">
-                                                <span className="inline-flex rounded-full bg-blue-100 px-2 text-xs font-semibold leading-5 text-blue-800">
-                                                    {ref.status}
-                                                </span>
-                                            </td>
-                                            <td className="whitespace-nowrap px-4 py-2 text-sm">
-                                                <Link href={route('referrals.show', ref.id)} className="text-indigo-600 hover:text-indigo-900 font-medium">View</Link>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <UnifiedTable
+                            columns={[
+                                { key: 'agency', title: 'Agency', render: (row) => row.agency?.name ?? 'N/A' },
+                                { key: 'service', title: 'Service', render: (row) => row.required_services },
+                                { key: 'status', title: 'Status', render: (row) => (
+                                    <span className="inline-flex rounded-full bg-blue-100 px-2 text-xs font-semibold leading-5 text-blue-800">{row.status}</span>
+                                )},
+                                { key: 'actions', title: 'Actions', render: (row) => (
+                                    <Link href={route('referrals.show', row.id)} className="text-indigo-600 hover:text-indigo-900 font-medium">View</Link>
+                                )},
+                            ]}
+                            data={caseFile.referrals ?? []}
+                            keyExtractor={(row) => row.id}
+                            variant="embedded"
+                            hideControlBar
+                            hidePagination
+                        />
                     </CardSection>
                 </div>
 
