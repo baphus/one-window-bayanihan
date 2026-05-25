@@ -96,20 +96,19 @@ export default function AppSidebar() {
 
   return (
     <aside className="w-64 bg-[#f8f9fa] border-r border-slate-200 hidden md:flex shrink-0 h-screen font-body flex-col">
-      <div className="flex-1 min-h-0">
-        <div className="h-24 flex items-center px-8 border-b border-transparent">
-          <Link href="/" className="flex items-center gap-3 w-full">
-            <div className="w-10 h-10 flex items-center justify-center shrink-0">
-              <img src="/logo.png" alt="Bayanihan Logo" className="w-full h-full object-contain" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-extrabold font-headline tracking-tight text-blue-950">Bayanihan</span>
-              <span className="text-[10px] font-bold font-label uppercase tracking-[0.08em] text-slate-500">Region VII</span>
-            </div>
-          </Link>
-        </div>
+      <div className="h-24 flex items-center px-8 border-b border-transparent shrink-0">
+        <Link href="/" className="flex items-center gap-3 w-full">
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
+            <img src="/logo.png" alt="Bayanihan Logo" className="w-full h-full object-contain" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-lg font-extrabold font-headline tracking-tight text-blue-950">Bayanihan</span>
+            <span className="text-[10px] font-bold font-label uppercase tracking-[0.08em] text-slate-500">Region VII</span>
+          </div>
+        </Link>
+      </div>
 
-        <nav className="h-[calc(100%-6rem)] overflow-y-auto pt-3 pb-4">
+      <nav className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4">
           {navigation.map((group) => (
             <div key={group.label} className="mb-3">
               <p className="px-8 pb-2 text-[10px] font-bold font-label uppercase tracking-[0.09em] text-slate-500">
@@ -139,9 +138,8 @@ export default function AppSidebar() {
             </div>
           ))}
         </nav>
-      </div>
 
-      <div className="flex flex-col">
+      <div className="flex flex-col shrink-0">
         <div className="px-5 py-5 bg-white border-t border-slate-200">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-900 border border-blue-200">
