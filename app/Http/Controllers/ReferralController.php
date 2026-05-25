@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
-use App\Http\Requests\StoreMilestoneRequest;
 use App\Models\CaseFile;
 use App\Models\ReferralAttachment;
 use App\Services\ReferralService;
@@ -77,9 +77,11 @@ class ReferralController extends Controller
     public function show(string $id)
     {
         $referral = $this->referralService->getReferral($id);
+        $serviceRequirements = $this->referralService->getServiceRequirements($referral->agcy_id);
 
         return Inertia::render('Referral/Show', [
             'referral' => $referral,
+            'serviceRequirements' => $serviceRequirements,
         ]);
     }
 
@@ -110,5 +112,100 @@ class ReferralController extends Controller
         return redirect()
             ->back()
             ->with('success', 'Milestone added.');
+    }
+
+    public function addComment(Request $request, string $id)
+    {
+        $validated = $request->validate([
+            'content' => 'required|string|max:5000',
+            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY,CLIENT_VISIBLE',
+        ]);
+
+        $comment = $this->referralService->addComment(
+            $id,
+            $validated['content'],
+            $request->user()->id,
+            $validated['visibility'] ?? 'INTERNAL',
+        );
+
+        return redirect()
+            ->back()
+            ->with('success', 'Comment added.');
+    }
+
+    public function replyToComment(Request $request, string $id, string $commentId)
+    {
+        $validated = $request->validate([
+            'content' => 'required|string|max:5000',
+            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY,CLIENT_VISIBLE',
+        ]);
+
+        $reply = $this->referralService->replyToComment(
+            $commentId,
+            $validated['content'],
+            $request->user()->id,
+            $validated['visibility'] ?? 'INTERNAL',
+        );
+
+        return redirect()
+            ->back()
+            ->with('success', 'Reply added.');
+    }
+
+    public function addAttachment(Request $request, string $id)
+    {
+        $request->validate([
+            'file' => 'required|file|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->store('referrals', 'public');
+
+        $attachment = $this->referralService->addAttachment(
+            $id,
+            [
+                'name' => $file->getClientOriginalName(),
+                'path' => $path,
+                'type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ],
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->back()
+            ->with('success', 'Attachment added.');
+    }
+
+    public function replaceAttachment(Request $request, string $id, string $attachmentId)
+    {
+        $request->validate([
+            'file' => 'required|file|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->store('referrals', 'public');
+
+        $attachment = $this->referralService->replaceAttachment(
+            $attachmentId,
+            [
+                'name' => $file->getClientOriginalName(),
+                'path' => $path,
+                'type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ],
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->back()
+            ->with('success', 'Attachment replaced.');
+    }
+
+    public function getAttachmentVersions(string $id, string $versionGroupId)
+    {
+        $versions = $this->referralService->getAttachmentVersions($versionGroupId);
+
+        return response()->json($versions);
     }
 }

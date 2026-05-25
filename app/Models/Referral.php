@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Referral extends Model
 {
-    use HasFactory, UsesUuid, SoftDeleteFlag;
+    use HasFactory, SoftDeleteFlag, UsesUuid;
 
     protected $fillable = [
         'required_services',
@@ -43,5 +43,10 @@ class Referral extends Model
     public function attachments()
     {
         return $this->hasMany(ReferralAttachment::class, 'referral_id');
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(ReferralComment::class, 'refr_id');
     }
 }

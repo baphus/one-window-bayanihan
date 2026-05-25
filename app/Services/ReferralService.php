@@ -6,7 +6,10 @@ use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
+use App\Models\ReferralComment;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ReferralService
 {
@@ -72,7 +75,25 @@ class ReferralService
             'agency',
             'milestones.user',
             'attachments.user',
+            'comments.user',
+            'comments.replies.user',
         ])->findOrFail($id);
+    }
+
+    public function getServiceRequirements(string $agencyId): array
+    {
+        $agency = Agency::with('services.requirements')->find($agencyId);
+
+        if (! $agency) {
+            return [];
+        }
+
+        return $agency->services->map(function ($service) {
+            return [
+                'title' => $service->name,
+                'requiredDocuments' => $service->requirements->pluck('name')->toArray(),
+            ];
+        })->toArray();
     }
 
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
@@ -144,5 +165,105 @@ class ReferralService
     public function getAgenciesWithServices()
     {
         return Agency::with('services.requirements')->where('is_deleted', false)->get();
+    }
+
+    public function addComment(string $referralId, string $content, string $userId, string $visibility = 'INTERNAL'): ReferralComment
+    {
+        $comment = ReferralComment::create([
+            'refr_id' => $referralId,
+            'content' => $content,
+            'visibility' => $visibility,
+            'user_id' => $userId,
+        ]);
+
+        AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'REFERRAL_COMMENT',
+            'entity_id' => $comment->id,
+            'new_value' => $comment->toArray(),
+            'user_id' => $userId,
+        ]);
+
+        return $comment->load('user');
+    }
+
+    public function replyToComment(string $commentId, string $content, string $userId, string $visibility = 'INTERNAL'): ReferralComment
+    {
+        $parent = ReferralComment::findOrFail($commentId);
+
+        $reply = ReferralComment::create([
+            'refr_id' => $parent->refr_id,
+            'parent_id' => $commentId,
+            'content' => $content,
+            'visibility' => $visibility,
+            'user_id' => $userId,
+        ]);
+
+        AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'REFERRAL_REPLY',
+            'entity_id' => $reply->id,
+            'new_value' => $reply->toArray(),
+            'user_id' => $userId,
+        ]);
+
+        return $reply->load('user');
+    }
+
+    public function addAttachment(string $referralId, array $fileData, string $userId): ReferralAttachment
+    {
+        $attachment = ReferralAttachment::create([
+            'referral_id' => $referralId,
+            'file_name' => $fileData['name'],
+            'file_path' => $fileData['path'],
+            'file_type' => $fileData['type'] ?? null,
+            'size' => $fileData['size'] ?? null,
+            'user_id' => $userId,
+            'version_group_id' => (string) Str::uuid(),
+        ]);
+
+        AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'REFERRAL_ATTACHMENT',
+            'entity_id' => $attachment->id,
+            'new_value' => $attachment->toArray(),
+            'user_id' => $userId,
+        ]);
+
+        return $attachment->load('user');
+    }
+
+    public function replaceAttachment(string $attachmentId, array $fileData, string $userId): ReferralAttachment
+    {
+        return DB::transaction(function () use ($attachmentId, $fileData, $userId) {
+            $oldAttachment = ReferralAttachment::findOrFail($attachmentId);
+            $versionGroupId = $oldAttachment->version_group_id ?? (string) Str::uuid();
+
+            $oldAttachment->update([
+                'is_archived' => true,
+                'version_group_id' => $versionGroupId,
+            ]);
+
+            $newAttachment = ReferralAttachment::create([
+                'referral_id' => $oldAttachment->referral_id,
+                'file_name' => $fileData['name'],
+                'file_path' => $fileData['path'],
+                'file_type' => $fileData['type'] ?? null,
+                'size' => $fileData['size'] ?? null,
+                'user_id' => $userId,
+                'replaces_id' => $oldAttachment->id,
+                'version_group_id' => $versionGroupId,
+            ]);
+
+            return $newAttachment->load('user');
+        });
+    }
+
+    public function getAttachmentVersions(string $versionGroupId)
+    {
+        return ReferralAttachment::where('version_group_id', $versionGroupId)
+            ->with('user')
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 }
