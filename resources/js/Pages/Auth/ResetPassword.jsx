@@ -4,9 +4,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, useForm } from '@inertiajs/react';
-import { useRef, useMemo } from 'react';
-import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 
 export default function ResetPassword({ token, email }) {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -15,12 +13,7 @@ export default function ResetPassword({ token, email }) {
         password: '',
         password_confirmation: '',
     });
-    const initialRef = useRef({ token, email, password: '', password_confirmation: '' });
-    const hasDirty = useMemo(() => (
-        data.password !== initialRef.current.password
-        || data.password_confirmation !== initialRef.current.password_confirmation
-    ), [data]);
-    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
+
 
     const submit = (e) => {
         e.preventDefault();
@@ -98,7 +91,6 @@ export default function ResetPassword({ token, email }) {
                     </PrimaryButton>
                 </div>
             </form>
-            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </GuestLayout>
     );
 }
