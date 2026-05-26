@@ -81,7 +81,7 @@ export default function CaseIndex({ cases, filters, stats }) {
       else url.searchParams.delete(k);
     });
     url.searchParams.delete('page');
-    window.location = url.toString();
+    router.get(url.toString(), {}, { preserveState: true, replace: true });
   };
 
   const handleSearchChange = (value) => {
@@ -124,13 +124,13 @@ export default function CaseIndex({ cases, filters, stats }) {
       onPageChange: (page) => {
         const url = new URL(window.location);
         url.searchParams.set('page', page);
-        window.location = url.toString();
+        router.get(url.toString());
       },
       onRowsPerPageChange: (n) => {
         const url = new URL(window.location);
         url.searchParams.set('per_page', n);
         url.searchParams.delete('page');
-        window.location = url.toString();
+        router.get(url.toString());
       },
     };
   }
@@ -437,7 +437,7 @@ export default function CaseIndex({ cases, filters, stats }) {
                   url.searchParams.set('status', 'DRAFT');
                 }
                 url.searchParams.delete('page');
-                window.location = url.toString();
+                router.get(url.toString(), {}, { preserveState: true, replace: true });
               }}
               className="h-[40px] px-4 border border-amber-300 text-[14px] font-bold text-amber-700 rounded-[3px] bg-amber-50 flex items-center gap-2 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0"
             >
@@ -453,7 +453,7 @@ export default function CaseIndex({ cases, filters, stats }) {
                   url.searchParams.set('status', 'ARCHIVED');
                 }
                 url.searchParams.delete('page');
-                window.location = url.toString();
+                router.get(url.toString(), {}, { preserveState: true, replace: true });
               }}
               className="h-[40px] px-4 border border-gray-300 text-[14px] font-bold text-gray-700 rounded-[3px] bg-gray-50 flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap shrink-0"
             >

@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { formatDisplayDate } from '@/lib/utils';
@@ -196,13 +196,13 @@ export default function ReportsIndex({
             onPageChange: (page) => {
                 const url = new URL(window.location);
                 url.searchParams.set('page', page);
-                window.location = url.toString();
+                router.get(url.toString());
             },
             onRowsPerPageChange: (n) => {
                 const url = new URL(window.location);
                 url.searchParams.set('per_page', n);
                 url.searchParams.delete('page');
-                window.location = url.toString();
+                router.get(url.toString());
             },
             hideControlBar: true,
             hidePagination: false,

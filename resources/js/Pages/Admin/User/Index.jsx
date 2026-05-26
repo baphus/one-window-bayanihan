@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
@@ -116,13 +116,13 @@ export default function AdminUserIndex({ users, agencies }) {
       onPageChange: (page) => {
         const url = new URL(window.location);
         url.searchParams.set('page', page);
-        window.location = url.toString();
+        router.get(url.toString());
       },
       onRowsPerPageChange: (n) => {
         const url = new URL(window.location);
         url.searchParams.set('per_page', n);
         url.searchParams.delete('page');
-        window.location = url.toString();
+        router.get(url.toString());
       },
     };
   }

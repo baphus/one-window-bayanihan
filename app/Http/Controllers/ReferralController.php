@@ -22,14 +22,14 @@ class ReferralController extends Controller
     {
         $user = $request->user();
         $referrals = $this->referralService->getReferrals(
-            $request->only(['status', 'case_id', 'agcy_id']),
+            $request->only(['status', 'search', 'case_id', 'agcy_id']),
             $user->agcy_id,
             $user->role,
         );
 
         return Inertia::render('Referral/Index', [
             'referrals' => $referrals,
-            'filters' => $request->only(['status', 'case_id', 'agcy_id']),
+            'filters' => $request->only(['status', 'search', 'case_id', 'agcy_id']),
         ]);
     }
 

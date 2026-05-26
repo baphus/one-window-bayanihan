@@ -14,7 +14,7 @@ const COLUMN_DEFS = [
 ];
 
 export default function ClientIndex({ clients, filters }) {
-  const [searchValue, setSearchValue] = useState('');
+  const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [viewMode, setViewMode] = useState('list');
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
@@ -39,7 +39,7 @@ export default function ClientIndex({ clients, filters }) {
       else url.searchParams.delete(k);
     });
     url.searchParams.delete('page');
-    window.location = url.toString();
+    router.get(url.toString(), {}, { preserveState: true, replace: true });
   };
 
   const handleSearchChange = (value) => {
@@ -79,13 +79,13 @@ export default function ClientIndex({ clients, filters }) {
       onPageChange: (page) => {
         const url = new URL(window.location);
         url.searchParams.set('page', page);
-        window.location = url.toString();
+        router.get(url.toString());
       },
       onRowsPerPageChange: (n) => {
         const url = new URL(window.location);
         url.searchParams.set('per_page', n);
         url.searchParams.delete('page');
-        window.location = url.toString();
+        router.get(url.toString());
       },
     };
   }

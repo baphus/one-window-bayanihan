@@ -64,6 +64,24 @@ class ReferralService
             $query->where('agcy_id', $filters['agcy_id']);
         }
 
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('required_services', 'like', "%{$search}%")
+                    ->orWhereHas('caseFile', function ($q) use ($search) {
+                        $q->where('case_number', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('agency', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('caseFile.client', function ($q) use ($search) {
+                        $q->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('middle_name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
         return $query->paginate(15);
     }
 
