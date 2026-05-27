@@ -1,0 +1,82 @@
+﻿The system shall comply with the Data Privacy Act of 2012 (Republic Act No. 10173), it's Implementing Rules and Regulations, and applicable National Privacy Commission guidance.Compliance obligations shall include:
+LEGAL-001Personal data shall be processed only for legitimate, authorized, and operationally necessary purposes related to OFW assistance coordination, case management, referral processing, monitoring, and service delivery.
+LEGAL-002Collection, storage, access, transmission, and processing of OFW personal data shall be limited to the minimum necessary information required for legitimate operational purposes.
+LEGAL-003Personally identifiable information and sensitive case data shall be protected through technical, organizational, and administrative safeguards.
+LEGAL-004Access to personal information shall be restricted to authorized users with legitimate operational need.
+LEGAL-005The system shall support auditability, accountability, and traceability for protected data access and operational actions.
+LEGAL-006Data retention, archival, disposal, and record lifecycle handling shall follow documented governance controls.
+LEGAL-007Unauthorized disclosure, misuse, or uncontrolled exposure of OFW personal information shall be prohibited.
+6.1.2 Department of Migrant Workers Act Compliance (Republic Act No. 11641)
+The system shall align with the governance mandate established under Republic Act No. 11641.
+Compliance obligations shall include:
+LEGAL-008The Department of Migrant Workers (DMW) shall remain the primary operational authority for centralized OFW case governance.
+LEGAL-009Official case intake and centralized case lifecycle governance shall remain under authorized DMW personnel.
+LEGAL-010Participating partner agencies shall operate within delegated referral and intervention responsibilities without assuming unrestricted centralized case governance authority.
+LEGAL-011Inter-agency workflows shall preserve accountability, visibility control, and governance oversight consistent with DMW authority.
+6.1.3 DICT Cloud First Policy Compliance
+Bayanihan One Window shall align with the principles of the DICT Cloud First Policy through managed cloud service adoption, subject to governance and risk controls appropriate for protected operational data.
+Compliance obligations shall include:
+LEGAL-012Cloud-hosted infrastructure may be used where security, privacy, governance, availability, and operational suitability requirements are satisfied.
+LEGAL-013Managed commercial cloud services used by the system shall be formally approved as part of deployment governance.
+LEGAL-014Cloud adoption shall be accompanied by documented risk assessment and privacy governance review.
+LEGAL-015Security responsibilities across application, storage, database, and vendor-managed infrastructure shall be clearly defined.
+LEGAL-016Cloud service dependencies shall be documented as operational infrastructure assumptions.
+6.1.4 Cross-Border Processing and International Data Governance
+Because Bayanihan One Window uses managed commercial cloud services including Render, Supabase, Cloudinary, and other external service providers, certain technical operations may involve infrastructure outside Philippine jurisdiction.
+Potential exposure scenarios include:
+managed hosting infrastructure 
+database replication or backups 
+service telemetry 
+vendor administrative access 
+content delivery infrastructure 
+messaging provider communications 
+AI API traffic (if enabled) 
+Accordingly, the system shall operate under regulated cross-border processing governance.
+LEGAL-017Cross-border processing involving regulated OFW personal information shall be subject to documented privacy governance controls.
+LEGAL-018Use of third-party infrastructure providers shall require documented organizational approval.
+LEGAL-019Third-party providers handling protected operational data shall be subject to confidentiality and privacy obligations.
+LEGAL-020Vendor access to protected production information shall be controlled, restricted, and operationally justified.
+LEGAL-021Sensitive OFW personal data shall not be unnecessarily exposed to third-party services.
+LEGAL-022International processing risks shall be evaluated through privacy and operational governance review.
+6.1.5 Privacy Impact Assessment Requirements
+Because the system handles protected personal and case information through commercial cloud infrastructure, privacy risk governance shall be mandatory.
+LEGAL-023A Privacy Impact Assessment (PIA) or equivalent privacy risk evaluation shall be maintained for the deployment architecture.
+The privacy assessment shall evaluate:
+personal data exposure risks 
+unauthorized access risks 
+cloud infrastructure risks 
+foreign jurisdiction risks 
+vendor support access risks 
+document exposure risks 
+messaging provider risks 
+AI service risks (if enabled) 
+breach response considerations 
+LEGAL-024Material architectural changes affecting protected data processing shall require updated privacy review.
+6.1.6 Third-Party Service Governance
+The system depends on managed external providers.
+Examples include:
+Render 
+Supabase
+Cloudinary
+email/OTP providers 
+AI providers (if enabled) 
+The following governance obligations shall apply.
+LEGAL-025Third-party service providers shall only be used for legitimate operational purposes.
+LEGAL-026Service providers shall not be treated as unrestricted controllers of OFW operational data.
+LEGAL-027Access permissions granted to third-party services shall be limited to required operational functionality.
+LEGAL-028Provider credentials, service secrets, and privileged access mechanisms shall be securely governed.
+LEGAL-029Provider dependency risk shall be acknowledged within operational governance planning.
+6.1.7 Procurement and Public Sector Governance Alignment
+Where Bayanihan One Window is evaluated for institutional deployment, infrastructure and technical services shall be assessed in accordance with applicable public-sector governance and procurement expectations.
+LEGAL-030Infrastructure architecture shall be documented clearly enough for technical review, audit, and procurement evaluation.
+LEGAL-031Security controls, vendor dependencies, operational assumptions, and cloud architecture constraints shall be explicitly documented.
+LEGAL-032Technology decisions shall preserve maintainability, auditability, and operational accountability.
+6.1.8 AI Governance Requirements (If Enabled)
+Where AI-assisted chatbot functionality is enabled:
+LEGAL-033AI integrations shall be restricted to legitimate approved operational functions.
+LEGAL-034Protected OFW personal information shall not be unnecessarily transmitted to AI services.
+LEGAL-035Sensitive case narratives, personal identifiers, documentary evidence, and privileged inter-agency operational records shall not be exposed to AI services without explicit governance approval.
+LEGAL-036AI usage shall remain subordinate to privacy, operational, and security governance requirements.
+6.2 Database Integrity and Processing Requirements
+The database shall preserve transactional correctness for all operational workflows involving case intake, referral processing, milestone recording, case closure, document association, and audit persistence.
+DB-001The PostgreSQL environment shall enforce ACID-compliant transaction processing.

@@ -1,0 +1,1766 @@
+﻿Software Requirements
+Specification
+for
+Bayanihan One Window: An Inter-Agency Referral and Tracking System for Distressed OFWs in Region VII
+Version 1.2 approved
+Prepared by Team Datababes:Cabiso, John Melbur Jr.Condes, Franz DominicSarsonas, Josephus KimRobete, Jonen
+Cebu Technological University – Main CampusCollege of Computer, Information, and Communications Technology
+May 19, 2026
+Table of Contents
+Table of Contents2
+Revision History7
+1. Introduction1
+1.1 Purpose1
+1.2 Document Conventions1
+1.3 Intended Audience and Reading Suggestions3
+1.4 Product Scope4
+1.5 References5
+2. Overall Description5
+2.1 Product Overview5
+2.2 Product Functions6
+2.3 User Classes and Characteristics9
+2.4 Operating Environment11
+Hardware Environment11
+Operating System Environment11
+Software Environment11
+Database and Access Control Environment12
+Network and Security Environment12
+External Software Interfaces13
+2.5 Design and Implementation Constraints13
+2.6 User Documentation14
+2.7 Assumptions and Dependencies15
+2.7.1 Assumed Factors15
+2.7.2 Dependencies16
+3. External Interface Requirements17
+3.1 User Interfaces17
+3.2 Hardware Interfaces19
+3.3 Software Interfaces21
+3.3.1 Application Stack and Framework Interfaces21
+3.3.2 Database Interface (PostgreSQL via Supabase)22
+3.3.3 Cloud Hosting and Runtime Environment24
+3.3.4 Document and Media Storage Interface24
+3.3.5 Authentication and Communication Service Interfaces25
+3.3.6 AI Service Interface (If Enabled)25
+3.3.7 Nature of Software Communications26
+3.4 Communications Interfaces26
+3.4.1 Communication Protocols and Standards27
+3.4.2 Electronic Messaging and Notification Functions28
+3.4.3 Electronic Forms and Data Interaction29
+3.4.4 Communication Security and Performance30
+3.4.5 Cross-Border Communication Governance32
+4. System Features33
+4.1 Authentication and Access Security33
+4.1.1 Description and Priority33
+4.1.2 Stimulus/Response Sequences33
+4.1.3 Functional Requirements34
+4.2 Administrative and User Management35
+4.2.1 Description and Priority35
+4.2.2 Stimulus/Response Sequences35
+4.2.3 Functional Requirements35
+4.3 Unified Single-Entry Intake and Master Case File Management36
+4.3.1 Description and Priority36
+4.3.2 Stimulus/Response Sequences36
+4.3.3 Functional Requirements37
+4.4 Document Management38
+4.4.1 Description and Priority38
+4.4.2 Stimulus/Response Sequences38
+4.4.3 Functional Requirements39
+4.5 Digital Referral Management39
+4.5.1 Description and Priority39
+4.5.2 Stimulus/Response Sequences39
+4.5.3 Functional Requirements40
+4.6 Inter-Agency Monitoring and Continuity of Care41
+4.6.1 Description and Priority41
+4.6.2 Stimulus/Response Sequences41
+4.6.3 Functional Requirements42
+4.7 OFW Tracking Portal43
+4.7.1 Description and Priority43
+4.7.2 Stimulus/Response Sequences43
+4.7.3 Functional Requirements44
+4.8 AI Chatbot Assistance44
+4.8.1 Description and Priority44
+4.8.2 Stimulus/Response Sequences45
+4.8.3 Functional Requirements45
+4.9 Analytics and Reporting46
+4.9.1 Description and Priority46
+4.9.2 Stimulus/Response Sequences46
+4.9.3 Functional Requirements46
+4.10 Audit Log Management47
+4.10.1 Description and Priority47
+4.10.2 Stimulus/Response Sequences47
+4.10.3 Functional Requirements47
+4.11 Feedback Collection48
+4.11.1 Description and Priority48
+4.11.2 Stimulus/Response Sequences48
+4.11.3 Functional Requirements49
+5. Other Nonfunctional Requirements49
+5.1 Performance Requirements49
+5.2 Safety Requirements51
+5.3 Security Requirements52
+5.3.1 Authentication and Identity Security52
+5.3.3 Database Security54
+5.3.4 Network and Communication Security55
+5.3.5 Application Security56
+5.3.6 Document and Media Security57
+5.3.7 Audit Logging and Accountability58
+5.3.8 External Service Security58
+5.3.9 Privacy and Cross-Border Security Governance59
+5.3.10 AI Security Controls (If Enabled)60
+5.4 Software Quality Attributes60
+5.4.1 Functional Suitability60
+5.4.2 Performance Efficiency61
+5.4.3 Compatibility61
+5.4.4 Usability (Interaction Capability)61
+5.4.5 Reliability62
+5.4.6 Security62
+5.4.7 Maintainability62
+5.4.8 Portability62
+5.5 Business Rules63
+6. Other Requirements65
+6.1 Legal and Regulatory Requirements65
+6.1.1 Data Privacy Act Compliance (Republic Act No. 10173)65
+6.1.2 Department of Migrant Workers Act Compliance (Republic Act No. 11641)66
+6.1.3 DICT Cloud First Policy Compliance67
+6.1.4 Cross-Border Processing and International Data Governance68
+6.1.5 Privacy Impact Assessment Requirements69
+6.1.7 Procurement and Public Sector Governance Alignment70
+6.1.8 AI Governance Requirements (If Enabled)71
+6.2 Database Integrity and Processing Requirements71
+6.2.2 Authoritative System of Record72
+6.2.3 Row-Level Security and Data Isolation73
+6.2.4 Sensitive Data Protection73
+6.2.6 Secure Database Communications75
+6.2.7 Audit Logging and Traceability75
+6.2.8 Backup, Recovery, and Availability Protection76
+6.2.9 Managed Cloud Database Governance77
+6.2.10 Reporting and Analytical Data Controls77
+6.3 Reuse and Scalability Objectives77
+6.4 Sustainability and Social Impact Requirements78
+6.5 Accessibility and User Environment78
+6.6 Infrastructure Compliance Matrix79
+Appendices85
+Appendix A: Glossary85
+Appendix B: Analysis Models88
+Appendix C: To Be Determined List101
+Revision History
+Name
+Date 
+Reason For Changes
+Version
+Initial approved release - sephus
+3/9/2026
+Baseline SRS for Bayanihan One Window
+1.0
+Major revision –Fit only to first iteration
+3/19/2026
+Refitted requirements to align scope for first iteration of Bayanihan
+1.1
+Revision– Align some concepts to final manuscript
+5/19/2026
+Changed concepts and diagrams to fit to Final capstone manuscript
+1.2
+1. Introduction
+1.1 Purpose
+This Software Requirements Specification (SRS) defines the functional and non-functional requirements for Bayanihan One Window Version 1.0, a secure, web-based inter-agency referral and tracking system developed to support the coordinated assistance of distressed Overseas Filipino Workers (OFWs) in Region VII.
+The system is intended to streamline case intake, referral coordination, monitoring, and closure by establishing a centralized single-entry mechanism under the Department of Migrant Workers (DMW) Region VII. Through the creation of a Unified Master Case File, the platform enables authorized participating agencies to coordinate assistance through a shared digital case management environment while maintaining centralized oversight by DMW.
+The scope of this SRS covers the complete Version 1.0 software product, including OFW intake and case profiling, case documentation, inter-agency referral management, intervention tracking, document management, OFW case status monitoring, AI-assisted inquiry support, analytics and reporting, administrative management, and case closure processes.
+Bayanihan One Window operates as a standalone coordination platform and does not include direct integration with the internal operational systems or databases of participating partner agencies. Updates and service interventions from partner agencies are recorded manually by authorized agency personnel within the system.
+This document serves as the baseline reference for the system’s analysis, design, implementation, testing, deployment, and future maintenance.
+1.2 Document Conventions
+The following conventions and standards are used throughout this Software Requirements Specification (SRS) to ensure consistency, clarity, and traceability:
+“Shall” indicates a mandatory requirement that must be implemented for the system to satisfy this specification. 
+“Should” indicates a recommended requirement that is desirable but may be deferred based on implementation constraints or project priorities. 
+“May” indicates an optional capability, enhancement, or implementation consideration. 
+Requirement statements are assigned unique identifiers to support traceability across analysis, design, implementation, and testing. Structured prefixes are used according to requirement classification, including:
+FR – Functional Requirements 
+NFR – Non-Functional Requirements 
+SEC – Security Requirements 
+UI – User Interface Requirements 
+REP – Reporting Requirements 
+AUD – Audit and Logging Requirements 
+Each requirement statement is assigned its own identifier and shall be treated independently for prioritization, validation, and traceability.
+User roles that represent access-controlled system actors (e.g., DMW CASE MANAGER, PARTNER AGENCY USER, SYSTEM ADMINISTRATOR) are written in uppercase for consistency and clear distinction from general descriptive text.
+Official agency names, system modules, and product components are written in Title Case throughout this document for naming consistency.
+The term Lane-Based Routing refers to the controlled inter-agency referral model in which case information is accessible only to authorized agencies within their assigned workflow boundaries, in accordance with access control and privacy rules.
+Non-functional requirements in this SRS are categorized in alignment with the ISO/IEC 25010:2023 software quality model, including functional suitability, performance efficiency, compatibility, interaction capability, reliability, security, maintainability, flexibility, and safety.
+Example requirement format:
+FR-REF-101: The system shall allow a DMW CASE MANAGER to create a case record and route it to a partner agency for acceptance.
+1.3 Intended Audience and Reading Suggestions
+This Software Requirements Specification (SRS) is intended for stakeholders involved in the planning, development, implementation, evaluation, and operational use of the Bayanihan One Window system.
+The intended readers include:
+DMW Region VII management and program owners, who will use this document to validate the system’s operational scope, policy alignment, governance requirements, and inter-agency coordination objectives. 
+DMW CASE MANAGERS, navigators, and frontline personnel, who will review the specified workflows related to case intake, assessment, referral creation, follow-through, monitoring, and case closure. 
+AGENCY FOCAL PERSONS from partner agencies and participating LGUs, who will validate referral handling procedures, intervention updates, service coordination responsibilities, and agency-specific workflow expectations. 
+SYSTEM ADMINISTRATORS, who will review requirements related to user management, access control, agency configuration, system administration, monitoring, and security governance. 
+Software developers and system architects, who will use this document as the primary reference for implementing system behavior, business logic, role-based permissions, workflow processes, interfaces, security controls, and supporting technical components. 
+Quality assurance testers, who will derive test cases, validation scenarios, and acceptance criteria from the functional and non-functional requirements defined in this specification. 
+IT experts and technical evaluators, who will assess the maintainability, flexibility, architectural feasibility, security implementation, and overall software quality of the proposed system. 
+Capstone advisers, evaluators, and panel members, who will review the document for completeness, technical feasibility, consistency, and alignment with the identified institutional and social problem. 
+This document is organized according to standard Software Requirements Specification structure. The introductory sections provide the project background, scope, conventions, definitions, and references. The overall description section presents the system context, product perspective, user classes, assumptions, and operational constraints. Functional requirements define the expected system behaviors and workflows, while non-functional requirements describe performance, usability, security, reliability, and maintainability expectations. Supporting sections describe interface requirements, constraints, and traceability considerations.
+Readers are encouraged to begin with the Introduction and Overall Description sections to understand the project context and system boundaries before proceeding to sections most relevant to their roles. Technical stakeholders such as developers, architects, and testers should focus on the detailed requirements sections, while operational stakeholders may prioritize workflow, user role, and process-related sections.
+1.4 Product Scope
+Bayanihan One Window is a secure, web-based platform designed to improve the assistance process for distressed Overseas Filipino Workers (OFWs) in Region VII. It addresses the inefficiencies of manual and fragmented case coordination, where OFWs often need to repeatedly submit documents and explain their situations to multiple agencies.
+The system provides a centralized single-entry process managed by the Department of Migrant Workers (DMW) Region VII, where a Unified Master Case File is created and shared with authorized partner agencies involved in providing assistance. This enables faster case handling, better referral coordination, and clearer monitoring of intervention progress.
+Bayanihan One Window aims to improve transparency, accountability, response time, and continuity of care by digitizing and standardizing the OFW assistance workflow. Version 1.0 focuses on core case intake, referral management, monitoring, and tracking functions for DMW Region VII and participating partner agencies. The system operates as a standalone coordination platform and does not replace the internal systems of partner institutions.
+1.5 References
+Presentation: The Bayanihan Assistance Program for OFWs in Region VII, Department of Migrant Workers Region VII, presented by Marychris R. Relon, accessed through project stakeholder briefing materials. 
+Republic Act No. 11641, Department of Migrant Workers Act. 
+Republic Act No. 10173, Data Privacy Act of 2012. 
+Executive Order No. 138, Full Devolution of Certain Functions of the Executive Branch to Local Governments. 
+Ambisyon Natin 2040, National Long-Term Development Framework. 
+ISO/IEC 25010:2023, Systems and software engineering — Systems and software Quality Requirements and Evaluation (SQuaRE) — Product quality model. 
+Bertalanffy, L. von. (1972). The History and Status of General Systems Theory. 
+Langefors, B. (1977). Theoretical Analysis of Information Systems. 
+Philippine Statistics Authority (PSA). (2023). Statistical reports on Overseas Filipino Workers. 
+Department of Migrant Workers (DMW). (2022). Reports and publications on OFW assistance and reintegration services. 
+2. Overall Description
+2.1 Product Overview
+Bayanihan One Window is a new, standalone web-based information system designed to improve assistance coordination for distressed Overseas Filipino Workers (OFWs) in Region VII. Rather than replacing the internal systems of participating agencies, it serves as a centralized inter-agency coordination platform that addresses fragmented and manual processes in OFW case handling, referral management, and intervention monitoring.
+The system establishes a unified digital environment where the Department of Migrant Workers (DMW) Region VII serves as the primary intake and case governance authority, creating and managing a Unified Master Case File shared with authorized partner agencies. Core functions include case intake, service need documentation, digital referrals, inter-agency case monitoring, milestone tracking, case resolution, analytics reporting, AI chatbot assistance, and a public OFW tracking portal with OTP-secured access.
+As part of the broader OFW assistance ecosystem, Bayanihan One Window connects DMW Region VII, partner agencies, OFW clients, OTP authentication services, and AI support services to enable coordinated and transparent service delivery while preserving each agency’s internal operational autonomy.
+2.2 Product Functions
+Bayanihan One Window provides integrated functions for coordinated case management, inter-agency referral processing, and assistance monitoring for distressed Overseas Filipino Workers (OFWs) in Region VII. Major product functions include:
+Register and manage distressed OFW cases through a centralized intake process. 
+Create and maintain a Unified Master Case File containing client information, documents, and case records. 
+Record case assessments, identified service needs, and intervention requirements. 
+Generate and dispatch digital referrals to appropriate partner agencies. 
+Monitor referral progress, agency interventions, and milestone updates. 
+Enforce role-based access control and secure case governance across participating agencies. 
+Provide AI chatbot assistance for common inquiries and case-related guidance. 
+Allow OFWs to securely track case status through a public portal using tracker number and OTP verification. 
+Support case resolution, closure validation, and outcome documentation. 
+Collect client feedback following service completion. 
+Generate analytics dashboards, reports, and performance monitoring data for management oversight.
+Figure 1. Object Class Diagram of Bayanihan One WindowFigure 1. Object Class Diagram of Bayanihan One WindowFigure 1 presents the object class diagram illustrating the major system entities and their relationships.
+Figure 1. Object Class Diagram of Bayanihan One Window
+Figure 1. Object Class Diagram of Bayanihan One Window
+2.3 User Classes and Characteristics
+User Classes
+Characteristics
+Responsibilities
+SYSTEM ADMINISTRATOR
+Highest privilege level. Responsible for managing system configuration and operational governance.
+Creating, editing, and deactivating user accounts
+Assigning roles and agency affiliationsMaintaining the registry of participating agencies and focal persons
+Configuring system parameters such as statuses, service categories, timelines, and notification rules
+Monitoring dashboards and reviewing audit logs
+Managing data retention settings and operational policies
+DMW CASE MANAGER
+Primary case initiator and coordinator responsible for ensuring continuity of care across agencies.
+Creating intake records for distressed OFWs
+Reviewing case circumstances and documenting service needs in the case summary
+Initiating digital referrals to partner agencies or LGUs
+Monitoring case progress across agency lanes
+Validating intervention completion
+Closing cases after verification of service completion
+AGENCY / LGU FOCAL PERSON
+Represents partner agencies or local government units participating in the referral network.
+Both agency focal persons and LGU focal persons share identical permissions and system capabilities.
+Accepting or rejecting incoming referrals with required justification
+Defining and updating agency-specific milestones for accepted referrals
+Recording comments, instructions, and service updates within their assigned action lane
+Attaching supporting documentation where required
+Recording service outcomes and completion updates for accepted referrals
+OFW TRACKING USER
+External user role representing the OFW beneficiary accessing the public tracking interface.
+Entering the Tracker Number to view restricted case progress
+Viewing the current case status and responsible agency
+Accessing milestone updates without seeing internal comments, case notes, or sensitive agency-only information
+Submitting service feedback after case closure through the feedback portal
+2.4 Operating Environment
+Bayanihan One Window shall operate as a secure cloud-hosted web-based information system supporting inter-agency OFW assistance coordination using managed commercial cloud infrastructure.
+Hardware Environment
+Component
+Specification
+Application Hosting
+Render managed cloud hosting platform
+Database Platform
+Supabase managed PostgreSQL
+Media / Document Storage
+Cloudinary secure object storage and CDN
+Client Processor
+Intel Core i5 or equivalent
+Client Memory
+Minimum 8 GB RAM
+Client Storage
+Minimum 10 GB free space
+Network Connectivity
+Stable internet connection (15–30 Mbps minimum)
+Operating System Environment
+Device Type
+Supported Platforms
+Desktop
+Windows 10+, macOS, Linux
+Mobile
+Android 10+, iOS 14+
+Software Environment
+Component
+Technology
+Backend Framework
+Laravel (PHP)
+Frontend Framework
+React.js
+Frontend Integration
+Inertia.js
+Styling Framework
+Tailwind CSS
+Database
+PostgreSQL
+Application Hosting
+Render
+Database Hosting
+Supabase
+Media Storage
+Cloudinary
+Authentication Services
+OTP-enabled email verification
+AI Assistance
+OpenAI-compatible chatbot service (if enabled)
+Database and Access Control Environment
+Security Component
+Description
+Database Transactions
+ACID-compliant transaction processing
+Row-Level Security
+Mandatory lane-based agency isolation
+Role-Based Access Control
+Server-side privilege enforcement
+Least Privilege Access
+Restricted application database credentials
+Audit Logging
+Tamper-resistant append-only audit trails
+Credential Security
+Encrypted secrets and protected credentials
+Sensitive Data Encryption
+Application-layer encryption for protected fields
+Network and Security Environment
+The system shall implement the following security architecture:
+All client-to-application communications shall use HTTPS with TLS 1.2 or higher.
+Application-to-database communications shall use encrypted TLS-secured PostgreSQL connections.
+Direct client-to-database communication shall be prohibited.
+Database access shall be restricted to authorized application and administrative service accounts.
+Public database administrative exposure shall be prohibited unless explicitly required and access-controlled.
+Document access shall be mediated through authenticated application controls or expiring signed access mechanisms.
+All security-relevant actions shall be auditable.
+External Software Interfaces
+External Component
+Purpose
+Render
+Laravel application hosting
+Supabase
+Managed PostgreSQL database
+Cloudinary
+Secure document/media storage
+SMTP / Email Provider
+OTP and notification delivery
+AI Service Provider
+Chatbot support (if enabled)
+Modern Web Browsers
+End-user application access
+2.5 Design and Implementation Constraints
+Regulatory Compliance Constraint:The system shall comply with Republic Act No. 10173 (Data Privacy Act of 2012), Republic Act No. 11641, applicable National Privacy Commission rules, DICT Cloud First Policy, and applicable public-sector ICT governance standards.
+Commercial Cloud Deployment Constraint:The system shall operate using managed commercial cloud infrastructure including Render, Supabase, and Cloudinary.
+Cross-Border Processing Constraint:Because commercial cloud providers may process infrastructure metadata, backups, support telemetry, or replicated content outside Philippine jurisdiction, deployment shall be governed under documented cross-border processing safeguards consistent with privacy law.
+Vendor Governance Constraint:Third-party providers shall be subject to contractual privacy, confidentiality, access restriction, and data processing obligations.
+Privacy Impact Assessment Constraint:Deployment shall require documented privacy risk assessment covering cloud exposure, vendor access risk, international transfer risk, and incident response.
+Technology Stack Constraint:Implementation shall use Laravel, React, Inertia.js, Tailwind CSS, PostgreSQL, and approved cloud services.
+Standalone Platform Constraint:Version 1.0 shall operate independently without direct integration into legacy partner systems.
+Manual Agency Update Constraint:Partner agencies shall manually encode milestone updates and referral actions.
+Centralized Intake Constraint:Only authorized DMW personnel shall create official OFW case records.
+Lane-Based Access Constraint:Agency users shall only access records assigned to their authorized operational lane.
+Parallel Referral Constraint:The system shall support simultaneous referrals to multiple agencies.
+Centralized Closure Constraint:Only authorized DMW personnel shall close official cases.
+AI Processing Constraint:If AI services are enabled, personal OFW data shall not be transmitted without privacy-approved safeguards.
+2.6 User Documentation
+The following user documentation components will be delivered with the Bayanihan One Window system to support end users, administrative personnel, and technical maintainers:
+User Guide (User Manual)A comprehensive manual for OFWs and administrative users, including DMW Case Managers, Agency Focal Persons, and System Administrators. This document provides an overview of the system, step-by-step usage instructions, login and authentication procedures, functional walkthroughs for core tasks (e.g., case intake, referral processing, document management, case monitoring, and closure), and troubleshooting guidance for common issues. 
+Installation and Deployment GuideA technical manual intended for system administrators and developers. It includes instructions for environment setup, Laravel backend configuration, React frontend setup, dependency installation, database configuration using Supabase PostgreSQL, Cloudinary integration, deployment procedures on Render, and optional domain and SSL configuration. 
+Online Help and Interactive AI AssistanceThe system includes an integrated AI chatbot module that serves as an interactive help component. It provides automated responses to frequently asked questions, procedural guidance, and assistance with case tracking inquiries for OFW users. 
+In-System Interface GuidanceContextual help elements such as prompts, validation messages, tooltips, and guided interface instructions will be embedded within the application to improve usability and support task completion.
+Documentation Component
+Intended Users
+Delivery Format
+User Guide (Manual)
+OFWs, DMW Case Managers, Agency Focal Persons, Administrators
+PDF manual and/or integrated web help pages
+Installation and Deployment Guide
+Developers, System Administrators
+PDF or technical deployment documentation
+Online Help / AI Assistance
+OFWs and administrative users
+Integrated system feature
+In-System Interface Guidance
+All users
+Embedded application interface support
+2.7 Assumptions and Dependencies
+2.7.1 Assumed Factors
+The requirements stated in this SRS are based on the following assumptions. If these assumptions change or are incorrect, the project scope and functionality may be significantly affected:
+Institutional Commitment and Governance: It is assumed that DMW Region VII and all participating partner agencies (OWWA, DOLE, TESDA, DSWD, DOH, etc.) will formally designate Agency Focal Persons and maintain updated service categories and referral pathways.
+Manual Data Entry Compliance: Since the system operates as a standalone platform without direct integration into legacy databases, it is assumed that partner agencies will manually record milestone updates and service outcomes within their assigned system "lanes".
+User Infrastructure: It is assumed that all authorized personnel and OFWs have access to internet-enabled devices (desktops, laptops, or smartphones) and supported modern web browsers to interact with the platform.
+Operational Connectivity: The system assumes the availability of a stable internet connection (at least 15-30 Mbps) at regional and field offices to ensure real-time dashboard updates and secure document handling.
+Regulatory Stability: The requirements assume the continued legal mandate of Republic Act No. 11641 and the Data Privacy Act of 2012, which provide the institutional and security framework for the "Single-Entry" intake model.
+Staff Capacity: It is assumed that personnel will undergo basic orientation to transition from manual, paper-based, or email-centric workflows to the centralized digital coordination platform.
+2.7.2 Dependencies
+The project is dependent on the following external factors and third-party components:
+Cloud Infrastructure Providers: The system’s availability is directly dependent on Render (for application hosting), Supabase (for the PostgreSQL database), and Cloudinary (for secure media storage and CDN).
+AI Service Integration: The AI Chatbot module (UC-23, UC-24) depends on external AI models and APIs (e.g., OpenAI) for processing natural language inquiries and providing service guidance.
+Communication Services: Future integrations for automated SMS or advanced messaging depend on the approval of external service providers and the availability of a dedicated operational budget.
+Institutional Coordination Protocols: The functional success of the system depends on the establishment of agreed-upon Inter-Agency Protocols that define turnaround times for referral acceptance and service completion.
+Security Standards: The technical evaluation of the project is dependent on the ISO/IEC 25010:2023 quality model, which serves as the benchmark for measuring the system's performance, security, and maintainability.
+3. External Interface Requirements
+3.1 User Interfaces
+The Bayanihan One Window system provides role-based web interfaces designed for secure case management and coordinated inter-agency tracking. The logical characteristics of these interfaces are aligned with the ISO/IEC 25010:2023 Interaction Capability standard to ensure they are intuitive, responsive, and efficient.
+1. GUI Standards and Style Guide
+Design Framework: The system utilizes Tailwind CSS for a consistent visual language and React for a dynamic, responsive user experience.
+Layout Constraints: The interface follows a desktop-first design optimized for office-based DMW Case Managers and Agency Focal Persons, while ensuring mobile responsiveness for OFWs accessing the tracking portal via smartphones.
+Visual Philosophy: The UI emphasizes a "One OFW, One Entry" model, using a lane-column case tracker to visually separate administrative boundaries (lanes) for different agencies like OWWA, DOLE, and DSWD.
+Accessibility Standard: User interface design shall align with WCAG 2.1 Level AA accessibility principles.
+2. Standard Buttons and Functions
+Every administrative screen shall include the following persistent elements:
+Dashboard-First Navigation: A sidebar or top-navigation menu providing instant access to case queues, pending referrals, and audit reports.
+AI Chatbot Help: A persistent AI Assistant module (UC-23, UC-24) available on the landing and tracking pages to provide real-time guidance on services and case status inquiries.
+Security Checkpoints: Contextual privacy alerts and visual security indicators serve as mandatory "checkpoints" before high-stakes actions, such as initiating an inter-agency referral or closing a case.
+3. Logical Characteristics of User Interfaces
+The system is partitioned into specific software components requiring distinct user interfaces:
+Public Landing Page & OFW Tracking:
+Input: Requires a unique Tracker Number.
+Security Logic: Implements an OTP Verification screen where the OFW must enter a code sent to their registered email before viewing status.
+Privacy-Safe View: Displays a restricted timeline of milestones without exposing confidential internal agency comments or sensitive attachments.
+DMW Case Intake & Management:
+Intake Forms: Standardized, grouped forms for capturing personal details, vulnerability indicators (e.g., PWD, Solo Parent), and the case narrative.
+Referral Dispatch: An interface allowing Case Managers to select multiple partner agencies in parallel and attach specific service-based documents.
+Closure Logic: A specialized interface that validates if all agency referrals are in terminal states (Completed/Rejected) before allowing final case closure.
+Partner Agency/LGU Lane View:
+Lane-Based Interaction: Agency users are restricted to a view of referrals assigned only to their specific "lane".
+Milestone Logging: An append-only interface for recording service updates, ensuring that historical progress cannot be edited or deleted.
+Administrative & Analytics Dashboard:
+User/Agency Management: Interfaces for creating accounts, assigning roles (RBAC), and configuring agency service registries.
+Audit Logging: A searchable, filterable table for monitoring all system activities and user actions for full traceability.
+4. Error and Validation Standards
+Privacy-Safe Messages: Error messages and validation alerts are designed to be non-technical and do not leak sensitive system information to unauthorized users.
+Validation Logic: System-managed fields (like Case and Tracker Numbers) are automatically generated to prevent manual entry errors.
+Input Safeguards: The UI enforces strict input validation to prevent common vulnerabilities such as SQL injection and Cross-Site Scripting (XSS).
+3.2 Hardware Interfaces
+The Bayanihan One Window system is a web-based client-server application designed to operate on standard computing and mobile hardware without requiring specialized proprietary devices. The system supports browser-based interaction between client devices and cloud-hosted infrastructure.
+Supported Device Types
+Device Category
+Intended Users
+Supported Interaction
+Desktop / Laptop Computers
+DMW Case Managers, Agency Focal Persons, System Administrators
+Case intake, referral processing, dashboard monitoring, report generation, administrative management
+Smartphones
+OFWs, field personnel, administrative users
+Public case tracking, OTP verification, mobile-responsive access
+Tablets
+OFWs, field personnel, administrative users
+Mobile case tracking and browser-based system access
+Client Hardware Requirements
+Hardware Component
+Minimum Specification
+Recommended Specification
+Processor
+Intel Core i3 (Dual-core) or equivalent
+ntel Core i5 (Quad-core) or higher
+Memory (RAM)
+4 GB
+8 GB or higher
+Display Resolution
+1366 × 768
+1920 × 1080 (Full HD)
+Input Devices
+Keyboard and mouse (desktop/laptop), touchscreen (mobile/tablet)
+Standard user input peripherals
+Internet Connectivity
+Stable 15 Mbps connection
+30 Mbps or higher
+Server Infrastructure
+Infrastructure Component
+Platform
+Function
+Application Server
+Render
+Hosts backend application services and business logic
+Database Server
+Supabase PostgreSQL
+Stores structured case, referral, and audit data
+Media Storage / CDN
+Cloudinary
+Stores supporting documents and delivers media assets
+Logical Data and Control Interactions
+Interface Aspect
+Description
+Client-to-Application Interaction
+User input is captured through browser-based interfaces and transmitted to the application server for validation and processing
+Access Control Enforcement
+Role-based permissions and lane-based restrictions are enforced at the application and database levels before data transactions are completed
+Database Interaction
+No direct client-to-database communication is permitted; all requests pass through the application layer
+Administrative Operations
+Administrative users interact through secured dashboard interfaces for case management and monitoring
+Public Access
+OFW users interact through the public tracking portal with restricted access to case progress only
+Peripheral Compatibility
+Supports browser-based interaction with local printers, scanners, and PDF/CSV export functions
+Communication Protocols
+Protocol / Technology
+Purpose
+HTTPS (SSL/TLS)
+Secure encrypted communication between client devices and application services
+TCP/IP
+Standard network communication across client devices and cloud infrastructure
+WebSocket / Real-Time Messaging
+Live dashboard updates and real-time case status synchronization
+Secure Internal Database Connections
+Protected communication between Render application services and Supabase PostgreSQL
+The system does not require specialized hardware integrations such as biometric scanners, card readers, or dedicated terminals in Version 1.0. All interactions are performed using standard browser-compatible computing devices connected to the internet.
+3.3 Software Interfaces
+The Bayanihan One Window system is implemented using a modular cloud-hosted web application architecture composed of application, database, storage, communication, and external service interfaces. The system operates as a standalone platform and does not directly integrate with internal databases or legacy applications of participating agencies, consistent with the defined Version 1.0 scope.
+3.3.1 Application Stack and Framework Interfaces
+The application architecture shall consist of the following software components:
+Component
+Technology
+Purpose
+Backend Application Layer
+Laravel (PHP)
+Business logic, validation, authentication, authorization, referral processing, audit orchestration
+Frontend Presentation Layer
+React.js
+Dynamic user interface rendering
+Frontend Integration Layer
+Inertia.js
+Seamless frontend-backend communication without separate API gateway requirements
+User Interface Framework
+Tailwind CSS
+Responsive interface design and standardized UI behavior
+Real-Time Communication Layer
+WebSocket / Pusher / Redis-compatible messaging
+Real-time case and referral synchronization
+The Laravel backend shall function as the authoritative application control layer responsible for:
+request validation 
+authentication and authorization enforcement 
+business rule execution 
+case workflow management 
+audit logging coordination 
+secure database access mediation 
+document access governance 
+No client application shall directly communicate with the database layer.
+3.3.2 Database Interface (PostgreSQL via Supabase)
+The system shall use a managed PostgreSQL relational database hosted through Supabase as the primary system of record.
+The database shall store:
+Unified Master Case Files 
+OFW personal records 
+referral transactions 
+milestone histories 
+user identities and access roles 
+audit trail records 
+analytics/reporting datasets 
+authentication metadata 
+OTP validation metadata 
+Database Security Requirements
+The PostgreSQL environment shall enforce:
+ACID-compliant transactional integrity 
+Row-Level Security (RLS) for agency lane isolation 
+encrypted database communications using TLS 
+restricted privileged access 
+append-only audit persistence 
+encrypted backup protection 
+least privilege access roles 
+Connection Security Requirements
+All Laravel database connections shall:
+use encrypted PostgreSQL TLS connections 
+require certificate validation 
+prohibit plaintext database access 
+isolate credentials from application source code 
+Direct browser-to-database communication shall be prohibited.
+Partner agencies shall never receive direct database access credentials.
+3.3.3 Cloud Hosting and Runtime Environment
+The application shall be deployed using managed cloud infrastructure.
+Provider
+Role
+Render
+Laravel application hosting and runtime environment
+Supabase
+Managed PostgreSQL database hosting
+Cloudinary
+Secure media/document storage and controlled content delivery
+The hosting environment shall support:
+secure HTTPS transport 
+environment variable secret isolation 
+managed service availability 
+controlled deployment lifecycle management 
+secure application runtime execution 
+Because these services may involve foreign-managed infrastructure, deployment shall operate under documented privacy governance and cross-border processing safeguards.
+3.3.4 Document and Media Storage Interface
+Supporting documents and uploaded case attachments shall be managed through Cloudinary secure media storage services.
+Stored document categories may include:
+case attachments 
+referral documentation 
+supporting evidence 
+uploaded PDF records 
+image-based documentary submissions 
+Document access controls shall enforce:
+authenticated access validation 
+signed expiring access mechanisms where applicable 
+prohibition of unrestricted public document exposure 
+document access logging 
+upload validation against malicious content 
+Cloudinary shall function solely as a managed storage and delivery provider and shall not be treated as an independent business processor of OFW case content beyond contracted service delivery.
+3.3.5 Authentication and Communication Service Interfaces
+The system shall interface with approved communication services for secure messaging and identity verification.
+Supported service categories:
+Service Type
+Purpose
+SMTP / Email Provider
+OTP delivery, referral alerts, case notifications
+Authentication Messaging Services
+Identity verification workflows
+Web Notification Services
+Administrative event communication
+OTP verification workflows shall support:
+administrative authentication 
+OFW tracking verification 
+session validation where configured 
+3.3.6 AI Service Interface (If Enabled)
+The system may interface with external AI-assisted chatbot services for procedural support and OFW inquiry assistance.
+The AI interface shall be restricted to:
+general guidance 
+procedural assistance 
+non-sensitive informational responses 
+The AI interface shall not expose:
+OFW personal identifiers 
+passport data 
+sensitive case narratives 
+protected documents 
+privileged inter-agency records 
+Any AI integration shall be governed by privacy controls, provider contractual safeguards, and documented risk governance.
+3.3.7 Nature of Software Communications
+Data exchanges within the system shall follow the following communication model:
+Communication Path
+Security Requirement
+Browser → Laravel Application
+HTTPS / TLS encrypted
+React Frontend → Laravel Backend
+Authenticated application session
+Laravel Backend → PostgreSQL
+Encrypted TLS-secured PostgreSQL connection
+Laravel Backend → Cloudinary
+Authenticated API communication
+Laravel Backend → Email/OTP Provider
+Secure authenticated messaging
+Laravel Backend → AI Provider (if enabled)
+Restricted governed API access
+The application shall operate under a mediated architecture in which all protected data access passes through controlled server-side application logic.
+3.4 Communications Interfaces
+The Bayanihan One Window system shall operate as a secure cloud-hosted web application that relies on encrypted network communications between client devices, application services, managed database infrastructure, media storage providers, and approved external service providers.
+All communications involving protected OFW data, administrative workflows, referral transactions, authentication operations, and supporting document access shall be governed by confidentiality, integrity, access control, and auditability requirements.
+3.4.1 Communication Protocols and Standards
+The system shall utilize standardized communication protocols to ensure secure and reliable data exchange across all operational interfaces.
+Protocol / Standard
+Purpose
+HTTPS (TLS 1.2 or higher; TLS 1.3 preferred)
+Secure browser-to-application communication
+TCP/IP
+Standard network transport across internet-connected infrastructure
+PostgreSQL Secure Transport (TLS)
+Encrypted application-to-database communication
+SMTP / Secure Mail Transport
+Delivery of OTPs, referral alerts, and case notifications
+RESTful HTTPS APIs
+Communication with external service providers
+WebSocket / Secure Real-Time Messaging
+Live case status and dashboard synchronization
+Communication Requirements
+COM-001All browser-to-application communications shall use HTTPS encryption.
+COM-002Unencrypted HTTP access shall be redirected, blocked, or otherwise prevented.
+COM-003Application-to-database communications shall use encrypted TLS-secured PostgreSQL sessions.
+COM-004External API communications shall use authenticated encrypted transport.
+COM-005Communication protocols shall follow current supported secure standards and deprecated insecure protocols shall not be used.
+3.4.2 Electronic Messaging and Notification Functions
+The system shall support automated messaging capabilities for operational communication, authentication workflows, and user notifications.
+Supported Messaging Functions
+Messaging Function
+Purpose
+OTP Verification Delivery
+User authentication and identity confirmation
+Referral Alert Notifications
+Agency notification of newly assigned referrals
+Tracking Number Notifications
+OFW case tracking access information
+Administrative Alerts
+System-generated event notifications
+Case Progress Notifications
+Optional workflow communications
+Messaging Security Requirements
+COM-MSG-001One-Time Passwords (OTPs) shall be delivered through approved secure messaging channels.
+COM-MSG-002OTP verification codes shall expire after a configurable validity period.
+COM-MSG-003Repeated failed OTP validation attempts shall be rate-limited or blocked.
+COM-MSG-004Automated notification messages shall avoid unnecessary disclosure of sensitive personal or case information.
+COM-MSG-005System-generated messages shall follow privacy-safe content formatting.
+3.4.3 Electronic Forms and Data Interaction
+The system shall provide browser-based electronic forms for intake, referral management, milestone recording, case monitoring, document submission, and administrative management.
+Supported Data Interaction Interfaces
+OFW case intake forms 
+referral dispatch forms 
+milestone update forms 
+case closure validation forms 
+OFW tracking verification forms 
+administrative user management interfaces 
+reporting parameter forms 
+document upload interfaces 
+Form Security and Validation Requirements
+COM-DATA-001All submitted form data shall be validated server-side before processing.
+COM-DATA-002Input validation shall protect against:
+malformed input 
+SQL injection 
+cross-site scripting (XSS) 
+unauthorized field manipulation 
+file upload abuse 
+request tampering 
+COM-DATA-003System-generated identifiers such as Case Numbers and Tracker Numbers shall not be manually user-editable.
+COM-DATA-004Sensitive forms shall require authenticated session validation.
+COM-DATA-005Unauthorized form submissions shall be rejected and auditable where applicable.
+3.4.4 Communication Security and Performance
+All communications involving system services shall follow a controlled, secure communication architecture.
+End User Browser      |HTTPS / TLS      |React Frontend      |Laravel Application Layer (Render)      |Encrypted TLS-secured PostgreSQL Connection      |Supabase PostgreSQL
+Document communications:
+Authenticated User      |Laravel Authorization Layer      |Cloudinary Signed Access / Controlled Media Delivery
+External services:
+Laravel Application      |Authenticated HTTPS APIs      |OTP / Email / AI Service Providers
+Communication Security Controls
+COM-SEC-001All authenticated application sessions shall use encrypted HTTPS communication.
+COM-SEC-002Direct client-to-database communication shall be prohibited.
+COM-SEC-003Database credentials shall be restricted to authorized application or privileged administrative roles.
+COM-SEC-004Application-to-database communications shall require TLS encryption with strict certificate validation.
+COM-SEC-005Sensitive internal communications shall not be exposed through insecure transport mechanisms.
+COM-SEC-006Document/media access shall require authenticated validation or signed expiring access mechanisms.
+COM-SEC-007Public unrestricted exposure of protected OFW case documents shall be prohibited.
+COM-SEC-008External service integrations shall require authenticated encrypted API communications.
+COM-SEC-009Privileged communication failures or suspicious access events shall be logged.
+Communication Performance Requirements
+COM-PERF-001Authenticated application pages shall load within defined nonfunctional performance targets under normal operating conditions.
+COM-PERF-002Real-time referral and milestone updates shall be synchronized through secure real-time communication channels.
+COM-PERF-003Notification delivery shall occur within operationally acceptable time windows subject to provider availability.
+COM-PERF-004Communication resilience shall account for temporary service interruptions from external providers.
+3.4.5 Cross-Border Communication Governance
+Because Bayanihan One Window uses foreign-managed cloud infrastructure and external services, some communications may traverse infrastructure outside Philippine jurisdiction.
+Affected communications may include:
+application hosting network traffic 
+managed database communications 
+backup replication traffic 
+CDN delivery traffic 
+email/OTP provider communications 
+AI API traffic (if enabled) 
+Governance Requirements
+COM-GOV-001Cross-border communication involving protected data shall be governed under applicable privacy safeguards.
+COM-GOV-002Only approved providers subject to contractual privacy and confidentiality obligations shall be used.
+COM-GOV-003Sensitive personal data shall not be unnecessarily transmitted to third-party service providers.
+COM-GOV-004External provider access shall remain governed by organizational security controls.
+4. System Features
+4.1 Authentication and Access Security
+4.1.1 Description and Priority
+This feature provides secure authentication, authorization, and access control for all users of Bayanihan One Window. It ensures that only authorized users can access system functions and data according to assigned roles, organizational responsibilities, and privacy restrictions. Security controls include role-based access control, lane-based restrictions, OTP verification, session management, and access monitoring.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+High
+9
+9
+5
+4
+4.1.2 Stimulus/Response Sequences
+Administrative User Authentication
+An administrative user enters login credentials.
+The system validates the credentials.
+If credentials are valid, the system prompts for OTP verification.
+The user enters the OTP.
+The system validates the OTP.
+If successful, the system grants access according to the user’s assigned role and permissions.
+OFW Tracking Authentication
+An OFW enters a valid Tracker Number.
+The system validates the tracker number.
+The system sends an OTP verification code.
+The OFW enters the OTP.
+The system validates the OTP.
+If successful, the system displays authorized case tracking information.
+Invalid Access Attempt
+A user enters invalid credentials, invalid OTP, or unauthorized access requests.
+The system denies access.
+The system displays an appropriate error message.
+The event is recorded in the audit log where applicable.
+4.1.3 Functional Requirements
+FR-AUTH-001: The system shall require authentication for all administrative users.
+FR-AUTH-002: The system shall require OTP-based multi-factor authentication for administrative access.
+FR-AUTH-003: The system shall require Tracker Number and OTP verification for OFW case tracking access.
+FR-AUTH-004: The system shall restrict access to system features based on assigned user roles.
+FR-AUTH-005: The system shall enforce lane-based access restrictions for participating partner agencies.
+FR-AUTH-006: The system shall restrict administrative backend access through IP whitelisting where configured.
+FR-AUTH-007: The system shall terminate inactive sessions after a configurable timeout period.
+FR-AUTH-008: The system shall limit repeated failed authentication attempts.
+FR-AUTH-009: The system shall reject invalid login credentials.
+FR-AUTH-010: The system shall reject expired or invalid OTP verification codes.
+FR-AUTH-011: The system shall deny access to unauthorized system functions.
+FR-AUTH-012: Authentication-related events shall be recorded in the audit log.
+4.2 Administrative and User Management
+4.2.1 Description and Priority
+This feature allows authorized administrators to manage user accounts, organizational roles, participating agencies, focal persons, and operational configurations required for system administration and inter-agency coordination.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+High
+8
+8
+5
+4
+4.2.2 Stimulus/Response Sequences
+User Account Management
+A system administrator accesses the administration module.
+The administrator creates, edits, or deactivates a user account.
+The system validates the entered information.
+The system saves the changes and updates permissions accordingly.
+Agency Management
+A system administrator creates or updates agency records.
+The system validates the configuration.
+The system applies the updated organizational settings.
+Invalid Administrative Action
+An administrator submits incomplete or invalid data.
+The system rejects the request.
+The system displays validation feedback.
+4.2.3 Functional Requirements
+FR-ADM-001: Only SYSTEM ADMINISTRATORS shall create, modify, or deactivate user accounts.
+FR-ADM-002: The system shall allow administrators to assign user roles.
+FR-ADM-003: The system shall maintain a registry of participating agencies.
+FR-ADM-004: The system shall maintain agency focal person records.
+FR-ADM-005: The system shall allow configuration of service categories and workflow settings.
+FR-ADM-006: The system shall validate required administrative input before saving changes.
+FR-ADM-007: The system shall reject incomplete or invalid administrative data entries.
+FR-ADM-008: Administrative configuration changes shall be recorded in the audit log.
+4.3 Unified Single-Entry Intake and Master Case File Management
+4.3.1 Description and Priority
+This feature provides the centralized single-entry intake process managed by the Department of Migrant Workers (DMW) Region VII. It supports registration of distressed OFW cases, case assessment, service need documentation, and creation of the Unified Master Case File used as the shared reference for authorized inter-agency coordination.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+High
+9
+9
+5
+4
+4.3.2 Stimulus/Response Sequences
+Case Registration
+An authorized DMW case manager accesses the intake module.
+The user enters OFW personal information, case details, and documentary information.
+The system validates required fields.
+The system generates a unique Case Number and Tracker Number.
+The system creates the Unified Master Case File.
+Draft Intake
+A DMW user begins entering case information.
+The user saves the case as draft.
+The system stores incomplete case information for later completion.
+Invalid Intake Submission
+A user submits incomplete or invalid case data.
+The system rejects submission.
+The system identifies missing or invalid fields.
+4.3.3 Functional Requirements
+FR-INT-001: Only authorized DMW personnel shall create OFW case records.
+FR-INT-002: The system shall generate a unique Case Number for each case.
+FR-INT-003: The system shall generate a unique Tracker Number for OFW tracking.
+FR-INT-004: The system shall allow incomplete case records to be saved as drafts.
+FR-INT-005: The system shall validate all mandatory intake fields before submission.
+FR-INT-006: The system shall create a Unified Master Case File for each submitted case.
+FR-INT-007: The system shall allow authorized DMW personnel to record case summaries.
+FR-INT-008: The system shall allow recording of identified service needs and intervention requirements.
+FR-INT-009: Case summaries and service needs shall be stored as part of the Unified Master Case File.
+FR-INT-010: The Unified Master Case File shall serve as the shared case reference for authorized partner agencies.
+FR-INT-011: The system shall preserve case history continuity throughout the case lifecycle.
+FR-INT-012: The system shall reject incomplete or invalid intake submissions.
+4.4 Document Management
+4.4.1 Description and Priority
+This feature manages supporting documents associated with OFW cases and referrals. It allows authorized users to upload, store, and access case-related documents while enforcing privacy controls and access restrictions for inter-agency coordination.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+High
+8
+7
+4
+4
+4.4.2 Stimulus/Response Sequences
+Document Upload
+An authorized DMW user accesses a case record.
+The user uploads a supporting document.
+The system validates the file type and upload constraints.
+The system stores the document reference and links it to the Unified Master Case File.
+Document Access
+An authorized partner agency user accesses a referral-linked case.
+The system verifies access permissions.
+The system displays accessible shared documents.
+Invalid Document Submission
+A user uploads an unsupported or invalid document.
+The system rejects the upload.
+The system displays an appropriate validation message.
+4.4.3 Functional Requirements
+FR-DOC-001: The system shall allow authorized DMW personnel to upload supporting documents to the Unified Master Case File.
+FR-DOC-002: Uploaded documents shall be linked to the corresponding case record.
+FR-DOC-003: Authorized partner agencies handling linked referrals shall be allowed to access shared supporting documents, subject to privacy restrictions.
+FR-DOC-004: The system shall restrict access to confidential documents based on assigned permissions and privacy rules.
+FR-DOC-005: OFW public users shall not be allowed to access internal case documents.
+FR-DOC-006: The system shall validate document uploads against supported file types and configured upload constraints.
+FR-DOC-007: The system shall reject unsupported or invalid document uploads.
+FR-DOC-008: Document access activities shall be recorded in the audit log.
+4.5 Digital Referral Management
+4.5.1 Description and Priority
+This feature enables DMW Region VII to digitally endorse cases to participating partner agencies through a standardized referral workflow. Each referral operates independently within its assigned agency lane while remaining linked to the centralized case record.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+High
+9
+8
+5
+4
+4.5.2 Stimulus/Response Sequences
+Referral Creation
+A DMW case manager accesses a case record.
+The user selects one or more partner agencies for referral.
+The system validates the referral details.
+The system creates referral records and assigns initial statuses.
+The system notifies the designated agencies.
+Agency Referral Decision
+A partner agency user reviews an assigned referral.
+The agency accepts, rejects, or returns the referral.
+The user enters a required comment.
+The system records the decision and updates the referral status.
+Invalid Referral Action
+A user attempts an invalid referral status transition or submits a status change without a required comment.
+The system rejects the action.
+The system displays an appropriate error message.
+4.5.3 Functional Requirements
+FR-REF-001: The system shall allow authorized DMW personnel to create digital referrals to participating partner agencies.
+FR-REF-002: The system shall allow a single case to be referred to multiple partner agencies simultaneously.
+FR-REF-003: Each referral shall maintain an independent referral record linked to the Unified Master Case File.
+FR-REF-004: The system shall initialize newly created referrals with a Pending Review status.
+FR-REF-005: The system shall notify assigned partner agencies of newly created referrals.
+FR-REF-006: Partner agencies shall be allowed to accept, reject, or return assigned referrals.
+FR-REF-007: The system shall require a mandatory comment for referral decisions and status updates.
+FR-REF-008: Referral actions shall be timestamped and recorded.
+FR-REF-009: Referral visibility shall be restricted to authorized users.
+FR-REF-010: The system shall enforce standardized referral statuses.
+FR-REF-011: The system shall restrict invalid referral status transitions.
+FR-REF-012: Only authorized users within the assigned agency lane shall update referral statuses.
+FR-REF-013: Cross-referrals initiated by partner agencies shall not be supported in Version 1.0.
+FR-REF-014: The system shall reject referral updates submitted without required comments.
+4.6 Inter-Agency Monitoring and Continuity of Care
+4.6.1 Description and Priority
+This feature supports centralized monitoring of OFW case progress while allowing partner agencies to independently manage interventions within their assigned referral lanes. It preserves continuity of care through unified case visibility and coordinated progress tracking.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+High
+9
+8
+5
+4
+4.6.2 Stimulus/Response Sequences
+Milestone Update
+A partner agency accesses an accepted referral.
+The agency records a milestone update describing intervention progress.
+The system records the update in the referral timeline.
+Case Monitoring
+A DMW case manager reviews a case record.
+The system displays linked referrals, statuses, and milestone history.
+The DMW user monitors intervention progress across agencies.
+Case Closure Validation
+A DMW case manager initiates case closure.
+The system verifies whether required referrals have reached terminal states.
+If conditions are satisfied, closure proceeds.
+Otherwise, the system rejects the closure request.
+4.6.3 Functional Requirements
+FR-TRK-001: The system shall allow partner agencies to update referral progress within their assigned referral lanes.
+FR-TRK-002: The system shall allow creation of milestone entries for accepted referrals.
+FR-TRK-003: Milestone entries shall represent progress updates, actions taken, corrections, or intervention notes.
+FR-TRK-004: Milestone entries shall be append-only and shall not be editable or deletable after submission.
+FR-TRK-005: Only the assigned agency shall create milestone entries within its referral lane.
+FR-TRK-006: The system shall distinguish case-level status from referral-level status.
+FR-TRK-007: The system shall automatically compute case-level status based on linked referral states and case activity.
+FR-TRK-008: The system shall display referral and milestone activity within a unified case timeline.
+FR-TRK-009: Authorized DMW personnel shall be allowed to monitor all linked referrals.
+FR-TRK-010: The system shall highlight pending, unresolved, and terminal referral outcomes.
+FR-TRK-011: Only authorized DMW personnel shall be allowed to close case records.
+FR-TRK-012: The system shall prevent case closure unless required referrals have reached terminal states or have been formally documented.
+FR-TRK-013: The system shall reject unauthorized case closure attempts.
+4.7 OFW Tracking Portal
+4.7.1 Description and Priority
+This feature provides a secure public-facing portal that allows OFWs to monitor the progress of their assistance cases without exposing confidential internal records. The portal supports privacy-safe case visibility and mobile-responsive access.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+Medium
+8
+6
+4
+3
+4.7.2 Stimulus/Response Sequences
+Case Tracking Access
+An OFW accesses the public tracking portal.
+The OFW enters a valid Tracker Number.
+The system validates the Tracker Number.
+The system sends an OTP verification code.
+The OFW enters the OTP.
+The system validates the OTP.
+The system displays authorized case progress information.
+Invalid Tracking Attempt
+An OFW enters an invalid Tracker Number or incorrect OTP.
+The system rejects the request.
+The system displays an appropriate error message.
+4.7.3 Functional Requirements
+FR-PORT-001: The system shall allow OFWs to access the public tracking portal using a valid Tracker Number.
+FR-PORT-002: The system shall require OTP verification before displaying case progress information.
+FR-PORT-003: OTP verification codes shall expire after a configurable validity period.
+FR-PORT-004: The system shall limit repeated invalid OTP verification attempts.
+FR-PORT-005: The system shall display high-level case progress information to authorized OFW users.
+FR-PORT-006: The system shall display simplified case timeline summaries suitable for public viewing.
+FR-PORT-007: The system shall prevent exposure of confidential internal notes, agency-only comments, and restricted attachments.
+FR-PORT-008: The public tracking portal shall support mobile-responsive access.
+FR-PORT-009: The system shall reject invalid Tracker Numbers.
+4.8 AI Chatbot Assistance
+4.8.1 Description and Priority
+This feature provides automated assistance through an AI chatbot to help OFWs with general inquiries, procedural guidance, and assistance navigation related to OFW services.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+Medium
+7
+5
+4
+4
+4.8.2 Stimulus/Response Sequences
+General Inquiry
+An OFW accesses the AI chatbot interface.
+The user submits an inquiry.
+The system processes the request.
+The chatbot returns an automated response or guidance.
+Unsupported Inquiry
+A user submits an unsupported or invalid inquiry.
+The system provides an alternative response, clarification, or escalation guidance.
+4.8.3 Functional Requirements
+FR-AI-001: The system shall provide an AI chatbot interface accessible from the public-facing platform.
+FR-AI-002: The chatbot shall provide automated responses to frequently asked OFW inquiries.
+FR-AI-003: The chatbot shall provide procedural guidance related to OFW assistance workflows.
+FR-AI-004: The chatbot shall assist users in navigating case tracking processes.
+FR-AI-005: The chatbot shall not expose confidential case information, sensitive personal data, or restricted agency records.
+FR-AI-006: The system shall provide fallback guidance when chatbot requests cannot be resolved.
+FR-AI-007: Chatbot interaction activity may be recorded for monitoring and service improvement.
+4.9 Analytics and Reporting
+4.9.1 Description and Priority
+This feature provides dashboards and reporting capabilities for operational monitoring, referral performance analysis, and evidence-based decision-making by authorized administrative users.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+Medium
+8
+6
+5
+4
+4.9.2 Stimulus/Response Sequences
+Dashboard Monitoring
+An authorized user accesses the analytics dashboard.
+The system retrieves aggregated operational data.
+The system displays metrics, charts, and performance summaries.
+Report Generation
+A user selects report filters.
+The system validates filter parameters.
+The system generates the requested report.
+The user exports the report.
+4.9.3 Functional Requirements
+FR-ANA-001: The system shall generate dashboards showing case volume, referral status, completion rates, and unresolved cases.
+FR-ANA-002: The system shall provide agency performance monitoring metrics.
+FR-ANA-003: The system shall allow filtering by date range, agency, service category, location, and case status.
+FR-ANA-004: The system shall support report export in PDF and CSV formats.
+FR-ANA-005: Personally identifiable case information shall be restricted based on user permissions.
+FR-ANA-006: The system shall support anonymized analytics for management reporting and trend analysis.
+FR-ANA-007: The system shall reject invalid report parameter requests.
+4.10 Audit Log Management
+4.10.1 Description and Priority
+This feature maintains an immutable audit trail of critical system activities to support accountability, traceability, governance, and security monitoring across participating agencies.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+High
+9
+8
+5
+4
+4.10.2 Stimulus/Response Sequences
+Audit Logging
+A user performs a critical system action.
+The system captures relevant event details.
+The system records the event in the audit log.
+Audit Review
+An authorized administrator accesses audit records.
+The system validates access permissions.
+The system displays filtered audit entries.
+4.10.3 Functional Requirements
+FR-AUD-001: The system shall automatically record critical system actions in an audit log.
+FR-AUD-002: Audit entries shall record the acting user, timestamp, action performed, and affected entity.
+FR-AUD-003: Audit log records shall be immutable and append-only.
+FR-AUD-004: Only authorized administrators shall be allowed to access audit records.
+FR-AUD-005: The system shall allow filtering of audit records by user, date, and action type.
+FR-AUD-006: Access to sensitive records and audit logs shall itself be auditable.
+FR-AUD-007: The system shall prevent modification or deletion of audit records.
+FR-AUD-008: Corrections shall be recorded as new entries rather than edits to existing records.
+4.11 Feedback Collection
+4.11.1 Description and Priority
+This feature allows OFWs to provide post-service feedback after case completion to support service evaluation, quality monitoring, and continuous improvement.
+Priority
+Benefit
+Penalty
+Cost
+Risk
+Medium
+7
+5
+3
+2
+4.11.2 Stimulus/Response Sequences
+Feedback Submission
+A completed OFW case becomes eligible for feedback.
+The OFW accesses the feedback interface.
+The OFW completes the evaluation form.
+The system validates and stores the response.
+Invalid Submission
+A user submits incomplete or invalid feedback.
+The system rejects the submission.
+The system displays validation guidance.
+4.11.3 Functional Requirements
+FR-FBK-001: The system shall allow OFWs to submit feedback after case closure.
+FR-FBK-002: The system shall support SERVQUAL-based or equivalent service quality evaluation.
+FR-FBK-003: Feedback responses shall be linked to the corresponding completed case record.
+FR-FBK-004: Feedback data shall be available for authorized reporting and analytics.
+FR-FBK-005: The system shall reject incomplete or invalid feedback submissions.
+FR-FBK-006: Feedback submissions shall not expose confidential internal records.
+5. Other Nonfunctional Requirements
+5.1 Performance Requirements
+The following performance requirements define the expected operational efficiency of the Bayanihan One Window system in alignment with the ISO/IEC 25010:2023 Performance Efficiency quality characteristic. These requirements support timely inter-agency coordination, reduced administrative delays, and improved responsiveness for distressed OFW assistance workflows.
+NFR-PERF-001: Core Interface Response TimeThe system shall load the login interface, dashboard views, and primary navigation pages within 3 seconds under normal operating conditions with a stable internet connection of at least 15 Mbps. 
+NFR-PERF-002: Data Retrieval PerformanceThe system shall retrieve and display filtered case records, referral queues, and case monitoring views within 5 seconds under normal operating conditions. 
+NFR-PERF-003: Real-Time Synchronization PerformanceReferral status updates, milestone entries, and case progress changes shall be synchronized across authorized user dashboards within 2 seconds of successful submission using real-time communication mechanisms. 
+NFR-PERF-004: Concurrent User CapacityThe system shall support at least 144 concurrent active users without performance degradation exceeding 20% of baseline response times. 
+NFR-PERF-005: Document Access PerformanceSupporting documents, including PDF and image-based attachments, shall begin loading within 3 seconds of authorized access requests through optimized cloud-based content delivery services. 
+NFR-PERF-006: Report Generation PerformanceStandard dashboards, analytics summaries, and exportable reports for routine date ranges shall be generated within 10 seconds. 
+NFR-PERF-007: System Availability During Operational HoursThe system shall maintain an availability target of at least 99% uptime, excluding scheduled maintenance windows. 
+NFR-PERF-008: Scalability PerformanceThe system architecture shall support future expansion in the number of partner agencies, users, case volume, and reporting complexity without requiring major system redesign. 
+Performance Assumptions
+These performance requirements assume:
+stable internet connectivity of 15–30 Mbps
+standard supported client hardware specifications 
+normal operating workloads within defined concurrency thresholds 
+availability of cloud-hosted infrastructure services (Render, Supabase, Cloudinary) 
+5.2 Safety Requirements
+The following safety requirements are intended to minimize operational risks, prevent accidental misuse, and protect the integrity of OFW case handling workflows in alignment with the ISO/IEC 25010:2023 quality model.
+NFR-SAFE-001: Confirmation for Critical ActionsThe system shall require explicit user confirmation before executing critical or irreversible actions, including case closure, referral issuance, record deactivation, and other high-impact administrative actions. 
+NFR-SAFE-002: Historical Record IntegrityThe system shall preserve case histories, referral logs, milestone entries, and audit records using an append-only mechanism that prevents unauthorized modification or deletion of historical records. 
+NFR-SAFE-003: Automated Data Backup and RecoveryThe system shall perform automated scheduled backups of transactional data, audit logs, and case records to support data recovery in the event of system failure, corruption, or service interruption. 
+NFR-SAFE-004: Monitoring of Delayed or Unresolved CasesThe system shall provide monitoring indicators that identify unresolved, delayed, or stalled referrals requiring administrative review. 
+NFR-SAFE-005: Input Validation SafeguardsThe system shall enforce server-side validation of all critical data inputs to prevent incomplete, invalid, or inconsistent records. 
+NFR-SAFE-006: Unauthorized Access PreventionThe system shall prevent unauthorized access to restricted case information through authentication, authorization, and access control safeguards. 
+NFR-SAFE-007: Failure Recovery ProtectionThe system shall prevent partial transaction commits that could result in inconsistent case, referral, or milestone records during unexpected interruptions or processing failures. 
+NFR-SAFE-008: Sensitive Action LoggingThe system shall record critical safety-relevant actions, including authentication attempts, case closures, referral decisions, and administrative changes, for accountability and incident investigation. 
+Safety Assumptions
+These safety requirements assume:
+authorized administrative users follow established operational procedures 
+cloud infrastructure backup and recovery services remain available 
+network connectivity supports secure transactional communication 
+participating agencies comply with defined access and governance policies 
+5.3 Security Requirements
+The following security requirements define the technical, operational, and governance safeguards necessary to protect Bayanihan One Window against unauthorized access, data compromise, misuse, privacy violations, service disruption, and integrity failures.
+Given that the system processes regulated OFW personal information, case records, referral histories, documentary evidence, and inter-agency workflow data, security controls shall be enforced across the application, database, network, storage, authentication, audit, and external service layers.
+These controls shall align with Republic Act No. 10173 (Data Privacy Act of 2012), applicable privacy governance principles, and secure software engineering best practices.
+5.3.1 Authentication and Identity Security
+NFR-SEC-001All administrative users shall require authenticated access before use of protected system functions.
+NFR-SEC-002Administrative access shall require multi-factor authentication using OTP verification or equivalent secure authentication controls.
+NFR-SEC-003OFW tracking access shall require secure identity verification using Tracker Number validation and OTP verification.
+NFR-SEC-004Authentication credentials shall be securely protected using industry-standard cryptographic hashing.
+NFR-SEC-005Plaintext storage of passwords or authentication secrets shall be prohibited.
+NFR-SEC-006Repeated failed authentication attempts shall be rate-limited, temporarily blocked, or otherwise mitigated.
+NFR-SEC-007Expired, invalid, or replayed authentication tokens or OTP codes shall be rejected.
+NFR-SEC-008Inactive authenticated sessions shall expire after configurable timeout thresholds.
+NFR-SEC-009Session identifiers shall be protected against unauthorized disclosure, fixation, or hijacking.
+5.3.2 Authorization and Access Control Security
+NFR-SEC-010Role-Based Access Control (RBAC) shall be enforced server-side for all protected application functions.
+NFR-SEC-011Partner agency users shall only access records explicitly assigned to their authorized operational lane.
+NFR-SEC-012Cross-agency access to unauthorized referral or case data shall be prohibited.
+NFR-SEC-013Only authorized DMW personnel shall perform centralized case governance actions.
+NFR-SEC-014Only SYSTEM ADMINISTRATORS shall manage privileged administrative configuration functions.
+NFR-SEC-015Access permissions shall follow the Principle of Least Privilege (PoLP).
+NFR-SEC-016Application service accounts shall receive only permissions necessary for required operational tasks.
+NFR-SEC-017Unauthorized access attempts shall be denied and auditable.
+5.3.3 Database Security
+NFR-SEC-018PostgreSQL shall serve as the authoritative transactional system of record.
+NFR-SEC-019Database storage shall use provider-managed encryption at rest equivalent to AES-256 or stronger.
+NFR-SEC-020Database backups, snapshots, replicas, and archived exports shall inherit equivalent encryption protections.
+NFR-SEC-021All Laravel-to-PostgreSQL communications shall use encrypted TLS-secured database connections.
+NFR-SEC-022Database connections shall enforce certificate validation and secure connection posture.
+NFR-SEC-023Plaintext database communications shall be prohibited.
+NFR-SEC-024Sensitive fields shall receive additional application-layer encryption where operationally appropriate.
+Protected fields include:
+passport numbers 
+addresses 
+emergency contact details 
+financial assistance data 
+sensitive case descriptors 
+government identifiers 
+NFR-SEC-025Database administrative access shall be restricted to authorized privileged maintainers only.
+NFR-SEC-026Default or weak database credentials shall be prohibited.
+NFR-SEC-027Database access credentials shall not be embedded directly within application source code repositories.
+NFR-SEC-028Row-Level Security (RLS) shall enforce lane-based data isolation.
+5.3.4 Network and Communication Security
+NFR-SEC-029All browser-to-application communications shall use HTTPS with TLS encryption.
+NFR-SEC-030Unencrypted HTTP access shall be redirected, blocked, or otherwise prevented.
+NFR-SEC-031Direct client-to-database communication shall be prohibited.
+NFR-SEC-032Protected internal communications shall use secure encrypted transport mechanisms.
+NFR-SEC-033External API integrations shall use authenticated encrypted communications.
+NFR-SEC-034Communication protocols using deprecated insecure cryptographic standards shall not be permitted.
+5.3.5 Application Security
+NFR-SEC-035The application shall implement protections against common web application threats.
+Minimum protection scope:
+SQL injection 
+Cross-Site Scripting (XSS) 
+Cross-Site Request Forgery (CSRF) 
+broken access control 
+insecure direct object references 
+malicious file upload abuse 
+request tampering 
+session hijacking 
+NFR-SEC-036All critical business logic validations shall be enforced server-side.
+NFR-SEC-037Client-side validation shall not be relied upon as the sole security control.
+NFR-SEC-038Sensitive operational actions shall require authorization validation before execution.
+NFR-SEC-039Security-relevant failures shall fail securely.
+5.3.6 Document and Media Security
+Because Bayanihan One Window stores documents through Cloudinary-managed services:
+NFR-SEC-040Protected documents shall not be publicly enumerable or openly exposed.
+NFR-SEC-041Document access shall require authenticated authorization validation.
+NFR-SEC-042Where external media delivery is used, signed expiring access controls shall be enforced where applicable.
+NFR-SEC-043Document uploads shall be validated against:
+permitted file types 
+MIME type integrity 
+file size restrictions 
+malicious payload indicators 
+executable content 
+extension spoofing 
+NFR-SEC-044Unauthorized access to restricted documents shall be denied.
+5.3.7 Audit Logging and Accountability
+NFR-SEC-045Security-relevant and operationally significant events shall be recorded in tamper-resistant audit logs.
+Minimum logged events:
+authentication attempts 
+failed login attempts 
+OTP failures 
+access denials 
+referral decisions 
+milestone submissions 
+case closure actions 
+document access events 
+privileged configuration changes 
+account suspension actions 
+sensitive administrative actions 
+NFR-SEC-046Audit records shall be append-only and protected from unauthorized modification or deletion.
+NFR-SEC-047Audit log access shall itself be auditable.
+NFR-SEC-048Corrections to historical records shall be recorded as new traceable events rather than destructive edits.
+5.3.8 External Service Security
+Because the system relies on managed cloud and external providers:
+Render 
+Supabase
+Cloudinary
+email / OTP providers 
+AI services (if enabled) 
+the following controls shall apply.
+NFR-SEC-049External service integrations shall be limited to approved providers.
+NFR-SEC-050Third-party services shall operate under contractual confidentiality and data protection obligations.
+NFR-SEC-051External integrations shall use authenticated secure communication channels.
+NFR-SEC-052Service credentials and API secrets shall be securely managed.
+NFR-SEC-053Provider access shall remain governed by organizational access control policies.
+5.3.9 Privacy and Cross-Border Security Governance
+Because the system uses foreign-managed commercial cloud infrastructure:
+NFR-SEC-054Cross-border processing risks shall be governed through documented privacy controls.
+NFR-SEC-055Privacy risk assessments shall be maintained for cloud deployment and external processing.
+NFR-SEC-056Sensitive OFW personal data shall not be unnecessarily transmitted to third-party services.
+NFR-SEC-057Administrative or vendor support access involving protected data shall require controlled authorization.
+5.3.10 AI Security Controls (If Enabled)
+NFR-SEC-058AI chatbot integrations shall not expose protected OFW personal data unless explicitly privacy-approved.
+NFR-SEC-059AI prompts containing sensitive case or identity information shall be masked, excluded, anonymized, or otherwise protected.
+NFR-SEC-060AI interactions involving protected operational data shall remain governed by organizational privacy controls.
+5.4 Software Quality Attributes
+The Bayanihan One Window system shall be designed and evaluated in accordance with the ISO/IEC 25010:2023 software product quality model to ensure that the platform meets required standards for operational effectiveness, usability, security, maintainability, and service quality in inter-agency OFW assistance coordination.
+5.4.1 Functional Suitability
+NFR-QUAL-001: The system shall provide functional capabilities that support centralized case intake, inter-agency referral coordination, milestone tracking, OFW case monitoring, AI-assisted inquiry support, analytics reporting, and case closure workflows.
+NFR-QUAL-002: The system shall ensure that implemented workflows align with the defined OFW assistance coordination process under DMW Region VII governance.
+NFR-QUAL-003: The system shall support accurate execution of case, referral, and monitoring operations without functional inconsistency.
+5.4.2 Performance Efficiency
+NFR-QUAL-004: The system shall meet the defined performance requirements for response time, synchronization, concurrency, and reporting performance under normal operating conditions.
+NFR-QUAL-005: Real-time updates for referral and milestone activity shall be delivered with minimal operational latency.
+NFR-QUAL-006: The system shall maintain acceptable performance under concurrent inter-agency usage.
+5.4.3 Compatibility
+NFR-QUAL-007: The system shall coexist with existing partner agency operational workflows without requiring replacement of their internal systems.
+NFR-QUAL-008: The system shall support secure interoperability with approved external services including authentication providers, cloud storage services, and AI support services.
+5.4.4 Usability (Interaction Capability)
+NFR-QUAL-009: The system shall provide an intuitive and consistent user interface that minimizes training requirements for administrative users.
+NFR-QUAL-010: The system shall reduce repeated encoding and documentary duplication through centralized single-entry case intake.
+NFR-QUAL-011: The OFW public tracking interface shall be understandable by users with varying levels of digital literacy.
+NFR-QUAL-012: The system shall provide contextual validation messages, interface guidance, and accessible user interaction feedback.
+NFR-QUAL-013: The AI chatbot shall improve accessibility by providing automated procedural guidance and inquiry assistance.
+NFR-QUAL-014: The system shall support accessibility requirements aligned with WCAG 2.1 Level AA.
+5.4.5 Reliability
+NFR-QUAL-014: The system shall maintain consistent operational behavior during normal inter-agency coordination workflows.
+NFR-QUAL-015: The system shall preserve transactional consistency for case records, referrals, milestone entries, and audit logs.
+NFR-QUAL-016: The system shall support operational recovery following interruptions without loss of committed transactional records.
+5.4.6 Security
+NFR-QUAL-017: The system shall protect sensitive OFW data through authentication, authorization, encryption, and access control mechanisms.
+NFR-QUAL-018: The system shall preserve accountability through immutable audit trails and append-only operational records.
+NFR-QUAL-019: The system shall enforce privacy-safe visibility restrictions for agencies and OFW public users.
+5.4.7 Maintainability
+NFR-QUAL-020: The system shall use a modular architecture that supports maintainability, debugging, and controlled feature enhancement.
+NFR-QUAL-021: Functional modules shall be sufficiently isolated to allow updates without requiring major redesign.
+NFR-QUAL-022: The system shall support future modifications to workflows, participating agencies, service categories, and reporting logic.
+5.4.8 Portability
+NFR-QUAL-023: The system shall operate as a browser-based web application without requiring platform-specific installation.
+NFR-QUAL-024: The system shall support modern web browsers including Chrome, Edge, Firefox, and Safari.
+NFR-QUAL-025: The system shall support Windows, macOS, Linux, Android, and iOS environments.
+NFR-QUAL-026: Public-facing interfaces shall remain functional across desktop and mobile form factors.
+5.5 Business Rules
+The following business rules define the operating principles and governance constraints for the Bayanihan One Window system. These rules ensure that system interactions follow the institutional mandates of DMW Region VII and the ISO/IEC 25010:2023 standards for safety and security.
+BR-001: Mandatory Centralized Intake Official case intake for distressed OFWs shall be initiated solely by the Department of Migrant Workers (DMW) Region VII. This operationalizes the "Single-Entry" mechanism where a DMW Case Manager is the only role authorized to generate the initial Unified Master Case File.
+BR-002: Single Source of Truth Each distressed OFW case must be maintained under a single Unified Master Case File serving as the official shared reference for all participating agencies. This rule implies a functional requirement for the system to automatically generate unique Case and Tracker Numbers to prevent record fragmentation.
+BR-003: Parallel Referral AuthorityThe DMW Case Manager may initiate multiple digital referrals to various partner agencies simultaneously. This allows the system to support a multi-disciplinary service plan (e.g., legal, medical, and livelihood) without requiring sequential processing.
+BR-004: Authorized Referral Routing Digital referrals shall be routed only to the system’s established partner network, which includes OWWA, DOLE, TESDA, DSWD, DOH, Law Center Inc., and specific LGUs in Bohol, Cebu, and Siquijor.
+BR-005: Lane-Based Data Isolation Partner agencies shall have access only to the referrals and data assigned to their designated administrative "lane" or column. This is enforced via Row-Level Security (RLS) to ensure that one agency cannot view or edit the internal interventions of another.
+BR-006: Mandatory Explanatory Remarks All high-stakes referral actions—including acceptance, rejection, or returning a case—shall require a mandatory text remark before the action can be submitted. This ensures transparency and provides a clear narrative for DMW oversight.
+BR-007: Append-Only Operational Policy The system shall follow an immutable, append-only policy for all milestone entries, status updates, and audit logs. Any corrections to a recorded entry must be submitted as a new progress record rather than an edit to a historical record to maintain a non-repudiable history.
+BR-008: Exclusive Closure Authority Only authorized DMW personnel have the system privilege to move a case to the final "Closed" status. A case is ineligible for closure until the system validates that all linked referrals have reached a terminal state (Completed, Rejected, or Unable to Proceed).
+BR-009: Multi-Factor Authentication (OTP) Requirement Every system access attempt—whether by administrative staff or an OFW tracking their case—shall require a One-Time Password (OTP) sent to the user's registered email.
+BR-010: Administrative Backend Restriction Access to the administrative dashboards (DMW, Agency, and Administrator views) is restricted to authorized office networks via IP Address Whitelisting. This prevents unauthorized access from external or foreign networks, given the sensitive nature of migrant worker data.
+BR-011: Privacy-Safe Public Tracking OFWs are permitted to view real-time status updates through a public tracking portal using their Tracker Number and OTP. However, this interface shall not expose confidential internal agency comments, sensitive notes, or restricted attachments.
+BR-012: Duplicate Record Flagging During the intake process, the system must perform a duplicate check based on the client's name and birthdate; any potential matches must be flagged for administrative review before a new case can be finalized.
+BR-013: Data Governance for Analytics Closed case data and operational records may be used for analytics and reporting to support data-driven policy planning, provided all processing complies with the Data Privacy Act of 2012.
+6. Other Requirements
+6.1 Legal and Regulatory Requirements
+Bayanihan One Window is a cloud-hosted web-based information system that processes regulated personal, operational, and case-management data relating to distressed Overseas Filipino Workers (OFWs). Due to the nature of the information processed—including personally identifiable information, potentially sensitive personal information, case narratives, referral histories, supporting documentation, authentication metadata, and inter-agency operational records—the system shall operate under applicable Philippine legal, privacy, governance, and public-sector technology compliance requirements.
+The legal and regulatory obligations defined in this section establish the mandatory governance framework for the system’s design, deployment, operation, administration, and maintenance.
+6.1.1 Data Privacy Act Compliance (Republic Act No. 10173)
+The system shall comply with the Data Privacy Act of 2012 (Republic Act No. 10173), it's Implementing Rules and Regulations, and applicable National Privacy Commission guidance.Compliance obligations shall include:
+LEGAL-001Personal data shall be processed only for legitimate, authorized, and operationally necessary purposes related to OFW assistance coordination, case management, referral processing, monitoring, and service delivery.
+LEGAL-002Collection, storage, access, transmission, and processing of OFW personal data shall be limited to the minimum necessary information required for legitimate operational purposes.
+LEGAL-003Personally identifiable information and sensitive case data shall be protected through technical, organizational, and administrative safeguards.
+LEGAL-004Access to personal information shall be restricted to authorized users with legitimate operational need.
+LEGAL-005The system shall support auditability, accountability, and traceability for protected data access and operational actions.
+LEGAL-006Data retention, archival, disposal, and record lifecycle handling shall follow documented governance controls.
+LEGAL-007Unauthorized disclosure, misuse, or uncontrolled exposure of OFW personal information shall be prohibited.
+6.1.2 Department of Migrant Workers Act Compliance (Republic Act No. 11641)
+The system shall align with the governance mandate established under Republic Act No. 11641.
+Compliance obligations shall include:
+LEGAL-008The Department of Migrant Workers (DMW) shall remain the primary operational authority for centralized OFW case governance.
+LEGAL-009Official case intake and centralized case lifecycle governance shall remain under authorized DMW personnel.
+LEGAL-010Participating partner agencies shall operate within delegated referral and intervention responsibilities without assuming unrestricted centralized case governance authority.
+LEGAL-011Inter-agency workflows shall preserve accountability, visibility control, and governance oversight consistent with DMW authority.
+6.1.3 DICT Cloud First Policy Compliance
+Bayanihan One Window shall align with the principles of the DICT Cloud First Policy through managed cloud service adoption, subject to governance and risk controls appropriate for protected operational data.
+Compliance obligations shall include:
+LEGAL-012Cloud-hosted infrastructure may be used where security, privacy, governance, availability, and operational suitability requirements are satisfied.
+LEGAL-013Managed commercial cloud services used by the system shall be formally approved as part of deployment governance.
+LEGAL-014Cloud adoption shall be accompanied by documented risk assessment and privacy governance review.
+LEGAL-015Security responsibilities across application, storage, database, and vendor-managed infrastructure shall be clearly defined.
+LEGAL-016Cloud service dependencies shall be documented as operational infrastructure assumptions.
+6.1.4 Cross-Border Processing and International Data Governance
+Because Bayanihan One Window uses managed commercial cloud services including Render, Supabase, Cloudinary, and other external service providers, certain technical operations may involve infrastructure outside Philippine jurisdiction.
+Potential exposure scenarios include:
+managed hosting infrastructure 
+database replication or backups 
+service telemetry 
+vendor administrative access 
+content delivery infrastructure 
+messaging provider communications 
+AI API traffic (if enabled) 
+Accordingly, the system shall operate under regulated cross-border processing governance.
+LEGAL-017Cross-border processing involving regulated OFW personal information shall be subject to documented privacy governance controls.
+LEGAL-018Use of third-party infrastructure providers shall require documented organizational approval.
+LEGAL-019Third-party providers handling protected operational data shall be subject to confidentiality and privacy obligations.
+LEGAL-020Vendor access to protected production information shall be controlled, restricted, and operationally justified.
+LEGAL-021Sensitive OFW personal data shall not be unnecessarily exposed to third-party services.
+LEGAL-022International processing risks shall be evaluated through privacy and operational governance review.
+6.1.5 Privacy Impact Assessment Requirements
+Because the system handles protected personal and case information through commercial cloud infrastructure, privacy risk governance shall be mandatory.
+LEGAL-023A Privacy Impact Assessment (PIA) or equivalent privacy risk evaluation shall be maintained for the deployment architecture.
+The privacy assessment shall evaluate:
+personal data exposure risks 
+unauthorized access risks 
+cloud infrastructure risks 
+foreign jurisdiction risks 
+vendor support access risks 
+document exposure risks 
+messaging provider risks 
+AI service risks (if enabled) 
+breach response considerations 
+LEGAL-024Material architectural changes affecting protected data processing shall require updated privacy review.
+6.1.6 Third-Party Service Governance
+The system depends on managed external providers.
+Examples include:
+Render 
+Supabase
+Cloudinary
+email/OTP providers 
+AI providers (if enabled) 
+The following governance obligations shall apply.
+LEGAL-025Third-party service providers shall only be used for legitimate operational purposes.
+LEGAL-026Service providers shall not be treated as unrestricted controllers of OFW operational data.
+LEGAL-027Access permissions granted to third-party services shall be limited to required operational functionality.
+LEGAL-028Provider credentials, service secrets, and privileged access mechanisms shall be securely governed.
+LEGAL-029Provider dependency risk shall be acknowledged within operational governance planning.
+6.1.7 Procurement and Public Sector Governance Alignment
+Where Bayanihan One Window is evaluated for institutional deployment, infrastructure and technical services shall be assessed in accordance with applicable public-sector governance and procurement expectations.
+LEGAL-030Infrastructure architecture shall be documented clearly enough for technical review, audit, and procurement evaluation.
+LEGAL-031Security controls, vendor dependencies, operational assumptions, and cloud architecture constraints shall be explicitly documented.
+LEGAL-032Technology decisions shall preserve maintainability, auditability, and operational accountability.
+6.1.8 AI Governance Requirements (If Enabled)
+Where AI-assisted chatbot functionality is enabled:
+LEGAL-033AI integrations shall be restricted to legitimate approved operational functions.
+LEGAL-034Protected OFW personal information shall not be unnecessarily transmitted to AI services.
+LEGAL-035Sensitive case narratives, personal identifiers, documentary evidence, and privileged inter-agency operational records shall not be exposed to AI services without explicit governance approval.
+LEGAL-036AI usage shall remain subordinate to privacy, operational, and security governance requirements.
+6.2 Database Integrity and Processing Requirements
+The database shall preserve transactional correctness for all operational workflows involving case intake, referral processing, milestone recording, case closure, document association, and audit persistence.
+DB-001The PostgreSQL environment shall enforce ACID-compliant transaction processing.
+DB-002Database operations involving multi-step workflow actions shall maintain transactional consistency.
+Examples include:
+case creation with tracker generation 
+referral creation with audit logging 
+milestone recording with status transitions 
+document association with case persistence 
+case closure validation workflows 
+DB-003Partial transaction commits that create inconsistent or orphaned records shall be prevented.
+DB-004Unexpected service interruptions, application failures, or processing exceptions shall not result in corrupted transactional state.
+DB-005Database integrity constraints shall be used to preserve referential consistency between operational entities.
+6.2.2 Authoritative System of Record
+The PostgreSQL database shall serve as the official persistent system of record for:
+Unified Master Case Files 
+OFW personal records 
+referral transactions 
+milestone histories 
+audit logs 
+administrative configuration 
+user accounts and access roles 
+notification metadata 
+OTP validation metadata 
+reporting and analytics datasets 
+DB-006No uncontrolled alternate system of record shall supersede official transactional database persistence.
+DB-007Operational workflows shall preserve single-source-of-truth data consistency.
+6.2.3 Row-Level Security and Data Isolation
+Because Bayanihan One Window uses inter-agency lane-based access governance, the database shall enforce controlled visibility boundaries.
+DB-008PostgreSQL Row-Level Security (RLS) shall be mandatory for agency-visible operational records.
+DB-009Partner agencies shall only access referral or case records explicitly assigned to their authorized operational scope.
+DB-010Cross-agency data visibility shall be denied by default unless explicitly authorized.
+DB-011DMW centralized governance roles may retain broader authorized visibility consistent with system governance requirements.
+DB-012Database security controls shall reinforce application-layer access restrictions.
+6.2.4 Sensitive Data Protection
+Because the system stores protected OFW information, sensitive data shall receive enhanced safeguards.
+Protected information includes:
+passport identifiers 
+addresses 
+contact information 
+next-of-kin details 
+financial assistance data 
+vulnerability indicators 
+case narratives 
+identity verification metadata 
+documentary references 
+DB-013Database storage shall use provider-managed encryption at rest.
+DB-014Sensitive fields shall receive additional application-layer encryption where operationally appropriate.
+DB-015Protected data shall not be unnecessarily duplicated across uncontrolled storage locations.
+DB-016Database exports containing protected information shall be governed by access controls and secure handling procedures.
+6.2.5 Database Access Control and Privilege Governance
+Database access shall follow strict least-privilege governance.
+DB-017Database credentials shall be restricted to authorized application and privileged administrative service accounts.
+DB-018Partner agency users shall not receive direct database credentials.
+DB-019Application runtime access shall use restricted service credentials.
+DB-020Administrative access shall be limited to authorized privileged maintainers.
+DB-021Default, shared, weak, or uncontrolled database credentials shall be prohibited.
+DB-022Database secrets shall be securely managed and shall not be embedded in publicly accessible source code.
+6.2.6 Secure Database Communications
+All database communications shall follow encrypted transport requirements.
+DB-023Application-to-database communications shall use encrypted TLS-secured PostgreSQL connections.
+DB-024Plaintext database communications shall be prohibited.
+DB-025Secure connection validation shall be enforced for database access sessions.
+DB-026Direct client-to-database communications shall be prohibited.
+6.2.7 Audit Logging and Traceability
+The database shall support accountability, traceability, and operational investigation.
+DB-027Audit records shall be maintained for security-relevant and operationally significant activities.
+Minimum auditable events include:
+authentication attempts 
+access denials 
+case creation 
+referral creation 
+referral decisions 
+milestone updates 
+document access events 
+privileged configuration changes 
+case closures 
+account management actions 
+DB-028Audit records shall be append-only and tamper-resistant.
+DB-029Audit records shall not be destructively modified or deleted by unauthorized actors.
+DB-030Corrections shall be preserved as traceable new records rather than destructive overwrites.
+6.2.8 Backup, Recovery, and Availability Protection
+Database resilience shall support continuity of operations.
+DB-031Managed database backups shall be maintained according to operational recovery requirements.
+DB-032Backup data shall inherit encryption protections equivalent to production storage.
+DB-033Recovery mechanisms shall support restoration following operational disruption, corruption, or service failure.
+DB-034Backup access shall be restricted to authorized privileged roles.
+6.2.9 Managed Cloud Database Governance
+Because PostgreSQL is hosted through Supabase managed cloud infrastructure, governance controls shall apply.
+DB-035Managed database provider usage shall remain subject to organizational security governance.
+DB-036Provider administrative exposure shall be treated as a controlled operational risk.
+DB-037Sensitive operational data shall not be unnecessarily exposed through vendor tooling or external integrations.
+DB-038Managed database dependencies shall be documented as architectural constraints.
+6.2.10 Reporting and Analytical Data Controls
+Because operational data may be used for reporting and management oversight:
+DB-039Reporting access shall be governed by authorization controls.
+DB-040Personally identifiable information shall be restricted based on operational necessity.
+DB-041Analytical access shall preserve privacy safeguards consistent with data governance requirements.
+6.3 Reuse and Scalability Objectives
+The project is designed not just as a one-off tool but as a foundation for broader governance:
+Modular Architecture for Enhancement: The system shall follow a modular Model-View-Controller (MVC) design. This is a requirement to support the future addition of more agencies, new service categories, and evolved reporting dimensions without a major system redesign.
+API Readiness for Future Interoperability: Although Version 1.0 is a standalone platform, the software components shall be structured to support future integration via Application Programming Interfaces (APIs), allowing it to eventually connect directly with the internal legacy databases of partner agencies.
+Regional Blueprinting: The system is intended to serve as a blueprint for better operational coordination. Therefore, the codebase and documentation must be maintained in a way that allows for potential replication in other DMW regional offices outside of Region VII.
+6.4 Sustainability and Social Impact Requirements
+The system is required to support specific global development goals:
+SDG Alignment: The platform shall provide reporting and analytics that specifically track indicators related to SDG 8 (Decent Work and Economic Growth), SDG 10 (Reduced Inequalities), and SDG 16 (Peace, Justice, and Strong Institutions).
+Reduction of Administrative Burden: A core qualitative requirement is that the system must demonstrate a reduction in the "administrative burden" on distressed OFWs by eliminating the need for repeated document resubmissions and situational "explainers" across different offices.
+6.5 Accessibility and User Environment
+Bayanihan One Window shall provide accessible, inclusive, and equitable digital access for all intended users, including distressed Overseas Filipino Workers (OFWs), DMW personnel, agency focal persons, administrators, and users with disabilities.
+Because the platform serves a public-facing and potentially vulnerable beneficiary population, accessibility shall be treated as a mandatory nonfunctional requirement rather than an optional usability enhancement.
+The system shall align with internationally recognized accessibility principles, including the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA, to ensure accessible access across desktop and mobile environments.
+6.5.1 Platform Accessibility Requirements
+ACC-001The system shall operate as a browser-based web application without requiring specialized local installation.
+ACC-002The platform shall remain accessible across supported desktop and mobile operating systems.
+ACC-003The public OFW tracking portal shall remain mobile-responsive and accessible across common smartphone environments.
+ACC-004Accessibility features shall remain functional across supported modern browsers.
+6.5.2 WCAG 2.1 Level AA Compliance Requirements
+The system shall implement accessibility controls aligned with WCAG 2.1 Level AA principles.
+Perceivable Requirements
+ACC-005Text content shall maintain sufficient contrast ratios against background elements.
+ACC-006Information shall not rely solely on color for meaning or status communication.
+ACC-007Images, icons, and non-text visual elements shall provide accessible alternative descriptions where applicable.
+ACC-008Interface layouts shall support text resizing without loss of functionality or readability.
+ACC-009Content shall remain readable under responsive scaling and zoom conditions.
+Operable Requirements
+ACC-010All essential user interface functions shall be operable using keyboard navigation.
+ACC-011Interactive controls shall provide visible focus indicators.
+ACC-012Time-limited interactions shall provide reasonable usability accommodations where applicable.
+ACC-013Navigation structures shall remain predictable and consistent across modules.
+ACC-014Interfaces shall avoid patterns likely to trigger seizures or accessibility hazards.
+Understandable Requirements
+ACC-015Interface labels, instructions, and validation feedback shall be clear and understandable.
+ACC-016Forms shall provide accessible error messaging and correction guidance.
+ACC-017Input requirements shall be communicated clearly before submission.
+ACC-018Navigation behavior shall remain logically consistent.
+Robust Requirements
+ACC-019Frontend components shall use semantic markup and accessible interaction patterns compatible with assistive technologies.
+ACC-020The application shall support compatibility with common screen readers and accessibility tooling.
+ACC-021Dynamic React interface components shall preserve accessibility semantics during asynchronous updates.
+6.5.3 Accessibility for Vulnerable Public Users
+Because OFWs may access the system under stressful or adverse circumstances:
+ACC-022Public-facing workflows shall minimize complexity and unnecessary interaction burden.
+ACC-023OTP verification and case tracking workflows shall remain usable by individuals with varying digital literacy.
+ACC-024Public interfaces shall avoid unnecessarily technical language.
+ACC-025Error messages shall remain privacy-safe and user-comprehensible.
+6.5.4 Administrative Accessibility Requirements
+Administrative users including DMW personnel and partner agencies shall receive accessible interface support.
+ACC-026Administrative dashboards shall preserve readable layouts and accessible navigation.
+ACC-027Data tables, forms, filters, and workflow interfaces shall remain keyboard accessible.
+ACC-028Operational interfaces shall preserve usability under prolonged use conditions.
+6.5.5 Accessibility Testing and Validation
+ACC-029Accessibility compliance shall be validated during development and testing.
+Validation may include:
+manual accessibility review 
+keyboard navigation testing 
+screen reader compatibility review 
+contrast validation 
+responsive accessibility testing 
+form validation accessibility testing 
+ACC-030Accessibility regressions introduced through feature updates shall be corrected prior to production release.
+6.6 Infrastructure Compliance Matrix
+The following infrastructure compliance matrix defines the required technical, operational, privacy, and governance controls applicable to Bayanihan One Window. This matrix is intended to support architectural review, audit evaluation, institutional governance assessment, and procurement-oriented technical documentation for the deployment and operation of the system.
+Because Bayanihan One Window is implemented using managed commercial cloud infrastructure and processes regulated OFW personal and case information, compliance controls shall be interpreted as mandatory operational requirements.
+Compliance Area
+Technical Specification Requirement
+Philippine Statutory / Regulatory Reference
+Personal Data Protection
+OFW personal information, case records, referral histories, and supporting documentation shall be protected through access control, encryption, privacy governance, and controlled processing safeguards.
+Republic Act No. 10173 (Data Privacy Act of 2012)
+Lawful Data Processing
+Personal information shall be processed only for legitimate OFW assistance coordination, case governance, referral management, and authorized operational functions.
+RA 10173
+Access Control Governance
+Role-Based Access Control (RBAC), Principle of Least Privilege (PoLP), server-side authorization enforcement, and lane-based data isolation shall be mandatory.
+RA 10173 / Public Sector Security Governance
+Authentication Security
+Administrative access shall require secure authentication, OTP-based multi-factor verification, session protection, and failed access mitigation controls.
+RA 10173
+Database Security
+PostgreSQL shall implement encryption at rest, TLS-secured communications, access restrictions, credential governance, transactional integrity, and secure backup protection.
+RA 10173 / Secure Systems Engineering Best Practice
+Data Isolation
+PostgreSQL Row-Level Security (RLS) shall enforce inter-agency data segregation and prevent unauthorized cross-agency access.
+Privacy Governance / Operational Security Controls
+Auditability and Accountability
+Security events, administrative actions, referral operations, document access, authentication events, and case lifecycle actions shall be recorded in tamper-resistant append-only audit logs.
+RA 10173 / Government Accountability Controls
+Secure Communications
+Browser, application, database, API, and messaging communications shall use encrypted secure transport mechanisms.
+RA 10173 / DICT Cloud Security Principles
+Cloud Infrastructure Governance
+Managed commercial cloud services may be used where privacy, governance, security, and operational controls are documented and enforced.
+DICT Cloud First Policy
+Cross-Border Processing Governance
+Foreign-managed infrastructure exposure shall be governed through privacy controls, risk governance, and controlled vendor obligations.
+RA 10173 / NPC Privacy Governance
+Privacy Risk Assessment
+Privacy Impact Assessments (PIAs) or equivalent privacy risk reviews shall be maintained for cloud deployment architecture and third-party processing exposure.
+RA 10173 / NPC Governance Practice
+Vendor Governance
+Third-party providers shall be subject to confidentiality obligations, restricted access governance, and controlled operational use.
+RA 10173 / Procurement Governance
+Third-Party Data Processing
+External providers shall only process data necessary for approved operational functions and shall not be treated as unrestricted data controllers.
+RA 10173
+Media and Document Security
+Uploaded case documents shall be access-controlled, securely stored, protected against unauthorized public exposure, and validated against malicious content.
+RA 10173
+Messaging Security
+OTP delivery, notifications, and messaging functions shall avoid unnecessary disclosure of protected information and use secure communication channels.
+RA 10173
+AI Service Governance
+AI chatbot integrations shall not expose sensitive OFW personal data, protected documents, or confidential operational records without governance approval.
+RA 10173 / Privacy Governance
+Backup and Recovery Governance
+Encrypted backups, secure recovery controls, and restricted privileged restoration access shall be maintained.
+Public Sector Continuity Controls
+Incident Accountability
+Security incidents, suspicious access events, privileged failures, and administrative anomalies shall be logged and reviewable.
+Government Accountability Standards
+Infrastructure Documentation
+Cloud dependencies, architecture assumptions, vendor roles, security boundaries, and operational constraints shall be formally documented.
+RA 9184 Procurement Readiness
+Procurement Transparency
+Technical architecture and infrastructure decisions shall be sufficiently documented for technical evaluation, governance review, and institutional procurement assessment.
+Republic Act No. 9184
+Maintainability and Operational Sustainability
+Infrastructure choices shall preserve maintainability, auditability, supportability, and long-term operational governance.
+Public Sector ICT Governance
+Accessibility Compliance
+Public-facing and administrative interfaces shall align with WCAG 2.1 Level AA accessibility requirements.
+WCAG 2.1 / Inclusive Digital Service Best Practice
+Appendices
+Appendix A: Glossary
+Acronyms and Abbreviations
+ACID: Atomicity, Consistency, Isolation, and Durability; a set of properties that guarantee reliable database transactions.
+AGY / AGCY: Agency; refers to the partner government or non-government organisations involved in the referral network.
+API: Application Programming Interface; a set of protocols for building and integrating application software.
+CDN: Content Delivery Network; a system of distributed servers that deliver web content, such as documents and images, with high performance and availability (e.g., Cloudinary).
+DMW: Department of Migrant Workers; the primary government agency responsible for protecting the rights and welfare of OFWs.
+DOH: Department of Health.
+DOLE: Department of Labor and Employment.
+DSWD: Department of Social Welfare and Development.
+HTTPS: Hypertext Transfer Protocol Secure; an extension of HTTP for secure communication over a computer network.
+ISO/IEC 25010:2023: The international standard for systems and software quality requirements and evaluation.
+JSONB: JavaScript Object Notation Binary; a structured data type used for storing audit logs and previous/new data values in the database.
+LGU: Local Government Unit; includes provincial and city-level government offices in Region VII.
+MVC: Model-View-Controller; a software architectural pattern used to separate internal logic from the user interface.
+OFW: Overseas Filipino Worker; a Filipino citizen who works abroad under legal employment arrangements.
+OTP: One-Time Password; a unique, time-sensitive security code used for multi-factor authentication.
+OWWA: Overseas Workers Welfare Administration.
+RBAC: Role-Based Access Control; a security mechanism that restricts system access to authorized users based on their specific roles.
+RLS: Row-Level Security; a database security feature used to enforce "lane-based" isolation by limiting data visibility based on user policies.
+SRS: Software Requirements Specification; this document.
+SSL/TLS: Secure Sockets Layer / Transport Layer Security; cryptographic protocols designed to provide communications security over a computer network.
+TESDA: Technical Education and Skills Development Authority.
+UUID: Universally Unique Identifier; a 128-bit number used to uniquely identify information in the database (e.g., USER_ID, CASE_ID).
+WAF: Web Application Firewall; a security layer that filters and monitors HTTP traffic to protect against application-layer attacks.
+Key System Terms
+Append-Only Audit Trail: A non-repudiable history of system activities where records are added but never edited or deleted, ensuring full traceability and accountability.
+Bayanihan One Window System: A web-based platform designed to centralize case management, referral coordination, and tracking for repatriated and distressed OFWs.
+Case Intake: The initial "single-entry" process performed by DMW to collect and record information about an OFW seeking assistance.
+Case Management: The systematic process of organizing, monitoring, and coordinating services provided to OFWs from intake to final resolution.
+Lane-Based Tracking: A structural design where each participating agency manages and views only the specific referral and milestone data assigned to their administrative "lane" or column.
+Milestone: An append-only progress entry recorded by an agency to document specific actions, updates, or notes related to a referral.
+Repatriation: The process of returning OFWs to the Philippines due to emergencies, employment termination, labor disputes, or other distress circumstances.
+Single Source of Truth: A centralized data persistence model where a single unified record serves as the authoritative reference for all agencies, preventing data isolation.
+Terminal Status: A final referral state indicating that an intervention is no longer active; limited to "Completed," "Rejected," or "Unable to Proceed".
+Tracker Number: A unique, system-generated identifier provided to the OFW to monitor their case status through the public portal without requiring a full system account.
+Unified Master Case File: A centralized record established during intake that captures a client's profile, narrative, and service needs as a shared reference for all referred agencies.
+Appendix B: Analysis Models
+Appendix 1. System Context Diagram (Level 0 Data Flow Diagram)
+The figure presents the System Context Diagram (Level 0 DFD) of Bayanihan One Window, showing the system as the central hub for information exchange among DMW Case Managers, Partner Agencies, Distressed OFWs, and the System Administrator. DMW Case Managers submit case information, client details, and referral actions; Partner Agencies receive referrals and provide service updates and status changes; Distressed OFWs provide case-related information and receive tracking updates and notifications; while the System Administrator manages users, access controls, and system configuration. The diagram highlights the system’s role in centralizing case information, referral actions, and status updates to support coordinated OFW assistance.
+Appendix 2. Conceptual Entity Relationship Diagram of Bayanihan One Window
+Appendix 3. Use Case Diagrams
+This appendix presents the use case diagrams of the Bayanihan One Window System, showing the interactions between the four main actors: Administrator, DMW Case Manager, Agency/LGU Focal Person, and OFW Tracking User. The diagrams illustrate key system functions including authentication, client and case management, referral processing, case tracking, reporting, chatbot assistance, and public access features, defining the system’s functional scope from the users’ perspective.
+Authentication Module Use Cases
+The Authentication Module handles secure access to the system for authorized users, including the Case Manager, Agency User, and Administrator. It provides essential functions such as login, logout, and password recovery or change, ensuring that only verified users can access role-specific features. This module enforces system security and protects sensitive case and client data from unauthorized access.
+Appendix 4. Sequence Diagrams
+This appendix contains the sequence diagrams that illustrate the chronological interactions between users and the system during major workflows. These include DMW case intake and referral creation, partner agency referral handling, case monitoring and closure, and OFW case tracking with feedback submission, showing how data flows and actions are coordinated in real time.
+DMW Case Intake and Referral Sequence Diagram
+Partner Agency Referral Handling Sequence Diagram
+Case Monitoring and Closure Sequence Diagram
+OFW Tracking and Feedback Sequence Diagram
+Appendix 5. Activity Diagram
+This appendix presents the activity diagram of the Bayanihan One Window System, showing the end-to-end workflow of OFW assistance. It outlines the sequence of activities from case intake, referral creation, partner agency intervention, progress monitoring, case closure, and OFW tracking and feedback, highlighting the responsibilities of each stakeholder throughout the process.
+Activity Diagram of the Bayanihan One Window
+Appendix C: To Be Determined List
+TBD ID
+Final SRS Resolution
+TBD-001
+Participating Agencies finalized. Include DMW, OWWA, DOLE, TESDA, DSWD, DOH, Law Center Inc., and participating LGUs in Region VII (Cebu, Bohol, Siquijor, Cebu City, Mandaue City, Lapu-Lapu City).
+TBD-002
+Standardized intake fields finalized. Include personal information, vulnerability indicators, employment history, next-of-kin details, and case narrative.
+TBD-003
+Case summary format finalized. Define as structured narrative text capturing OFW circumstances, identified needs, and referral justification.
+TBD-005
+Attachment handling partially finalized. State secure cloud-based document storage for PDFs/images with application-level validation. If Cloudinary is not explicitly required in SRS architecture, avoid vendor lock-in unless already approved in SDD.
+TBD-006
+Notification channels finalized for Version 1.0. Email notifications for referral alerts, OTP verification, and tracker communication.
+TBD-007
+Analytics finalized. Dashboards and reports include case statistics, referral summaries, client summaries, and descriptive analytics with graphical visualization.
+TBD-008
+Case closure rules finalized. Case closure only permitted when all linked referrals are in terminal/documented states.
+TBD-009
+Lane-based access control finalized. Agencies may update only their assigned intervention/referral lanes.
+TBD-010
+Referral deadline monitoring finalized. Processing timelines tracked per service configuration with overdue monitoring thresholds.
+TBD-011
+OFW tracking finalized with correction. Manuscript indicates tracker-number-based public access; only include OTP if explicitly implemented in your current design. Do not add this if not already in manuscript/SDD.
+TBD-012
+SERVQUAL finalized if part of evaluation scope. If this is only for research evaluation and not actual deployed software functionality, place it in project evaluation documentation—not SRS functional requirements.
+TBD-013
+Consent process finalized at business process level. Intake occurs through DMW-assisted registration with informed data submission.
+TBD-014
+Cross-referrals explicitly excluded in Version 1.0. Only DMW Case Managers initiate referrals.
+TBD-015
+Persistent OFW profile deferred. Current implementation is case-centric; enterprise-wide reusable OFW profiles are future enhancement.
