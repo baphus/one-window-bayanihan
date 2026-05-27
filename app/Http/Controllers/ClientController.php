@@ -3,9 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
-use App\Models\CaseFile;
-use Inertia\Inertia;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class ClientController extends Controller
 {
@@ -13,10 +12,23 @@ class ClientController extends Controller
     {
         $clients = Client::with(['caseFile' => function ($q) {
             $q->with('referrals.agency');
-        }])->orderBy('created_at', 'desc')->paginate(15);
+        }])->orderBy('created_at', 'desc');
+
+        if (! empty($request->search)) {
+            $search = $request->search;
+            $clients->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhereHas('caseFile', function ($q) use ($search) {
+                        $q->where('case_number', 'like', "%{$search}%");
+                    });
+            });
+        }
 
         return Inertia::render('Client/Index', [
-            'clients' => $clients,
+            'clients' => $clients->paginate(15),
+            'filters' => $request->only(['search']),
         ]);
     }
 

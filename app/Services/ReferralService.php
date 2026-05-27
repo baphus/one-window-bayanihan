@@ -67,7 +67,8 @@ class ReferralService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('required_services', 'like', "%{$search}%")
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhere('required_services', 'like', "%{$search}%")
                     ->orWhereHas('caseFile', function ($q) use ($search) {
                         $q->where('case_number', 'like', "%{$search}%");
                     })

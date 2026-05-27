@@ -12,6 +12,7 @@ const statusStyles = {
 };
 
 const COLUMN_DEFS = [
+    { key: 'referral_id', label: 'Referral #', default: true },
     { key: 'case_number', label: 'Case #', default: true },
     { key: 'client', label: 'Client', default: true },
     { key: 'agency', label: 'Agency', default: true },
@@ -103,6 +104,14 @@ export default function ReferralIndex({ referrals, filters }) {
             .map((col) => {
                 const base = { key: col.key, title: col.label, sortable: true };
                 switch (col.key) {
+                    case 'referral_id':
+                        return {
+                            ...base,
+                            sortable: false,
+                            render: (row) => (
+                                <span className="font-mono text-xs font-bold text-slate-700">{row.id.slice(0, 8)}</span>
+                            ),
+                        };
                     case 'case_number':
                         return {
                             ...base,
@@ -226,7 +235,7 @@ export default function ReferralIndex({ referrals, filters }) {
                 keyExtractor={(row) => row.id}
                 {...paginatorProps(referrals)}
                 searchValue={searchValue}
-                searchPlaceholder="Search by case number, client..."
+                searchPlaceholder="Search by referral ID, client, agency, or service..."
                 onSearchChange={handleSearchChange}
                 onAdvancedFilters={() => setFilterOpen((v) => { setColumnsOpen(false); return !v; })}
                 isAdvancedFiltersOpen={filterOpen}

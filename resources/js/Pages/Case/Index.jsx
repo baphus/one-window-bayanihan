@@ -411,7 +411,7 @@ export default function CaseIndex({ cases, filters, stats }) {
         keyExtractor={(row) => row.id}
         {...paginatorProps(cases)}
         searchValue={searchValue}
-        searchPlaceholder="Search by case number, tracker number..."
+        searchPlaceholder="Search by tracking ID, client name, or client type..."
         onSearchChange={handleSearchChange}
         onAdvancedFilters={() => setFilterOpen((v) => { setColumnsOpen(false); return !v; })}
         isAdvancedFiltersOpen={filterOpen}
