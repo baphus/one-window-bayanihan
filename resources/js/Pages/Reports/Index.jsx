@@ -1,7 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Building2, TrendingUp, Download, BarChart3, Send, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
+import { Building2, TrendingUp, Download, BarChart3, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -11,6 +11,7 @@ import MetricCard from '@/Components/Reports/MetricCard';
 import StatusBadge from '@/Components/Reports/StatusBadge';
 import SvgPieChart from '@/Components/Reports/SvgPieChart';
 import TrendChart from '@/Components/Reports/TrendChart';
+import TrendIndicator from '@/Components/Reports/TrendIndicator';
 import DateRangePicker, { formatDisplayDate, getQuickRangeDates } from '@/Components/Reports/DateRangePicker';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -70,6 +71,7 @@ function CaseManagerReports({
   kpis, referralStatusDistribution, referralAgencyDistribution,
   casesOverTime, genderDistribution, clientTypeDistribution,
   ageGroupDistribution, mostRequestedService, managedReferrals,
+  cycleTimeDistribution, referralAging, agencyScorecard, geographicDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -106,6 +108,48 @@ function CaseManagerReports({
   const genderPie = useMemo(() => toPieFormat(genderDistribution), [genderDistribution]);
   const clientTypePie = useMemo(() => toPieFormat(clientTypeDistribution), [clientTypeDistribution]);
   const agePie = useMemo(() => toPieFormat(ageGroupDistribution), [ageGroupDistribution]);
+
+  const cycleTimeChartData = useMemo(() => {
+    if (!cycleTimeDistribution?.labels) return null;
+    return {
+      labels: cycleTimeDistribution.labels,
+      datasets: [{
+        label: 'Referrals',
+        data: cycleTimeDistribution.data,
+        backgroundColor: cycleTimeDistribution.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [cycleTimeDistribution]);
+
+  const agingChartData = useMemo(() => {
+    if (!referralAging?.labels) return null;
+    return {
+      labels: referralAging.labels,
+      datasets: [{
+        label: 'Referrals',
+        data: referralAging.data,
+        backgroundColor: referralAging.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [referralAging]);
+
+  const geoChartData = useMemo(() => {
+    if (!geographicDistribution?.labels) return null;
+    return {
+      labels: geographicDistribution.labels,
+      datasets: [{
+        label: 'Cases',
+        data: geographicDistribution.data,
+        backgroundColor: '#0b5a8c',
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [geographicDistribution]);
 
   const agencyChartData = useMemo(() => {
     if (!referralAgencyDistribution?.labels) return null;
@@ -168,10 +212,14 @@ function CaseManagerReports({
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total Referrals" value={`${kpis.totalReferrals}`} accent="border-l-[#0b5a8c]" />
-        <MetricCard label="Completion Rate" value={`${kpis.completionRate}%`} accent="border-l-[#0b7a75]" />
-        <MetricCard label="Avg Completion Days" value={`${kpis.avgCompletionDays}`} accent="border-l-[#1e3a8a]" description="From referral creation to completion" />
-        <MetricCard label="Pending" value={`${kpis.pendingReferrals}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]" />
+        <MetricCard label="Total Referrals" value={`${kpis.totalReferrals}`} accent="border-l-[#0b5a8c]"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.totalReferrals} />} />
+        <MetricCard label="Completion Rate" value={`${kpis.completionRate}%`} accent="border-l-[#0b7a75]"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.completionRate} />} />
+        <MetricCard label="Avg Completion Days" value={`${kpis.avgCompletionDays}d`} accent="border-l-[#1e3a8a]" description="From referral creation to completion"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.avgCompletionDays} inverse />} />
+        <MetricCard label="Pending" value={`${kpis.pendingReferrals}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.pendingReferrals} />} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -210,18 +258,79 @@ function CaseManagerReports({
         </article>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
-        <article className="flex flex-col items-center justify-center gap-3 bg-[#0b3f69] px-6 py-5 text-white shadow-sm">
-          <Send className="h-8 w-8 opacity-70" />
-          <div className="text-center">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#8cc7e7]">Most Requested Service</p>
-            <p className="text-xl font-black leading-tight" title={mostRequestedService?.name}>{mostRequestedService?.name || 'N/A'}</p>
-            <p className="text-[13px] text-[#bee1f3]">{mostRequestedService?.value || 0} referrals</p>
-          </div>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
+          <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
+          {cycleTimeChartData ? (
+            <div className="h-56">
+              <Bar data={cycleTimeChartData} options={barOptions} />
+            </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
+          )}
+        </article>
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Aging</h3>
+          <p className="mb-3 text-[11px] text-slate-500">How long active referrals have been waiting</p>
+          {agingChartData ? (
+            <div className="h-56">
+              <Bar data={agingChartData} options={barOptions} />
+            </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No active referrals pending.</p>
+          )}
+        </article>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
+          {agencyScorecard?.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-[#cbd5e1] text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">
+                    <th className="pb-2 pr-3">Agency</th>
+                    <th className="pb-2 pr-3 text-right">Total</th>
+                    <th className="pb-2 pr-3 text-right">Completed</th>
+                    <th className="pb-2 pr-3 text-right">Rate</th>
+                    <th className="pb-2 pr-3 text-right">Avg Days</th>
+                    <th className="pb-2 text-right">Pending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agencyScorecard.map((a) => (
+                    <tr key={a.agency} className="border-b border-[#e2e8f0] last:border-0">
+                      <td className="py-2 pr-3 font-semibold text-slate-700">{a.agency}</td>
+                      <td className="py-2 pr-3 text-right text-slate-700">{a.total}</td>
+                      <td className="py-2 pr-3 text-right text-emerald-700">{a.completed}</td>
+                      <td className="py-2 pr-3 text-right font-bold text-slate-700">{a.completionRate}%</td>
+                      <td className={`py-2 pr-3 text-right ${a.avgDays <= 7 ? 'text-emerald-700' : a.avgDays <= 14 ? 'text-amber-700' : 'text-rose-700'}`}>{a.avgDays}d</td>
+                      <td className="py-2 text-right text-amber-700">{a.pending}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No agency data available.</p>
+          )}
         </article>
         <section>
           <TrendChart title="Cases Over Time" data={casesOverTime} />
         </section>
+      </section>
+
+      <section className="border border-[#cbd5e1] bg-white p-4">
+        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Geographic Distribution</h3>
+        {geoChartData ? (
+          <div className="h-56">
+            <Bar data={geoChartData} options={barOptions} />
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[13px] text-slate-400">No geographic data available.</p>
+        )}
       </section>
 
       <section>
@@ -332,6 +441,7 @@ function CaseManagerReports({
 function AgencyReports({
   kpis, referralStatusDistribution, referralTrends,
   avgReferralCompletion, managedReferrals,
+  cycleTimeDistribution, agencyScorecard,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -366,6 +476,20 @@ function AgencyReports({
 
   const referralStatusPie = useMemo(() => toPieFormat(referralStatusDistribution), [referralStatusDistribution]);
 
+  const agencyCycleTimeData = useMemo(() => {
+    if (!cycleTimeDistribution?.labels) return null;
+    return {
+      labels: cycleTimeDistribution.labels,
+      datasets: [{
+        label: 'Referrals',
+        data: cycleTimeDistribution.data,
+        backgroundColor: cycleTimeDistribution.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [cycleTimeDistribution]);
+
   const referralColumns = useMemo(() => [
     { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold text-[#0b5a8c]">{row.case_file?.case_number || 'N/A'}</span> },
     { key: 'client', title: 'CLIENT', render: (row) => <span className="text-[12px] font-semibold text-slate-700">{row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A'}</span> },
@@ -394,11 +518,16 @@ function AgencyReports({
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Total Referrals" value={`${kpis.totalReferrals}`} accent="border-l-[#0b5a8c]" />
-        <MetricCard label="Completed" value={`${kpis.completedReferrals}`} accent="border-l-[#0b7a75]" />
-        <MetricCard label="Pending" value={`${kpis.pendingReferrals}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]" />
-        <MetricCard label="Avg Completion" value={`${avgReferralCompletion.toFixed(1)}d`} accent="border-l-[#0b5a8c]" description="From referral sent to completion" />
-        <MetricCard label="Completion Rate" value={`${kpis.completionRate}%`} accent="border-l-[#0b7a75]" />
+        <MetricCard label="Total Referrals" value={`${kpis.totalReferrals}`} accent="border-l-[#0b5a8c]"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.totalReferrals} />} />
+        <MetricCard label="Completed" value={`${kpis.completedReferrals}`} accent="border-l-[#0b7a75]"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.completedReferrals} />} />
+        <MetricCard label="Pending" value={`${kpis.pendingReferrals}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.pendingReferrals} />} />
+        <MetricCard label="Avg Completion" value={`${avgReferralCompletion.toFixed(1)}d`} accent="border-l-[#0b5a8c]" description="From referral sent to completion"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.avgCompletionDays} inverse />} />
+        <MetricCard label="Completion Rate" value={`${kpis.completionRate}%`} accent="border-l-[#0b7a75]"
+          trailing={<TrendIndicator change={kpis.kpiChanges?.completionRate} />} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_2fr]">
@@ -428,6 +557,53 @@ function AgencyReports({
         <TrendChart title="Referral Trends" data={referralTrends} />
       </section>
 
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
+          <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
+          {agencyCycleTimeData ? (
+            <div className="h-56">
+              <Bar data={agencyCycleTimeData} options={barOptions} />
+            </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
+          )}
+        </article>
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
+          {agencyScorecard?.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-[#cbd5e1] text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">
+                    <th className="pb-2 pr-3">Agency</th>
+                    <th className="pb-2 pr-3 text-right">Total</th>
+                    <th className="pb-2 pr-3 text-right">Completed</th>
+                    <th className="pb-2 pr-3 text-right">Rate</th>
+                    <th className="pb-2 pr-3 text-right">Avg Days</th>
+                    <th className="pb-2 text-right">Pending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agencyScorecard.map((a) => (
+                    <tr key={a.agency} className="border-b border-[#e2e8f0] last:border-0">
+                      <td className="py-2 pr-3 font-semibold text-slate-700">{a.agency}</td>
+                      <td className="py-2 pr-3 text-right text-slate-700">{a.total}</td>
+                      <td className="py-2 pr-3 text-right text-emerald-700">{a.completed}</td>
+                      <td className="py-2 pr-3 text-right font-bold text-slate-700">{a.completionRate}%</td>
+                      <td className={`py-2 pr-3 text-right ${a.avgDays <= 7 ? 'text-emerald-700' : a.avgDays <= 14 ? 'text-amber-700' : 'text-rose-700'}`}>{a.avgDays}d</td>
+                      <td className="py-2 text-right text-amber-700">{a.pending}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No agency data available.</p>
+          )}
+        </article>
+      </section>
+
       <section className="border border-[#cbd5e1] bg-white">
         <div className="flex items-center justify-between border-b border-[#cbd5e1] px-4 py-3">
           <h3 className={pageHeadingStyles.sectionTitle}>Referred Cases</h3>
@@ -455,6 +631,7 @@ function AgencyReports({
 function AdminReports({
   overview, caseTrends, referralStatusDistribution,
   agencyWorkload, clientTypeDistribution,
+  cycleTimeDistribution, referralAging, geographicDistribution, agencyScorecard,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -489,6 +666,48 @@ function AdminReports({
 
   const referralStatusPie = useMemo(() => toPieFormat(referralStatusDistribution), [referralStatusDistribution]);
   const clientTypePie = useMemo(() => toPieFormat(clientTypeDistribution), [clientTypeDistribution]);
+
+  const adminCycleTimeData = useMemo(() => {
+    if (!cycleTimeDistribution?.labels) return null;
+    return {
+      labels: cycleTimeDistribution.labels,
+      datasets: [{
+        label: 'Referrals',
+        data: cycleTimeDistribution.data,
+        backgroundColor: cycleTimeDistribution.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [cycleTimeDistribution]);
+
+  const adminAgingData = useMemo(() => {
+    if (!referralAging?.labels) return null;
+    return {
+      labels: referralAging.labels,
+      datasets: [{
+        label: 'Referrals',
+        data: referralAging.data,
+        backgroundColor: referralAging.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [referralAging]);
+
+  const adminGeoData = useMemo(() => {
+    if (!geographicDistribution?.labels) return null;
+    return {
+      labels: geographicDistribution.labels,
+      datasets: [{
+        label: 'Cases',
+        data: geographicDistribution.data,
+        backgroundColor: '#0b5a8c',
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [geographicDistribution]);
 
   const workloadChartData = useMemo(() => {
     if (!agencyWorkload?.labels) return null;
@@ -604,27 +823,41 @@ function AdminReports({
           )}
         </article>
 
-        <div className="border border-[#cbd5e1] bg-white p-4">
-          <h3 className={`mb-1 ${pageHeadingStyles.sectionTitle}`}>System Overview</h3>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded border border-[#cbd5e1] bg-[#f8fafc] p-3">
-              <p className="text-[10px] font-bold text-slate-500">Cases</p>
-              <p className="text-2xl font-black text-blue-900">{overview?.totalCases || 0}</p>
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Geographic Distribution</h3>
+          {adminGeoData ? (
+            <div className="h-64">
+              <Bar data={adminGeoData} options={barOptions} />
             </div>
-            <div className="rounded border border-[#cbd5e1] bg-[#f8fafc] p-3">
-              <p className="text-[10px] font-bold text-slate-500">Referrals</p>
-              <p className="text-2xl font-black text-blue-900">{overview?.totalReferrals || 0}</p>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No geographic data available.</p>
+          )}
+        </article>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
+          <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
+          {adminCycleTimeData ? (
+            <div className="h-56">
+              <Bar data={adminCycleTimeData} options={barOptions} />
             </div>
-            <div className="rounded border border-[#cbd5e1] bg-[#f8fafc] p-3">
-              <p className="text-[10px] font-bold text-slate-500">Agencies</p>
-              <p className="text-2xl font-black text-blue-900">{overview?.activeAgencies || 0}</p>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
+          )}
+        </article>
+        <article className="border border-[#cbd5e1] bg-white p-4">
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Aging</h3>
+          <p className="mb-3 text-[11px] text-slate-500">How long active referrals have been waiting</p>
+          {adminAgingData ? (
+            <div className="h-56">
+              <Bar data={adminAgingData} options={barOptions} />
             </div>
-            <div className="rounded border border-[#cbd5e1] bg-[#f8fafc] p-3">
-              <p className="text-[10px] font-bold text-slate-500">Pending</p>
-              <p className="text-2xl font-black text-amber-600">{overview?.pendingReferrals || 0}</p>
-            </div>
-          </div>
-        </div>
+          ) : (
+            <p className="py-8 text-center text-[13px] text-slate-400">No active referrals pending.</p>
+          )}
+        </article>
       </section>
 
       <section className="mb-6">
@@ -639,6 +872,7 @@ export default function ReportsIndex(props) {
     role, kpis, referralStatusDistribution, referralAgencyDistribution,
     casesOverTime, genderDistribution, clientTypeDistribution,
     ageGroupDistribution, mostRequestedService,
+    cycleTimeDistribution, referralAging, agencyScorecard, geographicDistribution,
     overview, caseTrends, agencyWorkload,
     referralTrends, avgReferralCompletion,
     managedReferrals,
@@ -657,6 +891,8 @@ export default function ReportsIndex(props) {
           referralTrends={referralTrends}
           avgReferralCompletion={avgReferralCompletion || 0}
           managedReferrals={managedReferrals}
+          cycleTimeDistribution={cycleTimeDistribution}
+          agencyScorecard={agencyScorecard}
           from={from}
           to={to}
         />
@@ -674,6 +910,10 @@ export default function ReportsIndex(props) {
           referralStatusDistribution={referralStatusDistribution}
           agencyWorkload={agencyWorkload}
           clientTypeDistribution={clientTypeDistribution}
+          cycleTimeDistribution={cycleTimeDistribution}
+          referralAging={referralAging}
+          geographicDistribution={geographicDistribution}
+          agencyScorecard={agencyScorecard}
           from={from}
           to={to}
         />
@@ -694,6 +934,10 @@ export default function ReportsIndex(props) {
         ageGroupDistribution={ageGroupDistribution}
         mostRequestedService={mostRequestedService}
         managedReferrals={managedReferrals}
+        cycleTimeDistribution={cycleTimeDistribution}
+        referralAging={referralAging}
+        agencyScorecard={agencyScorecard}
+        geographicDistribution={geographicDistribution}
         from={from}
         to={to}
       />

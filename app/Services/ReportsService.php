@@ -6,6 +6,8 @@ use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Referral;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ReportsService
@@ -44,16 +46,27 @@ class ReportsService
             'clientTypeDistribution' => $this->getClientTypeDistribution($userId, 'CASE_MANAGER'),
             'ageGroupDistribution' => $this->getAgeGroupDistribution(),
             'mostRequestedService' => $this->getMostRequestedService($userId, 'CASE_MANAGER', $from, $to),
+            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution($userId, 'CASE_MANAGER', $from, $to),
+            'referralAging' => $this->getReferralAging($userId, 'CASE_MANAGER', $from, $to),
+            'agencyScorecard' => $this->getAgencyScorecard($userId, 'CASE_MANAGER', $from, $to),
+            'geographicDistribution' => $this->getGeographicDistribution($userId, 'CASE_MANAGER', $from, $to),
         ];
     }
 
     private function getAgencyPayload(?string $userId): array
     {
+        $agency = User::find($userId)?->agency;
+        $agcyId = $agency?->id;
+
         return [
             'kpis' => $this->getReferralKpis(null, 'AGENCY'),
             'referralStatusDistribution' => $this->getReferralStatusDistribution(null, 'AGENCY'),
             'referralTrends' => $this->getReferralTrends(),
             'avgReferralCompletion' => $this->getAvgReferralCompletionDays(),
+            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, 'AGENCY'),
+            'agencyScorecard' => $agcyId
+                ? $this->getAgencyScorecard(null, 'AGENCY')
+                : [],
         ];
     }
 
@@ -68,6 +81,10 @@ class ReportsService
             'referralStatusDistribution' => $this->getReferralStatusDistribution(null, null, $from, $to),
             'agencyWorkload' => $this->getAgencyWorkload($from, $to),
             'clientTypeDistribution' => $this->getClientTypeDistribution(),
+            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, null, $from, $to),
+            'referralAging' => $this->getReferralAging(null, null, $from, $to),
+            'geographicDistribution' => $this->getGeographicDistribution(null, null, $from, $to),
+            'agencyScorecard' => $this->getAgencyScorecard(null, null, $from, $to),
         ];
     }
 
@@ -210,7 +227,10 @@ class ReportsService
 
     public function getReferralKpis(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
     {
-        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate);
+        $from = Carbon::parse($fromDate ?: now()->subYear());
+        $to = Carbon::parse($toDate ?: now());
+
+        $referrals = $this->referralQuery($userId, $role, $from->toDateString(), $to->toDateString());
         $total = (clone $referrals)->count();
         $completed = (clone $referrals)->where('status', 'COMPLETED')->count();
         $pending = (clone $referrals)->where('status', 'PENDING')->count();
@@ -222,6 +242,21 @@ class ReportsService
             ->select(DB::raw('AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_days'))
             ->value('avg_days');
 
+        $duration = $from->diffInDays($to);
+        $prevFrom = $from->copy()->subDays($duration);
+        $prevTo = $from->copy()->subDay();
+
+        $prev = $this->referralQuery($userId, $role, $prevFrom->toDateString(), $prevTo->toDateString());
+        $prevTotal = (clone $prev)->count();
+        $prevCompleted = (clone $prev)->where('status', 'COMPLETED')->count();
+        $prevPending = (clone $prev)->where('status', 'PENDING')->count();
+        $prevAvgDays = (clone $prev)
+            ->where('status', 'COMPLETED')
+            ->select(DB::raw('AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_days'))
+            ->value('avg_days');
+
+        $pct = fn ($curr, $prev) => $prev > 0 ? round((($curr - $prev) / $prev) * 100, 1) : 0;
+
         return [
             'totalReferrals' => (int) $total,
             'completedReferrals' => (int) $completed,
@@ -230,6 +265,16 @@ class ReportsService
             'rejectedReferrals' => (int) $rejected,
             'completionRate' => $total > 0 ? round(($completed / $total) * 100) : 0,
             'avgCompletionDays' => round((float) ($avgDays ?? 0), 1),
+            'kpiChanges' => [
+                'totalReferrals' => $pct($total, $prevTotal),
+                'completedReferrals' => $pct($completed, $prevCompleted),
+                'pendingReferrals' => $pct($pending, $prevPending),
+                'completionRate' => $pct(
+                    $total > 0 ? ($completed / $total) * 100 : 0,
+                    $prevTotal > 0 ? ($prevCompleted / $prevTotal) * 100 : 0,
+                ),
+                'avgCompletionDays' => $pct((float) ($avgDays ?? 0), (float) ($prevAvgDays ?? 0)),
+            ],
         ];
     }
 
@@ -358,6 +403,142 @@ class ReportsService
         return [
             'name' => $top?->required_services ?? 'N/A',
             'value' => (int) ($top?->total ?? 0),
+        ];
+    }
+
+    public function getReferralCycleTimeDistribution(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+    ): array {
+        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate)
+            ->where('status', 'COMPLETED')
+            ->select(DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
+            ->get()
+            ->pluck('days');
+
+        $buckets = ['< 1 week' => 0, '1-2 weeks' => 0, '2-4 weeks' => 0, '> 1 month' => 0];
+        foreach ($referrals as $days) {
+            if ($days < 7) {
+                $buckets['< 1 week']++;
+            } elseif ($days < 14) {
+                $buckets['1-2 weeks']++;
+            } elseif ($days < 30) {
+                $buckets['2-4 weeks']++;
+            } else {
+                $buckets['> 1 month']++;
+            }
+        }
+
+        return [
+            'labels' => array_keys($buckets),
+            'data' => array_values($buckets),
+            'colors' => ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        ];
+    }
+
+    public function getReferralAging(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+    ): array {
+        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate)
+            ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
+            ->select(DB::raw('EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400 as days'))
+            ->get()
+            ->pluck('days');
+
+        $buckets = ['< 1 week' => 0, '1-2 weeks' => 0, '2-4 weeks' => 0, '> 1 month' => 0];
+        foreach ($referrals as $days) {
+            if ($days < 7) {
+                $buckets['< 1 week']++;
+            } elseif ($days < 14) {
+                $buckets['1-2 weeks']++;
+            } elseif ($days < 30) {
+                $buckets['2-4 weeks']++;
+            } else {
+                $buckets['> 1 month']++;
+            }
+        }
+
+        return [
+            'labels' => array_keys($buckets),
+            'data' => array_values($buckets),
+            'colors' => ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        ];
+    }
+
+    public function getAgencyScorecard(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+    ): array {
+        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate)
+            ->select('agcy_id', 'status', DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
+            ->get()
+            ->groupBy('agcy_id');
+
+        if ($referrals->isEmpty()) {
+            return [];
+        }
+
+        $agencyIds = $referrals->keys();
+        $agencyNames = Agency::whereIn('id', $agencyIds)->pluck('name', 'id');
+
+        $result = [];
+        foreach ($referrals as $agcyId => $rows) {
+            $total = $rows->count();
+            $completed = $rows->where('status', 'COMPLETED')->count();
+            $pending = $rows->where('status', 'PENDING')->count();
+            $avgDays = $rows->where('status', 'COMPLETED')->avg('days');
+
+            $result[] = [
+                'agency' => $agencyNames[$agcyId] ?? 'Unknown',
+                'total' => $total,
+                'completed' => $completed,
+                'pending' => $pending,
+                'completionRate' => $total > 0 ? round(($completed / $total) * 100) : 0,
+                'avgDays' => round((float) ($avgDays ?? 0), 1),
+            ];
+        }
+
+        usort($result, fn ($a, $b) => $b['total'] <=> $a['total']);
+
+        return $result;
+    }
+
+    public function getGeographicDistribution(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+    ): array {
+        $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->leftJoin('clients as c', 'c.case_id', '=', 'cases.id')
+            ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
+            ->whereNotNull('ca.province');
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->where('cases.user_id', $userId);
+        }
+        if ($fromDate) {
+            $query->whereDate('cases.created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->whereDate('cases.created_at', '<=', $toDate);
+        }
+
+        $result = $query->groupBy('ca.province')
+            ->orderByDesc('total')
+            ->get();
+
+        return [
+            'labels' => $result->pluck('province')->toArray(),
+            'data' => $result->pluck('total')->toArray(),
         ];
     }
 
