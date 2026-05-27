@@ -1,87 +1,57 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
-import { useMemo } from 'react';
-import { UnifiedTable } from '@/Components/ui/UnifiedTable';
-import { formatDisplayDateTime } from '@/lib/utils';
+import { AuditTimeline } from '@/Components/AuditTimeline';
+import { useCallback } from 'react';
 
-const actionStyles = {
-  CREATE: 'bg-green-100 text-green-800',
-  UPDATE: 'bg-blue-100 text-blue-800',
-  DELETE: 'bg-red-100 text-red-800',
-  VIEW: 'bg-purple-100 text-purple-800',
-  LOGIN: 'bg-slate-100 text-slate-800',
-  LOGOUT: 'bg-slate-100 text-slate-800',
-};
+export default function AuditLogIndex({ logs, availableActions, availableModules, availableModulesLabels, filterValues }) {
+  const handleFilterChange = useCallback((filters) => {
+    const url = new URL(window.location);
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value === '' || value === null || value === undefined) {
+        url.searchParams.delete(key);
+      } else {
+        url.searchParams.set(key, value);
+      }
+    });
+    url.searchParams.delete('page');
+    router.get(url.toString());
+  }, []);
 
-export default function AuditLogIndex({ logs }) {
-  function paginatorProps(paginator) {
-    return {
-      totalRecords: paginator.total,
-      startIndex: paginator.from,
-      endIndex: paginator.to,
-      currentPage: paginator.current_page,
-      totalPages: paginator.last_page,
-      rowsPerPage: paginator.per_page,
-      hideControlBar: true,
-      onPageChange: (page) => {
-        const url = new URL(window.location);
-        url.searchParams.set('page', page);
-        router.get(url.toString());
-      },
-      onRowsPerPageChange: (n) => {
-        const url = new URL(window.location);
-        url.searchParams.set('per_page', n);
-        url.searchParams.delete('page');
-        router.get(url.toString());
-      },
-    };
-  }
+  const handlePageChange = useCallback((page) => {
+    const url = new URL(window.location);
+    url.searchParams.set('page', page);
+    router.get(url.toString());
+  }, []);
 
-  const columns = useMemo(() => [
-    {
-      key: 'timestamp',
-      title: 'Timestamp',
-      sortable: true,
-      render: (row) => formatDisplayDateTime(row.timestamp),
-    },
-    {
-      key: 'user',
-      title: 'User',
-      sortable: true,
-      render: (row) => row.user?.name ?? 'System',
-    },
-    {
-      key: 'action',
-      title: 'Action',
-      sortable: true,
-      render: (row) => (
-        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${actionStyles[row.action] || 'bg-slate-100 text-slate-800'}`}>
-          {row.action}
-        </span>
-      ),
-    },
-    {
-      key: 'module',
-      title: 'Module',
-      sortable: true,
-      render: (row) => row.module,
-    },
-  ], []);
+  const pagination = {
+    total: logs.total,
+    currentPage: logs.current_page,
+    totalPages: logs.last_page,
+    from: logs.from,
+    to: logs.to,
+    perPage: logs.per_page,
+  };
 
   return (
     <AppLayout title="Audit Logs">
       <Head title="Audit Logs" />
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
-        <p className="text-sm text-slate-500 mt-1">Track all system activities and changes.</p>
-      </div>
+      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
+          <p className="text-sm text-slate-500 mt-1">Track all system activities and changes.</p>
+        </div>
 
-      <UnifiedTable
-        columns={columns}
-        data={logs.data}
-        keyExtractor={(row) => row.id}
-        {...paginatorProps(logs)}
-      />
+        <AuditTimeline
+          logs={logs.data}
+          availableActions={availableActions ?? []}
+          availableModules={availableModules ?? []}
+          availableModulesLabels={availableModulesLabels ?? {}}
+          filterValues={filterValues ?? {}}
+          onFilterChange={handleFilterChange}
+          pagination={pagination}
+          onPageChange={handlePageChange}
+        />
+      </div>
     </AppLayout>
   );
 }
