@@ -6,14 +6,13 @@ import { useCallback } from 'react';
 export default function AuditLogIndex({ logs, availableActions, availableModules, availableModulesLabels, filterValues }) {
   const handleFilterChange = useCallback((filters) => {
     const url = new URL(window.location);
+    const filterKeys = ['action', 'module', 'user_id', 'date_from', 'date_to', 'search', 'per_page', 'page'];
+    filterKeys.forEach(k => url.searchParams.delete(k));
     Object.entries(filters).forEach(([key, value]) => {
-      if (value === '' || value === null || value === undefined) {
-        url.searchParams.delete(key);
-      } else {
+      if (value !== '' && value !== null && value !== undefined) {
         url.searchParams.set(key, value);
       }
     });
-    url.searchParams.delete('page');
     router.get(url.toString());
   }, []);
 

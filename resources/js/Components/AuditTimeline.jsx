@@ -111,7 +111,7 @@ function TimelineEntry({ log }) {
     const [expanded, setExpanded] = useState(false);
     const style = ACTION_STYLES[log.action] || { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'info' };
 
-    const initials = log.user ? log.user.substring(0, 2).toUpperCase() : '??';
+    const initials = log.user?.name ? log.user.name.substring(0, 2).toUpperCase() : '??';
 
     // Parse diff if UPDATE
     const hasChanges = log.action === 'UPDATE' && log.old_value && log.new_value;
@@ -124,7 +124,7 @@ function TimelineEntry({ log }) {
             oldVals = typeof log.old_value === 'string' ? JSON.parse(log.old_value) : log.old_value;
             newVals = typeof log.new_value === 'string' ? JSON.parse(log.new_value) : log.new_value;
         } catch(e) {
-           // Ignore errors
+           console.warn('Failed to parse audit log diff:', e);
         }
     }
     
@@ -217,11 +217,11 @@ function TimelineEntry({ log }) {
 
 function FilterBar({ availableActions, availableModules, filterValues, onFilterChange }) {
     const handleActionToggle = (action) => {
-        const currentActions = filterValues.actions || [];
+        const currentActions = (filterValues.action || '').split(',').filter(Boolean);
         const newActions = currentActions.includes(action)
             ? currentActions.filter(a => a !== action)
             : [...currentActions, action];
-        onFilterChange({ ...filterValues, actions: newActions });
+        onFilterChange({ ...filterValues, action: newActions.join(',') });
     };
 
     const handleModuleChange = (e) => {
@@ -278,15 +278,15 @@ function FilterBar({ availableActions, availableModules, filterValues, onFilterC
                     <div className="flex items-center gap-2">
                         <input
                             type="date"
-                            value={filterValues.dateFrom || ''}
-                            onChange={(e) => handleDateChange('dateFrom', e.target.value)}
+                            value={filterValues.date_from || ''}
+                            onChange={(e) => handleDateChange('date_from', e.target.value)}
                             className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                         />
                         <span className="text-slate-500 text-sm">to</span>
                         <input
                             type="date"
-                            value={filterValues.dateTo || ''}
-                            onChange={(e) => handleDateChange('dateTo', e.target.value)}
+                            value={filterValues.date_to || ''}
+                            onChange={(e) => handleDateChange('date_to', e.target.value)}
                             className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
@@ -297,7 +297,7 @@ function FilterBar({ availableActions, availableModules, filterValues, onFilterC
             <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-sm font-medium text-slate-700 mr-2">Actions:</span>
                 {availableActions.map(action => {
-                    const isActive = (filterValues.actions || []).includes(action);
+                    const isActive = (filterValues.action || '').split(',').includes(action);
                     return (
                         <button
                             key={action}
