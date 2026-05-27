@@ -31,6 +31,9 @@ export default function ReferralIndex({ referrals, filters }) {
     const [filterOpen, setFilterOpen] = useState(false);
     const [columnsOpen, setColumnsOpen] = useState(false);
 
+    const [pendingDecision, setPendingDecision] = useState(null);
+    const [decisionRemark, setDecisionRemark] = useState('');
+
     const searchTimeout = useRef(null);
 
     const [visibleColumns, setVisibleColumns] = useState(
@@ -153,9 +156,21 @@ export default function ReferralIndex({ referrals, filters }) {
                             sortable: false,
                             title: 'Actions',
                             render: (row) => (
-                                <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">
-                                    View
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                    <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">
+                                        View
+                                    </button>
+                                    {isAgency && row.status === 'PENDING' && (
+                                        <>
+                                            <button onClick={() => setPendingDecision({ id: row.id, action: 'ACCEPT' })} className="min-h-[28px] px-2.5 bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-bold rounded-[3px] transition-colors border border-emerald-600">
+                                                Accept
+                                            </button>
+                                            <button onClick={() => setPendingDecision({ id: row.id, action: 'REJECT' })} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">
+                                                Reject
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             ),
                         };
                     default:
@@ -214,6 +229,24 @@ export default function ReferralIndex({ referrals, filters }) {
         </div>
     ), [visibleColumns]);
 
+    const submitDecision = () => {
+        if (!pendingDecision) return;
+        const trimmed = decisionRemark.trim();
+        if (!trimmed) return;
+        const nextStatus = pendingDecision.action === 'ACCEPT' ? 'PROCESSING' : 'REJECTED';
+        router.patch(route('referrals.update-status', pendingDecision.id), {
+            status: nextStatus,
+            decision: pendingDecision.action,
+            decision_comment: trimmed,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setPendingDecision(null);
+                setDecisionRemark('');
+            },
+        });
+    };
+
     return (
         <AppLayout title={isAgency ? 'My Agency Referrals' : 'Referral Management'}>
             <Head title="Referrals" />
@@ -251,6 +284,39 @@ export default function ReferralIndex({ referrals, filters }) {
                 onRemoveFilter={handleRemoveFilter}
                 onClearFilters={handleClearFilters}
             />
+
+            {pendingDecision && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+                        <div className="border-b border-slate-200 px-5 py-4">
+                            <h2 className="text-base font-bold text-slate-900">
+                                {pendingDecision.action === 'ACCEPT' ? 'Accept' : 'Reject'} Referral
+                            </h2>
+                            <p className="mt-1 text-xs text-slate-500">
+                                A remark is required before you can continue.
+                            </p>
+                        </div>
+                        <div className="px-5 py-4">
+                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
+                            <textarea
+                                value={decisionRemark}
+                                onChange={(e) => setDecisionRemark(e.target.value)}
+                                rows={4}
+                                placeholder="Enter your decision remark..."
+                                className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}
+                                className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+                            <button onClick={submitDecision} disabled={!decisionRemark.trim()}
+                                className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Confirm {pendingDecision.action === 'ACCEPT' ? 'Accept' : 'Reject'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AppLayout>
     );
 }

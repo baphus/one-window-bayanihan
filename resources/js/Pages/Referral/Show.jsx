@@ -146,6 +146,12 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
     const [showOverdueInfo, setShowOverdueInfo] = useState(false);
 
+    const [pendingDecision, setPendingDecision] = useState(null);
+    const [decisionRemark, setDecisionRemark] = useState('');
+    const [showUpdateStatus, setShowUpdateStatus] = useState(false);
+    const [updateStatusValue, setUpdateStatusValue] = useState('PROCESSING');
+    const [updateStatusRemark, setUpdateStatusRemark] = useState('');
+
     const [commentDraft, setCommentDraft] = useState('');
     const [replyToCommentId, setReplyToCommentId] = useState(null);
     const [postingComment, setPostingComment] = useState(false);
@@ -249,12 +255,38 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
             <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
                 <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Referral Details</h1>
-                <Link
-                    href={route('referrals.index')}
-                    className="h-[34px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] inline-flex items-center hover:bg-slate-50"
-                >
-                    Back
-                </Link>
+                <div className="flex items-center gap-2">
+                    {isAgency && referral.status === 'PENDING' && (
+                        <>
+                            <button
+                                onClick={() => setPendingDecision({ id: referral.id, mode: 'ACCEPT', status: 'PROCESSING' })}
+                                className="h-[34px] px-3 bg-emerald-600 text-white text-[11px] font-bold rounded-[3px] border border-emerald-600 hover:bg-emerald-700"
+                            >
+                                Accept
+                            </button>
+                            <button
+                                onClick={() => setPendingDecision({ id: referral.id, mode: 'REJECT', status: 'REJECTED' })}
+                                className="h-[34px] px-3 bg-red-50 text-red-700 text-[11px] font-bold rounded-[3px] border border-red-200 hover:bg-red-100"
+                            >
+                                Reject
+                            </button>
+                        </>
+                    )}
+                    {isAgency && !['PENDING', 'COMPLETED', 'REJECTED'].includes(referral.status) && (
+                        <button
+                            onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); }}
+                            className="h-[34px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] inline-flex items-center hover:bg-slate-50"
+                        >
+                            Update Status
+                        </button>
+                    )}
+                    <Link
+                        href={route('referrals.index')}
+                        className="h-[34px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] inline-flex items-center hover:bg-slate-50"
+                    >
+                        Back
+                    </Link>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
@@ -661,6 +693,120 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                             ) : (
                                 <p className="text-[11px] text-slate-500 text-center">No versions found.</p>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {pendingDecision && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+                        <div className="border-b border-slate-200 px-5 py-4">
+                            <h2 className="text-base font-bold text-slate-900">
+                                {pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'} Referral
+                            </h2>
+                            <p className="mt-1 text-xs text-slate-500">
+                                {pendingDecision.mode === 'ACCEPT'
+                                    ? 'Choose a status and provide a remark.'
+                                    : 'A remark is required before rejecting.'}
+                            </p>
+                        </div>
+                        <div className="px-5 py-4 space-y-4">
+                            {pendingDecision.mode === 'ACCEPT' && (
+                                <div>
+                                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Status</label>
+                                    <select
+                                        value={pendingDecision.status}
+                                        onChange={(e) => setPendingDecision({ ...pendingDecision, status: e.target.value })}
+                                        className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    >
+                                        <option value="PROCESSING">Processing</option>
+                                        <option value="FOR_COMPLIANCE">For Compliance</option>
+                                    </select>
+                                </div>
+                            )}
+                            <div>
+                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
+                                <textarea
+                                    value={decisionRemark}
+                                    onChange={(e) => setDecisionRemark(e.target.value)}
+                                    rows={4}
+                                    placeholder="Enter your decision remark..."
+                                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}
+                                className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+                            <button onClick={() => {
+                                const trimmed = decisionRemark.trim();
+                                if (!trimmed) return;
+                                router.patch(route('referrals.update-status', pendingDecision.id), {
+                                    status: pendingDecision.status,
+                                    decision: pendingDecision.mode,
+                                    decision_comment: trimmed,
+                                }, {
+                                    preserveScroll: true,
+                                    onSuccess: () => { setPendingDecision(null); setDecisionRemark(''); },
+                                });
+                            }} disabled={!decisionRemark.trim()}
+                                className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Confirm {pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showUpdateStatus && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+                        <div className="border-b border-slate-200 px-5 py-4">
+                            <h2 className="text-base font-bold text-slate-900">Update Status</h2>
+                            <p className="mt-1 text-xs text-slate-500">Update the referral status and provide a remark.</p>
+                        </div>
+                        <div className="px-5 py-4 space-y-4">
+                            <div>
+                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">New Status</label>
+                                <select
+                                    value={updateStatusValue}
+                                    onChange={(e) => setUpdateStatusValue(e.target.value)}
+                                    className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                >
+                                    <option value="PROCESSING">Processing</option>
+                                    <option value="FOR_COMPLIANCE">For Compliance</option>
+                                    <option value="COMPLETED">Completed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
+                                <textarea
+                                    value={updateStatusRemark}
+                                    onChange={(e) => setUpdateStatusRemark(e.target.value)}
+                                    rows={4}
+                                    placeholder="Enter a remark for this status update..."
+                                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+                            <button onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); }}
+                                className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+                            <button onClick={() => {
+                                const trimmed = updateStatusRemark.trim();
+                                if (!trimmed) return;
+                                router.patch(route('referrals.update-status', referral.id), {
+                                    status: updateStatusValue,
+                                    decision_comment: trimmed,
+                                }, {
+                                    preserveScroll: true,
+                                    onSuccess: () => { setShowUpdateStatus(false); setUpdateStatusRemark(''); },
+                                });
+                            }} disabled={!updateStatusRemark.trim()}
+                                className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Update Status
+                            </button>
                         </div>
                     </div>
                 </div>

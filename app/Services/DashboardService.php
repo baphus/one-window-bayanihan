@@ -178,6 +178,7 @@ class DashboardService
         $pendingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PENDING')->count();
         $processingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PROCESSING')->count();
         $completedReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'COMPLETED')->count();
+        $rejectedReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'REJECTED')->count();
 
         $recentReferrals = Referral::with(['caseFile.client', 'agency'])
             ->where('agcy_id', $agencyId)
@@ -186,12 +187,50 @@ class DashboardService
             ->get()
             ->toArray();
 
+        $pendingNotifications = Referral::with(['caseFile.client'])
+            ->where('agcy_id', $agencyId)
+            ->where('status', 'PENDING')
+            ->orderBy('created_at', 'desc')
+            ->take(3)
+            ->get()
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'title' => 'New Referral',
+                'message' => $r->caseFile?->case_number
+                    ? 'Case '.$r->caseFile->case_number.' has been referred to you.'
+                    : 'A new referral has been assigned to your agency.',
+                'time' => $r->created_at?->diffForHumans() ?? 'N/A',
+                'type' => 'info',
+                'read' => false,
+            ])
+            ->toArray();
+
+        $recentActivity = AuditLog::where('agcy_id', $agencyId)
+            ->orWhere(function ($q) use ($agencyId) {
+                $q->where('module', 'REFERRAL')
+                    ->where('description', 'like', "%{$agencyId}%");
+            })
+            ->orderBy('timestamp', 'desc')
+            ->take(10)
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'title' => $log->action,
+                'desc' => $log->description ?? $log->action.' '.$log->module,
+                'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
+                'logoSrc' => '/logo.png',
+            ])
+            ->toArray();
+
         return [
             'totalReferrals' => $totalReferrals,
             'pendingReferrals' => $pendingReferrals,
             'processingReferrals' => $processingReferrals,
             'completedReferrals' => $completedReferrals,
+            'rejectedReferrals' => $rejectedReferrals,
             'recentReferrals' => $recentReferrals,
+            'recentActivity' => $recentActivity,
+            'dashboardNotifications' => $pendingNotifications,
         ];
     }
 

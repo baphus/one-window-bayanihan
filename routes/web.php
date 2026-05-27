@@ -22,6 +22,7 @@ use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
 use App\Models\Agency;
 use App\Services\DashboardService;
+use App\Services\ReportsService;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -51,7 +52,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $data['role'] = $user->role;
         $data['caseTrends'] = $reportsService->getCaseTrends();
         $data['referralStatusDistribution'] = $reportsService->getReferralStatusDistribution();
-        $data['caseTypeDistribution'] = $reportsService->getCaseTypeDistribution();
 
         return Inertia::render('Dashboard', $data);
     })->name('dashboard');
@@ -92,6 +92,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
+
+    Route::middleware('role:AGENCY')->group(function () {
+        Route::get('/services', [AgencyServiceController::class, 'index'])->name('agency.services.index');
+        Route::post('/services', [AgencyServiceController::class, 'store'])->name('agency.services.store');
+        Route::patch('/services/{service}', [AgencyServiceController::class, 'update'])->name('agency.services.update');
+        Route::delete('/services/{service}', [AgencyServiceController::class, 'destroy'])->name('agency.services.destroy');
+    });
 
     Route::prefix('admin')->name('admin.')->middleware('role:ADMIN')->group(function () {
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');
