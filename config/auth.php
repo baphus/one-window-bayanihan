@@ -61,6 +61,21 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | IP Whitelist Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Defense-in-depth: restrict admin routes to specific IPs/CIDRs.
+    | Disabled by default; set AUTH_IP_WHITELIST_ENABLED=true to enable.
+    |
+    */
+
+    'ip_whitelist' => [
+        'enabled' => env('AUTH_IP_WHITELIST_ENABLED', false),
+        'addresses' => explode(',', env('AUTH_IP_WHITELIST_ADDRESSES', '127.0.0.1')),
+    ],
+
     'providers' => [
         'users' => [
             'driver' => 'eloquent',

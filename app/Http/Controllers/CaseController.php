@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\SystemSetting;
 use App\Services\CaseService;
@@ -55,10 +56,18 @@ class CaseController extends Controller
             ->with('success', 'Case created successfully.');
     }
 
-    public function show(string $id)
+    public function show(string $id, Request $request)
     {
         $case = $this->caseService->getCase($id);
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
+
+        AuditLog::create([
+            'action' => 'VIEW',
+            'module' => 'CASE',
+            'entity_id' => $id,
+            'description' => 'Viewed case details',
+            'user_id' => $request->user()->id,
+        ]);
 
         return Inertia::render('Case/Show', [
             'case' => $case,

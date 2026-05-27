@@ -8,7 +8,11 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
+use App\Models\User;
+use App\Notifications\ReferralCreated;
+use App\Notifications\ReferralStatusChanged;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class ReferralService
@@ -35,6 +39,12 @@ class ReferralService
                 'new_value' => $referral->toArray(),
                 'user_id' => $userId,
             ]);
+
+            // Notify agency users about the new referral
+            $agencyUsers = User::where('agcy_id', $referral->agcy_id)
+                ->where('is_active', true)
+                ->get();
+            Notification::send($agencyUsers, new ReferralCreated($referral));
 
             return $referral->load(['agency', 'caseFile', 'milestones']);
         });
@@ -136,6 +146,17 @@ class ReferralService
                 'new_value' => ['status' => $status, 'decision' => $decision, 'decision_comment' => $decisionComment],
                 'user_id' => $userId,
             ]);
+
+            // Notify case manager about the status change
+            if ($referral->caseFile) {
+                $caseManager = User::find($referral->caseFile->user_id);
+                if ($caseManager) {
+                    Notification::send(
+                        [$caseManager],
+                        new ReferralStatusChanged($referral, $oldStatus, $status),
+                    );
+                }
+            }
 
             return $referral->fresh(['agency', 'caseFile', 'milestones']);
         });

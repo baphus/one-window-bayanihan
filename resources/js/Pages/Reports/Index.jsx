@@ -1,7 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Building2, TrendingUp, Download, BarChart3, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
+import { Building2, TrendingUp, Download, BarChart3, CheckCircle2, Clock, Loader2, XCircle, FileDown } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -200,15 +200,25 @@ function CaseManagerReports({
           <h1 className={pageHeadingStyles.pageTitle}>Reports</h1>
           <p className={pageHeadingStyles.pageSubtitle}>Referral operations and agency performance.</p>
         </div>
-        <DateRangePicker
-          fromDateISO={fromDateISO}
-          toDateISO={toDateISO}
-          quickRange={quickRange}
-          onFromChange={setFromDateISO}
-          onToChange={setToDateISO}
-          onQuickRangeSelect={handleQuickRange}
-          onReset={resetDateRange}
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <DateRangePicker
+            fromDateISO={fromDateISO}
+            toDateISO={toDateISO}
+            quickRange={quickRange}
+            onFromChange={setFromDateISO}
+            onToChange={setToDateISO}
+            onQuickRangeSelect={handleQuickRange}
+            onReset={resetDateRange}
+          />
+          <button
+            type="button"
+            onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
+            className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Export PDF
+          </button>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -506,15 +516,25 @@ function AgencyReports({
           <h1 className={pageHeadingStyles.pageTitle}>Reports</h1>
           <p className={pageHeadingStyles.pageSubtitle}>Agency performance overview.</p>
         </div>
-        <DateRangePicker
-          fromDateISO={fromDateISO}
-          toDateISO={toDateISO}
-          quickRange={quickRange}
-          onFromChange={setFromDateISO}
-          onToChange={setToDateISO}
-          onQuickRangeSelect={handleQuickRange}
-          onReset={resetDateRange}
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <DateRangePicker
+            fromDateISO={fromDateISO}
+            toDateISO={toDateISO}
+            quickRange={quickRange}
+            onFromChange={setFromDateISO}
+            onToChange={setToDateISO}
+            onQuickRangeSelect={handleQuickRange}
+            onReset={resetDateRange}
+          />
+          <button
+            type="button"
+            onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
+            className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Export PDF
+          </button>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -745,15 +765,25 @@ function AdminReports({
           <h1 className={pageHeadingStyles.pageTitle}>Reports</h1>
           <p className={pageHeadingStyles.pageSubtitle}>System-wide performance metrics and trends.</p>
         </div>
-        <DateRangePicker
-          fromDateISO={fromDateISO}
-          toDateISO={toDateISO}
-          quickRange={quickRange}
-          onFromChange={setFromDateISO}
-          onToChange={setToDateISO}
-          onQuickRangeSelect={handleQuickRange}
-          onReset={resetDateRange}
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <DateRangePicker
+            fromDateISO={fromDateISO}
+            toDateISO={toDateISO}
+            quickRange={quickRange}
+            onFromChange={setFromDateISO}
+            onToChange={setToDateISO}
+            onQuickRangeSelect={handleQuickRange}
+            onReset={resetDateRange}
+          />
+          <button
+            type="button"
+            onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
+            className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Export PDF
+          </button>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

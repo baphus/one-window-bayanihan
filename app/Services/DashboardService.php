@@ -219,12 +219,9 @@ class DashboardService
             ])
             ->toArray();
 
-        $recentActivity = AuditLog::where(function ($q) use ($agencyId) {
-            $q->where('agcy_id', $agencyId)
-                ->orWhere(function ($q) {
-                    $q->where('module', 'referrals');
-                });
-        })
+        $referralIds = Referral::where('agcy_id', $agencyId)->pluck('id');
+        $recentActivity = AuditLog::whereIn('entity_id', $referralIds)
+            ->where('module', 'referrals')
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()

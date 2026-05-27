@@ -9,6 +9,7 @@ use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
+use App\Http\Controllers\AnonymizedAnalyticsController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ChatbotController;
@@ -84,8 +85,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
 
-    Route::permanentRedirect('/analytics', '/reports');
+    Route::get('/analytics', [AnonymizedAnalyticsController::class, 'index'])->name('analytics.index');
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
     Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
@@ -101,7 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/services/{service}', [AgencyServiceController::class, 'destroy'])->name('agency.services.destroy');
     });
 
-    Route::prefix('admin')->name('admin.')->middleware('role:ADMIN')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');
         Route::post('/agencies', [AdminAgencyController::class, 'store'])->name('agencies.store');
         Route::patch('/agencies/{agency}', [AdminAgencyController::class, 'update'])->name('agencies.update');
@@ -166,8 +168,12 @@ Route::get('/contact', function () {
 })->name('contact');
 
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
-Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])->name('track.send-otp');
-Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])->name('track.verify-otp');
+Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
+    ->name('track.send-otp')
+    ->middleware('throttle:tracking');
+Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
+    ->name('track.verify-otp')
+    ->middleware('throttle:tracking');
 Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
 
 Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
@@ -176,6 +182,8 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
     Route::get('/{slug}', [HelpdeskController::class, 'show'])->name('show');
     Route::post('/feedback', [HelpdeskController::class, 'feedback'])->name('feedback');
 });
+
+Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->name('api.analytics');
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])->name('chatbot.message');
 

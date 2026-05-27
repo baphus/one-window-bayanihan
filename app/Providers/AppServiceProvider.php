@@ -16,7 +16,10 @@ use App\Models\Service;
 use App\Models\User;
 use App\Observers\AuditObserver;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
@@ -54,6 +57,18 @@ class AppServiceProvider extends ServiceProvider
         foreach ($auditableModels as $model) {
             $model::observe(AuditObserver::class);
         }
+
+        RateLimiter::for('login', function (Request $request) {
+            return Limit::perMinute(10)->by($request->input('email') ?: $request->ip());
+        });
+
+        RateLimiter::for('otp', function (Request $request) {
+            return Limit::perMinute(5)->by($request->input('email') ?: $request->ip());
+        });
+
+        RateLimiter::for('tracking', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
     }

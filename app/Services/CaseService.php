@@ -200,6 +200,9 @@ class CaseService
 
             abort_unless($case->status === 'CLOSED', 422, 'Only closed cases can be archived.');
 
+            $canClose = $this->canClose($id);
+            abort_unless($canClose['can_close'], 422, $canClose['reason']);
+
             $old = $case->toArray();
 
             $case->update([
@@ -258,15 +261,47 @@ class CaseService
         });
     }
 
+    public function canClose(string $id): array
+    {
+        $case = CaseFile::findOrFail($id);
+
+        $pendingReferrals = $case->referrals()
+            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+            ->count();
+
+        if ($pendingReferrals > 0) {
+            return [
+                'can_close' => false,
+                'reason' => "Cannot close case: {$pendingReferrals} referral(s) still pending or in progress.",
+            ];
+        }
+
+        return [
+            'can_close' => true,
+            'reason' => null,
+        ];
+    }
+
     public function toggleCaseStatus(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $userId) {
             $case = CaseFile::findOrFail($id);
             $old = $case->toArray();
 
+            if ($case->status === 'OPEN') {
+                $canClose = $this->canClose($id);
+                if (! $canClose['can_close']) {
+                    abort(422, $canClose['reason']);
+                }
+            }
+
             $case->update([
                 'status' => $case->status === 'OPEN' ? 'CLOSED' : 'OPEN',
             ]);
+
+            if ($case->wasChanged('status') && $case->status === 'CLOSED') {
+                $case->update(['closed_at' => now()]);
+            }
 
             AuditLog::create([
                 'action' => 'UPDATE',
