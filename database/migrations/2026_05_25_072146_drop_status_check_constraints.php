@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::statement('ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_status_check');
         DB::statement('ALTER TABLE referrals DROP CONSTRAINT IF EXISTS referrals_status_check');
         DB::statement('ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_sex_check');

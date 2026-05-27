@@ -78,14 +78,16 @@ class DashboardService
             ->map(function ($log) use ($formatter) {
                 try {
                     $description = $log->description ?? $formatter->format($log);
+                    $changes = $formatter->formatChanges($log->old_value, $log->new_value);
                 } catch (\Throwable $e) {
                     $description = $log->action.' '.$log->module;
+                    $changes = '';
                 }
 
                 return [
                     'id' => $log->id,
                     'title' => $description,
-                    'desc' => $description,
+                    'desc' => $changes ?: $description,
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                 ];
@@ -229,14 +231,16 @@ class DashboardService
             ->map(function ($log) use ($formatter) {
                 try {
                     $description = $log->description ?? $formatter->format($log);
+                    $changes = $formatter->formatChanges($log->old_value, $log->new_value);
                 } catch (\Throwable $e) {
                     $description = $log->action.' '.$log->module;
+                    $changes = '';
                 }
 
                 return [
                     'id' => $log->id,
                     'title' => $description,
-                    'desc' => $description,
+                    'desc' => $changes ?: $description,
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                 ];

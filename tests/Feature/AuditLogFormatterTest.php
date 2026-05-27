@@ -211,7 +211,7 @@ class AuditLogFormatterTest extends TestCase
         $this->assertStringContainsString('Maria Santos viewed Client', $formatter->format($log));
     }
 
-    public function actionProvider(): array
+    public static function actionProvider(): array
     {
         return [
             ['CREATE', 'created'],
@@ -223,7 +223,7 @@ class AuditLogFormatterTest extends TestCase
         ];
     }
 
-    public function moduleProvider(): array
+    public static function moduleProvider(): array
     {
         return [
             ['case_files', 'Case'],
@@ -240,7 +240,7 @@ class AuditLogFormatterTest extends TestCase
         ];
     }
 
-    public function fieldNameProvider(): array
+    public static function fieldNameProvider(): array
     {
         return [
             ['status', 'status'],
@@ -253,7 +253,7 @@ class AuditLogFormatterTest extends TestCase
         ];
     }
 
-    public function fieldValueProvider(): array
+    public static function fieldValueProvider(): array
     {
         return [
             ['case_files', 'status', 'OPEN', 'Open'],

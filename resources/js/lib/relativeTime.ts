@@ -160,6 +160,8 @@ export function formatTimeAgo(iso: string): string {
     return formatMonthDay(date);
 }
 
+export { formatDisplayDateTime } from './utils';
+
 export function formatDateGroup(iso: string): string {
     const date = parseDate(iso);
 
@@ -186,8 +188,8 @@ export function formatDateGroup(iso: string): string {
     }
 
     if (isSameMonth(date, now)) {
-        return 'This Month';
+        return formatMonthYear(date);
     }
 
-    return formatMonthYear(date);
+    return 'Earlier';
 }

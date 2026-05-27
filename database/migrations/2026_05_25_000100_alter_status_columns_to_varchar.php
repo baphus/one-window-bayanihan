@@ -21,9 +21,6 @@ return new class extends Migration
                 DB::statement('ALTER TABLE referrals ALTER COLUMN status TYPE VARCHAR(50) USING status::text');
                 DB::statement("DROP TYPE IF EXISTS \"{$referralsEnum}\"");
             }
-        } else {
-            DB::statement('ALTER TABLE cases ALTER COLUMN status TYPE VARCHAR(50)');
-            DB::statement('ALTER TABLE referrals ALTER COLUMN status TYPE VARCHAR(50)');
         }
 
         DB::table('system_settings')->insert([

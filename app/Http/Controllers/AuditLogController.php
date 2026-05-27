@@ -39,12 +39,7 @@ class AuditLogController extends Controller
 
         $query->when($request->filled('search'), function ($q) use ($request) {
             $search = $request->input('search');
-            $q->where(function ($sub) use ($search) {
-                $sub->where('description', 'ILIKE', "%{$search}%")
-                    ->orWhereHas('user', function ($u) use ($search) {
-                        $u->where('name', 'ILIKE', "%{$search}%");
-                    });
-            });
+            $q->where('description', 'ILIKE', "%{$search}%");
         });
 
         $query->orderBy('timestamp', 'desc');
