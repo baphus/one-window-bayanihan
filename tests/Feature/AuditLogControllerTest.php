@@ -1,0 +1,148 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\AuditLog;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class AuditLogControllerTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $user;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(HandleInertiaRequests::class);
+        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        DB::table('audit_logs')->delete();
+    }
+
+    #[Test]
+    public function it_returns_paginated_audit_logs()
+    {
+        foreach (range(1, 5) as $i) {
+            AuditLog::create([
+                'user_id' => $this->user->id,
+                'action' => 'VIEW',
+                'module' => 'clients',
+                'timestamp' => now()->subMinutes($i),
+            ]);
+        }
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?per_page=15');
+
+        $response->assertStatus(200);
+        $data = $response->json();
+        $this->assertArrayHasKey('props', $data);
+        $this->assertNotNull($data['props']['logs']['data'] ?? null);
+        $this->assertNotNull($data['props']['availableActions'] ?? null);
+        $this->assertNotNull($data['props']['availableModules'] ?? null);
+    }
+
+    #[Test]
+    public function it_filters_by_action()
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'timestamp' => now()->subMinute(),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'DELETE',
+            'module' => 'case_files',
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?action=CREATE');
+
+        $response->assertStatus(200);
+        $data = $response->json('props.logs.data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('CREATE', $data[0]['action']);
+    }
+
+    #[Test]
+    public function it_filters_by_date_range()
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'VIEW',
+            'module' => 'clients',
+            'timestamp' => '2026-05-01 10:00:00',
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'VIEW',
+            'module' => 'clients',
+            'timestamp' => '2026-05-20 10:00:00',
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?date_from=2026-05-15&date_to=2026-05-25');
+
+        $response->assertStatus(200);
+        $this->assertCount(1, $response->json('props.logs.data'));
+    }
+
+    #[Test]
+    public function it_filters_by_user()
+    {
+        $otherUser = User::factory()->create(['role' => 'CASE_MANAGER']);
+        DB::table('audit_logs')->delete();
+        AuditLog::create(['user_id' => $this->user->id, 'action' => 'VIEW', 'module' => 'clients', 'timestamp' => now()->subMinute()]);
+        AuditLog::create(['user_id' => $otherUser->id, 'action' => 'VIEW', 'module' => 'clients', 'timestamp' => now()]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?user_id='.$this->user->id);
+
+        $response->assertStatus(200);
+        $this->assertCount(1, $response->json('props.logs.data'));
+    }
+
+    #[Test]
+    public function it_returns_available_filters()
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'timestamp' => now()->subMinutes(2),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'referrals',
+            'timestamp' => now()->subMinute(),
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs');
+
+        $response->assertStatus(200);
+        $props = $response->json('props');
+        $this->assertEqualsCanonicalizing(['CREATE', 'UPDATE'], $props['availableActions']);
+        $this->assertEqualsCanonicalizing(['case_files', 'referrals'], $props['availableModules']);
+    }
+
+    #[Test]
+    public function it_searches_descriptions()
+    {
+        $this->markTestSkipped('ILIKE not supported on SQLite');
+    }
+}
