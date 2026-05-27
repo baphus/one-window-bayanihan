@@ -8,7 +8,6 @@ use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
-use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ChatbotController;
@@ -22,7 +21,6 @@ use App\Http\Controllers\StakeholderController;
 use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
 use App\Models\Agency;
-use App\Services\AnalyticsService;
 use App\Services\DashboardService;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -41,7 +39,7 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
         $service = app(DashboardService::class);
-        $analytics = app(AnalyticsService::class);
+        $reportsService = app(ReportsService::class);
         $user = request()->user();
 
         $data = match ($user->role) {
@@ -51,9 +49,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         };
 
         $data['role'] = $user->role;
-        $data['caseTrends'] = $analytics->getCaseTrends();
-        $data['referralStatusDistribution'] = $analytics->getReferralStatusDistribution();
-        $data['caseTypeDistribution'] = $analytics->getCaseTypeDistribution();
+        $data['caseTrends'] = $reportsService->getCaseTrends();
+        $data['referralStatusDistribution'] = $reportsService->getReferralStatusDistribution();
+        $data['caseTypeDistribution'] = $reportsService->getCaseTypeDistribution();
 
         return Inertia::render('Dashboard', $data);
     })->name('dashboard');
@@ -85,7 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
 
-    Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+    Route::permanentRedirect('/analytics', '/reports');
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');

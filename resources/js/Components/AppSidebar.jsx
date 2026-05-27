@@ -15,7 +15,6 @@ const navByRole = {
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
-      { name: 'Analytics', href: '/analytics', icon: 'bar_chart' },
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
@@ -35,7 +34,7 @@ const navByRole = {
       { name: 'Feedbacks', href: '/feedbacks', icon: 'feedback' },
     ]},
     { label: 'Reports', items: [
-      { name: 'Analytics', href: '/analytics', icon: 'bar_chart' },
+      { name: 'Reports', href: '/reports', icon: 'summarize' },
       { name: 'Activity Logs', href: '/activity-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [

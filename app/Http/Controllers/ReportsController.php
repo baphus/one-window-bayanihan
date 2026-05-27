@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\ReportsService;
-use Inertia\Inertia;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class ReportsController extends Controller
 {
@@ -30,6 +30,7 @@ class ReportsController extends Controller
             role: $user->role,
         );
         $data['managedClients'] = $this->reportsService->getManagedClients();
+        $data['role'] = $user->role;
 
         return Inertia::render('Reports/Index', $data);
     }

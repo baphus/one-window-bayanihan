@@ -29,6 +29,82 @@ class ReportsService
             'mostActiveAgency' => $this->getMostActiveAgency(),
             'avgReferralCompletion' => $this->getAvgReferralCompletionDays(),
             'mostRequestedService' => $this->getMostRequestedService(),
+
+            // Analytics data (merged from AnalyticsService)
+            'overview' => $this->getOverview($userId, $role),
+            'caseTrends' => $this->getCaseTrends(),
+            'agencyWorkload' => $this->getAgencyWorkload(),
+            'caseTypeDistribution' => $this->getCaseTypeDistribution($userId, $role),
+        ];
+    }
+
+    public function getOverview(?string $userId = null, ?string $role = null): array
+    {
+        $cases = $this->caseQuery($userId, $role);
+        $totalCases = (clone $cases)->count();
+        $openCases = (clone $cases)->where('status', 'OPEN')->count();
+        $closedCases = (clone $cases)->where('status', 'CLOSED')->count();
+
+        $referrals = $this->referralQuery($userId, $role);
+        $totalReferrals = (clone $referrals)->count();
+        $pendingReferrals = (clone $referrals)->where('status', 'PENDING')->count();
+
+        $agencies = Agency::count();
+
+        return [
+            'totalCases' => (int) $totalCases,
+            'openCases' => (int) $openCases,
+            'closedCases' => (int) $closedCases,
+            'totalReferrals' => (int) $totalReferrals,
+            'pendingReferrals' => (int) $pendingReferrals,
+            'activeAgencies' => (int) $agencies,
+        ];
+    }
+
+    public function getCaseTrends(int $months = 12): array
+    {
+        $cases = CaseFile::select(
+            DB::raw("to_char(created_at, 'YYYY-MM') as month"),
+            DB::raw('count(*) as total')
+        )
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where('created_at', '>=', now()->subMonths($months))
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        return [
+            'labels' => $cases->pluck('month')->toArray(),
+            'data' => $cases->pluck('total')->toArray(),
+        ];
+    }
+
+    public function getAgencyWorkload(): array
+    {
+        $workload = Agency::withCount('referrals')
+            ->orderByDesc('referrals_count')
+            ->get();
+
+        return [
+            'labels' => $workload->pluck('name')->toArray(),
+            'data' => $workload->pluck('referrals_count')->toArray(),
+        ];
+    }
+
+    public function getCaseTypeDistribution(?string $userId = null, ?string $role = null): array
+    {
+        $types = (clone $this->caseQuery($userId, $role))
+            ->select('client_type', DB::raw('count(*) as total'))
+            ->groupBy('client_type')
+            ->get()
+            ->keyBy('client_type');
+
+        return [
+            'labels' => ['OFW', 'Next of Kin'],
+            'data' => [
+                (int) ($types['OFW']->total ?? 0),
+                (int) ($types['NEXT_OF_KIN']->total ?? 0),
+            ],
         ];
     }
 
