@@ -5,59 +5,97 @@ namespace App\Services;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
-use App\Models\ClientEmployment;
 use App\Models\Referral;
 use Illuminate\Support\Facades\DB;
 
 class ReportsService
 {
-    public function getAll(?string $userId = null, ?string $role = null): array
-    {
-        return [
-            'kpis' => $this->getKpis($userId, $role),
-            'caseStatusDistribution' => $this->getCaseStatusDistribution($userId, $role),
-            'casesOverTime' => $this->getCasesOverTime($userId, $role),
-            'genderDistribution' => $this->getGenderDistribution(),
-            'clientTypeDistribution' => $this->getClientTypeDistribution($userId, $role),
-            'ageGroupDistribution' => $this->getAgeGroupDistribution(),
-            'previousOccupations' => $this->getPreviousOccupations(),
-            'lastEmploymentCountries' => $this->getLastEmploymentCountries(),
-            'topOccupation' => $this->getTopOccupation(),
-            'topCountry' => $this->getTopCountry(),
-            'referralStatusDistribution' => $this->getReferralStatusDistribution($userId, $role),
-            'referralAgencyDistribution' => $this->getReferralAgencyDistribution($userId, $role),
-            'mostActiveAgency' => $this->getMostActiveAgency(),
-            'avgReferralCompletion' => $this->getAvgReferralCompletionDays(),
-            'mostRequestedService' => $this->getMostRequestedService(),
+    public function getAll(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+    ): array {
+        $data = match ($role) {
+            'AGENCY' => $this->getAgencyPayload($userId),
+            'ADMIN' => $this->getAdminPayload($fromDate, $toDate),
+            default => $this->getCaseManagerPayload($userId, $fromDate, $toDate),
+        };
 
-            // Analytics data (merged from AnalyticsService)
-            'overview' => $this->getOverview($userId, $role),
-            'caseTrends' => $this->getCaseTrends(),
-            'agencyWorkload' => $this->getAgencyWorkload(),
-            'caseTypeDistribution' => $this->getCaseTypeDistribution($userId, $role),
+        $data['role'] = $role;
+
+        return $data;
+    }
+
+    private function getCaseManagerPayload(
+        ?string $userId,
+        ?string $fromDate,
+        ?string $toDate,
+    ): array {
+        $from = $fromDate ?: now()->subYear()->toDateString();
+        $to = $toDate ?: now()->toDateString();
+
+        return [
+            'kpis' => $this->getReferralKpis($userId, 'CASE_MANAGER', $from, $to),
+            'referralStatusDistribution' => $this->getReferralStatusDistribution($userId, 'CASE_MANAGER', $from, $to),
+            'referralAgencyDistribution' => $this->getReferralAgencyDistribution($userId, 'CASE_MANAGER', $from, $to),
+            'casesOverTime' => $this->getCasesOverTime($userId, 'CASE_MANAGER', $from, $to),
+            'genderDistribution' => $this->getGenderDistribution(),
+            'clientTypeDistribution' => $this->getClientTypeDistribution($userId, 'CASE_MANAGER'),
+            'ageGroupDistribution' => $this->getAgeGroupDistribution(),
+            'mostRequestedService' => $this->getMostRequestedService($userId, 'CASE_MANAGER', $from, $to),
         ];
     }
 
-    public function getOverview(?string $userId = null, ?string $role = null): array
+    private function getAgencyPayload(?string $userId): array
     {
-        $cases = $this->caseQuery($userId, $role);
-        $totalCases = (clone $cases)->count();
-        $openCases = (clone $cases)->where('status', 'OPEN')->count();
-        $closedCases = (clone $cases)->where('status', 'CLOSED')->count();
+        return [
+            'kpis' => $this->getReferralKpis(null, 'AGENCY'),
+            'referralStatusDistribution' => $this->getReferralStatusDistribution(null, 'AGENCY'),
+            'referralTrends' => $this->getReferralTrends(),
+            'avgReferralCompletion' => $this->getAvgReferralCompletionDays(),
+        ];
+    }
 
-        $referrals = $this->referralQuery($userId, $role);
-        $totalReferrals = (clone $referrals)->count();
-        $pendingReferrals = (clone $referrals)->where('status', 'PENDING')->count();
-
-        $agencies = Agency::count();
+    private function getAdminPayload(?string $fromDate, ?string $toDate): array
+    {
+        $from = $fromDate ?: now()->subYear()->toDateString();
+        $to = $toDate ?: now()->toDateString();
 
         return [
-            'totalCases' => (int) $totalCases,
-            'openCases' => (int) $openCases,
-            'closedCases' => (int) $closedCases,
-            'totalReferrals' => (int) $totalReferrals,
-            'pendingReferrals' => (int) $pendingReferrals,
-            'activeAgencies' => (int) $agencies,
+            'overview' => $this->getOverview($from, $to),
+            'caseTrends' => $this->getCaseTrends(),
+            'referralStatusDistribution' => $this->getReferralStatusDistribution(null, null, $from, $to),
+            'agencyWorkload' => $this->getAgencyWorkload($from, $to),
+            'clientTypeDistribution' => $this->getClientTypeDistribution(),
+        ];
+    }
+
+    public function getOverview(?string $fromDate = null, ?string $toDate = null): array
+    {
+        $cases = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+        if ($fromDate) {
+            $cases->whereDate('created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $cases->whereDate('created_at', '<=', $toDate);
+        }
+
+        $referrals = Referral::query();
+        if ($fromDate) {
+            $referrals->whereDate('created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $referrals->whereDate('created_at', '<=', $toDate);
+        }
+
+        return [
+            'totalCases' => (int) (clone $cases)->count(),
+            'openCases' => (int) (clone $cases)->where('status', 'OPEN')->count(),
+            'closedCases' => (int) (clone $cases)->where('status', 'CLOSED')->count(),
+            'totalReferrals' => (int) (clone $referrals)->count(),
+            'pendingReferrals' => (int) (clone $referrals)->where('status', 'PENDING')->count(),
+            'activeAgencies' => (int) Agency::count(),
         ];
     }
 
@@ -79,9 +117,40 @@ class ReportsService
         ];
     }
 
-    public function getAgencyWorkload(): array
+    public function getReferralTrends(int $months = 12): array
     {
-        $workload = Agency::withCount('referrals')
+        $referrals = Referral::select(
+            DB::raw("to_char(created_at, 'YYYY-MM') as month"),
+            DB::raw('count(*) as total')
+        )
+            ->where('created_at', '>=', now()->subMonths($months))
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        return [
+            'labels' => $referrals->pluck('month')->toArray(),
+            'datasets' => [
+                [
+                    'label' => 'Referrals',
+                    'data' => $referrals->pluck('total')->toArray(),
+                    'borderColor' => '#0b5a8c',
+                    'backgroundColor' => 'rgba(11, 90, 140, 0.1)',
+                ],
+            ],
+        ];
+    }
+
+    public function getAgencyWorkload(?string $fromDate = null, ?string $toDate = null): array
+    {
+        $workload = Agency::withCount(['referrals' => function ($q) use ($fromDate, $toDate) {
+            if ($fromDate) {
+                $q->whereDate('created_at', '>=', $fromDate);
+            }
+            if ($toDate) {
+                $q->whereDate('created_at', '<=', $toDate);
+            }
+        }])
             ->orderByDesc('referrals_count')
             ->get();
 
@@ -91,20 +160,25 @@ class ReportsService
         ];
     }
 
-    public function getCaseTypeDistribution(?string $userId = null, ?string $role = null): array
+    public function getClientTypeDistribution(?string $userId = null, ?string $role = null): array
     {
-        $types = (clone $this->caseQuery($userId, $role))
+        $query = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->where('user_id', $userId);
+        }
+
+        $types = (clone $query)
             ->select('client_type', DB::raw('count(*) as total'))
             ->groupBy('client_type')
-            ->get()
-            ->keyBy('client_type');
+            ->pluck('total', 'client_type');
 
         return [
             'labels' => ['OFW', 'Next of Kin'],
             'data' => [
-                (int) ($types['OFW']->total ?? 0),
-                (int) ($types['NEXT_OF_KIN']->total ?? 0),
+                (int) ($types['OFW'] ?? 0),
+                (int) ($types['NEXT_OF_KIN'] ?? 0),
             ],
+            'colors' => ['#6366f1', '#a5b4fc'],
         ];
     }
 
@@ -118,65 +192,56 @@ class ReportsService
         return $query;
     }
 
-    private function referralQuery(?string $userId = null, ?string $role = null)
+    private function referralQuery(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null)
     {
         $query = Referral::query();
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
         }
+        if ($fromDate) {
+            $query->whereDate('created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->whereDate('created_at', '<=', $toDate);
+        }
 
         return $query;
     }
 
-    public function getKpis(?string $userId = null, ?string $role = null): array
+    public function getReferralKpis(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
     {
-        $cases = $this->caseQuery($userId, $role);
-        $totalCases = (clone $cases)->count();
-        $openCases = (clone $cases)->where('status', 'OPEN')->count();
-        $closedCases = (clone $cases)->where('status', 'CLOSED')->count();
+        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate);
+        $total = (clone $referrals)->count();
+        $completed = (clone $referrals)->where('status', 'COMPLETED')->count();
+        $pending = (clone $referrals)->where('status', 'PENDING')->count();
+        $processing = (clone $referrals)->where('status', 'PROCESSING')->count();
+        $rejected = (clone $referrals)->where('status', 'REJECTED')->count();
 
-        $avgDaysToClosure = (clone $cases)
-            ->where('status', 'CLOSED')
+        $avgDays = (clone $referrals)
+            ->where('status', 'COMPLETED')
             ->select(DB::raw('AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_days'))
             ->value('avg_days');
 
-        $referrals = $this->referralQuery($userId, $role);
-        $totalReferrals = (clone $referrals)->count();
-
         return [
-            'totalCases' => (int) $totalCases,
-            'openCases' => (int) $openCases,
-            'closedCases' => (int) $closedCases,
-            'avgDaysToClosure' => round((float) ($avgDaysToClosure ?? 0), 1),
-            'totalReferrals' => (int) $totalReferrals,
+            'totalReferrals' => (int) $total,
+            'completedReferrals' => (int) $completed,
+            'pendingReferrals' => (int) $pending,
+            'processingReferrals' => (int) $processing,
+            'rejectedReferrals' => (int) $rejected,
+            'completionRate' => $total > 0 ? round(($completed / $total) * 100) : 0,
+            'avgCompletionDays' => round((float) ($avgDays ?? 0), 1),
         ];
     }
 
-    public function getCaseStatusDistribution(?string $userId = null, ?string $role = null): array
+    public function getCasesOverTime(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
     {
-        $statuses = (clone $this->caseQuery($userId, $role))
-            ->select('status', DB::raw('count(*) as total'))
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        $allStatuses = ['OPEN', 'CLOSED'];
-        $colorMap = ['OPEN' => '#22c55e', 'CLOSED' => '#6366f1'];
-
-        return [
-            'labels' => $allStatuses,
-            'data' => array_map(fn ($s) => (int) ($statuses[$s] ?? 0), $allStatuses),
-            'colors' => array_map(fn ($s) => $colorMap[$s], $allStatuses),
-        ];
-    }
-
-    public function getCasesOverTime(?string $userId = null, ?string $role = null): array
-    {
-        $cases = (clone $this->caseQuery($userId, $role))
+        $cases = $this->caseQuery($userId, $role)
             ->select(
                 DB::raw("to_char(created_at, 'YYYY-MM') as month"),
                 DB::raw('count(*) as total')
             )
-            ->where('created_at', '>=', now()->subMonths(12))
+            ->where('created_at', '>=', $fromDate ?: now()->subMonths(12))
+            ->where('created_at', '<=', $toDate ?: now())
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -213,23 +278,6 @@ class ReportsService
         return ['labels' => $labels, 'data' => $data, 'colors' => $colors];
     }
 
-    public function getClientTypeDistribution(?string $userId = null, ?string $role = null): array
-    {
-        $types = (clone $this->caseQuery($userId, $role))
-            ->select('client_type', DB::raw('count(*) as total'))
-            ->groupBy('client_type')
-            ->pluck('total', 'client_type');
-
-        return [
-            'labels' => ['OFW', 'Next of Kin'],
-            'data' => [
-                (int) ($types['OFW'] ?? 0),
-                (int) ($types['NEXT_OF_KIN'] ?? 0),
-            ],
-            'colors' => ['#6366f1', '#a5b4fc'],
-        ];
-    }
-
     public function getAgeGroupDistribution(): array
     {
         $ages = Client::whereNotNull('date_of_birth')
@@ -256,67 +304,9 @@ class ReportsService
         ];
     }
 
-    public function getPreviousOccupations(): array
+    public function getReferralStatusDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
     {
-        $occupations = ClientEmployment::select('position', DB::raw('count(*) as total'))
-            ->whereNotNull('position')
-            ->groupBy('position')
-            ->orderByDesc('total')
-            ->limit(10)
-            ->get();
-
-        return [
-            'labels' => $occupations->pluck('position')->toArray(),
-            'data' => $occupations->pluck('total')->toArray(),
-        ];
-    }
-
-    public function getLastEmploymentCountries(): array
-    {
-        $countries = ClientEmployment::select('country', DB::raw('count(*) as total'))
-            ->whereNotNull('country')
-            ->groupBy('country')
-            ->orderByDesc('total')
-            ->limit(10)
-            ->get();
-
-        return [
-            'labels' => $countries->pluck('country')->toArray(),
-            'data' => $countries->pluck('total')->toArray(),
-        ];
-    }
-
-    public function getTopOccupation(): array
-    {
-        $top = ClientEmployment::select('position', DB::raw('count(*) as total'))
-            ->whereNotNull('position')
-            ->groupBy('position')
-            ->orderByDesc('total')
-            ->first();
-
-        return [
-            'label' => $top?->position ?? 'N/A',
-            'value' => (int) ($top?->total ?? 0),
-        ];
-    }
-
-    public function getTopCountry(): array
-    {
-        $top = ClientEmployment::select('country', DB::raw('count(*) as total'))
-            ->whereNotNull('country')
-            ->groupBy('country')
-            ->orderByDesc('total')
-            ->first();
-
-        return [
-            'label' => $top?->country ?? 'N/A',
-            'value' => (int) ($top?->total ?? 0),
-        ];
-    }
-
-    public function getReferralStatusDistribution(?string $userId = null, ?string $role = null): array
-    {
-        $statuses = (clone $this->referralQuery($userId, $role))
+        $statuses = $this->referralQuery($userId, $role, $fromDate, $toDate)
             ->select('status', DB::raw('count(*) as total'))
             ->groupBy('status')
             ->pluck('total', 'status');
@@ -337,32 +327,37 @@ class ReportsService
         ];
     }
 
-    public function getReferralAgencyDistribution(?string $userId = null, ?string $role = null): array
+    public function getReferralAgencyDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
     {
-        $agencies = (clone $this->referralQuery($userId, $role))
+        $agencies = $this->referralQuery($userId, $role, $fromDate, $toDate)
             ->select('agcy_id', DB::raw('count(*) as total'))
             ->groupBy('agcy_id')
             ->orderByDesc('total')
-            ->limit(10)
             ->get();
 
         $agencyNames = Agency::whereIn('id', $agencies->pluck('agcy_id'))->pluck('name', 'id');
 
+        $colors = ['#1e3a8a', '#0f766e', '#ea580c', '#6d28d9', '#be123c', '#4338ca', '#0891b2', '#65a30d'];
+
         return [
             'labels' => $agencies->map(fn ($r) => $agencyNames[$r->agcy_id] ?? 'Unknown')->toArray(),
             'data' => $agencies->pluck('total')->toArray(),
+            'colors' => array_slice($colors, 0, $agencies->count()),
         ];
     }
 
-    public function getMostActiveAgency(): array
+    public function getMostRequestedService(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
     {
-        $top = Agency::withCount('referrals')
-            ->orderByDesc('referrals_count')
+        $top = $this->referralQuery($userId, $role, $fromDate, $toDate)
+            ->select('required_services', DB::raw('count(*) as total'))
+            ->whereNotNull('required_services')
+            ->groupBy('required_services')
+            ->orderByDesc('total')
             ->first();
 
         return [
-            'name' => $top?->name ?? 'N/A',
-            'value' => (int) ($top?->referrals_count ?? 0),
+            'name' => $top?->required_services ?? 'N/A',
+            'value' => (int) ($top?->total ?? 0),
         ];
     }
 
@@ -375,40 +370,11 @@ class ReportsService
         return round((float) ($avg ?? 0), 1);
     }
 
-    public function getMostRequestedService(): array
+    public function getManagedReferrals(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null)
     {
-        $top = Referral::select('required_services', DB::raw('count(*) as total'))
-            ->whereNotNull('required_services')
-            ->groupBy('required_services')
-            ->orderByDesc('total')
-            ->first();
-
-        return [
-            'name' => $top?->required_services ?? 'N/A',
-            'value' => (int) ($top?->total ?? 0),
-        ];
-    }
-
-    public function getManagedCases(?string $userId = null, ?string $role = null)
-    {
-        return $this->caseQuery($userId, $role)
-            ->with(['client', 'user'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
-    }
-
-    public function getManagedReferrals(?string $userId = null, ?string $role = null)
-    {
-        return $this->referralQuery($userId, $role)
+        return $this->referralQuery($userId, $role, $fromDate, $toDate)
             ->with(['caseFile.client', 'agency'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
-    }
-
-    public function getManagedClients()
-    {
-        return Client::with(['caseFile' => function ($q) {
-            $q->with('referrals.agency');
-        }])->orderBy('created_at', 'desc')->paginate(10);
     }
 }

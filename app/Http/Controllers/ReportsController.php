@@ -15,22 +15,22 @@ class ReportsController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $fromDate = $request->query('from');
+        $toDate = $request->query('to');
 
         $data = $this->reportsService->getAll(
             userId: $user->id,
             role: $user->role,
+            fromDate: $fromDate,
+            toDate: $toDate,
         );
 
-        $data['managedCases'] = $this->reportsService->getManagedCases(
-            userId: $user->id,
-            role: $user->role,
-        );
         $data['managedReferrals'] = $this->reportsService->getManagedReferrals(
             userId: $user->id,
             role: $user->role,
+            fromDate: $fromDate,
+            toDate: $toDate,
         );
-        $data['managedClients'] = $this->reportsService->getManagedClients();
-        $data['role'] = $user->role;
 
         return Inertia::render('Reports/Index', $data);
     }
