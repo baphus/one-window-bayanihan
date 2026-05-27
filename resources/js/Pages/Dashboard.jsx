@@ -18,6 +18,15 @@ ChartJS.register(
     ArcElement, Title, Tooltip, Legend,
 );
 
+const actionBadgeColors = {
+  CREATE: 'bg-emerald-100 text-emerald-700',
+  UPDATE: 'bg-blue-100 text-blue-700',
+  DELETE: 'bg-red-100 text-red-700',
+  VIEW: 'bg-purple-100 text-purple-700',
+  LOGIN: 'bg-slate-100 text-slate-700',
+  LOGOUT: 'bg-slate-100 text-slate-700',
+};
+
 const statusStyles = {
     COMPLETED: 'bg-green-100 text-green-800',
     PROCESSING: 'bg-blue-100 text-blue-800',
@@ -184,9 +193,15 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
                             recentLogs?.map((log) => (
                                 <div key={log.id} className="px-6 py-3">
                                     <p className="text-sm text-slate-900">
-                                        <span className="font-medium">{log.user?.name ?? 'System'}</span> {log.action} {log.module}
+                                        <span className="font-medium">{log.user?.name ?? 'System'}</span>
+                                        {' '}{log.description ?? log.action + ' ' + log.module}
                                     </p>
-                                    <p className="text-xs text-slate-500 mt-0.5">{formatDisplayDateTime(log.timestamp)}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${actionBadgeColors[log.action] || 'bg-slate-100 text-slate-600'}`}>
+                                            {log.action}
+                                        </span>
+                                        <p className="text-xs text-slate-500">{formatDisplayDateTime(log.timestamp)}</p>
+                                    </div>
                                 </div>
                             ))
                         )}
