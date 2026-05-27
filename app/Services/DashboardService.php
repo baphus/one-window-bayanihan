@@ -13,6 +13,8 @@ class DashboardService
 {
     public function getCaseManagerData(): array
     {
+        $formatter = app(AuditLogFormatter::class);
+
         $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $openCases = CaseFile::where('status', 'OPEN')->count();
         $closedCases = CaseFile::where('status', 'CLOSED')->count();
@@ -73,13 +75,21 @@ class DashboardService
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
-            ->map(fn ($log) => [
-                'id' => $log->id,
-                'title' => $log->action,
-                'desc' => $log->description ?? $log->action.' '.$log->module,
-                'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
-                'logoSrc' => '/logo.png',
-            ])
+            ->map(function ($log) use ($formatter) {
+                try {
+                    $description = $log->description ?? $formatter->format($log);
+                } catch (\Throwable $e) {
+                    $description = $log->action.' '.$log->module;
+                }
+
+                return [
+                    'id' => $log->id,
+                    'title' => $description,
+                    'desc' => $description,
+                    'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
+                    'logoSrc' => '/logo.png',
+                ];
+            })
             ->toArray();
 
         $recentCases = CaseFile::with(['client', 'user'])
@@ -174,6 +184,8 @@ class DashboardService
 
     public function getAgencyData(string $agencyId): array
     {
+        $formatter = app(AuditLogFormatter::class);
+
         $totalReferrals = Referral::where('agcy_id', $agencyId)->count();
         $pendingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PENDING')->count();
         $processingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PROCESSING')->count();
@@ -206,20 +218,27 @@ class DashboardService
             ->toArray();
 
         $recentActivity = AuditLog::where('agcy_id', $agencyId)
-            ->orWhere(function ($q) use ($agencyId) {
-                $q->where('module', 'REFERRAL')
-                    ->where('description', 'like', "%{$agencyId}%");
+            ->orWhere(function ($q) {
+                $q->where('module', 'referrals');
             })
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
-            ->map(fn ($log) => [
-                'id' => $log->id,
-                'title' => $log->action,
-                'desc' => $log->description ?? $log->action.' '.$log->module,
-                'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
-                'logoSrc' => '/logo.png',
-            ])
+            ->map(function ($log) use ($formatter) {
+                try {
+                    $description = $log->description ?? $formatter->format($log);
+                } catch (\Throwable $e) {
+                    $description = $log->action.' '.$log->module;
+                }
+
+                return [
+                    'id' => $log->id,
+                    'title' => $description,
+                    'desc' => $description,
+                    'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
+                    'logoSrc' => '/logo.png',
+                ];
+            })
             ->toArray();
 
         return [
@@ -236,6 +255,8 @@ class DashboardService
 
     public function getAdminData(): array
     {
+        $formatter = app(AuditLogFormatter::class);
+
         $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $totalReferrals = Referral::count();
         $totalUsers = User::count();
@@ -252,6 +273,22 @@ class DashboardService
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
+            ->map(function ($log) use ($formatter) {
+                try {
+                    $description = $log->description ?? $formatter->format($log);
+                } catch (\Throwable $e) {
+                    $description = $log->action.' '.$log->module;
+                }
+
+                return [
+                    'id' => $log->id,
+                    'action' => $log->action,
+                    'module' => $log->module,
+                    'description' => $description,
+                    'user' => $log->user ? ['name' => $log->user->name] : null,
+                    'timestamp' => $log->timestamp,
+                ];
+            })
             ->toArray();
 
         return [

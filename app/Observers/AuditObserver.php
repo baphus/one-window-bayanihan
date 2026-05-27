@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\AuditLog;
+use App\Services\AuditLogFormatter;
 use Illuminate\Support\Facades\Auth;
 
 class AuditObserver
@@ -41,7 +42,7 @@ class AuditObserver
 
     private function log(string $action, $model, ?array $old, ?array $new): void
     {
-        AuditLog::create([
+        $log = AuditLog::create([
             'action' => $action,
             'module' => $model->getTable(),
             'entity_id' => $model->getKey(),
@@ -50,6 +51,17 @@ class AuditObserver
             'user_id' => Auth::id(),
             'timestamp' => now(),
         ]);
+
+        try {
+            $formatter = app(AuditLogFormatter::class);
+            $log->description = $formatter->format($log);
+            $log->save();
+        } catch (\Throwable $e) {
+            logger()->error('Failed to populate audit log description', [
+                'audit_log_id' => $log->id,
+                'exception' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function filterKeys(array $attributes, $model): array

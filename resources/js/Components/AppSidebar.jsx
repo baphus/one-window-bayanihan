@@ -35,7 +35,7 @@ const navByRole = {
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
-      { name: 'Activity Logs', href: '/activity-logs', icon: 'history' },
+    { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
       { name: 'Help Center', href: '/helpdesk', icon: 'help' },
@@ -60,7 +60,7 @@ const navByRole = {
       { name: 'Tags', href: '/admin/helpdesk/tags', icon: 'label' },
     ]},
     { label: 'Settings', items: [
-      { name: 'Activity Logs', href: '/activity-logs', icon: 'history' },
+    { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
       { name: 'Case Statuses', href: '/admin/case-statuses', icon: 'label' },
       { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
     ]},
