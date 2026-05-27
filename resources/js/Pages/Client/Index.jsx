@@ -137,9 +137,9 @@ export default function ClientIndex({ clients, filters }) {
               sortable: false,
               title: 'Actions',
               render: (row) => (
-                <Link href={route('clients.show', row.id)} className="text-indigo-600 hover:text-indigo-900 font-medium">
+                <button onClick={() => router.visit(route('clients.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">
                   View Details
-                </Link>
+                </button>
               ),
             };
           default:

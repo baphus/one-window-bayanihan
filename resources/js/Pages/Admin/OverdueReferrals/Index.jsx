@@ -46,8 +46,8 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
         )},
         { key: 'actions', title: 'Actions', render: (row) => (
             <div className="flex items-center gap-2">
-                <a href={route('referrals.show', row.id)} className="text-indigo-600 hover:text-indigo-900 text-sm font-medium">View</a>
-                <button onClick={() => sendReminders([row.id])} disabled={sending} className="text-amber-600 hover:text-amber-900 text-sm font-medium disabled:opacity-50">Remind</button>
+                <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">View</button>
+                <button onClick={() => sendReminders([row.id])} disabled={sending} className="min-h-[28px] px-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 text-[11px] font-bold rounded-[3px] transition-colors border border-amber-200 disabled:opacity-50">Remind</button>
             </div>
         )},
     ];
@@ -103,7 +103,7 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
                             <button
                                 onClick={() => sendReminders(selectedIds)}
                                 disabled={sending}
-                                className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-md hover:bg-amber-500 disabled:opacity-50 flex items-center gap-2"
+                                className="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 rounded-md hover:bg-amber-100 disabled:opacity-50 flex items-center gap-2 border border-amber-200"
                             >
                                 <span className="material-symbols-outlined text-[16px]">notifications</span>
                                 Send Reminder ({selectedIds.length})
@@ -113,7 +113,7 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
                             <button
                                 onClick={() => sendReminders([])}
                                 disabled={sending}
-                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2"
+                                className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] disabled:opacity-50 flex items-center gap-2"
                             >
                                 <span className="material-symbols-outlined text-[16px]">notifications_active</span>
                                 Send All Reminders

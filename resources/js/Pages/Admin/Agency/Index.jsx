@@ -68,7 +68,7 @@ function AgencyForm({ agency, onClose }) {
           )}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50">
+            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] disabled:opacity-50">
               {isEdit ? 'Update' : 'Create'}
             </button>
           </div>
@@ -140,7 +140,7 @@ export default function AdminAgencyIndex({ agencies }) {
       title: 'Actions',
       sortable: false,
       render: (row) => (
-        <button onClick={() => { setEditingAgency(row); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+        <button onClick={() => { setEditingAgency(row); setShowForm(true); }} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
       ),
     },
   ], []);
@@ -154,7 +154,7 @@ export default function AdminAgencyIndex({ agencies }) {
           <h1 className="text-2xl font-bold text-slate-900">Agencies</h1>
           <p className="text-sm text-slate-500 mt-1">Manage all partner agencies in the system.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500">
+        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
           + New Agency
         </button>
       </div>

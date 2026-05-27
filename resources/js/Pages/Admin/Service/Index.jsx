@@ -56,7 +56,7 @@ function ServiceForm({ service, allAgencies, onClose }) {
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50">
+            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] disabled:opacity-50">
               {isEdit ? 'Update' : 'Create'}
             </button>
           </div>
@@ -118,7 +118,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
       title: 'Actions',
       sortable: false,
       render: (row) => (
-        <button onClick={() => { setEditingService(row); setShowForm(true); }} className="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+        <button onClick={() => { setEditingService(row); setShowForm(true); }} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
       ),
     },
   ], []);
@@ -132,7 +132,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
           <h1 className="text-2xl font-bold text-slate-900">Services</h1>
           <p className="text-sm text-slate-500 mt-1">Manage all services offered through the system.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500">
+        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
           + New Service
         </button>
       </div>

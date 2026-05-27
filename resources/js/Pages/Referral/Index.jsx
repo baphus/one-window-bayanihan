@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 
@@ -153,9 +153,9 @@ export default function ReferralIndex({ referrals, filters }) {
                             sortable: false,
                             title: 'Actions',
                             render: (row) => (
-                                <Link href={route('referrals.show', row.id)} className="text-indigo-600 hover:text-indigo-900">
+                                <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">
                                     View
-                                </Link>
+                                </button>
                             ),
                         };
                     default:
