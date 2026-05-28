@@ -9,6 +9,7 @@ import {
 } from 'chart.js';
 import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, Loader2, XCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
 import NotificationBell from '@/Components/ui/NotificationBell';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
@@ -17,22 +18,6 @@ ChartJS.register(
     CategoryScale, LinearScale, BarElement,
     ArcElement, Title, Tooltip, Legend,
 );
-
-const actionBadgeColors = {
-  CREATE: 'bg-emerald-100 text-emerald-700',
-  UPDATE: 'bg-blue-100 text-blue-700',
-  DELETE: 'bg-red-100 text-red-700',
-  VIEW: 'bg-purple-100 text-purple-700',
-  LOGIN: 'bg-slate-100 text-slate-700',
-  LOGOUT: 'bg-slate-100 text-slate-700',
-};
-
-const statusStyles = {
-    COMPLETED: 'bg-green-100 text-green-800',
-    PROCESSING: 'bg-blue-100 text-blue-800',
-    REJECTED: 'bg-red-100 text-red-800',
-    PENDING: 'bg-yellow-100 text-yellow-800',
-};
 
 const pieOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } } }, cutout: '55%' };
 
@@ -66,7 +51,7 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
                             { key: 'client', title: 'Client', render: (row) => row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A' },
                             { key: 'service', title: 'Service', render: (row) => row.required_services },
                             { key: 'status', title: 'Status', render: (row) => (
-                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${statusStyles[row.status] || 'bg-slate-100 text-slate-800'}`}>{row.status}</span>
+                                <StatusBadge status={row.status} />
                             )},
                         ]}
                         keyExtractor={(row) => row.id}
@@ -173,7 +158,7 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
                     columns={[
                         { key: 'case_number', title: 'Case #', render: (row) => row.case_number },
                         { key: 'status', title: 'Status', render: (row) => (
-                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${row.status === 'OPEN' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>{row.status}</span>
+                            <StatusBadge status={row.status} />
                         )},
                         { key: 'created', title: 'Created', render: (row) => formatDisplayDate(row.created_at) },
                     ]}
@@ -263,37 +248,6 @@ function getCaseAgeInDays(timestamp) {
   const parsed = new Date(timestamp)
   if (Number.isNaN(parsed.getTime())) return 0
   return Math.floor(Math.max(0, Date.now() - parsed.getTime()) / (24 * 60 * 60 * 1000))
-}
-
-function statusIcon(status) {
-  switch (status) {
-    case 'PENDING': return <Loader2 className="w-3 h-3 text-amber-500" />
-    case 'PROCESSING': return <Clock className="w-3 h-3 text-blue-500" />
-    case 'COMPLETED': return <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-    case 'REJECTED': return <XCircle className="w-3 h-3 text-rose-500" />
-    case 'OPEN': return <Loader2 className="w-3 h-3 text-blue-900" />
-    case 'CLOSED': return <CheckCircle2 className="w-3 h-3 text-slate-400" />
-    default: return null
-  }
-}
-
-function StatusBadge({ status, size = 'sm' }) {
-  const base = 'inline-flex items-center gap-1 rounded-full font-bold leading-none'
-  const sz = size === 'sm' ? 'px-2 py-[3px] text-[10px]' : 'px-2.5 py-1 text-[11px]'
-  const colors = {
-    PENDING: 'bg-amber-50 text-amber-700',
-    PROCESSING: 'bg-blue-50 text-blue-700',
-    COMPLETED: 'bg-emerald-50 text-emerald-700',
-    REJECTED: 'bg-rose-50 text-rose-700',
-    OPEN: 'bg-blue-50 text-blue-800',
-    CLOSED: 'bg-slate-100 text-slate-500',
-  }
-  return (
-    <span className={`${base} ${sz} ${colors[status] || 'bg-slate-50 text-slate-600'}`}>
-      {statusIcon(status)}
-      {status}
-    </span>
-  )
 }
 
 function CaseManagerDashboard({

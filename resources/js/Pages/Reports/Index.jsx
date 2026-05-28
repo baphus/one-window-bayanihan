@@ -8,7 +8,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, P
 import { exportToCsv } from '@/utils/export/exportCsv';
 import { pageHeadingStyles } from '@/Components/Reports/pageHeadingStyles';
 import MetricCard from '@/Components/Reports/MetricCard';
-import StatusBadge from '@/Components/Reports/StatusBadge';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import SvgPieChart from '@/Components/Reports/SvgPieChart';
 import TrendChart from '@/Components/Reports/TrendChart';
 import TrendIndicator from '@/Components/Reports/TrendIndicator';
@@ -171,10 +171,7 @@ function CaseManagerReports({
     { key: 'agency', title: 'AGENCY', render: (row) => <span className="text-[12px] text-slate-700">{row.agency?.name || row.agcy_id || 'N/A'}</span> },
     { key: 'required_services', title: 'SERVICE', render: (row) => <span className="text-[12px] text-slate-700">{row.required_services || 'N/A'}</span> },
     { key: 'status', title: 'STATUS', render: (row) => (
-      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[10px] font-bold leading-none ${statusColorMap[row.status] || 'bg-slate-100 text-slate-600'}`}>
-        <StatusIcon status={row.status} />
-        {row.status}
-      </span>
+      <StatusBadge status={row.status} showIcon={false} />
     )},
     { key: 'created_at', title: 'CREATED', render: (row) => <span className="text-[12px] text-slate-600">{formatDisplayDate(row.created_at?.slice(0, 10))}</span> },
     { key: 'id', title: '', render: (row) => <Link href={route('referrals.show', row.id)} className="text-[11px] font-bold text-[#0b5a8c] hover:underline">View</Link> },

@@ -8,16 +8,8 @@ import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
-
-const statusStyles = {
-    PENDING: 'border-[#fde68a] bg-[#fef3c7] text-[#b45309]',
-    PROCESSING: 'border-[#bae6fd] bg-[#e0f2fe] text-[#0369a1]',
-    'FOR COMPLIANCE': 'border-[#fed7aa] bg-[#ffedd5] text-[#c2410c]',
-    COMPLETED: 'border-[#bbf7d0] bg-[#dcfce7] text-[#15803d]',
-    REJECTED: 'border-[#fecaca] bg-[#fee2e2] text-[#b91c1c]',
-    OVERDUE: 'border-red-200 bg-red-50 text-red-700',
-};
 
 const avatarColors = [
     'bg-[#0b5384]', 'bg-[#6b21a8]', 'bg-[#15803d]', 'bg-[#b45309]',
@@ -316,12 +308,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-[#d8dee8]">
                             <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
-                            <InfoCell label="Status" value={
-                                <span className={`inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[10px] font-extrabold uppercase ${isOverdue ? statusStyles.OVERDUE : statusStyles[referral.status] || ''}`}>
-                                    {isOverdue && <span className="material-symbols-outlined text-[12px]">warning</span>}
-                                    {referral.status}
-                                </span>
-                            } />
+                            <InfoCell label="Status" value={<StatusBadge status={referral.status} />} />
                             <InfoCell label="Associated Case No." value={
                                 <Link href={route('cases.show', referral.case_id)} className="text-[#0b5384] hover:underline">
                                     {referral.case_file?.case_number ?? 'N/A'}

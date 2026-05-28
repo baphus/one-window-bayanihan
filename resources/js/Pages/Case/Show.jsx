@@ -6,23 +6,8 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
-
-const caseStatusStyles = {
-  OPEN: 'border-[#bae6fd] bg-[#e0f2fe] text-[#0369a1]',
-  CLOSED: 'border-[#cbd5e1] bg-slate-100 text-slate-700',
-  DRAFT: 'border-amber-200 bg-amber-50 text-amber-800',
-  ARCHIVED: 'border-gray-300 bg-gray-100 text-gray-700',
-};
-
-const referralStatusStyles = {
-  PENDING: 'border-[#fde68a] bg-[#fef3c7] text-[#b45309]',
-  PROCESSING: 'border-[#bae6fd] bg-[#e0f2fe] text-[#0369a1]',
-  FOR_COMPLIANCE: 'border-[#fed7aa] bg-[#ffedd5] text-[#c2410c]',
-  COMPLETED: 'border-[#bbf7d0] bg-[#dcfce7] text-[#15803d]',
-  REJECTED: 'border-[#fecaca] bg-[#fee2e2] text-[#b91c1c]',
-  OVERDUE: 'border-red-200 bg-red-50 text-red-700',
-};
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -224,12 +209,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
       key: 'referralStatus',
       title: 'REFERRAL STATUS',
       className: 'w-[14%] whitespace-nowrap align-top',
-      render: (row) => (
-        <span className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-extrabold uppercase ${row.isOverdue ? referralStatusStyles.OVERDUE : referralStatusStyles[row.referralStatus] || ''}`}>
-          {row.isOverdue && <span className="material-symbols-outlined text-[12px]">warning</span>}
-          {row.referralStatus}
-        </span>
-      ),
+      render: (row) => <StatusBadge status={row.referralStatus} />,
     },
     {
       key: 'latestMilestone',
@@ -308,9 +288,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           <p className="mt-1 text-[14px] leading-6 text-slate-600">Overview of client profile, referral progress, and timeline updates.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className={`px-2 py-0.5 text-[11px] font-extrabold uppercase rounded-[3px] border ${caseStatusStyles[caseFile.status] || ''}`}>
-            {caseFile.status}
-          </span>
+          <StatusBadge status={caseFile.status} size="md" />
           <button
             type="button"
             onClick={() => {

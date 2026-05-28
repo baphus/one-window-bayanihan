@@ -1,13 +1,9 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
 import { formatDisplayDate } from '@/lib/utils';
-
-const statusStyles = {
-    OPEN: 'bg-green-100 text-green-800',
-    CLOSED: 'bg-slate-100 text-slate-800',
-};
 
 export default function ClientShow({ client }) {
     const fullName = [client.first_name, client.middle_name, client.last_name, client.suffix]
@@ -51,11 +47,7 @@ export default function ClientShow({ client }) {
                                 <InfoCell label="Client Type" value={
                                     client.caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'
                                 } />
-                                <InfoCell label="Case Status" value={
-                                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${statusStyles[client.caseFile.status] || 'bg-slate-100 text-slate-800'}`}>
-                                        {client.caseFile.status}
-                                    </span>
-                                } />
+                                <InfoCell label="Case Status" value={<StatusBadge status={client.caseFile.status} />} />
                             </div>
                         )}
                     </CardSection>
@@ -104,7 +96,7 @@ export default function ClientShow({ client }) {
                                     { key: 'agency', title: 'Agency', render: (row) => row.agency?.name ?? 'N/A' },
                                     { key: 'service', title: 'Service', render: (row) => row.required_services },
                                     { key: 'status', title: 'Status', render: (row) => (
-                                        <span className="inline-flex rounded-full bg-blue-100 px-2 text-xs font-semibold leading-5 text-blue-800">{row.status}</span>
+                                        <StatusBadge status={row.status} />
                                     )},
                                     { key: 'actions', title: 'Actions', render: (row) => (
                                         <Link href={route('referrals.show', row.id)} className="text-indigo-600 hover:text-indigo-900">View</Link>

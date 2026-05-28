@@ -2,15 +2,9 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
-
-const statusStyles = {
-  OPEN: 'bg-green-100 text-green-800',
-  CLOSED: 'bg-slate-100 text-slate-800',
-  DRAFT: 'bg-amber-100 text-amber-800',
-  ARCHIVED: 'bg-gray-200 text-gray-700',
-};
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -188,11 +182,7 @@ export default function CaseIndex({ cases, filters, stats }) {
             return {
               ...base,
               render: (row) => (
-                <span
-                  className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${statusStyles[row.status] || 'bg-slate-100 text-slate-800'}`}
-                >
-                  {row.status}
-                </span>
+                <StatusBadge status={row.status} />
               ),
             };
           case 'referred_to':

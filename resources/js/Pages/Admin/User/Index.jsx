@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import StatusBadge from '@/Components/ui/StatusBadge';
 
 const roleOptions = [
   { value: 'CASE_MANAGER', label: 'Case Manager' },
@@ -153,11 +154,7 @@ export default function AdminUserIndex({ users, agencies }) {
       key: 'is_active',
       title: 'Status',
       sortable: true,
-      render: (row) => (
-        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${row.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-          {row.is_active ? 'Active' : 'Inactive'}
-        </span>
-      ),
+      render: (row) => <StatusBadge status={row.is_active ? 'ACTIVE' : 'INACTIVE'} />,
     },
     {
       key: 'id',

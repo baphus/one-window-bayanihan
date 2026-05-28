@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import StatusBadge from '@/Components/ui/StatusBadge';
 
 const typeColors = {
   case: 'bg-blue-100 text-blue-800',
@@ -146,11 +147,7 @@ export default function CaseStatusIndex({ statuses }) {
     {
       key: 'is_active',
       title: 'Status',
-      render: (s) => (
-        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${s.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-          {s.is_active ? 'Active' : 'Inactive'}
-        </span>
-      ),
+      render: (s) => <StatusBadge status={s.is_active ? 'ACTIVE' : 'INACTIVE'} />,
     },
     {
       key: 'actions',

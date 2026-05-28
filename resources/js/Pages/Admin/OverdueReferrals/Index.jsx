@@ -2,15 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate } from '@/lib/utils';
-
-const statusStyles = {
-    PENDING: 'bg-yellow-100 text-yellow-800',
-    PROCESSING: 'bg-blue-100 text-blue-800',
-    FOR_COMPLIANCE: 'bg-orange-100 text-orange-800',
-    COMPLETED: 'bg-green-100 text-green-800',
-    REJECTED: 'bg-red-100 text-red-800',
-};
 
 export default function OverdueReferralsIndex({ overdueReferrals, overdueDays }) {
     const [selectedIds, setSelectedIds] = useState([]);
@@ -40,9 +33,7 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
             </span>
         )},
         { key: 'status', title: 'Status', render: (row) => (
-            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${statusStyles[row.status] || 'bg-slate-100 text-slate-800'}`}>
-                {row.status}
-            </span>
+            <StatusBadge status={row.status} />
         )},
         { key: 'actions', title: 'Actions', render: (row) => (
             <div className="flex items-center gap-2">
