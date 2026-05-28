@@ -61,6 +61,11 @@ class HelpdeskArticle extends Model
         return $this->hasMany(HelpdeskArticleFeedback::class, 'article_id');
     }
 
+    public function chunks(): HasMany
+    {
+        return $this->hasMany(HelpdeskArticleChunk::class, 'article_id');
+    }
+
     public function scopePublished($query)
     {
         return $query->where('status', 'published')->where('is_deleted', false);

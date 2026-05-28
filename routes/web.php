@@ -198,6 +198,8 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
 
 Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->name('api.analytics');
 
-Route::post('/chatbot/message', [ChatbotController::class, 'message'])->name('chatbot.message');
+Route::post('/chatbot/message', [ChatbotController::class, 'message'])
+    ->name('chatbot.message')
+    ->middleware('throttle:'.config('ai-helpcenter.rate_limit_per_minute').',1');
 
 require __DIR__.'/auth.php';

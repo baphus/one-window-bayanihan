@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\HelpCenterProviderInterface;
 use App\Listeners\LogSuccessfulLogin;
 use App\Models\Agency;
 use App\Models\CaseFile;
@@ -15,6 +16,7 @@ use App\Models\ReferralAttachment;
 use App\Models\Service;
 use App\Models\User;
 use App\Observers\AuditObserver;
+use App\Services\HelpCenter\EloquentHelpCenterProvider;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -30,7 +32,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(HelpCenterProviderInterface::class, EloquentHelpCenterProvider::class);
     }
 
     /**
