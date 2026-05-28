@@ -7,7 +7,7 @@ import {
     CategoryScale, LinearScale, BarElement,
     ArcElement, Title, Tooltip, Legend,
 } from 'chart.js';
-import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, Loader2, XCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, Loader2, XCircle, TrendingUp, TrendingDown, UserPlus, Pencil, Trash2, LogIn, LogOut } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
@@ -118,6 +118,10 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
                                             desc={activity.desc}
                                             time={activity.time?.toUpperCase() ?? ''}
                                             logoSrc={activity.logoSrc ?? '/logo.png'}
+                                            actionType={activity.actionType}
+                                            actor={activity.actor}
+                                            message={activity.message}
+                                            detail={activity.detail}
                                         />
                                     ))
                                 )}
@@ -175,20 +179,27 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
                         {recentLogs?.length === 0 ? (
                             <p className="px-6 py-4 text-sm text-slate-500">No recent activity.</p>
                         ) : (
-                            recentLogs?.map((log) => (
-                                <div key={log.id} className="px-6 py-3">
-                                    <p className="text-sm text-slate-900">
-                                        <span className="font-medium">{log.user?.name ?? 'System'}</span>
-                                        {' '}{log.description ?? log.action + ' ' + log.module}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${actionBadgeColors[log.action] || 'bg-slate-100 text-slate-600'}`}>
-                                            {log.action}
-                                        </span>
-                                        <p className="text-xs text-slate-500">{formatDisplayDateTime(log.timestamp)}</p>
+                            recentLogs?.map((log) => {
+                                const cfg = actionConfig[log.action] || { icon: Eye, bg: 'bg-slate-50', text: 'text-slate-500', ring: 'ring-slate-200', label: '' }
+                                return (
+                                <div key={log.id} className="px-6 py-3 flex items-start gap-3">
+                                    <span className={`shrink-0 flex items-center justify-center w-7 h-7 rounded-full ring-2 ring-white ${cfg.bg} shadow-sm mt-0.5`}>
+                                        <cfg.icon className={`w-3.5 h-3.5 ${cfg.text}`} />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm text-slate-900 font-medium leading-snug">
+                                            {log.actor ? <span className="text-slate-500 font-normal">{log.actor} </span> : null}{log.message ?? log.description}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.text} ${cfg.bg}`}>
+                                                {cfg.label || log.action}
+                                            </span>
+                                            <p className="text-xs text-slate-500">{formatDisplayDateTime(log.timestamp)}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            ))
+                                )
+                            })
                         )}
                     </div>
                 </div>
@@ -210,15 +221,37 @@ function formatCaseAge(timestamp) {
   return `${Math.max(1, ageInMinutes)} min`
 }
 
-function ActivityItem({ title, desc, time, logoSrc }) {
+const actionConfig = {
+  CREATE: { icon: UserPlus, bg: 'bg-emerald-50', text: 'text-emerald-600', ring: 'ring-emerald-200', label: 'Created' },
+  UPDATE: { icon: Pencil, bg: 'bg-blue-50', text: 'text-blue-600', ring: 'ring-blue-200', label: 'Updated' },
+  DELETE: { icon: Trash2, bg: 'bg-rose-50', text: 'text-rose-600', ring: 'ring-rose-200', label: 'Removed' },
+  VIEW: { icon: Eye, bg: 'bg-slate-50', text: 'text-slate-500', ring: 'ring-slate-200', label: 'Viewed' },
+  LOGIN: { icon: LogIn, bg: 'bg-indigo-50', text: 'text-indigo-600', ring: 'ring-indigo-200', label: 'Signed In' },
+  LOGOUT: { icon: LogOut, bg: 'bg-orange-50', text: 'text-orange-600', ring: 'ring-orange-200', label: 'Signed Out' },
+}
+
+function ActivityItem({ title, desc, time, logoSrc, actionType, actor, message, detail }) {
+  const cfg = actionConfig[actionType] || { icon: Eye, bg: 'bg-slate-50', text: 'text-slate-500', ring: 'ring-slate-200', label: '' }
+  const ActionIcon = cfg.icon
+  const displayTitle = message ?? title
+  const displayDesc = detail || desc
+
   return (
-    <div className="relative">
-      <span className="absolute -left-[25px] top-0 h-4 w-4 overflow-hidden rounded-full border border-white bg-white shadow-sm">
-        <img src={logoSrc} alt="Activity source" className="h-full w-full object-contain p-[1px]" />
-      </span>
-      <div className="space-y-0.5">
-        <p className="text-xs font-bold text-slate-900 font-body">{title}</p>
-        <p className="text-[11px] text-slate-500 font-body leading-relaxed">{desc}</p>
+    <div className="relative flex items-start gap-3">
+      {actionType ? (
+        <span className={`shrink-0 flex items-center justify-center w-7 h-7 rounded-full ring-2 ring-white ${cfg.bg} shadow-sm`}>
+          <ActionIcon className={`w-3.5 h-3.5 ${cfg.text}`} />
+        </span>
+      ) : (
+        <span className="shrink-0 absolute -left-[25px] top-0 h-4 w-4 overflow-hidden rounded-full border border-white bg-white shadow-sm">
+          <img src={logoSrc} alt="Activity source" className="h-full w-full object-contain p-[1px]" />
+        </span>
+      )}
+      <div className="space-y-0.5 min-w-0">
+        <p className="text-xs font-bold text-slate-900 font-body leading-snug">{displayTitle}</p>
+        {displayDesc && (
+          <p className="text-[11px] text-slate-500 font-body leading-relaxed line-clamp-2">{displayDesc}</p>
+        )}
         <p className="text-[9px] font-bold uppercase tracking-widest text-blue-800">{time}</p>
       </div>
     </div>
@@ -726,6 +759,10 @@ function CaseManagerDashboard({
                       desc={activity.desc}
                       time={activity.time?.toUpperCase() ?? ''}
                       logoSrc={activity.logoSrc ?? '/logo.png'}
+                      actionType={activity.actionType}
+                      actor={activity.actor}
+                      message={activity.message}
+                      detail={activity.detail}
                     />
                   ))
                 )}

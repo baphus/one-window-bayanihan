@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class ClientAddress extends Model
 {
-    use HasFactory, UsesUuid, SoftDeleteFlag;
+    use HasFactory, SoftDeleteFlag, UsesUuid;
+
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'client_id'];
 
     protected $fillable = [
         'client_id',

@@ -50,8 +50,8 @@ class AuditLogIntegrationTest extends TestCase
 
         $this->assertNotNull($log1->fresh()->description);
         $this->assertNotNull($log2->fresh()->description);
-        $this->assertStringContainsString('created', strtolower($log1->fresh()->description));
-        $this->assertStringContainsString('updated', strtolower($log2->fresh()->description));
+        $this->assertStringContainsString('opened', strtolower($log1->fresh()->description));
+        $this->assertStringContainsString('changed to completed', strtolower($log2->fresh()->description));
     }
 
     public function test_audit_logs_page_renders_with_filters(): void

@@ -77,19 +77,32 @@ class DashboardService
             ->get()
             ->map(function ($log) use ($formatter) {
                 try {
-                    $description = $log->description ?? $formatter->format($log);
-                    $changes = $formatter->formatChanges($log->old_value, $log->new_value);
+                    $display = $formatter->formatForDisplay($log);
                 } catch (\Throwable $e) {
-                    $description = $log->action.' '.$log->module;
-                    $changes = '';
+                    $display = [
+                        'message' => $log->action.' '.$log->module,
+                        'detail' => '',
+                        'action' => $log->action,
+                        'module' => $log->module,
+                        'actor' => 'System',
+                        'timestamp' => $log->timestamp?->toISOString(),
+                        'hasChanges' => false,
+                    ];
                 }
 
                 return [
                     'id' => $log->id,
-                    'title' => $description,
-                    'desc' => $changes ?: $description,
+                    'title' => $display['message'],
+                    'desc' => $display['detail'] ?: $display['message'],
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
+                    // enriched structured data for modern UI
+                    'message' => $display['message'],
+                    'detail' => $display['detail'],
+                    'actionType' => $display['action'],
+                    'module' => $display['module'],
+                    'actor' => $display['actor'],
+                    'timestamp' => $display['timestamp'],
                 ];
             })
             ->toArray();
@@ -226,19 +239,31 @@ class DashboardService
             ->get()
             ->map(function ($log) use ($formatter) {
                 try {
-                    $description = $log->description ?? $formatter->format($log);
-                    $changes = $formatter->formatChanges($log->old_value, $log->new_value);
+                    $display = $formatter->formatForDisplay($log);
                 } catch (\Throwable $e) {
-                    $description = $log->action.' '.$log->module;
-                    $changes = '';
+                    $display = [
+                        'message' => $log->action.' '.$log->module,
+                        'detail' => '',
+                        'action' => $log->action,
+                        'module' => $log->module,
+                        'actor' => 'System',
+                        'timestamp' => $log->timestamp?->toISOString(),
+                        'hasChanges' => false,
+                    ];
                 }
 
                 return [
                     'id' => $log->id,
-                    'title' => $description,
-                    'desc' => $changes ?: $description,
+                    'title' => $display['message'],
+                    'desc' => $display['detail'] ?: $display['message'],
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
+                    'message' => $display['message'],
+                    'detail' => $display['detail'],
+                    'actionType' => $display['action'],
+                    'module' => $display['module'],
+                    'actor' => $display['actor'],
+                    'timestamp' => $display['timestamp'],
                 ];
             })
             ->toArray();
@@ -277,18 +302,31 @@ class DashboardService
             ->get()
             ->map(function ($log) use ($formatter) {
                 try {
-                    $description = $log->description ?? $formatter->format($log);
+                    $display = $formatter->formatForDisplay($log);
                 } catch (\Throwable $e) {
-                    $description = $log->action.' '.$log->module;
+                    $display = [
+                        'message' => $log->action.' '.$log->module,
+                        'detail' => '',
+                        'action' => $log->action,
+                        'module' => $log->module,
+                        'actor' => $log->user?->name ?? 'System',
+                        'timestamp' => $log->timestamp?->toISOString(),
+                        'hasChanges' => false,
+                    ];
                 }
 
                 return [
                     'id' => $log->id,
-                    'action' => $log->action,
-                    'module' => $log->module,
-                    'description' => $description,
+                    'action' => $display['action'],
+                    'module' => $display['module'],
+                    'description' => $display['message'],
                     'user' => $log->user ? ['name' => $log->user->name] : null,
                     'timestamp' => $log->timestamp,
+                    // enriched structured data
+                    'message' => $display['message'],
+                    'detail' => $display['detail'],
+                    'actor' => $display['actor'],
+                    'hasChanges' => $display['hasChanges'],
                 ];
             })
             ->toArray();

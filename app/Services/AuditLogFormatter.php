@@ -6,6 +6,8 @@ use App\Models\AuditLog;
 
 class AuditLogFormatter
 {
+    private array $noiseFields = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'email_verified_at', 'timestamp'];
+
     public function format(AuditLog $log): string
     {
         if ($log->description !== null) {
@@ -17,23 +19,12 @@ class AuditLogFormatter
         $action = strtoupper((string) $log->action);
 
         return match ($action) {
-            'LOGIN' => sprintf('%s %s', $userName, $this->formatAction($action)),
-            'LOGOUT' => sprintf('%s %s', $userName, $this->formatAction($action)),
-            'VIEW' => sprintf('%s %s %s', $userName, $this->formatAction($action), $module),
-            'CREATE' => $this->appendEntityDetails(
-                sprintf('%s %s %s', $userName, $this->formatAction($action), $module),
-                $log->new_value,
-                $module,
-            ),
-            'UPDATE' => $this->appendChangeDetails(
-                sprintf('%s %s %s', $userName, $this->formatAction($action), $module),
-                $this->formatChanges($log->old_value, $log->new_value),
-            ),
-            'DELETE' => $this->appendEntityDetails(
-                sprintf('%s %s %s', $userName, $this->formatAction($action), $module),
-                $log->old_value,
-                $module,
-            ),
+            'LOGIN' => $this->formatLogin($userName, $log),
+            'LOGOUT' => $this->formatLogout($userName),
+            'VIEW' => $this->formatView($module),
+            'CREATE' => $this->formatCreate($userName, $log, $module),
+            'UPDATE' => $this->formatUpdate($log, $module),
+            'DELETE' => $this->formatDelete($userName, $log, $module),
             default => sprintf('%s %s %s', $userName, $this->formatAction($action), $module),
         };
     }
@@ -108,6 +99,8 @@ class AuditLogFormatter
             'region' => 'region',
             'password' => 'password',
             'remember_token' => 'remember token',
+            'vulnerability_indicator' => 'vulnerability level',
+            'consent_given_at' => 'consent date',
             default => str_replace('_', ' ', $field),
         };
     }
@@ -156,7 +149,7 @@ class AuditLogFormatter
 
         if ($field === 'client_type') {
             return match ($normalized) {
-                'OFW' => 'Overseas Filipino Worker',
+                'OFW' => 'OFW',
                 'NEXT_OF_KIN' => 'Next of Kin',
                 default => $stringValue,
             };
@@ -176,6 +169,9 @@ class AuditLogFormatter
 
         if ($old === null && is_array($new)) {
             foreach ($new as $field => $value) {
+                if (in_array($field, $this->noiseFields, true)) {
+                    continue;
+                }
                 $fieldName = $this->formatFieldName((string) $field);
                 $changes[] = sprintf('set %s to %s', $fieldName, $this->formatFieldValue($module, (string) $field, $value));
             }
@@ -185,6 +181,9 @@ class AuditLogFormatter
 
         if ($new === null && is_array($old)) {
             foreach ($old as $field => $value) {
+                if (in_array($field, $this->noiseFields, true)) {
+                    continue;
+                }
                 $changes[] = sprintf('cleared %s', $this->formatFieldName((string) $field));
             }
 
@@ -205,6 +204,10 @@ class AuditLogFormatter
                 continue;
             }
 
+            if (in_array($field, $this->noiseFields, true)) {
+                continue;
+            }
+
             $fieldName = $this->formatFieldName((string) $field);
             $changes[] = sprintf(
                 'changed %s from %s to %s',
@@ -215,6 +218,145 @@ class AuditLogFormatter
         }
 
         return implode('; ', $changes);
+    }
+
+    public function formatForDisplay(AuditLog $log): array
+    {
+        $description = $this->format($log);
+        $changes = $this->formatChanges($log->old_value, $log->new_value);
+        $userName = $this->resolveUserName($log);
+        $action = strtoupper((string) $log->action);
+
+        return [
+            'message' => $description,
+            'detail' => $changes,
+            'action' => $action,
+            'module' => $this->formatModule((string) $log->module),
+            'actor' => $userName,
+            'timestamp' => $log->timestamp?->toISOString(),
+            'hasChanges' => $changes !== '',
+        ];
+    }
+
+    private function formatLogin(string $userName, AuditLog $log): string
+    {
+        $time = $log->timestamp?->format('g:i A');
+
+        return $time ? sprintf('%s signed in at %s', $userName, $time) : sprintf('%s signed in', $userName);
+    }
+
+    private function formatLogout(string $userName): string
+    {
+        return sprintf('%s signed out', $userName);
+    }
+
+    private function formatView(string $module): string
+    {
+        return sprintf('%s record viewed', $module);
+    }
+
+    private function formatCreate(string $userName, AuditLog $log, string $module): string
+    {
+        $newValues = $log->new_value ?? [];
+        $moduleRaw = (string) $log->module;
+
+        // Specific template: User creation
+        if ($moduleRaw === 'users') {
+            $name = $newValues['name'] ?? $newValues['first_name'] ?? null;
+            $role = isset($newValues['role']) ? $this->formatFieldValue($moduleRaw, 'role', $newValues['role']) : null;
+            if ($name && $role) {
+                return sprintf('%s registered as %s', $name, $role);
+            }
+            if ($name) {
+                return sprintf('%s was registered', $name);
+            }
+        }
+
+        // Specific template: Case creation
+        if ($moduleRaw === 'case_files') {
+            $caseNumber = $newValues['case_number'] ?? null;
+            $clientType = isset($newValues['client_type']) ? $this->formatFieldValue($moduleRaw, 'client_type', $newValues['client_type']) : null;
+            if ($caseNumber && $clientType) {
+                return sprintf('Case %s opened for %s client', $caseNumber, $clientType);
+            }
+            if ($caseNumber) {
+                return sprintf('Case %s opened', $caseNumber);
+            }
+        }
+
+        // Specific template: Referral creation
+        if ($moduleRaw === 'referrals') {
+            $serviceType = $newValues['required_services'] ?? null;
+            $identifier = $this->extractEntityDetail($newValues, $moduleRaw);
+            $base = $identifier ? sprintf('Referral %s created', $identifier) : 'Referral created';
+
+            return $serviceType ? sprintf('%s — %s', $base, $serviceType) : $base;
+        }
+
+        // Generic CREATE
+        $identifier = $this->extractEntityDetail($newValues, $moduleRaw);
+        if ($identifier) {
+            return sprintf('%s was added to %s', $identifier, strtolower($module));
+        }
+        if ($userName === 'System') {
+            return sprintf('A new %s was created', strtolower($module));
+        }
+
+        return sprintf('%s created a new %s', $userName, strtolower($module));
+    }
+
+    private function formatUpdate(AuditLog $log, string $module): string
+    {
+        $moduleRaw = (string) $log->module;
+        $oldValues = $log->old_value ?? [];
+        $newValues = $log->new_value ?? [];
+        $allValues = array_merge($oldValues, $newValues);
+
+        // Extract the entity identifier (case number, name, etc.)
+        $identifier = $this->extractEntityDetail($allValues, $moduleRaw);
+        $entityPrefix = $identifier ?: $module;
+
+        $changes = $this->formatChanges($log->old_value, $log->new_value);
+
+        if ($changes === '') {
+            return sprintf('%s was updated', $entityPrefix);
+        }
+
+        // Parse changes to produce cleaner single-field update messages
+        $changeParts = explode('; ', $changes);
+        if (count($changeParts) === 1) {
+            // Single change: "changed status from Processing to Completed"
+            $change = $changeParts[0];
+            if (preg_match('/^changed (.+) from .+ to (.+)$/', $change, $matches)) {
+                return sprintf('%s %s changed to %s', $entityPrefix, $matches[1], $matches[2]);
+            }
+        }
+
+        // Multi-field: use first change + "and more"
+        $firstChange = $changeParts[0];
+        if (preg_match('/^changed (.+) from .+ to (.+)$/', $firstChange, $matches)) {
+            $suffix = count($changeParts) > 1 ? ' (+'.(count($changeParts) - 1).' more)' : '';
+
+            return sprintf('%s %s changed to %s%s', $entityPrefix, $matches[1], $matches[2], $suffix);
+        }
+
+        return sprintf('%s was updated', $entityPrefix);
+    }
+
+    private function formatDelete(string $userName, AuditLog $log, string $module): string
+    {
+        $oldValues = $log->old_value ?? [];
+        $identifier = $this->extractEntityDetail($oldValues, (string) $log->module);
+
+        if ($identifier) {
+            return sprintf('%s was removed from the system', $identifier);
+        }
+
+        if ($userName === 'System') {
+            return sprintf('A %s was removed', strtolower($module));
+        }
+
+        return sprintf('%s removed a %s', $userName, strtolower($module));
     }
 
     private function resolveUserName(AuditLog $log): string
@@ -232,18 +374,6 @@ class AuditLogFormatter
         $name = $user->name ?? null;
 
         return is_string($name) && $name !== '' ? $name : 'System';
-    }
-
-    private function appendChangeDetails(string $description, string $changes): string
-    {
-        return $changes !== '' ? $description.' — '.$changes : $description;
-    }
-
-    private function appendEntityDetails(string $description, ?array $values, string $module): string
-    {
-        $detail = $this->extractEntityDetail($values, $module);
-
-        return $detail !== '' ? $description.' '.$detail : $description;
     }
 
     private function extractEntityDetail(?array $values, string $module): string
@@ -273,10 +403,10 @@ class AuditLogFormatter
             }
 
             if (in_array($field, ['case_number', 'tracker_number'], true)) {
-                return $this->formatModule($module).' #'.$value;
+                return $value;
             }
 
-            return $this->formatModule($module).' '.$value;
+            return $value;
         }
 
         return '';

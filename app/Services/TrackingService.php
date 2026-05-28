@@ -10,6 +10,7 @@ class TrackingService
 {
     public function __construct(
         private readonly OtpService $otpService,
+        private readonly AuditLogFormatter $auditFormatter,
     ) {}
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
@@ -89,18 +90,27 @@ class TrackingService
             }
         }
 
-        $auditLogs = AuditLog::where('entity_id', $case->id)
+        $auditLogs = AuditLog::with('user')->where('entity_id', $case->id)
             ->orWhereIn('entity_id', $referrals->pluck('id'))
             ->orderBy('timestamp')
             ->get();
 
         foreach ($auditLogs as $log) {
+            $display = $this->auditFormatter->formatForDisplay($log);
+
             $timeline->push([
-                'date' => $log->timestamp->toISOString(),
-                'agency' => 'System',
-                'title' => "{$log->action} {$log->module}",
-                'detail' => $log->new_value ? json_encode($log->new_value) : '',
-                'icon' => 'system',
+                'date' => $display['timestamp'] ?? $log->timestamp->toISOString(),
+                'agency' => $display['actor'] ?? 'System',
+                'title' => $display['message'],
+                'detail' => $display['detail'],
+                'icon' => match ($display['action']) {
+                    'CREATE' => 'create',
+                    'UPDATE' => 'update',
+                    'DELETE' => 'delete',
+                    'VIEW' => 'view',
+                    'LOGIN', 'LOGOUT' => 'auth',
+                    default => 'system',
+                },
                 'logoUrl' => '',
             ]);
         }

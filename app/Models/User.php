@@ -2,22 +2,23 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
-use App\Models\Concerns\SoftDeleteFlag;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, UsesUuid, HasRoles, SoftDeleteFlag;
+    use HasFactory, HasRoles, Notifiable, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['password', 'remember_token'];
+    public static array $auditExclude = ['password', 'remember_token', 'id', 'created_at', 'updated_at', 'email_verified_at'];
 
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [

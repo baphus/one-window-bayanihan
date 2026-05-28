@@ -111,24 +111,12 @@ function TimelineEntry({ log }) {
     const [expanded, setExpanded] = useState(false);
     const style = ACTION_STYLES[log.action] || { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'info' };
 
-    const initials = log.user?.name ? log.user.name.substring(0, 2).toUpperCase() : '??';
+    const actorName = log.actor || log.user?.name || '??';
+    const initials = actorName.substring(0, 2).toUpperCase();
 
-    // Parse diff if UPDATE
-    const hasChanges = log.action === 'UPDATE' && log.old_value && log.new_value;
-    
-    let oldVals = {};
-    let newVals = {};
-    
-    if (hasChanges) {
-        try {
-            oldVals = typeof log.old_value === 'string' ? JSON.parse(log.old_value) : log.old_value;
-            newVals = typeof log.new_value === 'string' ? JSON.parse(log.new_value) : log.new_value;
-        } catch(e) {
-           console.warn('Failed to parse audit log diff:', e);
-        }
-    }
-    
-    const changedKeys = Array.from(new Set([...Object.keys(oldVals || {}), ...Object.keys(newVals || {})]));
+    const displayMessage = log.message ?? log.description;
+    const displayDetail = log.detail;
+    const showExpandable = log.hasChanges && log.action === 'UPDATE' && log.old_value && log.new_value;
 
     return (
         <div className="relative pl-12 py-4">
@@ -143,8 +131,8 @@ function TimelineEntry({ log }) {
                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-900 flex items-center justify-center text-xs font-bold">
                             {initials}
                         </div>
-                        <div className="flex-grow text-sm text-slate-900 font-medium">
-                            {log.description}
+                        <div className="flex-grow text-sm text-slate-900 font-medium leading-snug">
+                            {displayMessage}
                         </div>
                     </div>
                     <div className="flex items-center gap-3 self-start sm:self-center ml-11 sm:ml-0">
@@ -159,57 +147,73 @@ function TimelineEntry({ log }) {
                 </div>
 
                 {/* Row 2 */}
-                <div className="text-xs text-slate-500 ml-11">
-                    {formatRelativeTime(log.timestamp)} <span className="mx-1">•</span> {log.module}
+                <div className="text-xs text-slate-500 ml-11 space-y-0.5">
+                    {displayDetail ? (
+                        <p className="text-slate-400">{displayDetail}</p>
+                    ) : null}
+                    <p>
+                        {formatRelativeTime(log.timestamp)} <span className="mx-1">•</span> {log.module}
+                        {actorName !== '??' ? <> <span className="mx-1">•</span> {actorName}</> : null}
+                    </p>
                 </div>
 
                 {/* Row 3: Expandable diff panel */}
-                {hasChanges && changedKeys.length > 0 && (
-                    <div className="ml-11 mt-3">
-                        <button 
-                            onClick={() => setExpanded(!expanded)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-[16px] transition-transform duration-200" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }}>
-                                expand_more
-                            </span>
-                            {expanded ? 'Hide changes' : 'Show changes'}
-                        </button>
-                        
-                        <div 
-                            className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? 'max-h-[500px] mt-2 opacity-100' : 'max-h-0 opacity-0'}`}
-                        >
-                            <div className="border border-slate-200 rounded-md overflow-x-auto">
-                                <table className="w-full text-left text-xs text-slate-600">
-                                    <thead className="bg-slate-50 text-slate-700 uppercase">
-                                        <tr>
-                                            <th className="px-3 py-2 border-b border-slate-200">Field</th>
-                                            <th className="px-3 py-2 border-b border-slate-200">Old Value</th>
-                                            <th className="px-3 py-2 border-b border-slate-200">New Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {changedKeys.map(key => {
-                                            const oldV = oldVals[key] !== undefined && oldVals[key] !== null ? String(oldVals[key]) : '-';
-                                            const newV = newVals[key] !== undefined && newVals[key] !== null ? String(newVals[key]) : '-';
-                                            
-                                            // Only show if different
-                                            if (oldV === newV) return null;
-                                            
-                                            return (
-                                                <tr key={key} className="hover:bg-slate-50">
-                                                    <td className="px-3 py-2 font-mono text-[11px] font-medium text-slate-700">{key}</td>
-                                                    <td className="px-3 py-2 text-red-600 break-words max-w-[200px] bg-red-50/30">{oldV}</td>
-                                                    <td className="px-3 py-2 text-emerald-600 break-words max-w-[200px] bg-emerald-50/30">{newV}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                {showExpandable && (() => {
+                    let oldVals = {};
+                    let newVals = {};
+                    try {
+                        oldVals = typeof log.old_value === 'string' ? JSON.parse(log.old_value) : log.old_value;
+                        newVals = typeof log.new_value === 'string' ? JSON.parse(log.new_value) : log.new_value;
+                    } catch(e) {
+                        console.warn('Failed to parse audit log diff:', e);
+                    }
+                    const changedKeys = Array.from(new Set([...Object.keys(oldVals || {}), ...Object.keys(newVals || {})]));
+                    if (changedKeys.length === 0) return null;
+
+                    return (
+                        <div className="ml-11 mt-3">
+                            <button 
+                                onClick={() => setExpanded(!expanded)}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[16px] transition-transform duration-200" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }}>
+                                    expand_more
+                                </span>
+                                {expanded ? 'Hide changes' : 'Show changes'}
+                            </button>
+                            
+                            <div 
+                                className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? 'max-h-[500px] mt-2 opacity-100' : 'max-h-0 opacity-0'}`}
+                            >
+                                <div className="border border-slate-200 rounded-md overflow-x-auto">
+                                    <table className="w-full text-left text-xs text-slate-600">
+                                        <thead className="bg-slate-50 text-slate-700 uppercase">
+                                            <tr>
+                                                <th className="px-3 py-2 border-b border-slate-200">Field</th>
+                                                <th className="px-3 py-2 border-b border-slate-200">Old Value</th>
+                                                <th className="px-3 py-2 border-b border-slate-200">New Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {changedKeys.map(key => {
+                                                const oldV = oldVals[key] !== undefined && oldVals[key] !== null ? String(oldVals[key]) : '-';
+                                                const newV = newVals[key] !== undefined && newVals[key] !== null ? String(newVals[key]) : '-';
+                                                if (oldV === newV) return null;
+                                                return (
+                                                    <tr key={key} className="hover:bg-slate-50">
+                                                        <td className="px-3 py-2 font-mono text-[11px] font-medium text-slate-700">{key}</td>
+                                                        <td className="px-3 py-2 text-red-600 break-words max-w-[200px] bg-red-50/30">{oldV}</td>
+                                                        <td className="px-3 py-2 text-emerald-600 break-words max-w-[200px] bg-emerald-50/30">{newV}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
         </div>
     );

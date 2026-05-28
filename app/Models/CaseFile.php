@@ -11,6 +11,8 @@ class CaseFile extends Model
 {
     use HasFactory, SoftDeleteFlag, UsesUuid;
 
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
+
     protected $table = 'cases';
 
     protected $fillable = [

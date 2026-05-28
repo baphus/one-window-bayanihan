@@ -15,7 +15,7 @@ class AuditLogFormatterTest extends TestCase
         $log = new AuditLog([
             'action' => 'CREATE',
             'module' => 'case_files',
-            'new_value' => ['case_number' => 'CAS-001', 'status' => 'OPEN'],
+            'new_value' => ['case_number' => 'CAS-001', 'client_type' => 'OFW'],
             'user_id' => null,
             'timestamp' => now(),
         ]);
@@ -24,8 +24,9 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString('created', $result);
-        $this->assertStringContainsString('Case', $result);
+        $this->assertStringContainsString('opened', $result);
+        $this->assertStringContainsString('CAS-001', $result);
+        $this->assertStringContainsString('OFW', $result);
     }
 
     public function test_it_generates_update_description_with_changes(): void
@@ -42,8 +43,7 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString('updated', $result);
-        $this->assertStringContainsString('from Processing to Completed', $result);
+        $this->assertStringContainsString('changed to Completed', $result);
     }
 
     public function test_it_generates_delete_description(): void
@@ -59,8 +59,8 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString('deleted', $result);
-        $this->assertStringContainsString('Agency', $result);
+        $this->assertStringContainsString('removed from the system', $result);
+        $this->assertStringContainsString('Test Agency', $result);
     }
 
     public function test_it_handles_login_action(): void
@@ -115,7 +115,9 @@ class AuditLogFormatterTest extends TestCase
 
         $formatter = new AuditLogFormatter;
 
-        $this->assertStringContainsString('System viewed Client', $formatter->format($log));
+        $result = $formatter->format($log);
+
+        $this->assertStringContainsString('Client record viewed', $result);
     }
 
     public function test_it_handles_multiple_field_changes(): void
@@ -132,7 +134,7 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString(';', $result);
+        $this->assertStringContainsString('(+1 more)', $result);
     }
 
     public function test_it_handles_view_action(): void
@@ -147,7 +149,7 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString('viewed Client', $result);
+        $this->assertStringContainsString('Client record viewed', $result);
     }
 
     #[DataProvider('actionProvider')]
@@ -196,11 +198,49 @@ class AuditLogFormatterTest extends TestCase
         $this->assertEquals('cleared status', $formatter->formatChanges(['status' => 'OPEN'], null));
     }
 
-    public function test_it_uses_loaded_user_name_when_available(): void
+    public function test_it_generates_user_registration(): void
     {
         $log = new AuditLog([
-            'action' => 'VIEW',
-            'module' => 'clients',
+            'action' => 'CREATE',
+            'module' => 'users',
+            'new_value' => ['name' => 'Doug Aufderhar', 'role' => 'CASE_MANAGER'],
+            'timestamp' => now(),
+        ]);
+
+        $formatter = new AuditLogFormatter;
+        $result = $formatter->format($log);
+
+        $this->assertStringContainsString('Doug Aufderhar registered as', $result);
+        $this->assertStringContainsString('Case Manager', $result);
+    }
+
+    public function test_format_for_display_returns_structured_data(): void
+    {
+        $log = new AuditLog([
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'new_value' => ['case_number' => 'CAS-001', 'client_type' => 'OFW'],
+            'timestamp' => now(),
+        ]);
+
+        $formatter = new AuditLogFormatter;
+        $display = $formatter->formatForDisplay($log);
+
+        $this->assertArrayHasKey('message', $display);
+        $this->assertArrayHasKey('detail', $display);
+        $this->assertArrayHasKey('action', $display);
+        $this->assertArrayHasKey('module', $display);
+        $this->assertArrayHasKey('actor', $display);
+        $this->assertArrayHasKey('hasChanges', $display);
+        $this->assertEquals('CREATE', $display['action']);
+        $this->assertTrue($display['hasChanges']);
+    }
+
+    public function test_it_uses_loaded_user_name_in_login_when_available(): void
+    {
+        $log = new AuditLog([
+            'action' => 'LOGIN',
+            'module' => 'auth',
             'timestamp' => now(),
         ]);
 
@@ -208,7 +248,7 @@ class AuditLogFormatterTest extends TestCase
 
         $formatter = new AuditLogFormatter;
 
-        $this->assertStringContainsString('Maria Santos viewed Client', $formatter->format($log));
+        $this->assertStringContainsString('Maria Santos signed in', $formatter->format($log));
     }
 
     public static function actionProvider(): array
@@ -267,7 +307,7 @@ class AuditLogFormatterTest extends TestCase
             ['users', 'role', 'ADMIN', 'System Admin'],
             ['case_files', 'status', null, 'not set'],
             ['case_files', 'notes', ['foo' => 'bar'], '{"foo":"bar"}'],
-            ['clients', 'client_type', 'OFW', 'Overseas Filipino Worker'],
+            ['clients', 'client_type', 'OFW', 'OFW'],
         ];
     }
 }
