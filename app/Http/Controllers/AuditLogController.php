@@ -57,6 +57,12 @@ class AuditLogController extends Controller
                 }
             }
 
+            $display = $formatter->formatForDisplay($log);
+            $log->message = $display['message'];
+            $log->detail = $display['detail'];
+            $log->actor = $display['actor'];
+            $log->hasChanges = $display['hasChanges'];
+
             return $log;
         });
 

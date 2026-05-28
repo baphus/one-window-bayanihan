@@ -72,6 +72,7 @@ class DashboardService
             ->toArray();
 
         $recentActivity = AuditLog::with('user')
+            ->whereNotIn('module', ['clients', 'client_addresses', 'client_employments', 'milestones', 'referral_attachments'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
@@ -93,7 +94,7 @@ class DashboardService
                 return [
                     'id' => $log->id,
                     'title' => $display['message'],
-                    'desc' => $display['detail'] ?: $display['message'],
+                    'desc' => $display['detail'],
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                     // enriched structured data for modern UI
@@ -255,7 +256,7 @@ class DashboardService
                 return [
                     'id' => $log->id,
                     'title' => $display['message'],
-                    'desc' => $display['detail'] ?: $display['message'],
+                    'desc' => $display['detail'],
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                     'message' => $display['message'],
@@ -297,6 +298,7 @@ class DashboardService
             ->toArray();
 
         $recentLogs = AuditLog::with('user')
+            ->whereNotIn('module', ['clients', 'client_addresses', 'client_employments', 'milestones', 'referral_attachments'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()

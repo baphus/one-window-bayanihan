@@ -234,7 +234,7 @@ function ActivityItem({ title, desc, time, logoSrc, actionType, actor, message, 
   const cfg = actionConfig[actionType] || { icon: Eye, bg: 'bg-slate-50', text: 'text-slate-500', ring: 'ring-slate-200', label: '' }
   const ActionIcon = cfg.icon
   const displayTitle = message ?? title
-  const displayDesc = detail || desc
+  const displayDesc = title === desc ? '' : (detail || desc)
 
   return (
     <div className="relative flex items-start gap-3">
