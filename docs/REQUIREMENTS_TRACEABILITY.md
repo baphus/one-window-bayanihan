@@ -1,7 +1,7 @@
 # Bayanihan One Window — Requirements Traceability Matrix
 
 > **Source:** SRS v1.2 (May 19, 2026)
-> **Coverage:** All Functional Requirements (FR-*), Security Requirements (NFR-SEC-*), Performance (NFR-PERF-*), Safety (NFR-SAFE-*), Quality (NFR-QUAL-*), Business Rules (BR-*), Legal (LEGAL-*), Database (DB-*), Accessibility (ACC-*), Communications (COM-*, COM-MSG-*, COM-DATA-*, COM-SEC-*, COM-PERF-*, COM-GOV-*)
+> **Coverage:** All Functional Requirements (FR-*), Security Requirements (NFR-SEC-*), Performance (NFR-PERF-*), Safety (NFR-SAFE-*), Quality (NFR-QUAL-*), Business Rules (BR-*), Legal (LEGAL-*), Database (DB-*), Accessibility (ACC-*), Communications (COM-*, COM-MSG-*, COM-DATA-*, COM-SEC-*, COM-PERF-*, COM-GOV-*), and 16 Non-SRS Implemented Features
 > **Last Updated:** 2026-05-28
 
 ---
@@ -555,7 +555,125 @@
 
 ---
 
-## 8. Coverage Summary
+## 8. Non-SRS Features (Implemented)
+
+The following features have been implemented to enhance operational efficiency, transparency, and user experience, though they were not explicitly defined in the initial SRS.
+
+### 1. Helpdesk/Knowledge Base
+**Description**: Full content management system for helpdesk articles with categories, tags, revisions, feedback, and featured articles.
+**Status**: ✅ Implemented
+**Key Files**: `app/Models/HelpdeskArticle.php`, `app/Models/HelpdeskCategory.php`, `app/Models/HelpdeskTag.php`, `app/Models/HelpdeskArticleRevision.php`, `app/Models/HelpdeskArticleFeedback.php`, `app/Http/Controllers/HelpdeskController.php`, `app/Http/Controllers/Admin/HelpdeskArticleController.php`, `app/Http/Controllers/Admin/HelpdeskCategoryController.php`, `app/Http/Controllers/Admin/HelpdeskTagController.php`
+**Routes**: `GET /helpdesk`, `GET /helpdesk/search`, `GET /helpdesk/{slug}`, `POST /helpdesk/feedback`, `GET /admin/helpdesk/articles`, `POST /admin/helpdesk/articles`, etc.
+**Why Added**: To provide self-service information for OFWs and reduce dependency on case manager inquiries.
+
+### 2. Agency Service Self-Management
+**Description**: Allows agencies to manage their own service offerings and descriptions directly.
+**Status**: ✅ Implemented
+**Key Files**: `app/Http/Controllers/AgencyServiceController.php`, `app/Models/Service.php`
+**Routes**: `GET /services`, `POST /services`, `PATCH /services/{service}`, `DELETE /services/{service}`
+**Why Added**: To decentralize service management and ensure agency profiles remain up-to-date.
+
+### 3. Referral Attachment Versioning
+**Description**: Complete version control for referral documents, allowing users to replace files while maintaining history.
+**Status**: ✅ Implemented
+**Key Files**: `app/Models/ReferralAttachment.php`, `app/Services/ReferralService.php`
+**Routes**: Integrated into Referral API
+**Why Added**: To prevent data loss when documents are updated and provide a clear audit trail of document changes.
+
+### 4. Overdue Referral Monitoring
+**Description**: System for identifying referrals that have exceeded expected processing times and sending automated reminders.
+**Status**: ✅ Implemented
+**Key Files**: `app/Http/Controllers/Admin/OverdueReferralController.php`, `app/Mail/ReferralOverdueMail.php`
+**Routes**: `GET /overdue-referrals`, `POST /overdue-referrals/send-reminders`
+**Why Added**: To ensure no referral is neglected and to improve overall service delivery speed.
+
+### 5. Feedback SERVQUAL Implementation
+**Description**: Sophisticated service quality evaluation using the 5-dimension SERVQUAL model (Tangibles, Reliability, Responsiveness, Assurance, Empathy).
+**Status**: ✅ Implemented
+**Key Files**: `app/Models/FeedbackServqualResponse.php`, `app/Models/ServqualConfig.php`
+**Routes**: Part of the Feedback submission flow
+**Why Added**: To provide more granular and academic-standard quality metrics beyond simple satisfaction ratings.
+
+### 6. Custom Case Statuses
+**Description**: Admin-configurable status labels for both cases and referrals to adapt to changing organizational workflows.
+**Status**: ✅ Implemented
+**Key Files**: `app/Models/CaseStatus.php`, `app/Http/Controllers/Admin/AdminCaseStatusController.php`
+**Routes**: `GET /admin/case-statuses`, `POST /admin/case-statuses`, `PATCH /admin/case-statuses/{id}`
+**Why Added**: To provide flexibility in status naming without requiring code changes.
+
+### 7. Public Agencies Listing
+**Description**: Publicly accessible directory of partner agencies and their contact information.
+**Status**: ✅ Implemented
+**Key Files**: `resources/js/Pages/Public/Partners.jsx`, `routes/web.php`
+**Routes**: `GET /partners`
+**Why Added**: Transparency and ease of access for OFWs to find where they can seek help.
+
+### 8. Contact Page
+**Description**: Standard contact information page for DMW Region VII.
+**Status**: ✅ Implemented
+**Key Files**: `resources/js/Pages/Public/Contact.jsx`, `routes/web.php`
+**Routes**: `GET /contact`
+**Why Added**: Essential public-facing requirement for organizational communication.
+
+### 9. Geographic Distribution
+**Description**: Visual analytics showing the distribution of cases by province.
+**Status**: ✅ Implemented
+**Key Files**: `app/Services/DashboardService.php`, `resources/js/Components/Dashboard/GeographicChart.jsx`
+**Routes**: `GET /api/dashboard/stats`
+**Why Added**: To help administrators identify regional hotspots and allocate resources effectively.
+
+### 10. Agency Scorecard
+**Description**: Per-agency performance report measuring acceptance rates, completion times, and feedback scores.
+**Status**: ✅ Implemented
+**Key Files**: `app/Services/ReportsService.php`, `app/Http/Controllers/ReportsController.php`
+**Routes**: `GET /reports/agency-scorecard`
+**Why Added**: To evaluate partner agency effectiveness and accountability.
+
+### 11. Referral Cycle Time Distribution
+**Description**: Statistical distribution analysis of how long referrals take to reach completion.
+**Status**: ✅ Implemented
+**Key Files**: `app/Services/ReportsService.php`
+**Routes**: `GET /reports/cycle-time`
+**Why Added**: To identify bottlenecks in the referral process and set realistic service level expectations.
+
+### 12. Referral Aging
+**Description**: Report highlighting stale referrals that have been in the same status for an extended period.
+**Status**: ✅ Implemented
+**Key Files**: `app/Services/ReportsService.php`
+**Routes**: `GET /reports/aging`
+**Why Added**: Proactive identification of cases that may require intervention or escalation.
+
+### 13. Debug OTP Mode
+**Description**: Development-only toggle that auto-fills OTP inputs to speed up developer testing.
+**Status**: ✅ Implemented
+**Key Files**: `app/Models/SystemSetting.php`, `app/Services/OtpService.php`
+**Routes**: Internal logic
+**Why Added**: Significantly improves developer productivity during local development and QA.
+
+### 14. Client Employment History
+**Description**: Tracking of both current and previous overseas employment details for OFWs.
+**Status**: ✅ Implemented
+**Key Files**: `app/Models/ClientEmployment.php`
+**Routes**: Part of Client/Case creation
+**Why Added**: To provide context on the OFW's work history which often impacts current case circumstances.
+
+### 15. Keyword-based ChatBot
+**Description**: Automated messaging interface that provides predefined responses based on user keywords.
+**Status**: ✅ Implemented
+**Key Files**: `app/Http/Controllers/ChatbotController.php`, `app/Services/ChatbotService.php`
+**Routes**: `POST /chatbot/message`
+**Why Added**: Provides immediate responses to common queries while the more advanced AI features are being developed.
+
+### 16. Rejected Referral Tracking
+**Description**: Specific dashboard indicators for referrals rejected by agencies, requiring immediate attention from case managers.
+**Status**: ✅ Implemented
+**Key Files**: `app/Services/DashboardService.php`, `resources/js/Pages/Dashboard/Index.jsx`
+**Routes**: `GET /dashboard`
+**Why Added**: Ensures rejected referrals don't "disappear" and are promptly reassigned or addressed.
+
+---
+
+## 9. Coverage Summary
 
 | Category | Total Reqs | Implemented | Partial | Not Done | Coverage |
 |---|---|---|---|---|---|
@@ -579,11 +697,12 @@
 | DB (Database) | 41 | 36 | 3 | 2 | 88% |
 | ACC (Accessibility) | 30 | 27 | 3 | 0 | 90% |
 | COM (Communications) | 27 | 21 | 4 | 2 | 78% |
-| **TOTAL** | **354** | **299** | **20** | **35** | **84%** |
+| **Non-SRS Extras** | **—** | **16** | **—** | **—** | **—** |
+| **TOTAL (SRS)** | **354** | **299** | **20** | **35** | **84%** |
 
 ---
 
-## 9. Gap Summary
+## 10. Gap Summary
 
 ### Critical Gaps (High Priority)
 

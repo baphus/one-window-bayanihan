@@ -327,23 +327,30 @@ Unique constraint on `(agency_id, service_name)`.
 | `id` | uuid PK |
 | `name` | varchar(255) NOT NULL |
 | `slug` | varchar(255) UNIQUE |
-| `description` | text nullable |
+| `type` | varchar(255) |
 | `color` | varchar(255) nullable |
-| `is_terminal` | boolean default false |
 | `sort_order` | int default 0 |
+| `is_system` | boolean default false |
+| `is_active` | boolean default true |
+| `is_deleted` | boolean default false |
+| `deleted_at` | timestamp nullable |
+| `deleted_by` | uuid nullable |
 
 ### 8.3 `case_documents` — Case-Level Documents
 
-**Note:** This table is implemented (model + migration exist).
-
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `case_id` | uuid | FK → cases |
-| `name` | varchar(255) | |
-| `file_path` | text | |
-| `file_type` | varchar(255) | |
-| `size` | bigint | |
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `file_name` | varchar(255) | NOT NULL | |
+| `file_path` | text | NOT NULL | Cloudinary URL |
+| `file_type` | varchar(50) | nullable | |
+| `case_id` | uuid | FK → cases | |
+| `user_id` | uuid | FK → users | Uploader |
+| `is_deleted` | boolean | default false | |
+| `deleted_at` | timestamp | nullable | |
+| `deleted_by` | uuid | FK → users, nullable | |
+| `created_at` | timestamp | | |
+| `updated_at` | timestamp | | |
 
 ### 8.4 `notifications` — Database Notifications
 
@@ -355,20 +362,65 @@ Standard Laravel notifications table with JSON `data` column.
 
 ### 9.1 `helpdesk_articles` — Knowledge Base Articles
 
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `title` | varchar(255) | NOT NULL | |
+| `slug` | varchar(255) | UNIQUE, NOT NULL | |
+| `content_markdown` | text | NOT NULL | |
+| `excerpt` | text | nullable | |
+| `category_id` | uuid | FK → helpdesk_categories | |
+| `status` | enum | 'draft', 'published' | |
+| `featured` | boolean | default false | |
+| `visibility` | enum | 'public', 'authenticated', 'role_restricted' | |
+| `target_roles` | jsonb | nullable | |
+| `author_id` | uuid | FK → users | |
+| `published_at` | timestamp | nullable | |
+| `is_deleted` | boolean | default false | |
+| `deleted_at` | timestamp | nullable | |
+| `deleted_by` | uuid | FK → users | |
+
+### 9.2 `helpdesk_categories`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `name` | varchar(255) | NOT NULL | |
+| `slug` | varchar(255) | UNIQUE, NOT NULL | |
+| `description` | text | nullable | |
+| `parent_id` | uuid | FK → self | |
+| `icon` | varchar(255) | nullable | |
+| `sort_order` | int | default 0 | |
+| `is_active` | boolean | default true | |
+
+### 9.3 `helpdesk_tags`
+
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | uuid | PK |
-| `title` | varchar(255) | |
+| `name` | varchar(255) | |
 | `slug` | varchar(255) | UNIQUE |
-| `content` | text | Rich text/Markdown |
-| `excerpt` | text | nullable |
-| `is_published` | boolean | default false |
-| `is_featured` | boolean | default false |
-| `views_count` | int | default 0 |
-| `category_id` | uuid | FK → helpdesk_categories |
-| `published_at` | timestamp | nullable |
 
-Supporting tables: `helpdesk_categories`, `helpdesk_tags`, `helpdesk_article_tag`, `helpdesk_article_revisions`, `helpdesk_article_feedback`.
+### 9.4 `helpdesk_article_revisions`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | uuid | PK |
+| `article_id` | uuid | FK → helpdesk_articles |
+| `title` | varchar(255) | |
+| `content_markdown` | text | |
+| `edited_by` | uuid | FK → users |
+| `edit_notes` | varchar(255) | |
+
+### 9.5 `helpdesk_article_feedback`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | uuid | PK |
+| `article_id` | uuid | FK → helpdesk_articles |
+| `helpful` | boolean | |
+| `comment` | text | nullable |
+| `user_id` | uuid | FK → users, nullable |
 
 ---
 
@@ -401,3 +453,6 @@ All tables follow these conventions:
 | `audit_logs` | `user_id` | Foreign key |
 | `audit_logs` | `module` + `action` | Performance |
 | `notifications` | `notifiable_type` + `notifiable_id` | Polymorphic |
+| `helpdesk_articles` | `slug` | UNIQUE |
+| `helpdesk_categories` | `slug` | UNIQUE |
+| `helpdesk_tags` | `slug` | UNIQUE |

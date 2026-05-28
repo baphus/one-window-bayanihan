@@ -67,7 +67,9 @@
 | Users | — | — | ✅ |
 | Audit Logs | ✅ | ✅ | ✅ |
 | System Settings | — | — | ✅ |
-| Helpdesk | — | — | ✅ |
+| Helpdesk CMS | — | — | ✅ |
+| Overdue Referrals| ✅ | — | ✅ |
+| Agency Services | — | ✅ | ✅ |
 
 ---
 
@@ -115,6 +117,12 @@
 | DRAFT | Gray | ○ |
 
 **Note:** Color is NEVER the only indicator — text labels and icons always accompany status badges (WCAG 2.1 AA compliance).
+
+### 3.6 ChatBot Component
+The chatbot is implemented as a persistent floating action button in the bottom-right corner of public and tracking pages.
+- **Trigger:** Floating button with chat icon.
+- **UI:** Expandable chat window with message history, scrollable container, and fixed input field at the bottom.
+- **Interaction:** Real-time feedback via "Bot is typing..." indicator. Messages are styled with distinct bubbles for user (right) and bot (left).
 
 ---
 
@@ -171,6 +179,16 @@ Role-based KPIs displayed as stat cards:
 │  │ Contact: +63 912 345 6789                      │          │
 │  └─────────────────────────────────────────────────┘          │
 │                                                              │
+│  ┌─ Documents ─────────────────────────────────────┐          │
+│  │ ┌─────────────────────────────┬────────┐          │          │
+│  │ │ File Name                   │ Action │          │          │
+│  │ ├─────────────────────────────┼────────┤          │          │
+│  │ │ Passport_Scan.pdf           │ [v][x] │          │          │
+│  │ │ Employment_Contract.docx    │ [v][x] │          │          │
+│  │ └─────────────────────────────┴────────┘          │          │
+│  │                                  [+ Upload Document]      │
+│  └─────────────────────────────────────────────────┘          │
+│                                                              │
 │  ┌─ Referrals ────────────────────────────────────┐          │
 │  │ ┌──────────┬──────────┬──────────┬──────────┐ │          │
 │  │ │ Agency   │ Status   │ Decision │ Milestones│ │          │
@@ -191,7 +209,44 @@ Role-based KPIs displayed as stat cards:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 4.4 OFW Tracking Portal (`Tracking/`)
+### 4.4 Helpdesk Patterns
+
+#### 4.4.1 Article List (`Helpdesk/Index.jsx`)
+- **Search Header:** Prominent search bar with background illustration.
+- **Main Grid:** Cards for each category showing title, icon, and article count.
+- **Sidebar:** Featured articles list and recent updates.
+- **Article Cards:** Show title, excerpt, category badge, and "Read More" link.
+
+#### 4.4.2 Article Detail (`Helpdesk/Show.jsx`)
+- **Breadcrumbs:** Path from home to current category.
+- **Content Area:** Article title, metadata (date, author), and rich-text/markdown content.
+- **Feedback Section:** Thumbs up/down icons at the bottom of the article.
+- **Navigation:** Previous/Next article links.
+
+#### 4.4.3 Helpdesk CMS (`Admin/Helpdesk/ArticleForm.jsx`)
+- **Editor:** Markdown editor with live preview side-by-side.
+- **Metadata Sidebar:** Category selection, tags (multi-select), featured toggle, visibility settings.
+- **Publish Controls:** Draft/Published status toggle with publish date picker.
+
+### 4.5 System Settings Chatbot Config
+Located at `/admin/system-settings`, includes a dedicated AI/Chatbot section:
+- **Provider Selection:** Dropdown for OpenAI, Anthropic, or Custom.
+- **API Key Field:** Password-type field for secure key input (masked by default).
+- **Instruction Prompt:** Large textarea for defining the chatbot's system message/persona.
+- **Model Parameters:** Sliders or number inputs for temperature and token limits.
+
+### 4.6 Overdue Referral Page
+A specialized dashboard for monitoring delayed inter-agency responses.
+- **Table:** Lists referrals where the target agency has not responded within the SLA.
+- **Action:** Bulk selection with "Send Reminder Notifications" button at the top.
+- **Highlighting:** Rows are color-coded based on days past SLA.
+
+### 4.7 Agency Services Management
+Located at `/services` for authenticated agency users.
+- **CRUD Table:** List of services offered by the agency with toggle for active/inactive status.
+- **Form:** Modal-based form to add or edit service descriptions and processing time targets.
+
+### 4.8 OFW Tracking Portal (`Tracking/`)
 
 ```
 ┌────────────────────────────────────┐

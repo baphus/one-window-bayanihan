@@ -124,17 +124,33 @@ Layer 6: Audit & Accountability— Immutable logs, event tracking
 | NFR-SEC-056 | No unnecessary 3rd-party data sharing | Minimized data in OTP/email notifications | ✅ |
 | NFR-SEC-057 | Controlled vendor support access | Supabase/Render admin access restricted | 🟡 Partial |
 
-### 2.10 AI Security Controls (§5.3.10) — If Enabled
+---
 
-| SRS ID | Requirement | Implementation | Status |
-|---|---|---|---|
-| NFR-SEC-058 | No OFW PII exposed to AI | Not yet implemented — optional feature | 🔴 Not Done |
-| NFR-SEC-059 | Sensitive data masked/excluded | Not yet implemented | 🔴 Not Done |
-| NFR-SEC-060 | AI governed by privacy controls | Not yet implemented | 🔴 Not Done |
+## 3. Specialized Security Controls
+
+### 3.1 Debug OTP Mode
+The system includes a development-only "Debug OTP" mode controlled via the `debug_otp_enabled` system setting.
+- **Functionality:** When enabled, the current OTP for a user is included in the meta-props of the Inertia response, allowing the frontend to auto-fill the OTP input.
+- **Risk:** High exposure of authentication secrets.
+- **Control:** Must be disabled in production. The UI in `SystemSettings/Index.jsx` explicitly warns that this exposes OTP values in page responses.
+
+### 3.2 Chatbot API Key Security
+- **Storage:** API keys for AI providers (OpenAI, Anthropic) are stored in the `system_settings` table.
+- **Enforcement:** Keys are never exposed to the frontend. Only the `enabled` status and the name of the `provider` are sent to the client.
+- **Note:** Current implementation stores keys as plain text in the database (documented technical debt). Future remediation includes application-layer encryption for the `value` column in the settings table.
+
+### 3.3 Case Document Visibility
+Access to documents uploaded directly to a case is restricted via authorization gates in the `CaseDocumentController`.
+- **Enforcement Layer:** Controller-level logic (not just DB RLS).
+- **Access Rules:**
+    - **ADMIN:** Full access to all documents.
+    - **CASE_MANAGER:** Access to documents in cases they created or manage.
+    - **AGENCY:** Access is only granted if the agency has an active (non-terminal) referral linked to the specific case.
+- **Delivery:** Files are served via Cloudinary signed URLs that expire after a short duration.
 
 ---
 
-## 3. Legal & Regulatory Compliance (§6.1)
+## 4. Legal & Regulatory Compliance (§6.1)
 
 ### 3.1 RA 10173 — Data Privacy Act of 2012
 

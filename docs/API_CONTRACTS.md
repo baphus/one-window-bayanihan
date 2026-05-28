@@ -72,6 +72,16 @@ All routes use Inertia.js — responses are server-rendered page visits, not JSO
 | POST | `/cases/{case}/unarchive` | cases.unarchive | CaseController@unarchive | Restore archived case |
 | POST | `/cases/{case}/toggle-status` | cases.toggle-status | CaseController@toggleStatus | Toggle case status |
 
+### 4.1 Case Document Routes
+
+| Method | URI | Name | Controller | Description |
+|---|---|---|---|---|
+| GET | `/cases/{case}/documents` | cases.documents.index | CaseDocumentController@index | List case documents |
+| POST | `/cases/{case}/documents` | cases.documents.store | CaseDocumentController@store | Upload new document |
+| GET | `/cases/{case}/documents/{document}` | cases.documents.show | CaseDocumentController@show | View document detail |
+| GET | `/cases/{case}/documents/{document}/download` | cases.documents.download | CaseDocumentController@download | Download document file |
+| DELETE | `/cases/{case}/documents/{document}` | cases.documents.destroy | CaseDocumentController@destroy | Delete document |
+
 ### Case Index (`GET /cases`)
 
 **Query Parameters:**
@@ -251,7 +261,30 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 | PATCH | `/admin/case-statuses/{caseStatus}` | admin.case-statuses.update | Update status |
 | DELETE | `/admin/case-statuses/{caseStatus}` | admin.case-statuses.destroy | Delete status |
 
-### 8.7 Overdue Referrals
+### 8.7 Helpdesk Admin
+
+| Method | URI | Name | Description |
+|---|---|---|---|
+| GET | `/admin/helpdesk/articles` | admin.helpdesk.articles.index | List articles |
+| GET | `/admin/helpdesk/articles/create` | admin.helpdesk.articles.create | Create article form |
+| POST | `/admin/helpdesk/articles` | admin.helpdesk.articles.store | Save new article |
+| GET | `/admin/helpdesk/articles/{article}/edit` | admin.helpdesk.articles.edit | Edit article form |
+| PATCH | `/admin/helpdesk/articles/{article}` | admin.helpdesk.articles.update | Update article |
+| DELETE | `/admin/helpdesk/articles/{article}` | admin.helpdesk.articles.destroy | Delete article |
+| POST | `/admin/helpdesk/articles/{article}/restore` | admin.helpdesk.articles.restore | Restore deleted article |
+| POST | `/admin/helpdesk/articles/{article}/toggle-featured` | admin.helpdesk.articles.toggle-featured | Toggle featured flag |
+| GET | `/admin/helpdesk/articles/{article}/versions` | admin.helpdesk.articles.versions | View article versions |
+| POST | `/admin/helpdesk/articles/upload-image` | admin.helpdesk.articles.upload-image | Image upload for editor |
+| GET | `/admin/helpdesk/categories` | admin.helpdesk.categories.index | List categories |
+| POST | `/admin/helpdesk/categories` | admin.helpdesk.categories.store | Save new category |
+| PATCH | `/admin/helpdesk/categories/{category}` | admin.helpdesk.categories.update | Update category |
+| DELETE | `/admin/helpdesk/categories/{category}` | admin.helpdesk.categories.destroy | Delete category |
+| GET | `/admin/helpdesk/tags` | admin.helpdesk.tags.index | List tags |
+| POST | `/admin/helpdesk/tags` | admin.helpdesk.tags.store | Save new tag |
+| PATCH | `/admin/helpdesk/tags/{tag}` | admin.helpdesk.tags.update | Update tag |
+| DELETE | `/admin/helpdesk/tags/{tag}` | admin.helpdesk.tags.destroy | Delete tag |
+
+### 8.8 Overdue Referrals
 
 | Method | URI | Name | Middleware | Description |
 |---|---|---|---|---|
@@ -272,11 +305,7 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 | POST | `/track/verify-otp` | track.verify-otp | throttle:tracking | Verify tracking OTP |
 | GET | `/track/case` | track.show | — | Show case tracking progress |
 
-### Tracking OTP Rate Limit: 5 attempts/minute (`throttle:tracking`)
-
----
-
-## 10. Helpdesk Public Routes
+### 9.1 Helpdesk Public Routes
 
 | Method | URI | Name | Description |
 |---|---|---|---|
@@ -285,9 +314,7 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 | GET | `/helpdesk/{slug}` | helpdesk.show | Article detail |
 | POST | `/helpdesk/feedback` | helpdesk.feedback | Article feedback |
 
----
-
-## 11. AI Chatbot Route
+### 9.2 AI Chatbot Route
 
 | Method | URI | Name | Description |
 |---|---|---|---|
@@ -296,9 +323,11 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 **Request:** `{ "message": "string" }`  
 **Response:** `{ "reply": "string" }` (JSON)
 
+### Tracking OTP Rate Limit: 5 attempts/minute (`throttle:tracking`)
+
 ---
 
-## 12. Profile Routes
+## 10. Profile Routes
 
 | Method | URI | Name | Description |
 |---|---|---|---|
@@ -308,7 +337,7 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 
 ---
 
-## 13. Audit Log Routes
+## 11. Audit Log Routes
 
 | Method | URI | Name | Description |
 |---|---|---|---|
@@ -318,7 +347,7 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 
 ---
 
-## 14. Feedback Routes
+## 12. Feedback Routes
 
 | Method | URI | Name | Description |
 |---|---|---|---|
@@ -326,7 +355,7 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 
 ---
 
-## 15. Agency Self-Service Routes (`role:AGENCY`)
+## 13. Agency Self-Service Routes (`role:AGENCY`)
 
 | Method | URI | Name | Description |
 |---|---|---|---|
@@ -337,7 +366,7 @@ All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitel
 
 ---
 
-## 16. Response Format Convention
+## 14. Response Format Convention
 
 ### Inertia Page Response (default)
 ```php
@@ -364,7 +393,7 @@ Accessible in React via `usePage().props.flash`.
 
 ---
 
-## 17. Middleware Stack by Route Group
+## 15. Middleware Stack by Route Group
 
 | Route Group | Middleware |
 |---|---|

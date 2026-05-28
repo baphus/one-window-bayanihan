@@ -111,7 +111,7 @@ Bayanihan One Window is a **modular, cloud-hosted web application** following a 
 │ • Case Summary     │ • Status Track    │ • Service Categories        │
 │ • Draft/Publish    │ • Milestones      │ • System Settings           │
 │ • Archive          │ • Attachments     │ • Case Statuses             │
-│                   │ • Comments         │ • Helpdesk CMS              │
+│ • Case Documents   │ • Comments         │ • Helpdesk CMS              │
 ├───────────────────┼───────────────────┼─────────────────────────────┤
 │   Monitoring       │   Public Portal   │   Analytics                 │
 │   (SRS §4.6)       │   (SRS §4.7)      │   (SRS §4.9)                │
@@ -120,17 +120,34 @@ Bayanihan One Window is a **modular, cloud-hosted web application** following a 
 │ • Referral Status  │ • Milestone View  │ • Reports (PDF/CSV)         │
 │ • Progress Flags   │ • Feedback        │ • Anonymized Analytics      │
 │ • Closure Valid.   │   Submission      │ • Case Trends               │
+│ • Overdue Reminders│ • Helpdesk/KB     │ • SERVQUAL Data             │
 ├───────────────────┼───────────────────┼─────────────────────────────┤
 │   Auth & Security  │   Audit           │   AI / Helpdesk             │
 │   (SRS §4.1)       │   (SRS §4.10)     │   (SRS §4.8)                │
 │                   │                   │                             │
-│ • OTP MFA Login    │ • Immutable Log   │ • Chatbot (if enabled)      │
+│ • OTP MFA Login    │ • Immutable Log   │ • AI Chatbot                │
 │ • IP Whitelist     │ • Action Audit    │ • Helpdesk Knowledge Base   │
 │ • Role/Lane Access │ • VIEW Tracking   │ • Article Management        │
+│ • Debug OTP Mode   │ • Revision History│ • Feedback & Revisions      │
 └───────────────────┴───────────────────┴─────────────────────────────┘
 ```
 
-### 3.2 Request Flow (Typical Authenticated Page)
+### 3.2 Helpdesk/Knowledge Base
+The Helpdesk module provides a centralized repository of informational articles and FAQs for OFWs and agency personnel. It supports categorization, tagging, and rich text content. The module includes a revision system for tracking article changes over time and a feedback mechanism for users to rate article helpfulness.
+
+Administrators can manage the full lifecycle of articles, including drafting, publishing, and archiving. The public interface allows users to browse by category or search via a dedicated search endpoint. All content is governed by visibility settings, ensuring sensitive internal guidance remains restricted to authenticated roles.
+
+### 3.3 AI Chatbot Service
+The AI Chatbot Service acts as an interactive front-end for the Helpdesk and case tracking features. It uses an `AiService` wrapper that interacts with an `AiProvider` interface, allowing the system to toggle between different backends like OpenAI, Anthropic, or a custom local provider.
+
+When a user sends a message, the chatbot attempts to match keywords to helpdesk articles or uses the configured AI provider to generate a natural language response. It integrates with the Case Tracking system to provide status updates to OFWs using their tracker number and verified OTP.
+
+### 3.4 Case Documents
+Case Documents provide a secure repository for supporting evidence and official paperwork linked directly to a master case record. Unlike referral attachments, which are scoped to specific inter-agency transactions, case documents represent the authoritative file for the client.
+
+Documents are stored on Cloudinary and accessed via signed expiring URLs to ensure they aren't publicly enumerable. Visibility is enforced at the controller level, restricting access to the original case manager, system administrators, or agencies with an active referral for that specific case.
+
+### 3.5 Request Flow (Typical Authenticated Page)
 
 ```
 Browser ─HTTPS─► Laravel Router ─► Middleware Stack
