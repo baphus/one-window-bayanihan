@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
+import ChatBot from '@/Components/ChatBot';
 import HeroSection from '@/Components/landing/HeroSection';
 import FeaturesSection from '@/Components/landing/FeaturesSection';
 import PartnersSection from '@/Components/landing/PartnersSection';
@@ -16,6 +17,8 @@ export default function Welcome({ agencies }) {
       <Head title="Welcome" />
 
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
+
+      <ChatBot />
 
       <main>
         <HeroSection

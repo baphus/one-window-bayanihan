@@ -51,6 +51,189 @@ class OpenAiToolProvider extends OpenAiProvider implements ToolEnabledAiProvider
                     ],
                 ],
             ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'searchAgencies',
+                    'description' => 'Search for agencies (government offices) by name or description. E.g., OWWA, DMW, TESDA, DSWD, DOLE. Returns agency ID, name, short name, description, and contact info.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'query' => [
+                                'type' => 'string',
+                                'description' => 'Search keywords for agency name or description',
+                            ],
+                            'limit' => [
+                                'type' => 'integer',
+                                'description' => 'Maximum results (1-10)',
+                                'default' => 5,
+                            ],
+                        ],
+                        'required' => ['query'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'getAgencyServices',
+                    'description' => 'Get services offered by a specific agency. Use this to list what services an agency provides to OFWs and clients.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'agencyId' => [
+                                'type' => 'string',
+                                'description' => 'The UUID of the agency',
+                            ],
+                        ],
+                        'required' => ['agencyId'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'getServiceRequirements',
+                    'description' => 'Get the document requirements for a specific service. Use this to answer what documents an OFW needs to prepare for a service.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'serviceId' => [
+                                'type' => 'string',
+                                'description' => 'The UUID of the service',
+                            ],
+                        ],
+                        'required' => ['serviceId'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'searchServices',
+                    'description' => 'Search for services by name or description across all agencies. E.g., repatriation assistance, legal aid, skills training, social welfare.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'query' => [
+                                'type' => 'string',
+                                'description' => 'Search keywords for service name or description',
+                            ],
+                            'limit' => [
+                                'type' => 'integer',
+                                'description' => 'Maximum results (1-10)',
+                                'default' => 5,
+                            ],
+                        ],
+                        'required' => ['query'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'getCaseStatuses',
+                    'description' => 'Get the list of case statuses and their meanings. Use this to explain what each case status means (New, In Progress, Pending, Completed, Closed).',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'searchCases',
+                    'description' => '[REQUIRES LOGIN] Search for cases by case number, tracker number, or client name. Only available for logged-in staff (case managers, agency focal, admin). Returns matching case summaries.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'query' => [
+                                'type' => 'string',
+                                'description' => 'Search keywords (case number, tracker number, client name)',
+                            ],
+                            'limit' => [
+                                'type' => 'integer',
+                                'description' => 'Maximum results (1-10)',
+                                'default' => 5,
+                            ],
+                        ],
+                        'required' => ['query'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'getCaseDetail',
+                    'description' => '[REQUIRES LOGIN] Get detailed information about a specific case including client info, referrals, and timeline.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'caseId' => [
+                                'type' => 'string',
+                                'description' => 'The UUID of the case',
+                            ],
+                        ],
+                        'required' => ['caseId'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'initiateCaseOTP',
+                    'description' => 'Send a 6-digit OTP verification code to the email address registered with a case. Use this when an OFW wants to verify their identity to access their case details. The user must provide their tracker number first.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'trackerNumber' => [
+                                'type' => 'string',
+                                'description' => 'The tracker number of the case to verify access for',
+                            ],
+                        ],
+                        'required' => ['trackerNumber'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'verifyCaseOTP',
+                    'description' => 'Verify a 6-digit OTP code that was sent to the OFW\'s email. After successful verification, case details will be accessible in the session.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'trackerNumber' => [
+                                'type' => 'string',
+                                'description' => 'The tracker number that was used to initiate the OTP',
+                            ],
+                            'otp' => [
+                                'type' => 'string',
+                                'description' => 'The 6-digit verification code sent to the email',
+                            ],
+                        ],
+                        'required' => ['trackerNumber', 'otp'],
+                    ],
+                ],
+            ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'getVerifiedCaseInfo',
+                    'description' => 'Get case details for a tracker number that has been previously verified via OTP in the current session.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'trackerNumber' => [
+                                'type' => 'string',
+                                'description' => 'The verified tracker number',
+                            ],
+                        ],
+                        'required' => ['trackerNumber'],
+                    ],
+                ],
+            ],
         ];
     }
 

@@ -7,6 +7,8 @@ use App\Models\SystemSetting;
 use App\Services\Ai\AiService;
 use App\Services\Ai\Contracts\ToolEnabledAiProvider;
 use App\Services\Ai\PromptAssemblyService;
+use App\Services\Chatbot\ChatbotCaseService;
+use App\Services\Chatbot\ChatbotDataService;
 use App\Services\Content\ContentSanitizerService;
 use App\Services\Observability\RetrievalLogger;
 use App\Services\Observability\UnansweredTracker;
@@ -17,14 +19,19 @@ class ChatbotController extends Controller
 {
     private array $responses = [
         'hello' => 'Hello! Welcome to the Bayanihan One Window support. How can I assist you today?',
-        'help' => 'I can help you with:<br>- Case status inquiries<br>- Service requirements<br>- Agency information<br>- Referral process guidance<br>- Document requirements',
-        'case' => 'To track your case, please visit our public tracking portal at /track and enter your tracker number. You will receive an OTP to verify your identity.',
-        'track' => 'To track your case, please visit our public tracking portal at /track and enter your tracker number. You will receive an OTP to verify your identity.',
-        'service' => 'Our partner agencies offer various services including:<br>- OWWA: Repatriation assistance, welfare support<br>- DMW: Legal assistance, employment documentation<br>- TESDA: Skills training and assessment<br>- DSWD: Social welfare assistance<br>- DOLE: Labor law assistance',
-        'agency' => 'We work with multiple government agencies to provide comprehensive support. Each agency has its own lane for processing referrals. Contact us for specific agency details.',
-        'document' => 'Required documents typically include:<br>- Valid government ID<br>- Employment contract<br>- Passport<br>- Proof of engagement with agency<br>- Supporting documents for your specific concern',
-        'referral' => 'A referral is sent to the appropriate agency based on your needs. The agency will process it and update the status. You can track progress through our portal.',
-        'default' => "I'm not sure I understand. Please try asking about:<br>- Case tracking<br>- Required documents<br>- Agency services<br>- Referral process<br>Or type \"help\" to see all options.",
+        'help' => 'I can help you with:<br>- OFW case status inquiries<br>- Agency information (OWWA, DMW, TESDA, DSWD, DOLE)<br>- Service availability and requirements<br>- Referral process guidance<br>- Document requirements for OFW assistance<br>- Case tracking instructions',
+        'case' => 'I can help you with case information. If you are a case manager, please log in to access your cases. If you are an OFW wanting to check your case, I can send a verification code to your registered email.',
+        'track' => 'To track your case, please visit our public tracking portal at /track and enter your tracker number. You will receive an OTP to verify your identity. Alternatively, I can help you verify right here — just tell me your tracker number!',
+        'ofw' => 'Our system supports Overseas Filipino Workers (OFWs) and their families with inter-agency referrals. Partner agencies include OWWA (welfare and repatriation), DMW (legal assistance and documentation), TESDA (skills training), DSWD (social welfare), and DOLE (labor law assistance). Each agency has dedicated services to support OFWs and their families.',
+        'service' => 'Our partner agencies offer various services including:<br>- OWWA: Repatriation assistance, welfare support, emergency assistance<br>- DMW: Legal assistance, employment documentation, contract verification<br>- TESDA: Skills training and competency assessment<br>- DSWD: Social welfare assistance, family support<br>- DOLE: Labor law assistance, employment standards',
+        'agency' => 'We work with multiple government agencies to provide comprehensive support for OFWs:<br><br><b>OWWA</b> — Overseas Workers Welfare Administration (welfare and repatriation)<br><b>DMW</b> — Department of Migrant Workers (legal and documentation)<br><b>TESDA</b> — Technical Education and Skills Development Authority (training)<br><b>DSWD</b> — Department of Social Welfare and Development (social services)<br><b>DOLE</b> — Department of Labor and Employment (labor standards)<br><br>Each agency has its own lane for processing referrals.',
+        'document' => 'Required documents typically include:<br>- Valid government ID (passport, UMID, driver\'s license)<br>- Employment contract or proof of engagement<br>- OFW information sheets<br>- Proof of agency engagement<br>- Supporting documents for your specific concern<br>- Case referral form (if already filed)<br><br>Specific requirements vary by agency and service type.',
+        'referral' => 'A referral is sent to the appropriate agency based on your needs. The process works as follows:<br>1. DMW Case Manager assesses your situation<br>2. Referral is created with required services<br>3. Referral is sent to the partner agency (OWWA, TESDA, DSWD, DOLE)<br>4. Agency processes and updates the status<br>5. You can track progress through our portal using your tracker number',
+        'repatriation' => 'For repatriation assistance, OWWA provides support for OFWs needing to return to the Philippines. Services include:<br>- Emergency repatriation assistance<br>- Welfare support upon arrival<br>- Reintegration programs<br>- Family assistance<br><br>Please contact the DMW Case Manager to start the referral process.',
+        'legal' => 'DMW provides legal assistance for OFWs including:<br>- Legal counseling and advice<br>- Assistance with employment contract issues<br>- Documentation of employment concerns<br>- Representation in labor disputes<br>- Assistance with illegal recruitment cases',
+        'tracker' => 'To look up your case using a tracker number, I can send a verification code to your registered email. Just tell me your tracker number and I\'ll start the verification process!',
+        'verify' => 'You can verify your identity to access your case details. If you have a tracker number, just share it with me and I\'ll send a verification code to your registered email address.',
+        'default' => "I'm not sure I understand your question. I can help you with:<br><br>- <b>Agency info</b> — Details about OWWA, DMW, TESDA, DSWD, DOLE<br>- <b>Services</b> — What services are available and their requirements<br>- <b>Case tracking</b> — How to track your case status<br>- <b>OFW support</b> — Repatriation, legal assistance, skills training<br>- <b>Referrals</b> — How the inter-agency referral process works<br>- <b>Documents</b> — Required documents for OFW assistance<br><br>Type \"help\" to see all options, or ask me a specific question!",
     ];
 
     public function __construct(
@@ -34,6 +41,8 @@ class ChatbotController extends Controller
         private readonly ContentSanitizerService $sanitizer,
         private readonly RetrievalLogger $retrievalLogger,
         private readonly UnansweredTracker $unansweredTracker,
+        private readonly ChatbotDataService $chatbotData,
+        private readonly ChatbotCaseService $chatbotCase,
     ) {}
 
     public function message(Request $request)
@@ -63,9 +72,9 @@ class ChatbotController extends Controller
             ]);
         }
 
-        // If sendMessage returned empty, try tool-enabled flow with Help Center retrieval
+        // If sendMessage returned empty, try tool-enabled flow with Help Center + data retrieval
         try {
-            $provider = $this->aiService->getProvider();
+            $provider = $this->aiService->getToolProvider();
             if ($provider instanceof ToolEnabledAiProvider && $provider->isConfigured()) {
                 $reply = $this->handleToolBasedQuery($provider, $userMessage, $startTime);
                 if (! empty($reply)) {
@@ -88,7 +97,7 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Handle query using a ToolEnabledAiProvider with Help Center retrieval.
+     * Handle query using a ToolEnabledAiProvider with Help Center + case data retrieval.
      */
     private function handleToolBasedQuery(ToolEnabledAiProvider $provider, string $userMessage, float $startTime): string
     {
@@ -110,8 +119,8 @@ class ChatbotController extends Controller
 
             if (str_contains($systemPrompt, 'could not find documentation')) {
                 $this->unansweredTracker->logUnanswered($userMessage, 'articles below relevance threshold');
-
-                return 'I could not find documentation for that. Please try rephrasing your question or browse our Help Center.';
+                // Fall through with data tools rather than returning early
+                $systemPrompt = $this->promptAssembly->buildSystemPrompt(collect(), $userMessage);
             }
         }
 
@@ -128,14 +137,28 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Create a tool handler closure for searchHelpCenter and getArticleBySlug.
+     * Create a tool handler closure for all available tools.
      */
     private function createToolHandler(): callable
     {
         return function (string $name, array $args) {
             return match ($name) {
+                // Help Center
                 'searchHelpCenter' => $this->handleSearchHelpCenter($args),
                 'getArticleBySlug' => $this->handleGetArticleBySlug($args),
+                // Public data
+                'searchAgencies' => $this->handleSearchAgencies($args),
+                'getAgencyServices' => $this->handleGetAgencyServices($args),
+                'getServiceRequirements' => $this->handleGetServiceRequirements($args),
+                'searchServices' => $this->handleSearchServices($args),
+                'getCaseStatuses' => $this->handleGetCaseStatuses(),
+                // Auth-protected case tools
+                'searchCases' => $this->handleSearchCases($args),
+                'getCaseDetail' => $this->handleGetCaseDetail($args),
+                // OFW OTP verification
+                'initiateCaseOTP' => $this->handleInitiateCaseOTP($args),
+                'verifyCaseOTP' => $this->handleVerifyCaseOTP($args),
+                'getVerifiedCaseInfo' => $this->handleGetVerifiedCaseInfo($args),
                 default => json_encode(['error' => "Unknown tool: {$name}"]),
             };
         };
@@ -206,6 +229,137 @@ class ChatbotController extends Controller
                 : [],
         ]);
     }
+
+    /**
+     * Handle the searchAgencies tool call.
+     */
+    private function handleSearchAgencies(array $args): string
+    {
+        $query = $args['query'] ?? '';
+        $limit = min((int) ($args['limit'] ?? 5), 10);
+
+        if (empty($query)) {
+            return json_encode([]);
+        }
+
+        return json_encode($this->chatbotData->searchAgencies($query, $limit));
+    }
+
+    /**
+     * Handle the getAgencyServices tool call.
+     */
+    private function handleGetAgencyServices(array $args): string
+    {
+        $agencyId = $args['agencyId'] ?? '';
+
+        if (empty($agencyId)) {
+            return json_encode(['error' => 'Agency ID is required']);
+        }
+
+        return json_encode($this->chatbotData->getAgencyServices($agencyId));
+    }
+
+    /**
+     * Handle the getServiceRequirements tool call.
+     */
+    private function handleGetServiceRequirements(array $args): string
+    {
+        $serviceId = $args['serviceId'] ?? '';
+
+        if (empty($serviceId)) {
+            return json_encode(['error' => 'Service ID is required']);
+        }
+
+        return json_encode($this->chatbotData->getServiceRequirements($serviceId));
+    }
+
+    /**
+     * Handle the searchServices tool call.
+     */
+    private function handleSearchServices(array $args): string
+    {
+        $query = $args['query'] ?? '';
+        $limit = min((int) ($args['limit'] ?? 5), 10);
+
+        if (empty($query)) {
+            return json_encode([]);
+        }
+
+        return json_encode($this->chatbotData->searchServices($query, $limit));
+    }
+
+    /**
+     * Handle the getCaseStatuses tool call.
+     */
+    private function handleGetCaseStatuses(): string
+    {
+        return json_encode($this->chatbotData->getCaseStatuses());
+    }
+
+    // ──────────────────────────────────────────────
+    //  Auth-protected case tools
+    // ──────────────────────────────────────────────
+
+    private function handleSearchCases(array $args): string
+    {
+        $query = $args['query'] ?? '';
+        $limit = min((int) ($args['limit'] ?? 5), 10);
+
+        return json_encode($this->chatbotCase->searchCases($query, $limit));
+    }
+
+    private function handleGetCaseDetail(array $args): string
+    {
+        $caseId = $args['caseId'] ?? '';
+
+        if (empty($caseId)) {
+            return json_encode(['success' => false, 'message' => 'Case ID is required']);
+        }
+
+        return json_encode($this->chatbotCase->getCaseDetail($caseId));
+    }
+
+    // ──────────────────────────────────────────────
+    //  OFW OTP verification tools
+    // ──────────────────────────────────────────────
+
+    private function handleInitiateCaseOTP(array $args): string
+    {
+        $trackerNumber = $args['trackerNumber'] ?? '';
+
+        if (empty($trackerNumber)) {
+            return json_encode(['success' => false, 'message' => 'Tracker number is required.']);
+        }
+
+        return json_encode($this->chatbotCase->initiateCaseOTP($trackerNumber));
+    }
+
+    private function handleVerifyCaseOTP(array $args): string
+    {
+        $trackerNumber = $args['trackerNumber'] ?? '';
+        $otp = $args['otp'] ?? '';
+
+        if (empty($trackerNumber) || empty($otp)) {
+            return json_encode(['success' => false, 'message' => 'Both tracker number and verification code are required.']);
+        }
+
+        return json_encode($this->chatbotCase->verifyCaseOTP($trackerNumber, $otp));
+    }
+
+    private function handleGetVerifiedCaseInfo(array $args): string
+    {
+        $trackerNumber = $args['trackerNumber'] ?? '';
+
+        if (empty($trackerNumber)) {
+            return json_encode(['success' => false, 'message' => 'Tracker number is required.']);
+        }
+
+        return json_encode($this->chatbotCase->getVerifiedCaseInfo($trackerNumber));
+    }
+
+    // ──────────────────────────────────────────────
+    //  Keyword fallback
+    // ──────────────────────────────────────────────
 
     private function getResponse(string $message): string
     {

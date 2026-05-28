@@ -49,18 +49,18 @@ class ChatbotTest extends TestCase
 
         $response->assertOk()
             ->assertJsonStructure(['reply'])
-            ->assertSeeText('Case status inquiries');
+            ->assertSeeText('OFW case status inquiries');
     }
 
     public function test_keyword_case_response()
     {
         $response = $this->postJson(route('chatbot.message'), [
-            'message' => 'I need to track my case',
+            'message' => 'I have a case question',
         ]);
 
         $response->assertOk()
             ->assertJsonStructure(['reply'])
-            ->assertSeeText('tracking portal');
+            ->assertSeeText('case manager');
     }
 
     public function test_keyword_default_response()

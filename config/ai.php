@@ -6,4 +6,10 @@ return [
         'temperature' => (float) env('AI_TEMPERATURE', 0.7),
         'max_tokens' => (int) env('AI_MAX_TOKENS', 500),
     ],
+
+    'providers' => [
+        'gemini' => [
+            'model' => env('GEMINI_MODEL', 'gemini-2.0-flash'),
+        ],
+    ],
 ];

@@ -1,5 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+
+import ChatBot from '@/Components/ChatBot';
 import AppHeader from '@/Components/landing/AppHeader';
 
 function SearchBar({ query, onSearch, large }) {
@@ -144,6 +146,8 @@ export default function HelpdeskLayout({ title, children, categories, activeSlug
       <Head title={`${title} - Help Center`} />
 
       <AppHeader onTrackCaseClick={() => window.location.href = route('track.index')} />
+
+      <ChatBot />
 
       <div className="mx-auto max-w-7xl px-4 pt-6 pb-2 sm:px-6 lg:px-8">
         {showSearchHero && (
