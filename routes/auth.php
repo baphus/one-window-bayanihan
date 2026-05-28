@@ -18,7 +18,8 @@ Route::middleware('guest')->group(function () {
     })->name('login');
 
     Route::post('login', [LoginOtpController::class, 'init'])
-        ->middleware('throttle:login');
+        ->middleware('throttle:login')
+        ->name('login.init');
 
     Route::post('login/verify-otp', [LoginOtpController::class, 'verifyOtp'])
         ->middleware('throttle:otp')
