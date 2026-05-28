@@ -50,7 +50,7 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **one-window-bayanihan** (2696 symbols, 4716 relationships, 54 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **one-window-bayanihan** (3401 symbols, 6025 relationships, 87 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -77,19 +77,6 @@ This project is indexed by GitNexus as **one-window-bayanihan** (2696 symbols, 4
 | `gitnexus://repo/one-window-bayanihan/clusters` | All functional areas |
 | `gitnexus://repo/one-window-bayanihan/processes` | All execution flows |
 | `gitnexus://repo/one-window-bayanihan/process/{name}` | Step-by-step execution trace |
-
-## Mailpit (Dev Email Sandbox)
-
-| Item | Detail |
-|------|--------|
-| **Web UI** | http://127.0.0.1:8025 |
-| **SMTP** | `127.0.0.1:1025` (no auth) |
-| **Start** | `.\start-mailpit.ps1` |
-| **Install** | `winget install axllent.mailpit` |
-| **Config** | `.env` uses `MAIL_MAILER=smtp` → Mailpit SMTP on port 1025 |
-| **Queue** | OTP emails are queued (`->queue()`) via `QUEUE_CONNECTION=database`. The `composer run dev` command runs `queue:listen`. If running `php artisan serve` alone, run `php artisan queue:work --once` per email or `php artisan queue:listen` in a separate terminal. |
-
-**debug_otp_enabled** is `true` in `system_settings` — the OTP is displayed on the login page for easy sign-in during development.
 
 ## CLI
 

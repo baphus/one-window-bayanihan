@@ -17,6 +17,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HelpdeskController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportsController;
@@ -47,9 +48,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $user = request()->user();
 
         $data = match ($user->role) {
-            'AGENCY' => $service->getAgencyData($user->agcy_id),
+            'AGENCY' => $service->getAgencyData($user),
             'ADMIN' => $service->getAdminData(),
-            default => $service->getCaseManagerData(),
+            default => $service->getCaseManagerData($user),
         };
 
         $data['role'] = $user->role;
@@ -102,6 +103,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
+    Route::patch('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
 
     Route::middleware('role:AGENCY')->group(function () {
         Route::get('/services', [AgencyServiceController::class, 'index'])->name('agency.services.index');

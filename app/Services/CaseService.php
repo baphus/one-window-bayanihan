@@ -9,11 +9,18 @@ use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
 use App\Models\Referral;
+use App\Models\User;
+use App\Notifications\CaseStatusUpdated;
+use App\Notifications\CaseUpdated;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CaseService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+    ) {}
+
     public function createCase(array $data, string $userId, bool $isDraft = false): CaseFile
     {
         return DB::transaction(function () use ($data, $userId, $isDraft) {
@@ -182,6 +189,9 @@ class CaseService
                 'user_id' => $userId,
             ]);
 
+            // Dispatch notifications
+            $this->dispatchCaseUpdateNotification($case, $old, $userId);
+
             return $case->load([
                 'client.addresses',
                 'client.employments',
@@ -313,6 +323,9 @@ class CaseService
                 'user_id' => $userId,
             ]);
 
+            // Dispatch status change notification
+            $this->dispatchStatusChangeNotification($case, $old['status'] ?? 'UNKNOWN', $case->status, $userId);
+
             return $case->load([
                 'client.addresses',
                 'client.employments',
@@ -323,6 +336,70 @@ class CaseService
                 'user',
             ]);
         });
+    }
+
+    private function dispatchCaseUpdateNotification(CaseFile $case, array $oldData, string $userId): void
+    {
+        $user = User::find($userId);
+        $updatedBy = $user?->name ?? 'Unknown';
+        $case->loadMissing('client');
+
+        $changes = [];
+        $meaningfulFields = ['client_type', 'vulnerability_indicator', 'summary'];
+
+        foreach ($meaningfulFields as $field) {
+            $oldVal = $oldData[$field] ?? null;
+            $newVal = $case->$field ?? null;
+
+            if ($oldVal !== $newVal) {
+                $changes[$field] = ['old' => $oldVal, 'new' => $newVal];
+            }
+        }
+
+        if (empty($changes)) {
+            return;
+        }
+
+        $caseManager = User::find($case->user_id);
+        $notifyUsers = $caseManager ? [$caseManager] : [];
+
+        $clientEmail = $case->client?->email ?? '';
+
+        $this->notificationService->notifyAll(
+            $case,
+            $notifyUsers,
+            $clientEmail,
+            new CaseUpdated($case, $updatedBy, $changes),
+            'case_updated',
+            'Case Updated',
+            "Case #{$case->case_number} updated by {$updatedBy}",
+            ['changes' => $changes],
+            route('cases.show', $case->id),
+        );
+    }
+
+    private function dispatchStatusChangeNotification(CaseFile $case, string $oldStatus, string $newStatus, string $userId): void
+    {
+        $user = User::find($userId);
+        $updatedBy = $user?->name ?? 'Unknown';
+        $case->loadMissing('client');
+
+        $caseManager = User::find($case->user_id);
+        $notifyUsers = $caseManager ? [$caseManager] : [];
+
+        $clientEmail = $case->client?->email ?? '';
+
+        $this->notificationService->notifyAll(
+            $case,
+            $notifyUsers,
+            $clientEmail,
+            new CaseStatusUpdated($case, $oldStatus, $newStatus),
+            'case_status_updated',
+            'Case Status Updated',
+            "Case #{$case->case_number} status changed from {$oldStatus} to {$newStatus}",
+            ['old_status' => $oldStatus, 'new_status' => $newStatus],
+            route('cases.show', $case->id),
+        );
     }
 
     private function generateCaseNumber(): string

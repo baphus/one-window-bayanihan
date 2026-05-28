@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
-    public function getCaseManagerData(): array
+    public function getCaseManagerData(?User $user = null): array
     {
         $formatter = app(AuditLogFormatter::class);
 
@@ -140,13 +140,16 @@ class DashboardService
             'updatedAt' => $r->updated_at?->toISOString() ?? now()->toISOString(),
         ])->values()->toArray();
 
-        $dashboardNotifications = array_map(fn ($a) => [
-            'id' => $a['id'],
-            'title' => $a['title'],
-            'message' => $a['desc'],
-            'time' => $a['time'],
-            'type' => 'info',
-        ], array_slice($recentActivity, 0, 3));
+        $recentNotifications = $user
+            ? $user->notifications()->latest()->take(3)->get()->map(fn ($n) => [
+                'id' => $n->id,
+                'title' => $n->data['message'] ?? 'Notification',
+                'message' => $n->data['message'] ?? '',
+                'time' => $n->created_at->diffForHumans(),
+                'read' => $n->read_at !== null,
+                'type' => $n->data['type'] ?? 'info',
+            ])
+            : collect();
 
         $closedCaseDays = CaseFile::where('status', 'CLOSED')
             ->selectRaw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days')
@@ -179,14 +182,16 @@ class DashboardService
             'agencyBreakdown' => $agencyBreakdown,
             'casesOverTime' => $casesOverTime,
             'recentActivity' => $recentActivity,
-            'dashboardNotifications' => $dashboardNotifications,
+            'dashboardNotifications' => $recentNotifications->toArray(),
             'averageCaseDaysToClose' => $averageCaseDaysToClose,
         ];
     }
 
-    public function getAgencyData(string $agencyId): array
+    public function getAgencyData(?User $user = null): array
     {
         $formatter = app(AuditLogFormatter::class);
+
+        $agencyId = $user?->agcy_id;
 
         $totalReferrals = Referral::where('agcy_id', $agencyId)->count();
         $pendingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PENDING')->count();
@@ -201,23 +206,17 @@ class DashboardService
             ->get()
             ->toArray();
 
-        $pendingNotifications = Referral::with(['caseFile.client'])
-            ->where('agcy_id', $agencyId)
-            ->where('status', 'PENDING')
-            ->orderBy('created_at', 'desc')
-            ->take(3)
-            ->get()
-            ->map(fn ($r) => [
-                'id' => $r->id,
-                'title' => 'New Referral',
-                'message' => $r->caseFile?->case_number
-                    ? 'Case '.$r->caseFile->case_number.' has been referred to you.'
-                    : 'A new referral has been assigned to your agency.',
-                'time' => $r->created_at?->diffForHumans() ?? 'N/A',
-                'type' => 'info',
-                'read' => false,
+        $pendingNotifications = $user
+            ? $user->notifications()->latest()->take(3)->get()->map(fn ($n) => [
+                'id' => $n->id,
+                'title' => $n->data['message'] ?? 'Notification',
+                'message' => $n->data['message'] ?? '',
+                'time' => $n->created_at->diffForHumans(),
+                'read' => $n->read_at !== null,
+                'type' => $n->data['type'] ?? 'info',
             ])
-            ->toArray();
+                ->toArray()
+            : [];
 
         $referralIds = Referral::where('agcy_id', $agencyId)->pluck('id');
         $recentActivity = AuditLog::whereIn('entity_id', $referralIds)

@@ -9,6 +9,7 @@ use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
 use App\Models\User;
+use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,10 @@ use Illuminate\Support\Str;
 
 class ReferralService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+    ) {}
+
     public function createReferral(array $data, string $userId): Referral
     {
         return DB::transaction(function () use ($data, $userId) {
@@ -45,6 +50,19 @@ class ReferralService
                 ->where('is_active', true)
                 ->get();
             Notification::send($agencyUsers, new ReferralCreated($referral));
+
+            // Also create OFW notification for the case client
+            if ($referral->caseFile && $referral->caseFile->client && $referral->caseFile->client->email) {
+                $this->notificationService->notifyOfw(
+                    $referral->caseFile,
+                    $referral->caseFile->client->email,
+                    'referral_created',
+                    'New Referral',
+                    'A new referral has been created for your case.',
+                    ['referral_id' => $referral->id, 'status' => $referral->status],
+                    route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
+                );
+            }
 
             return $referral->load(['agency', 'caseFile', 'milestones']);
         });
@@ -156,6 +174,23 @@ class ReferralService
                         new ReferralStatusChanged($referral, $oldStatus, $status),
                     );
                 }
+
+                // Also create OFW notification
+                if ($referral->caseFile->client && $referral->caseFile->client->email) {
+                    $this->notificationService->notifyOfw(
+                        $referral->caseFile,
+                        $referral->caseFile->client->email,
+                        'referral_status_changed',
+                        'Referral Status Updated',
+                        "Referral status changed from {$oldStatus} to {$status}.",
+                        [
+                            'referral_id' => $referral->id,
+                            'old_status' => $oldStatus,
+                            'new_status' => $status,
+                        ],
+                        route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
+                    );
+                }
             }
 
             return $referral->fresh(['agency', 'caseFile', 'milestones']);
@@ -179,6 +214,37 @@ class ReferralService
                 'new_value' => $milestone->toArray(),
                 'user_id' => $userId,
             ]);
+
+            // Dispatch notifications for the milestone
+            $referral = $milestone->referral ?? Referral::find($referralId);
+            if ($referral && $referral->caseFile) {
+                $caseManager = User::find($referral->caseFile->user_id);
+                $agencyUsers = User::where('agcy_id', $referral->agcy_id)
+                    ->where('is_active', true)
+                    ->get();
+
+                $notifyUsers = collect();
+                if ($caseManager) {
+                    $notifyUsers->push($caseManager);
+                }
+                foreach ($agencyUsers as $au) {
+                    $notifyUsers->push($au);
+                }
+
+                $clientEmail = $referral->caseFile->client?->email ?? '';
+
+                $this->notificationService->notifyAll(
+                    $referral->caseFile,
+                    $notifyUsers->unique('id')->all(),
+                    $clientEmail,
+                    new MilestoneAdded($milestone, $referral),
+                    'milestone_added',
+                    'New Milestone Added',
+                    "New milestone '{$title}' added to referral.",
+                    ['referral_id' => $referralId, 'milestone_id' => $milestone->id, 'milestone_title' => $title],
+                    route('referrals.show', $referral->id),
+                );
+            }
 
             return $milestone->load('user');
         });

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use App\Models\CaseNotification;
 
 class TrackingService
 {
@@ -37,6 +38,8 @@ class TrackingService
     {
         $client = $case->client;
         $referrals = $case->referrals;
+        $caseNotifications = [];
+        $unreadCount = 0;
 
         $caseOverview = [
             'narrative' => $case->summary ?? '',
@@ -132,6 +135,29 @@ class TrackingService
             ];
         })->toArray();
 
+        $unreadCount = 0;
+        $caseNotifications = [];
+
+        if ($case->client && $case->client->email) {
+            $notifications = CaseNotification::where('case_id', $case->id)
+                ->where('client_email', $case->client->email)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $unreadCount = $notifications->whereNull('read_at')->count();
+
+            $caseNotifications = $notifications->map(fn ($notification) => [
+                'id' => $notification->id,
+                'type' => $notification->type,
+                'title' => $notification->title,
+                'message' => $notification->message,
+                'data' => $notification->data,
+                'related_url' => $notification->related_url,
+                'created_at' => $notification->created_at->toISOString(),
+                'read' => $notification->read_at !== null,
+            ])->values()->toArray();
+        }
+
         return [
             'trackingId' => $case->tracker_number,
             'trackedCase' => [
@@ -148,6 +174,10 @@ class TrackingService
             'caseOverview' => $caseOverview,
             'caseTimeline' => $timeline,
             'trackingAgencies' => $agencyCards,
+            'caseNotifications' => [
+                'unread_count' => $unreadCount,
+                'items' => $caseNotifications,
+            ],
         ];
     }
 
