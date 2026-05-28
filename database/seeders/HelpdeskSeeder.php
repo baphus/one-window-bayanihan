@@ -341,7 +341,7 @@ Monitor your case status anytime using the online tracking feature.
 ## How to Track
 
 1. Go to the **Track Case** page on the homepage
-2. Enter your **tracking number** (format: OW-XXXXXXX)
+2. Enter your **tracking number** (format: OWBAP-XXXXXXX)
 3. Enter the **OTP code** sent to your registered mobile number
 4. View your case status and timeline
 

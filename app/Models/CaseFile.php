@@ -43,4 +43,9 @@ class CaseFile extends Model
     {
         return $this->hasMany(Referral::class, 'case_id');
     }
+
+    public function documents()
+    {
+        return $this->hasMany(CaseDocument::class, 'case_id');
+    }
 }

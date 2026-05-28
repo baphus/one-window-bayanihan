@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class CaseDocument extends Model
 {
-    use HasFactory, UsesUuid, SoftDeleteFlag;
+    use HasFactory, SoftDeleteFlag, UsesUuid;
 
     protected $fillable = [
         'file_name',
@@ -17,6 +17,9 @@ class CaseDocument extends Model
         'file_type',
         'case_id',
         'user_id',
+        'is_deleted',
+        'deleted_at',
+        'deleted_by',
     ];
 
     protected $casts = [

@@ -29,8 +29,8 @@ export default function TrackingPortal() {
       return;
     }
 
-    if (!/^OW-[A-Z0-9]{7}$/.test(normalized)) {
-      setInputError('Tracking ID must be in the format OW-XXXXXXX.');
+    if (!/^OWBAP-[A-Z0-9]{7}$/.test(normalized)) {
+      setInputError('Tracking ID must be in the format OWBAP-XXXXXXX.');
       return;
     }
 
@@ -128,7 +128,7 @@ export default function TrackingPortal() {
                   <span className="material-symbols-outlined text-primary text-[20px]">info</span>
                   <div className="text-sm text-on-surface-variant leading-relaxed">
                     <p className="font-semibold text-primary mb-1">Where can I find my Tracking ID?</p>
-                    <p>Tracking IDs (e.g., OW-A7K2M9Q) are typically found on your acknowledgment receipt or sent via SMS/Email after your initial case intake.</p>
+                    <p>Tracking IDs (e.g., OWBAP-A7K2M9Q) are typically found on your acknowledgment receipt or sent via SMS/Email after your initial case intake.</p>
                   </div>
                 </div>
               </div>

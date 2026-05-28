@@ -12,7 +12,7 @@
 
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
-| FR-AUTH-001 | Require authentication for admin users | `auth` middleware on all protected route groups | Route list, middleware coverage | ✅ |
+| FR-AUTH-001 | Require authentication for admin users | `auth` and `verified` middleware on all protected route groups | Route list, middleware coverage | ✅ |
 | FR-AUTH-002 | OTP MFA for admin access | `LoginOtpController` + `OtpService` (6-digit, 5-min TTL) | Integration test, manual flow | ✅ |
 | FR-AUTH-003 | Tracker + OTP for OFW tracking | `TrackController` — `/track/send-otp`, `/track/verify-otp` | Integration test, manual | ✅ |
 | FR-AUTH-004 | Role-based feature restriction | Spatie `laravel-permission`, `role:` middleware | Route permissions test | ✅ |
@@ -123,12 +123,12 @@
 
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
-| FR-AI-001 | AI chatbot interface | `ChatbotController@message` route | Route check | ✅ |
+| FR-AI-001 | AI chatbot interface | `ChatbotController@message` route | Route check | 🟡 |
 | FR-AI-002 | Automated FAQ responses | ChatbotService integration (if enabled) | 🔴 Not fully implemented |
 | FR-AI-003 | Procedural guidance | Same as above | 🔴 Not fully implemented |
 | FR-AI-004 | Navigation assistance | Same as above | 🔴 Not fully implemented |
 | FR-AI-005 | No confidential data exposure | AI is restricted to non-sensitive queries | 🔴 Not fully implemented |
-| FR-AI-006 | Fallback for unresolved requests | Default "I cannot answer" response | 🟡 Partial |
+| FR-AI-006 | Fallback for unresolved requests | Default "I cannot answer" response | ✅ |
 | FR-AI-007 | Optional chat logging | Not yet implemented | 🔴 Not Done |
 
 ### 1.9 Analytics & Reporting (SRS §4.9)

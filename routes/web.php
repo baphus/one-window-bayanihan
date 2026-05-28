@@ -12,6 +12,7 @@ use App\Http\Controllers\AgencyServiceController;
 use App\Http\Controllers\AnonymizedAnalyticsController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
+use App\Http\Controllers\CaseDocumentController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
@@ -71,6 +72,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
     Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
     Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
+
+    Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
+    Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
+    Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
+    Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
+    Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
 
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');

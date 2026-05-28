@@ -334,6 +334,8 @@ Unique constraint on `(agency_id, service_name)`.
 
 ### 8.3 `case_documents` — Case-Level Documents
 
+**Note:** This table is implemented (model + migration exist).
+
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | uuid | PK |

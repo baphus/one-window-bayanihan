@@ -26,14 +26,14 @@ All routes use Inertia.js — responses are server-rendered page visits, not JSO
 |---|---|---|---|---|---|
 | GET | `/login` | login | LoginOtpController@create | guest | Show login form |
 | POST | `/login` | login.attempt | LoginOtpController@store | guest, throttle:login | Submit credentials |
-| POST | `/login/otp` | login.otp | LoginOtpController@verify | guest, throttle:otp | Verify OTP code |
+| POST | `/login/verify-otp` | login.otp | LoginOtpController@verify | guest, throttle:otp | Verify OTP code |
 | POST | `/logout` | logout | LoginOtpController@destroy | auth | Logout |
 | GET | `/register` | register | RegisteredUserController@create | guest | Show register form |
 | POST | `/register` | register | RegisteredUserController@store | guest | Submit registration |
-| GET | `/forgot-password` | password.request | PasswordResetController@create | guest | Show forgot password |
-| POST | `/forgot-password` | password.email | PasswordResetController@store | guest, throttle:login | Send reset link |
-| GET | `/reset-password/{token}` | password.reset | PasswordResetController@create | guest | Show reset form |
-| POST | `/reset-password` | password.store | PasswordResetController@store | guest | Submit reset |
+| GET | `/forgot-password` | password.request | PasswordResetController@create | guest | Show forgot password (not implemented) |
+| POST | `/forgot-password` | password.email | PasswordResetController@store | guest, throttle:login | Send reset link (not implemented) |
+| GET | `/reset-password/{token}` | password.reset | PasswordResetController@create | guest | Show reset form (not implemented) |
+| POST | `/reset-password` | password.store | PasswordResetController@store | guest | Submit reset (not implemented) |
 
 **Rate Limits:**
 - Login: 6 attempts/minute (`throttle:login`)
@@ -198,7 +198,7 @@ Returns: PDF file download (application/pdf).
 
 ## 8. Administrative Routes (Admin-only + IP Whitelist)
 
-All routes in this section require `role:ADMIN` + `ip.whitelist` middleware.
+All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitelist` middleware.
 
 ### 8.1 Agency Management (`/admin/agencies`)
 

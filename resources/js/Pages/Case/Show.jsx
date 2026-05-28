@@ -1,9 +1,9 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
-import { Eye } from 'lucide-react';
+import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
@@ -54,6 +54,7 @@ function Subsection({ title, children }) {
 }
 
 export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
+  const { auth } = usePage().props;
   const client = caseFile.client;
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
@@ -61,6 +62,45 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
   const [saving, setSaving] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const docInputRef = useRef(null);
+  
+  function handleDocumentUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds 10MB limit.');
+      if (docInputRef.current) docInputRef.current.value = '';
+      return;
+    }
+
+    setUploadingDoc(true);
+    router.post(
+      route('cases.documents.store', caseFile.id),
+      { file },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setUploadingDoc(false);
+          if (docInputRef.current) docInputRef.current.value = '';
+        },
+        onError: () => {
+          setUploadingDoc(false);
+          if (docInputRef.current) docInputRef.current.value = '';
+        },
+      }
+    );
+  }
+
+  function handleDocumentDelete(docId) {
+    if (confirm('Are you sure you want to delete this document?')) {
+      router.delete(route('cases.documents.destroy', [caseFile.id, docId]), {
+        preserveScroll: true,
+      });
+    }
+  }
+
   const initialEditRef = useRef({ clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', summary: caseFile.summary || '' });
   const hasEditDirty = useMemo(() => (
     formClientType !== initialEditRef.current.clientType
@@ -426,6 +466,77 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CardSection title="Case Documents" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+              <div className="space-y-4">
+                {caseFile.documents?.length > 0 ? (
+                  <div className="space-y-2">
+                    {caseFile.documents.map((doc) => {
+                      const canDelete = auth.user?.id === caseFile.user_id || auth.user?.role === 'ADMIN';
+                      return (
+                        <div key={doc.id} className="flex items-center justify-between rounded-[3px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold text-slate-700 truncate">{doc.file_name}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {doc.user?.name || 'Unknown'} &middot; {doc.created_at ? formatDisplayDateTime(doc.created_at) : ''}
+                              {doc.size ? ` \u00b7 ${(doc.size / 1024).toFixed(1)} KB` : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <a
+                              href={doc.file_path}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-slate-500 hover:text-[#0b5384]"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </a>
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDocumentDelete(doc.id)}
+                                className="text-slate-400 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
+                )}
+                
+                <div 
+                  className="bg-white border border-dashed border-[#cbd5e1] rounded-[3px] p-4 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => docInputRef.current?.click()}
+                >
+                  <div className="text-center">
+                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#eff6ff] text-[#0b5384] border border-[#bfdbfe]">
+                      {uploadingDoc ? (
+                        <span className="material-symbols-outlined text-[20px] animate-spin">sync</span>
+                      ) : (
+                        <span className="material-symbols-outlined text-[20px]">upload</span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#0b5384]">
+                      {uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-500">PDF or image up to 10MB</p>
+                  </div>
+                  <input
+                    type="file"
+                    ref={docInputRef}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                    onChange={handleDocumentUpload}
+                    disabled={uploadingDoc}
+                  />
+                </div>
+              </div>
+            </CardSection>
+
+            <CardSection title="Referral Attachments" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
               {allAttachments.length > 0 ? (
                 <div className="space-y-2">
                   {allAttachments.map((att) => (
@@ -433,7 +544,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                       <div className="min-w-0">
                         <p className="text-[12px] font-semibold text-slate-700 truncate">{att.file_name}</p>
                         <p className="text-[10px] text-slate-500">
-                          {att.user?.name || 'Unknown'} &middot; {att.created_at ? formatDisplayDateTime(att.created_at) : ''}
+                          {att.agencyName || att.user?.name || 'Unknown'} &middot; {att.created_at ? formatDisplayDateTime(att.created_at) : ''}
                           {att.size ? ` \u00b7 ${(att.size / 1024).toFixed(1)} KB` : ''}
                         </p>
                       </div>
@@ -449,19 +560,9 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-[12px] text-slate-500 py-2">No documents attached to this case.</p>
+                <p className="text-[12px] text-slate-500 py-2">No documents attached from referrals.</p>
               )}
             </CardSection>
-
-            <div className="bg-white border border-dashed border-[#cbd5e1] rounded-[3px] p-4 flex items-center justify-center">
-              <div className="text-center">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#eff6ff] text-[#0b5384] border border-[#bfdbfe]">
-                  <span className="material-symbols-outlined text-[20px]">upload</span>
-                </div>
-                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#0b5384]">Upload New File</p>
-                <p className="mt-1 text-[10px] text-slate-500">PDF or image up to 10MB</p>
-              </div>
-            </div>
           </section>
         </main>
 

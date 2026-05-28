@@ -41,7 +41,7 @@ class AuditEventViewTest extends TestCase
             'id' => fake()->uuid(),
             'case_number' => 'CASE-'.fake()->unique()->numberBetween(1000, 9999),
             'client_type' => 'OFW',
-            'tracker_number' => 'OWBAP-'.strtoupper(fake()->bothify('????')),
+            'tracker_number' => 'OWBAP-'.strtoupper(fake()->bothify('???????')),
             'status' => 'OPEN',
             'user_id' => $this->user->id,
         ]);

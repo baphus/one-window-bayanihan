@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -20,10 +22,18 @@ class AuthenticationTest extends TestCase
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create();
+        SystemSetting::setValue('debug_otp_enabled', false);
 
-        $response = $this->post('/login', [
+        $this->post('/login', [
             'email' => $user->email,
             'password' => 'password',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+
+        $response = $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
         ]);
 
         $this->assertAuthenticated();

@@ -157,6 +157,7 @@ class CaseService
             'referrals.agency',
             'referrals.attachments.user',
             'user',
+            'documents' => fn ($q) => $q->where('is_deleted', false),
         ])->findOrFail($id);
     }
 
@@ -334,7 +335,7 @@ class CaseService
 
     private function generateTrackerNumber(): string
     {
-        return 'OWBAP-'.strtoupper(Str::random(8));
+        return 'OWBAP-'.strtoupper(Str::random(7));
     }
 
     public function getCaseStats(): array

@@ -1,8 +1,13 @@
+import { usePage } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { MessageCircle, X, Send } from 'lucide-react';
 
 export default function ChatBot() {
+    const { chatbot } = usePage().props;
+
+    if (!chatbot?.enabled) return null;
+
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState([
         { role: 'bot', text: 'Hello! How can I help you today?' },

@@ -47,5 +47,7 @@ class PasswordUpdateTest extends TestCase
         $response
             ->assertSessionHasErrors('current_password')
             ->assertRedirect('/profile');
+
+        $this->assertTrue(Hash::check('password', $user->refresh()->password));
     }
 }

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SystemSetting;
+use App\Services\Ai\AiService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ChatbotController extends Controller
 {
@@ -18,14 +21,35 @@ class ChatbotController extends Controller
         'default' => 'I\'m not sure I understand. Please try asking about:\n- Case tracking\n- Required documents\n- Agency services\n- Referral process\nOr type "help" to see all options.',
     ];
 
+    public function __construct(
+        private readonly AiService $aiService,
+    ) {}
+
     public function message(Request $request)
     {
         $request->validate([
             'message' => ['required', 'string', 'max:1000'],
         ]);
 
-        $message = strtolower(trim($request->input('message')));
+        $userMessage = $request->input('message');
 
+        // Try AI first
+        try {
+            $aiReply = $this->aiService->sendMessage($userMessage);
+            if (! empty($aiReply)) {
+                return response()->json([
+                    'reply' => nl2br(e($aiReply)),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Chatbot AI provider failed', [
+                'error' => $e->getMessage(),
+                'provider' => SystemSetting::getValue('chatbot_provider', 'unknown'),
+            ]);
+        }
+
+        // Fallback: keyword matching
+        $message = strtolower(trim($userMessage));
         $response = $this->getResponse($message);
 
         return response()->json([
