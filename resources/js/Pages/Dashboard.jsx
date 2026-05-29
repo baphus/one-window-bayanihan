@@ -140,7 +140,7 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
     );
 }
 
-function AdminDashboard({ stats, recentCases, recentLogs }) {
+function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
     return (
         <>
             <div className="mb-8">
@@ -154,6 +154,46 @@ function AdminDashboard({ stats, recentCases, recentLogs }) {
                 <KpiCard title="Users" value={stats.totalUsers} accent="border-l-blue-500" icon="people" />
                 <KpiCard title="Agencies" value={stats.totalAgencies} accent="border-l-green-500" icon="account_balance" />
             </div>
+
+            {/* System Health Overview */}
+            {systemHealth && (
+                <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-base font-semibold text-slate-900">System Health</h3>
+                        <Link href="/admin/system/health" className="text-sm text-indigo-600 hover:text-indigo-900">View Details</Link>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className={`rounded-xl border p-4 shadow-sm ${
+                            systemHealth.overallStatus === 'healthy' ? 'border-green-200 bg-green-50' :
+                            systemHealth.overallStatus === 'warning' ? 'border-yellow-200 bg-yellow-50' :
+                            systemHealth.overallStatus === 'critical' ? 'border-red-200 bg-red-50' :
+                            'border-slate-200 bg-white'
+                        }`}>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Overall Status</p>
+                            <p className={`text-lg font-bold mt-1 ${
+                                systemHealth.overallStatus === 'healthy' ? 'text-green-700' :
+                                systemHealth.overallStatus === 'warning' ? 'text-yellow-700' :
+                                systemHealth.overallStatus === 'critical' ? 'text-red-700' :
+                                'text-slate-700'
+                            }`}>{systemHealth.overallStatus || 'Unknown'}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Unread Alerts</p>
+                            <p className={`text-lg font-bold mt-1 ${systemHealth.alertCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {systemHealth.alertCount ?? 0}
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Last Check</p>
+                            <p className="text-lg font-bold mt-1 text-slate-700">{systemHealth.lastCheckAt || 'Never'}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Checks</p>
+                            <p className="text-lg font-bold mt-1 text-slate-700">{systemHealth.checks?.length ?? 0}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <RecentTable
@@ -807,7 +847,7 @@ export default function Dashboard(props) {
         return (
             <AppLayout title="Dashboard">
                 <Head title="Dashboard" />
-                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} />
+                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} systemHealth={systemHealth} />
             </AppLayout>
         );
     }

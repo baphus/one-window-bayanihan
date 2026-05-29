@@ -5,7 +5,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
-function CategoryForm({ show, onClose, category, allCategories }) {
+function CategoryForm({ show, onClose, category, allCategories, onBypass }) {
   const isEditing = !!category;
 
   const { data, setData, post, patch, processing, errors } = useForm({
@@ -20,6 +20,7 @@ function CategoryForm({ show, onClose, category, allCategories }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    onBypass?.();
     if (isEditing) {
       patch(route('admin.helpdesk.categories.update', category.id), {
         onSuccess: onClose,
@@ -145,7 +146,7 @@ function CategoryForm({ show, onClose, category, allCategories }) {
 export default function Categories({ categories, allCategories }) {
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   const openCreate = () => {
     setEditingCategory(null);
@@ -255,6 +256,7 @@ export default function Categories({ categories, allCategories }) {
         onClose={closeForm}
         category={editingCategory}
         allCategories={allCategories}
+        onBypass={bypassNext}
       />
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>

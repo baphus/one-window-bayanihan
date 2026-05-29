@@ -6,6 +6,7 @@ use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Referral;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -290,6 +291,24 @@ class DashboardService
         $totalUsers = User::count();
         $totalAgencies = Agency::count();
 
+        // System health data
+        $healthStatus = DB::table('health_check_logs')
+            ->select('check_type', 'status', 'metric_value', 'checked_at')
+            ->whereIn('id', function ($q) {
+                $q->selectRaw('MAX(id)')->from('health_check_logs')->groupBy('check_type');
+            })
+            ->orderBy('checked_at', 'desc')
+            ->get()
+            ->toArray();
+
+        $alertCount = DB::table('system_alert_logs')
+            ->where('is_deleted', false)
+            ->whereNull('read_at')
+            ->count();
+
+        $lastHealthCheck = SystemSetting::getValue('last_health_check_at', 'Never');
+        $overallStatus = SystemSetting::getValue('last_health_check_status', 'unknown');
+
         $recentCases = CaseFile::with(['client', 'user'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
@@ -340,6 +359,12 @@ class DashboardService
             'totalAgencies' => $totalAgencies,
             'recentCases' => $recentCases,
             'recentLogs' => $recentLogs,
+            'systemHealth' => [
+                'checks' => $healthStatus,
+                'alertCount' => $alertCount,
+                'lastCheckAt' => $lastHealthCheck,
+                'overallStatus' => $overallStatus,
+            ],
         ];
     }
 }

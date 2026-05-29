@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
@@ -53,7 +53,7 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
         || notesValue !== ''
         || Object.keys(requirementUploads).length > 0
     ), [data.case_id, data.agcy_id, data.services, notesValue, requirementUploads]);
-    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
+    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
     const initialAgencyId = agencies[0]?.id || '';
     const selectedCase = openCases.find((item) => item.id === data.case_id);
     const selectedAgency = agencies.find((item) => item.id === data.agcy_id);
@@ -154,12 +154,12 @@ export default function ReferralCreate({ case_id, agencies, cases }) {
         });
         setData('notes', notesValue);
 
-        setTimeout(() => {
-            post(route('referrals.store'), {
-                onSuccess: () => { },
-                onError: () => { },
-            });
-        }, 0);
+        bypassNext();
+
+        post(route('referrals.store'), {
+            onSuccess: () => { },
+            onError: () => { },
+        });
     }
 
     return (

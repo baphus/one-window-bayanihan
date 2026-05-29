@@ -12,7 +12,7 @@ const roleOptions = [
   { value: 'ADMIN', label: 'System Admin' },
 ];
 
-function UserForm({ user, agencies, onClose }) {
+function UserForm({ user, agencies, onClose, onBypass }) {
   const isEdit = !!user;
   const { data, setData, post, patch, processing, errors } = useForm({
     name: user?.name ?? '',
@@ -27,6 +27,7 @@ function UserForm({ user, agencies, onClose }) {
 
   function handleSubmit(e) {
     e.preventDefault();
+    onBypass?.();
     if (isEdit) {
       patch(route('admin.users.update', user.id), { onSuccess: onClose });
     } else {
@@ -101,7 +102,7 @@ function UserForm({ user, agencies, onClose }) {
 export default function AdminUserIndex({ users, agencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   const roleLabels = { CASE_MANAGER: 'Case Manager', AGENCY: 'Agency Focal', ADMIN: 'System Admin' };
 
@@ -168,7 +169,7 @@ export default function AdminUserIndex({ users, agencies }) {
 
   return (
     <AppLayout title="Manage Users">
-      {showForm && <UserForm user={editingUser} agencies={agencies} onClose={() => { setShowForm(false); setEditingUser(null); }} />}
+      {showForm && <UserForm user={editingUser} agencies={agencies} onClose={() => { setShowForm(false); setEditingUser(null); }} onBypass={bypassNext} />}
       <Head title="Manage Users" />
       <div className="mb-8 flex items-center justify-between">
         <div>

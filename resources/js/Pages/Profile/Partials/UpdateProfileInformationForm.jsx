@@ -11,6 +11,7 @@ export default function UpdateProfileInformation({
     status,
     className = '',
     onDirtyChange,
+    onBypass,
 }) {
     const user = usePage().props.auth.user;
 
@@ -27,6 +28,7 @@ export default function UpdateProfileInformation({
 
     const submit = (e) => {
         e.preventDefault();
+        onBypass?.();
 
         patch(route('profile.update'), {
             onSuccess: () => onDirtyChange?.(false),

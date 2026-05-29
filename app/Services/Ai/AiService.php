@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\SystemSetting;
 use App\Services\Ai\Contracts\ToolEnabledAiProvider;
+use App\Services\Ai\Providers\AnthropicToolProvider;
 use App\Services\Ai\Providers\GeminiToolProvider;
 use App\Services\Ai\Providers\OpenAiToolProvider;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +22,7 @@ class AiService
 
         $providerName = SystemSetting::getValue('chatbot_provider', 'openai');
 
-        return in_array($providerName, ['openai', 'gemini']);
+        return in_array($providerName, ['openai', 'anthropic', 'gemini']);
     }
 
     public function getToolProvider(): ?ToolEnabledAiProvider
@@ -39,6 +40,7 @@ class AiService
         $maxTokens = (int) SystemSetting::getValue('chatbot_max_tokens', '500');
 
         return match ($providerName) {
+            'anthropic' => new AnthropicToolProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
             'gemini' => new GeminiToolProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
             default => new OpenAiToolProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
         };

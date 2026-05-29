@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import { useToast } from '@/Hooks/useToast';
 import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
@@ -41,6 +42,7 @@ function Subsection({ title, children }) {
 export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const { auth } = usePage().props;
   const client = caseFile.client;
+  const toast = useToast();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
@@ -92,7 +94,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     || formVulnerability !== initialEditRef.current.vulnerability
     || formSummary !== initialEditRef.current.summary
   ), [formClientType, formVulnerability, formSummary]);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasEditDirty && isEditOpen);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
@@ -126,6 +128,12 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   }, [caseFile.referrals, overdueDays]);
 
   const hasOverdueReferrals = useMemo(() => referralRows.some((r) => r.isOverdue), [referralRows]);
+
+  const hasActiveReferrals = useMemo(() => {
+    return (caseFile.referrals || []).some(
+      (ref) => !['COMPLETED', 'REJECTED'].includes(ref.status),
+    );
+  }, [caseFile.referrals]);
 
   const timelineItems = useMemo(() => {
     const items = [];
@@ -240,6 +248,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
   function handleSaveDetails() {
     setSaving(true);
+    bypassNext();
     router.patch(route('cases.update', caseFile.id), {
       client_type: formClientType,
       vulnerability_indicator: formVulnerability,
@@ -255,8 +264,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   }
 
   function handleToggleStatus() {
+    if (caseFile.status === 'OPEN' && hasActiveReferrals) {
+      toast.error('Cannot close case: One or more referrals are still pending or in progress.');
+      return;
+    }
     router.post(route('cases.toggle-status', caseFile.id), {}, {
       preserveScroll: true,
+      onError: (errors) => {
+        const msg = errors?.message || 'An error occurred while updating case status.';
+        toast.error(msg);
+      },
     });
   }
 
@@ -304,7 +321,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           <button
             type="button"
             onClick={handleToggleStatus}
-            className="px-3 min-h-[32px] bg-[#0b5384] text-white hover:bg-[#09416a] text-[12px] font-bold rounded-[3px] transition-colors border border-[#0b5384]"
+            disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
+            title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
+            className={`px-3 min-h-[32px] text-[12px] font-bold rounded-[3px] transition-colors border ${
+              caseFile.status === 'OPEN' && hasActiveReferrals
+                ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
+                : 'bg-[#0b5384] text-white hover:bg-[#09416a] border-[#0b5384]'
+            }`}
           >
             {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
           </button>

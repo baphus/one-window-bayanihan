@@ -58,5 +58,9 @@ export default function useUnsavedChanges(dirty) {
     pendingVisitRef.current = null;
   }, []);
 
-  return { showModal, confirmNavigation, cancelNavigation };
+  const bypassNext = useCallback(() => {
+    bypassRef.current = true;
+  }, []);
+
+  return { showModal, confirmNavigation, cancelNavigation, bypassNext };
 }

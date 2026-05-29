@@ -5,7 +5,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
-function TagForm({ show, onClose, tag }) {
+function TagForm({ show, onClose, tag, onBypass }) {
   const isEditing = !!tag;
 
   const { data, setData, post, patch, processing, errors } = useForm({
@@ -15,6 +15,7 @@ function TagForm({ show, onClose, tag }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    onBypass?.();
     if (isEditing) {
       patch(route('admin.helpdesk.tags.update', tag.id), {
         onSuccess: onClose,
@@ -82,7 +83,7 @@ function TagForm({ show, onClose, tag }) {
 export default function Tags({ tags }) {
   const [showForm, setShowForm] = useState(false);
   const [editingTag, setEditingTag] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   const openCreate = () => {
     setEditingTag(null);
@@ -172,6 +173,7 @@ export default function Tags({ tags }) {
         show={showForm}
         onClose={closeForm}
         tag={editingTag}
+        onBypass={bypassNext}
       />
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>

@@ -215,7 +215,7 @@ export default function CaseCreate() {
             || hasNextOfKin !== i.useState.hasNextOfKin
             || consent !== i.useState.consent;
     }, [data, clientSource, nokFirstName, nokLastName, nokContact, nokRelationship, clientGender, clientEmail, clientContact, lastCountry, lastJob, arrivalDate, hasNextOfKin, consent]);
-    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
+    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
 
     const stepProgress = Math.round((currentStep / STEPS.length) * 100);
 
@@ -284,6 +284,7 @@ export default function CaseCreate() {
         syncFormData();
         setData('is_draft', true);
         setData('consent', consent);
+        bypassNext();
         post(route('cases.store'), {
             onSuccess: () => { },
             preserveState: false,
@@ -293,6 +294,7 @@ export default function CaseCreate() {
     function handleSubmit(e) {
         e.preventDefault();
         syncFormData();
+        bypassNext();
         post(route('cases.store'), {
             onSuccess: () => { },
         });

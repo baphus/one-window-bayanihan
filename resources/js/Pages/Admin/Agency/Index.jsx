@@ -6,7 +6,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import StatusBadge from '@/Components/ui/StatusBadge';
 
-function AgencyForm({ agency, onClose }) {
+function AgencyForm({ agency, onClose, onBypass }) {
   const isEdit = !!agency;
   const { data, setData, post, patch, processing, errors } = useForm({
     name: agency?.name ?? '',
@@ -20,6 +20,7 @@ function AgencyForm({ agency, onClose }) {
 
   function handleSubmit(e) {
     e.preventDefault();
+    onBypass?.();
     if (isEdit) {
       patch(route('admin.agencies.update', agency.id), { onSuccess: onClose });
     } else {
@@ -82,7 +83,7 @@ function AgencyForm({ agency, onClose }) {
 export default function AdminAgencyIndex({ agencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   function paginatorProps(paginator) {
     return {
@@ -144,7 +145,7 @@ export default function AdminAgencyIndex({ agencies }) {
 
   return (
     <AppLayout title="Manage Agencies">
-      {showForm && <AgencyForm agency={editingAgency} onClose={() => { setShowForm(false); setEditingAgency(null); }} />}
+      {showForm && <AgencyForm agency={editingAgency} onClose={() => { setShowForm(false); setEditingAgency(null); }} onBypass={bypassNext} />}
       <Head title="Manage Agencies" />
       <div className="mb-8 flex items-center justify-between">
         <div>

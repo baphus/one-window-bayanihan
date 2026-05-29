@@ -166,6 +166,10 @@ class ReferralController extends Controller
 
     public function addAttachment(Request $request, string $id)
     {
+        if ($request->user()->role === 'AGENCY') {
+            abort(403, 'Agency users cannot upload attachments.');
+        }
+
         $request->validate([
             'file' => 'required|file|max:10240',
         ]);
@@ -191,6 +195,10 @@ class ReferralController extends Controller
 
     public function replaceAttachment(Request $request, string $id, string $attachmentId)
     {
+        if ($request->user()->role === 'AGENCY') {
+            abort(403, 'Agency users cannot replace attachments.');
+        }
+
         $request->validate([
             'file' => 'required|file|max:10240',
         ]);

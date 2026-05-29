@@ -18,7 +18,7 @@ export default function TrackingPortal() {
     data.tracker_number !== initialRef.current.tracker_number
     || data.email !== initialRef.current.email
   ), [data]);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
   const [inputError, setInputError] = useState('');
 
   const handleTrackSubmit = () => {
@@ -41,6 +41,7 @@ export default function TrackingPortal() {
 
     setInputError('');
     setData('tracker_number', normalized);
+    bypassNext();
     post(route('track.send-otp'));
   };
 

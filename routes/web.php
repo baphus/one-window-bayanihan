@@ -1,10 +1,19 @@
 <?php
 
+use App\Http\Controllers\Admin\ActiveSessionsController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
+use App\Http\Controllers\Admin\AlertConfigController;
+use App\Http\Controllers\Admin\BackupStatusController;
+use App\Http\Controllers\Admin\CloudinaryStorageController;
 use App\Http\Controllers\Admin\HelpdeskArticleController;
 use App\Http\Controllers\Admin\HelpdeskCategoryController;
 use App\Http\Controllers\Admin\HelpdeskTagController;
+use App\Http\Controllers\Admin\LogViewerController;
+use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
+use App\Http\Controllers\Admin\ScheduledTaskController;
+use App\Http\Controllers\Admin\SecuritySettingsController;
+use App\Http\Controllers\Admin\SystemHealthController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
@@ -161,6 +170,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/case-statuses', [AdminCaseStatusController::class, 'store'])->name('case-statuses.store');
         Route::patch('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'update'])->name('case-statuses.update');
         Route::delete('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'destroy'])->name('case-statuses.destroy');
+
+        Route::prefix('system')->name('system.')->group(function () {
+            Route::get('/health', [SystemHealthController::class, 'index'])->name('health');
+            Route::post('/health/run-checks', [SystemHealthController::class, 'runChecks'])->name('health.run-checks');
+
+            Route::get('/cloudinary', [CloudinaryStorageController::class, 'index'])->name('cloudinary');
+            Route::post('/cloudinary/refresh', [CloudinaryStorageController::class, 'refresh'])->name('cloudinary.refresh');
+
+            Route::get('/backups', [BackupStatusController::class, 'index'])->name('backups');
+            Route::post('/backups/refresh', [BackupStatusController::class, 'refresh'])->name('backups.refresh');
+
+            Route::get('/logs', [LogViewerController::class, 'index'])->name('logs');
+            Route::get('/logs/entries', [LogViewerController::class, 'entries'])->name('logs.entries');
+            Route::get('/logs/download', [LogViewerController::class, 'download'])->name('logs.download');
+
+            Route::get('/scheduled-tasks', [ScheduledTaskController::class, 'index'])->name('scheduled-tasks');
+            Route::post('/scheduled-tasks/{task}/toggle', [ScheduledTaskController::class, 'toggle'])->name('scheduled-tasks.toggle');
+
+            Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance');
+            Route::post('/maintenance/toggle', [MaintenanceController::class, 'toggle'])->name('maintenance.toggle');
+
+            Route::get('/security', [SecuritySettingsController::class, 'index'])->name('security');
+            Route::post('/security', [SecuritySettingsController::class, 'update'])->name('security.update');
+
+            Route::get('/active-sessions', [ActiveSessionsController::class, 'index'])->name('active-sessions');
+            Route::post('/active-sessions/{session}/terminate', [ActiveSessionsController::class, 'terminate'])->name('active-sessions.terminate');
+
+            Route::get('/alerts', [AlertConfigController::class, 'index'])->name('alerts');
+            Route::post('/alerts', [AlertConfigController::class, 'update'])->name('alerts.update');
+            Route::post('/alerts/test-email', [AlertConfigController::class, 'testEmail'])->name('alerts.test-email');
+        });
 
     });
 });

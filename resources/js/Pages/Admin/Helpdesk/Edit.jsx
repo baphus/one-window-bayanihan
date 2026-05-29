@@ -205,7 +205,7 @@ export default function Edit({ article, categories, tags }) {
     || data.featured !== articleInitialRef.current.featured
     || JSON.stringify(data.tag_ids) !== JSON.stringify(articleInitialRef.current.tag_ids)
   ), [data]);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasArticleDirty || showTagModal || showCatModal);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasArticleDirty || showTagModal || showCatModal);
 
   const titleToSlug = (title) => {
     return title
@@ -224,6 +224,7 @@ export default function Edit({ article, categories, tags }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    bypassNext();
     if (isEditing) {
       patch(route('admin.helpdesk.articles.update', article.id), {
         preserveScroll: true,

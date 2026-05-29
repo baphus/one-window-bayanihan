@@ -1,8 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useRef, useMemo } from 'react';
-import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
@@ -89,15 +87,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
 
-    const milestoneForm = useForm({ title: '', description: '' });
-
-    const milestoneInitialRef = useRef({ title: '', description: '' });
-    const hasDirty = useMemo(() => (
-        milestoneForm.data.title !== milestoneInitialRef.current.title
-        || milestoneForm.data.description !== milestoneInitialRef.current.description
-    ), [milestoneForm.data]);
-    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
-
     const documents = referral.attachments?.filter((a) => !a.is_archived) ?? [];
     const allDocuments = referral.attachments ?? [];
     const referredServices = parseReferredServices(referral.required_services);
@@ -149,6 +138,9 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     const [postingComment, setPostingComment] = useState(false);
     const [activeVersionGroupId, setActiveVersionGroupId] = useState(null);
 
+    const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+    const milestoneForm = useForm({ title: '', description: '' });
+
     const fileInputRefs = useRef({});
     const attachInputRef = useRef(null);
     const commentsEndRef = useRef(null);
@@ -173,11 +165,14 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         : [];
 
-    function handleMilestoneSubmit(e) {
+    function handleMilestoneModalSubmit(e) {
         e.preventDefault();
         milestoneForm.post(route('referrals.milestones.store', referral.id), {
             preserveScroll: true,
-            onSuccess: () => milestoneForm.reset(),
+            onSuccess: () => {
+                setShowMilestoneModal(false);
+                milestoneForm.reset();
+            },
         });
     }
 
@@ -345,23 +340,25 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                     </CardSection>
 
                     <CardSection title="Attached Documents" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2">
-                            <p className="text-[10px] text-slate-600">Attach additional files for this referral.</p>
-                            <button
-                                type="button"
-                                onClick={() => attachInputRef.current?.click()}
-                                className="h-[28px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a]"
-                            >
-                                Attach Document
-                            </button>
-                            <input
-                                ref={attachInputRef}
-                                type="file"
-                                multiple
-                                onChange={handleAttachDocuments}
-                                className="hidden"
-                            />
-                        </div>
+                        {!isAgency && (
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2">
+                                <p className="text-[10px] text-slate-600">Attach additional files for this referral.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => attachInputRef.current?.click()}
+                                    className="h-[28px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a]"
+                                >
+                                    Attach Document
+                                </button>
+                                <input
+                                    ref={attachInputRef}
+                                    type="file"
+                                    multiple
+                                    onChange={handleAttachDocuments}
+                                    className="hidden"
+                                />
+                            </div>
+                        )}
 
                         {documents.length > 0 ? (
                             <div className="space-y-3">
@@ -410,20 +407,24 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                                                     Versions
                                                                                 </button>
                                                                             )}
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => fileInputRefs.current[document.id]?.click()}
-                                                                                className="text-[10px] text-[#0b5384] font-bold hover:underline"
-                                                                            >
-                                                                                Replace
-                                                                            </button>
-                                                                            <input
-                                                                                ref={(el) => { fileInputRefs.current[document.id] = el; }}
-                                                                                data-doc-id={document.id}
-                                                                                type="file"
-                                                                                onChange={handleDocumentReplace}
-                                                                                className="hidden"
-                                                                            />
+                                                                            {!isAgency && (
+                                                                            <>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => fileInputRefs.current[document.id]?.click()}
+                                                                                    className="text-[10px] text-[#0b5384] font-bold hover:underline"
+                                                                                >
+                                                                                    Replace
+                                                                                </button>
+                                                                                <input
+                                                                                    ref={(el) => { fileInputRefs.current[document.id] = el; }}
+                                                                                    data-doc-id={document.id}
+                                                                                    type="file"
+                                                                                    onChange={handleDocumentReplace}
+                                                                                    className="hidden"
+                                                                                />
+                                                                            </>
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 )}
@@ -460,20 +461,24 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                             Versions
                                                         </button>
                                                     )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => fileInputRefs.current[doc.id]?.click()}
-                                                        className="text-[10px] text-[#0b5384] font-bold hover:underline"
-                                                    >
-                                                        Replace
-                                                    </button>
-                                                    <input
-                                                        ref={(el) => { fileInputRefs.current[doc.id] = el; }}
-                                                        data-doc-id={doc.id}
-                                                        type="file"
-                                                        onChange={handleDocumentReplace}
-                                                        className="hidden"
-                                                    />
+                                                    {!isAgency && (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => fileInputRefs.current[doc.id]?.click()}
+                                                            className="text-[10px] text-[#0b5384] font-bold hover:underline"
+                                                        >
+                                                            Replace
+                                                        </button>
+                                                        <input
+                                                            ref={(el) => { fileInputRefs.current[doc.id] = el; }}
+                                                            data-doc-id={doc.id}
+                                                            type="file"
+                                                            onChange={handleDocumentReplace}
+                                                            className="hidden"
+                                                        />
+                                                    </>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -487,37 +492,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         )}
                     </CardSection>
 
-                    {isAgency && (
-                        <CardSection title="Add Milestone" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-                            <form onSubmit={handleMilestoneSubmit} className="space-y-4">
-                                <div>
-                                    <InputLabel htmlFor="milestone_title" value="Title *" />
-                                    <TextInput
-                                        id="milestone_title"
-                                        type="text"
-                                        className="mt-1 block w-full"
-                                        value={milestoneForm.data.title}
-                                        onChange={(e) => milestoneForm.setData('title', e.target.value)}
-                                    />
-                                    <InputError message={milestoneForm.errors.title} className="mt-2" />
-                                </div>
-                                <div>
-                                    <InputLabel htmlFor="milestone_description" value="Description" />
-                                    <textarea
-                                        id="milestone_description"
-                                        className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        rows={2}
-                                        value={milestoneForm.data.description}
-                                        onChange={(e) => milestoneForm.setData('description', e.target.value)}
-                                    />
-                                    <InputError message={milestoneForm.errors.description} className="mt-2" />
-                                </div>
-                                <PrimaryButton disabled={milestoneForm.processing || !milestoneForm.data.title}>
-                                    Add Milestone
-                                </PrimaryButton>
-                            </form>
-                        </CardSection>
-                    )}
+
                 </main>
 
                 <aside className="xl:col-span-4 space-y-4">
@@ -546,6 +521,23 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                             </div>
                         ) : (
                             <p className="text-[11px] text-slate-500 py-2">No timeline events recorded.</p>
+                        )}
+                        {isAgency && (
+                            <button
+                                type="button"
+                                onClick={() => setShowMilestoneModal(true)}
+                                className="mt-3 h-[28px] w-full px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a] transition-colors"
+                            >
+                                + Add Milestone
+                            </button>
+                        )}
+                    </CardSection>
+
+                    <CardSection title="Case Narrative" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                        {referral.case_file?.summary ? (
+                            <p className="text-[12px] leading-5 text-slate-600 whitespace-pre-wrap">{referral.case_file.summary}</p>
+                        ) : (
+                            <p className="text-[12px] text-slate-500 italic">No case narrative recorded.</p>
                         )}
                     </CardSection>
 
@@ -799,7 +791,54 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                 </div>
             )}
 
-            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+            {showMilestoneModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => { setShowMilestoneModal(false); milestoneForm.reset(); }}>
+                    <div className="w-full max-w-lg rounded-[3px] border border-[#d8dee8] bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="border-b border-[#e2e8f0] px-5 py-4">
+                            <h3 className="text-[16px] font-extrabold text-slate-900">Add Milestone</h3>
+                            <p className="mt-1 text-[12px] text-slate-500">Record a new milestone for this referral.</p>
+                        </div>
+                        <form onSubmit={handleMilestoneModalSubmit}>
+                            <div className="px-5 py-4 space-y-4">
+                                <div>
+                                    <InputLabel htmlFor="milestone_title" value="Title *" />
+                                    <TextInput
+                                        id="milestone_title"
+                                        type="text"
+                                        className="mt-1 block w-full"
+                                        value={milestoneForm.data.title}
+                                        onChange={(e) => milestoneForm.setData('title', e.target.value)}
+                                    />
+                                    <InputError message={milestoneForm.errors.title} className="mt-2" />
+                                </div>
+                                <div>
+                                    <InputLabel htmlFor="milestone_description" value="Description" />
+                                    <textarea
+                                        id="milestone_description"
+                                        className="mt-1 block w-full rounded-[3px] border border-[#cbd5e1] px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384] resize-none"
+                                        rows={3}
+                                        value={milestoneForm.data.description}
+                                        onChange={(e) => milestoneForm.setData('description', e.target.value)}
+                                    />
+                                    <InputError message={milestoneForm.errors.description} className="mt-2" />
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2 border-t border-[#e2e8f0] px-5 py-3">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowMilestoneModal(false); milestoneForm.reset(); }}
+                                    className="h-[34px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] hover:bg-slate-50"
+                                >
+                                    Cancel
+                                </button>
+                                <PrimaryButton disabled={milestoneForm.processing || !milestoneForm.data.title}>
+                                    Add Milestone
+                                </PrimaryButton>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </AppLayout>
     );
 }

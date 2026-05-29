@@ -53,9 +53,10 @@ export default function SystemSettings({
         || chatbotMaxTokens !== initialRef.current.chatbotMaxTokens
         || chatbotCustomEndpoint !== initialRef.current.chatbotCustomEndpoint
     ), [debugOtp, overdueDays, chatbotEnabled, chatbotProvider, chatbotApiKey, chatbotModel, chatbotSystemPrompt, chatbotTemperature, chatbotMaxTokens, chatbotCustomEndpoint]);
-    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
+    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
 
     const saveChatbotSettings = () => {
+        bypassNext();
         router.post(route('admin.system-settings.update'), {
             ...(chatbotEnabled !== initialRef.current.chatbotEnabled && { chatbot_enabled: chatbotEnabled }),
             ...(chatbotProvider !== initialRef.current.chatbotProvider && { chatbot_provider: chatbotProvider }),
@@ -87,6 +88,7 @@ export default function SystemSettings({
     const toggleDebugOtp = () => {
         const next = !debugOtp;
         setDebugOtp(next);
+        bypassNext();
         router.post(route('admin.system-settings.update'), {
             debug_otp_enabled: next,
             referral_overdue_days: overdueDays,
@@ -97,6 +99,7 @@ export default function SystemSettings({
     };
 
     const saveOverdueDays = () => {
+        bypassNext();
         router.post(route('admin.system-settings.update'), {
             debug_otp_enabled: debugOtp,
             referral_overdue_days: overdueDays,
@@ -201,7 +204,8 @@ export default function SystemSettings({
                                 className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                             >
                                 <option value="openai">OpenAI</option>
-                                <option value="anthropic">Anthropic</option>
+                                <option value="anthropic">Anthropic (Claude)</option>
+                                <option value="gemini">Google Gemini</option>
                                 <option value="custom">Custom</option>
                             </select>
                         </div>

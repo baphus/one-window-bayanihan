@@ -6,7 +6,7 @@ import { Transition } from '@headlessui/react';
 import { useForm } from '@inertiajs/react';
 import { useRef, useEffect, useMemo } from 'react';
 
-export default function UpdatePasswordForm({ className = '', onDirtyChange }) {
+export default function UpdatePasswordForm({ className = '', onDirtyChange, onBypass }) {
     const passwordInput = useRef();
     const currentPasswordInput = useRef();
     const initialRef = useRef({ current_password: '', password: '', password_confirmation: '' });
@@ -34,6 +34,7 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange }) {
 
     const updatePassword = (e) => {
         e.preventDefault();
+        onBypass?.();
 
         put(route('password.update'), {
             preserveScroll: true,

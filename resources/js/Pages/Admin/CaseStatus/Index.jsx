@@ -11,7 +11,7 @@ const typeColors = {
   referral: 'bg-purple-100 text-purple-800',
 };
 
-function StatusForm({ status, onClose }) {
+function StatusForm({ status, onClose, onBypass }) {
   const isEdit = !!status;
   const { data, setData, post, patch, processing, errors } = useForm({
     name: status?.name ?? '',
@@ -23,6 +23,7 @@ function StatusForm({ status, onClose }) {
 
   function handleSubmit(e) {
     e.preventDefault();
+    onBypass?.();
     if (isEdit) {
       patch(route('admin.case-statuses.update', status.id), { onSuccess: onClose });
     } else {
@@ -114,7 +115,7 @@ function StatusForm({ status, onClose }) {
 export default function CaseStatusIndex({ statuses }) {
   const [showForm, setShowForm] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   const caseStatuses = useMemo(() => statuses.filter((s) => s.type === 'case'), [statuses]);
   const referralStatuses = useMemo(() => statuses.filter((s) => s.type === 'referral'), [statuses]);
@@ -182,7 +183,7 @@ export default function CaseStatusIndex({ statuses }) {
 
   return (
     <AppLayout title="Case Statuses">
-      {showForm && <StatusForm status={editingStatus} onClose={() => { setShowForm(false); setEditingStatus(null); }} />}
+      {showForm && <StatusForm status={editingStatus} onClose={() => { setShowForm(false); setEditingStatus(null); }} onBypass={bypassNext} />}
       <Head title="Case Statuses" />
       <div className="mb-8 flex items-center justify-between">
         <div>

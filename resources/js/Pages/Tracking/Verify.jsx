@@ -10,7 +10,7 @@ export default function TrackingVerify({ tracker_number, email, hint, debug_otp 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const initialOtpRef = useRef(['', '', '', '', '', '']);
   const hasDirty = useMemo(() => otp.some((d, i) => d !== initialOtpRef.current[i]), [otp]);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(hasDirty);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
   const otpRefs = useRef([]);
@@ -68,6 +68,7 @@ export default function TrackingVerify({ tracker_number, email, hint, debug_otp 
 
     setProcessing(true);
 
+    bypassNext();
     router.post(route('track.verify-otp'), {
       tracker_number,
       email,

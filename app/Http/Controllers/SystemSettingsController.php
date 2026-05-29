@@ -30,7 +30,7 @@ class SystemSettingsController extends Controller
             'debug_otp_enabled' => ['nullable', 'boolean'],
             'referral_overdue_days' => ['nullable', 'integer', 'min:1', 'max:365'],
             'chatbot_enabled' => ['nullable', 'boolean'],
-            'chatbot_provider' => ['nullable', 'in:openai,anthropic,custom'],
+            'chatbot_provider' => ['nullable', 'in:openai,anthropic,gemini,custom'],
             'chatbot_api_key' => ['nullable', 'string', 'max:500'],
             'chatbot_model' => ['nullable', 'string', 'max:255'],
             'chatbot_system_prompt' => ['nullable', 'string', 'max:2000'],

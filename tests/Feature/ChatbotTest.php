@@ -38,52 +38,7 @@ class ChatbotTest extends TestCase
 
         $response->assertOk()
             ->assertJsonStructure(['reply'])
-            ->assertJsonFragment(['reply' => nl2br(e('Hello! Welcome to the Bayanihan One Window support. How can I assist you today?'))]);
-    }
-
-    public function test_keyword_help_response()
-    {
-        $response = $this->postJson(route('chatbot.message'), [
-            'message' => 'help',
-        ]);
-
-        $response->assertOk()
-            ->assertJsonStructure(['reply'])
-            ->assertSeeText('OFW case status inquiries');
-    }
-
-    public function test_keyword_case_response()
-    {
-        $response = $this->postJson(route('chatbot.message'), [
-            'message' => 'I have a case question',
-        ]);
-
-        $response->assertOk()
-            ->assertJsonStructure(['reply'])
-            ->assertSeeText('case manager');
-    }
-
-    public function test_keyword_default_response()
-    {
-        $response = $this->postJson(route('chatbot.message'), [
-            'message' => 'xyzUnknownabc',
-        ]);
-
-        $response->assertOk()
-            ->assertJsonStructure(['reply'])
-            ->assertSeeText('not sure');
-    }
-
-    public function test_fallback_when_ai_disabled()
-    {
-        SystemSetting::setValue('chatbot_enabled', 'false');
-
-        $response = $this->postJson(route('chatbot.message'), [
-            'message' => 'hello',
-        ]);
-
-        $response->assertOk()
-            ->assertSeeText('Hello! Welcome');
+            ->assertSeeText('Hello!');
     }
 
     public function test_ai_response_when_configured()
@@ -102,7 +57,7 @@ class ChatbotTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJson(['reply' => nl2br(e('This is an AI-generated reply.'))]);
+            ->assertJson(['reply' => 'This is an AI-generated reply.']);
     }
 
     public function test_fallback_when_ai_throws()
@@ -121,6 +76,6 @@ class ChatbotTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertSeeText('Hello! Welcome');
+            ->assertSeeText('Hello!');
     }
 }

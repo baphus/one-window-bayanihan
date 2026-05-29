@@ -45,27 +45,40 @@ const navByRole = {
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     ]},
-    { label: 'Management', items: [
+    { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
       { name: 'Clients', href: '/clients', icon: 'people' },
-      { name: 'Agencies', href: '/agencies', icon: 'account_balance' },
-      { name: 'Services', href: '/services', icon: 'medical_services' },
       { name: 'Referrals', href: '/referrals', icon: 'send' },
       { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
+      { name: 'Stakeholders', href: '/stakeholders', icon: 'account_balance' },
+    ]},
+    { label: 'Agency Management', items: [
+      { name: 'Agencies', href: '/agencies', icon: 'account_balance' },
+      { name: 'Services', href: '/services', icon: 'medical_services' },
       { name: 'Users', href: '/users', icon: 'manage_accounts' },
     ]},
-    { label: 'Content', items: [
+    { label: 'Content Management', items: [
+      { name: 'Help Center', href: '/helpdesk', icon: 'help' },
       { name: 'Articles', href: '/admin/helpdesk/articles', icon: 'article' },
       { name: 'Categories', href: '/admin/helpdesk/categories', icon: 'category' },
       { name: 'Tags', href: '/admin/helpdesk/tags', icon: 'label' },
     ]},
-    { label: 'Settings', items: [
-    { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
-      { name: 'Case Statuses', href: '/admin/case-statuses', icon: 'label' },
-      { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
+    { label: 'System Health', items: [
+      { name: 'Health Dashboard', href: '/admin/system/health', icon: 'monitoring' },
+      { name: 'Cloudinary Storage', href: '/admin/system/cloudinary', icon: 'cloud' },
+      { name: 'Database Backups', href: '/admin/system/backups', icon: 'backup' },
+      { name: 'System Logs', href: '/admin/system/logs', icon: 'list_alt' },
     ]},
-    { label: 'Resources', items: [
-      { name: 'Help Center', href: '/helpdesk', icon: 'help' },
+    { label: 'Administration', items: [
+      { name: 'Scheduled Tasks', href: '/admin/system/scheduled-tasks', icon: 'schedule' },
+      { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
+      { name: 'Case Statuses', href: '/admin/case-statuses', icon: 'label' },
+      { name: 'Maintenance Mode', href: '/admin/system/maintenance', icon: 'construction' },
+    ]},
+    { label: 'Settings', items: [
+      { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
+      { name: 'Security & Auth', href: '/admin/system/security', icon: 'security' },
+      { name: 'Alert Notifications', href: '/admin/system/alerts', icon: 'notifications' },
     ]},
   ],
 };

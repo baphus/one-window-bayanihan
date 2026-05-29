@@ -12,7 +12,7 @@ export default function Edit({ mustVerifyEmail, status }) {
     const [dirty2, setDirty2] = useState(false);
     const [dirty3, setDirty3] = useState(false);
     const isDirty = dirty1 || dirty2 || dirty3;
-    const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(isDirty);
+    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(isDirty);
 
     const onDirty1 = useCallback((d) => setDirty1(d), []);
     const onDirty2 = useCallback((d) => setDirty2(d), []);
@@ -34,15 +34,16 @@ export default function Edit({ mustVerifyEmail, status }) {
                         status={status}
                         className="max-w-xl"
                         onDirtyChange={onDirty1}
+                        onBypass={bypassNext}
                     />
                 </div>
 
                 <div className="bg-white p-4 shadow-sm border border-slate-200 rounded-lg sm:p-8">
-                    <UpdatePasswordForm className="max-w-xl" onDirtyChange={onDirty2} />
+                    <UpdatePasswordForm className="max-w-xl" onDirtyChange={onDirty2} onBypass={bypassNext} />
                 </div>
 
                 <div className="bg-white p-4 shadow-sm border border-slate-200 rounded-lg sm:p-8">
-                    <DeleteUserForm className="max-w-xl" onDirtyChange={onDirty3} />
+                    <DeleteUserForm className="max-w-xl" onDirtyChange={onDirty3} onBypass={bypassNext} />
                 </div>
             </div>
             <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />

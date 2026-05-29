@@ -5,7 +5,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
-function ServiceForm({ service, allAgencies, onClose }) {
+function ServiceForm({ service, allAgencies, onClose, onBypass }) {
   const isEdit = !!service;
   const { data, setData, post, patch, processing, errors } = useForm({
     name: service?.name ?? '',
@@ -16,6 +16,7 @@ function ServiceForm({ service, allAgencies, onClose }) {
 
   function handleSubmit(e) {
     e.preventDefault();
+    onBypass?.();
     if (isEdit) {
       patch(route('admin.services.update', service.id), { onSuccess: onClose });
     } else {
@@ -69,7 +70,7 @@ function ServiceForm({ service, allAgencies, onClose }) {
 export default function AdminServiceIndex({ services, allAgencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(showForm);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   function paginatorProps(paginator) {
     return {
@@ -125,7 +126,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
 
   return (
     <AppLayout title="Manage Services">
-      {showForm && <ServiceForm service={editingService} allAgencies={allAgencies} onClose={() => { setShowForm(false); setEditingService(null); }} />}
+      {showForm && <ServiceForm service={editingService} allAgencies={allAgencies} onClose={() => { setShowForm(false); setEditingService(null); }} onBypass={bypassNext} />}
       <Head title="Manage Services" />
       <div className="mb-8 flex items-center justify-between">
         <div>
