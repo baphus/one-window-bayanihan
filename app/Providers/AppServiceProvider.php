@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\HelpCenterProviderInterface;
+use App\Listeners\EmailEventSubscriber;
 use App\Listeners\LogSuccessfulLogin;
 use App\Models\Agency;
 use App\Models\CaseFile;
@@ -73,5 +74,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
+
+        Event::subscribe(EmailEventSubscriber::class);
     }
 }

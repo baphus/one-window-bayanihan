@@ -294,9 +294,12 @@ class DashboardService
         // System health data
         $healthStatus = DB::table('health_check_logs')
             ->select('check_type', 'status', 'metric_value', 'checked_at')
-            ->whereIn('id', function ($q) {
-                $q->selectRaw('MAX(id)')->from('health_check_logs')->groupBy('check_type');
-            })
+            ->fromSub(function ($q) {
+                $q->select('check_type', 'status', 'metric_value', 'checked_at')
+                    ->selectRaw('ROW_NUMBER() OVER (PARTITION BY check_type ORDER BY checked_at DESC) as rn')
+                    ->from('health_check_logs');
+            }, 'latest')
+            ->where('rn', 1)
             ->orderBy('checked_at', 'desc')
             ->get()
             ->toArray();

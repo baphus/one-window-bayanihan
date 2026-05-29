@@ -826,6 +826,7 @@ export default function Dashboard(props) {
         role, recentCases, recentReferrals, recentLogs,
         allCases, allReferrals, casesByProvince, agencyBreakdown,
         casesOverTime, recentActivity, dashboardNotifications,
+        systemHealth,
         ...stats
     } = props;
 

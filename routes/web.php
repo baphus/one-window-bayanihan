@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdminCaseStatusController;
 use App\Http\Controllers\Admin\AlertConfigController;
 use App\Http\Controllers\Admin\BackupStatusController;
 use App\Http\Controllers\Admin\CloudinaryStorageController;
+use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\HelpdeskArticleController;
 use App\Http\Controllers\Admin\HelpdeskCategoryController;
 use App\Http\Controllers\Admin\HelpdeskTagController;
@@ -200,6 +201,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/alerts', [AlertConfigController::class, 'index'])->name('alerts');
             Route::post('/alerts', [AlertConfigController::class, 'update'])->name('alerts.update');
             Route::post('/alerts/test-email', [AlertConfigController::class, 'testEmail'])->name('alerts.test-email');
+
+            Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
+            Route::post('/email-logs/{emailLog}/resend', [EmailLogController::class, 'resend'])->name('email-logs.resend');
         });
 
     });

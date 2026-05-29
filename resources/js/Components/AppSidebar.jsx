@@ -68,6 +68,7 @@ const navByRole = {
       { name: 'Cloudinary Storage', href: '/admin/system/cloudinary', icon: 'cloud' },
       { name: 'Database Backups', href: '/admin/system/backups', icon: 'backup' },
       { name: 'System Logs', href: '/admin/system/logs', icon: 'list_alt' },
+      { name: 'Email Logs', href: '/admin/system/email-logs', icon: 'mail' },
     ]},
     { label: 'Administration', items: [
       { name: 'Scheduled Tasks', href: '/admin/system/scheduled-tasks', icon: 'schedule' },
