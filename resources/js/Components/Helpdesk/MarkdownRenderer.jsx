@@ -1,4 +1,5 @@
 import MDEditor from '@uiw/react-md-editor';
+import rehypeSanitize from 'rehype-sanitize';
 
 export default function MarkdownRenderer({ content }) {
   if (!content) {
@@ -13,6 +14,7 @@ export default function MarkdownRenderer({ content }) {
     <div className="md-renderer">
       <MDEditor.Markdown
         source={content}
+        rehypePlugins={[rehypeSanitize]}
         wrapperElement={{
           'data-color-mode': 'light',
         }}
