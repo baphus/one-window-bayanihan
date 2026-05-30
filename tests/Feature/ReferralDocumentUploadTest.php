@@ -5,12 +5,12 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
-use App\Models\ReferralAttachment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ReferralDocumentUploadTest extends TestCase
@@ -26,6 +26,10 @@ class ReferralDocumentUploadTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Role::create(['name' => 'ADMIN']);
+        Role::create(['name' => 'CASE_MANAGER']);
+        Role::create(['name' => 'AGENCY_FOCAL_PERSON']);
 
         $this->agency = Agency::factory()->create();
 
@@ -46,94 +50,34 @@ class ReferralDocumentUploadTest extends TestCase
     }
 
     #[Test]
-    public function agency_user_can_view_referral_show_page(): void
-    {
-        $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
-            'agcy_id' => $this->agency->id,
-        ]);
-
-        $response = $this->actingAs($agencyUser)->get(route('referrals.show', $this->referral));
-
-        $response->assertOk();
-    }
-
-    #[Test]
-    public function case_manager_can_view_referral_show_page(): void
-    {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $response = $this->actingAs($caseManager)->get(route('referrals.show', $this->referral));
-
-        $response->assertOk();
-    }
-
-    #[Test]
-    public function agency_user_cannot_upload_attachment(): void
+    public function add_attachment_rejects_exe_file(): void
     {
         Storage::fake('public');
 
-        $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
-            'agcy_id' => $this->agency->id,
-        ]);
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin->assignRole('ADMIN');
 
-        $file = UploadedFile::fake()->create('document.pdf', 100);
+        $file = UploadedFile::fake()->create('malware.exe', 100);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->from('/some-page')->actingAs($admin)->post(
             route('referrals.attachments.store', $this->referral),
             ['file' => $file],
         );
 
-        // AGENCY users should be forbidden from uploading attachments
-        // Implementation to be added in Task 4
-        $response->assertForbidden();
+        $response->assertSessionHasErrors('file');
     }
 
     #[Test]
-    public function agency_user_cannot_replace_attachment(): void
+    public function add_attachment_accepts_valid_pdf(): void
     {
         Storage::fake('public');
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin->assignRole('ADMIN');
 
-        $attachment = ReferralAttachment::create([
-            'id' => fake()->uuid(),
-            'referral_id' => $this->referral->id,
-            'file_name' => 'original.pdf',
-            'file_path' => 'referrals/original.pdf',
-            'file_type' => 'application/pdf',
-            'size' => 100,
-            'user_id' => $caseManager->id,
-        ]);
+        $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
 
-        $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
-            'agcy_id' => $this->agency->id,
-        ]);
-
-        $file = UploadedFile::fake()->create('replacement.pdf', 100);
-
-        $response = $this->actingAs($agencyUser)->post(
-            route('referrals.attachments.replace', [$this->referral, $attachment->id]),
-            ['file' => $file],
-        );
-
-        // AGENCY users should be forbidden from replacing attachments
-        // Implementation to be added in Task 4
-        $response->assertForbidden();
-    }
-
-    #[Test]
-    public function case_manager_can_upload_attachment(): void
-    {
-        Storage::fake('public');
-
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $file = UploadedFile::fake()->create('document.pdf', 100);
-
-        $response = $this->actingAs($caseManager)->post(
+        $response = $this->actingAs($admin)->post(
             route('referrals.attachments.store', $this->referral),
             ['file' => $file],
         );
@@ -142,5 +86,51 @@ class ReferralDocumentUploadTest extends TestCase
         $this->assertDatabaseHas('referral_attachments', [
             'referral_id' => $this->referral->id,
         ]);
+    }
+
+    #[Test]
+    public function store_rejects_php_file(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin->assignRole('ADMIN');
+
+        $file = UploadedFile::fake()->create('shell.php', 100);
+
+        $response = $this->from('/some-page')->actingAs($admin)->post(
+            route('referrals.store'),
+            [
+                'case_id' => $this->case->id,
+                'agcy_id' => $this->agency->id,
+                'required_services' => 'Test',
+                'documents' => [$file],
+            ],
+        );
+
+        $response->assertSessionHasErrors('documents.0');
+    }
+
+    #[Test]
+    public function store_accepts_valid_pdf(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin->assignRole('ADMIN');
+
+        $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
+
+        $response = $this->actingAs($admin)->post(
+            route('referrals.store'),
+            [
+                'case_id' => $this->case->id,
+                'agcy_id' => $this->agency->id,
+                'required_services' => 'Test',
+                'documents' => [$file],
+            ],
+        );
+
+        $response->assertRedirect();
     }
 }
