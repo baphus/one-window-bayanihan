@@ -34,6 +34,7 @@ use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\StakeholderController;
 use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
+use App\Http\Controllers\UserAvatarController;
 use App\Models\Agency;
 use App\Services\DashboardService;
 use App\Services\ReportsService;
@@ -109,6 +110,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
     Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
+    Route::post('/clients/{client}/avatar', [ClientController::class, 'storeAvatar'])->name('clients.avatar.store');
+    Route::delete('/clients/{client}/avatar', [ClientController::class, 'destroyAvatar'])->name('clients.avatar.destroy');
+    Route::post('/users/{user}/avatar', [UserAvatarController::class, '__invoke'])->name('users.avatar.store');
     Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
     Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');

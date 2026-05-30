@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Services\CaseService;
 use Illuminate\Http\Request;
@@ -30,9 +31,16 @@ class CaseController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        return Inertia::render('Case/Create');
+        $client = null;
+        if ($request->has('client_id')) {
+            $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFile'])->find($request->client_id);
+        }
+
+        return Inertia::render('Case/Create', [
+            'client' => $client,
+        ]);
     }
 
     public function store(StoreCaseRequest $request)

@@ -3,9 +3,12 @@ import { Head, Link } from '@inertiajs/react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
+import AuditLogTimeline from '@/Components/AuditLogTimeline';
+import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
+import CaseManagerAvatar from '@/Components/CaseManagerAvatar';
 import { formatDisplayDate } from '@/lib/utils';
 
-export default function ClientShow({ client }) {
+export default function ClientShow({ client, auditLogs }) {
     const fullName = [client.first_name, client.middle_name, client.last_name, client.suffix]
         .filter(Boolean)
         .join(' ');
@@ -33,7 +36,12 @@ export default function ClientShow({ client }) {
                 <div className="lg:col-span-2 space-y-6">
                     <CardSection title="Client Information">
                         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8] border-b border-[#d8dee8]">
-                            <InfoCell label="Full Name" value={fullName} />
+                            <InfoCell label="Full Name" value={
+                                <div className="flex items-center gap-3">
+                                    <ProfilePictureUpload currentUrl={client.avatar_url} name={fullName} clientId={client.id} size="md" />
+                                    <span className="text-sm font-medium text-slate-900">{fullName}</span>
+                                </div>
+                            } />
                             <InfoCell label="Sex" value={client.sex || 'N/A'} />
                             <InfoCell label="Date of Birth" value={client.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
                         </div>
@@ -93,7 +101,18 @@ export default function ClientShow({ client }) {
                         <CardSection title={`Associated Referrals (${client.caseFile.referrals.length})`}>
                             <UnifiedTable
                                 columns={[
-                                    { key: 'agency', title: 'Agency', render: (row) => row.agency?.name ?? 'N/A' },
+                                    { key: 'caseManager', title: 'Case Manager', render: (row) => (
+                                        <CaseManagerAvatar user={client.caseFile?.user} size="sm" />
+                                    )},
+                                    { key: 'agency', title: 'Agency', render: (row) => (
+                                        <div className="flex items-center gap-2">
+                                            {row.agency?.logo_url && (
+                                                <img src={row.agency.logo_url} alt="" className="h-6 w-6 rounded-full object-cover border border-slate-200"
+                                                    onError={(e) => { e.target.style.display = 'none' }} />
+                                            )}
+                                            <span>{row.agency?.name ?? 'N/A'}</span>
+                                        </div>
+                                    )},
                                     { key: 'service', title: 'Service', render: (row) => row.required_services },
                                     { key: 'status', title: 'Status', render: (row) => (
                                         <StatusBadge status={row.status} />
@@ -108,6 +127,12 @@ export default function ClientShow({ client }) {
                                 hideControlBar
                                 hidePagination
                             />
+                        </CardSection>
+                    )}
+
+                    {auditLogs && (
+                        <CardSection title="Activity Timeline">
+                            <AuditLogTimeline logs={auditLogs} />
                         </CardSection>
                     )}
                 </div>
@@ -130,6 +155,17 @@ export default function ClientShow({ client }) {
                                 </>
                             )}
                             <MetaTile label="Created" value={formatDisplayDate(client.created_at)} />
+                        </div>
+                        <div className="mt-4">
+                            <Link
+                                href={route('cases.create', { client_id: client.id })}
+                                className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                            >
+                                <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                Create New Case
+                            </Link>
                         </div>
                     </CardSection>
                 </div>
