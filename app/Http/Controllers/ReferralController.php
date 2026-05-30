@@ -56,6 +56,11 @@ class ReferralController extends Controller
             $request->user()->id,
         );
 
+        $request->validate([
+            'documents' => 'nullable|array',
+            'documents.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp|max:10240',
+        ]);
+
         if ($request->hasFile('documents')) {
             foreach ($request->file('documents') as $key => $file) {
                 $path = $file->store('referrals', 'public');
@@ -79,6 +84,7 @@ class ReferralController extends Controller
     public function show(Request $request, string $id)
     {
         $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
         $serviceRequirements = $this->referralService->getServiceRequirements($referral->agcy_id);
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
@@ -99,6 +105,8 @@ class ReferralController extends Controller
 
     public function updateStatus(UpdateReferralStatusRequest $request, string $id)
     {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
         $referral = $this->referralService->updateStatus(
             $id,
             $request->input('status'),
@@ -114,6 +122,8 @@ class ReferralController extends Controller
 
     public function addMilestone(StoreMilestoneRequest $request, string $id)
     {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
         $milestone = $this->referralService->addMilestone(
             $id,
             $request->input('title'),
@@ -128,6 +138,9 @@ class ReferralController extends Controller
 
     public function addComment(Request $request, string $id)
     {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
         $validated = $request->validate([
             'content' => 'required|string|max:5000',
             'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY,CLIENT_VISIBLE',
@@ -147,6 +160,9 @@ class ReferralController extends Controller
 
     public function replyToComment(Request $request, string $id, string $commentId)
     {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
         $validated = $request->validate([
             'content' => 'required|string|max:5000',
             'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY,CLIENT_VISIBLE',
@@ -166,12 +182,11 @@ class ReferralController extends Controller
 
     public function addAttachment(Request $request, string $id)
     {
-        if ($request->user()->role === 'AGENCY') {
-            abort(403, 'Agency users cannot upload attachments.');
-        }
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
 
         $request->validate([
-            'file' => 'required|file|max:10240',
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp|max:10240',
         ]);
 
         $file = $request->file('file');
@@ -195,12 +210,11 @@ class ReferralController extends Controller
 
     public function replaceAttachment(Request $request, string $id, string $attachmentId)
     {
-        if ($request->user()->role === 'AGENCY') {
-            abort(403, 'Agency users cannot replace attachments.');
-        }
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
 
         $request->validate([
-            'file' => 'required|file|max:10240',
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp|max:10240',
         ]);
 
         $file = $request->file('file');
@@ -227,5 +241,20 @@ class ReferralController extends Controller
         $versions = $this->referralService->getAttachmentVersions($versionGroupId);
 
         return response()->json($versions);
+    }
+
+    private function authorizeReferralAccess($referral, $user)
+    {
+        if ($user->hasRole('ADMIN')) {
+            return;
+        }
+        if ($user->hasRole('CASE_MANAGER')) {
+            return;
+        }
+        if ($referral->agcy_id === $user->agcy_id) {
+            return;
+        }
+
+        abort(403, 'You do not have access to this referral.');
     }
 }
