@@ -78,6 +78,8 @@ function Select({ value, onChange, options, placeholder }) {
 }
 
 export default function CaseCreate() {
+    const { client } = usePage().props;
+
     const { data, setData, post, processing, errors } = useForm({
         client_type: 'OFW',
         vulnerability_indicator: '',
@@ -217,6 +219,133 @@ export default function CaseCreate() {
     }, [data, clientSource, nokFirstName, nokLastName, nokContact, nokRelationship, clientGender, clientEmail, clientContact, lastCountry, lastJob, arrivalDate, hasNextOfKin, consent]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
 
+    useEffect(() => {
+        if (client) {
+            setClientSource('existing');
+            setClientGender(client.sex || 'Male');
+            setClientEmail(client.email || '');
+            setClientContact(client.contact_number || '');
+
+            setData('client', {
+                ...data.client,
+                first_name: client.first_name || '',
+                last_name: client.last_name || '',
+                middle_name: client.middle_name || '',
+                suffix: client.suffix || '',
+                date_of_birth: client.date_of_birth || '',
+                sex: client.sex || '',
+                email: client.email || '',
+                contact_number: client.contact_number || '',
+            });
+
+            if (client.addresses?.[0]) {
+                setData('address', {
+                    ...data.address,
+                    region: client.addresses[0].region || '',
+                    province: client.addresses[0].province || '',
+                    city_municipality: client.addresses[0].city_municipality || '',
+                    barangay: client.addresses[0].barangay || '',
+                    street: client.addresses[0].street || '',
+                });
+            }
+
+            if (client.employments?.[0]) {
+                setData('employment', {
+                    ...data.employment,
+                    employer_name: client.employments[0].employer_name || '',
+                    position: client.employments[0].position || '',
+                    country: client.employments[0].country || '',
+                    last_country: client.employments[0].last_country || '',
+                    last_position: client.employments[0].last_position || '',
+                    date_of_arrival: client.employments[0].date_of_arrival || '',
+                });
+                setLastCountry(client.employments[0].last_country || client.employments[0].country || '');
+                setLastJob(client.employments[0].last_position || client.employments[0].position || '');
+                setArrivalDate(client.employments[0].date_of_arrival || '');
+            }
+
+            if (client.nextOfKin?.[0]) {
+                setData('next_of_kin', {
+                    ...data.next_of_kin,
+                    first_name: client.nextOfKin[0].first_name || '',
+                    middle_initial: client.nextOfKin[0].middle_initial || '',
+                    last_name: client.nextOfKin[0].last_name || '',
+                    relationship: client.nextOfKin[0].relationship || '',
+                    phone_number: client.nextOfKin[0].phone_number || '',
+                    email: client.nextOfKin[0].email || '',
+                    full_address: client.nextOfKin[0].full_address || '',
+                });
+                setNokFirstName(client.nextOfKin[0].first_name || '');
+                setNokLastName(client.nextOfKin[0].last_name || '');
+                setNokContact(client.nextOfKin[0].phone_number || '');
+                setNokRelationship(client.nextOfKin[0].relationship || '');
+            }
+
+            // Update initial ref so dirty tracking starts from pre-filled state
+            initialFormRef.current = {
+                formData: {
+                    client_type: 'OFW',
+                    vulnerability_indicator: '',
+                    summary: '',
+                    client: {
+                        first_name: client.first_name || '',
+                        last_name: client.last_name || '',
+                        middle_name: client.middle_name || '',
+                        suffix: client.suffix || '',
+                        date_of_birth: client.date_of_birth || '',
+                        sex: client.sex || '',
+                        email: client.email || '',
+                        contact_number: client.contact_number || '',
+                    },
+                    address: {
+                        region: client.addresses?.[0]?.region || '',
+                        province: client.addresses?.[0]?.province || '',
+                        city_municipality: client.addresses?.[0]?.city_municipality || '',
+                        barangay: client.addresses?.[0]?.barangay || '',
+                        street: client.addresses?.[0]?.street || '',
+                    },
+                    employment: {
+                        employer_name: client.employments?.[0]?.employer_name || '',
+                        position: client.employments?.[0]?.position || '',
+                        country: client.employments?.[0]?.country || '',
+                        start_date: client.employments?.[0]?.start_date || '',
+                        end_date: client.employments?.[0]?.end_date || '',
+                        last_country: client.employments?.[0]?.last_country || '',
+                        last_position: client.employments?.[0]?.last_position || '',
+                        date_of_arrival: client.employments?.[0]?.date_of_arrival || '',
+                    },
+                    next_of_kin: {
+                        first_name: client.nextOfKin?.[0]?.first_name || '',
+                        middle_initial: client.nextOfKin?.[0]?.middle_initial || '',
+                        last_name: client.nextOfKin?.[0]?.last_name || '',
+                        is_primary: false,
+                        relationship: client.nextOfKin?.[0]?.relationship || '',
+                        phone_number: client.nextOfKin?.[0]?.phone_number || '',
+                        email: client.nextOfKin?.[0]?.email || '',
+                        full_address: client.nextOfKin?.[0]?.full_address || '',
+                    },
+                    consent: false,
+                    is_draft: false,
+                },
+                useState: {
+                    clientSource: 'existing',
+                    nokFirstName: client.nextOfKin?.[0]?.first_name || '',
+                    nokLastName: client.nextOfKin?.[0]?.last_name || '',
+                    nokContact: client.nextOfKin?.[0]?.phone_number || '',
+                    nokRelationship: client.nextOfKin?.[0]?.relationship || '',
+                    clientGender: client.sex || 'Male',
+                    clientEmail: client.email || '',
+                    clientContact: client.contact_number || '',
+                    lastCountry: client.employments?.[0]?.last_country || client.employments?.[0]?.country || '',
+                    lastJob: client.employments?.[0]?.last_position || client.employments?.[0]?.position || '',
+                    arrivalDate: client.employments?.[0]?.date_of_arrival || '',
+                    hasNextOfKin: true,
+                    consent: false,
+                },
+            };
+        }
+    }, []);
+
     const stepProgress = Math.round((currentStep / STEPS.length) * 100);
 
     function handleClientChange(field, value) {
@@ -307,6 +436,12 @@ export default function CaseCreate() {
     return (
         <AppLayout title="Create New Case">
             <Head title="Create New Case" />
+
+            {client && (
+                <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
+                    <strong>Pre-filled</strong> from existing client record: {[client.first_name, client.last_name].filter(Boolean).join(' ')}
+                </div>
+            )}
 
             <div className="mb-6">
                 <div className="flex items-center justify-between">

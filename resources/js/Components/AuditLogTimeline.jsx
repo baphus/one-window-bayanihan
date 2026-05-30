@@ -132,10 +132,10 @@ const MODULE_DEFAULT = 'bg-slate-50 text-slate-500 ring-slate-500/10';
  * AuditLogTimeline — vertical timeline for client detail pages.
  *
  * @param {Object} props
- * @param {Array}  props.logs - Audit log entries (max 50, server-limited)
+ * @param {Array}  props.logs - Audit log entries (max 20, server-limited)
  */
 export default function AuditLogTimeline({ logs = [] }) {
-    const entries = useMemo(() => logs.slice(0, 50), [logs]);
+    const entries = useMemo(() => logs.slice(0, 20), [logs]);
 
     if (entries.length === 0) {
         return <EmptyState />;

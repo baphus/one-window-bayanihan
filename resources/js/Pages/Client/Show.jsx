@@ -156,17 +156,19 @@ export default function ClientShow({ client, auditLogs }) {
                             )}
                             <MetaTile label="Created" value={formatDisplayDate(client.created_at)} />
                         </div>
-                        <div className="mt-4">
-                            <Link
-                                href={route('cases.create', { client_id: client.id })}
-                                className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                            >
-                                <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                                Create New Case
-                            </Link>
-                        </div>
+                        {!client.caseFile && (
+                            <div className="mt-4">
+                                <Link
+                                    href={route('cases.create', { client_id: client.id })}
+                                    className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                                >
+                                    <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                    </svg>
+                                    Create New Case
+                                </Link>
+                            </div>
+                        )}
                     </CardSection>
                 </div>
             </div>

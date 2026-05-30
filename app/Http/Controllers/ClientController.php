@@ -48,6 +48,7 @@ class ClientController extends Controller
 
         $auditLogs = AuditLog::with('user')
             ->where(function ($q) use ($client) {
+                // Direct client changes
                 // Direct client changes (from AuditObserver on Client model)
                 $q->whereIn('module', ['clients'])->where('entity_id', $client->id);
 
@@ -75,7 +76,7 @@ class ClientController extends Controller
                 }
             })
             ->orderBy('timestamp', 'desc')
-            ->limit(50)
+            ->limit(20)
             ->get();
 
         $formattedLogs = $auditLogs->map(fn ($log) => app(AuditLogFormatter::class)->formatForDisplay($log));

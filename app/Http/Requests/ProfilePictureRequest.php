@@ -14,15 +14,15 @@ class ProfilePictureRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'profile_picture' => ['required', 'image', 'mimes:jpeg,png', 'max:2048'],
+            'profile_picture' => ['required', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'profile_picture.max' => 'Profile picture must not exceed 2MB.',
-            'profile_picture.mimes' => 'Profile picture must be a JPEG or PNG file.',
+            'profile_picture.max' => 'Profile picture must not exceed 5MB.',
+            'profile_picture.mimes' => 'Profile picture must be a JPEG, PNG, GIF, or WebP file.',
             'profile_picture.image' => 'The file must be an image.',
         ];
     }

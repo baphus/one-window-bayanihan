@@ -69,7 +69,7 @@ class ClientProfilePictureTest extends TestCase
 
     public function test_upload_rejects_invalid_mime_type(): void
     {
-        $file = UploadedFile::fake()->image('photo.gif', 100, 100);
+        $file = UploadedFile::fake()->image('photo.bmp', 100, 100);
 
         $response = $this->actingAs($this->user)
             ->post(route('clients.avatar.store', $this->client), [
@@ -79,9 +79,9 @@ class ClientProfilePictureTest extends TestCase
         $response->assertSessionHasErrors('profile_picture');
     }
 
-    public function test_upload_rejects_file_over_2mb(): void
+    public function test_upload_rejects_file_over_5mb(): void
     {
-        $file = UploadedFile::fake()->image('photo.jpg', 1000, 1000)->size(3000);
+        $file = UploadedFile::fake()->image('photo.jpg', 1000, 1000)->size(6000);
 
         $response = $this->actingAs($this->user)
             ->post(route('clients.avatar.store', $this->client), [
