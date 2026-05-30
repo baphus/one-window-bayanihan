@@ -8,7 +8,9 @@ class StoreReferralRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user !== null && ($user->hasRole('ADMIN') || $user->hasRole('CASE_MANAGER'));
     }
 
     public function rules(): array

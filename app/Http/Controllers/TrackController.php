@@ -26,7 +26,7 @@ class TrackController extends Controller
         ]);
 
         $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
-        if (!$case) {
+        if (! $case) {
             return back()->withErrors(['tracker_number' => 'Invalid tracker number.']);
         }
 
@@ -35,11 +35,9 @@ class TrackController extends Controller
             'track',
         );
 
-        logger("OTP for {$request->input('email')} (tracking {$request->input('tracker_number')}): {$otp}");
-
         $emailParts = explode('@', $request->input('email'));
         $hint = strlen($emailParts[0]) > 2
-            ? substr($emailParts[0], 0, 2) . str_repeat('*', strlen($emailParts[0]) - 2) . '@' . $emailParts[1]
+            ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
             : $request->input('email');
 
         return Inertia::render('Tracking/Verify', [
@@ -64,12 +62,12 @@ class TrackController extends Controller
             'track',
         );
 
-        if (!$verified) {
+        if (! $verified) {
             return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
         }
 
         $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
-        if (!$case) {
+        if (! $case) {
             return back()->withErrors(['tracker_number' => 'Case not found.']);
         }
 
@@ -85,7 +83,7 @@ class TrackController extends Controller
         ]);
 
         $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
-        if (!$case) {
+        if (! $case) {
             return back()->withErrors(['tracker_number' => 'Case not found.']);
         }
 

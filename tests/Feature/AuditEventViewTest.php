@@ -10,6 +10,7 @@ use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AuditEventViewTest extends TestCase
@@ -29,7 +30,11 @@ class AuditEventViewTest extends TestCase
         parent::setUp();
         $this->withoutMiddleware(HandleInertiaRequests::class);
 
+        Role::create(['name' => 'CASE_MANAGER']);
+        Role::create(['name' => 'ADMIN']);
+
         $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user->assignRole('CASE_MANAGER');
         $this->agency = Agency::create([
             'id' => fake()->uuid(),
             'name' => 'Test Agency',
@@ -112,6 +117,7 @@ class AuditEventViewTest extends TestCase
     public function viewing_case_logs_correct_user(): void
     {
         $otherUser = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherUser->assignRole('CASE_MANAGER');
 
         $this->actingAs($otherUser)
             ->withHeader('X-Inertia', 'true')

@@ -34,9 +34,6 @@ class HandleInertiaRequests extends Middleware
                 'info' => $request->session()->get('info'),
                 'status' => $request->session()->get('status'),
             ],
-            'settings' => [
-                'debug_otp_enabled' => SystemSetting::getValue('debug_otp_enabled', false),
-            ],
             'chatbot' => [
                 'enabled' => SystemSetting::getValue('chatbot_enabled', false) === 'true' || SystemSetting::getValue('chatbot_enabled', false) === true,
                 'provider' => SystemSetting::getValue('chatbot_provider', 'openai'),

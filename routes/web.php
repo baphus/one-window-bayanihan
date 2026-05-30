@@ -244,7 +244,7 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
     Route::post('/feedback', [HelpdeskController::class, 'feedback'])->name('feedback');
 });
 
-Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->name('api.analytics');
+Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware('auth')->name('api.analytics');
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
     ->name('chatbot.message')

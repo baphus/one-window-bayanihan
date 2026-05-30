@@ -9,7 +9,9 @@ class StoreCaseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user !== null && ($user->hasRole('ADMIN') || $user->hasRole('CASE_MANAGER'));
     }
 
     protected function prepareForValidation(): void

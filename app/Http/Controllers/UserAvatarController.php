@@ -9,6 +9,9 @@ class UserAvatarController extends Controller
 {
     public function __invoke(AvatarRequest $request, User $user)
     {
+        if ($request->user()->id !== $user->id && ! $request->user()->hasRole('ADMIN')) {
+            abort(403, 'You cannot change another user\'s avatar.');
+        }
         $file = $request->file('avatar');
         $filename = 'user-'.$user->id.'-'.time().'.'.$file->extension();
         $path = $file->storeAs('avatars', $filename, 'public');

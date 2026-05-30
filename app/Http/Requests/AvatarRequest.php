@@ -8,7 +8,8 @@ class AvatarRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        // Authorization handled by UserAvatarController inline check
+        return $this->user() !== null;
     }
 
     public function rules(): array

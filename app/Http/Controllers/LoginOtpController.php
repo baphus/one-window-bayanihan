@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class LoginOtpController extends Controller
 {
@@ -25,7 +26,7 @@ class LoginOtpController extends Controller
 
         $user = User::where('email', $request->input('email'))->first();
 
-        if (!$user || !Hash::check($request->input('password'), $user->password)) {
+        if (! $user || ! Hash::check($request->input('password'), $user->password)) {
             throw ValidationException::withMessages([
                 'email' => 'The provided credentials do not match our records.',
             ]);
@@ -33,14 +34,12 @@ class LoginOtpController extends Controller
 
         $otp = $this->otpService->generate($user->email, 'login');
 
-        logger("OTP for {$user->email} (login): {$otp}");
-
         $emailParts = explode('@', $user->email);
         $hint = strlen($emailParts[0]) > 2
-            ? substr($emailParts[0], 0, 2) . str_repeat('*', strlen($emailParts[0]) - 2) . '@' . $emailParts[1]
+            ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
             : $user->email;
 
-        return \Inertia\Inertia::render('Auth/Login', [
+        return Inertia::render('Auth/Login', [
             'step' => 'otp',
             'email' => $user->email,
             'hint' => $hint,
@@ -61,7 +60,7 @@ class LoginOtpController extends Controller
             $request->input('otp'),
         );
 
-        if (!$verified) {
+        if (! $verified) {
             throw ValidationException::withMessages([
                 'otp' => 'Invalid or expired OTP.',
             ]);
@@ -69,7 +68,7 @@ class LoginOtpController extends Controller
 
         $user = User::where('email', $request->input('email'))->first();
 
-        if (!$user) {
+        if (! $user) {
             throw ValidationException::withMessages([
                 'email' => 'User not found.',
             ]);
