@@ -26,7 +26,7 @@ class AuthenticationTest extends TestCase
 
         $this->post('/login', [
             'email' => $user->email,
-            'password' => 'password',
+            'password' => 'P@ssw0rd!',
         ]);
 
         $otp = Cache::get("otp:login:{$user->email}");
