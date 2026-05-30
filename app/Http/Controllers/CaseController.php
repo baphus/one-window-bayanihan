@@ -67,6 +67,7 @@ class CaseController extends Controller
     public function show(string $id, Request $request)
     {
         $case = $this->caseService->getCase($id);
+        $this->authorizeCaseAccess($case, $request->user());
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
         AuditLog::create([
@@ -85,6 +86,8 @@ class CaseController extends Controller
 
     public function update(UpdateCaseRequest $request, string $id)
     {
+        $case = $this->caseService->getCase($id);
+        $this->authorizeCaseAccess($case, $request->user());
         $case = $this->caseService->updateCase(
             $id,
             $request->validated(),
@@ -98,6 +101,8 @@ class CaseController extends Controller
 
     public function toggleStatus(Request $request, string $id)
     {
+        $case = $this->caseService->getCase($id);
+        $this->authorizeCaseAccess($case, $request->user());
         $case = $this->caseService->toggleCaseStatus($id, $request->user()->id);
 
         return redirect()
@@ -116,6 +121,8 @@ class CaseController extends Controller
 
     public function archive(Request $request, string $id)
     {
+        $case = $this->caseService->getCase($id);
+        $this->authorizeCaseAccess($case, $request->user());
         $case = $this->caseService->archiveCase(
             $id,
             $request->user()->id,
@@ -128,6 +135,8 @@ class CaseController extends Controller
 
     public function unarchive(Request $request, string $id)
     {
+        $case = $this->caseService->getCase($id);
+        $this->authorizeCaseAccess($case, $request->user());
         $case = $this->caseService->unarchiveCase(
             $id,
             $request->user()->id,
@@ -136,5 +145,24 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.show', $case)
             ->with('success', 'Case restored from archive successfully.');
+    }
+
+    private function authorizeCaseAccess($case, $user)
+    {
+        if ($user->hasRole('ADMIN')) {
+            return;
+        }
+        if ($user->hasRole('CASE_MANAGER')) {
+            return;
+        }
+
+        $hasActiveReferral = $case->referrals()
+            ->where('agcy_id', $user->agcy_id)
+            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+            ->exists();
+
+        if (! $hasActiveReferral) {
+            abort(403, 'You do not have access to this case.');
+        }
     }
 }
