@@ -66,11 +66,15 @@ class EmailEventSubscriber
     private function extractMailableType(MessageSent $event): string
     {
         if (isset($event->data['__laravel_mailable'])) {
-            return get_class($event->data['__laravel_mailable']);
+            $mailable = $event->data['__laravel_mailable'];
+
+            return is_string($mailable) ? $mailable : get_class($mailable);
         }
 
         if (isset($event->data['__laravel_notification'])) {
-            return get_class($event->data['__laravel_notification']);
+            $notification = $event->data['__laravel_notification'];
+
+            return is_string($notification) ? $notification : get_class($notification);
         }
 
         return 'Illuminate\Mail\Mailable';

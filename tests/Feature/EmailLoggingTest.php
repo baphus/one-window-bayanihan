@@ -2,11 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\IpWhitelist;
 use App\Models\EmailLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\SendQueuedMailable;
 use Illuminate\Mail\SentMessage;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -17,6 +22,20 @@ use Symfony\Component\Mailer\SentMessage as SymfonySentMessage;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Tests\TestCase;
+
+class TestFailedMailable extends Mailable
+{
+    public $to = [['address' => 'failed@example.com', 'name' => '']];
+
+    public $subject = 'Failed Email';
+}
+
+class TestResendMailable extends Mailable
+{
+    public $to = [['address' => 'resend@example.com', 'name' => '']];
+
+    public $subject = 'Resend Test';
+}
 
 class EmailLoggingTest extends TestCase
 {
@@ -34,7 +53,7 @@ class EmailLoggingTest extends TestCase
         Role::create(['name' => 'CASE_MANAGER']);
 
         // Create the admin user for tests that need auth
-        $this->adminUser = User::factory()->create();
+        $this->adminUser = User::factory()->create(['role' => 'ADMIN']);
         $this->adminUser->assignRole('ADMIN');
     }
 
@@ -43,6 +62,7 @@ class EmailLoggingTest extends TestCase
     {
         // Create the Symfony Email
         $email = new Email;
+        $email->from(new Address('sender@example.com'));
         $email->to(new Address('test@example.com'));
         $email->subject('Test Subject');
         $email->text('Test body');
@@ -65,16 +85,17 @@ class EmailLoggingTest extends TestCase
     #[Test]
     public function failed_job_creates_email_log(): void
     {
+        // Create a SendQueuedMailable wrapping a real test mailable class
+        $mailable = new TestFailedMailable;
+        $queued = new SendQueuedMailable($mailable);
+
         // Simulate a failed mail job by creating a failed_jobs record
         $uuid = (string) Str::uuid();
         $payload = json_encode([
-            'displayName' => 'App\Mail\TestMailable',
+            'displayName' => get_class($mailable),
             'job' => 'Illuminate\Queue\CallQueuedHandler@call',
             'data' => [
-                'command' => serialize((object) [
-                    'to' => ['failed@example.com'],
-                    'subject' => 'Failed Email',
-                ]),
+                'command' => serialize($queued),
             ],
         ]);
 
@@ -188,14 +209,14 @@ class EmailLoggingTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
             ->component('Admin/System/EmailLogs/Index')
-            ->has('emailLogs.data', 1)
+            ->has('logs.data', 1)
         );
     }
 
     #[Test]
     public function non_admin_cannot_access_email_logs_page(): void
     {
-        $caseManager = User::factory()->create();
+        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
         $caseManager->assignRole('CASE_MANAGER');
 
         $response = $this
@@ -208,14 +229,17 @@ class EmailLoggingTest extends TestCase
     #[Test]
     public function resend_with_job_uuid_retries_queue(): void
     {
-        Queue::fake();
+        $jobUuid = (string) Str::uuid();
+
+        // Mock Queue::retry() since SyncQueue doesn't support it
+        Queue::shouldReceive('retry')->once()->with($jobUuid);
 
         $log = EmailLog::create([
             'to_email' => 'resend@example.com',
             'subject' => 'Resend Test',
             'mailable_type' => 'App\Mail\TestMailable',
             'status' => 'failed',
-            'job_uuid' => (string) Str::uuid(),
+            'job_uuid' => $jobUuid,
         ]);
 
         $response = $this

@@ -455,6 +455,14 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 + Refer to Agency
               </Link>
             </div>
+            {caseFile.status === 'OPEN' && hasActiveReferrals && (
+              <div className="mb-3 flex items-start gap-2.5 rounded-[3px] border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <span className="material-symbols-outlined text-[16px] text-amber-600 shrink-0 mt-px">warning</span>
+                <p className="text-[11px] leading-5 text-amber-800">
+                  This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
+                </p>
+              </div>
+            )}
             <UnifiedTable
               variant="embedded"
               data={referralRows}
