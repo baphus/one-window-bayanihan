@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Agency;
-use Inertia\Inertia;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
+use Inertia\Inertia;
 
 class AdminUserController extends Controller
 {
@@ -30,7 +30,7 @@ class AdminUserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
+            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()->symbols()],
             'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
             'agcy_id' => 'nullable|exists:agencies,id',
             'contact_number' => 'nullable|string',
@@ -56,7 +56,7 @@ class AdminUserController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
+            'email' => 'required|email|unique:users,email,'.$id,
             'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
             'agcy_id' => 'nullable|exists:agencies,id',
             'contact_number' => 'nullable|string',
@@ -66,7 +66,7 @@ class AdminUserController extends Controller
         $updateData = $validated;
 
         if ($request->filled('password')) {
-            $request->validate(['password' => 'string|min:8']);
+            $request->validate(['password' => ['string', Password::min(8)->mixedCase()->numbers()->symbols()]]);
             $updateData['password'] = Hash::make($request->input('password'));
         }
 

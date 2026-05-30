@@ -66,7 +66,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('otp', function (Request $request) {
-            return Limit::perMinute(5)->by($request->input('email') ?: $request->ip());
+            return Limit::perMinute(5)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip());
         });
 
         RateLimiter::for('tracking', function (Request $request) {
