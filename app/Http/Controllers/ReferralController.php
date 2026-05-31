@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
-use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\ReferralAttachment;
 use App\Models\SystemSetting;
@@ -87,14 +86,6 @@ class ReferralController extends Controller
         $this->authorizeReferralAccess($referral, $request->user());
         $serviceRequirements = $this->referralService->getServiceRequirements($referral->agcy_id);
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
-
-        AuditLog::create([
-            'action' => 'VIEW',
-            'module' => 'REFERRAL',
-            'entity_id' => $id,
-            'description' => 'Viewed referral details',
-            'user_id' => $request->user()->id,
-        ]);
 
         return Inertia::render('Referral/Show', [
             'referral' => $referral,
