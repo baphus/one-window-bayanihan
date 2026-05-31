@@ -11,7 +11,6 @@ function getActivityType(action, module) {
     // Action-only mappings
     if (act === 'LOGIN') return 'USER LOGIN';
     if (act === 'LOGOUT') return 'USER LOGOUT';
-    if (act === 'VIEW') return 'RECORD VIEWED';
     if (act === 'PUBLISH') return 'PUBLISHED';
     if (act === 'ARCHIVE') return 'ARCHIVED';
     if (act === 'UNARCHIVE') return 'UNARCHIVED';
