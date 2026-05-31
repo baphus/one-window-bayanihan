@@ -94,10 +94,10 @@ class CaseDocumentController extends Controller
         if ($case->user_id === $user->id) {
             return;
         }
-        if ($user->hasRole('ADMIN')) {
+        if ($user->hasRole('ADMIN') || $user->role === 'ADMIN') {
             return;
         }
-        if ($user->hasRole('CASE_MANAGER')) {
+        if ($user->hasRole('CASE_MANAGER') || $user->role === 'CASE_MANAGER') {
             return;
         }
 

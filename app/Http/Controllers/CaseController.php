@@ -140,10 +140,10 @@ class CaseController extends Controller
 
     private function authorizeCaseAccess($case, $user)
     {
-        if ($user->hasRole('ADMIN')) {
+        if ($user->hasRole('ADMIN') || $user->role === 'ADMIN') {
             return;
         }
-        if ($user->hasRole('CASE_MANAGER')) {
+        if ($user->hasRole('CASE_MANAGER') || $user->role === 'CASE_MANAGER') {
             return;
         }
 
