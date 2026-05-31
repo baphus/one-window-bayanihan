@@ -107,7 +107,6 @@ class TrackingService
                     'CREATE' => 'create',
                     'UPDATE' => 'update',
                     'DELETE' => 'delete',
-                    'VIEW' => 'view',
                     'LOGIN', 'LOGOUT' => 'auth',
                     default => 'system',
                 },
