@@ -53,9 +53,9 @@ const navByRole = {
       { name: 'Stakeholders', href: '/stakeholders', icon: 'account_balance' },
     ]},
     { label: 'Agency Management', items: [
-      { name: 'Agencies', href: '/agencies', icon: 'account_balance' },
-      { name: 'Services', href: '/services', icon: 'medical_services' },
-      { name: 'Users', href: '/users', icon: 'manage_accounts' },
+      { name: 'Agencies', href: '/admin/agencies', icon: 'account_balance' },
+      { name: 'Services', href: '/admin/services', icon: 'medical_services' },
+      { name: 'Users', href: '/admin/users', icon: 'manage_accounts' },
     ]},
     { label: 'Content Management', items: [
       { name: 'Help Center', href: '/helpdesk', icon: 'help' },
