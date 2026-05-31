@@ -141,6 +141,10 @@ export default function AddressDropdowns({ values, onChange, errors }) {
             .finally(() => setLoadingBarangays(false));
     }, [onChange]);
 
+    const handleBarangayChange = useCallback((value) => {
+        onChange('barangay', value);
+    }, [onChange]);
+
     // If API failed, fall back to text inputs
     if (apiFailed) {
         return (
@@ -200,7 +204,7 @@ export default function AddressDropdowns({ values, onChange, errors }) {
             <Field label="Barangay">
                 <Select
                     value={values.barangay}
-                    onChange={handleBarangayChange || ((v) => { onChange('barangay', v); })}
+                    onChange={handleBarangayChange}
                     options={barangays}
                     placeholder={!values.city_municipality ? 'Select city first' : loadingBarangays ? 'Loading barangays...' : 'Select barangay...'}
                     disabled={!values.city_municipality}
