@@ -132,7 +132,7 @@ export default function ClientShow({ client, auditLogs }) {
 
                     {auditLogs && (
                         <CardSection title="Activity Timeline">
-                            <AuditLogTimeline logs={auditLogs} />
+                            <AuditLogTimeline logs={auditLogs} client={client} />
                         </CardSection>
                     )}
                 </div>
