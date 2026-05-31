@@ -12,6 +12,8 @@ use App\Models\Referral;
 use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -100,10 +102,42 @@ class CaseService
         });
     }
 
-    public function publishDraft(string $id): CaseFile
+    public function deleteDraft(string $id, string $userId): void
     {
-        return DB::transaction(function () use ($id) {
+        $case = CaseFile::where('status', 'DRAFT')->findOrFail($id);
+
+        if ($case->user_id !== $userId) {
+            throw new AuthorizationException('You do not own this draft.');
+        }
+
+        DB::transaction(function () use ($case) {
+            if ($case->client) {
+                DB::table('client_addresses')->where('client_id', $case->client->id)->delete();
+                DB::table('client_employments')->where('client_id', $case->client->id)->delete();
+                DB::table('next_of_kin')->where('client_id', $case->client->id)->delete();
+                DB::table('clients')->where('id', $case->client->id)->delete();
+            }
+            DB::table('cases')->where('id', $case->id)->delete();
+        });
+    }
+
+    public function getUserDrafts(string $userId, int $perPage = 15): LengthAwarePaginator
+    {
+        return CaseFile::with('client')
+            ->where('status', 'DRAFT')
+            ->where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+    }
+
+    public function publishDraft(string $id, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($id, $userId) {
             $case = CaseFile::where('status', 'DRAFT')->findOrFail($id);
+
+            if ($case->user_id !== $userId) {
+                throw new AuthorizationException('You do not own this draft.');
+            }
 
             $case->update([
                 'status' => 'OPEN',
@@ -114,7 +148,7 @@ class CaseService
                 'module' => 'CASE',
                 'entity_id' => $case->id,
                 'new_value' => $case->toArray(),
-                'user_id' => request()->user()->id,
+                'user_id' => $userId,
             ]);
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user']);
@@ -134,6 +168,20 @@ class CaseService
 
         if (! empty($filters['client_type'])) {
             $query->where('client_type', $filters['client_type']);
+        }
+
+        if (! empty($filters['vulnerability_indicator'])) {
+            $query->where('vulnerability_indicator', $filters['vulnerability_indicator']);
+        }
+
+        if (! empty($filters['user_id'])) {
+            $query->where('user_id', $filters['user_id']);
+        }
+
+        if (! empty($filters['agcy_id'])) {
+            $query->whereHas('referrals', function ($q) use ($filters) {
+                $q->where('agcy_id', $filters['agcy_id']);
+            });
         }
 
         if (! empty($filters['search'])) {

@@ -16,6 +16,24 @@ class DashboardService
     {
         $formatter = app(AuditLogFormatter::class);
 
+        $myDraftCount = $user ? CaseFile::where('status', 'DRAFT')->where('user_id', $user->id)->count() : 0;
+
+        $myRecentDrafts = $user
+            ? CaseFile::with('client')
+                ->where('status', 'DRAFT')
+                ->where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->take(3)
+                ->get()
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'case_number' => $d->case_number,
+                    'client_name' => $d->client ? trim(($d->client->first_name ?? '').' '.($d->client->last_name ?? '')) : 'N/A',
+                    'created_at' => $d->created_at?->toISOString(),
+                ])
+                ->toArray()
+            : [];
+
         $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $openCases = CaseFile::where('status', 'OPEN')->count();
         $closedCases = CaseFile::where('status', 'CLOSED')->count();
@@ -199,6 +217,8 @@ class DashboardService
             'recentActivity' => $recentActivity,
             'dashboardNotifications' => $recentNotifications->toArray(),
             'averageCaseDaysToClose' => $averageCaseDaysToClose,
+            'myDraftCount' => $myDraftCount,
+            'myRecentDrafts' => $myRecentDrafts,
         ];
     }
 

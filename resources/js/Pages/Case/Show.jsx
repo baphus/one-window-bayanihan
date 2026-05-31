@@ -306,6 +306,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <StatusBadge status={caseFile.status} size="md" />
+          {caseFile.user && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-[3px]">
+              <span className="w-5 h-5 rounded-full bg-[#0b5384] text-white text-[8px] font-bold flex items-center justify-center shrink-0">
+                {caseFile.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </span>
+              <span className="text-[11px] font-medium text-slate-600">
+                Created by <span className="font-bold text-slate-800">{caseFile.user.name}</span>
+              </span>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => {

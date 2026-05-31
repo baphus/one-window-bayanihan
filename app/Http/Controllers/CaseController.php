@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
+use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
+use App\Models\User;
 use App\Services\CaseService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,13 +22,15 @@ class CaseController extends Controller
     public function index(Request $request)
     {
         $cases = $this->caseService->getCases(
-            $request->only(['status', 'search', 'client_type'])
+            $request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id'])
         );
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => $request->only(['status', 'search', 'client_type']),
+            'filters' => $request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id']),
             'stats' => $this->caseService->getCaseStats(),
+            'users' => User::select('id', 'name')->orderBy('name')->get(),
+            'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
         ]);
     }
 
@@ -101,9 +105,9 @@ class CaseController extends Controller
             ->with('success', 'Case status updated successfully.');
     }
 
-    public function publish(CaseFile $case)
+    public function publish(Request $request, CaseFile $case)
     {
-        $case = $this->caseService->publishDraft($case->id);
+        $case = $this->caseService->publishDraft($case->id, $request->user()->id);
 
         return redirect()
             ->route('cases.show', $case)
