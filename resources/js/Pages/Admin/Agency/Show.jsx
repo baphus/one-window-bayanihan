@@ -50,6 +50,7 @@ export default function AdminAgencyShow({ agency }) {
 
   function handleSave(e) {
     e.preventDefault();
+    bypassNext();
     setSaving(true);
     router.patch(route('admin.agencies.update', agency.id), editData, {
       preserveScroll: true,

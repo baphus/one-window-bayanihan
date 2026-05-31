@@ -76,10 +76,9 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
             ? `/api/clients?q=${encodeURIComponent(searchTerm.trim())}`
             : '/api/clients';
 
-        fetch(url)
-            .then((res) => res.json())
-            .then((data) => {
-                setClients(data.data || []);
+        axios.get(url)
+            .then((res) => {
+                setClients(res.data.data || []);
             })
             .catch(() => {
                 setClients([]);

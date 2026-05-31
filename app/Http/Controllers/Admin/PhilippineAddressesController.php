@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncPhilippineAddressesJob;
 use App\Models\PhilippineAddress;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 
 class PhilippineAddressesController extends Controller
@@ -57,8 +57,8 @@ class PhilippineAddressesController extends Controller
 
     public function sync()
     {
-        Artisan::call('philippine-addresses:sync');
+        SyncPhilippineAddressesJob::dispatch(false);
 
-        return back()->with('success', 'Philippine addresses synced successfully from PSGC API.');
+        return back()->with('success', 'Address sync has been dispatched to the queue.');
     }
 }

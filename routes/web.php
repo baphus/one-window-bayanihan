@@ -248,6 +248,14 @@ Route::get('/contact', function () {
     return Inertia::render('Contact/Index');
 })->name('contact');
 
+Route::get('/privacy', function () {
+    return Inertia::render('Legal/PrivacyPolicy');
+})->name('privacy');
+
+Route::get('/terms', function () {
+    return Inertia::render('Legal/TermsOfService');
+})->name('terms');
+
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
     ->name('track.send-otp')

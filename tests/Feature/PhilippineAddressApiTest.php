@@ -141,11 +141,17 @@ class PhilippineAddressApiTest extends TestCase
             ]);
     }
 
-    public function test_unauthenticated_requests_are_rejected(): void
+    public function test_unauthenticated_requests_return_regions(): void
     {
+        PhilippineAddress::insert([
+            ['type' => 'region', 'code' => '130000000', 'name' => 'Region X', 'parent_code' => null],
+        ]);
+
         $response = $this->getJson('/api/address/regions');
 
-        $response->assertUnauthorized();
+        $response->assertOk()
+            ->assertJsonCount(1)
+            ->assertJson([['code' => '130000000', 'name' => 'Region X']]);
     }
 
     public function test_barangays_returns_empty_for_nonexistent_parent(): void

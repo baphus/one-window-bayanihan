@@ -6,10 +6,11 @@ use App\Models\PhilippineAddress;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Sleep;
 
 class SyncPhilippineAddresses extends Command
 {
-    protected $signature = 'philippine-addresses:sync';
+    protected $signature = 'philippine-addresses:sync {--force : Truncate and re-sync from scratch}';
 
     protected $description = 'Fetch Philippine address data from PSGC API and store in database';
 
@@ -19,10 +20,13 @@ class SyncPhilippineAddresses extends Command
     {
         $this->apiBase = config('services.psgc.api_base', 'https://psgc.cloud/api');
 
+        if ($this->option('force')) {
+            $this->warn('Truncating existing address data...');
+            PhilippineAddress::truncate();
+        }
+
         $this->info('Syncing Philippine addresses from PSGC API...');
         $this->newLine();
-
-        PhilippineAddress::truncate();
 
         $this->syncRegions();
 
@@ -45,6 +49,8 @@ class SyncPhilippineAddresses extends Command
     private function syncRegions(): void
     {
         $regions = $this->fetch($this->apiBase.'/regions');
+        Sleep::usleep(100_000);
+
         if (empty($regions)) {
             $this->warn('No regions fetched — aborting sync.');
 
@@ -58,7 +64,10 @@ class SyncPhilippineAddresses extends Command
             'parent_code' => null,
         ], $regions);
 
-        PhilippineAddress::insert($regionData);
+        foreach (array_chunk($regionData, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
+
         $this->info('Regions: '.count($regionData));
 
         $bar = $this->output->createProgressBar(count($regions));
@@ -66,6 +75,8 @@ class SyncPhilippineAddresses extends Command
 
         foreach ($regions as $region) {
             $this->syncProvinces($region['code']);
+            $this->syncDirectRegionCities($region['code']);
+            $this->syncDirectRegionMunicipalities($region['code']);
             $bar->advance();
         }
 
@@ -76,6 +87,8 @@ class SyncPhilippineAddresses extends Command
     private function syncProvinces(string $regionCode): void
     {
         $provinces = $this->fetch($this->apiBase.'/regions/'.$regionCode.'/provinces');
+        Sleep::usleep(100_000);
+
         if (empty($provinces)) {
             return;
         }
@@ -87,7 +100,9 @@ class SyncPhilippineAddresses extends Command
             'parent_code' => $regionCode,
         ], $provinces);
 
-        PhilippineAddress::insert($provinceData);
+        foreach (array_chunk($provinceData, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
 
         foreach ($provinces as $province) {
             $this->syncCities($province['code']);
@@ -98,6 +113,8 @@ class SyncPhilippineAddresses extends Command
     private function syncCities(string $provinceCode): void
     {
         $cities = $this->fetch($this->apiBase.'/provinces/'.$provinceCode.'/cities');
+        Sleep::usleep(100_000);
+
         if (empty($cities)) {
             return;
         }
@@ -109,7 +126,9 @@ class SyncPhilippineAddresses extends Command
             'parent_code' => $provinceCode,
         ], $cities);
 
-        PhilippineAddress::insert($cityData);
+        foreach (array_chunk($cityData, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
 
         foreach ($cities as $city) {
             $this->syncBarangays('cities', $city['code']);
@@ -119,6 +138,8 @@ class SyncPhilippineAddresses extends Command
     private function syncMunicipalities(string $provinceCode): void
     {
         $municipalities = $this->fetch($this->apiBase.'/provinces/'.$provinceCode.'/municipalities');
+        Sleep::usleep(100_000);
+
         if (empty($municipalities)) {
             return;
         }
@@ -130,7 +151,59 @@ class SyncPhilippineAddresses extends Command
             'parent_code' => $provinceCode,
         ], $municipalities);
 
-        PhilippineAddress::insert($munData);
+        foreach (array_chunk($munData, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
+
+        foreach ($municipalities as $municipality) {
+            $this->syncBarangays('municipalities', $municipality['code']);
+        }
+    }
+
+    private function syncDirectRegionCities(string $regionCode): void
+    {
+        $cities = $this->fetch($this->apiBase.'/regions/'.$regionCode.'/cities');
+        Sleep::usleep(100_000);
+
+        if (empty($cities)) {
+            return;
+        }
+
+        $data = array_map(fn ($c) => [
+            'type' => 'city',
+            'code' => $c['code'],
+            'name' => $c['name'],
+            'parent_code' => $regionCode,
+        ], $cities);
+
+        foreach (array_chunk($data, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
+
+        foreach ($cities as $city) {
+            $this->syncBarangays('cities', $city['code']);
+        }
+    }
+
+    private function syncDirectRegionMunicipalities(string $regionCode): void
+    {
+        $municipalities = $this->fetch($this->apiBase.'/regions/'.$regionCode.'/municipalities');
+        Sleep::usleep(100_000);
+
+        if (empty($municipalities)) {
+            return;
+        }
+
+        $data = array_map(fn ($m) => [
+            'type' => 'municipality',
+            'code' => $m['code'],
+            'name' => $m['name'],
+            'parent_code' => $regionCode,
+        ], $municipalities);
+
+        foreach (array_chunk($data, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
 
         foreach ($municipalities as $municipality) {
             $this->syncBarangays('municipalities', $municipality['code']);
@@ -140,6 +213,8 @@ class SyncPhilippineAddresses extends Command
     private function syncBarangays(string $type, string $parentCode): void
     {
         $barangays = $this->fetch($this->apiBase.'/'.$type.'/'.$parentCode.'/barangays');
+        Sleep::usleep(100_000);
+
         if (empty($barangays)) {
             return;
         }
@@ -151,7 +226,9 @@ class SyncPhilippineAddresses extends Command
             'parent_code' => $parentCode,
         ], $barangays);
 
-        PhilippineAddress::insert($barangayData);
+        foreach (array_chunk($barangayData, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
     }
 
     private function fetch(string $url): array

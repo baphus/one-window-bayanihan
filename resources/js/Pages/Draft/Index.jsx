@@ -4,7 +4,7 @@ import { useState } from 'react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate } from '@/lib/utils';
-import { EditNote, Delete } from 'lucide-react';
+import { NotepadText, Delete } from 'lucide-react';
 
 export default function DraftIndex({ drafts }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -48,7 +48,7 @@ export default function DraftIndex({ drafts }) {
           {drafts.data.length === 0 ? (
             <div className="p-12 text-center">
               <div className="mx-auto w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-                <EditNote className="w-8 h-8 text-amber-400" />
+                <NotepadText className="w-8 h-8 text-amber-400" />
               </div>
               <h3 className="text-base font-bold text-slate-700 mb-1">No Drafts Yet</h3>
               <p className="text-sm text-slate-500 max-w-sm mx-auto">
