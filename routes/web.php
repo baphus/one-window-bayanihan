@@ -86,6 +86,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
     Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
+    Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
+    Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
     Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show');
     Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
     Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');

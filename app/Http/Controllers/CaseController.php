@@ -71,6 +71,9 @@ class CaseController extends Controller
     {
         $case = $this->caseService->getCase($id);
         $this->authorizeCaseAccess($case, $request->user());
+        if ($case->status === 'DRAFT' && $case->user_id !== $request->user()->id) {
+            abort(403, 'You do not have access to this draft.');
+        }
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
         return Inertia::render('Case/Show', [
@@ -140,6 +143,24 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.show', $case)
             ->with('success', 'Case restored from archive successfully.');
+    }
+
+    public function drafts(Request $request)
+    {
+        $drafts = $this->caseService->getUserDrafts($request->user()->id);
+
+        return Inertia::render('Draft/Index', [
+            'drafts' => $drafts,
+        ]);
+    }
+
+    public function destroyDraft(string $id, Request $request)
+    {
+        $this->caseService->deleteDraft($id, $request->user()->id);
+
+        return redirect()
+            ->route('cases.drafts')
+            ->with('success', 'Draft deleted successfully.');
     }
 
     private function authorizeCaseAccess($case, $user)

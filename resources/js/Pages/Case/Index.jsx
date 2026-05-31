@@ -46,7 +46,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function CaseIndex({ cases, filters, stats }) {
+export default function CaseIndex({ cases, filters, stats, users = [], agencies = [] }) {
   const { auth } = usePage().props;
   const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
 
@@ -64,6 +64,8 @@ export default function CaseIndex({ cases, filters, stats }) {
   const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
   const [typeFilter, setTypeFilter] = useState(filters?.client_type ?? '');
   const [vulnFilter, setVulnFilter] = useState(filters?.vulnerability_indicator ?? '');
+  const [authorFilter, setAuthorFilter] = useState(filters?.user_id ?? '');
+  const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -92,20 +94,32 @@ export default function CaseIndex({ cases, filters, stats }) {
     if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter });
     if (typeFilter) chips.push({ key: 'client_type', label: 'Client Type', value: typeFilter === 'OFW' ? 'OFW' : 'NOK' });
     if (vulnFilter) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: vulnFilter });
+    if (authorFilter) {
+      const author = users.find(u => u.id === authorFilter);
+      chips.push({ key: 'user_id', label: 'Author', value: author?.name || authorFilter });
+    }
+    if (agencyFilter) {
+      const agency = agencies.find(a => a.id === agencyFilter);
+      chips.push({ key: 'agcy_id', label: 'Referred To', value: agency?.name || agencyFilter });
+    }
     return chips;
-  }, [statusFilter, typeFilter, vulnFilter]);
+  }, [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, users, agencies]);
 
   const handleRemoveFilter = (filter) => {
     if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
     if (filter.key === 'client_type') { setTypeFilter(''); navigateWith({ client_type: undefined }); }
     if (filter.key === 'vulnerability_indicator') { setVulnFilter(''); navigateWith({ vulnerability_indicator: undefined }); }
+    if (filter.key === 'user_id') { setAuthorFilter(''); navigateWith({ user_id: undefined }); }
+    if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
   };
 
   const handleClearFilters = () => {
     setStatusFilter('');
     setTypeFilter('');
     setVulnFilter('');
-    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined });
+    setAuthorFilter('');
+    setAgencyFilter('');
+    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined, user_id: undefined, agcy_id: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -327,8 +341,44 @@ export default function CaseIndex({ cases, filters, stats }) {
           <option value="None">None</option>
         </select>
       </div>
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Author</label>
+        <select
+          value={authorFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setAuthorFilter(val);
+            setFilterOpen(false);
+            navigateWith({ user_id: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All Authors</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Referred To</label>
+        <select
+          value={agencyFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setAgencyFilter(val);
+            setFilterOpen(false);
+            navigateWith({ agcy_id: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All Agencies</option>
+          {agencies.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+      </div>
     </div>
-  ), [statusFilter, typeFilter, vulnFilter]);
+  ), [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, users, agencies]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
