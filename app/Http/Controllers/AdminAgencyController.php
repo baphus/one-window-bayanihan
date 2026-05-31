@@ -70,8 +70,7 @@ class AdminAgencyController extends Controller
         $agency->load([
             'services',
             'users',
-            'referrals.caseFile.client',
-            'referrals' => fn ($q) => $q->latest(),
+            'referrals' => fn ($q) => $q->with(['caseFile.client'])->latest(),
         ]);
 
         return Inertia::render('Admin/Agency/Show', [

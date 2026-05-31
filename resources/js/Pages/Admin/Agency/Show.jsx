@@ -280,27 +280,29 @@ export default function AdminAgencyShow({ agency }) {
                   <th className="px-4 py-3">Required Services</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Date Referred</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {agency.referrals.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">No referrals assigned to this agency.</td>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400">No referrals assigned to this agency.</td>
                   </tr>
                 ) : (
                   agency.referrals.map((ref) => (
                     <tr key={ref.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        <Link href={route('referrals.show', ref.id)} className="text-[#0b5384] hover:underline">
-                          {ref.caseFile?.case_number || '—'}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{ref.caseFile?.client?.name || '—'}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">{ref.caseFile?.case_number || '—'}</td>
+                      <td className="px-4 py-3 text-slate-600">{ref.caseFile?.client ? `${ref.caseFile.client.first_name} ${ref.caseFile.client.last_name}` : '—'}</td>
                       <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{ref.required_services || '—'}</td>
                       <td className="px-4 py-3">
                         <StatusBadge status={ref.status} />
                       </td>
                       <td className="px-4 py-3 text-slate-600">{formatDate(ref.created_at)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={route('referrals.show', ref.id)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300 inline-flex items-center">
+                          View
+                        </Link>
+                      </td>
                     </tr>
                   ))
                 )}
