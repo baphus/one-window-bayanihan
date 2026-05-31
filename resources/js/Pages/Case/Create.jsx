@@ -7,8 +7,8 @@ import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 
 const STEPS = [
-    { id: 1, title: 'Case Setup', description: 'Define case parameters and tracking' },
-    { id: 2, title: 'Client Profile', description: 'Enter client information' },
+    { id: 1, title: 'Client Profile', description: 'Enter client information and vulnerability status' },
+    { id: 2, title: 'Case Setup', description: 'Define case parameters and tracking' },
     { id: 3, title: 'Case Narrative', description: 'Document client situation' },
 ];
 
@@ -461,10 +461,10 @@ export default function CaseCreate() {
     }
 
     function canProceed() {
-        if (currentStep === 1) return true;
-        if (currentStep === 2) {
+        if (currentStep === 1) {
             return data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
         }
+        if (currentStep === 2) return true;
         return true;
     }
 
@@ -588,19 +588,20 @@ export default function CaseCreate() {
 
                             <div className="rounded-xl border border-slate-200 bg-white p-5">
                                 <h4 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
-                                    {currentStep === 1 ? 'Get oriented' : currentStep === 2 ? 'Fill client details' : 'Tell the story'}
+                                    {currentStep === 1 ? 'Fill client details' : currentStep === 2 ? 'Get oriented' : 'Tell the story'}
                                 </h4>
                                 <ul className="mt-3 space-y-2 text-[13px] text-slate-600">
                                     {currentStep === 1 && (
                                         <>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>We generate the case number and tracking ID for you.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Choose the right client type.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Fill in complete client details.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add work history and next of kin if applicable.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Indicate any vulnerability status.</span></li>
                                         </>
                                     )}
                                     {currentStep === 2 && (
                                         <>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Fill in complete client details.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add work history and next of kin if applicable.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>We generate the case number and tracking ID for you.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Choose the right client type.</span></li>
                                         </>
                                     )}
                                     {currentStep === 3 && (
@@ -633,54 +634,6 @@ export default function CaseCreate() {
 
                             <div className="space-y-6">
                                 {currentStep === 1 && (
-                                    <div className="space-y-5">
-                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Auto-generated identifiers</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Unique case number and tracking ID are generated automatically.</p>
-                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-                                                <Field label="Case No.">
-                                                    <Input value={caseId} readOnly />
-                                                </Field>
-                                                <Field label="Tracking ID">
-                                                    <Input value={trackingId} readOnly />
-                                                </Field>
-                                            </div>
-                                        </div>
-
-                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Who is this case for?</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Pick the client category to tailor the next steps.</p>
-                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-                                                <Field label="Client Type" required>
-                                                    <select
-                                                        value={data.client_type}
-                                                        onChange={(e) => setData('client_type', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    >
-                                                        <option value="OFW">Overseas Filipino Worker</option>
-                                                        <option value="NEXT_OF_KIN">Next of Kin</option>
-                                                    </select>
-                                                </Field>
-                                                <Field label="Vulnerability Indicator">
-                                                    <select
-                                                        value={data.vulnerability_indicator}
-                                                        onChange={(e) => setData('vulnerability_indicator', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    >
-                                                        <option value="">Select vulnerability...</option>
-                                                        <option value="PWD">PWD</option>
-                                                        <option value="Senior Citizen">Senior Citizen</option>
-                                                        <option value="Solo Parent">Solo Parent</option>
-                                                        <option value="Indigenous Person">Indigenous Person</option>
-                                                        <option value="None">None</option>
-                                                    </select>
-                                                </Field>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {currentStep === 2 && (
                                     <div className="space-y-6">
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Existing Client Record">
@@ -803,6 +756,77 @@ export default function CaseCreate() {
                                                 )}
                                             </Subsection>
                                         </div>
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Vulnerability Status</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Indicate if the client falls under any vulnerable sector.</p>
+                                            <div className="mt-4">
+                                                <Field label="Vulnerability Indicator">
+                                                    <select
+                                                        value={data.vulnerability_indicator}
+                                                        onChange={(e) => setData('vulnerability_indicator', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select vulnerability...</option>
+                                                        <option value="PWD">PWD</option>
+                                                        <option value="Senior Citizen">Senior Citizen</option>
+                                                        <option value="Solo Parent">Solo Parent</option>
+                                                        <option value="Indigenous Person">Indigenous Person</option>
+                                                        <option value="None">None</option>
+                                                    </select>
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        {clientSource === 'new' && (
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-6 shadow-sm">
+                                                <h3 className="text-[12px] font-bold uppercase tracking-wider text-amber-800">Data Privacy Consent</h3>
+                                                <p className="mt-2 text-[13px] leading-relaxed text-amber-900/90">
+                                                    I confirm that the client has been informed about this system's data privacy terms and conditions, and
+                                                    has given consent for their personal data to be collected, processed, and used for case management,
+                                                    referral coordination, and service delivery.
+                                                </p>
+                                                <label className="mt-4 inline-flex items-start gap-3 text-[13px] font-semibold text-amber-900 cursor-pointer">
+                                                    <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-600" />
+                                                    <span>I acknowledge and confirm client consent for data use in the system.</span>
+                                                </label>
+                                                {!consent && <p className="mt-3 text-[12px] font-medium text-amber-800">Required to create a case for a new client.</p>}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {currentStep === 2 && (
+                                    <div className="space-y-5">
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Auto-generated identifiers</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Unique case number and tracking ID are generated automatically.</p>
+                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                <Field label="Case No.">
+                                                    <Input value={caseId} readOnly />
+                                                </Field>
+                                                <Field label="Tracking ID">
+                                                    <Input value={trackingId} readOnly />
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Who is this case for?</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Pick the client category to tailor the next steps.</p>
+                                            <div className="mt-4">
+                                                <Field label="Client Type" required>
+                                                    <select
+                                                        value={data.client_type}
+                                                        onChange={(e) => setData('client_type', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="OFW">Overseas Filipino Worker</option>
+                                                        <option value="NEXT_OF_KIN">Next of Kin</option>
+                                                    </select>
+                                                </Field>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
@@ -823,22 +847,6 @@ export default function CaseCreate() {
                                                 </Field>
                                             </div>
                                         </div>
-
-                                        {clientSource === 'new' && (
-                                            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-6 shadow-sm">
-                                                <h3 className="text-[12px] font-bold uppercase tracking-wider text-amber-800">Data Privacy Consent</h3>
-                                                <p className="mt-2 text-[13px] leading-relaxed text-amber-900/90">
-                                                    I confirm that the client has been informed about this system's data privacy terms and conditions, and
-                                                    has given consent for their personal data to be collected, processed, and used for case management,
-                                                    referral coordination, and service delivery.
-                                                </p>
-                                                <label className="mt-4 inline-flex items-start gap-3 text-[13px] font-semibold text-amber-900 cursor-pointer">
-                                                    <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-600" />
-                                                    <span>I acknowledge and confirm client consent for data use in the system.</span>
-                                                </label>
-                                                {!consent && <p className="mt-3 text-[12px] font-medium text-amber-800">Required to create a case for a new client.</p>}
-                                            </div>
-                                        )}
 
                                         <div className="rounded-xl border border-slate-200 bg-[#fcfdff] p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Summary</h3>
