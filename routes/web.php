@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\HelpdeskTagController;
 use App\Http\Controllers\Admin\LogViewerController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
+use App\Http\Controllers\Admin\PhilippineAddressesController;
 use App\Http\Controllers\Admin\ScheduledTaskController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\Admin\SystemHealthController;
@@ -224,6 +225,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
             Route::post('/email-logs/{emailLog}/resend', [EmailLogController::class, 'resend'])->name('email-logs.resend');
+
+            Route::get('/addresses', [PhilippineAddressesController::class, 'index'])->name('addresses');
+            Route::post('/addresses/sync', [PhilippineAddressesController::class, 'sync'])->name('addresses.sync');
         });
 
     });
