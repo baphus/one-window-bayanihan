@@ -37,6 +37,7 @@ const COLUMN_DEFS = [
   { key: 'tracker_number', label: 'Tracking ID', default: true },
   { key: 'client_type', label: 'Client Type', default: true },
   { key: 'client_name', label: 'Client Name', default: true },
+  { key: 'author', label: 'Author', default: true },
   { key: 'vulnerability_indicator', label: 'Vulnerability', default: true },
   { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
@@ -154,6 +155,35 @@ export default function CaseIndex({ cases, filters, stats }) {
                 row.client ? `${row.client.first_name} ${row.client.last_name}` : 'N/A',
               sortAccessor: (row) =>
                 row.client ? `${row.client.last_name}, ${row.client.first_name}` : '',
+            };
+          case 'author':
+            return {
+              ...base,
+              sortable: true,
+              sortAccessor: (row) => row.user?.name ?? '',
+              render: (row) => {
+                const user = row.user;
+                if (!user) return <span className="text-slate-400">—</span>;
+                const initials = user.name
+                  ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                  : '??';
+                return (
+                  <div className="flex items-center gap-2">
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.name}
+                        className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
+                      />
+                    ) : (
+                      <span className="w-7 h-7 rounded-full bg-[#0b5384] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                        {initials}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-700 truncate max-w-[120px]">{user.name}</span>
+                  </div>
+                );
+              },
             };
           case 'vulnerability_indicator':
             return {
