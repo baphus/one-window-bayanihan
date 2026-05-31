@@ -108,8 +108,9 @@ class AuditLogFormatterTest extends TestCase
     public function test_it_returns_system_for_null_user(): void
     {
         $log = new AuditLog([
-            'action' => 'VIEW',
-            'module' => 'clients',
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'new_value' => ['case_number' => 'CAS-001'],
             'timestamp' => now(),
         ]);
 
@@ -117,7 +118,7 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString('Client record viewed', $result);
+        $this->assertStringContainsString('CAS-001', $result);
     }
 
     public function test_it_handles_multiple_field_changes(): void
@@ -135,21 +136,6 @@ class AuditLogFormatterTest extends TestCase
         $result = $formatter->format($log);
 
         $this->assertStringContainsString('(+1 more)', $result);
-    }
-
-    public function test_it_handles_view_action(): void
-    {
-        $log = new AuditLog([
-            'action' => 'VIEW',
-            'module' => 'clients',
-            'timestamp' => now(),
-        ]);
-
-        $formatter = new AuditLogFormatter;
-
-        $result = $formatter->format($log);
-
-        $this->assertStringContainsString('Client record viewed', $result);
     }
 
     #[DataProvider('actionProvider')]
@@ -257,7 +243,6 @@ class AuditLogFormatterTest extends TestCase
             ['CREATE', 'created'],
             ['UPDATE', 'updated'],
             ['DELETE', 'deleted'],
-            ['VIEW', 'viewed'],
             ['LOGIN', 'signed in'],
             ['LOGOUT', 'signed out'],
         ];
