@@ -21,7 +21,6 @@ class AuditLogFormatter
         return match ($action) {
             'LOGIN' => $this->formatLogin($userName, $log),
             'LOGOUT' => $this->formatLogout($userName),
-            'VIEW' => $this->formatView($module),
             'CREATE' => $this->formatCreate($userName, $log, $module),
             'UPDATE' => $this->formatUpdate($log, $module),
             'DELETE' => $this->formatDelete($userName, $log, $module),
@@ -35,7 +34,6 @@ class AuditLogFormatter
             'CREATE' => 'created',
             'UPDATE' => 'updated',
             'DELETE' => 'deleted',
-            'VIEW' => 'viewed',
             'LOGIN' => 'signed in',
             'LOGOUT' => 'signed out',
             default => strtolower($action),
@@ -242,17 +240,23 @@ class AuditLogFormatter
     {
         $time = $log->timestamp?->format('g:i A');
 
-        return $time ? sprintf('%s signed in at %s', $userName, $time) : sprintf('%s signed in', $userName);
+        // Add user email for better identification
+        $userLabel = $userName;
+        if ($log->relationLoaded('user') && $log->getRelation('user') !== null) {
+            $email = $log->getRelation('user')->email ?? null;
+            if ($email) {
+                $userLabel = sprintf('%s (%s)', $userName, $email);
+            }
+        }
+
+        return $time
+            ? sprintf('%s signed in at %s', $userLabel, $time)
+            : sprintf('%s signed in', $userLabel);
     }
 
     private function formatLogout(string $userName): string
     {
         return sprintf('%s signed out', $userName);
-    }
-
-    private function formatView(string $module): string
-    {
-        return sprintf('%s record viewed', $module);
     }
 
     private function formatCreate(string $userName, AuditLog $log, string $module): string
