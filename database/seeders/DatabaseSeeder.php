@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             ServiceSeeder::class,
             AgencySeeder::class,
             HelpdeskSeeder::class,
+            HelpdeskSeederV2::class,
             DemoDataSeeder::class,
             SystemSettingSeeder::class,
         ]);
