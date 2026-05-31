@@ -131,6 +131,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {
+        Route::get('/agencies/{agency}', [AdminAgencyController::class, 'show'])->name('agencies.show');
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');
         Route::post('/agencies', [AdminAgencyController::class, 'store'])->name('agencies.store');
         Route::patch('/agencies/{agency}', [AdminAgencyController::class, 'update'])->name('agencies.update');

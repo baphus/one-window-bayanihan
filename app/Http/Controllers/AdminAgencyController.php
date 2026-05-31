@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agency;
-use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class AdminAgencyController extends Controller
 {
@@ -64,10 +64,22 @@ class AdminAgencyController extends Controller
             ->with('success', 'Agency updated successfully.');
     }
 
+    public function show(string $id)
+    {
+        $agency = Agency::withCount('referrals')->findOrFail($id);
+        $agency->load(['services', 'users']);
+
+        return Inertia::render('Admin/Agency/Show', [
+            'agency' => $agency,
+        ]);
+    }
+
     public function destroy(string $id)
     {
         $agency = Agency::findOrFail($id);
-        $agency->update(['is_active' => false, 'is_deleted' => true]);
+        $agency->is_active = false;
+        $agency->is_deleted = true;
+        $agency->save();
 
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency deactivated successfully.');

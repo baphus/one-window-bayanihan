@@ -79,7 +79,9 @@ class AdminUserController extends Controller
     public function destroy(string $id)
     {
         $user = User::findOrFail($id);
-        $user->update(['is_active' => false, 'is_deleted' => true]);
+        $user->is_active = false;
+        $user->is_deleted = true;
+        $user->save();
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User deactivated successfully.');
