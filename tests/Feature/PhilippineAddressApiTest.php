@@ -97,9 +97,9 @@ class PhilippineAddressApiTest extends TestCase
     public function test_provinces_filters_by_region(): void
     {
         Http::fake([
-            'https://psgc.cloud/api/provinces' => Http::response([
-                ['code' => 'P001', 'name' => 'Province A', 'regionCode' => 'R01'],
-                ['code' => 'P002', 'name' => 'Province B', 'regionCode' => 'R02'],
+            'https://psgc.cloud/api/regions/R01/provinces' => Http::response([
+                ['code' => 'P001', 'name' => 'Province A'],
+                ['code' => 'P002', 'name' => 'Province B'],
             ]),
         ]);
 
@@ -108,35 +108,31 @@ class PhilippineAddressApiTest extends TestCase
         $response = $this->actingAs($user)->getJson('/api/address/provinces?region=R01');
 
         $response->assertOk()
-            ->assertJsonCount(1)
+            ->assertJsonCount(2)
             ->assertJson([
-                ['code' => 'P001', 'name' => 'Province A', 'regionCode' => 'R01'],
+                ['code' => 'P001', 'name' => 'Province A'],
+                ['code' => 'P002', 'name' => 'Province B'],
             ]);
     }
 
-    public function test_provinces_returns_all_without_region_filter(): void
+    public function test_provinces_returns_empty_without_region_filter(): void
     {
-        Http::fake([
-            'https://psgc.cloud/api/provinces' => Http::response([
-                ['code' => 'P001', 'name' => 'Province A', 'regionCode' => 'R01'],
-                ['code' => 'P002', 'name' => 'Province B', 'regionCode' => 'R02'],
-            ]),
-        ]);
-
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->getJson('/api/address/provinces');
 
         $response->assertOk()
-            ->assertJsonCount(2);
+            ->assertJson([]);
     }
 
-    public function test_cities_filters_by_province(): void
+    public function test_cities_merges_cities_and_municipalities(): void
     {
         Http::fake([
-            'https://psgc.cloud/api/cities' => Http::response([
-                ['code' => 'C001', 'name' => 'City A', 'type' => 'City', 'provinceCode' => 'P001'],
-                ['code' => 'C002', 'name' => 'Municipality A', 'type' => 'Municipality', 'provinceCode' => 'P002'],
+            'https://psgc.cloud/api/provinces/P001/cities' => Http::response([
+                ['code' => 'C001', 'name' => 'City A'],
+            ]),
+            'https://psgc.cloud/api/provinces/P001/municipalities' => Http::response([
+                ['code' => 'C002', 'name' => 'Municipality A'],
             ]),
         ]);
 
@@ -145,18 +141,19 @@ class PhilippineAddressApiTest extends TestCase
         $response = $this->actingAs($user)->getJson('/api/address/cities?province=P001');
 
         $response->assertOk()
-            ->assertJsonCount(1)
+            ->assertJsonCount(2)
             ->assertJson([
-                ['code' => 'C001', 'name' => 'City A', 'provinceCode' => 'P001'],
+                ['code' => 'C001', 'name' => 'City A'],
+                ['code' => 'C002', 'name' => 'Municipality A'],
             ]);
     }
 
     public function test_barangays_filters_by_city(): void
     {
         Http::fake([
-            'https://psgc.cloud/api/barangays' => Http::response([
-                ['code' => 'B001', 'name' => 'Barangay A', 'cityCode' => 'C001'],
-                ['code' => 'B002', 'name' => 'Barangay B', 'cityCode' => 'C002'],
+            'https://psgc.cloud/api/cities/C001/barangays' => Http::response([
+                ['code' => 'B001', 'name' => 'Barangay A'],
+                ['code' => 'B002', 'name' => 'Barangay B'],
             ]),
         ]);
 
@@ -165,9 +162,10 @@ class PhilippineAddressApiTest extends TestCase
         $response = $this->actingAs($user)->getJson('/api/address/barangays?city=C001');
 
         $response->assertOk()
-            ->assertJsonCount(1)
+            ->assertJsonCount(2)
             ->assertJson([
-                ['code' => 'B001', 'name' => 'Barangay A', 'cityCode' => 'C001'],
+                ['code' => 'B001', 'name' => 'Barangay A'],
+                ['code' => 'B002', 'name' => 'Barangay B'],
             ]);
     }
 
@@ -178,11 +176,12 @@ class PhilippineAddressApiTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    public function test_barangays_uses_municipality_code_fallback(): void
+    public function test_barangays_falls_back_to_municipality_endpoint(): void
     {
         Http::fake([
-            'https://psgc.cloud/api/barangays' => Http::response([
-                ['code' => 'B001', 'name' => 'Barangay A', 'municipalityCode' => 'M001'],
+            'https://psgc.cloud/api/cities/M001/barangays' => Http::response(null, 404),
+            'https://psgc.cloud/api/municipalities/M001/barangays' => Http::response([
+                ['code' => 'B001', 'name' => 'Barangay A'],
             ]),
         ]);
 
@@ -193,7 +192,21 @@ class PhilippineAddressApiTest extends TestCase
         $response->assertOk()
             ->assertJsonCount(1)
             ->assertJson([
-                ['code' => 'B001', 'name' => 'Barangay A', 'cityCode' => 'M001'],
+                ['code' => 'B001', 'name' => 'Barangay A'],
             ]);
+    }
+
+    public function test_barangays_returns_empty_when_both_endpoints_fail(): void
+    {
+        Http::fake([
+            'https://psgc.cloud/api/cities/X001/barangays' => Http::response(null, 404),
+            'https://psgc.cloud/api/municipalities/X001/barangays' => Http::response(null, 500),
+        ]);
+
+        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+
+        $response = $this->actingAs($user)->getJson('/api/address/barangays?city=X001');
+
+        $response->assertOk()->assertJson([]);
     }
 }

@@ -41,4 +41,8 @@ return [
         'service_key' => env('SUPABASE_SERVICE_KEY', env('SUPABASE_KEY')),
     ],
 
+    'psgc' => [
+        'api_base' => env('PSGC_API_BASE', 'https://psgc.cloud/api'),
+    ],
+
 ];

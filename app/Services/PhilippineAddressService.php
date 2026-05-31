@@ -8,23 +8,20 @@ use Illuminate\Support\Facades\Log;
 
 class PhilippineAddressService
 {
-    private const API_BASE = 'https://psgc.cloud/api';
-
     private const CACHE_TTL = 86400; // 24 hours
 
     private const CACHE_KEY_REGIONS = 'psgc_regions';
 
-    private const CACHE_KEY_PROVINCES = 'psgc_provinces';
-
-    private const CACHE_KEY_CITIES = 'psgc_cities';
-
-    private const CACHE_KEY_BARANGAYS = 'psgc_barangays';
+    private function apiBase(): string
+    {
+        return config('services.psgc.api_base', 'https://psgc.cloud/api');
+    }
 
     public function getRegions(): array
     {
         return Cache::remember(self::CACHE_KEY_REGIONS, self::CACHE_TTL, function () {
             try {
-                $response = Http::timeout(10)->get(self::API_BASE.'/regions');
+                $response = Http::timeout(10)->get($this->apiBase().'/regions');
 
                 if ($response->successful()) {
                     return collect($response->json())->map(fn ($r) => [
@@ -50,61 +47,59 @@ class PhilippineAddressService
 
     public function getProvinces(?string $regionCode = null): array
     {
-        $all = Cache::remember(self::CACHE_KEY_PROVINCES, self::CACHE_TTL, function () {
+        if (! $regionCode) {
+            return [];
+        }
+
+        return Cache::remember('psgc_provinces_'.$regionCode, self::CACHE_TTL, function () use ($regionCode) {
             try {
-                $response = Http::timeout(10)->get(self::API_BASE.'/provinces');
+                $response = Http::timeout(10)->get($this->apiBase().'/regions/'.$regionCode.'/provinces');
 
                 if ($response->successful()) {
                     return collect($response->json())->map(fn ($p) => [
                         'code' => $p['code'],
                         'name' => $p['name'],
-                        'regionCode' => $p['regionCode'] ?? '',
                     ])->values()->toArray();
                 }
 
                 Log::warning('PSGC API returned non-success for provinces', [
+                    'region' => $regionCode,
                     'status' => $response->status(),
                 ]);
 
                 return [];
             } catch (\Throwable $e) {
                 Log::warning('PSGC API request failed for provinces', [
+                    'region' => $regionCode,
                     'error' => $e->getMessage(),
                 ]);
 
                 return [];
             }
         });
-
-        if ($regionCode) {
-            return collect($all)->filter(fn ($p) => $p['regionCode'] === $regionCode)->values()->toArray();
-        }
-
-        return $all;
     }
 
     public function getCities(?string $provinceCode = null): array
     {
-        $all = Cache::remember(self::CACHE_KEY_CITIES, self::CACHE_TTL, function () {
+        if (! $provinceCode) {
+            return [];
+        }
+
+        $cities = Cache::remember('psgc_cities_'.$provinceCode, self::CACHE_TTL, function () use ($provinceCode) {
             try {
-                $response = Http::timeout(10)->get(self::API_BASE.'/cities');
+                $response = Http::timeout(10)->get($this->apiBase().'/provinces/'.$provinceCode.'/cities');
 
                 if ($response->successful()) {
                     return collect($response->json())->map(fn ($c) => [
                         'code' => $c['code'],
                         'name' => $c['name'],
-                        'type' => $c['type'] ?? 'Municipality',
-                        'provinceCode' => $c['provinceCode'] ?? '',
                     ])->values()->toArray();
                 }
-
-                Log::warning('PSGC API returned non-success for cities', [
-                    'status' => $response->status(),
-                ]);
 
                 return [];
             } catch (\Throwable $e) {
                 Log::warning('PSGC API request failed for cities', [
+                    'province' => $provinceCode,
                     'error' => $e->getMessage(),
                 ]);
 
@@ -112,45 +107,97 @@ class PhilippineAddressService
             }
         });
 
-        if ($provinceCode) {
-            return collect($all)->filter(fn ($c) => $c['provinceCode'] === $provinceCode)->values()->toArray();
-        }
+        $municipalities = Cache::remember('psgc_municipalities_'.$provinceCode, self::CACHE_TTL, function () use ($provinceCode) {
+            try {
+                $response = Http::timeout(10)->get($this->apiBase().'/provinces/'.$provinceCode.'/municipalities');
 
-        return $all;
+                if ($response->successful()) {
+                    return collect($response->json())->map(fn ($m) => [
+                        'code' => $m['code'],
+                        'name' => $m['name'],
+                    ])->values()->toArray();
+                }
+
+                return [];
+            } catch (\Throwable $e) {
+                Log::warning('PSGC API request failed for municipalities', [
+                    'province' => $provinceCode,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return [];
+            }
+        });
+
+        return array_merge($cities, $municipalities);
     }
 
     public function getBarangays(?string $cityCode = null): array
     {
-        $all = Cache::remember(self::CACHE_KEY_BARANGAYS, self::CACHE_TTL, function () {
+        if (! $cityCode) {
+            return [];
+        }
+
+        return Cache::remember('psgc_barangays_'.$cityCode, self::CACHE_TTL, function () use ($cityCode) {
+            // Try cities endpoint first
             try {
-                $response = Http::timeout(10)->get(self::API_BASE.'/barangays');
+                $response = Http::timeout(10)->get($this->apiBase().'/cities/'.$cityCode.'/barangays');
 
                 if ($response->successful()) {
                     return collect($response->json())->map(fn ($b) => [
                         'code' => $b['code'],
                         'name' => $b['name'],
-                        'cityCode' => $b['cityCode'] ?? $b['municipalityCode'] ?? '',
                     ])->values()->toArray();
                 }
 
+                // If 404, fallback to municipalities endpoint
+                if ($response->status() === 404) {
+                    return $this->fetchMunicipalityBarangays($cityCode);
+                }
+
                 Log::warning('PSGC API returned non-success for barangays', [
+                    'city' => $cityCode,
                     'status' => $response->status(),
                 ]);
 
                 return [];
             } catch (\Throwable $e) {
-                Log::warning('PSGC API request failed for barangays', [
+                // Network error — try municipalities as fallback
+                Log::warning('PSGC API request failed for barangays (city), trying municipality fallback', [
+                    'city' => $cityCode,
                     'error' => $e->getMessage(),
                 ]);
 
-                return [];
+                return $this->fetchMunicipalityBarangays($cityCode);
             }
         });
+    }
 
-        if ($cityCode) {
-            return collect($all)->filter(fn ($b) => $b['cityCode'] === $cityCode)->values()->toArray();
+    private function fetchMunicipalityBarangays(string $code): array
+    {
+        try {
+            $response = Http::timeout(10)->get($this->apiBase().'/municipalities/'.$code.'/barangays');
+
+            if ($response->successful()) {
+                return collect($response->json())->map(fn ($b) => [
+                    'code' => $b['code'],
+                    'name' => $b['name'],
+                ])->values()->toArray();
+            }
+
+            Log::warning('PSGC API returned non-success for barangays (municipality)', [
+                'municipality' => $code,
+                'status' => $response->status(),
+            ]);
+
+            return [];
+        } catch (\Throwable $e) {
+            Log::warning('PSGC API request failed for barangays (municipality)', [
+                'municipality' => $code,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
         }
-
-        return $all;
     }
 }
