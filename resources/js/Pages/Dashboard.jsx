@@ -7,7 +7,7 @@ import {
     CategoryScale, LinearScale, BarElement,
     ArcElement, Title, Tooltip, Legend,
 } from 'chart.js';
-import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, Loader2, XCircle, TrendingUp, TrendingDown, UserPlus, Pencil, Trash2, LogIn, LogOut } from 'lucide-react';
+import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, Loader2, XCircle, TrendingUp, TrendingDown, UserPlus, Pencil, Trash2, LogIn, LogOut, EditNote } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
@@ -652,6 +652,26 @@ function CaseManagerDashboard({
             onViewAll={() => router.visit('/cases')}
           />
 
+          {stats?.myRecentDrafts?.length > 0 && (
+            <RecentTable
+              title="Recent Drafts"
+              data={stats.myRecentDrafts}
+              columns={[
+                { key: 'case_number', title: 'Case #', render: (row) => (
+                  <button onClick={() => router.visit(`/cases/${row.id}`)} className="text-xs font-bold text-blue-900 hover:underline">{row.case_number}</button>
+                )},
+                { key: 'client_name', title: 'Client', render: (row) => (
+                  <span className="text-xs text-slate-700">{row.client_name}</span>
+                )},
+                { key: 'created_at', title: 'Created', render: (row) => (
+                  <span className="text-xs text-slate-500">{row.created_at ? formatDisplayDate(row.created_at) : '—'}</span>
+                )},
+              ]}
+              keyExtractor={(row) => row.id}
+              onViewAll={() => router.visit('/cases/drafts')}
+            />
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Status</h3>
@@ -740,6 +760,17 @@ function CaseManagerDashboard({
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
               </button>
+              {stats?.myDraftCount > 0 && (
+                <button
+                  onClick={() => router.visit('/cases/drafts')}
+                  className="w-full py-2.5 px-3.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg flex items-center justify-between hover:bg-amber-100 active:scale-[0.98] transition-all shadow-sm"
+                >
+                  <span className="flex items-center gap-2 text-[12px] font-bold">
+                    <EditNote className="w-3.5 h-3.5" /> View Drafts ({stats.myDraftCount})
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                </button>
+              )}
               <button
                 onClick={() => router.visit('/cases')}
                 className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
