@@ -236,10 +236,10 @@ class ReferralController extends Controller
 
     private function authorizeReferralAccess($referral, $user)
     {
-        if ($user->hasRole('ADMIN')) {
+        if ($user->hasRole('ADMIN') || $user->role === 'ADMIN') {
             return;
         }
-        if ($user->hasRole('CASE_MANAGER')) {
+        if ($user->hasRole('CASE_MANAGER') || $user->role === 'CASE_MANAGER') {
             return;
         }
         if ($referral->agcy_id === $user->agcy_id) {
