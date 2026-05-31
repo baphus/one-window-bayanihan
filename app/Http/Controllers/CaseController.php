@@ -41,8 +41,31 @@ class CaseController extends Controller
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFile'])->find($request->client_id);
         }
 
+        $existingClients = Client::with(['addresses', 'employments', 'nextOfKin'])
+            ->where('is_deleted', false)
+            ->orderBy('last_name')
+            ->limit(200)
+            ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'full_name' => trim("{$c->first_name} {$c->middle_name} {$c->last_name} {$c->suffix}"),
+                'first_name' => $c->first_name,
+                'last_name' => $c->last_name,
+                'middle_name' => $c->middle_name,
+                'suffix' => $c->suffix,
+                'sex' => $c->sex,
+                'date_of_birth' => $c->date_of_birth?->format('Y-m-d'),
+                'email' => $c->email,
+                'contact_number' => $c->contact_number,
+                'addresses' => $c->addresses,
+                'employments' => $c->employments,
+                'nextOfKin' => $c->nextOfKin,
+                'has_case' => $c->case_id !== null,
+            ]);
+
         return Inertia::render('Case/Create', [
             'client' => $client,
+            'existingClients' => $existingClients,
         ]);
     }
 

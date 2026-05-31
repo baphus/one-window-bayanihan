@@ -37,55 +37,152 @@ class CaseService
                 'user_id' => $userId,
             ]);
 
-            $client = Client::create([
-                'first_name' => $data['client']['first_name'] ?? '',
-                'last_name' => $data['client']['last_name'] ?? '',
-                'middle_name' => $data['client']['middle_name'] ?? null,
-                'suffix' => $data['client']['suffix'] ?? null,
-                'date_of_birth' => $data['client']['date_of_birth'] ?? null,
-                'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
-                'email' => $data['client']['email'] ?? null,
-                'contact_number' => $data['client']['contact_number'] ?? null,
-                'case_id' => $case->id,
-            ]);
+            $isExistingClient = ! empty($data['selected_client_id']);
 
-            if (! empty($data['address'])) {
-                ClientAddress::create([
-                    'client_id' => $client->id,
-                    'region' => $data['address']['region'] ?? null,
-                    'province' => $data['address']['province'] ?? null,
-                    'city_municipality' => $data['address']['city_municipality'] ?? null,
-                    'barangay' => $data['address']['barangay'] ?? null,
-                    'street' => $data['address']['street'] ?? null,
-                ]);
-            }
+            if ($isExistingClient) {
+                $client = Client::findOrFail($data['selected_client_id']);
 
-            if (! empty($data['employment'])) {
-                ClientEmployment::create([
-                    'client_id' => $client->id,
-                    'employer_name' => $data['employment']['employer_name'] ?? null,
-                    'position' => $data['employment']['position'] ?? null,
-                    'country' => $data['employment']['country'] ?? null,
-                    'start_date' => $data['employment']['start_date'] ?? null,
-                    'end_date' => $data['employment']['end_date'] ?? null,
-                    'last_country' => $data['employment']['last_country'] ?? null,
-                    'last_position' => $data['employment']['last_position'] ?? null,
-                    'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                ]);
-            }
+                if ($client->case_id) {
+                    abort(422, 'This client already has an existing case. Duplicate cases are not allowed.');
+                }
 
-            if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
-                NextOfKin::create([
-                    'client_id' => $client->id,
-                    'first_name' => $data['next_of_kin']['first_name'],
-                    'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
-                    'last_name' => $data['next_of_kin']['last_name'] ?? null,
-                    'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
-                    'relationship' => $data['next_of_kin']['relationship'] ?? null,
-                    'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
-                    'email' => $data['next_of_kin']['email'] ?? null,
-                    'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                $client->update([
+                    'first_name' => $data['client']['first_name'] ?? $client->first_name,
+                    'last_name' => $data['client']['last_name'] ?? $client->last_name,
+                    'middle_name' => $data['client']['middle_name'] ?? $client->middle_name,
+                    'suffix' => $data['client']['suffix'] ?? $client->suffix,
+                    'date_of_birth' => $data['client']['date_of_birth'] ?? $client->date_of_birth,
+                    'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : $client->sex,
+                    'email' => $data['client']['email'] ?? $client->email,
+                    'contact_number' => $data['client']['contact_number'] ?? $client->contact_number,
+                    'case_id' => $case->id,
                 ]);
+
+                if (! empty($data['address'])) {
+                    $address = $client->addresses()->first();
+                    if ($address) {
+                        $address->update([
+                            'region' => $data['address']['region'] ?? null,
+                            'province' => $data['address']['province'] ?? null,
+                            'city_municipality' => $data['address']['city_municipality'] ?? null,
+                            'barangay' => $data['address']['barangay'] ?? null,
+                            'street' => $data['address']['street'] ?? null,
+                        ]);
+                    } else {
+                        $client->addresses()->create([
+                            'region' => $data['address']['region'] ?? null,
+                            'province' => $data['address']['province'] ?? null,
+                            'city_municipality' => $data['address']['city_municipality'] ?? null,
+                            'barangay' => $data['address']['barangay'] ?? null,
+                            'street' => $data['address']['street'] ?? null,
+                        ]);
+                    }
+                }
+
+                if (! empty($data['employment'])) {
+                    $employment = $client->employments()->first();
+                    if ($employment) {
+                        $employment->update([
+                            'employer_name' => $data['employment']['employer_name'] ?? null,
+                            'position' => $data['employment']['position'] ?? null,
+                            'country' => $data['employment']['country'] ?? null,
+                            'start_date' => $data['employment']['start_date'] ?? null,
+                            'end_date' => $data['employment']['end_date'] ?? null,
+                            'last_country' => $data['employment']['last_country'] ?? null,
+                            'last_position' => $data['employment']['last_position'] ?? null,
+                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                        ]);
+                    } else {
+                        $client->employments()->create([
+                            'employer_name' => $data['employment']['employer_name'] ?? null,
+                            'position' => $data['employment']['position'] ?? null,
+                            'country' => $data['employment']['country'] ?? null,
+                            'start_date' => $data['employment']['start_date'] ?? null,
+                            'end_date' => $data['employment']['end_date'] ?? null,
+                            'last_country' => $data['employment']['last_country'] ?? null,
+                            'last_position' => $data['employment']['last_position'] ?? null,
+                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                        ]);
+                    }
+                }
+
+                if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
+                    $nok = $client->nextOfKin()->first();
+                    if ($nok) {
+                        $nok->update([
+                            'first_name' => $data['next_of_kin']['first_name'],
+                            'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
+                            'last_name' => $data['next_of_kin']['last_name'] ?? null,
+                            'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
+                            'relationship' => $data['next_of_kin']['relationship'] ?? null,
+                            'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
+                            'email' => $data['next_of_kin']['email'] ?? null,
+                            'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                        ]);
+                    } else {
+                        $client->nextOfKin()->create([
+                            'first_name' => $data['next_of_kin']['first_name'],
+                            'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
+                            'last_name' => $data['next_of_kin']['last_name'] ?? null,
+                            'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
+                            'relationship' => $data['next_of_kin']['relationship'] ?? null,
+                            'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
+                            'email' => $data['next_of_kin']['email'] ?? null,
+                            'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                        ]);
+                    }
+                }
+            } else {
+                $client = Client::create([
+                    'first_name' => $data['client']['first_name'] ?? '',
+                    'last_name' => $data['client']['last_name'] ?? '',
+                    'middle_name' => $data['client']['middle_name'] ?? null,
+                    'suffix' => $data['client']['suffix'] ?? null,
+                    'date_of_birth' => $data['client']['date_of_birth'] ?? null,
+                    'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
+                    'email' => $data['client']['email'] ?? null,
+                    'contact_number' => $data['client']['contact_number'] ?? null,
+                    'case_id' => $case->id,
+                ]);
+
+                if (! empty($data['address'])) {
+                    ClientAddress::create([
+                        'client_id' => $client->id,
+                        'region' => $data['address']['region'] ?? null,
+                        'province' => $data['address']['province'] ?? null,
+                        'city_municipality' => $data['address']['city_municipality'] ?? null,
+                        'barangay' => $data['address']['barangay'] ?? null,
+                        'street' => $data['address']['street'] ?? null,
+                    ]);
+                }
+
+                if (! empty($data['employment'])) {
+                    ClientEmployment::create([
+                        'client_id' => $client->id,
+                        'employer_name' => $data['employment']['employer_name'] ?? null,
+                        'position' => $data['employment']['position'] ?? null,
+                        'country' => $data['employment']['country'] ?? null,
+                        'start_date' => $data['employment']['start_date'] ?? null,
+                        'end_date' => $data['employment']['end_date'] ?? null,
+                        'last_country' => $data['employment']['last_country'] ?? null,
+                        'last_position' => $data['employment']['last_position'] ?? null,
+                        'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                    ]);
+                }
+
+                if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
+                    NextOfKin::create([
+                        'client_id' => $client->id,
+                        'first_name' => $data['next_of_kin']['first_name'],
+                        'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
+                        'last_name' => $data['next_of_kin']['last_name'] ?? null,
+                        'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
+                        'relationship' => $data['next_of_kin']['relationship'] ?? null,
+                        'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
+                        'email' => $data['next_of_kin']['email'] ?? null,
+                        'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                    ]);
+                }
             }
 
             if (! $isDraft) {

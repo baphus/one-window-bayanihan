@@ -5,7 +5,6 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
-import ExistingClientModal from '@/Components/ExistingClientModal';
 
 const STEPS = [
     { id: 1, title: 'Case Setup', description: 'Define case parameters and tracking' },
@@ -81,7 +80,7 @@ function Select({ value, onChange, options, placeholder }) {
 }
 
 export default function CaseCreate() {
-    const { client } = usePage().props;
+    const { client, existingClients = [] } = usePage().props;
 
     const { data, setData, post, processing, errors } = useForm({
         client_type: 'OFW',
@@ -125,11 +124,11 @@ export default function CaseCreate() {
             full_address: '',
         },
         consent: false,
+        selected_client_id: '',
         is_draft: false,
     });
 
     const [currentStep, setCurrentStep] = useState(1);
-    const [showClientModal, setShowClientModal] = useState(false);
     const [caseId] = useState(() => GenerateCaseId());
     const [trackingId] = useState(() => GenerateTrackingId());
     const [clientSource, setClientSource] = useState('new');
@@ -226,6 +225,7 @@ export default function CaseCreate() {
     useEffect(() => {
         if (client) {
             setClientSource('existing');
+            setData('selected_client_id', client.id);
             setClientGender(client.sex || 'Male');
             setClientEmail(client.email || '');
             setClientContact(client.contact_number || '');
@@ -356,94 +356,92 @@ export default function CaseCreate() {
         setData('client', { ...data.client, [field]: value });
     }
 
-    function handleClientSelect(clientSummary) {
+    function handleClientDropdownChange(e) {
+        const clientId = e.target.value;
+        setData('selected_client_id', clientId);
+
+        if (!clientId) {
+            setClientSource('new');
+            setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
+            setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
+            setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
+            setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' });
+            setClientGender('Male');
+            setClientEmail('');
+            setClientContact('');
+            setLastCountry('');
+            setLastJob('');
+            setArrivalDate('');
+            setNokFirstName('');
+            setNokLastName('');
+            setNokContact('');
+            setNokRelationship('');
+            setHasNextOfKin(true);
+            return;
+        }
+
         setClientSource('existing');
-        fetch(`/api/clients/${clientSummary.id}`)
-            .then((res) => res.json())
-            .then((result) => {
-                const c = result.data;
+        const c = existingClients.find((x) => x.id === clientId);
+        if (!c) return;
 
-                setData('client', {
-                    ...data.client,
-                    first_name: c.first_name || '',
-                    last_name: c.last_name || '',
-                    middle_name: c.middle_name || '',
-                    suffix: c.suffix || '',
-                    date_of_birth: c.date_of_birth || '',
-                    sex: c.sex || '',
-                    email: c.email || '',
-                    contact_number: c.contact_number || '',
-                });
+        setData('client', {
+            ...data.client,
+            first_name: c.first_name || '',
+            last_name: c.last_name || '',
+            middle_name: c.middle_name || '',
+            suffix: c.suffix || '',
+            date_of_birth: c.date_of_birth || '',
+            sex: c.sex || '',
+            email: c.email || '',
+            contact_number: c.contact_number || '',
+        });
 
-                setClientGender(c.sex || 'Male');
-                setClientEmail(c.email || '');
-                setClientContact(c.contact_number || '');
+        setClientGender(c.sex || 'Male');
+        setClientEmail(c.email || '');
+        setClientContact(c.contact_number || '');
 
-                if (c.addresses?.[0]) {
-                    setData('address', {
-                        ...data.address,
-                        region: c.addresses[0].region || '',
-                        province: c.addresses[0].province || '',
-                        city_municipality: c.addresses[0].city_municipality || '',
-                        barangay: c.addresses[0].barangay || '',
-                        street: c.addresses[0].street || '',
-                    });
-                }
-
-                if (c.employments?.[0]) {
-                    setData('employment', {
-                        ...data.employment,
-                        employer_name: c.employments[0].employer_name || '',
-                        position: c.employments[0].position || '',
-                        country: c.employments[0].country || '',
-                        last_country: c.employments[0].last_country || '',
-                        last_position: c.employments[0].last_position || '',
-                        date_of_arrival: c.employments[0].date_of_arrival || '',
-                    });
-                    setLastCountry(c.employments[0].last_country || c.employments[0].country || '');
-                    setLastJob(c.employments[0].last_position || c.employments[0].position || '');
-                    setArrivalDate(c.employments[0].date_of_arrival || '');
-                }
-
-                if (c.nextOfKin?.[0]) {
-                    setData('next_of_kin', {
-                        ...data.next_of_kin,
-                        first_name: c.nextOfKin[0].first_name || '',
-                        middle_initial: c.nextOfKin[0].middle_initial || '',
-                        last_name: c.nextOfKin[0].last_name || '',
-                        relationship: c.nextOfKin[0].relationship || '',
-                        phone_number: c.nextOfKin[0].phone_number || '',
-                        email: c.nextOfKin[0].email || '',
-                        full_address: c.nextOfKin[0].full_address || '',
-                    });
-                    setNokFirstName(c.nextOfKin[0].first_name || '');
-                    setNokLastName(c.nextOfKin[0].last_name || '');
-                    setNokContact(c.nextOfKin[0].phone_number || '');
-                    setNokRelationship(c.nextOfKin[0].relationship || '');
-                }
-
-                initialFormRef.current = {
-                    formData: { ...data },
-                    useState: {
-                        clientSource: 'existing',
-                        nokFirstName: c.nextOfKin?.[0]?.first_name || '',
-                        nokLastName: c.nextOfKin?.[0]?.last_name || '',
-                        nokContact: c.nextOfKin?.[0]?.phone_number || '',
-                        nokRelationship: c.nextOfKin?.[0]?.relationship || '',
-                        clientGender: c.sex || 'Male',
-                        clientEmail: c.email || '',
-                        clientContact: c.contact_number || '',
-                        lastCountry: c.employments?.[0]?.last_country || c.employments?.[0]?.country || '',
-                        lastJob: c.employments?.[0]?.last_position || c.employments?.[0]?.position || '',
-                        arrivalDate: c.employments?.[0]?.date_of_arrival || '',
-                        hasNextOfKin: !!c.nextOfKin?.[0],
-                        consent: false,
-                    },
-                };
-            })
-            .catch(() => {
-                setClientSource('existing');
+        if (c.addresses?.[0]) {
+            setData('address', {
+                ...data.address,
+                region: c.addresses[0].region || '',
+                province: c.addresses[0].province || '',
+                city_municipality: c.addresses[0].city_municipality || '',
+                barangay: c.addresses[0].barangay || '',
+                street: c.addresses[0].street || '',
             });
+        }
+
+        if (c.employments?.[0]) {
+            setData('employment', {
+                ...data.employment,
+                employer_name: c.employments[0].employer_name || '',
+                position: c.employments[0].position || '',
+                country: c.employments[0].country || '',
+                last_country: c.employments[0].last_country || '',
+                last_position: c.employments[0].last_position || '',
+                date_of_arrival: c.employments[0].date_of_arrival || '',
+            });
+            setLastCountry(c.employments[0].last_country || c.employments[0].country || '');
+            setLastJob(c.employments[0].last_position || c.employments[0].position || '');
+            setArrivalDate(c.employments[0].date_of_arrival || '');
+        }
+
+        if (c.nextOfKin?.[0]) {
+            setData('next_of_kin', {
+                ...data.next_of_kin,
+                first_name: c.nextOfKin[0].first_name || '',
+                middle_initial: c.nextOfKin[0].middle_initial || '',
+                last_name: c.nextOfKin[0].last_name || '',
+                relationship: c.nextOfKin[0].relationship || '',
+                phone_number: c.nextOfKin[0].phone_number || '',
+                email: c.nextOfKin[0].email || '',
+                full_address: c.nextOfKin[0].full_address || '',
+            });
+            setNokFirstName(c.nextOfKin[0].first_name || '');
+            setNokLastName(c.nextOfKin[0].last_name || '');
+            setNokContact(c.nextOfKin[0].phone_number || '');
+            setNokRelationship(c.nextOfKin[0].relationship || '');
+        }
     }
 
     function handleAddressChange(field, value) {
@@ -534,6 +532,11 @@ export default function CaseCreate() {
             {client && (
                 <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
                     <strong>Pre-filled</strong> from existing client record: {[client.first_name, client.last_name].filter(Boolean).join(' ')}
+                </div>
+            )}
+            {data.selected_client_id && existingClients.find((c) => c.id === data.selected_client_id) && (
+                <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
+                    <strong>Pre-filled</strong> from existing client record: {existingClients.find((c) => c.id === data.selected_client_id).full_name}
                 </div>
             )}
 
@@ -679,27 +682,26 @@ export default function CaseCreate() {
 
                                 {currentStep === 2 && (
                                     <div className="space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <label className={`relative flex cursor-pointer rounded-lg border p-4 shadow-sm transition-all hover:border-indigo-500 ${clientSource === 'existing' ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500' : 'border-slate-200 bg-white'}`}>
-                                                <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'existing'} onChange={() => { setShowClientModal(true); }} />
-                                                <div className="flex w-full items-center justify-between">
-                                                    <div>
-                                                        <span className={`block text-sm font-bold ${clientSource === 'existing' ? 'text-indigo-600' : 'text-slate-900'}`}>Existing Client</span>
-                                                        <span className="mt-1 flex items-center text-[13px] text-slate-500">Select from existing records</span>
-                                                    </div>
-                                                    {clientSource === 'existing' && <span className="material-symbols-outlined text-indigo-600">check</span>}
-                                                </div>
-                                            </label>
-                                            <label className={`relative flex cursor-pointer rounded-lg border p-4 shadow-sm transition-all hover:border-indigo-500 ${clientSource === 'new' ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500' : 'border-slate-200 bg-white'}`}>
-                                                <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'new'} onChange={() => { setClientSource('new'); setShowClientModal(false); }} />
-                                                <div className="flex w-full items-center justify-between">
-                                                    <div>
-                                                        <span className={`block text-sm font-bold ${clientSource === 'new' ? 'text-indigo-600' : 'text-slate-900'}`}>New Client</span>
-                                                        <span className="mt-1 flex items-center text-[13px] text-slate-500">Create a new client record</span>
-                                                    </div>
-                                                    {clientSource === 'new' && <span className="material-symbols-outlined text-indigo-600">check</span>}
-                                                </div>
-                                            </label>
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <Subsection title="Existing Client Record">
+                                                <p className="mb-3 text-[13px] text-slate-500">
+                                                    Select an existing client to pre-fill their information, or leave empty to create a new client record.
+                                                </p>
+                                                <Field label="Select Existing Client">
+                                                    <select
+                                                        value={data.selected_client_id}
+                                                        onChange={handleClientDropdownChange}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">— Create new client —</option>
+                                                        {existingClients.map((c) => (
+                                                            <option key={c.id} value={c.id}>
+                                                                {c.full_name}{c.has_case ? ' (has existing case)' : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </Field>
+                                            </Subsection>
                                         </div>
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -890,11 +892,6 @@ export default function CaseCreate() {
                         </div>
                     </div>
                 </section>
-                <ExistingClientModal
-                    show={showClientModal}
-                    onClose={() => { setShowClientModal(false); if (clientSource === 'existing' && !data.client.first_name) setClientSource('new'); }}
-                    onSelect={handleClientSelect}
-                />
             </form>
             <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </AppLayout>

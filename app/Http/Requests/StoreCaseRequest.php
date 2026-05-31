@@ -49,6 +49,8 @@ class StoreCaseRequest extends FormRequest
             'next_of_kin.email' => ['nullable', 'email', 'max:255'],
             'next_of_kin.full_address' => ['nullable', 'string'],
 
+            'selected_client_id' => ['nullable', 'string', 'exists:clients,id'],
+
             'consent' => ['nullable', 'boolean'],
 
             'address.region' => ['nullable', 'string', 'max:255'],
