@@ -2,11 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\PhilippineAddress;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -20,92 +18,73 @@ class PhilippineAddressApiTest extends TestCase
 
         Role::create(['name' => 'ADMIN']);
         Role::create(['name' => 'CASE_MANAGER']);
-
-        Cache::flush();
     }
 
-    public function test_regions_returns_data_from_psgc_api(): void
+    private function seedRegions(): void
     {
-        Http::fake([
-            'https://psgc.cloud/api/regions' => Http::response([
-                ['code' => '130000000', 'name' => 'Region X'],
-                ['code' => '140000000', 'name' => 'Region XI'],
-            ]),
+        PhilippineAddress::insert([
+            ['type' => 'region', 'code' => '130000000', 'name' => 'Region X', 'parent_code' => null],
+            ['type' => 'region', 'code' => '140000000', 'name' => 'Region XI', 'parent_code' => null],
         ]);
+    }
+
+    private function seedProvinces(): void
+    {
+        PhilippineAddress::insert([
+            ['type' => 'province', 'code' => 'P001', 'name' => 'Province A', 'parent_code' => '130000000'],
+            ['type' => 'province', 'code' => 'P002', 'name' => 'Province B', 'parent_code' => '130000000'],
+        ]);
+    }
+
+    private function seedCities(): void
+    {
+        PhilippineAddress::insert([
+            ['type' => 'city', 'code' => 'C001', 'name' => 'City A', 'parent_code' => 'P001'],
+            ['type' => 'municipality', 'code' => 'M001', 'name' => 'Municipality A', 'parent_code' => 'P001'],
+        ]);
+    }
+
+    private function seedBarangays(): void
+    {
+        PhilippineAddress::insert([
+            ['type' => 'barangay', 'code' => 'B001', 'name' => 'Barangay A', 'parent_code' => 'C001'],
+            ['type' => 'barangay', 'code' => 'B002', 'name' => 'Barangay B', 'parent_code' => 'C001'],
+        ]);
+    }
+
+    public function test_regions_returns_all_regions(): void
+    {
+        $this->seedRegions();
 
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->getJson('/api/address/regions');
 
         $response->assertOk()
+            ->assertJsonCount(2)
             ->assertJson([
                 ['code' => '130000000', 'name' => 'Region X'],
                 ['code' => '140000000', 'name' => 'Region XI'],
             ]);
     }
 
-    public function test_regions_returns_empty_on_api_failure(): void
+    public function test_regions_returns_empty_when_no_data(): void
     {
-        Http::fake([
-            'https://psgc.cloud/api/regions' => Http::response(null, 500),
-        ]);
-
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->getJson('/api/address/regions');
 
         $response->assertOk()->assertJson([]);
-    }
-
-    public function test_regions_returns_empty_on_timeout(): void
-    {
-        Http::fake([
-            'https://psgc.cloud/api/regions' => function () {
-                throw new ConnectionException('Timeout');
-            },
-        ]);
-
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $response = $this->actingAs($user)->getJson('/api/address/regions');
-
-        $response->assertOk()->assertJson([]);
-    }
-
-    public function test_regions_are_cached(): void
-    {
-        Http::fake([
-            'https://psgc.cloud/api/regions' => Http::response([
-                ['code' => '130000000', 'name' => 'Region X'],
-            ]),
-        ]);
-
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        // First call — hits the API
-        $this->actingAs($user)->getJson('/api/address/regions');
-
-        // Second call — should use cache, not hit API again
-        Http::assertSentCount(1);
-
-        $this->actingAs($user)->getJson('/api/address/regions');
-
-        // Still only 1 API call — cached
-        Http::assertSentCount(1);
     }
 
     public function test_provinces_filters_by_region(): void
     {
-        Http::fake([
-            'https://psgc.cloud/api/regions/R01/provinces' => Http::response([
-                ['code' => 'P001', 'name' => 'Province A'],
-                ['code' => 'P002', 'name' => 'Province B'],
-            ]),
-        ]);
+        $this->seedRegions();
+        $this->seedProvinces();
 
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
-        $response = $this->actingAs($user)->getJson('/api/address/provinces?region=R01');
+        $response = $this->actingAs($user)->getJson('/api/address/provinces?region=130000000');
 
         $response->assertOk()
             ->assertJsonCount(2)
@@ -127,14 +106,9 @@ class PhilippineAddressApiTest extends TestCase
 
     public function test_cities_merges_cities_and_municipalities(): void
     {
-        Http::fake([
-            'https://psgc.cloud/api/provinces/P001/cities' => Http::response([
-                ['code' => 'C001', 'name' => 'City A'],
-            ]),
-            'https://psgc.cloud/api/provinces/P001/municipalities' => Http::response([
-                ['code' => 'C002', 'name' => 'Municipality A'],
-            ]),
-        ]);
+        $this->seedRegions();
+        $this->seedProvinces();
+        $this->seedCities();
 
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
@@ -144,18 +118,16 @@ class PhilippineAddressApiTest extends TestCase
             ->assertJsonCount(2)
             ->assertJson([
                 ['code' => 'C001', 'name' => 'City A'],
-                ['code' => 'C002', 'name' => 'Municipality A'],
+                ['code' => 'M001', 'name' => 'Municipality A'],
             ]);
     }
 
-    public function test_barangays_filters_by_city(): void
+    public function test_barangays_filters_by_parent(): void
     {
-        Http::fake([
-            'https://psgc.cloud/api/cities/C001/barangays' => Http::response([
-                ['code' => 'B001', 'name' => 'Barangay A'],
-                ['code' => 'B002', 'name' => 'Barangay B'],
-            ]),
-        ]);
+        $this->seedRegions();
+        $this->seedProvinces();
+        $this->seedCities();
+        $this->seedBarangays();
 
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
@@ -176,36 +148,11 @@ class PhilippineAddressApiTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    public function test_barangays_falls_back_to_municipality_endpoint(): void
+    public function test_barangays_returns_empty_for_nonexistent_parent(): void
     {
-        Http::fake([
-            'https://psgc.cloud/api/cities/M001/barangays' => Http::response(null, 404),
-            'https://psgc.cloud/api/municipalities/M001/barangays' => Http::response([
-                ['code' => 'B001', 'name' => 'Barangay A'],
-            ]),
-        ]);
-
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
-        $response = $this->actingAs($user)->getJson('/api/address/barangays?city=M001');
-
-        $response->assertOk()
-            ->assertJsonCount(1)
-            ->assertJson([
-                ['code' => 'B001', 'name' => 'Barangay A'],
-            ]);
-    }
-
-    public function test_barangays_returns_empty_when_both_endpoints_fail(): void
-    {
-        Http::fake([
-            'https://psgc.cloud/api/cities/X001/barangays' => Http::response(null, 404),
-            'https://psgc.cloud/api/municipalities/X001/barangays' => Http::response(null, 500),
-        ]);
-
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $response = $this->actingAs($user)->getJson('/api/address/barangays?city=X001');
+        $response = $this->actingAs($user)->getJson('/api/address/barangays?city=NONEXISTENT');
 
         $response->assertOk()->assertJson([]);
     }
