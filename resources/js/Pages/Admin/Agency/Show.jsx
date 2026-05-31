@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, router, Link } from '@inertiajs/react';
+import { Head, router, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
@@ -7,21 +7,26 @@ import UserFormModal from '@/Components/Admin/UserFormModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
-const TABS = ['Services', 'Focal Persons'];
+const TABS = ['Referrals', 'Services', 'Focal Persons'];
 
 export default function AdminAgencyShow({ agency }) {
-  const [activeTab, setActiveTab] = useState('Services');
+  const { auth } = usePage().props;
+  const isAdmin = auth?.user?.role === 'ADMIN';
+
+  const [activeTab, setActiveTab] = useState('Referrals');
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
 
-  // Agency inline editor state
+  // Agency inline editor (ADMIN only)
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editErrors, setEditErrors] = useState({});
 
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm || isEditing);
+
+  // ── Agency editor handlers (ADMIN only) ──
 
   function startEditing() {
     setEditData({
@@ -64,14 +69,10 @@ export default function AdminAgencyShow({ agency }) {
     setEditData((prev) => ({ ...prev, [field]: value }));
   }
 
-  // Shared field classes matching the modal style
   const inputClass = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm';
-  const labelClass = 'block text-sm font-medium text-slate-700';
   const errorClass = 'mt-1 text-sm text-red-600';
 
-  // ──────────────────────────────────────────────
-  //  Service / User modal handlers
-  // ──────────────────────────────────────────────
+  // ── Service / User modal handlers ──
 
   function handleDeleteService(service) {
     if (!confirm(`Delete service "${service.name}"? This action cannot be undone.`)) return;
@@ -89,9 +90,15 @@ export default function AdminAgencyShow({ agency }) {
   function openEditUser(u)     { setEditingUser(u); setShowForm(true); }
   function closeForm()         { setShowForm(false); setEditingService(null); setEditingUser(null); }
 
-  // ──────────────────────────────────────────────
-  //  Render
-  // ──────────────────────────────────────────────
+  // ── Helpers ──
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  // ── Render ──
 
   return (
     <AppLayout title={agency.name}>
@@ -106,10 +113,12 @@ export default function AdminAgencyShow({ agency }) {
       {/* ── Header ── */}
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <Link href={route('admin.agencies.index')} className="text-sm text-[#0b5384] hover:underline mb-2 inline-block">&larr; Back to Agencies</Link>
+          {isAdmin && (
+            <Link href={route('admin.agencies.index')} className="text-sm text-[#0b5384] hover:underline mb-2 inline-block">&larr; Back to Agencies</Link>
+          )}
           <h1 className="text-2xl font-bold text-slate-900 mt-1">{agency.name}</h1>
         </div>
-        {!isEditing && (
+        {isAdmin && !isEditing && (
           <button onClick={startEditing} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] shrink-0">
             Edit Agency
           </button>
@@ -256,14 +265,61 @@ export default function AdminAgencyShow({ agency }) {
         </nav>
       </div>
 
+      {/* ── Referrals Tab ── */}
+      {activeTab === 'Referrals' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-slate-500">Referrals assigned to this agency.</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="px-4 py-3">Case No.</th>
+                  <th className="px-4 py-3">Client</th>
+                  <th className="px-4 py-3">Required Services</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Date Referred</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {agency.referrals.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">No referrals assigned to this agency.</td>
+                  </tr>
+                ) : (
+                  agency.referrals.map((ref) => (
+                    <tr key={ref.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        <Link href={route('referrals.show', ref.id)} className="text-[#0b5384] hover:underline">
+                          {ref.caseFile?.case_number || '—'}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{ref.caseFile?.client?.name || '—'}</td>
+                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{ref.required_services || '—'}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={ref.status} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{formatDate(ref.created_at)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ── Services Tab ── */}
       {activeTab === 'Services' && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Services offered by this agency.</p>
-            <button onClick={openAddService} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
-              + Add Service
-            </button>
+            {isAdmin && (
+              <button onClick={openAddService} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
+                + Add Service
+              </button>
+            )}
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
             <table className="w-full text-sm">
@@ -272,13 +328,13 @@ export default function AdminAgencyShow({ agency }) {
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Description</th>
                   <th className="px-4 py-3">Processing Days</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {agency.services.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-slate-400">No services assigned to this agency.</td>
+                    <td colSpan={isAdmin ? 4 : 3} className="px-4 py-8 text-center text-slate-400">No services assigned to this agency.</td>
                   </tr>
                 ) : (
                   agency.services.map((service) => (
@@ -286,12 +342,14 @@ export default function AdminAgencyShow({ agency }) {
                       <td className="px-4 py-3 font-medium text-slate-900">{service.name}</td>
                       <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{service.description || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{service.processing_days ?? '—'}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => openEditService(service)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
-                          <button onClick={() => handleDeleteService(service)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Delete</button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button onClick={() => openEditService(service)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
+                            <button onClick={() => handleDeleteService(service)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Delete</button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -306,9 +364,11 @@ export default function AdminAgencyShow({ agency }) {
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Agency focal persons for this agency.</p>
-            <button onClick={openAddUser} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
-              + Add Focal Person
-            </button>
+            {isAdmin && (
+              <button onClick={openAddUser} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
+                + Add Focal Person
+              </button>
+            )}
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
             <table className="w-full text-sm">
@@ -318,13 +378,13 @@ export default function AdminAgencyShow({ agency }) {
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Contact Number</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {agency.users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">No focal persons assigned to this agency.</td>
+                    <td colSpan={isAdmin ? 5 : 4} className="px-4 py-8 text-center text-slate-400">No focal persons assigned to this agency.</td>
                   </tr>
                 ) : (
                   agency.users.map((user) => (
@@ -335,12 +395,14 @@ export default function AdminAgencyShow({ agency }) {
                       <td className="px-4 py-3">
                         <StatusBadge status={user.is_active ? 'ACTIVE' : 'INACTIVE'} />
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => openEditUser(user)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
-                          <button onClick={() => handleDeleteUser(user)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Deactivate</button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button onClick={() => openEditUser(user)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
+                            <button onClick={() => handleDeleteUser(user)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Deactivate</button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

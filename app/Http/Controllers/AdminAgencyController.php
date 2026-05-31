@@ -67,7 +67,12 @@ class AdminAgencyController extends Controller
     public function show(string $id)
     {
         $agency = Agency::withCount('referrals')->findOrFail($id);
-        $agency->load(['services', 'users']);
+        $agency->load([
+            'services',
+            'users',
+            'referrals.caseFile.client',
+            'referrals' => fn ($q) => $q->latest(),
+        ]);
 
         return Inertia::render('Admin/Agency/Show', [
             'agency' => $agency,

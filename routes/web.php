@@ -27,6 +27,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HelpdeskController;
+use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReferralController;
@@ -74,6 +75,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/profile/mfa/status', [MfaController::class, 'status'])->name('profile.mfa.status');
+    Route::post('/profile/mfa/generate', [MfaController::class, 'generateSecret'])->name('profile.mfa.generate');
+    Route::post('/profile/mfa/verify', [MfaController::class, 'verifyAndEnable'])->name('profile.mfa.verify');
+    Route::post('/profile/mfa/disable', [MfaController::class, 'disable'])->name('profile.mfa.disable');
+    Route::get('/profile/mfa/recovery-codes', [MfaController::class, 'getRecoveryCodes'])->name('profile.mfa.recovery-codes');
+    Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate');
 
     Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
     Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
@@ -130,8 +138,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/services/{service}', [AgencyServiceController::class, 'destroy'])->name('agency.services.destroy');
     });
 
+    // Agency detail — accessible by ADMIN and CASE_MANAGER (read-only for non-ADMIN)
+    Route::middleware(['role:ADMIN,CASE_MANAGER', 'ip.whitelist'])
+        ->prefix('admin')->name('admin.')
+        ->get('/agencies/{agency}', [AdminAgencyController::class, 'show'])
+        ->name('agencies.show');
+
     Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {
-        Route::get('/agencies/{agency}', [AdminAgencyController::class, 'show'])->name('agencies.show');
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');
         Route::post('/agencies', [AdminAgencyController::class, 'store'])->name('agencies.store');
         Route::patch('/agencies/{agency}', [AdminAgencyController::class, 'update'])->name('agencies.update');
