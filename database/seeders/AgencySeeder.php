@@ -24,11 +24,12 @@ class AgencySeeder extends Seeder
             ['id' => Str::uuid(), 'short' => 'CCG', 'slug' => 'city-cebu', 'name' => 'City of Cebu', 'logo_url' => 'https://www.cebucity.gov.ph/wp-content/uploads/2019/09/official_seal_of_cebu_city_small.png', 'location_query' => 'Cebu City Hall, Cebu City, Cebu, Philippines'],
         ];
 
-        foreach ($agencies as $agency) {
+        foreach ($agencies as $i => $agency) {
             DB::table('agencies')->updateOrInsert(
                 ['slug' => $agency['slug']],
                 array_merge($agency, [
                     'is_active' => true,
+                    'is_default' => $agency['slug'] === 'dmw',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ])

@@ -3,6 +3,9 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import AddressDropdowns from '@/Components/AddressDropdowns';
+import CountrySelect from '@/Components/CountrySelect';
+import ExistingClientModal from '@/Components/ExistingClientModal';
 
 const STEPS = [
     { id: 1, title: 'Case Setup', description: 'Define case parameters and tracking' },
@@ -126,6 +129,7 @@ export default function CaseCreate() {
     });
 
     const [currentStep, setCurrentStep] = useState(1);
+    const [showClientModal, setShowClientModal] = useState(false);
     const [caseId] = useState(() => GenerateCaseId());
     const [trackingId] = useState(() => GenerateTrackingId());
     const [clientSource, setClientSource] = useState('new');
@@ -350,6 +354,96 @@ export default function CaseCreate() {
 
     function handleClientChange(field, value) {
         setData('client', { ...data.client, [field]: value });
+    }
+
+    function handleClientSelect(clientSummary) {
+        setClientSource('existing');
+        fetch(`/api/clients/${clientSummary.id}`)
+            .then((res) => res.json())
+            .then((result) => {
+                const c = result.data;
+
+                setData('client', {
+                    ...data.client,
+                    first_name: c.first_name || '',
+                    last_name: c.last_name || '',
+                    middle_name: c.middle_name || '',
+                    suffix: c.suffix || '',
+                    date_of_birth: c.date_of_birth || '',
+                    sex: c.sex || '',
+                    email: c.email || '',
+                    contact_number: c.contact_number || '',
+                });
+
+                setClientGender(c.sex || 'Male');
+                setClientEmail(c.email || '');
+                setClientContact(c.contact_number || '');
+
+                if (c.addresses?.[0]) {
+                    setData('address', {
+                        ...data.address,
+                        region: c.addresses[0].region || '',
+                        province: c.addresses[0].province || '',
+                        city_municipality: c.addresses[0].city_municipality || '',
+                        barangay: c.addresses[0].barangay || '',
+                        street: c.addresses[0].street || '',
+                    });
+                }
+
+                if (c.employments?.[0]) {
+                    setData('employment', {
+                        ...data.employment,
+                        employer_name: c.employments[0].employer_name || '',
+                        position: c.employments[0].position || '',
+                        country: c.employments[0].country || '',
+                        last_country: c.employments[0].last_country || '',
+                        last_position: c.employments[0].last_position || '',
+                        date_of_arrival: c.employments[0].date_of_arrival || '',
+                    });
+                    setLastCountry(c.employments[0].last_country || c.employments[0].country || '');
+                    setLastJob(c.employments[0].last_position || c.employments[0].position || '');
+                    setArrivalDate(c.employments[0].date_of_arrival || '');
+                }
+
+                if (c.nextOfKin?.[0]) {
+                    setData('next_of_kin', {
+                        ...data.next_of_kin,
+                        first_name: c.nextOfKin[0].first_name || '',
+                        middle_initial: c.nextOfKin[0].middle_initial || '',
+                        last_name: c.nextOfKin[0].last_name || '',
+                        relationship: c.nextOfKin[0].relationship || '',
+                        phone_number: c.nextOfKin[0].phone_number || '',
+                        email: c.nextOfKin[0].email || '',
+                        full_address: c.nextOfKin[0].full_address || '',
+                    });
+                    setNokFirstName(c.nextOfKin[0].first_name || '');
+                    setNokLastName(c.nextOfKin[0].last_name || '');
+                    setNokContact(c.nextOfKin[0].phone_number || '');
+                    setNokRelationship(c.nextOfKin[0].relationship || '');
+                }
+
+                initialFormRef.current = {
+                    formData: { ...data },
+                    useState: {
+                        clientSource: 'existing',
+                        nokFirstName: c.nextOfKin?.[0]?.first_name || '',
+                        nokLastName: c.nextOfKin?.[0]?.last_name || '',
+                        nokContact: c.nextOfKin?.[0]?.phone_number || '',
+                        nokRelationship: c.nextOfKin?.[0]?.relationship || '',
+                        clientGender: c.sex || 'Male',
+                        clientEmail: c.email || '',
+                        clientContact: c.contact_number || '',
+                        lastCountry: c.employments?.[0]?.last_country || c.employments?.[0]?.country || '',
+                        lastJob: c.employments?.[0]?.last_position || c.employments?.[0]?.position || '',
+                        arrivalDate: c.employments?.[0]?.date_of_arrival || '',
+                        hasNextOfKin: !!c.nextOfKin?.[0],
+                        consent: false,
+                    },
+                };
+            })
+            .catch(() => {
+                setClientSource('existing');
+            });
     }
 
     function handleAddressChange(field, value) {
@@ -587,7 +681,7 @@ export default function CaseCreate() {
                                     <div className="space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <label className={`relative flex cursor-pointer rounded-lg border p-4 shadow-sm transition-all hover:border-indigo-500 ${clientSource === 'existing' ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500' : 'border-slate-200 bg-white'}`}>
-                                                <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'existing'} onChange={() => setClientSource('existing')} />
+                                                <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'existing'} onChange={() => { setShowClientModal(true); }} />
                                                 <div className="flex w-full items-center justify-between">
                                                     <div>
                                                         <span className={`block text-sm font-bold ${clientSource === 'existing' ? 'text-indigo-600' : 'text-slate-900'}`}>Existing Client</span>
@@ -597,7 +691,7 @@ export default function CaseCreate() {
                                                 </div>
                                             </label>
                                             <label className={`relative flex cursor-pointer rounded-lg border p-4 shadow-sm transition-all hover:border-indigo-500 ${clientSource === 'new' ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500' : 'border-slate-200 bg-white'}`}>
-                                                <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'new'} onChange={() => setClientSource('new')} />
+                                                <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'new'} onChange={() => { setClientSource('new'); setShowClientModal(false); }} />
                                                 <div className="flex w-full items-center justify-between">
                                                     <div>
                                                         <span className={`block text-sm font-bold ${clientSource === 'new' ? 'text-indigo-600' : 'text-slate-900'}`}>New Client</span>
@@ -641,25 +735,10 @@ export default function CaseCreate() {
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Address">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <Field label="Region">
-                                                        <Input value={data.address.region} onChange={(e) => handleAddressChange('region', e.target.value)} />
-                                                    </Field>
-                                                    <Field label="Province">
-                                                        <Input value={data.address.province} onChange={(e) => handleAddressChange('province', e.target.value)} />
-                                                    </Field>
-                                                    <Field label="City/Municipality">
-                                                        <Input value={data.address.city_municipality} onChange={(e) => handleAddressChange('city_municipality', e.target.value)} />
-                                                    </Field>
-                                                    <Field label="Barangay">
-                                                        <Input value={data.address.barangay} onChange={(e) => handleAddressChange('barangay', e.target.value)} />
-                                                    </Field>
-                                                    <div className="md:col-span-2">
-                                                        <Field label="Street">
-                                                            <Input value={data.address.street} onChange={(e) => handleAddressChange('street', e.target.value)} />
-                                                        </Field>
-                                                    </div>
-                                                </div>
+                                                <AddressDropdowns
+                                                    values={data.address}
+                                                    onChange={handleAddressChange}
+                                                />
                                             </Subsection>
                                         </div>
 
@@ -667,7 +746,7 @@ export default function CaseCreate() {
                                             <Subsection title="Work History">
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                     <Field label="Last Country of Employment">
-                                                        <Input value={lastCountry} onChange={(e) => { setLastCountry(e.target.value); handleEmploymentChange('country', e.target.value); }} />
+                                                        <CountrySelect value={lastCountry} onChange={(v) => { setLastCountry(v); handleEmploymentChange('last_country', v); }} placeholder="Select country..." />
                                                     </Field>
                                                     <Field label="Last Job Position">
                                                         <Input value={lastJob} onChange={(e) => { setLastJob(e.target.value); handleEmploymentChange('position', e.target.value); }} />
@@ -811,6 +890,11 @@ export default function CaseCreate() {
                         </div>
                     </div>
                 </section>
+                <ExistingClientModal
+                    show={showClientModal}
+                    onClose={() => { setShowClientModal(false); if (clientSource === 'existing' && !data.client.first_name) setClientSource('new'); }}
+                    onSelect={handleClientSelect}
+                />
             </form>
             <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </AppLayout>

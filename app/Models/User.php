@@ -8,6 +8,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -30,6 +31,15 @@ class User extends Authenticatable
         'is_active',
         'contact_number',
         'avatar_url',
+        'position',
+        'department',
+        'office_location',
+        'bio',
+        'emergency_contact',
+        'timezone',
+        'mfa_secret',
+        'mfa_recovery_codes',
+        'mfa_enabled_at',
     ];
 
     protected $hidden = [
@@ -49,11 +59,26 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_deleted' => 'boolean',
+            'mfa_recovery_codes' => 'array',
+            'emergency_contact' => 'array',
+            'mfa_enabled_at' => 'datetime',
         ];
     }
 
     public function agency()
     {
         return $this->belongsTo(Agency::class, 'agcy_id');
+    }
+
+    public function getAvatarUrlAttribute($value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
+
+        return Storage::disk('public')->url($value);
     }
 }

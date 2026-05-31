@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Agency;
 use App\Models\User;
+use App\Services\DefaultAgencyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -34,15 +35,30 @@ class AdminUserController extends Controller
             'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
             'agcy_id' => 'nullable|exists:agencies,id',
             'contact_number' => 'nullable|string',
+            'position' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
+            'office_location' => 'nullable|string|max:500',
+            'bio' => 'nullable|string|max:2000',
+            'emergency_contact' => 'nullable|json',
         ]);
+
+        $agcyId = $validated['agcy_id'] ?? null;
+        if (! $agcyId && $validated['role'] === 'AGENCY') {
+            $agcyId = app(DefaultAgencyService::class)->getDefaultAgency()?->id;
+        }
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
-            'agcy_id' => $validated['agcy_id'] ?? null,
+            'agcy_id' => $agcyId,
             'contact_number' => $validated['contact_number'] ?? null,
+            'position' => $validated['position'] ?? null,
+            'department' => $validated['department'] ?? null,
+            'office_location' => $validated['office_location'] ?? null,
+            'bio' => $validated['bio'] ?? null,
+            'emergency_contact' => $validated['emergency_contact'] ?? null,
             'is_active' => true,
         ]);
 
@@ -60,6 +76,11 @@ class AdminUserController extends Controller
             'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
             'agcy_id' => 'nullable|exists:agencies,id',
             'contact_number' => 'nullable|string',
+            'position' => 'nullable|string|max:255',
+            'department' => 'nullable|string|max:255',
+            'office_location' => 'nullable|string|max:500',
+            'bio' => 'nullable|string|max:2000',
+            'emergency_contact' => 'nullable|json',
             'is_active' => 'boolean',
         ]);
 

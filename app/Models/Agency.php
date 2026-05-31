@@ -23,10 +23,13 @@ class Agency extends Model
         'logo_url',
         'location_query',
         'is_active',
+        'is_default',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
+        'is_active' => 'boolean',
+        'is_default' => 'boolean',
     ];
 
     public function users()

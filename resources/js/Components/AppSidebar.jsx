@@ -1,5 +1,6 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useMemo } from 'react';
+import UserAvatar from '@/Components/ui/UserAvatar';
 
 const navByRole = {
   CASE_MANAGER: [
@@ -98,10 +99,6 @@ export default function AppSidebar() {
     return navByRole[user?.role] || [];
   }, [user]);
 
-  const initials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : '??';
-
   const isActive = (href) => {
     if (href === '/dashboard') return url === '/dashboard';
     return url.startsWith(href);
@@ -155,9 +152,7 @@ export default function AppSidebar() {
       <div className="flex flex-col shrink-0">
         <div className="px-5 py-5 bg-white border-t border-slate-200">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-900 border border-blue-200">
-              {initials}
-            </div>
+            <UserAvatar user={user} size="lg" />
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-[13px] text-blue-950 font-bold leading-none truncate">{user?.name}</span>
               <span className="text-[10px] font-bold tracking-[0.06em] text-slate-500 mt-1 uppercase truncate">

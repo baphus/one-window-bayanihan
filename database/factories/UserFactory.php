@@ -30,6 +30,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('P@ssw0rd!'),
             'role' => 'CASE_MANAGER',
+            'contact_number' => fake()->phoneNumber(),
             'remember_token' => Str::random(10),
         ];
     }
