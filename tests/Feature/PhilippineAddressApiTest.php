@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\PhilippineAddress;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class PhilippineAddressApiTest extends TestCase
@@ -15,9 +14,6 @@ class PhilippineAddressApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        Role::create(['name' => 'ADMIN']);
-        Role::create(['name' => 'CASE_MANAGER']);
     }
 
     private function seedRegions(): void

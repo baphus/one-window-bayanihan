@@ -6,7 +6,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class UserAvatarControllerTest extends TestCase
@@ -16,10 +15,6 @@ class UserAvatarControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        Role::create(['name' => 'ADMIN']);
-        Role::create(['name' => 'CASE_MANAGER']);
-        Role::create(['name' => 'AGENCY_FOCAL_PERSON']);
     }
 
     public function test_user_cannot_change_others_avatar(): void
@@ -58,7 +53,6 @@ class UserAvatarControllerTest extends TestCase
         Storage::fake('public');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 

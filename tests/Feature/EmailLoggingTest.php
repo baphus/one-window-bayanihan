@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
-use Spatie\Permission\Models\Role;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\SentMessage as SymfonySentMessage;
 use Symfony\Component\Mime\Address;
@@ -49,12 +48,8 @@ class EmailLoggingTest extends TestCase
         $this->withoutMiddleware(IpWhitelist::class);
         Config::set('auth.ip_whitelist.enabled', false);
 
-        Role::create(['name' => 'ADMIN']);
-        Role::create(['name' => 'CASE_MANAGER']);
-
         // Create the admin user for tests that need auth
         $this->adminUser = User::factory()->create(['role' => 'ADMIN']);
-        $this->adminUser->assignRole('ADMIN');
     }
 
     #[Test]
@@ -217,7 +212,6 @@ class EmailLoggingTest extends TestCase
     public function non_admin_cannot_access_email_logs_page(): void
     {
         $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $caseManager->assignRole('CASE_MANAGER');
 
         $response = $this
             ->actingAs($caseManager)

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ClientSelectApiTest extends TestCase
@@ -15,9 +14,6 @@ class ClientSelectApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        Role::create(['name' => 'ADMIN']);
-        Role::create(['name' => 'CASE_MANAGER']);
     }
 
     public function test_search_returns_all_clients_without_query(): void

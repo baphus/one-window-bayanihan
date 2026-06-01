@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\User;
 use Database\Seeders\AgencySeeder;
-use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,7 +15,6 @@ class ProfileEditTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(RolesAndPermissionsSeeder::class);
         $this->seed(AgencySeeder::class);
     }
 
