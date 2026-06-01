@@ -52,4 +52,11 @@ class PhilippineAddressService
             ->get(['code', 'name'])
             ->toArray();
     }
+
+    public function resolveNames(array $codes): array
+    {
+        return PhilippineAddress::whereIn('code', $codes)
+            ->pluck('name', 'code')
+            ->toArray();
+    }
 }

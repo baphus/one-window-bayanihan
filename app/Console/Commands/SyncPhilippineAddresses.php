@@ -16,6 +16,8 @@ class SyncPhilippineAddresses extends Command
 
     private string $apiBase;
 
+    private array $requestTimestamps = [];
+
     public function handle(): int
     {
         $this->apiBase = config('services.psgc.api_base', 'https://psgc.cloud/api');
@@ -74,9 +76,9 @@ class SyncPhilippineAddresses extends Command
         $bar->start();
 
         foreach ($regions as $region) {
-            $this->syncProvinces($region['code']);
             $this->syncDirectRegionCities($region['code']);
             $this->syncDirectRegionMunicipalities($region['code']);
+            $this->syncProvinces($region['code']);
             $bar->advance();
         }
 
@@ -107,6 +109,7 @@ class SyncPhilippineAddresses extends Command
         foreach ($provinces as $province) {
             $this->syncCities($province['code']);
             $this->syncMunicipalities($province['code']);
+            $this->syncProvinceBarangays($province['code']);
         }
     }
 
@@ -129,10 +132,6 @@ class SyncPhilippineAddresses extends Command
         foreach (array_chunk($cityData, 500) as $chunk) {
             PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
         }
-
-        foreach ($cities as $city) {
-            $this->syncBarangays('cities', $city['code']);
-        }
     }
 
     private function syncMunicipalities(string $provinceCode): void
@@ -153,10 +152,6 @@ class SyncPhilippineAddresses extends Command
 
         foreach (array_chunk($munData, 500) as $chunk) {
             PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
-        }
-
-        foreach ($municipalities as $municipality) {
-            $this->syncBarangays('municipalities', $municipality['code']);
         }
     }
 
@@ -210,6 +205,29 @@ class SyncPhilippineAddresses extends Command
         }
     }
 
+    private function syncProvinceBarangays(string $provinceCode): void
+    {
+        $barangays = $this->fetch($this->apiBase.'/provinces/'.$provinceCode.'/barangays');
+        Sleep::usleep(100_000);
+
+        if (empty($barangays)) {
+            return;
+        }
+
+        $barangayData = array_map(fn ($b) => [
+            'type' => 'barangay',
+            'code' => $b['code'],
+            'name' => $b['name'],
+            'parent_code' => substr($b['code'], 0, 7).'000',
+        ], $barangays);
+
+        foreach (array_chunk($barangayData, 500) as $chunk) {
+            PhilippineAddress::upsert($chunk, ['type', 'code'], ['name', 'parent_code']);
+        }
+
+        $this->info('Barangays for province '.$provinceCode.': '.count($barangayData));
+    }
+
     private function syncBarangays(string $type, string $parentCode): void
     {
         $barangays = $this->fetch($this->apiBase.'/'.$type.'/'.$parentCode.'/barangays');
@@ -231,28 +249,78 @@ class SyncPhilippineAddresses extends Command
         }
     }
 
+    private function rateLimitCheck(): void
+    {
+        $now = microtime(true);
+        $window = 60;
+        $maxRequests = 55;
+
+        $this->requestTimestamps = array_values(
+            array_filter($this->requestTimestamps, fn ($ts) => $ts > $now - $window)
+        );
+
+        if (count($this->requestTimestamps) >= $maxRequests) {
+            $oldest = $this->requestTimestamps[0];
+            $sleepSeconds = ($oldest + $window - $now) + 0.5;
+
+            Log::info('PSGC API rate limit approaching, pausing for '.round($sleepSeconds, 1).'s', [
+                'requests_in_window' => count($this->requestTimestamps),
+            ]);
+
+            sleep((int) ceil($sleepSeconds));
+        }
+
+        $this->requestTimestamps[] = microtime(true);
+    }
+
     private function fetch(string $url): array
     {
-        try {
-            $response = Http::timeout(15)->get($url);
+        $retryDelayException = 2;
+        $retryDelay429 = 2;
 
-            if ($response->successful()) {
-                return $response->json() ?? [];
+        while (true) {
+            try {
+                $this->rateLimitCheck();
+
+                $response = Http::timeout(15)->get($url);
+
+                if ($response->successful()) {
+                    Sleep::usleep(100_000);
+
+                    return $response->json() ?? [];
+                }
+
+                if ($response->status() === 429) {
+                    $retryAfter = $response->header('Retry-After');
+                    $wait = $retryAfter ? (int) $retryAfter : $retryDelay429;
+
+                    $retryDelay429 = min($retryDelay429 * 2, 300);
+
+                    Log::warning('PSGC API rate limited (429), retrying in '.$wait.'s', [
+                        'url' => $url,
+                        'wait' => $wait,
+                    ]);
+
+                    sleep($wait);
+
+                    continue;
+                }
+
+                Log::warning('PSGC API request failed with status '.$response->status(), [
+                    'url' => $url,
+                    'status' => $response->status(),
+                ]);
+
+                return [];
+            } catch (\Throwable $e) {
+                Log::warning('PSGC API request threw exception, retrying', [
+                    'url' => $url,
+                    'error' => $e->getMessage(),
+                ]);
+
+                sleep($retryDelayException);
+                $retryDelayException = min($retryDelayException * 2, 300);
             }
-
-            Log::warning('PSGC API request failed', [
-                'url' => $url,
-                'status' => $response->status(),
-            ]);
-
-            return [];
-        } catch (\Throwable $e) {
-            Log::warning('PSGC API request threw exception', [
-                'url' => $url,
-                'error' => $e->getMessage(),
-            ]);
-
-            return [];
         }
     }
 }

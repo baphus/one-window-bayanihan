@@ -11,7 +11,12 @@ class UpdateReferralStatusRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && ($user->hasRole('ADMIN') || $user->hasRole('CASE_MANAGER'));
+        return $user !== null && (
+            $user->hasRole('ADMIN')
+            || $user->hasRole('CASE_MANAGER')
+            || $user->role === 'ADMIN'
+            || $user->role === 'CASE_MANAGER'
+        );
     }
 
     public function rules(): array

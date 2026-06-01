@@ -37,4 +37,16 @@ class PhilippineAddressController extends Controller
             $this->addressService->getBarangays($request->query('city'))
         );
     }
+
+    public function resolve(Request $request)
+    {
+        $codes = $request->query('codes', []);
+        if (empty($codes) || ! is_array($codes)) {
+            return response()->json([]);
+        }
+
+        return response()->json(
+            $this->addressService->resolveNames($codes)
+        );
+    }
 }

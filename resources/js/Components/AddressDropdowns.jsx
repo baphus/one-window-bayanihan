@@ -74,10 +74,14 @@ export default function AddressDropdowns({ values, onChange, errors }) {
 
     // When region changes, fetch provinces
     const handleRegionChange = useCallback((value) => {
-        onChange('region', value);
-        onChange('province', '');
-        onChange('city_municipality', '');
-        onChange('barangay', '');
+        // Single atomic update — React 18 batches separate setData calls, causing
+        // each to read stale closure state and the last call to wipe out region.
+        onChange({
+            region: value,
+            province: '',
+            city_municipality: '',
+            barangay: '',
+        });
         setProvinces([]);
         setCities([]);
         setBarangays([]);
@@ -99,9 +103,11 @@ export default function AddressDropdowns({ values, onChange, errors }) {
 
     // When province changes, fetch cities
     const handleProvinceChange = useCallback((value) => {
-        onChange('province', value);
-        onChange('city_municipality', '');
-        onChange('barangay', '');
+        onChange({
+            province: value,
+            city_municipality: '',
+            barangay: '',
+        });
         setCities([]);
         setBarangays([]);
 
@@ -122,8 +128,10 @@ export default function AddressDropdowns({ values, onChange, errors }) {
 
     // When city changes, fetch barangays
     const handleCityChange = useCallback((value) => {
-        onChange('city_municipality', value);
-        onChange('barangay', '');
+        onChange({
+            city_municipality: value,
+            barangay: '',
+        });
         setBarangays([]);
 
         if (!value) return;

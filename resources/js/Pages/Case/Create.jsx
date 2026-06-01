@@ -5,6 +5,8 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 
 const STEPS = [
     { id: 1, title: 'Client Profile', description: 'Enter client information and vulnerability status' },
@@ -144,6 +146,11 @@ export default function CaseCreate() {
     const [lastJob, setLastJob] = useState('');
     const [arrivalDate, setArrivalDate] = useState('');
     const [consent, setConsent] = useState(false);
+    const [selectedClient, setSelectedClient] = useState(null);
+    const [viewMode, setViewMode] = useState('grid');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const searchDebounceRef = useRef(null);
 
     const initialFormRef = useRef({
         formData: {
@@ -221,6 +228,15 @@ export default function CaseCreate() {
             || consent !== i.useState.consent;
     }, [data, clientSource, nokFirstName, nokLastName, nokContact, nokRelationship, clientGender, clientEmail, clientContact, lastCountry, lastJob, arrivalDate, hasNextOfKin, consent]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
+
+    const filteredClients = useMemo(() => {
+        const q = debouncedSearch.trim().toLowerCase();
+        if (!q) return existingClients.slice(0, 200);
+        return existingClients.filter((c) => {
+            const searchStr = [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' ').toLowerCase();
+            return searchStr.includes(q);
+        }).slice(0, 200);
+    }, [existingClients, debouncedSearch]);
 
     useEffect(() => {
         if (client) {
@@ -445,7 +461,14 @@ export default function CaseCreate() {
     }
 
     function handleAddressChange(field, value) {
-        setData('address', { ...data.address, [field]: value });
+        // Support both single-field (field, value) and batch ({ field: value, ... }) formats.
+        // Batch format is used by AddressDropdowns cascade handlers to avoid React 18 stale
+        // closure issue where multiple sequential setData calls wipe each other out.
+        if (typeof field === 'object') {
+            setData('address', { ...data.address, ...field });
+        } else {
+            setData('address', { ...data.address, [field]: value });
+        }
     }
 
     function handleEmploymentChange(field, value) {
@@ -520,6 +543,193 @@ export default function CaseCreate() {
             onSuccess: () => { },
         });
     }
+
+    function getInitial(name) {
+        if (!name) return '?';
+        return name.charAt(0).toUpperCase();
+    }
+
+    function handleSwitchToNew() {
+        setClientSource('new');
+        setData('selected_client_id', '');
+        setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
+        setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
+        setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
+        setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' });
+        setClientGender('Male');
+        setClientEmail('');
+        setClientContact('');
+        setLastCountry('');
+        setLastJob('');
+        setArrivalDate('');
+        setNokFirstName('');
+        setNokLastName('');
+        setNokContact('');
+        setNokRelationship('');
+        setHasNextOfKin(true);
+        setConsent(false);
+        setData('consent', false);
+        setSelectedClient(null);
+        setSearchQuery('');
+        setDebouncedSearch('');
+        initialFormRef.current = {
+            formData: {
+                client_type: 'OFW',
+                vulnerability_indicator: '',
+                summary: '',
+                client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
+                address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
+                employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
+                next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' },
+                consent: false,
+                is_draft: false,
+            },
+            useState: {
+                clientSource: 'new',
+                nokFirstName: '', nokLastName: '', nokContact: '', nokRelationship: '',
+                clientGender: 'Male', clientEmail: '', clientContact: '',
+                lastCountry: '', lastJob: '', arrivalDate: '',
+                hasNextOfKin: true, consent: false,
+            },
+        };
+    }
+
+    function handleSwitchToExisting() {
+        setClientSource('existing');
+    }
+
+function handleConfirmClient(client) {
+    if (!client) return;
+
+    setClientSource('existing');
+    setData('selected_client_id', client.id);
+
+    setClientGender(client.sex || 'Male');
+    setClientEmail(client.email || '');
+    setClientContact(client.contact_number || '');
+    setData('client', {
+        ...data.client,
+        first_name: client.first_name || '',
+        last_name: client.last_name || '',
+        middle_name: client.middle_name || '',
+        suffix: client.suffix || '',
+        date_of_birth: client.date_of_birth || '',
+        sex: client.sex || '',
+        email: client.email || '',
+        contact_number: client.contact_number || '',
+    });
+
+    if (client.addresses?.[0]) {
+        const addr = client.addresses[0];
+        setData('address', {
+            ...data.address,
+            region: addr.region || '',
+            province: addr.province || '',
+            city_municipality: addr.city_municipality || '',
+            barangay: addr.barangay || '',
+            street: addr.street || '',
+        });
+    }
+
+    if (client.employments?.[0]) {
+        const emp = client.employments[0];
+        setData('employment', {
+            ...data.employment,
+            employer_name: emp.employer_name || '',
+            position: emp.position || '',
+            country: emp.country || '',
+            last_country: emp.last_country || '',
+            last_position: emp.last_position || '',
+            date_of_arrival: emp.date_of_arrival || '',
+        });
+        setLastCountry(emp.last_country || emp.country || '');
+        setLastJob(emp.last_position || emp.position || '');
+        setArrivalDate(emp.date_of_arrival || '');
+    }
+
+    if (client.nextOfKin?.[0]) {
+        const nok = client.nextOfKin[0];
+        setData('next_of_kin', {
+            ...data.next_of_kin,
+            first_name: nok.first_name || '',
+            middle_initial: nok.middle_initial || '',
+            last_name: nok.last_name || '',
+            relationship: nok.relationship || '',
+            phone_number: nok.phone_number || '',
+            email: nok.email || '',
+            full_address: nok.full_address || '',
+        });
+        setNokFirstName(nok.first_name || '');
+        setNokLastName(nok.last_name || '');
+        setNokContact(nok.phone_number || '');
+        setNokRelationship(nok.relationship || '');
+    }
+
+    // CRITICAL: Update initialFormRef so dirty tracking starts from pre-filled state
+    initialFormRef.current = {
+        formData: {
+            client_type: 'OFW',
+            vulnerability_indicator: '',
+            summary: '',
+            client: {
+                first_name: client.first_name || '',
+                last_name: client.last_name || '',
+                middle_name: client.middle_name || '',
+                suffix: client.suffix || '',
+                date_of_birth: client.date_of_birth || '',
+                sex: client.sex || '',
+                email: client.email || '',
+                contact_number: client.contact_number || '',
+            },
+            address: {
+                region: client.addresses?.[0]?.region || '',
+                province: client.addresses?.[0]?.province || '',
+                city_municipality: client.addresses?.[0]?.city_municipality || '',
+                barangay: client.addresses?.[0]?.barangay || '',
+                street: client.addresses?.[0]?.street || '',
+            },
+            employment: {
+                employer_name: client.employments?.[0]?.employer_name || '',
+                position: client.employments?.[0]?.position || '',
+                country: client.employments?.[0]?.country || '',
+                start_date: '',
+                end_date: '',
+                last_country: client.employments?.[0]?.last_country || '',
+                last_position: client.employments?.[0]?.last_position || '',
+                date_of_arrival: client.employments?.[0]?.date_of_arrival || '',
+            },
+            next_of_kin: {
+                first_name: client.nextOfKin?.[0]?.first_name || '',
+                middle_initial: client.nextOfKin?.[0]?.middle_initial || '',
+                last_name: client.nextOfKin?.[0]?.last_name || '',
+                is_primary: false,
+                relationship: client.nextOfKin?.[0]?.relationship || '',
+                phone_number: client.nextOfKin?.[0]?.phone_number || '',
+                email: client.nextOfKin?.[0]?.email || '',
+                full_address: client.nextOfKin?.[0]?.full_address || '',
+            },
+            consent: false,
+            is_draft: false,
+        },
+        useState: {
+            clientSource: 'existing',
+            nokFirstName: client.nextOfKin?.[0]?.first_name || '',
+            nokLastName: client.nextOfKin?.[0]?.last_name || '',
+            nokContact: client.nextOfKin?.[0]?.phone_number || '',
+            nokRelationship: client.nextOfKin?.[0]?.relationship || '',
+            clientGender: client.sex || 'Male',
+            clientEmail: client.email || '',
+            clientContact: client.contact_number || '',
+            lastCountry: client.employments?.[0]?.last_country || client.employments?.[0]?.country || '',
+            lastJob: client.employments?.[0]?.last_position || client.employments?.[0]?.position || '',
+            arrivalDate: client.employments?.[0]?.date_of_arrival || '',
+            hasNextOfKin: true,
+            consent: false,
+        },
+    };
+
+    setSelectedClient(null);
+}
 
     const nokSummary = hasNextOfKin
         ? [nokFirstName, nokLastName].filter(Boolean).join(' ') || 'Not yet provided'
@@ -636,27 +846,116 @@ export default function CaseCreate() {
                                 {currentStep === 1 && (
                                     <div className="space-y-6">
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <Subsection title="Existing Client Record">
+                                            <Subsection title="Client Selection">
                                                 <p className="mb-3 text-[13px] text-slate-500">
-                                                    Select an existing client to pre-fill their information, or leave empty to create a new client record.
+                                                    Choose an existing client record to pre-fill information, or create a new client.
                                                 </p>
-                                                <Field label="Select Existing Client">
-                                                    <select
-                                                        value={data.selected_client_id}
-                                                        onChange={handleClientDropdownChange}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    >
-                                                        <option value="">— Create new client —</option>
-                                                        {existingClients.map((c) => (
-                                                            <option key={c.id} value={c.id}>
-                                                                {c.full_name}{c.has_case ? ' (has existing case)' : ''}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </Field>
+                                                <div className="mb-6">
+                                                    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'existing' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                            <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'existing'} onChange={handleSwitchToExisting} /> Existing Clients
+                                                        </label>
+                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'new' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                            <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'new'} onChange={handleSwitchToNew} /> New Client
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                {clientSource === 'existing' && (
+                                                    <div>
+                                                        <div className="mb-4">
+                                                            <input
+                                                                type="text"
+                                                                value={searchQuery}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    setSearchQuery(value);
+                                                                    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                                                                    searchDebounceRef.current = setTimeout(() => {
+                                                                        setDebouncedSearch(value);
+                                                                    }, 300);
+                                                                }}
+                                                                placeholder="Search clients by name..."
+                                                                className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            />
+                                                        </div>
+
+                                                        <div className="mb-4 flex items-center justify-between">
+                                                            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">{filteredClients.length} client(s) found</span>
+                                                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setViewMode('grid')}
+                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[16px]">grid_view</span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setViewMode('list')}
+                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[16px]">list</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {filteredClients.length === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                                                <span className="material-symbols-outlined text-[40px] mb-3">person_search</span>
+                                                                <p className="text-[14px] font-medium text-slate-500">No clients found</p>
+                                                                <p className="text-[12px] text-slate-400 mt-1">Try a different search term or create a new client.</p>
+                                                            </div>
+                                                        ) : viewMode === 'grid' ? (
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                {filteredClients.map((c) => (
+                                                                    <button
+                                                                        key={c.id}
+                                                                        type="button"
+                                                                        onClick={() => setSelectedClient(c)}
+                                                                        className="flex w-full items-start gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                    >
+                                                                        <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-indigo-100">
+                                                                            <span className="text-sm font-semibold text-indigo-700 select-none">
+                                                                                {getInitial(c.first_name)}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <p className="text-[14px] font-bold text-slate-900 truncate">{c.full_name}</p>
+                                                                            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-slate-500">
+                                                                                {c.has_case && <span className="font-medium text-amber-600">Has existing case</span>}
+                                                                                {c.sex && <span>Sex: <span className="font-medium text-slate-700">{c.sex}</span></span>}
+                                                                                {c.date_of_birth && <span>DOB: <span className="font-medium text-slate-700">{c.date_of_birth}</span></span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <UnifiedTable
+                                                                data={filteredClients}
+                                                                columns={[
+                                                                    { key: 'name', title: 'Name', render: (row) => row.full_name },
+                                                                    { key: 'sex', title: 'Sex' },
+                                                                    { key: 'dob', title: 'Date of Birth', render: (row) => row.date_of_birth || '-' },
+                                                                    { key: 'contact', title: 'Contact', render: (row) => row.contact_number || '-' },
+                                                                    { key: 'case', title: 'Case Status', render: (row) => row.has_case ? <span className="font-medium text-amber-600">Has existing case</span> : '-' },
+                                                                ]}
+                                                                keyExtractor={(row) => row.id}
+                                                                hideControlBar
+                                                                hidePagination
+                                                                onRowClick={(row) => setSelectedClient(row)}
+                                                            />
+                                                        )}
+
+                                                        <p className="mt-3 text-[11px] text-slate-400 text-center">Showing up to 200 clients. Refine search to find specific clients.</p>
+                                                    </div>
+                                                )}
                                             </Subsection>
                                         </div>
 
+                                    {clientSource === 'new' && (
+                                        <>
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Client Information">
                                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -793,6 +1092,8 @@ export default function CaseCreate() {
                                                 {!consent && <p className="mt-3 text-[12px] font-medium text-amber-800">Required to create a case for a new client.</p>}
                                             </div>
                                         )}
+                                    </>
+                                    )}
                                     </div>
                                 )}
 
@@ -901,6 +1202,7 @@ export default function CaseCreate() {
                     </div>
                 </section>
             </form>
+            <ClientProfileSummaryModal show={!!selectedClient} client={selectedClient} onConfirm={handleConfirmClient} onClose={() => setSelectedClient(null)} />
             <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
         </AppLayout>
     );

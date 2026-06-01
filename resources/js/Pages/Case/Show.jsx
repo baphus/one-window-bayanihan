@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { useToast } from '@/Hooks/useToast';
@@ -24,10 +24,15 @@ function getCaseAgeDays(createdAt, status, updatedAt) {
   return `${days} day${days > 1 ? 's' : ''}`;
 }
 
-function formatAddress(addr) {
+function formatAddress(addr, names) {
   if (!addr) return '';
-  return [addr.street, addr.barangay, addr.city_municipality, addr.province, addr.region]
-    .filter(Boolean).join(', ');
+  const parts = [];
+  if (addr.street) parts.push(addr.street);
+  if (addr.barangay) parts.push(names[addr.barangay] || addr.barangay);
+  if (addr.city_municipality) parts.push(names[addr.city_municipality] || addr.city_municipality);
+  if (addr.province) parts.push(names[addr.province] || addr.province);
+  if (addr.region) parts.push(names[addr.region] || addr.region);
+  return parts.join(', ');
 }
 
 function Subsection({ title, children }) {
@@ -50,6 +55,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
   const [saving, setSaving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [addressNames, setAddressNames] = useState({});
   const docInputRef = useRef(null);
   
   function handleDocumentUpload(e) {
@@ -95,6 +101,22 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     || formSummary !== initialEditRef.current.summary
   ), [formClientType, formVulnerability, formSummary]);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
+
+  useEffect(() => {
+    if (!primaryAddress) return;
+    const codes = [];
+    if (primaryAddress.barangay) codes.push(primaryAddress.barangay);
+    if (primaryAddress.city_municipality) codes.push(primaryAddress.city_municipality);
+    if (primaryAddress.province) codes.push(primaryAddress.province);
+    if (primaryAddress.region) codes.push(primaryAddress.region);
+    if (codes.length === 0) return;
+    const params = new URLSearchParams();
+    codes.forEach(c => params.append('codes[]', c));
+    fetch(`/api/address/resolve?${params.toString()}`)
+      .then(r => r.json())
+      .then(data => setAddressNames(data))
+      .catch(() => {});
+  }, [primaryAddress]);
 
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
@@ -384,7 +406,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                   <InfoCell label="Contact Number" value={client?.contact_number || 'N/A'} />
                   <InfoCell label=" " value=" " />
                   {primaryAddress ? (
-                    <InfoCell label="Home Address" value={formatAddress(primaryAddress)} fullRow />
+                    <InfoCell label="Home Address" value={formatAddress(primaryAddress, addressNames)} fullRow />
                   ) : (
                     <InfoCell label="Home Address" value="No address recorded" fullRow />
                   )}

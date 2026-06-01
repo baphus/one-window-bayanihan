@@ -9,6 +9,7 @@ Route::get('/address/regions', [PhilippineAddressController::class, 'regions']);
 Route::get('/address/provinces', [PhilippineAddressController::class, 'provinces']);
 Route::get('/address/cities', [PhilippineAddressController::class, 'cities']);
 Route::get('/address/barangays', [PhilippineAddressController::class, 'barangays']);
+Route::get('/address/resolve', [PhilippineAddressController::class, 'resolve']);
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Client selection for case creation form

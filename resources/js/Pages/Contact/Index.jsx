@@ -37,8 +37,7 @@ export default function Contact() {
                         <h3 className="text-sm font-bold text-slate-900">Office Address</h3>
                         <p className="text-sm text-slate-600 mt-1">
                           DMW Regional Office VII<br />
-                          G/F DMW Building, Kaohsiung corner Taiwan Streets corner<br />
-                          Cebu City, 6000 Philippines
+                          G/F, DOLE Bldg. (Old Insular Bldg.), <br/> Gorordo, cor General Maxilom Ave, Cebu City
                         </p>
                       </div>
                     </div>

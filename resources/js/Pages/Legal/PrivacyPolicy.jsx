@@ -251,8 +251,7 @@ export default function PrivacyPolicy() {
                 <strong>Data Protection Officer:</strong> DMW Region VII — Data Privacy Office
               </li>
               <li>
-                <strong>Office Address:</strong> DMW Regional Office VII, G/F DMW Building,
-                Kaohsiung corner Taiwan Streets, Cebu City, 6000 Philippines
+                <strong>Office Address:</strong> DG/F, DOLE Bldg. (Old Insular Bldg.), Gorordo, cor General Maxilom Ave, Cebu City
               </li>
               <li>
                 <strong>Email:</strong> dpo@bayanihan.gov.ph
