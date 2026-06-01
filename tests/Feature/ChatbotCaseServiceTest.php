@@ -7,11 +7,9 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\Chatbot\ChatbotCaseService;
-use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ChatbotCaseServiceTest extends TestCase
@@ -24,9 +22,6 @@ class ChatbotCaseServiceTest extends TestCase
     {
         parent::setUp();
         $this->service = app(ChatbotCaseService::class);
-
-        // Seed roles (spatie separate table, not the User.role column)
-        (new RolesAndPermissionsSeeder)->run();
     }
 
     // ──────────────────────────────────────────────
@@ -36,8 +31,7 @@ class ChatbotCaseServiceTest extends TestCase
     /** Create a logged-in CASE_MANAGER user */
     private function actingAsCaseManager(): User
     {
-        $user = User::factory()->create();
-        $user->assignRole('CASE_MANAGER');
+        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
         $this->actingAs($user);
 
         return $user;
@@ -46,8 +40,7 @@ class ChatbotCaseServiceTest extends TestCase
     /** Create a logged-in ADMIN user */
     private function actingAsAdmin(): User
     {
-        $user = User::factory()->create();
-        $user->assignRole('ADMIN');
+        $user = User::factory()->create(['role' => 'ADMIN']);
         $this->actingAs($user);
 
         return $user;
@@ -57,8 +50,7 @@ class ChatbotCaseServiceTest extends TestCase
     private function actingAsAgencyFocal(): User
     {
         $agency = Agency::factory()->create();
-        $user = User::factory()->create(['agcy_id' => $agency->id]);
-        $user->assignRole('AGENCY_FOCAL_PERSON');
+        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
         $this->actingAs($user);
 
         return $user;
@@ -163,8 +155,7 @@ class ChatbotCaseServiceTest extends TestCase
         $this->createCaseWithClient($cm); // own case
 
         // Another manager's case — should not appear
-        $otherCm = User::factory()->create();
-        $otherCm->assignRole('CASE_MANAGER');
+        $otherCm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $otherCase = $this->createCaseWithClient($otherCm);
 
         $response = $this->service->searchCases($otherCase->case_number);
@@ -175,8 +166,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_search_cases_sees_all_for_admin()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $this->createCaseWithClient($cm);
 
         $this->actingAsAdmin();
@@ -239,8 +229,7 @@ class ChatbotCaseServiceTest extends TestCase
     public function test_get_case_detail_denied_for_non_owner_case_manager()
     {
         $cm = $this->actingAsCaseManager();
-        $otherCm = User::factory()->create();
-        $otherCm->assignRole('CASE_MANAGER');
+        $otherCm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $otherCase = $this->createCaseWithClient($otherCm);
 
         $response = $this->service->getCaseDetail($otherCase->id);
@@ -251,8 +240,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_get_case_detail_allows_admin_any_case()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = $this->createCaseWithClient($cm);
 
         $this->actingAsAdmin();
@@ -276,8 +264,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_initiate_otp_with_no_email_on_case()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = CaseFile::factory()->create(['user_id' => $cm->id]);
         // Create client WITHOUT email
         Client::factory()->create(['case_id' => $case->id, 'email' => null]);
@@ -290,8 +277,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_initiate_otp_sends_code()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = $this->createCaseWithClient($cm);
 
         $response = $this->service->initiateCaseOTP($case->tracker_number);
@@ -307,8 +293,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_verify_otp_with_invalid_code()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = $this->createCaseWithClient($cm);
 
         // Initiate to create the OTP in cache
@@ -322,8 +307,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_full_otp_verify_flow()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = $this->createCaseWithClient($cm);
 
         // Initiate OTP
@@ -348,8 +332,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_get_verified_case_info_fails_without_verification()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = $this->createCaseWithClient($cm);
 
         $response = $this->service->getVerifiedCaseInfo($case->tracker_number);
@@ -368,8 +351,7 @@ class ChatbotCaseServiceTest extends TestCase
 
     public function test_otp_ttl_expiry()
     {
-        $cm = User::factory()->create();
-        $cm->assignRole('CASE_MANAGER');
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = $this->createCaseWithClient($cm);
 
         $this->service->initiateCaseOTP($case->tracker_number);
