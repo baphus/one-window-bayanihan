@@ -45,7 +45,7 @@ class ChatbotCaseService
 
         $user = auth()->user();
 
-        return $user->hasAnyRole(['CASE_MANAGER', 'ADMIN']) || $user->agcy_id !== null;
+        return $user->isCaseManager() || $user->isAdmin() || $user->agcy_id !== null;
     }
 
     /**
@@ -59,11 +59,11 @@ class ChatbotCaseService
 
         $user = auth()->user();
 
-        if ($user->hasRole('ADMIN')) {
+        if ($user->isAdmin()) {
             return 'admin';
         }
 
-        if ($user->hasRole('CASE_MANAGER')) {
+        if ($user->isCaseManager()) {
             return 'case_manager';
         }
 
@@ -96,9 +96,9 @@ class ChatbotCaseService
                 ->with(['client', 'user']);
 
             // Role-based filtering
-            if ($user->hasRole('ADMIN')) {
+            if ($user->isAdmin()) {
                 // Admin sees all cases - no filter
-            } elseif ($user->hasRole('CASE_MANAGER')) {
+            } elseif ($user->isCaseManager()) {
                 // Case manager sees their own cases
                 $caseQuery->where('user_id', $user->id);
             } elseif ($user->agcy_id) {
@@ -183,8 +183,8 @@ class ChatbotCaseService
             }
 
             // Access check
-            if (! $user->hasRole('ADMIN')) {
-                if ($user->hasRole('CASE_MANAGER') && $case->user_id !== $user->id) {
+            if (! $user->isAdmin()) {
+                if ($user->isCaseManager() && $case->user_id !== $user->id) {
                     return [
                         'success' => false,
                         'message' => 'You do not have access to this case.',
