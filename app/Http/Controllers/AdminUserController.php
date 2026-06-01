@@ -62,8 +62,6 @@ class AdminUserController extends Controller
             'is_active' => true,
         ]);
 
-        $user->syncRoles([$validated['role']]);
-
         return redirect()->route('admin.users.index')
             ->with('success', 'User created successfully.');
     }
@@ -94,8 +92,6 @@ class AdminUserController extends Controller
         }
 
         $user->update($updateData);
-
-        $user->syncRoles([$validated['role']]);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User updated successfully.');
