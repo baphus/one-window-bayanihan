@@ -9,12 +9,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable, SoftDeleteFlag, UsesUuid;
+    use HasFactory, Notifiable, SoftDeleteFlag, UsesUuid;
 
     public static array $auditExclude = ['password', 'remember_token', 'id', 'created_at', 'updated_at', 'email_verified_at'];
 
@@ -68,6 +67,21 @@ class User extends Authenticatable
     public function agency()
     {
         return $this->belongsTo(Agency::class, 'agcy_id');
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'ADMIN';
+    }
+
+    public function isCaseManager(): bool
+    {
+        return $this->role === 'CASE_MANAGER';
+    }
+
+    public function isAgency(): bool
+    {
+        return $this->role === 'AGENCY';
     }
 
     public function getAvatarUrlAttribute($value): ?string
