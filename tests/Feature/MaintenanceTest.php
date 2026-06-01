@@ -8,7 +8,6 @@ use App\Services\MaintenanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use PHPUnit\Framework\Attributes\Test;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class MaintenanceTest extends TestCase
@@ -22,9 +21,7 @@ class MaintenanceTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        Role::create(['name' => 'ADMIN']);
         $this->admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->admin->assignRole('ADMIN');
     }
 
     #[Test]

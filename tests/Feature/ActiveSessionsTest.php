@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ActiveSessionsTest extends TestCase
@@ -22,9 +21,7 @@ class ActiveSessionsTest extends TestCase
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
 
-        Role::create(['name' => 'ADMIN']);
         $this->admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->admin->assignRole('ADMIN');
     }
 
     #[Test]

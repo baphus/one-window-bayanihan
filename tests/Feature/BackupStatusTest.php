@@ -6,7 +6,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class BackupStatusTest extends TestCase
@@ -19,9 +18,7 @@ class BackupStatusTest extends TestCase
     {
         parent::setUp();
 
-        Role::create(['name' => 'ADMIN']);
         $this->admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->admin->assignRole('ADMIN');
     }
 
     public function test_page_loads(): void

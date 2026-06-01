@@ -9,7 +9,6 @@ use App\Services\SystemHealthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use PHPUnit\Framework\Attributes\Test;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class SystemHealthTest extends TestCase
@@ -26,9 +25,7 @@ class SystemHealthTest extends TestCase
         $this->withoutMiddleware(IpWhitelist::class);
         Config::set('auth.ip_whitelist.enabled', false);
 
-        Role::create(['name' => 'ADMIN']);
         $this->admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->admin->assignRole('ADMIN');
     }
 
     #[Test]
