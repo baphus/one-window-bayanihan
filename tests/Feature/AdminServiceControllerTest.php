@@ -6,7 +6,6 @@ use App\Models\Agency;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AdminServiceControllerTest extends TestCase
@@ -17,13 +16,11 @@ class AdminServiceControllerTest extends TestCase
     {
         parent::setUp();
 
-        Role::create(['name' => 'ADMIN']);
     }
 
     public function test_admin_can_delete_service(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $agency = Agency::factory()->create();
         $service = Service::create([
@@ -43,7 +40,6 @@ class AdminServiceControllerTest extends TestCase
     public function test_admin_cannot_delete_nonexistent_service(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $fakeId = '00000000-0000-0000-0000-000000000000';
 

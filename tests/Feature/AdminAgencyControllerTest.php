@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AdminAgencyControllerTest extends TestCase
@@ -16,13 +15,11 @@ class AdminAgencyControllerTest extends TestCase
     {
         parent::setUp();
 
-        Role::create(['name' => 'ADMIN']);
     }
 
     public function test_admin_can_delete_agency(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $agency = Agency::factory()->create(['is_active' => true, 'is_deleted' => false]);
 
@@ -40,7 +37,6 @@ class AdminAgencyControllerTest extends TestCase
     public function test_admin_cannot_delete_nonexistent_agency(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $fakeId = '00000000-0000-0000-0000-000000000000';
 
