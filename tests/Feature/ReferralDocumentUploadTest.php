@@ -10,7 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ReferralDocumentUploadTest extends TestCase
@@ -26,10 +25,6 @@ class ReferralDocumentUploadTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        Role::create(['name' => 'ADMIN']);
-        Role::create(['name' => 'CASE_MANAGER']);
-        Role::create(['name' => 'AGENCY_FOCAL_PERSON']);
 
         $this->agency = Agency::factory()->create();
 
@@ -55,7 +50,6 @@ class ReferralDocumentUploadTest extends TestCase
         Storage::fake('public');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $file = UploadedFile::fake()->create('malware.exe', 100);
 
@@ -73,7 +67,6 @@ class ReferralDocumentUploadTest extends TestCase
         Storage::fake('public');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
 
@@ -94,7 +87,6 @@ class ReferralDocumentUploadTest extends TestCase
         Storage::fake('public');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $file = UploadedFile::fake()->create('shell.php', 100);
 
@@ -117,7 +109,6 @@ class ReferralDocumentUploadTest extends TestCase
         Storage::fake('public');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
 

@@ -9,7 +9,6 @@ use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class CaseDocumentTest extends TestCase
@@ -24,12 +23,7 @@ class CaseDocumentTest extends TestCase
     {
         parent::setUp();
 
-        Role::create(['name' => 'ADMIN']);
-        Role::create(['name' => 'CASE_MANAGER']);
-        Role::create(['name' => 'AGENCY_FOCAL_PERSON']);
-
         $this->caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $this->caseManager->assignRole('CASE_MANAGER');
 
         $this->case = CaseFile::create([
             'id' => fake()->uuid(),
@@ -84,7 +78,6 @@ class CaseDocumentTest extends TestCase
         $this->createDocument();
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $response = $this->actingAs($admin)
             ->getJson(route('cases.documents.index', $this->case->id));
@@ -98,7 +91,6 @@ class CaseDocumentTest extends TestCase
         $this->createDocument();
 
         $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherManager->assignRole('CASE_MANAGER');
 
         $response = $this->actingAs($otherManager)
             ->getJson(route('cases.documents.index', $this->case->id));

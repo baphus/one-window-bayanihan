@@ -7,7 +7,6 @@ use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class CaseAuthorizationTest extends TestCase
@@ -18,9 +17,6 @@ class CaseAuthorizationTest extends TestCase
     {
         parent::setUp();
 
-        Role::create(['name' => 'ADMIN']);
-        Role::create(['name' => 'CASE_MANAGER']);
-        Role::create(['name' => 'AGENCY_FOCAL_PERSON']);
     }
 
     public function test_agency_without_referral_cannot_view_case(): void
@@ -54,7 +50,6 @@ class CaseAuthorizationTest extends TestCase
     public function test_agency_with_active_referral_can_view_case(): void
     {
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager->assignRole('CASE_MANAGER');
 
         $case = CaseFile::create([
             'id' => fake()->uuid(),
@@ -93,7 +88,6 @@ class CaseAuthorizationTest extends TestCase
     public function test_case_manager_can_view_any_case(): void
     {
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager->assignRole('CASE_MANAGER');
 
         $case = CaseFile::create([
             'id' => fake()->uuid(),
@@ -112,10 +106,8 @@ class CaseAuthorizationTest extends TestCase
     public function test_admin_can_view_any_case(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $admin->assignRole('ADMIN');
 
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager->assignRole('CASE_MANAGER');
 
         $case = CaseFile::create([
             'id' => fake()->uuid(),
