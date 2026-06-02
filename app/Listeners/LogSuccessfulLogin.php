@@ -9,6 +9,15 @@ class LogSuccessfulLogin
 {
     public function handle(Login $event): void
     {
+        $recent = AuditLog::where('user_id', $event->user->getKey())
+            ->where('action', 'LOGIN')
+            ->where('timestamp', '>=', now()->subSeconds(5))
+            ->exists();
+
+        if ($recent) {
+            return;
+        }
+
         AuditLog::create([
             'action' => 'LOGIN',
             'module' => 'auth',
