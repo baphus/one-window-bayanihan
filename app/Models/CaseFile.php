@@ -24,11 +24,15 @@ class CaseFile extends Model
         'status',
         'consent_given_at',
         'user_id',
+        'client_id',
+        'category_id',
+        'draft_client_data',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
         'consent_given_at' => 'datetime',
+        'draft_client_data' => 'array',
     ];
 
     public function user()
@@ -38,7 +42,12 @@ class CaseFile extends Model
 
     public function client()
     {
-        return $this->hasOne(Client::class, 'case_id');
+        return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(CaseCategory::class, 'category_id');
     }
 
     public function referrals()

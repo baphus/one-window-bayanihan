@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import StatusBadge from '@/Components/ui/StatusBadge';
@@ -29,6 +29,15 @@ export default function DraftIndex({ drafts }) {
       <Head title="My Drafts" />
 
       <div className="max-w-5xl mx-auto pb-6">
+        <Link
+          href={route('cases.index')}
+          className="text-xs text-slate-500 hover:text-gray-900 transition-colors flex items-center gap-1 mb-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+          </svg>
+          Back to Cases
+        </Link>
         <header className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">My Drafts</h1>
@@ -83,7 +92,9 @@ export default function DraftIndex({ drafts }) {
                         {draft.case_number}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-700">{draft.client_name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-700">
+                  {draft.client ? `${draft.client.first_name} ${draft.client.last_name}` : '\u2014'}
+                </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={draft.client_type === 'OFW' ? 'OFW' : 'NOK'} />
                     </td>

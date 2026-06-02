@@ -35,28 +35,13 @@ class CaseService
                 'status' => $isDraft ? 'DRAFT' : 'OPEN',
                 'consent_given_at' => ! empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
+                'category_id' => $data['category_id'] ?? null,
             ]);
 
             $isExistingClient = ! empty($data['selected_client_id']);
 
             if ($isExistingClient) {
                 $client = Client::findOrFail($data['selected_client_id']);
-
-                if ($client->case_id) {
-                    abort(422, 'This client already has an existing case. Duplicate cases are not allowed.');
-                }
-
-                $client->update([
-                    'first_name' => $data['client']['first_name'] ?? $client->first_name,
-                    'last_name' => $data['client']['last_name'] ?? $client->last_name,
-                    'middle_name' => $data['client']['middle_name'] ?? $client->middle_name,
-                    'suffix' => $data['client']['suffix'] ?? $client->suffix,
-                    'date_of_birth' => $data['client']['date_of_birth'] ?? $client->date_of_birth,
-                    'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : $client->sex,
-                    'email' => $data['client']['email'] ?? $client->email,
-                    'contact_number' => $data['client']['contact_number'] ?? $client->contact_number,
-                    'case_id' => $case->id,
-                ]);
 
                 if (! empty($data['address'])) {
                     $address = $client->addresses()->first();
@@ -142,7 +127,6 @@ class CaseService
                     'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
                     'email' => $data['client']['email'] ?? null,
                     'contact_number' => $data['client']['contact_number'] ?? null,
-                    'case_id' => $case->id,
                 ]);
 
                 if (! empty($data['address'])) {
@@ -185,6 +169,9 @@ class CaseService
                 }
             }
 
+            $case->client_id = $client->id;
+            $case->save();
+
             if (! $isDraft) {
                 AuditLog::create([
                     'action' => 'CREATE',
@@ -195,7 +182,7 @@ class CaseService
                 ]);
             }
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category']);
         });
     }
 
@@ -208,19 +195,13 @@ class CaseService
         }
 
         DB::transaction(function () use ($case) {
-            if ($case->client) {
-                DB::table('client_addresses')->where('client_id', $case->client->id)->delete();
-                DB::table('client_employments')->where('client_id', $case->client->id)->delete();
-                DB::table('next_of_kin')->where('client_id', $case->client->id)->delete();
-                DB::table('clients')->where('id', $case->client->id)->delete();
-            }
             DB::table('cases')->where('id', $case->id)->delete();
         });
     }
 
     public function getUserDrafts(string $userId, int $perPage = 15): LengthAwarePaginator
     {
-        return CaseFile::with('client')
+        return CaseFile::with('client', 'category')
             ->where('status', 'DRAFT')
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc')
@@ -248,7 +229,7 @@ class CaseService
                 'user_id' => $userId,
             ]);
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category']);
         });
     }
 
@@ -257,10 +238,12 @@ class CaseService
         $query = CaseFile::with(['client', 'user', 'referrals'])
             ->orderBy('created_at', 'desc');
 
+        $query->where('status', '!=', 'DRAFT');
+
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         } else {
-            $query->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+            $query->whereNotIn('status', ['ARCHIVED']);
         }
 
         if (! empty($filters['client_type'])) {
@@ -273,6 +256,10 @@ class CaseService
 
         if (! empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
+        }
+
+        if (! empty($filters['category_id'])) {
+            $query->where('category_id', $filters['category_id']);
         }
 
         if (! empty($filters['agcy_id'])) {
@@ -309,6 +296,7 @@ class CaseService
             'referrals.agency',
             'referrals.attachments.user',
             'user',
+            'category',
             'documents' => fn ($q) => $q->where('is_deleted', false),
         ])->findOrFail($id);
     }
@@ -323,6 +311,7 @@ class CaseService
                 'client_type' => $data['client_type'],
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
+                'category_id' => $data['category_id'] ?? $case->category_id,
             ]);
 
             AuditLog::create([
@@ -345,6 +334,7 @@ class CaseService
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
+                'category',
             ]);
         });
     }
@@ -382,6 +372,7 @@ class CaseService
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
+                'category',
             ]);
         });
     }
@@ -413,6 +404,7 @@ class CaseService
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
+                'category',
             ]);
         });
     }
@@ -479,6 +471,7 @@ class CaseService
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
+                'category',
             ]);
         });
     }
@@ -565,21 +558,27 @@ class CaseService
         $active = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $open = CaseFile::where('status', 'OPEN')->count();
         $closed = CaseFile::where('status', 'CLOSED')->count();
-        $draft = CaseFile::where('status', 'DRAFT')->count();
         $archived = CaseFile::where('status', 'ARCHIVED')->count();
         $ofw = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $nok = CaseFile::where('client_type', 'NOK')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $totalReferrals = Referral::count();
 
+        $categoryBreakdown = CaseFile::selectRaw('category_id, count(*) as total')
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->groupBy('category_id')
+            ->get()
+            ->pluck('total', 'category_id')
+            ->toArray();
+
         return [
             'total_cases' => $active,
             'open_cases' => $open,
             'closed_cases' => $closed,
-            'draft_cases' => $draft,
             'archived_cases' => $archived,
             'ofw_cases' => $ofw,
             'nok_cases' => $nok,
             'total_referrals' => $totalReferrals,
+            'category_breakdown' => $categoryBreakdown,
         ];
     }
 }

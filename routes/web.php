@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActiveSessionsController;
+use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
 use App\Http\Controllers\Admin\AlertConfigController;
 use App\Http\Controllers\Admin\BackupStatusController;
@@ -187,6 +188,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/helpdesk/tags/{tag}', [HelpdeskTagController::class, 'destroy'])->name('helpdesk.tags.destroy');
 
         Route::post('/helpdesk/articles/upload-image', [HelpdeskArticleController::class, 'uploadImage'])->name('helpdesk.articles.upload-image');
+
+        Route::get('/case-categories', [AdminCaseCategoryController::class, 'index'])->name('case-categories.index');
+        Route::post('/case-categories', [AdminCaseCategoryController::class, 'store'])->name('case-categories.store');
+        Route::patch('/case-categories/{caseCategory}', [AdminCaseCategoryController::class, 'update'])->name('case-categories.update');
+        Route::delete('/case-categories/{caseCategory}', [AdminCaseCategoryController::class, 'destroy'])->name('case-categories.destroy');
 
         Route::get('/case-statuses', [AdminCaseStatusController::class, 'index'])->name('case-statuses.index');
         Route::post('/case-statuses', [AdminCaseStatusController::class, 'store'])->name('case-statuses.store');

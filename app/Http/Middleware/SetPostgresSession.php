@@ -25,8 +25,11 @@ class SetPostgresSession
     public function handle(Request $request, Closure $next): Response
     {
         if ($user = $request->user()) {
-            DB::statement('SET SESSION app.current_user_id = ?', [(string) $user->id]);
-            DB::statement('SET SESSION app.user_role = ?', [$user->role]);
+            // PostgreSQL-specific session variables for RLS — skip in SQLite tests
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                DB::statement('SET SESSION app.current_user_id = ?', [(string) $user->id]);
+                DB::statement('SET SESSION app.user_role = ?', [$user->role]);
+            }
         }
 
         return $next($request);

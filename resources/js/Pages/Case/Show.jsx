@@ -102,6 +102,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   ), [formClientType, formVulnerability, formSummary]);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
+  const primaryAddress = client?.addresses?.[0] || null;
+  const primaryEmployment = client?.employments?.[0] || null;
+  const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
+
   useEffect(() => {
     if (!primaryAddress) return;
     const codes = [];
@@ -119,10 +123,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   }, [primaryAddress]);
 
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
-
-  const primaryAddress = client?.addresses?.[0] || null;
-  const primaryEmployment = client?.employments?.[0] || null;
-  const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
 
   const referralRows = useMemo(() => {
     return (caseFile.referrals || []).map((ref) => {
@@ -390,6 +390,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               <MetaTile label="Case No." value={caseFile.case_number} />
               <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
               <MetaTile label="Client Type" value={clientTypeLabel} />
+              {caseFile.category && (
+                <MetaTile label="Category" value={
+                  <span className="inline-flex items-center gap-1.5">
+                    {caseFile.category.color && (
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: caseFile.category.color }} />
+                    )}
+                    {caseFile.category.name}
+                  </span>
+                } />
+              )}
               <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
               <MetaTile label="Case Age" value={getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)} />
             </div>

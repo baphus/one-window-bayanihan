@@ -30,6 +30,7 @@ class StoreCaseRequest extends FormRequest
             'client_type' => ['required', Rule::in(['OFW', 'NEXT_OF_KIN'])],
             'vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'summary' => ['nullable', 'string', 'max:5000'],
+            'category_id' => ['nullable', 'string', 'exists:case_categories,id'],
 
             'client.first_name' => [$required, 'string', 'max:255'],
             'client.last_name' => [$required, 'string', 'max:255'],

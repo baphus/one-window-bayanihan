@@ -518,7 +518,7 @@ class ReportsService
     ): array {
         $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->leftJoin('clients as c', 'c.case_id', '=', 'cases.id')
+            ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->whereNotNull('ca.province');
 

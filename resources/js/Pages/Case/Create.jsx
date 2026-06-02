@@ -82,10 +82,11 @@ function Select({ value, onChange, options, placeholder }) {
 }
 
 export default function CaseCreate() {
-    const { client, existingClients = [] } = usePage().props;
+    const { client, existingClients = [], categories = [] } = usePage().props;
 
     const { data, setData, post, processing, errors } = useForm({
         client_type: 'OFW',
+        category_id: '',
         vulnerability_indicator: '',
         summary: '',
         client: {
@@ -155,6 +156,7 @@ export default function CaseCreate() {
     const initialFormRef = useRef({
         formData: {
             client_type: 'OFW',
+            category_id: '',
             vulnerability_indicator: '',
             summary: '',
             client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
@@ -175,6 +177,7 @@ export default function CaseCreate() {
 
     function formDataEqual(a, b) {
         return a.client_type === b.client_type
+            && a.category_id === b.category_id
             && a.vulnerability_indicator === b.vulnerability_indicator
             && a.summary === b.summary
             && a.client.first_name === b.client.first_name
@@ -305,6 +308,7 @@ export default function CaseCreate() {
             initialFormRef.current = {
                 formData: {
                     client_type: 'OFW',
+                    category_id: '',
                     vulnerability_indicator: '',
                     summary: '',
                     client: {
@@ -575,6 +579,7 @@ export default function CaseCreate() {
         initialFormRef.current = {
             formData: {
                 client_type: 'OFW',
+                category_id: '',
                 vulnerability_indicator: '',
                 summary: '',
                 client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
@@ -669,6 +674,7 @@ function handleConfirmClient(client) {
     initialFormRef.current = {
         formData: {
             client_type: 'OFW',
+            category_id: '',
             vulnerability_indicator: '',
             summary: '',
             client: {
@@ -1115,7 +1121,7 @@ function handleConfirmClient(client) {
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Who is this case for?</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Pick the client category to tailor the next steps.</p>
-                                            <div className="mt-4">
+                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
                                                 <Field label="Client Type" required>
                                                     <select
                                                         value={data.client_type}
@@ -1124,6 +1130,18 @@ function handleConfirmClient(client) {
                                                     >
                                                         <option value="OFW">Overseas Filipino Worker</option>
                                                         <option value="NEXT_OF_KIN">Next of Kin</option>
+                                                    </select>
+                                                </Field>
+                                                <Field label="Category" required>
+                                                    <select
+                                                        value={data.category_id}
+                                                        onChange={(e) => setData('category_id', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select category</option>
+                                                        {categories.map((cat) => (
+                                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                                        ))}
                                                     </select>
                                                 </Field>
                                             </div>

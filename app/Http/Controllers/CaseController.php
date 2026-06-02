@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
@@ -21,16 +22,21 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
+        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id'];
+
         $cases = $this->caseService->getCases(
-            $request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id'])
+            $request->only($filterKeys)
         );
+
+        $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => $request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id']),
+            'filters' => $request->only($filterKeys),
             'stats' => $this->caseService->getCaseStats(),
             'users' => User::select('id', 'name')->orderBy('name')->get(),
             'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
+            'categories' => $categories,
         ]);
     }
 
@@ -38,10 +44,11 @@ class CaseController extends Controller
     {
         $client = null;
         if ($request->has('client_id')) {
-            $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFile'])->find($request->client_id);
+            $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
         }
 
         $existingClients = Client::with(['addresses', 'employments', 'nextOfKin'])
+            ->withCount('caseFiles')
             ->where('is_deleted', false)
             ->orderBy('last_name')
             ->limit(200)
@@ -60,12 +67,16 @@ class CaseController extends Controller
                 'addresses' => $c->addresses,
                 'employments' => $c->employments,
                 'nextOfKin' => $c->nextOfKin,
-                'has_case' => $c->case_id !== null,
+                'has_case' => $c->case_files_count > 0,
+                'case_count' => $c->case_files_count,
             ]);
+
+        $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
 
         return Inertia::render('Case/Create', [
             'client' => $client,
             'existingClients' => $existingClients,
+            'categories' => $categories,
         ]);
     }
 

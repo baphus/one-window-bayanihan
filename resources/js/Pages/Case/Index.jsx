@@ -39,6 +39,7 @@ const COLUMN_DEFS = [
   { key: 'client_name', label: 'Client Name', default: true },
   { key: 'author', label: 'Author', default: true },
   { key: 'vulnerability_indicator', label: 'Vulnerability', default: true },
+  { key: 'category', label: 'Category', default: true },
   { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
   { key: 'referred_to', label: 'Referred To', default: true },
@@ -46,7 +47,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function CaseIndex({ cases, filters, stats, users = [], agencies = [] }) {
+export default function CaseIndex({ cases, filters, stats, users = [], agencies = [], categories = [] }) {
   const { auth } = usePage().props;
   const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
 
@@ -66,6 +67,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
   const [vulnFilter, setVulnFilter] = useState(filters?.vulnerability_indicator ?? '');
   const [authorFilter, setAuthorFilter] = useState(filters?.user_id ?? '');
   const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
+  const [categoryFilter, setCategoryFilter] = useState(filters?.category_id ?? '');
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -102,8 +104,12 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       const agency = agencies.find(a => a.id === agencyFilter);
       chips.push({ key: 'agcy_id', label: 'Referred To', value: agency?.name || agencyFilter });
     }
+    if (categoryFilter) {
+      const cat = categories?.find(c => c.id === categoryFilter);
+      chips.push({ key: 'category_id', label: 'Category', value: cat?.name || categoryFilter });
+    }
     return chips;
-  }, [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, users, agencies]);
+  }, [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
 
   const handleRemoveFilter = (filter) => {
     if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
@@ -111,6 +117,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     if (filter.key === 'vulnerability_indicator') { setVulnFilter(''); navigateWith({ vulnerability_indicator: undefined }); }
     if (filter.key === 'user_id') { setAuthorFilter(''); navigateWith({ user_id: undefined }); }
     if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
+    if (filter.key === 'category_id') { setCategoryFilter(''); navigateWith({ category_id: undefined }); }
   };
 
   const handleClearFilters = () => {
@@ -119,7 +126,8 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     setVulnFilter('');
     setAuthorFilter('');
     setAgencyFilter('');
-    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined, user_id: undefined, agcy_id: undefined });
+    setCategoryFilter('');
+    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined, user_id: undefined, agcy_id: undefined, category_id: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -213,6 +221,23 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
                 );
               },
             };
+          case 'category':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => {
+                if (!row.category) return <span className="text-slate-400">&mdash;</span>;
+                return (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                        style={{ backgroundColor: row.category.color ? `${row.category.color}20` : '#f1f5f9', color: row.category.color || '#64748b' }}>
+                    {row.category.color && (
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.category.color }} />
+                    )}
+                    {row.category.name}
+                  </span>
+                );
+              },
+            };
           case 'age':
             return {
               ...base,
@@ -300,7 +325,6 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           <option value="">All Statuses</option>
           <option value="OPEN">Open</option>
           <option value="CLOSED">Closed</option>
-          <option value="DRAFT">Drafts</option>
           <option value="ARCHIVED">Archived</option>
         </select>
       </div>
@@ -342,6 +366,24 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
         </select>
       </div>
       <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
+        <select
+          value={categoryFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setCategoryFilter(val);
+            setFilterOpen(false);
+            navigateWith({ category_id: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All Categories</option>
+          {categories?.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Author</label>
         <select
           value={authorFilter}
@@ -378,7 +420,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
         </select>
       </div>
     </div>
-  ), [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, users, agencies]);
+  ), [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -429,7 +471,6 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
             <TrendingUp className="w-3 h-3 text-emerald-500" />
             <span className="text-[11px] font-bold text-emerald-600">
               {stats?.open_cases ?? 0} open &middot; {stats?.closed_cases ?? 0} closed
-              {stats?.draft_cases > 0 && <> &middot; {stats.draft_cases} draft</>}
               {stats?.archived_cases > 0 && <> &middot; {stats.archived_cases} archived</>}
             </span>
           </div>
@@ -499,20 +540,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
         extraActions={
           <>
             <button
-              onClick={() => {
-                const url = new URL(window.location);
-                if (filters?.status === 'DRAFT') {
-                  url.searchParams.delete('status');
-                } else {
-                  url.searchParams.set('status', 'DRAFT');
-                }
-                url.searchParams.delete('page');
-                router.get(url.toString(), {}, { preserveState: true, replace: true });
-              }}
+              onClick={() => router.visit(route('cases.drafts'))}
               className="h-[40px] px-4 border border-amber-300 text-[14px] font-bold text-amber-700 rounded-[3px] bg-amber-50 flex items-center gap-2 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0"
             >
               <span className="material-symbols-outlined text-[18px]">edit_note</span>
-              {filters?.status === 'DRAFT' ? 'Active Cases' : `View Drafts${stats?.draft_cases > 0 ? ` (${stats.draft_cases})` : ''}`}
+              View Drafts
             </button>
             <button
               onClick={() => {

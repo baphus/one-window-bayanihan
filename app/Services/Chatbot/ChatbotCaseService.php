@@ -3,7 +3,6 @@
 namespace App\Services\Chatbot;
 
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Services\OtpService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -261,7 +260,7 @@ class ChatbotCaseService
             ];
         }
 
-        $client = Client::where('case_id', $case->id)->first();
+        $client = $case->client;
         $email = $client?->email;
 
         if (! $email) {
@@ -310,7 +309,7 @@ class ChatbotCaseService
             ];
         }
 
-        $client = Client::where('case_id', $case->id)->first();
+        $client = $case->client;
         $email = $client?->email;
 
         if (! $email) {

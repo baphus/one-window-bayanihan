@@ -12,7 +12,7 @@ class Client extends Model
 {
     use HasFactory, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'case_id'];
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
 
     protected $fillable = [
         'first_name',
@@ -23,7 +23,6 @@ class Client extends Model
         'sex',
         'email',
         'contact_number',
-        'case_id',
         'avatar_url',
     ];
 
@@ -32,9 +31,18 @@ class Client extends Model
         'is_deleted' => 'boolean',
     ];
 
-    public function caseFile()
+    public function caseFiles()
     {
-        return $this->belongsTo(CaseFile::class, 'case_id');
+        return $this->hasMany(CaseFile::class, 'client_id');
+    }
+
+    /**
+     * Backward-compatible accessor: returns the latest case for this client.
+     * Used where existing code still references $client->caseFile (singular).
+     */
+    public function getCaseFileAttribute()
+    {
+        return $this->caseFiles()->latest()->first();
     }
 
     public function addresses()
@@ -80,7 +88,7 @@ class Client extends Model
                         ->whereIn('module', ['CASE', 'cases', 'case_files']);
                 });
 
-                $referralIds = $this->caseFile->referrals->pluck('id');
+                $referralIds = $this->caseFile->referrals()->pluck('id');
                 if ($referralIds->isNotEmpty()) {
                     $q->orWhere(function ($sub) use ($referralIds) {
                         $sub->whereIn('entity_id', $referralIds)
