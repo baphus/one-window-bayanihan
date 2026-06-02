@@ -24,11 +24,8 @@ class ChatbotCaseServiceTest extends TestCase
         $this->service = app(ChatbotCaseService::class);
     }
 
-    // ──────────────────────────────────────────────
     //  Auth helpers
-    // ──────────────────────────────────────────────
 
-    /** Create a logged-in CASE_MANAGER user */
     private function actingAsCaseManager(): User
     {
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -37,7 +34,6 @@ class ChatbotCaseServiceTest extends TestCase
         return $user;
     }
 
-    /** Create a logged-in ADMIN user */
     private function actingAsAdmin(): User
     {
         $user = User::factory()->create(['role' => 'ADMIN']);
@@ -46,7 +42,6 @@ class ChatbotCaseServiceTest extends TestCase
         return $user;
     }
 
-    /** Create an agency-focal user with agcy_id set */
     private function actingAsAgencyFocal(): User
     {
         $agency = Agency::factory()->create();
@@ -56,7 +51,6 @@ class ChatbotCaseServiceTest extends TestCase
         return $user;
     }
 
-    /** Build a case with an attached client, assigned to the given user */
     private function createCaseWithClient(User $caseManager): CaseFile
     {
         $case = CaseFile::factory()->create(['user_id' => $caseManager->id]);
@@ -65,9 +59,7 @@ class ChatbotCaseServiceTest extends TestCase
         return $case;
     }
 
-    // ──────────────────────────────────────────────
     //  Auth context tests
-    // ──────────────────────────────────────────────
 
     public function test_is_authenticated_returns_false_for_guest()
     {
@@ -126,9 +118,7 @@ class ChatbotCaseServiceTest extends TestCase
         $this->assertSame('agency_focal', $this->service->getUserAuthContext());
     }
 
-    // ──────────────────────────────────────────────
     //  searchCases
-    // ──────────────────────────────────────────────
 
     public function test_search_cases_denied_for_guest()
     {
@@ -201,9 +191,7 @@ class ChatbotCaseServiceTest extends TestCase
         $this->assertSame($case->tracker_number, $response['data'][0]['tracker_number']);
     }
 
-    // ──────────────────────────────────────────────
     //  getCaseDetail
-    // ──────────────────────────────────────────────
 
     public function test_get_case_detail_denied_for_guest()
     {
@@ -250,9 +238,7 @@ class ChatbotCaseServiceTest extends TestCase
         $this->assertSame($case->case_number, $response['data']['case_number']);
     }
 
-    // ──────────────────────────────────────────────
     //  initiateCaseOTP
-    // ──────────────────────────────────────────────
 
     public function test_initiate_otp_with_invalid_tracker()
     {
@@ -287,9 +273,7 @@ class ChatbotCaseServiceTest extends TestCase
         $this->assertStringContainsString('@', $response['email_masked']);
     }
 
-    // ──────────────────────────────────────────────
     //  OTP verify + getVerifiedCaseInfo flow
-    // ──────────────────────────────────────────────
 
     public function test_verify_otp_with_invalid_code()
     {
@@ -365,9 +349,7 @@ class ChatbotCaseServiceTest extends TestCase
         $this->assertStringContainsString('Invalid or expired', $verifyResponse['message']);
     }
 
-    // ──────────────────────────────────────────────
     //  Edge cases / error handling
-    // ──────────────────────────────────────────────
 
     public function test_search_cases_empty_query_lists_accessible_cases()
     {
