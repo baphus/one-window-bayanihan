@@ -238,7 +238,11 @@ class AuditLogFormatter
 
     private function formatLogin(string $userName, AuditLog $log): string
     {
-        $time = $log->timestamp?->format('g:i A');
+        $timezone = $log->relationLoaded('user') && $log->getRelation('user')?->timezone
+            ? $log->getRelation('user')->timezone
+            : 'Asia/Manila';
+
+        $time = $log->timestamp?->setTimezone($timezone)->format('g:i A');
 
         // Add user email for better identification
         $userLabel = $userName;
@@ -250,7 +254,7 @@ class AuditLogFormatter
         }
 
         return $time
-            ? sprintf('%s signed in at %s', $userLabel, $time)
+            ? sprintf('%s signed in on %s at %s', $userLabel, $log->timestamp?->setTimezone($timezone)->format('F j, Y'), $time)
             : sprintf('%s signed in', $userLabel);
     }
 
