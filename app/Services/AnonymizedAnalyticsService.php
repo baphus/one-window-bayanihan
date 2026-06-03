@@ -102,6 +102,20 @@ class AnonymizedAnalyticsService
     }
 
     /**
+     * Get cases grouped by category (anonymized aggregate, non-draft only).
+     */
+    public function casesByCategory(): array
+    {
+        return CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+            ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
+            ->where('cases.status', '!=', 'DRAFT')
+            ->groupBy('case_categories.name', 'case_categories.color')
+            ->orderByDesc('count')
+            ->get()
+            ->toArray();
+    }
+
+    /**
      * Get total unique clients (anonymized count only).
      */
     public function totalClients(): int
@@ -117,6 +131,7 @@ class AnonymizedAnalyticsService
         return [
             'cases_by_status' => $this->casesByStatus(),
             'cases_by_service' => $this->casesByService(),
+            'cases_by_category' => $this->casesByCategory(),
             'cases_over_time' => $this->casesOverTime(),
             'average_resolution_time' => $this->averageResolutionTime(),
             'referral_stats' => $this->referralStats(),

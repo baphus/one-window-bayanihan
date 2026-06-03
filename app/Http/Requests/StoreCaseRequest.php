@@ -19,6 +19,10 @@ class StoreCaseRequest extends FormRequest
         if ($this->boolean('is_draft')) {
             $this->merge(['is_draft' => true]);
         }
+
+        if ($this->has('category_id') && $this->category_id === '') {
+            $this->merge(['category_id' => null]);
+        }
     }
 
     public function rules(): array

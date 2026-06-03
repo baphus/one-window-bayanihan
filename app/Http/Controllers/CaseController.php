@@ -92,7 +92,7 @@ class CaseController extends Controller
 
         if ($isDraft) {
             return redirect()
-                ->route('cases.index')
+                ->route('cases.drafts')
                 ->with('success', 'Draft saved successfully.');
         }
 

@@ -195,6 +195,19 @@ class DashboardService
             ? round(array_sum($closedCaseDays) / count($closedCaseDays), 1)
             : 0;
 
+        $casesByCategory = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
+            ->groupBy('case_categories.name', 'case_categories.color')
+            ->orderBy('count', 'desc')
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'color' => $row->color,
+                'count' => (int) $row->count,
+            ])
+            ->toArray();
+
         return [
             'totalCases' => $totalCases,
             'openCases' => $openCases,
@@ -212,6 +225,7 @@ class DashboardService
             'allCases' => $allCases,
             'allReferrals' => $referralsData,
             'casesByProvince' => $casesByProvince,
+            'casesByCategory' => $casesByCategory,
             'agencyBreakdown' => $agencyBreakdown,
             'casesOverTime' => $casesOverTime,
             'recentActivity' => $recentActivity,
@@ -254,6 +268,21 @@ class DashboardService
             : [];
 
         $referralIds = Referral::where('agcy_id', $agencyId)->pluck('id');
+        $casesByCategory = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
+            ->join('referrals', 'referrals.case_id', '=', 'cases.id')
+            ->where('referrals.agcy_id', $agencyId)
+            ->groupBy('case_categories.name', 'case_categories.color')
+            ->orderBy('count', 'desc')
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'color' => $row->color,
+                'count' => (int) $row->count,
+            ])
+            ->toArray();
+
         $recentActivity = AuditLog::whereIn('entity_id', $referralIds)
             ->where('module', 'referrals')
             ->orderBy('timestamp', 'desc')
@@ -299,6 +328,7 @@ class DashboardService
             'recentReferrals' => $recentReferrals,
             'recentActivity' => $recentActivity,
             'dashboardNotifications' => $pendingNotifications,
+            'casesByCategory' => $casesByCategory,
         ];
     }
 
@@ -375,6 +405,19 @@ class DashboardService
             })
             ->toArray();
 
+        $casesByCategory = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
+            ->groupBy('case_categories.name', 'case_categories.color')
+            ->orderBy('count', 'desc')
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'color' => $row->color,
+                'count' => (int) $row->count,
+            ])
+            ->toArray();
+
         return [
             'totalCases' => $totalCases,
             'totalReferrals' => $totalReferrals,
@@ -388,6 +431,7 @@ class DashboardService
                 'lastCheckAt' => $lastHealthCheck,
                 'overallStatus' => $overallStatus,
             ],
+            'casesByCategory' => $casesByCategory,
         ];
     }
 }

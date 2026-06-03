@@ -50,6 +50,7 @@ class ReportsService
             'referralAging' => $this->getReferralAging($userId, 'CASE_MANAGER', $from, $to),
             'agencyScorecard' => $this->getAgencyScorecard($userId, 'CASE_MANAGER', $from, $to),
             'geographicDistribution' => $this->getGeographicDistribution($userId, 'CASE_MANAGER', $from, $to),
+            'categoryDistribution' => $this->categoryDistribution($userId, 'CASE_MANAGER'),
         ];
     }
 
@@ -67,6 +68,7 @@ class ReportsService
             'agencyScorecard' => $agcyId
                 ? $this->getAgencyScorecard(null, 'AGENCY')
                 : [],
+            'categoryDistribution' => $this->categoryDistribution(),
         ];
     }
 
@@ -85,6 +87,7 @@ class ReportsService
             'referralAging' => $this->getReferralAging(null, null, $from, $to),
             'geographicDistribution' => $this->getGeographicDistribution(null, null, $from, $to),
             'agencyScorecard' => $this->getAgencyScorecard(null, null, $from, $to),
+            'categoryDistribution' => $this->categoryDistribution(),
         ];
     }
 
@@ -540,6 +543,29 @@ class ReportsService
             'labels' => $result->pluck('province')->toArray(),
             'data' => $result->pluck('total')->toArray(),
         ];
+    }
+
+    public function categoryDistribution(?string $userId = null, ?string $role = null): array
+    {
+        $query = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as total'))
+            ->join('case_categories', 'case_categories.id', '=', 'cases.category_id')
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->groupBy('case_categories.name', 'case_categories.color')
+            ->orderBy('case_categories.name');
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->where('cases.user_id', $userId);
+        }
+
+        $results = $query->get();
+        $total = $results->sum('total');
+
+        return $results->map(fn ($item) => [
+            'name' => $item->name,
+            'color' => $item->color,
+            'count' => (int) $item->total,
+            'percentage' => $total > 0 ? round(($item->total / $total) * 100, 2) : 0,
+        ])->toArray();
     }
 
     public function getAvgReferralCompletionDays(): float

@@ -26,7 +26,7 @@ class CaseService
     public function createCase(array $data, string $userId, bool $isDraft = false): CaseFile
     {
         return DB::transaction(function () use ($data, $userId, $isDraft) {
-            $case = CaseFile::create([
+            $createData = [
                 'case_number' => $this->generateCaseNumber(),
                 'tracker_number' => $this->generateTrackerNumber(),
                 'client_type' => $data['client_type'],
@@ -36,7 +36,23 @@ class CaseService
                 'consent_given_at' => ! empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
                 'category_id' => $data['category_id'] ?? null,
-            ]);
+            ];
+
+            if ($isDraft) {
+                $createData['draft_client_data'] = [
+                    'first_name' => $data['client']['first_name'] ?? '',
+                    'last_name' => $data['client']['last_name'] ?? '',
+                    'middle_name' => $data['client']['middle_name'] ?? null,
+                    'email' => $data['client']['email'] ?? null,
+                    'contact_number' => $data['client']['contact_number'] ?? null,
+                    'client_type' => $data['client_type'] ?? null,
+                    'selected_client_id' => $data['selected_client_id'] ?? null,
+                    'sex' => $data['client']['sex'] ?? null,
+                    'date_of_birth' => $data['client']['date_of_birth'] ?? null,
+                ];
+            }
+
+            $case = CaseFile::create($createData);
 
             $isExistingClient = ! empty($data['selected_client_id']);
 
@@ -563,12 +579,12 @@ class CaseService
         $nok = CaseFile::where('client_type', 'NOK')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $totalReferrals = Referral::count();
 
-        $categoryBreakdown = CaseFile::selectRaw('category_id, count(*) as total')
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->groupBy('category_id')
-            ->get()
-            ->pluck('total', 'category_id')
-            ->toArray();
+        $categoryBreakdown = CaseFile::join('case_categories', 'cases.category_id', '=', 'case_categories.id')
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->select('case_categories.id', 'case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+            ->groupBy('case_categories.id', 'case_categories.name', 'case_categories.color')
+            ->orderBy('count', 'desc')
+            ->get();
 
         return [
             'total_cases' => $active,
