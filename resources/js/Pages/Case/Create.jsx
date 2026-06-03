@@ -501,50 +501,89 @@ export default function CaseCreate() {
             && (clientSource === 'existing' || consent);
     }
 
-    function syncFormData() {
-        setData('client', {
-            ...data.client,
-            sex: clientGender,
-            email: clientEmail,
-            contact_number: clientContact,
-        });
-        setData('consent', consent);
-        setData('employment', {
-            ...data.employment,
-            country: lastCountry || data.employment.country,
-            position: lastJob || data.employment.position,
-            last_country: lastCountry,
-            last_position: lastJob,
-            date_of_arrival: arrivalDate,
-        });
-        if (hasNextOfKin) {
-            setData('next_of_kin', {
-                first_name: nokFirstName,
-                last_name: nokLastName,
-                relationship: nokRelationship,
-                phone_number: nokContact,
-            });
-        }
-    }
-
     function handleSaveDraft(e) {
         e.preventDefault();
-        syncFormData();
-        setData('is_draft', true);
-        setData('consent', consent);
         bypassNext();
+
+        const submitData = {
+            ...data,
+            client: {
+                ...data.client,
+                sex: clientGender,
+                email: clientEmail,
+                contact_number: clientContact,
+            },
+            consent,
+            employment: {
+                ...data.employment,
+                country: lastCountry || data.employment.country,
+                position: lastJob || data.employment.position,
+                last_country: lastCountry,
+                last_position: lastJob,
+                date_of_arrival: arrivalDate,
+            },
+            ...(hasNextOfKin && {
+                next_of_kin: {
+                    ...data.next_of_kin,
+                    first_name: nokFirstName,
+                    last_name: nokLastName,
+                    relationship: nokRelationship,
+                    phone_number: nokContact,
+                },
+            }),
+            is_draft: true,
+        };
+
         post(route('cases.store'), {
+            data: submitData,
             onSuccess: () => { },
+            onError: (errors) => {
+                console.error('Validation failed:', errors);
+            },
             preserveState: false,
+            preserveScroll: true,
         });
     }
 
     function handleSubmit(e) {
         e.preventDefault();
-        syncFormData();
         bypassNext();
+
+        const submitData = {
+            ...data,
+            client: {
+                ...data.client,
+                sex: clientGender,
+                email: clientEmail,
+                contact_number: clientContact,
+            },
+            consent,
+            employment: {
+                ...data.employment,
+                country: lastCountry || data.employment.country,
+                position: lastJob || data.employment.position,
+                last_country: lastCountry,
+                last_position: lastJob,
+                date_of_arrival: arrivalDate,
+            },
+            ...(hasNextOfKin && {
+                next_of_kin: {
+                    ...data.next_of_kin,
+                    first_name: nokFirstName,
+                    last_name: nokLastName,
+                    relationship: nokRelationship,
+                    phone_number: nokContact,
+                },
+            }),
+        };
+
         post(route('cases.store'), {
+            data: submitData,
             onSuccess: () => { },
+            onError: (errors) => {
+                console.error('Validation failed:', errors);
+            },
+            preserveScroll: true,
         });
     }
 
@@ -744,6 +783,17 @@ function handleConfirmClient(client) {
     return (
         <AppLayout title="Create New Case">
             <Head title="Create New Case" />
+
+            {Object.keys(errors).length > 0 && (
+                <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+                    <h3 className="text-sm font-bold text-red-800">Unable to create case</h3>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-red-700">
+                        {Object.entries(errors).map(([field, message]) => (
+                            <li key={field}>{field}: {message}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             {client && (
                 <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
