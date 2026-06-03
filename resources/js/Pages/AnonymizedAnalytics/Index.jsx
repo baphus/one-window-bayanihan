@@ -1,12 +1,46 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Head } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import { Bar } from 'react-chartjs-2';
+import {
+    Chart as ChartJS,
+    CategoryScale, LinearScale, BarElement,
+    Title, Tooltip, Legend,
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export default function AnonymizedAnalytics({ analytics }) {
     // Safely default empty data if not perfectly formed
     const data = analytics || {};
     const totalCases = data.cases_by_status?.reduce((acc, curr) => acc + (curr.total || 0), 0) || 0;
+
+    const barOptions = {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#1e293b', titleFont: { size: 12 }, bodyFont: { size: 12 } },
+        },
+        scales: {
+            x: { grid: { color: '#e2e8f0' }, ticks: { font: { size: 11 } } },
+            y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        },
+    };
+
+    const categoryChartData = useMemo(() => ({
+        labels: data.cases_by_category?.map(c => c.name) || [],
+        datasets: [{
+            label: 'Cases',
+            data: data.cases_by_category?.map(c => c.count) || [],
+            backgroundColor: data.cases_by_category?.map(c => c.color) || [],
+            borderColor: data.cases_by_category?.map(c => c.color) || [],
+            borderWidth: 1,
+            borderRadius: 4,
+        }],
+    }), [data.cases_by_category]);
 
     return (
         <AppLayout>
@@ -180,6 +214,18 @@ export default function AnonymizedAnalytics({ analytics }) {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Cases by Category Chart */}
+                <div className="border border-[#cbd5e1] bg-white p-4">
+                    <h2 className="mb-3 text-sm font-bold text-slate-800">Cases by Category</h2>
+                    {data.cases_by_category?.length > 0 ? (
+                        <div className="h-56">
+                            <Bar data={categoryChartData} options={barOptions} />
+                        </div>
+                    ) : (
+                        <p className="py-8 text-center text-[13px] text-slate-400">No case category data available.</p>
+                    )}
                 </div>
 
             </div>

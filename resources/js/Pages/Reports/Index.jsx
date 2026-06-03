@@ -72,6 +72,7 @@ function CaseManagerReports({
   casesOverTime, genderDistribution, clientTypeDistribution,
   ageGroupDistribution, mostRequestedService, managedReferrals,
   cycleTimeDistribution, referralAging, agencyScorecard, geographicDistribution,
+  categoryDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -150,6 +151,20 @@ function CaseManagerReports({
       }],
     };
   }, [geographicDistribution]);
+
+  const categoryChartData = useMemo(() => {
+    if (!categoryDistribution?.length) return null;
+    return {
+      labels: categoryDistribution.map(c => c.name),
+      datasets: [{
+        label: 'Cases',
+        data: categoryDistribution.map(c => c.count),
+        backgroundColor: categoryDistribution.map(c => c.color),
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [categoryDistribution]);
 
   const agencyChartData = useMemo(() => {
     if (!referralAgencyDistribution?.labels) return null;
@@ -340,6 +355,17 @@ function CaseManagerReports({
         )}
       </section>
 
+      <article className="border border-[#cbd5e1] bg-white p-4">
+        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
+        {categoryChartData ? (
+          <div className="h-56">
+            <Bar data={categoryChartData} options={barOptions} />
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[13px] text-slate-400">No category data available.</p>
+        )}
+      </article>
+
       <section>
         <h2 className={`mb-3 ${pageHeadingStyles.sectionTitle}`}>Client Demographics</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -449,6 +475,7 @@ function AgencyReports({
   kpis, referralStatusDistribution, referralTrends,
   avgReferralCompletion, managedReferrals,
   cycleTimeDistribution, agencyScorecard,
+  categoryDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -496,6 +523,20 @@ function AgencyReports({
       }],
     };
   }, [cycleTimeDistribution]);
+
+  const agencyCategoryData = useMemo(() => {
+    if (!categoryDistribution?.length) return null;
+    return {
+      labels: categoryDistribution.map(c => c.name),
+      datasets: [{
+        label: 'Cases',
+        data: categoryDistribution.map(c => c.count),
+        backgroundColor: categoryDistribution.map(c => c.color),
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [categoryDistribution]);
 
   const referralColumns = useMemo(() => [
     { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold text-[#0b5a8c]">{row.case_file?.case_number || 'N/A'}</span> },
@@ -621,6 +662,17 @@ function AgencyReports({
         </article>
       </section>
 
+      <article className="border border-[#cbd5e1] bg-white p-4">
+        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
+        {agencyCategoryData ? (
+          <div className="h-56">
+            <Bar data={agencyCategoryData} options={barOptions} />
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[13px] text-slate-400">No category data available.</p>
+        )}
+      </article>
+
       <section className="border border-[#cbd5e1] bg-white">
         <div className="flex items-center justify-between border-b border-[#cbd5e1] px-4 py-3">
           <h3 className={pageHeadingStyles.sectionTitle}>Referred Cases</h3>
@@ -649,6 +701,7 @@ function AdminReports({
   overview, caseTrends, referralStatusDistribution,
   agencyWorkload, clientTypeDistribution,
   cycleTimeDistribution, referralAging, geographicDistribution, agencyScorecard,
+  categoryDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -754,6 +807,20 @@ function AdminReports({
       }],
     };
   }, [caseTrends]);
+
+  const adminCategoryData = useMemo(() => {
+    if (!categoryDistribution?.length) return null;
+    return {
+      labels: categoryDistribution.map(c => c.name),
+      datasets: [{
+        label: 'Cases',
+        data: categoryDistribution.map(c => c.count),
+        backgroundColor: categoryDistribution.map(c => c.color),
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [categoryDistribution]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-4">
@@ -887,6 +954,17 @@ function AdminReports({
         </article>
       </section>
 
+      <article className="border border-[#cbd5e1] bg-white p-4">
+        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
+        {adminCategoryData ? (
+          <div className="h-56">
+            <Bar data={adminCategoryData} options={barOptions} />
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[13px] text-slate-400">No category data available.</p>
+        )}
+      </article>
+
       <section className="mb-6">
         <TrendChart title="Case Trends (12 Months)" data={caseTrendsChartData} />
       </section>
@@ -902,7 +980,7 @@ export default function ReportsIndex(props) {
     cycleTimeDistribution, referralAging, agencyScorecard, geographicDistribution,
     overview, caseTrends, agencyWorkload,
     referralTrends, avgReferralCompletion,
-    managedReferrals,
+    managedReferrals, categoryDistribution,
   } = props;
 
   const from = (new URLSearchParams(window.location.search)).get('from') || undefined;
@@ -920,6 +998,7 @@ export default function ReportsIndex(props) {
           managedReferrals={managedReferrals}
           cycleTimeDistribution={cycleTimeDistribution}
           agencyScorecard={agencyScorecard}
+          categoryDistribution={categoryDistribution}
           from={from}
           to={to}
         />
@@ -941,6 +1020,7 @@ export default function ReportsIndex(props) {
           referralAging={referralAging}
           geographicDistribution={geographicDistribution}
           agencyScorecard={agencyScorecard}
+          categoryDistribution={categoryDistribution}
           from={from}
           to={to}
         />
@@ -965,6 +1045,7 @@ export default function ReportsIndex(props) {
         referralAging={referralAging}
         agencyScorecard={agencyScorecard}
         geographicDistribution={geographicDistribution}
+        categoryDistribution={categoryDistribution}
         from={from}
         to={to}
       />

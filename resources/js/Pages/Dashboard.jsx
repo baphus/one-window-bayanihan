@@ -329,6 +329,7 @@ function CaseManagerDashboard({
   allReferrals = [],
   casesByProvince = [],
   agencyBreakdown = [],
+  casesByCategory = [],
   casesOverTime = [],
   recentActivity = [],
   dashboardNotifications = [],
@@ -458,6 +459,20 @@ function CaseManagerDashboard({
       }],
     }
   }, [casesByProvince])
+
+  const categoryChartData = useMemo(() => {
+    if (casesByCategory.length === 0) return null
+    return {
+      labels: casesByCategory.map((c) => c.name),
+      datasets: [{
+        label: 'Cases',
+        data: casesByCategory.map((c) => c.count),
+        backgroundColor: casesByCategory.map((c) => c.color),
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    }
+  }, [casesByCategory])
 
   const casesOverTimeChart = useMemo(() => ({
     labels: casesOverTime.map((m) => m.label),
@@ -728,6 +743,17 @@ function CaseManagerDashboard({
                 <Bar data={agencyChartData} options={barOptionsHorizontal} />
               </div>
             </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Category</h3>
+              <div className="h-44">
+                {categoryChartData ? (
+                  <Bar data={categoryChartData} options={barOptionsHorizontal} />
+                ) : (
+                  <p className="text-xs text-slate-400 py-4 text-center">No cases across any category yet.</p>
+                )}
+              </div>
+            </div>
           </div>
 
           <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -856,7 +882,7 @@ export default function Dashboard(props) {
     const {
         role, recentCases, recentReferrals, recentLogs,
         allCases, allReferrals, casesByProvince, agencyBreakdown,
-        casesOverTime, recentActivity, dashboardNotifications,
+        casesByCategory, casesOverTime, recentActivity, dashboardNotifications,
         systemHealth,
         ...stats
     } = props;
@@ -893,6 +919,7 @@ export default function Dashboard(props) {
                 allReferrals={allReferrals ?? []}
                 casesByProvince={casesByProvince ?? []}
                 agencyBreakdown={agencyBreakdown ?? []}
+                casesByCategory={casesByCategory ?? []}
                 casesOverTime={casesOverTime ?? []}
                 recentActivity={recentActivity ?? []}
                 dashboardNotifications={dashboardNotifications ?? []}
