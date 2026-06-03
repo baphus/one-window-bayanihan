@@ -78,6 +78,7 @@ const navByRole = {
       { name: 'Scheduled Tasks', href: '/admin/system/scheduled-tasks', icon: 'schedule' },
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
       { name: 'Case Statuses', href: '/admin/case-statuses', icon: 'label' },
+      { name: 'Case Categories', href: '/admin/case-categories', icon: 'topic' },
       { name: 'Maintenance Mode', href: '/admin/system/maintenance', icon: 'construction' },
     ]},
     { label: 'Settings', items: [
