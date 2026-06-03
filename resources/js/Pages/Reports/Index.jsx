@@ -1,7 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Building2, TrendingUp, Download, BarChart3, CheckCircle2, Clock, Loader2, XCircle, FileDown } from 'lucide-react';
+import { Building2, TrendingUp, Download, BarChart3, CheckCircle2, Clock, Loader2, XCircle, FileDown, GitFork, CalendarDays, Target, FolderOpen, FolderKanban } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -13,16 +13,20 @@ import SvgPieChart from '@/Components/Reports/SvgPieChart';
 import TrendChart from '@/Components/Reports/TrendChart';
 import TrendIndicator from '@/Components/Reports/TrendIndicator';
 import DateRangePicker, { formatDisplayDate, getQuickRangeDates } from '@/Components/Reports/DateRangePicker';
+import EmploymentAnalytics from '@/Components/Reports/EmploymentAnalytics';
+import CaseStatusPieChart from '@/Components/Reports/CaseStatusPieChart';
+import AiInsightPanel from '@/Components/Reports/AiInsightPanel';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const statusHexMap = {
   PENDING: '#f59e0b', PROCESSING: '#3b82f6', FOR_COMPLIANCE: '#f97316',
-  COMPLETED: '#10b981', REJECTED: '#f43f5e', OPEN: '#1e3a8a', CLOSED: '#94a3b8',
+  COMPLETED: '#10b981', REJECTED: '#f43f5e', OPEN: '#1e3a8a', CLOSED: '#10b981',
 };
 const statusColorMap = {
   PENDING: 'bg-amber-500', PROCESSING: 'bg-blue-500', FOR_COMPLIANCE: 'bg-orange-500',
-  COMPLETED: 'bg-emerald-500', REJECTED: 'bg-rose-500', OPEN: 'bg-blue-900', CLOSED: 'bg-slate-300',
+  COMPLETED: 'bg-emerald-500', REJECTED: 'bg-rose-500', OPEN: 'bg-blue-900', CLOSED: 'bg-emerald-500',
 };
 
 function toPieFormat(distribution) {
@@ -67,12 +71,31 @@ const barOptions = {
   },
 };
 
+function SectionAccordion({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-[#cbd5e1] bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
+      >
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{title}</h3>
+        {open ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
+      </button>
+      {open && <div className="border-t border-[#e2e8f0] p-4">{children}</div>}
+    </div>
+  );
+}
+
 function CaseManagerReports({
   kpis, referralStatusDistribution, referralAgencyDistribution,
   casesOverTime, genderDistribution, clientTypeDistribution,
   ageGroupDistribution, mostRequestedService, managedReferrals,
   cycleTimeDistribution, referralAging, agencyScorecard, geographicDistribution,
   categoryDistribution,
+  employmentDistribution, employmentPositionBreakdown,
+  caseStatusDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -222,31 +245,37 @@ function CaseManagerReports({
             onQuickRangeSelect={handleQuickRange}
             onReset={resetDateRange}
           />
-          <button
-            type="button"
-            onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
-            className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            Export PDF
-          </button>
+          <div className="flex items-center gap-3">
+            <AiInsightPanel fromDate={fromDateISO} toDate={toDateISO} />
+            <button
+              type="button"
+              onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
+              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Export PDF
+            </button>
+          </div>
         </div>
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total Referrals" value={`${kpis.totalReferrals}`} accent="border-l-[#0b5a8c]"
+          icon={<GitFork className="h-3.5 w-3.5 text-[#0b5a8c]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.totalReferrals} />} />
         <MetricCard label="Completion Rate" value={`${kpis.completionRate}%`} accent="border-l-[#0b7a75]"
+          icon={<Target className="h-3.5 w-3.5 text-[#0b7a75]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.completionRate} />} />
         <MetricCard label="Avg Completion Days" value={`${kpis.avgCompletionDays}d`} accent="border-l-[#1e3a8a]" description="From referral creation to completion"
+          icon={<CalendarDays className="h-3.5 w-3.5 text-[#1e3a8a]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.avgCompletionDays} inverse />} />
         <MetricCard label="Pending" value={`${kpis.pendingReferrals}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]"
+          icon={<Clock className="h-3.5 w-3.5 text-[#9a5b1a]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.pendingReferrals} />} />
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4">
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Status</h3>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_1fr]">
+        <SectionAccordion title="Referral Status" defaultOpen>
           <div className="flex items-center gap-6">
             <div className="h-28 w-28 shrink-0">
               <Doughnut data={{
@@ -266,10 +295,11 @@ function CaseManagerReports({
               ))}
             </div>
           </div>
-        </article>
+        </SectionAccordion>
 
-        <article className="border border-[#cbd5e1] bg-white p-4">
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Workload</h3>
+        <CaseStatusPieChart data={caseStatusDistribution} />
+
+        <SectionAccordion title="Agency Workload" defaultOpen>
           {agencyChartData ? (
             <div className="h-56">
               <Bar data={agencyChartData} options={barOptions} />
@@ -277,11 +307,11 @@ function CaseManagerReports({
           ) : (
             <p className="py-8 text-center text-[13px] text-slate-400">No agency workload data available.</p>
           )}
-        </article>
+        </SectionAccordion>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
           <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
           {cycleTimeChartData ? (
@@ -292,7 +322,7 @@ function CaseManagerReports({
             <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
           )}
         </article>
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Aging</h3>
           <p className="mb-3 text-[11px] text-slate-500">How long active referrals have been waiting</p>
           {agingChartData ? (
@@ -306,7 +336,7 @@ function CaseManagerReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
           {agencyScorecard?.length > 0 ? (
             <div className="overflow-x-auto">
@@ -344,8 +374,7 @@ function CaseManagerReports({
         </section>
       </section>
 
-      <section className="border border-[#cbd5e1] bg-white p-4">
-        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Geographic Distribution</h3>
+      <SectionAccordion title="Geographic Distribution" defaultOpen>
         {geoChartData ? (
           <div className="h-56">
             <Bar data={geoChartData} options={barOptions} />
@@ -353,9 +382,16 @@ function CaseManagerReports({
         ) : (
           <p className="py-8 text-center text-[13px] text-slate-400">No geographic data available.</p>
         )}
-      </section>
+      </SectionAccordion>
 
-      <article className="border border-[#cbd5e1] bg-white p-4">
+      <SectionAccordion title="Employment Analytics" defaultOpen>
+        <EmploymentAnalytics
+          employmentDistribution={employmentDistribution}
+          employmentPositionBreakdown={employmentPositionBreakdown}
+        />
+      </SectionAccordion>
+
+      <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
         <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
         {categoryChartData ? (
           <div className="h-56">
@@ -369,7 +405,7 @@ function CaseManagerReports({
       <section>
         <h2 className={`mb-3 ${pageHeadingStyles.sectionTitle}`}>Client Demographics</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <article className="border border-[#cbd5e1] bg-white p-4">
+          <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
             <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Gender</h3>
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 shrink-0">
@@ -387,7 +423,7 @@ function CaseManagerReports({
             </div>
           </article>
 
-          <article className="border border-[#cbd5e1] bg-white p-4">
+          <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
             <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Client Type</h3>
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 shrink-0">
@@ -405,7 +441,7 @@ function CaseManagerReports({
             </div>
           </article>
 
-          <article className="border border-[#cbd5e1] bg-white p-4">
+          <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
             <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Age Group</h3>
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 shrink-0">
@@ -425,7 +461,7 @@ function CaseManagerReports({
         </div>
       </section>
 
-      <section className="border border-[#cbd5e1] bg-white">
+      <section className="border border-[#cbd5e1] bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-[#cbd5e1] px-4 py-3">
           <h3 className={pageHeadingStyles.sectionTitle}>Referral Detail</h3>
           <button
@@ -476,6 +512,7 @@ function AgencyReports({
   avgReferralCompletion, managedReferrals,
   cycleTimeDistribution, agencyScorecard,
   categoryDistribution,
+  caseStatusDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -564,32 +601,40 @@ function AgencyReports({
             onQuickRangeSelect={handleQuickRange}
             onReset={resetDateRange}
           />
-          <button
-            type="button"
-            onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
-            className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            Export PDF
-          </button>
+          <div className="flex items-center gap-3">
+            <AiInsightPanel fromDate={fromDateISO} toDate={toDateISO} />
+            <button
+              type="button"
+              onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
+              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Export PDF
+            </button>
+          </div>
         </div>
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Total Referrals" value={`${kpis.totalReferrals}`} accent="border-l-[#0b5a8c]"
+          icon={<GitFork className="h-3.5 w-3.5 text-[#0b5a8c]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.totalReferrals} />} />
         <MetricCard label="Completed" value={`${kpis.completedReferrals}`} accent="border-l-[#0b7a75]"
+          icon={<CheckCircle2 className="h-3.5 w-3.5 text-[#0b7a75]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.completedReferrals} />} />
         <MetricCard label="Pending" value={`${kpis.pendingReferrals}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]"
+          icon={<Clock className="h-3.5 w-3.5 text-[#9a5b1a]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.pendingReferrals} />} />
         <MetricCard label="Avg Completion" value={`${avgReferralCompletion.toFixed(1)}d`} accent="border-l-[#0b5a8c]" description="From referral sent to completion"
+          icon={<CalendarDays className="h-3.5 w-3.5 text-[#0b5a8c]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.avgCompletionDays} inverse />} />
         <MetricCard label="Completion Rate" value={`${kpis.completionRate}%`} accent="border-l-[#0b7a75]"
+          icon={<Target className="h-3.5 w-3.5 text-[#0b7a75]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.completionRate} />} />
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_2fr]">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_1fr]">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Status</h3>
           <div className="flex items-center gap-6">
             <div className="h-28 w-28 shrink-0">
@@ -612,11 +657,15 @@ function AgencyReports({
           </div>
         </article>
 
-        <TrendChart title="Referral Trends" data={referralTrends} />
+        <CaseStatusPieChart data={caseStatusDistribution} />
+
+        <div className="flex flex-col gap-3">
+          <TrendChart title="Referral Trends" data={referralTrends} />
+        </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
           <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
           {agencyCycleTimeData ? (
@@ -627,7 +676,7 @@ function AgencyReports({
             <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
           )}
         </article>
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
           {agencyScorecard?.length > 0 ? (
             <div className="overflow-x-auto">
@@ -662,7 +711,7 @@ function AgencyReports({
         </article>
       </section>
 
-      <article className="border border-[#cbd5e1] bg-white p-4">
+      <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
         <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
         {agencyCategoryData ? (
           <div className="h-56">
@@ -702,6 +751,8 @@ function AdminReports({
   agencyWorkload, clientTypeDistribution,
   cycleTimeDistribution, referralAging, geographicDistribution, agencyScorecard,
   categoryDistribution,
+  employmentDistribution, employmentPositionBreakdown,
+  caseStatusDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -839,26 +890,33 @@ function AdminReports({
             onQuickRangeSelect={handleQuickRange}
             onReset={resetDateRange}
           />
-          <button
-            type="button"
-            onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
-            className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            Export PDF
-          </button>
+          <div className="flex items-center gap-3">
+            <AiInsightPanel fromDate={fromDateISO} toDate={toDateISO} />
+            <button
+              type="button"
+              onClick={() => window.open(route('reports.export-pdf', { from: fromDateISO, to: toDateISO }))}
+              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Export PDF
+            </button>
+          </div>
         </div>
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total Cases" value={`${overview?.totalCases || 0}`} accent="border-l-[#1e3a8a]" />
-        <MetricCard label="Open Cases" value={`${overview?.openCases || 0}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]" />
-        <MetricCard label="Total Referrals" value={`${overview?.totalReferrals || 0}`} accent="border-l-[#0b7a75]" />
-        <MetricCard label="Active Agencies" value={`${overview?.activeAgencies || 0}`} accent="border-l-[#0b5a8c]" />
+        <MetricCard label="Total Cases" value={`${overview?.totalCases || 0}`} accent="border-l-[#1e3a8a]"
+          icon={<FolderOpen className="h-3.5 w-3.5 text-[#1e3a8a]" />} />
+        <MetricCard label="Open Cases" value={`${overview?.openCases || 0}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]"
+          icon={<FolderKanban className="h-3.5 w-3.5 text-[#9a5b1a]" />} />
+        <MetricCard label="Total Referrals" value={`${overview?.totalReferrals || 0}`} accent="border-l-[#0b7a75]"
+          icon={<GitFork className="h-3.5 w-3.5 text-[#0b7a75]" />} />
+        <MetricCard label="Active Agencies" value={`${overview?.activeAgencies || 0}`} accent="border-l-[#0b5a8c]"
+          icon={<Building2 className="h-3.5 w-3.5 text-[#0b5a8c]" />} />
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Status</h3>
           <div className="flex items-center gap-6">
             <div className="h-28 w-28 shrink-0">
@@ -881,7 +939,7 @@ function AdminReports({
           </div>
         </article>
 
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Client Type</h3>
           <div className="flex items-center gap-6">
             <div className="h-28 w-28 shrink-0">
@@ -903,10 +961,12 @@ function AdminReports({
             </div>
           </div>
         </article>
+
+        <CaseStatusPieChart data={caseStatusDistribution} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Workload</h3>
           {workloadChartData ? (
             <div className="h-64">
@@ -917,8 +977,7 @@ function AdminReports({
           )}
         </article>
 
-        <article className="border border-[#cbd5e1] bg-white p-4">
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Geographic Distribution</h3>
+        <SectionAccordion title="Geographic Distribution" defaultOpen>
           {adminGeoData ? (
             <div className="h-64">
               <Bar data={adminGeoData} options={barOptions} />
@@ -926,11 +985,11 @@ function AdminReports({
           ) : (
             <p className="py-8 text-center text-[13px] text-slate-400">No geographic data available.</p>
           )}
-        </article>
+        </SectionAccordion>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
           <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
           {adminCycleTimeData ? (
@@ -941,7 +1000,7 @@ function AdminReports({
             <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
           )}
         </article>
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Aging</h3>
           <p className="mb-3 text-[11px] text-slate-500">How long active referrals have been waiting</p>
           {adminAgingData ? (
@@ -954,7 +1013,14 @@ function AdminReports({
         </article>
       </section>
 
-      <article className="border border-[#cbd5e1] bg-white p-4">
+      <SectionAccordion title="Employment Analytics" defaultOpen>
+        <EmploymentAnalytics
+          employmentDistribution={employmentDistribution}
+          employmentPositionBreakdown={employmentPositionBreakdown}
+        />
+      </SectionAccordion>
+
+      <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
         <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
         {adminCategoryData ? (
           <div className="h-56">
@@ -981,6 +1047,8 @@ export default function ReportsIndex(props) {
     overview, caseTrends, agencyWorkload,
     referralTrends, avgReferralCompletion,
     managedReferrals, categoryDistribution,
+    employmentDistribution, employmentPositionBreakdown,
+    caseStatusDistribution,
   } = props;
 
   const from = (new URLSearchParams(window.location.search)).get('from') || undefined;
@@ -999,6 +1067,7 @@ export default function ReportsIndex(props) {
           cycleTimeDistribution={cycleTimeDistribution}
           agencyScorecard={agencyScorecard}
           categoryDistribution={categoryDistribution}
+          caseStatusDistribution={caseStatusDistribution}
           from={from}
           to={to}
         />
@@ -1021,6 +1090,9 @@ export default function ReportsIndex(props) {
           geographicDistribution={geographicDistribution}
           agencyScorecard={agencyScorecard}
           categoryDistribution={categoryDistribution}
+          employmentDistribution={employmentDistribution}
+          employmentPositionBreakdown={employmentPositionBreakdown}
+          caseStatusDistribution={caseStatusDistribution}
           from={from}
           to={to}
         />
@@ -1046,6 +1118,9 @@ export default function ReportsIndex(props) {
         agencyScorecard={agencyScorecard}
         geographicDistribution={geographicDistribution}
         categoryDistribution={categoryDistribution}
+        employmentDistribution={employmentDistribution}
+        employmentPositionBreakdown={employmentPositionBreakdown}
+        caseStatusDistribution={caseStatusDistribution}
         from={from}
         to={to}
       />

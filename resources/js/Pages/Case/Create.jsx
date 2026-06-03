@@ -82,9 +82,9 @@ function Select({ value, onChange, options, placeholder }) {
 }
 
 export default function CaseCreate() {
-    const { client, existingClients = [], categories = [] } = usePage().props;
+    const { client, existingClients = [], categories = [], existingDraft } = usePage().props;
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, put, processing, errors } = useForm({
         client_type: 'OFW',
         category_id: '',
         vulnerability_indicator: '',
@@ -132,8 +132,8 @@ export default function CaseCreate() {
     });
 
     const [currentStep, setCurrentStep] = useState(1);
-    const [caseId] = useState(() => GenerateCaseId());
-    const [trackingId] = useState(() => GenerateTrackingId());
+    const [caseId, setCaseId] = useState(() => GenerateCaseId());
+    const [trackingId, setTrackingId] = useState(() => GenerateTrackingId());
     const [clientSource, setClientSource] = useState('new');
     const [hasNextOfKin, setHasNextOfKin] = useState(true);
     const [nokFirstName, setNokFirstName] = useState('');
@@ -370,6 +370,226 @@ export default function CaseCreate() {
         }
     }, []);
 
+    // Seed form state when an existing draft is loaded
+    useEffect(() => {
+        if (!existingDraft) return;
+
+        // 1. Case-level fields
+        setData('client_type', existingDraft.client_type || 'OFW');
+        setData('category_id', existingDraft.category_id || '');
+        setData('vulnerability_indicator', existingDraft.vulnerability_indicator || '');
+        setData('summary', existingDraft.summary || '');
+        setData('is_draft', true);
+
+        let clientData = null;
+        let src = 'new';
+        let selId = '';
+
+        // 2. Client data sourcing
+        if (existingDraft.client) {
+            // Linked Client model
+            clientData = existingDraft.client;
+            src = 'existing';
+            selId = existingDraft.client.id;
+
+            setData('client', {
+                ...data.client,
+                first_name: existingDraft.client.first_name || '',
+                last_name: existingDraft.client.last_name || '',
+                middle_name: existingDraft.client.middle_name || '',
+                suffix: existingDraft.client.suffix || '',
+                date_of_birth: existingDraft.client.date_of_birth || '',
+                sex: existingDraft.client.sex || '',
+                email: existingDraft.client.email || '',
+                contact_number: existingDraft.client.contact_number || '',
+            });
+
+            if (existingDraft.client.addresses?.[0]) {
+                setData('address', {
+                    ...data.address,
+                    region: existingDraft.client.addresses[0].region || '',
+                    province: existingDraft.client.addresses[0].province || '',
+                    city_municipality: existingDraft.client.addresses[0].city_municipality || '',
+                    barangay: existingDraft.client.addresses[0].barangay || '',
+                    street: existingDraft.client.addresses[0].street || '',
+                });
+            }
+
+            if (existingDraft.client.employments?.[0]) {
+                setData('employment', {
+                    ...data.employment,
+                    employer_name: existingDraft.client.employments[0].employer_name || '',
+                    position: existingDraft.client.employments[0].position || '',
+                    country: existingDraft.client.employments[0].country || '',
+                    last_country: existingDraft.client.employments[0].last_country || '',
+                    last_position: existingDraft.client.employments[0].last_position || '',
+                    date_of_arrival: existingDraft.client.employments[0].date_of_arrival || '',
+                });
+            }
+
+            if (existingDraft.client.nextOfKin?.[0]) {
+                setData('next_of_kin', {
+                    ...data.next_of_kin,
+                    first_name: existingDraft.client.nextOfKin[0].first_name || '',
+                    middle_initial: existingDraft.client.nextOfKin[0].middle_initial || '',
+                    last_name: existingDraft.client.nextOfKin[0].last_name || '',
+                    relationship: existingDraft.client.nextOfKin[0].relationship || '',
+                    phone_number: existingDraft.client.nextOfKin[0].phone_number || '',
+                    email: existingDraft.client.nextOfKin[0].email || '',
+                    full_address: existingDraft.client.nextOfKin[0].full_address || '',
+                });
+            }
+        } else if (existingDraft.draft_client_data) {
+            // JSON blob from new-client drafts
+            try {
+                clientData = typeof existingDraft.draft_client_data === 'string'
+                    ? JSON.parse(existingDraft.draft_client_data)
+                    : existingDraft.draft_client_data;
+            } catch {
+                clientData = null;
+            }
+
+            if (clientData) {
+                setData('client', {
+                    ...data.client,
+                    first_name: clientData.first_name || '',
+                    last_name: clientData.last_name || '',
+                    middle_name: clientData.middle_name || '',
+                    suffix: clientData.suffix || '',
+                    date_of_birth: clientData.date_of_birth || '',
+                    sex: clientData.sex || '',
+                    email: clientData.email || '',
+                    contact_number: clientData.contact_number || '',
+                });
+
+                if (clientData.address) {
+                    setData('address', {
+                        ...data.address,
+                        region: clientData.address.region || '',
+                        province: clientData.address.province || '',
+                        city_municipality: clientData.address.city_municipality || '',
+                        barangay: clientData.address.barangay || '',
+                        street: clientData.address.street || '',
+                    });
+                }
+
+                if (clientData.employment) {
+                    setData('employment', {
+                        ...data.employment,
+                        employer_name: clientData.employment.employer_name || '',
+                        position: clientData.employment.position || '',
+                        country: clientData.employment.country || '',
+                        last_country: clientData.employment.last_country || '',
+                        last_position: clientData.employment.last_position || '',
+                        date_of_arrival: clientData.employment.date_of_arrival || '',
+                    });
+                }
+
+                if (clientData.next_of_kin) {
+                    setData('next_of_kin', {
+                        ...data.next_of_kin,
+                        first_name: clientData.next_of_kin.first_name || '',
+                        middle_initial: clientData.next_of_kin.middle_initial || '',
+                        last_name: clientData.next_of_kin.last_name || '',
+                        relationship: clientData.next_of_kin.relationship || '',
+                        phone_number: clientData.next_of_kin.phone_number || '',
+                        email: clientData.next_of_kin.email || '',
+                        full_address: clientData.next_of_kin.full_address || '',
+                    });
+                }
+            }
+        }
+
+        // 3. Individual useState overrides
+        const c = clientData || {};
+        const emps = c.employments || [];
+        const noks = c.nextOfKin || [];
+
+        setClientSource(src);
+        setData('selected_client_id', selId);
+        setClientGender(c.sex || 'Male');
+        setClientEmail(c.email || '');
+        setClientContact(c.contact_number || '');
+        setLastCountry((emps[0]?.last_country || emps[0]?.country || c.employment?.last_country || c.employment?.country) || '');
+        setLastJob((emps[0]?.last_position || emps[0]?.position || c.employment?.last_position || c.employment?.position) || '');
+        setArrivalDate((emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '');
+        setNokFirstName((noks[0]?.first_name || c.next_of_kin?.first_name) || '');
+        setNokLastName((noks[0]?.last_name || c.next_of_kin?.last_name) || '');
+        setNokContact((noks[0]?.phone_number || c.next_of_kin?.phone_number) || '');
+        setNokRelationship((noks[0]?.relationship || c.next_of_kin?.relationship) || '');
+        setHasNextOfKin(!!(noks[0] || c.next_of_kin));
+        setConsent(false);
+        setData('consent', false);
+
+        // 4. Generated IDs — override with existing draft's real IDs
+        setCaseId(existingDraft.case_number);
+        setTrackingId(existingDraft.tracker_number);
+
+        // 5. Dirty tracking reset — follow handleConfirmClient pattern
+        initialFormRef.current = {
+            formData: {
+                client_type: existingDraft.client_type || 'OFW',
+                category_id: existingDraft.category_id || '',
+                vulnerability_indicator: existingDraft.vulnerability_indicator || '',
+                summary: existingDraft.summary || '',
+                client: {
+                    first_name: c.first_name || '',
+                    last_name: c.last_name || '',
+                    middle_name: c.middle_name || '',
+                    suffix: c.suffix || '',
+                    date_of_birth: c.date_of_birth || '',
+                    sex: c.sex || '',
+                    email: c.email || '',
+                    contact_number: c.contact_number || '',
+                },
+                address: {
+                    region: (c.addresses?.[0]?.region || c.address?.region) || '',
+                    province: (c.addresses?.[0]?.province || c.address?.province) || '',
+                    city_municipality: (c.addresses?.[0]?.city_municipality || c.address?.city_municipality) || '',
+                    barangay: (c.addresses?.[0]?.barangay || c.address?.barangay) || '',
+                    street: (c.addresses?.[0]?.street || c.address?.street) || '',
+                },
+                employment: {
+                    employer_name: (emps[0]?.employer_name || c.employment?.employer_name) || '',
+                    position: (emps[0]?.position || c.employment?.position) || '',
+                    country: (emps[0]?.country || c.employment?.country) || '',
+                    start_date: '',
+                    end_date: '',
+                    last_country: (emps[0]?.last_country || c.employment?.last_country) || '',
+                    last_position: (emps[0]?.last_position || c.employment?.last_position) || '',
+                    date_of_arrival: (emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '',
+                },
+                next_of_kin: {
+                    first_name: (noks[0]?.first_name || c.next_of_kin?.first_name) || '',
+                    middle_initial: (noks[0]?.middle_initial || c.next_of_kin?.middle_initial) || '',
+                    last_name: (noks[0]?.last_name || c.next_of_kin?.last_name) || '',
+                    is_primary: false,
+                    relationship: (noks[0]?.relationship || c.next_of_kin?.relationship) || '',
+                    phone_number: (noks[0]?.phone_number || c.next_of_kin?.phone_number) || '',
+                    email: (noks[0]?.email || c.next_of_kin?.email) || '',
+                    full_address: (noks[0]?.full_address || c.next_of_kin?.full_address) || '',
+                },
+                consent: false,
+                is_draft: true,
+            },
+            useState: {
+                clientSource: src,
+                nokFirstName: (noks[0]?.first_name || c.next_of_kin?.first_name) || '',
+                nokLastName: (noks[0]?.last_name || c.next_of_kin?.last_name) || '',
+                nokContact: (noks[0]?.phone_number || c.next_of_kin?.phone_number) || '',
+                nokRelationship: (noks[0]?.relationship || c.next_of_kin?.relationship) || '',
+                clientGender: c.sex || 'Male',
+                clientEmail: c.email || '',
+                clientContact: c.contact_number || '',
+                lastCountry: (emps[0]?.last_country || emps[0]?.country || c.employment?.last_country || c.employment?.country) || '',
+                lastJob: (emps[0]?.last_position || emps[0]?.position || c.employment?.last_position || c.employment?.position) || '',
+                arrivalDate: (emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '',
+                hasNextOfKin: !!(noks[0] || c.next_of_kin),
+                consent: false,
+            },
+        };
+    }, []);
+
     const stepProgress = Math.round((currentStep / STEPS.length) * 100);
 
     function handleClientChange(field, value) {
@@ -534,20 +754,45 @@ export default function CaseCreate() {
             is_draft: true,
         };
 
-        post(route('cases.store'), {
-            data: submitData,
-            onSuccess: () => { },
-            onError: (errors) => {
-                console.error('Validation failed:', errors);
-            },
-            preserveState: false,
-            preserveScroll: true,
-        });
+        if (existingDraft) {
+            put(route('cases.save-draft', existingDraft.id), {
+                data: submitData,
+                onSuccess: () => { },
+                onError: (errors) => {
+                    console.error('Validation failed:', errors);
+                },
+                preserveState: false,
+                preserveScroll: true,
+            });
+        } else {
+            post(route('cases.store'), {
+                data: submitData,
+                onSuccess: () => { },
+                onError: (errors) => {
+                    console.error('Validation failed:', errors);
+                },
+                preserveState: false,
+                preserveScroll: true,
+            });
+        }
     }
 
     function handleSubmit(e) {
         e.preventDefault();
         bypassNext();
+
+        if (existingDraft) {
+            // Publishing does NOT send form data — publishes the draft as last saved.
+            // User should save via "Update Draft" first.
+            post(route('cases.publish', existingDraft.id), {
+                onSuccess: () => { },
+                onError: (errors) => {
+                    console.error('Publish failed:', errors);
+                },
+                preserveScroll: true,
+            });
+            return;
+        }
 
         const submitData = {
             ...data,
@@ -781,8 +1026,8 @@ function handleConfirmClient(client) {
         : 'No next of kin indicated';
 
     return (
-        <AppLayout title="Create New Case">
-            <Head title="Create New Case" />
+        <AppLayout title={existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'}>
+            <Head title={existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'} />
 
             {Object.keys(errors).length > 0 && (
                 <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3">
@@ -809,10 +1054,10 @@ function handleConfirmClient(client) {
             <div className="mb-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Create New Case</h1>
-                        <p className="text-sm text-slate-500 mt-1">A guided onboarding flow to register the case with confidence.</p>
+                        <h1 className="text-2xl font-bold text-slate-900">{existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'}</h1>
+                        <p className="text-sm text-slate-500 mt-1">{existingDraft ? 'Continue editing your draft case before submitting or publishing.' : 'A guided onboarding flow to register the case with confidence.'}</p>
                     </div>
-                    <Link href={route('cases.index')} className="text-sm text-indigo-600 hover:text-indigo-900">&larr; Back to Cases</Link>
+                    <Link href={existingDraft ? route('cases.drafts') : route('cases.index')} className="text-sm text-indigo-600 hover:text-indigo-900">&larr; {existingDraft ? 'Back to Drafts' : 'Back to Cases'}</Link>
                 </div>
             </div>
 
@@ -1252,7 +1497,7 @@ function handleConfirmClient(client) {
                                 <button type="button" onClick={handleSaveDraft} disabled={processing}
                                     className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-5 py-2.5 text-[13px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[18px]">save</span>
-                                    {processing ? 'Saving...' : 'Save as Draft'}
+                                    {processing ? (existingDraft ? 'Updating...' : 'Saving...') : (existingDraft ? 'Update Draft' : 'Save as Draft')}
                                 </button>
                             </div>
                             {currentStep < 3 ? (
@@ -1263,7 +1508,7 @@ function handleConfirmClient(client) {
                             ) : (
                                 <button type="submit" disabled={processing || !canSubmit()}
                                     className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
-                                    {processing ? 'Creating...' : 'Create Case'}
+                                    {processing ? (existingDraft ? 'Publishing...' : 'Creating...') : (existingDraft ? 'Publish Draft' : 'Create Case')}
                                 </button>
                             )}
                         </div>

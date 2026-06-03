@@ -51,6 +51,9 @@ class ReportsService
             'agencyScorecard' => $this->getAgencyScorecard($userId, 'CASE_MANAGER', $from, $to),
             'geographicDistribution' => $this->getGeographicDistribution($userId, 'CASE_MANAGER', $from, $to),
             'categoryDistribution' => $this->categoryDistribution($userId, 'CASE_MANAGER'),
+            'employmentDistribution' => $this->getLastEmploymentDistribution($userId, 'CASE_MANAGER'),
+            'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown($userId, 'CASE_MANAGER'),
+            'caseStatusDistribution' => $this->getCaseStatusDistribution($userId, 'CASE_MANAGER'),
         ];
     }
 
@@ -69,6 +72,7 @@ class ReportsService
                 ? $this->getAgencyScorecard(null, 'AGENCY')
                 : [],
             'categoryDistribution' => $this->categoryDistribution(),
+            'caseStatusDistribution' => $this->getCaseStatusDistribution(),
         ];
     }
 
@@ -88,6 +92,9 @@ class ReportsService
             'geographicDistribution' => $this->getGeographicDistribution(null, null, $from, $to),
             'agencyScorecard' => $this->getAgencyScorecard(null, null, $from, $to),
             'categoryDistribution' => $this->categoryDistribution(),
+            'employmentDistribution' => $this->getLastEmploymentDistribution(),
+            'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown(),
+            'caseStatusDistribution' => $this->getCaseStatusDistribution(),
         ];
     }
 
@@ -519,11 +526,16 @@ class ReportsService
         ?string $fromDate = null,
         ?string $toDate = null,
     ): array {
-        $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
+        $query = CaseFile::select(DB::raw('COALESCE(pa.name, ca.province) as province'), DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
-            ->whereNotNull('ca.province');
+            ->leftJoin('philippine_addresses as pa', function ($join) {
+                $join->on('pa.code', '=', 'ca.province')
+                    ->where('pa.type', '=', 'province');
+            })
+            ->whereNotNull('ca.province')
+            ->where('ca.province', '!=', '');
 
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->where('cases.user_id', $userId);
@@ -535,13 +547,88 @@ class ReportsService
             $query->whereDate('cases.created_at', '<=', $toDate);
         }
 
-        $result = $query->groupBy('ca.province')
+        $result = $query->groupBy(DB::raw('COALESCE(pa.name, ca.province)'))
             ->orderByDesc('total')
             ->get();
 
         return [
             'labels' => $result->pluck('province')->toArray(),
             'data' => $result->pluck('total')->toArray(),
+        ];
+    }
+
+    public function getLastEmploymentDistribution(?string $userId = null, ?string $role = null): array
+    {
+        $query = DB::table('client_employments')
+            ->select('last_country', DB::raw('count(distinct client_id) as total'))
+            ->whereNotNull('last_country')
+            ->where('is_deleted', false);
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->whereIn('client_id', function ($q) use ($userId) {
+                $q->select('client_id')
+                    ->from('cases')
+                    ->where('user_id', $userId)
+                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+            });
+        }
+
+        $results = $query->groupBy('last_country')
+            ->orderByDesc('total')
+            ->get();
+
+        return [
+            'labels' => $results->pluck('last_country')->toArray(),
+            'data' => $results->pluck('total')->toArray(),
+        ];
+    }
+
+    public function getEmploymentPositionBreakdown(?string $userId = null, ?string $role = null): array
+    {
+        $query = DB::table('client_employments')
+            ->select('last_position', DB::raw('count(distinct client_id) as total'))
+            ->whereNotNull('last_position')
+            ->where('is_deleted', false);
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->whereIn('client_id', function ($q) use ($userId) {
+                $q->select('client_id')
+                    ->from('cases')
+                    ->where('user_id', $userId)
+                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+            });
+        }
+
+        $results = $query->groupBy('last_position')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get();
+
+        return [
+            'labels' => $results->pluck('last_position')->toArray(),
+            'data' => $results->pluck('total')->toArray(),
+        ];
+    }
+
+    public function getCaseStatusDistribution(?string $userId = null, ?string $role = null): array
+    {
+        $query = CaseFile::select('status', DB::raw('count(*) as total'))
+            ->whereIn('status', ['OPEN', 'CLOSED']);
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->where('user_id', $userId);
+        }
+
+        $results = $query->groupBy('status')
+            ->pluck('total', 'status');
+
+        $allStatuses = ['OPEN', 'CLOSED'];
+        $colors = ['#1e3a8a', '#10b981'];
+
+        return [
+            'labels' => $allStatuses,
+            'data' => array_map(fn ($s) => (int) ($results[$s] ?? 0), $allStatuses),
+            'colors' => $colors,
         ];
     }
 

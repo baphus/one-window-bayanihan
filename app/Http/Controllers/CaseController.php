@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
+use App\Http\Requests\UpdateDraftRequest;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -101,6 +102,54 @@ class CaseController extends Controller
             ->with('success', 'Case created successfully.');
     }
 
+    public function editDraft(Request $request, string $id)
+    {
+        $case = $this->caseService->getCase($id);
+        abort_unless($case->status === 'DRAFT', 404);
+        abort_unless($case->user_id === $request->user()->id, 403);
+
+        $existingClients = Client::with(['addresses', 'employments', 'nextOfKin'])
+            ->withCount('caseFiles')
+            ->where('is_deleted', false)
+            ->orderBy('last_name')
+            ->limit(200)
+            ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'full_name' => trim("{$c->first_name} {$c->middle_name} {$c->last_name} {$c->suffix}"),
+                'first_name' => $c->first_name,
+                'last_name' => $c->last_name,
+                'middle_name' => $c->middle_name,
+                'suffix' => $c->suffix,
+                'sex' => $c->sex,
+                'date_of_birth' => $c->date_of_birth?->format('Y-m-d'),
+                'email' => $c->email,
+                'contact_number' => $c->contact_number,
+                'addresses' => $c->addresses,
+                'employments' => $c->employments,
+                'nextOfKin' => $c->nextOfKin,
+                'has_case' => $c->case_files_count > 0,
+                'case_count' => $c->case_files_count,
+            ]);
+
+        $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
+
+        return Inertia::render('Case/Create', [
+            'existingDraft' => $case,
+            'existingClients' => $existingClients,
+            'categories' => $categories,
+        ]);
+    }
+
+    public function updateDraft(UpdateDraftRequest $request, string $id)
+    {
+        $this->caseService->updateDraft($id, $request->validated(), $request->user()->id);
+
+        return redirect()
+            ->route('cases.drafts')
+            ->with('success', 'Draft updated successfully.');
+    }
+
     public function show(string $id, Request $request)
     {
         $case = $this->caseService->getCase($id);
@@ -181,10 +230,12 @@ class CaseController extends Controller
 
     public function drafts(Request $request)
     {
-        $drafts = $this->caseService->getUserDrafts($request->user()->id);
+        $filters = $request->only(['search', 'date_from', 'date_to']);
+        $drafts = $this->caseService->getUserDrafts($request->user()->id, $filters);
 
         return Inertia::render('Draft/Index', [
             'drafts' => $drafts,
+            'filters' => $filters,
         ]);
     }
 

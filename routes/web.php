@@ -90,6 +90,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
     Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
+    Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
+    Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
     Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show');
     Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
     Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
@@ -118,6 +120,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/analytics', [AnonymizedAnalyticsController::class, 'index'])->name('analytics.index');
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');

@@ -53,8 +53,11 @@ class ChatbotCaseServiceTest extends TestCase
 
     private function createCaseWithClient(User $caseManager): CaseFile
     {
-        $case = CaseFile::factory()->create(['user_id' => $caseManager->id]);
-        Client::factory()->create(['case_id' => $case->id]);
+        $client = Client::factory()->create();
+        $case = CaseFile::factory()->create([
+            'user_id' => $caseManager->id,
+            'client_id' => $client->id,
+        ]);
 
         return $case;
     }
@@ -251,9 +254,11 @@ class ChatbotCaseServiceTest extends TestCase
     public function test_initiate_otp_with_no_email_on_case()
     {
         $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $case = CaseFile::factory()->create(['user_id' => $cm->id]);
-        // Create client WITHOUT email
-        Client::factory()->create(['case_id' => $case->id, 'email' => null]);
+        $client = Client::factory()->create(['email' => null]);
+        $case = CaseFile::factory()->create([
+            'user_id' => $cm->id,
+            'client_id' => $client->id,
+        ]);
 
         $response = $this->service->initiateCaseOTP($case->tracker_number);
 
