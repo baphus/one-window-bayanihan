@@ -937,13 +937,13 @@ class InsightsService
                   {$entityFilter}
             )
             SELECT
-                CONCAT(from_status, ' → ', to_status) AS transition,
+                CONCAT(from_status, ' -> ', to_status) AS transition,
                 COUNT(*) AS count,
                 AVG(EXTRACT(EPOCH FROM (COALESCE(next_timestamp, NOW()) - timestamp)) / 3600) AS avg_hours
             FROM status_changes
             WHERE from_status IS NOT NULL
               AND to_status IS NOT NULL
-            GROUP BY CONCAT(from_status, ' → ', to_status)
+            GROUP BY CONCAT(from_status, ' -> ', to_status)
             ORDER BY avg_hours DESC
         ";
 

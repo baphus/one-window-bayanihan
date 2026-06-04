@@ -27,6 +27,8 @@ class SetPostgresSession
         if ($user = $request->user()) {
             // PostgreSQL-specific session variables for RLS — skip in SQLite tests
             if (DB::connection()->getDriverName() === 'pgsql') {
+                // Ensure UTF-8 client encoding (Windows PDO driver may default to WIN1252)
+                DB::statement('SET SESSION client_encoding TO UTF8');
                 DB::statement('SET SESSION app.current_user_id = ?', [(string) $user->id]);
                 DB::statement('SET SESSION app.user_role = ?', [$user->role]);
             }
