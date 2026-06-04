@@ -1097,9 +1097,9 @@ function handleConfirmClient(client) {
                                         const isCurrent = currentStep === step.id;
                                         return (
                                             <div key={step.id} className="flex gap-4 group">
-                                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-bold transition-colors bg-white ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'border-indigo-600 text-indigo-600' : 'border-[#cbd5e1] text-slate-400 group-hover:border-slate-400'}`}>
+                                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-bold leading-none transition-colors ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'border-indigo-600 bg-white text-indigo-600' : 'border-[#cbd5e1] bg-white text-slate-400 group-hover:border-slate-400'}`}>
                                                     {isCompleted ? (
-                                                        <span className="material-symbols-outlined text-[16px]">check</span>
+                                                        <span className="material-symbols-outlined text-[16px] leading-none text-white" style={{ verticalAlign: 'middle', fontVariationSettings: "'FILL' 1" }}>check</span>
                                                     ) : step.id}
                                                 </div>
                                                 <div className="pt-1">
