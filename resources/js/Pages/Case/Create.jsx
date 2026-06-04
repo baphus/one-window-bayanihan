@@ -84,7 +84,7 @@ function Select({ value, onChange, options, placeholder }) {
 export default function CaseCreate() {
     const { client, existingClients = [], categories = [], existingDraft } = usePage().props;
 
-    const { data, setData, post, put, processing, errors } = useForm({
+    const { data, setData, post, put, processing, errors, clearErrors } = useForm({
         client_type: 'OFW',
         category_id: '',
         vulnerability_indicator: '',
@@ -700,11 +700,17 @@ export default function CaseCreate() {
     }
 
     function handleNext() {
-        if (currentStep < 3) setCurrentStep((prev) => prev + 1);
+        if (currentStep < 3) {
+            clearErrors();
+            setCurrentStep((prev) => prev + 1);
+        }
     }
 
     function handleBack() {
-        if (currentStep > 1) setCurrentStep((prev) => prev - 1);
+        if (currentStep > 1) {
+            clearErrors();
+            setCurrentStep((prev) => prev - 1);
+        }
     }
 
     function canProceed() {
@@ -1021,6 +1027,15 @@ function handleConfirmClient(client) {
     setSelectedClient(null);
 }
 
+    function handleFormKeyDown(e) {
+        if (e.key === 'Enter' && currentStep < 3 && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            if (canProceed()) {
+                handleNext();
+            }
+        }
+    }
+
     const nokSummary = hasNextOfKin
         ? [nokFirstName, nokLastName].filter(Boolean).join(' ') || 'Not yet provided'
         : 'No next of kin indicated';
@@ -1061,7 +1076,7 @@ function handleConfirmClient(client) {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
                 <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-[#cbd5e1] bg-white shadow-sm">
                     <div className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-[#cbd5e1] bg-slate-50/60 p-8">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

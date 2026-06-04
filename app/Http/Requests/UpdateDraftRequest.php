@@ -23,6 +23,15 @@ class UpdateDraftRequest extends FormRequest
         if ($this->has('category_id') && $this->category_id === '') {
             $this->merge(['category_id' => null]);
         }
+
+        // Normalize empty-string emails to null (JSON requests bypass ConvertEmptyStringsToNull)
+        if ($this->input('client.email') === '') {
+            $this->merge(['client' => array_merge($this->input('client', []), ['email' => null])]);
+        }
+
+        if ($this->input('next_of_kin.email') === '') {
+            $this->merge(['next_of_kin' => array_merge($this->input('next_of_kin', []), ['email' => null])]);
+        }
     }
 
     public function rules(): array
