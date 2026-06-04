@@ -27,3 +27,6 @@ Homestead.yaml
 Thumbs.db
 .github
 /.gitnexus
+/.omo
+/.opencode
+/.playwright-mcp
