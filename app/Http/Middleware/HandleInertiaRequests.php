@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\SystemSetting;
+use App\Services\AlertService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -22,6 +23,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'alert_count' => $request->user()
+                ? app(AlertService::class)->getActiveAlerts($request->user())['unread_count']
+                : 0,
             'notifications' => [
                 'unread_count' => $request->user()
                     ? $request->user()->unreadNotifications()->count()

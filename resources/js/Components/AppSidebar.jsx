@@ -1,11 +1,13 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useMemo } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
+import AlertBell from '@/Components/Insights/AlertBell';
 
 const navByRole = {
   CASE_MANAGER: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+      { name: 'Insights', href: '/insights', icon: 'analytics' },
     ]},
     { label: 'Management', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
@@ -26,6 +28,7 @@ const navByRole = {
   AGENCY: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+      { name: 'Insights', href: '/insights', icon: 'analytics' },
     ]},
     { label: 'Operations', items: [
       { name: 'Referred Cases', href: '/referrals', icon: 'assignment' },
@@ -46,6 +49,7 @@ const navByRole = {
   ADMIN: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+      { name: 'Insights', href: '/insights', icon: 'analytics' },
     ]},
     { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
@@ -132,6 +136,31 @@ export default function AppSidebar() {
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const active = isActive(item.href);
+
+                  if (item.href === '/insights') {
+                    return (
+                      <div
+                        key={item.name}
+                        className={`flex items-center justify-between pl-8 pr-3 py-3.5 text-[14px] font-label transition-colors border-l-4 ${
+                          active
+                            ? 'bg-slate-100/60 text-blue-900 font-bold border-blue-900'
+                            : 'text-slate-600 font-medium hover:bg-slate-100/40 hover:text-slate-900 border-transparent'
+                        }`}
+                      >
+                        <Link
+                          href={item.href}
+                          className="flex items-center gap-4 flex-1"
+                        >
+                          <span className={`material-symbols-outlined text-[22px] ${active ? 'text-blue-900' : 'text-slate-600'}`} style={{ fontVariationSettings: `'FILL' ${active ? '1' : '0'}, 'wght' ${active ? '700' : '400'}` }}>
+                            {item.icon}
+                          </span>
+                          {item.name}
+                        </Link>
+                        <AlertBell />
+                      </div>
+                    );
+                  }
+
                   return (
                     <Link
                       key={item.name}

@@ -29,6 +29,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HelpdeskController;
+use App\Http\Controllers\InsightsController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -122,6 +123,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
     Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
+
+    Route::get('/insights', [InsightsController::class, 'index'])->name('insights.index');
+    Route::post('/insights/export/csv', [InsightsExportController::class, 'exportCsv'])->name('insights.export.csv');
+    Route::post('/insights/export/pdf', [InsightsExportController::class, 'exportPdf'])->name('insights.export.pdf');
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
     Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
