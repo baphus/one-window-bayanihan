@@ -232,19 +232,19 @@ export default function InsightsIndex(props) {
 
         {activeTab === 'operational' && (
           <OperationalMonitor
-            agingCases={can('aging_cases') ? agingCases : null}
-            stalledReferrals={stalledReferrals}
+            agingCases={can('aging_cases') ? (agingCases?.details ?? []) : null}
+            stalledReferrals={stalledReferrals?.referrals ?? []}
             overloadedAgencies={can('overloaded_agencies') ? overloadedAgencies : null}
             bottleneckAnalysis={can('bottleneck_detection') ? bottleneckAnalysis : null}
-            rejectionAnalysis={rejectionAnalysis}
+            rejectionAnalysis={rejectionAnalysis ? rejectionAnalysis.labels.map((l, i) => ({ reason: l, count: rejectionAnalysis.data[i] })) : []}
           />
         )}
 
         {activeTab === 'scorecards' && (
           <Scorecards
-            caseManagerScorecard={can('cm_scorecard') ? caseManagerScorecard : null}
-            agencyScorecard={can('agency_scorecard') ? agencyScorecard : null}
-            serviceCompletionRate={serviceCompletionRate}
+            caseManagerScorecard={can('cm_scorecard') ? (caseManagerScorecard?.rows ?? []) : null}
+            agencyScorecard={can('agency_scorecard') ? (agencyScorecard?.detailed ?? []) : null}
+            serviceCompletionRate={serviceCompletionRate?.services ?? []}
             firstResponseTime={firstResponseTime}
           />
         )}
@@ -252,8 +252,8 @@ export default function InsightsIndex(props) {
         {activeTab === 'satisfaction' && (
           <Satisfaction
             satisfactionTrend={satisfactionTrend}
-            servqualScores={servqualScores}
-            agencySatisfactionRanking={can('satisfaction_other') ? agencySatisfactionRanking : null}
+            servqualScores={servqualScores?.dimensions ?? []}
+            agencySatisfactionRanking={can('satisfaction_other') ? (agencySatisfactionRanking?.labels?.map?.((l, i) => ({ name: l, score: agencySatisfactionRanking.data?.[i] ?? 0 })) ?? []) : null}
             feedbackVolume={feedbackVolume}
           />
         )}

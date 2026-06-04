@@ -34,7 +34,7 @@ function InfoRow({ label, value, subtext }) {
     );
 }
 
-export default function ReferralCreate({ case_id, agencies, cases }) {
+export default function ReferralCreate({ case_id, agencies, cases: openCases }) {
     const { data, setData, post, processing, errors } = useForm({
         case_id: case_id || '',
         agcy_id: '',

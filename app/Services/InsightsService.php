@@ -937,13 +937,13 @@ class InsightsService
                   {$entityFilter}
             )
             SELECT
-                CONCAT(from_status, ' → ', to_status) AS transition,
+                CONCAT(from_status, ' -> ', to_status) AS transition,
                 COUNT(*) AS count,
                 AVG(EXTRACT(EPOCH FROM (COALESCE(next_timestamp, NOW()) - timestamp)) / 3600) AS avg_hours
             FROM status_changes
             WHERE from_status IS NOT NULL
               AND to_status IS NOT NULL
-            GROUP BY CONCAT(from_status, ' → ', to_status)
+            GROUP BY CONCAT(from_status, ' -> ', to_status)
             ORDER BY avg_hours DESC
         ";
 
@@ -1116,6 +1116,14 @@ class InsightsService
                 ],
             ],
             'ranks' => array_map(fn ($r) => (int) $r->rank, $rows),
+            'rows' => array_map(fn ($r) => [
+                'name' => $r->cm_name,
+                'total' => (int) ($r->total_referrals ?? 0),
+                'completed' => (int) ($r->resolved_30d ?? 0),
+                'rate' => $r->sla_compliance !== null
+                    ? round((float) $r->sla_compliance * 100, 1) : 0,
+                'avg_days' => round((float) ($r->avg_resolution_days ?? 0), 1),
+            ], $rows),
         ];
     }
 
@@ -1180,19 +1188,19 @@ class InsightsService
                 s.received,
                 s.completed,
                 ROUND(
-                    CASE WHEN s.received > 0
+                    (CASE WHEN s.received > 0
                         THEN (s.completed::float / s.received) * 100
                         ELSE 0
-                    END, 1
+                    END)::numeric, 1
                 ) AS completion_rate_pct,
-                ROUND(COALESCE(s.avg_days, 0), 1) AS avg_days,
-                ROUND(COALESCE(sat.avg_satisfaction, 0), 2) AS avg_satisfaction,
-                ROUND(COALESCE(s.sla_rate, 0) * 100, 1) AS sla_rate_pct,
+                ROUND(COALESCE(s.avg_days, 0)::numeric, 1) AS avg_days,
+                ROUND(COALESCE(sat.avg_satisfaction, 0)::numeric, 2) AS avg_satisfaction,
+                ROUND((COALESCE(s.sla_rate, 0) * 100)::numeric, 1) AS sla_rate_pct,
                 ROUND(
-                    COALESCE(s.completed::float / NULLIF(s.received, 0), 0) * 0.3
+                    (COALESCE(s.completed::float / NULLIF(s.received, 0), 0) * 0.3
                     + (1.0 - LEAST(COALESCE(s.avg_days, 30), 30) / 30.0) * 0.2
                     + (COALESCE(sat.avg_satisfaction, 0) / 5.0) * 0.3
-                    + COALESCE(s.sla_rate, 0) * 0.2
+                    + COALESCE(s.sla_rate, 0) * 0.2)::numeric
                 , 4) AS composite_score
             FROM agency_stats s
             LEFT JOIN agency_satisfaction sat ON sat.agency_id = s.agcy_id
@@ -1304,6 +1312,11 @@ class InsightsService
                     'backgroundColor' => '#22c55e',
                 ],
             ],
+            'services' => array_map(fn ($r) => [
+                'service' => $r->service,
+                'completion_rate' => $r->total > 0
+                    ? round(($r->completed / $r->total) * 100, 1) : 0,
+            ], $results->all()),
         ];
     }
 
@@ -1369,6 +1382,12 @@ class InsightsService
             return ['labels' => [], 'datasets' => []];
         }
 
+        $value = round((float) (end($rows)->avg_hours ?? 0), 1);
+        $change = count($rows) >= 2
+            ? round((($value - round((float) ($rows[count($rows) - 2]->avg_hours ?? 0), 1))
+                / max(round((float) ($rows[count($rows) - 2]->avg_hours ?? 0), 1), 0.1)) * 100, 1)
+            : null;
+
         return [
             'labels' => array_map(fn ($r) => $r->period, $rows),
             'datasets' => [
@@ -1380,6 +1399,8 @@ class InsightsService
                     'tension' => 0.3,
                 ],
             ],
+            'value' => $value,
+            'change' => $change,
         ];
     }
 
@@ -1447,7 +1468,134 @@ class InsightsService
     }
 
     // ========================================================================
-    //  T — SERVQUAL SCORES (5-dimension gaps)
+    //  T1 — RESOLUTION TIME TREND (avg days over time)
+    // ========================================================================
+
+    public function getResolutionTimeTrend(User $user, array $filters = []): array
+    {
+        $from = $this->resolveDate($filters['from'] ?? null, now()->subMonths(6));
+        $to = $this->resolveDate($filters['to'] ?? null, now());
+        $interval = $filters['interval'] ?? 'daily';
+
+        $dateTrunc = match ($interval) {
+            'weekly' => 'week',
+            'monthly' => 'month',
+            default => 'day',
+        };
+
+        $query = CaseFile::where('status', 'CLOSED')
+            ->where('is_deleted', false)
+            ->whereBetween('created_at', [$from, $to]);
+
+        $this->applyCaseScope($query, $user);
+
+        if (! empty($filters['category_id'])) {
+            $query->where('category_id', $filters['category_id']);
+        }
+
+        try {
+            $rows = (clone $query)
+                ->select(
+                    DB::raw("date_trunc('{$dateTrunc}', created_at) as period"),
+                    DB::raw('AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_days'),
+                )
+                ->groupBy(DB::raw("date_trunc('{$dateTrunc}', created_at)"))
+                ->orderBy('period')
+                ->get();
+        } catch (\Throwable) {
+            $rows = collect();
+        }
+
+        $labels = [];
+        $data = [];
+        foreach ($rows as $row) {
+            $labels[] = $row->period instanceof Carbon
+                ? $row->period->toDateString()
+                : Carbon::parse($row->period)->toDateString();
+            $data[] = round((float) ($row->avg_days ?? 0), 1);
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => [
+                [
+                    'label' => 'Avg Resolution Time (days)',
+                    'data' => $data,
+                    'borderColor' => '#f59e0b',
+                    'backgroundColor' => 'rgba(245, 158, 11, 0.1)',
+                    'tension' => 0.3,
+                ],
+            ],
+        ];
+    }
+
+    // ========================================================================
+    //  T2 — AGENCY WORKLOAD TREND (active referrals per agency over time)
+    // ========================================================================
+
+    public function getAgencyWorkloadTrend(User $user, array $filters = []): array
+    {
+        $from = $this->resolveDate($filters['from'] ?? null, now()->subMonths(6));
+        $to = $this->resolveDate($filters['to'] ?? null, now());
+        $interval = $filters['interval'] ?? 'daily';
+
+        $dateTrunc = match ($interval) {
+            'weekly' => 'week',
+            'monthly' => 'month',
+            default => 'day',
+        };
+
+        $query = Referral::select(
+            'agencies.name',
+            DB::raw("date_trunc('{$dateTrunc}', referrals.created_at) as period"),
+            DB::raw('count(*) as total'),
+        )
+            ->join('agencies', 'agencies.id', '=', 'referrals.agcy_id')
+            ->whereNotIn('referrals.status', ['COMPLETED', 'REJECTED'])
+            ->where('referrals.is_deleted', false)
+            ->whereBetween('referrals.created_at', [$from, $to])
+            ->groupBy('agencies.name', DB::raw("date_trunc('{$dateTrunc}', referrals.created_at)"))
+            ->orderBy('period');
+
+        $this->applyReferralScope($query, $user);
+
+        $rows = $query->get();
+
+        $grouped = $rows->groupBy('name');
+        $periods = $rows->pluck('period')->unique()->sort()->values();
+        $labels = $periods->map(fn ($p) => $p instanceof Carbon ? $p->toDateString() : Carbon::parse($p)->toDateString())->toArray();
+
+        $palette = ['#6366f1', '#f59e0b', '#22c55e', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+        $datasets = [];
+        $idx = 0;
+        foreach ($grouped as $name => $agencyRows) {
+            $data = array_fill(0, count($labels), 0);
+            foreach ($agencyRows as $row) {
+                $p = $row->period instanceof Carbon ? $row->period->toDateString() : Carbon::parse($row->period)->toDateString();
+                $pos = array_search($p, $labels);
+                if ($pos !== false) {
+                    $data[$pos] = (int) $row->total;
+                }
+            }
+            $color = $palette[$idx % count($palette)];
+            $datasets[] = [
+                'label' => $name,
+                'data' => $data,
+                'borderColor' => $color,
+                'backgroundColor' => $color,
+                'tension' => 0.3,
+            ];
+            $idx++;
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => $datasets,
+        ];
+    }
+
+    // ========================================================================
+    //  U — SERVQUAL SCORES (5-dimension gaps)
     // ========================================================================
 
     public function getServqualScores(User $user, array $filters = []): array
@@ -1493,8 +1641,8 @@ class InsightsService
             WHERE c.is_deleted = false
               AND fsr.expectation IS NOT NULL
               AND fsr.perception IS NOT NULL
-              {$dateFilter}
               {$roleFilter}
+              {$dateFilter}
             GROUP BY fsr.dimension
             ORDER BY fsr.dimension
         ";

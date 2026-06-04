@@ -59,10 +59,10 @@ function AgingCasesTable({ data }) {
                 }`}>{row.status}</span>
               </td>
               <td className={`py-2 pr-3 text-right font-bold ${
-                (row.days_aged || row.days || 0) > 30 ? 'text-rose-700' :
-                (row.days_aged || row.days || 0) > 14 ? 'text-amber-700' :
+                (row.age_days || row.days_aged || row.days || 0) > 30 ? 'text-rose-700' :
+                (row.age_days || row.days_aged || row.days || 0) > 14 ? 'text-amber-700' :
                 'text-slate-700'
-              }`}>{row.days_aged || row.days || 0}d</td>
+              }`}>{row.age_days || row.days_aged || row.days || 0}d</td>
               <td className={`py-2 text-right font-bold ${
                 row.priority === 'HIGH' || row.priority === 'CRITICAL' ? 'text-rose-700' :
                 row.priority === 'MEDIUM' ? 'text-amber-700' : 'text-slate-700'
@@ -92,12 +92,12 @@ function StalledReferralsTable({ data }) {
         <tbody>
           {data.map((row, i) => (
             <tr key={row.id || i} className="border-b border-[#e2e8f0] last:border-0">
-              <td className="py-2 pr-3 font-semibold text-slate-700">{row.referral_no || row.referral_number || 'N/A'}</td>
+              <td className="py-2 pr-3 font-semibold text-slate-700">{row.case_number || row.referral_no || row.referral_number || 'N/A'}</td>
               <td className="py-2 pr-3 text-slate-700">{row.agency_name || row.agency || 'N/A'}</td>
               <td className="py-2 pr-3 text-slate-700">{row.service_type || row.service || 'N/A'}</td>
               <td className={`py-2 pr-3 text-right font-bold ${
-                (row.days_stalled || row.days || 0) > 30 ? 'text-rose-700' : 'text-amber-700'
-              }`}>{row.days_stalled || row.days || 0}d</td>
+                (row.days_since_activity || row.days_stalled || row.days || 0) > 30 ? 'text-rose-700' : 'text-amber-700'
+              }`}>{row.days_since_activity || row.days_stalled || row.days || 0}d</td>
               <td className="py-2 text-right text-[11px] text-slate-500">
                 {row.last_action_date ? new Date(row.last_action_date + 'T00:00:00').toLocaleDateString() : 'N/A'}
               </td>
