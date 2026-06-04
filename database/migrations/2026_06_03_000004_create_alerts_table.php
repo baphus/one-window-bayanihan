@@ -21,7 +21,7 @@ return new class extends Migration
             $table->timestamp('read_at')->nullable();
             $table->timestamp('created_at');
 
-            $table->foreign('assigned_to_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('assigned_to_id')->references('id')->on('users');
 
             $table->index(['assigned_to_id', 'dismissed_at', 'read_at'], 'idx_alerts_assigned');
         });

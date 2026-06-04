@@ -45,6 +45,9 @@ return new class extends Migration
             // subqueries in index predicates, so terminal slugs are inlined
             DB::statement("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_referrals_stalled ON referrals (updated_at, status) WHERE is_deleted = FALSE AND status NOT IN ('COMPLETED', 'REJECTED')");
 
+            // Index 5: province-based geographic queries on clients
+            DB::statement("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_clients_province ON clients ((address->>'province_code'))");
+
             echo "✅ Created analytics performance indexes.\n";
         } catch (Throwable $e) {
             Log::warning('Failed to create analytics indexes.', [
@@ -64,6 +67,7 @@ return new class extends Migration
             DB::statement('DROP INDEX IF EXISTS idx_audit_logs_transitions');
             DB::statement('DROP INDEX IF EXISTS idx_cases_aging');
             DB::statement('DROP INDEX IF EXISTS idx_referrals_stalled');
+            DB::statement('DROP INDEX IF EXISTS idx_clients_province');
 
             echo "✅ Dropped analytics performance indexes.\n";
         } catch (Throwable $e) {
