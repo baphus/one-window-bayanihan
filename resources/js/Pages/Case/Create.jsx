@@ -1028,7 +1028,7 @@ function handleConfirmClient(client) {
 }
 
     function handleFormKeyDown(e) {
-        if (e.key === 'Enter' && currentStep < 3 && e.target.tagName !== 'TEXTAREA') {
+        if (e.key === 'Enter' && currentStep < 3 && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
             e.preventDefault();
             if (canProceed()) {
                 handleNext();
