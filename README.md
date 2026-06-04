@@ -10,7 +10,7 @@ Laravel project for the Bayanihan One Window system. The codebase follows Larave
 - Redis for cache/queues
 - Pusher (or laravel-websockets) for realtime
 - UUID primary keys and audit columns
-- RBAC with spatie/laravel-permission
+- RBAC via `users.role` column (CheckRole middleware)
 
 ## Quick start
 1. Copy `.env.example` to `.env` and fill DB, Supabase, Cloudinary, Pusher, Redis values.

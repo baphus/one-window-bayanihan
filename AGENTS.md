@@ -26,7 +26,7 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 
 - **Controllers** → **Services** (`app/Services/*`) → **Models** (UUID PKs, `UsesUuid` trait, `SoftDeleteFlag` flag-based soft deletes)
 - Validation via Form Request classes (`app/Http/Requests/`)
-- Admin routes gated by `role:ADMIN` middleware (spatie/laravel-permission)
+- Admin routes gated by `role:ADMIN` middleware (`CheckRole` — reads `users.role` column)
 - Roles: `CASE_MANAGER`, `AGENCY`, `ADMIN`
 - All services: Analytics, Case, Dashboard, Otp, Referral, Reports, Tracking
 
