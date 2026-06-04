@@ -1028,11 +1028,10 @@ function handleConfirmClient(client) {
 }
 
     function handleFormKeyDown(e) {
-        if (e.key === 'Enter' && currentStep < 3 && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+        // Only intercept Enter on text inputs (not buttons, selects, textareas)
+        // This prevents the form from submitting when pressing Enter in an input on Steps 1-2
+        if (e.key === 'Enter' && currentStep < 3 && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'radio') {
             e.preventDefault();
-            if (canProceed()) {
-                handleNext();
-            }
         }
     }
 
