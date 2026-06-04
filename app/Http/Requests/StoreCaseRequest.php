@@ -24,12 +24,13 @@ class StoreCaseRequest extends FormRequest
             $this->merge(['category_id' => null]);
         }
 
-        // Normalize empty-string emails to null (JSON requests bypass ConvertEmptyStringsToNull)
-        if ($this->input('client.email') === '') {
+        // Inertia sends JSON — ConvertEmptyStringsToNull middleware doesn't apply.
+        // Convert empty email strings to null so 'nullable|email' passes correctly.
+        if ($this->has('client.email') && $this->input('client.email') === '') {
             $this->merge(['client' => array_merge($this->input('client', []), ['email' => null])]);
         }
 
-        if ($this->input('next_of_kin.email') === '') {
+        if ($this->has('next_of_kin.email') && $this->input('next_of_kin.email') === '') {
             $this->merge(['next_of_kin' => array_merge($this->input('next_of_kin', []), ['email' => null])]);
         }
     }

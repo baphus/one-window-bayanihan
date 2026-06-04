@@ -38,41 +38,28 @@ class CaseService
                 'category_id' => $data['category_id'] ?? null,
             ];
 
-            $isExistingClient = ! empty($data['selected_client_id']);
-
-            // For new-client drafts: defer Client creation, store full payload in draft_client_data
-            if ($isDraft && ! $isExistingClient) {
+            if ($isDraft) {
                 $createData['draft_client_data'] = [
                     'first_name' => $data['client']['first_name'] ?? '',
                     'last_name' => $data['client']['last_name'] ?? '',
                     'middle_name' => $data['client']['middle_name'] ?? null,
                     'suffix' => $data['client']['suffix'] ?? null,
+                    'date_of_birth' => $data['client']['date_of_birth'] ?? null,
+                    'sex' => $data['client']['sex'] ?? null,
                     'email' => $data['client']['email'] ?? null,
                     'contact_number' => $data['client']['contact_number'] ?? null,
                     'client_type' => $data['client_type'] ?? null,
-                    'sex' => $data['client']['sex'] ?? null,
-                    'date_of_birth' => $data['client']['date_of_birth'] ?? null,
+                    'selected_client_id' => $data['selected_client_id'] ?? null,
                     'address' => $data['address'] ?? null,
                     'employment' => $data['employment'] ?? null,
                     'next_of_kin' => $data['next_of_kin'] ?? null,
                     'consent' => $data['consent'] ?? false,
                 ];
-
-                $case = CaseFile::create($createData);
-
-                // client_id remains null — Client will be created on publish
-
-                return $case->load(['user', 'category']);
-            }
-
-            // For existing-client drafts: store selected_client_id reference in draft_client_data
-            if ($isDraft && $isExistingClient) {
-                $createData['draft_client_data'] = [
-                    'selected_client_id' => $data['selected_client_id'],
-                ];
             }
 
             $case = CaseFile::create($createData);
+
+            $isExistingClient = ! empty($data['selected_client_id']);
 
             if ($isExistingClient) {
                 $client = Client::findOrFail($data['selected_client_id']);
@@ -152,59 +139,63 @@ class CaseService
                     }
                 }
             } else {
-                $client = Client::create([
-                    'first_name' => $data['client']['first_name'] ?? '',
-                    'last_name' => $data['client']['last_name'] ?? '',
-                    'middle_name' => $data['client']['middle_name'] ?? null,
-                    'suffix' => $data['client']['suffix'] ?? null,
-                    'date_of_birth' => $data['client']['date_of_birth'] ?? null,
-                    'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
-                    'email' => $data['client']['email'] ?? null,
-                    'contact_number' => $data['client']['contact_number'] ?? null,
-                ]);
-
-                if (! empty($data['address'])) {
-                    ClientAddress::create([
-                        'client_id' => $client->id,
-                        'region' => $data['address']['region'] ?? null,
-                        'province' => $data['address']['province'] ?? null,
-                        'city_municipality' => $data['address']['city_municipality'] ?? null,
-                        'barangay' => $data['address']['barangay'] ?? null,
-                        'street' => $data['address']['street'] ?? null,
+                if (! $isDraft) {
+                    $client = Client::create([
+                        'first_name' => $data['client']['first_name'] ?? '',
+                        'last_name' => $data['client']['last_name'] ?? '',
+                        'middle_name' => $data['client']['middle_name'] ?? null,
+                        'suffix' => $data['client']['suffix'] ?? null,
+                        'date_of_birth' => $data['client']['date_of_birth'] ?? null,
+                        'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
+                        'email' => $data['client']['email'] ?? null,
+                        'contact_number' => $data['client']['contact_number'] ?? null,
                     ]);
-                }
 
-                if (! empty($data['employment'])) {
-                    ClientEmployment::create([
-                        'client_id' => $client->id,
-                        'employer_name' => $data['employment']['employer_name'] ?? null,
-                        'position' => $data['employment']['position'] ?? null,
-                        'country' => $data['employment']['country'] ?? null,
-                        'start_date' => $data['employment']['start_date'] ?? null,
-                        'end_date' => $data['employment']['end_date'] ?? null,
-                        'last_country' => $data['employment']['last_country'] ?? null,
-                        'last_position' => $data['employment']['last_position'] ?? null,
-                        'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                    ]);
-                }
+                    if (! empty($data['address'])) {
+                        ClientAddress::create([
+                            'client_id' => $client->id,
+                            'region' => $data['address']['region'] ?? null,
+                            'province' => $data['address']['province'] ?? null,
+                            'city_municipality' => $data['address']['city_municipality'] ?? null,
+                            'barangay' => $data['address']['barangay'] ?? null,
+                            'street' => $data['address']['street'] ?? null,
+                        ]);
+                    }
 
-                if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
-                    NextOfKin::create([
-                        'client_id' => $client->id,
-                        'first_name' => $data['next_of_kin']['first_name'],
-                        'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
-                        'last_name' => $data['next_of_kin']['last_name'] ?? null,
-                        'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
-                        'relationship' => $data['next_of_kin']['relationship'] ?? null,
-                        'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
-                        'email' => $data['next_of_kin']['email'] ?? null,
-                        'full_address' => $data['next_of_kin']['full_address'] ?? null,
-                    ]);
+                    if (! empty($data['employment'])) {
+                        ClientEmployment::create([
+                            'client_id' => $client->id,
+                            'employer_name' => $data['employment']['employer_name'] ?? null,
+                            'position' => $data['employment']['position'] ?? null,
+                            'country' => $data['employment']['country'] ?? null,
+                            'start_date' => $data['employment']['start_date'] ?? null,
+                            'end_date' => $data['employment']['end_date'] ?? null,
+                            'last_country' => $data['employment']['last_country'] ?? null,
+                            'last_position' => $data['employment']['last_position'] ?? null,
+                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                        ]);
+                    }
+
+                    if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
+                        NextOfKin::create([
+                            'client_id' => $client->id,
+                            'first_name' => $data['next_of_kin']['first_name'],
+                            'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
+                            'last_name' => $data['next_of_kin']['last_name'] ?? null,
+                            'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
+                            'relationship' => $data['next_of_kin']['relationship'] ?? null,
+                            'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
+                            'email' => $data['next_of_kin']['email'] ?? null,
+                            'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                        ]);
+                    }
                 }
             }
 
-            $case->client_id = $client->id;
-            $case->save();
+            if (isset($client)) {
+                $case->client_id = $client->id;
+                $case->save();
+            }
 
             if (! $isDraft) {
                 AuditLog::create([
@@ -268,40 +259,37 @@ class CaseService
                     'category_id' => $data['category_id'] ?? $case->category_id,
                 ];
 
-                // Update draft_client_data for new-client drafts (no selected_client_id)
-                if (empty($data['selected_client_id'])) {
+                // Update draft_client_data when new client data is provided (no selected_client_id)
+                if (! empty($data['client'])) {
                     $current = $case->draft_client_data ?? [];
+                    $updateData['draft_client_data'] = array_merge($current, [
+                        'first_name' => $data['client']['first_name'] ?? $current['first_name'] ?? '',
+                        'last_name' => $data['client']['last_name'] ?? $current['last_name'] ?? '',
+                        'middle_name' => $data['client']['middle_name'] ?? $current['middle_name'] ?? null,
+                        'suffix' => $data['client']['suffix'] ?? $current['suffix'] ?? null,
+                        'email' => $data['client']['email'] ?? $current['email'] ?? null,
+                        'contact_number' => $data['client']['contact_number'] ?? $current['contact_number'] ?? null,
+                        'sex' => $data['client']['sex'] ?? $current['sex'] ?? null,
+                        'date_of_birth' => $data['client']['date_of_birth'] ?? $current['date_of_birth'] ?? null,
+                    ]);
 
-                    if (! empty($data['client'])) {
-                        $current = array_merge($current, [
-                            'first_name' => $data['client']['first_name'] ?? $current['first_name'] ?? '',
-                            'last_name' => $data['client']['last_name'] ?? $current['last_name'] ?? '',
-                            'middle_name' => $data['client']['middle_name'] ?? $current['middle_name'] ?? null,
-                            'suffix' => $data['client']['suffix'] ?? $current['suffix'] ?? null,
-                            'email' => $data['client']['email'] ?? $current['email'] ?? null,
-                            'contact_number' => $data['client']['contact_number'] ?? $current['contact_number'] ?? null,
-                            'sex' => $data['client']['sex'] ?? $current['sex'] ?? null,
-                            'date_of_birth' => $data['client']['date_of_birth'] ?? $current['date_of_birth'] ?? null,
-                        ]);
+                    // Also store address/employment/next_of_kin in draft_client_data for new-client drafts
+                    if (empty($data['selected_client_id']) && empty($case->client_id)) {
+                        $draftData = $updateData['draft_client_data'];
+                        if (! empty($data['address'])) {
+                            $draftData['address'] = $data['address'];
+                        }
+                        if (! empty($data['employment'])) {
+                            $draftData['employment'] = $data['employment'];
+                        }
+                        if (! empty($data['next_of_kin'])) {
+                            $draftData['next_of_kin'] = $data['next_of_kin'];
+                        }
+                        if (isset($data['consent'])) {
+                            $draftData['consent'] = $data['consent'];
+                        }
+                        $updateData['draft_client_data'] = $draftData;
                     }
-
-                    if (! empty($data['address'])) {
-                        $current['address'] = $data['address'];
-                    }
-
-                    if (! empty($data['employment'])) {
-                        $current['employment'] = $data['employment'];
-                    }
-
-                    if (! empty($data['next_of_kin'])) {
-                        $current['next_of_kin'] = $data['next_of_kin'];
-                    }
-
-                    if (isset($data['consent'])) {
-                        $current['consent'] = $data['consent'];
-                    }
-
-                    $updateData['draft_client_data'] = $current;
                 }
 
                 $case->update($updateData);
@@ -434,8 +422,8 @@ class CaseService
                 throw new AuthorizationException('You do not own this draft.');
             }
 
-            // Create Client from draft_client_data for new-client drafts (client_id is null)
-            if ($case->client_id === null && ! empty($case->draft_client_data)) {
+            // Create client from draft_client_data if no client_id exists (new-client draft)
+            if (empty($case->client_id) && ! empty($case->draft_client_data)) {
                 $draftData = $case->draft_client_data;
 
                 $client = Client::create([
@@ -490,10 +478,12 @@ class CaseService
 
                 $case->client_id = $client->id;
                 $case->consent_given_at = ! empty($draftData['consent']) ? now() : null;
+                $case->save();
             }
 
-            $case->status = 'OPEN';
-            $case->save();
+            $case->update([
+                'status' => 'OPEN',
+            ]);
 
             AuditLog::create([
                 'action' => 'PUBLISH',

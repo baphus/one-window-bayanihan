@@ -1027,14 +1027,6 @@ function handleConfirmClient(client) {
     setSelectedClient(null);
 }
 
-    function handleFormKeyDown(e) {
-        // Only intercept Enter on text inputs (not buttons, selects, textareas)
-        // This prevents the form from submitting when pressing Enter in an input on Steps 1-2
-        if (e.key === 'Enter' && currentStep < 3 && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && e.target.type !== 'radio') {
-            e.preventDefault();
-        }
-    }
-
     const nokSummary = hasNextOfKin
         ? [nokFirstName, nokLastName].filter(Boolean).join(' ') || 'Not yet provided'
         : 'No next of kin indicated';
@@ -1075,7 +1067,12 @@ function handleConfirmClient(client) {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
+            <form onSubmit={handleSubmit} onKeyDown={(e) => {
+                if (e.key === 'Enter' && currentStep < 3 && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    if (canProceed()) handleNext();
+                }
+            }}>
                 <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-[#cbd5e1] bg-white shadow-sm">
                     <div className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-[#cbd5e1] bg-slate-50/60 p-8">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1098,7 +1095,9 @@ function handleConfirmClient(client) {
                                             <div key={step.id} className="flex gap-4 group">
                                                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-bold transition-colors bg-white ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'border-indigo-600 text-indigo-600' : 'border-[#cbd5e1] text-slate-400 group-hover:border-slate-400'}`}>
                                                     {isCompleted ? (
-                                                        <span className="material-symbols-outlined text-[16px]">check</span>
+                                                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polyline points="20 6 9 17 4 12" />
+                                                        </svg>
                                                     ) : step.id}
                                                 </div>
                                                 <div className="pt-1">

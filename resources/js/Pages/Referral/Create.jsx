@@ -93,11 +93,13 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         const agency = agencies.find((a) => a.id === data.agcy_id);
         if (!agency?.services?.length) return;
 
-        setData('services', (current) => {
-            const valid = current.filter((s) => agency.services.some((as) => as.name === s));
-            if (valid.length) return valid;
-            return [agency.services[0].name];
-        });
+        const current = data.services;
+        const valid = current.filter((s) => agency.services.some((as) => as.name === s));
+        if (valid.length) {
+            setData('services', valid);
+        } else {
+            setData('services', [agency.services[0].name]);
+        }
     }, [data.agcy_id]);
 
     useEffect(() => {
@@ -127,10 +129,10 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     }
 
     function toggleServiceSelection(service) {
-        setData('services', (current) =>
-            current.includes(service)
-                ? current.filter((item) => item !== service)
-                : [...current, service]
+        setData('services',
+            data.services.includes(service)
+                ? data.services.filter((item) => item !== service)
+                : [...data.services, service]
         );
     }
 
@@ -248,14 +250,11 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                         value={data.agcy_id}
                                         onChange={(e) => {
                                             const nextAgencyId = e.target.value;
+                                            const agency = agencies.find((a) => a.id === nextAgencyId);
+                                            const nextServices = agency?.services?.map((s) => s.name) || [];
+                                            const valid = data.services.filter((s) => nextServices.includes(s));
                                             setData('agcy_id', nextAgencyId);
-                                            setData('services', (current) => {
-                                                const agency = agencies.find((a) => a.id === nextAgencyId);
-                                                const nextServices = agency?.services?.map((s) => s.name) || [];
-                                                const valid = current.filter((s) => nextServices.includes(s));
-                                                if (valid.length) return valid;
-                                                return nextServices.length ? [nextServices[0]] : [];
-                                            });
+                                            setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
                                         }}
                                         className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                     >
