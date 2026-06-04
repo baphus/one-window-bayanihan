@@ -1,14 +1,15 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\HandleCors;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IpWhitelist;
 use App\Http\Middleware\SetPostgresSession;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(HandleCors::class);
         $middleware->append(SetPostgresSession::class);
         $middleware->trustProxies(
             at: '*',
