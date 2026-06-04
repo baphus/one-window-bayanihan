@@ -132,9 +132,9 @@ export default function DistributionChart({
     return { ...base, ...options };
   }, [isCircular, isHorizontalBar, options]);
 
-  // Segment click handler
-  const handleElementClick = useCallback(
-    (elements) => {
+  // Segment click handler (via options.onClick — avoids forwarded-prop warning)
+  const handleChartClick = useCallback(
+    (_event, elements) => {
       if (elements.length > 0 && onSegmentClick) {
         const index = elements[0].index;
         onSegmentClick(data?.labels?.[index] || '', index);
@@ -216,10 +216,12 @@ export default function DistributionChart({
 
   // --- Render chart ---
   const renderChart = () => {
+    const chartOptions = onSegmentClick
+      ? { ...mergedOptions, onClick: handleChartClick }
+      : mergedOptions;
     const commonProps = {
       data: chartData,
-      options: mergedOptions,
-      getElementAtEvent: onSegmentClick ? handleElementClick : undefined,
+      options: chartOptions,
     };
 
     if (isCircular) {

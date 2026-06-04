@@ -308,4 +308,22 @@ class InsightsApiController extends Controller
             $this->insightsService->getCapacityForecast($user)
         );
     }
+
+    public function trends(Request $request)
+    {
+        $user = $request->user();
+        $type = $request->query('type');
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $interval = $request->query('interval', 'daily');
+        $filters = ['from' => $from, 'to' => $to, 'interval' => $interval];
+
+        return response()->json(
+            match ($type) {
+                'resolution_time' => $this->insightsService->getResolutionTimeTrend($user, $filters),
+                'agency_workload' => $this->insightsService->getAgencyWorkloadTrend($user, $filters),
+                default => ['labels' => [], 'datasets' => []],
+            }
+        );
+    }
 }
