@@ -94,7 +94,7 @@ export default function ForgotPassword({ status }) {
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {errorMsg && (
                                         <div className="bg-error-container p-4 border border-error/20 flex items-center gap-3">
-                                            <span className="material-symbols-outlined text-error text-[20px]">alert_circle</span>
+                                            <span className="material-symbols-outlined text-error text-[20px]">error</span>
                                             <p className="text-xs font-semibold text-on-error-container">{errorMsg}</p>
                                         </div>
                                     )}
