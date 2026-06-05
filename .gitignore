@@ -30,3 +30,6 @@ Thumbs.db
 /.omo
 /.opencode
 /.playwright-mcp
+/.claude
+/.agents
+skills-lock.json

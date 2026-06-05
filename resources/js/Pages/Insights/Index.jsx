@@ -234,8 +234,17 @@ export default function InsightsIndex(props) {
           <OperationalMonitor
             agingCases={can('aging_cases') ? (agingCases?.details ?? []) : null}
             stalledReferrals={stalledReferrals?.referrals ?? []}
-            overloadedAgencies={can('overloaded_agencies') ? overloadedAgencies : null}
-            bottleneckAnalysis={can('bottleneck_detection') ? bottleneckAnalysis : null}
+            overloadedAgencies={can('overloaded_agencies') && overloadedAgencies ? overloadedAgencies.labels.map((name, i) => ({
+              agency_name: name,
+              active_cases: overloadedAgencies.data[i],
+              capacity: overloadedAgencies.threshold,
+            })) : null}
+            bottleneckAnalysis={can('bottleneck_detection') && bottleneckAnalysis ? bottleneckAnalysis.labels.map((label, i) => ({
+              label,
+              count: bottleneckAnalysis.datasets?.[0]?.data?.[i] ?? 0,
+              is_bottleneck: (bottleneckAnalysis.datasets?.[0]?.data?.[i] ?? 0) > 24,
+              percentage: Math.min(100, ((bottleneckAnalysis.datasets?.[0]?.data?.[i] ?? 0) / 48) * 100),
+            })) : null}
             rejectionAnalysis={rejectionAnalysis ? rejectionAnalysis.labels.map((l, i) => ({ reason: l, count: rejectionAnalysis.data[i] })) : []}
           />
         )}

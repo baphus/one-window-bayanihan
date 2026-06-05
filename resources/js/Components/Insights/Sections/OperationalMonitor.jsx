@@ -33,7 +33,7 @@ function SectionCard({ title, children }) {
 }
 
 function AgingCasesTable({ data }) {
-  if (!data || data.length === 0) return <EmptyState message="No aging cases data available." />;
+  if (!data || !Array.isArray(data) || data.length === 0) return <EmptyState message="No aging cases data available." />;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[11px]">
@@ -76,7 +76,7 @@ function AgingCasesTable({ data }) {
 }
 
 function StalledReferralsTable({ data }) {
-  if (!data || data.length === 0) return <EmptyState message="No stalled referrals data available." />;
+  if (!data || !Array.isArray(data) || data.length === 0) return <EmptyState message="No stalled referrals data available." />;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[11px]">
@@ -111,7 +111,7 @@ function StalledReferralsTable({ data }) {
 
 function OverloadedAgenciesChart({ data }) {
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return null;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
     return {
       labels: data.map((a) => a.agency_name || a.agency || a.name),
       datasets: [{
@@ -137,7 +137,7 @@ function OverloadedAgenciesChart({ data }) {
 }
 
 function BottleneckAnalysis({ data }) {
-  if (!data || data.length === 0) return <EmptyState message="No bottleneck analysis data available." />;
+  if (!data || !Array.isArray(data) || data.length === 0) return <EmptyState message="No bottleneck analysis data available." />;
   return (
     <div className="space-y-3">
       {data.map((step, i) => {
@@ -178,7 +178,7 @@ function BottleneckAnalysis({ data }) {
 
 function RejectionAnalysis({ data }) {
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return null;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
     const total = data.reduce((s, r) => s + (r.count || r.value || 0), 0) || 1;
     return {
       labels: data.map((r) => r.reason || r.label || r.status),
