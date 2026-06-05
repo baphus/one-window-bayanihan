@@ -21,7 +21,7 @@ export function InfoCell({ label, value, fullRow = false }) {
   return (
     <div className={`border-b border-r border-[#d8dee8] px-3 py-2 ${fullRow ? 'md:col-span-3' : ''}`}>
       <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{label}</p>
-      <div className="mt-1 text-[12px] font-semibold text-slate-700">{value || '-'}</div>
+      <p className="mt-1 text-[12px] font-semibold text-slate-700">{value || '-'}</p>
     </div>
   );
 }

@@ -38,23 +38,12 @@ class Client extends Model
 
     /**
      * Backward-compatible accessor: returns the latest case for this client.
-     * NOTE: This is an accessor, not an Eloquent relationship — it cannot be
-     * eager-loaded with with(). Eager-load 'caseFiles' instead and access
-     * $client->case_file via the appended attribute.
+     * Used where existing code still references $client->caseFile (singular).
      */
     public function getCaseFileAttribute()
     {
-        // If caseFiles is already eager-loaded, pick the latest from the collection
-        if ($this->relationLoaded('caseFiles')) {
-            return $this->caseFiles->sortByDesc('created_at')->first();
-        }
-
         return $this->caseFiles()->latest()->first();
     }
-
-    protected $appends = ['case_file'];
-
-    protected $hidden = ['case_files'];
 
     public function addresses()
     {

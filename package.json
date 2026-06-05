@@ -30,7 +30,6 @@
         "jspdf": "^4.2.1",
         "jspdf-autotable": "^5.0.7",
         "lucide-react": "^1.14.0",
-        "playwright": "^1.56.1",
         "react-chartjs-2": "^5.3.1",
         "react-markdown": "^10.1.0",
         "rehype-sanitize": "^6.0.0",

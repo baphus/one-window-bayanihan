@@ -1,6 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
@@ -10,29 +9,9 @@ import CaseManagerAvatar from '@/Components/CaseManagerAvatar';
 import { formatDisplayDate } from '@/lib/utils';
 
 export default function ClientShow({ client, auditLogs }) {
-    const [addressNames, setAddressNames] = useState({});
     const fullName = [client.first_name, client.middle_name, client.last_name, client.suffix]
         .filter(Boolean)
         .join(' ');
-
-    useEffect(() => {
-        if (!client.addresses?.length) return;
-        const codes = [];
-        client.addresses.forEach(addr => {
-            if (addr.region) codes.push(addr.region);
-            if (addr.province) codes.push(addr.province);
-            if (addr.city_municipality) codes.push(addr.city_municipality);
-            if (addr.barangay) codes.push(addr.barangay);
-        });
-        if (codes.length === 0) return;
-        const unique = [...new Set(codes)];
-        const params = new URLSearchParams();
-        unique.forEach(c => params.append('codes[]', c));
-        fetch(`/api/address/resolve?${params.toString()}`)
-            .then(r => r.json())
-            .then(data => setAddressNames(data))
-            .catch(() => {});
-    }, [client.addresses]);
 
     return (
         <AppLayout title={fullName}>
@@ -92,10 +71,10 @@ export default function ClientShow({ client, auditLogs }) {
                             {client.addresses.map((addr) => (
                                 <SubsectionCard key={addr.id} title="Address">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <MetaTile label="Region" value={addressNames[addr.region] || addr.region || 'N/A'} />
-                                        <MetaTile label="Province" value={addressNames[addr.province] || addr.province || 'N/A'} />
-                                        <MetaTile label="City/Municipality" value={addressNames[addr.city_municipality] || addr.city_municipality || 'N/A'} />
-                                        <MetaTile label="Barangay" value={addressNames[addr.barangay] || addr.barangay || 'N/A'} />
+                                        <MetaTile label="Region" value={addr.region || 'N/A'} />
+                                        <MetaTile label="Province" value={addr.province || 'N/A'} />
+                                        <MetaTile label="City/Municipality" value={addr.city_municipality || 'N/A'} />
+                                        <MetaTile label="Barangay" value={addr.barangay || 'N/A'} />
                                         <MetaTile label="Street" value={addr.street || 'N/A'} />
                                     </div>
                                 </SubsectionCard>

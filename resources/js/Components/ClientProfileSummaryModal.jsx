@@ -1,6 +1,5 @@
 import Modal from '@/Components/Modal';
 import { MetaTile } from '@/Components/ui/CardSection';
-import { useState, useEffect } from 'react';
 
 export default function ClientProfileSummaryModal({
     show,
@@ -8,8 +7,6 @@ export default function ClientProfileSummaryModal({
     onConfirm,
     client,
 }) {
-    const [addressNames, setAddressNames] = useState({});
-    
     if (!client) return null;
 
     const fullName = [client.first_name, client.middle_name, client.last_name, client.suffix]
@@ -19,22 +16,6 @@ export default function ClientProfileSummaryModal({
     const address = client.addresses?.[0];
     const employment = client.employments?.[0];
     const kin = client.nextOfKin?.[0];
-
-    useEffect(() => {
-        if (!address) return;
-        const codes = [];
-        if (address.region) codes.push(address.region);
-        if (address.province) codes.push(address.province);
-        if (address.city_municipality) codes.push(address.city_municipality);
-        if (address.barangay) codes.push(address.barangay);
-        if (codes.length === 0) return;
-        const params = new URLSearchParams();
-        codes.forEach(c => params.append('codes[]', c));
-        fetch(`/api/address/resolve?${params.toString()}`)
-            .then(r => r.json())
-            .then(data => setAddressNames(data))
-            .catch(() => {});
-    }, [address]);
 
     return (
         <Modal show={show} onClose={onClose} maxWidth="2xl">
@@ -80,10 +61,10 @@ export default function ClientProfileSummaryModal({
                     </h3>
                     {address ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <MetaTile label="Region" value={addressNames[address.region] || address.region || 'N/A'} />
-                            <MetaTile label="Province" value={addressNames[address.province] || address.province || 'N/A'} />
-                            <MetaTile label="City/Municipality" value={addressNames[address.city_municipality] || address.city_municipality || 'N/A'} />
-                            <MetaTile label="Barangay" value={addressNames[address.barangay] || address.barangay || 'N/A'} />
+                            <MetaTile label="Region" value={address.region || 'N/A'} />
+                            <MetaTile label="Province" value={address.province || 'N/A'} />
+                            <MetaTile label="City/Municipality" value={address.city_municipality || 'N/A'} />
+                            <MetaTile label="Barangay" value={address.barangay || 'N/A'} />
                             <MetaTile label="Street" value={address.street || 'N/A'} />
                         </div>
                     ) : (
