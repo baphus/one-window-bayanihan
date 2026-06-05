@@ -9,11 +9,36 @@
 
 | Service | Provider | Purpose | Plan |
 |---|---|---|---|
-| Application Hosting | Render | Laravel + Vite runtime | Web Service (paid) |
-| Database | Supabase | PostgreSQL 17 | Pro plan (paid) |
+| **Staging** Application | Render | Laravel + Vite runtime | Web Service (paid) |
+| **Production** Application | Render | Laravel + Vite runtime | Web Service (paid) |
+| **Staging** Database | Supabase | PostgreSQL 17 | Pro plan (paid) |
+| **Production** Database | Supabase | PostgreSQL 17 | Pro plan (paid) |
 | Media Storage | Cloudinary | Document uploads + CDN | Free / Paid |
 | Email/SMTP | SendGrid / SMTP | OTP + notifications | Free tier sufficient |
 | AI Chatbot (optional) | OpenAI | Chatbot service | Pay-as-you-go |
+
+---
+
+## 1.1 Staging vs. Production
+
+| Aspect | Staging | Production |
+|--------|---------|-----------|
+| **URL** | https://bayanihan-staging.onrender.com | https://bayanihan.onrender.com |
+| **Database** | Supabase staging project | Supabase production project |
+| **Cloudinary** | Staging account/credentials | Production account/credentials |
+| **Auto-Deploy** | On every push to `main` | Manual deployment (protected) |
+| **Data** | Fresh 1000+ test cases (seeded) | Real production data (protected) |
+| **Debug Mode** | ON (OTP auto-fills) | OFF (strict security) |
+| **IP Whitelist** | Disabled (0.0.0.0/0) | Enabled (DMW office + VPN only) |
+| **Purpose** | Tester regression testing | Live government environment |
+
+**For Testers:**
+- Access staging URL with test credentials
+- Test data resets daily at 2 AM UTC (10 AM PH)
+- Run `php artisan seed:staging --fresh` for manual reset
+- Report bugs in GitHub with staging-environment label
+
+See: [TESTING_ONBOARDING.md](./TESTING_ONBOARDING.md) and [TESTER_RUNBOOK.md](./TESTER_RUNBOOK.md)
 
 ---
 

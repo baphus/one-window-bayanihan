@@ -131,7 +131,7 @@ export default function CaseCreate() {
         is_draft: false,
     });
 
-    const [currentStep, setCurrentStep] = useState(1);
+    const [currentStep, setCurrentStep] = useState(client ? 2 : 1);
     const [caseId, setCaseId] = useState(() => GenerateCaseId());
     const [trackingId, setTrackingId] = useState(() => GenerateTrackingId());
     const [clientSource, setClientSource] = useState('new');
@@ -1022,7 +1022,7 @@ function handleConfirmClient(client) {
                 </div>
             )}
 
-            {client && (
+            {client && !data.selected_client_id && (
                 <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
                     <strong>Pre-filled</strong> from existing client record: {[client.first_name, client.last_name].filter(Boolean).join(' ')}
                 </div>

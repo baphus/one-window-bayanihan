@@ -14,7 +14,7 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        $clients = Client::with(['caseFile' => function ($q) {
+        $clients = Client::with(['caseFiles' => function ($q) {
             $q->with('referrals.agency');
         }])->orderBy('created_at', 'desc');
 
@@ -24,7 +24,7 @@ class ClientController extends Controller
                 $q->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
                     ->orWhere('middle_name', 'like', "%{$search}%")
-                    ->orWhereHas('caseFile', function ($q) use ($search) {
+                    ->orWhereHas('caseFiles', function ($q) use ($search) {
                         $q->where('case_number', 'like', "%{$search}%");
                     });
             });
@@ -39,7 +39,7 @@ class ClientController extends Controller
     public function show(string $id)
     {
         $client = Client::with([
-            'caseFile' => function ($q) {
+            'caseFiles' => function ($q) {
                 $q->with(['referrals.agency', 'referrals.milestones', 'user']);
             },
             'addresses',
