@@ -13,7 +13,7 @@ import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/l
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
   'Senior Citizen': { icon: 'elderly', className: 'bg-orange-100 text-orange-800 border-orange-200' },
-  'Solo Parent': { icon: 'single_parent', className: 'bg-pink-100 text-pink-800 border-pink-200' },
+  'Solo Parent': { icon: 'family_home', className: 'bg-pink-100 text-pink-800 border-pink-200' },
   'Indigenous Person': { icon: 'groups', className: 'bg-teal-100 text-teal-800 border-teal-200' },
 };
 
