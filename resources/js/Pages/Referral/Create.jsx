@@ -1,24 +1,26 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
 const STEPS = [
-    { index: 1, label: 'Select Case' },
-    { index: 2, label: 'Select Agency' },
-    { index: 3, label: 'Select Service' },
+    { id: 1, title: 'Select Case', description: 'Choose the case to refer' },
+    { id: 2, title: 'Select Agency', description: 'Pick the receiving agency' },
+    { id: 3, title: 'Select Service', description: 'Choose services and attach requirements' },
 ];
 
 function buildServiceRequirementKey(serviceTitle, requirement) {
     return `${serviceTitle}::${requirement}`;
 }
 
-function FieldLabel({ label, children, full }) {
+function Field({ label, required, children, className }) {
     return (
-        <div className={full ? 'md:col-span-2' : ''}>
-            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">{label}</label>
+        <div className={className}>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
+                {label}{required ? ' *' : ''}
+            </label>
             {children}
         </div>
     );
@@ -45,6 +47,19 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     const [createStep, setCreateStep] = useState(1);
     const [requirementUploads, setRequirementUploads] = useState({});
     const [notesValue, setNotesValue] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const searchDebounceRef = useRef(null);
+
+    const filteredCases = useMemo(() => {
+        const q = debouncedSearch.trim().toLowerCase();
+        if (!q) return openCases;
+        return openCases.filter((c) => {
+            const clientName = [c.client?.first_name, c.client?.last_name].filter(Boolean).join(' ').toLowerCase();
+            return (c.case_number?.toLowerCase() || '').includes(q) || clientName.includes(q);
+        });
+    }, [openCases, debouncedSearch]);
+
     const initialFormRef = useRef({ case_id: data.case_id, agcy_id: '', services: [] });
     const hasDirty = useMemo(() => (
         data.case_id !== initialFormRef.current.case_id
@@ -54,7 +69,6 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         || Object.keys(requirementUploads).length > 0
     ), [data.case_id, data.agcy_id, data.services, notesValue, requirementUploads]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
-    const initialAgencyId = agencies[0]?.id || '';
     const selectedCase = openCases.find((item) => item.id === data.case_id);
     const selectedAgency = agencies.find((item) => item.id === data.agcy_id);
 
@@ -118,6 +132,8 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         data.case_id && data.agcy_id && data.services.length > 0 && !hasMissingRequirementUploads
     );
 
+    const stepProgress = Math.round((createStep / STEPS.length) * 100);
+
     function goToNextStep() {
         if (createStep === 1 && isStepOneValid) { setCreateStep(2); return; }
         if (createStep === 2 && isStepTwoValid) { setCreateStep(3); }
@@ -146,7 +162,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     }
 
     function submitReferral(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (!isStepThreeValid) return;
 
         Object.entries(requirementUploads).forEach(([key, file]) => {
@@ -164,250 +180,391 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         });
     }
 
-    return (
-        <AppLayout title="Create Referral">
-            <Head title="Create Referral" />
+    function canProceed() {
+        if (createStep === 1) return isStepOneValid;
+        if (createStep === 2) return isStepTwoValid;
+        return true;
+    }
 
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-4">
-                <Link href={route('referrals.index')} className="hover:text-indigo-600 transition">Referrals</Link>
-                <span className="mx-2">&gt;</span>
-                <span>New Referral</span>
-            </div>
+    return (
+        <AppLayout title="Refer to Agency">
+            <Head title="Refer to Agency" />
+
+            {Object.keys(errors).length > 0 && (
+                <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+                    <h3 className="text-sm font-bold text-red-800">Unable to create referral</h3>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-red-700">
+                        {Object.entries(errors).map(([field, message]) => (
+                            <li key={field}>{field}: {message}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-slate-900">New Referral</h1>
-                <p className="text-sm text-slate-500 mt-1">Complete each step to create a referral.</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">Refer to Agency</h1>
+                        <p className="text-sm text-slate-500 mt-1">A guided flow to create a referral to an external agency.</p>
+                    </div>
+                    <Link href={route('referrals.index')} className="text-sm text-indigo-600 hover:text-indigo-900">&larr; Back to Referrals</Link>
+                </div>
             </div>
 
-            <form onSubmit={submitReferral}>
-                <section className="rounded-lg border border-[#cbd5e1] bg-white shadow-sm">
-                    <div className="border-b border-[#e2e8f0] px-5 py-4">
-                        <div className="grid grid-cols-3 gap-2">
-                            {STEPS.map((step) => {
-                                const isActive = createStep === step.index;
-                                const isDone = createStep > step.index;
-                                return (
-                                    <div key={step.index}
-                                        className={`rounded-[3px] border px-3 py-2 text-center text-[11px] font-bold ${isActive ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : isDone ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-[#e2e8f0] bg-slate-50 text-slate-500'}`}
-                                    >
-                                        {step.label}
-                                    </div>
-                                );
-                            })}
+            <form onSubmit={(e) => e.preventDefault()} onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                }
+            }}>
+                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-[#cbd5e1] bg-white shadow-sm">
+                    <div className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-[#cbd5e1] bg-slate-50/60 p-8">
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Step Guide</h3>
+                            <p className="mt-2 text-[14px] font-bold text-slate-800">Step {createStep} of {STEPS.length}</p>
+                            <p className="mt-1 text-[12px] text-slate-500">Estimated time: 2-3 minutes</p>
+                            <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
+                                <div className="h-2 rounded-full bg-indigo-600 transition-all" style={{ width: `${stepProgress}%` }} />
+                            </div>
+                        </div>
+
+                        <div className="mt-6 space-y-6">
+                            <div>
+                                <h4 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Progress</h4>
+                                <div className="mt-4 space-y-6">
+                                    {STEPS.map((step) => {
+                                        const isCompleted = createStep > step.id;
+                                        const isCurrent = createStep === step.id;
+                                        return (
+                                            <div key={step.id} className="flex gap-4 group">
+                                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-bold transition-colors ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'bg-white border-indigo-600 text-indigo-600' : 'bg-white border-[#cbd5e1] text-slate-400 group-hover:border-slate-400'}`}>
+                                                    {isCompleted ? (
+                                                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polyline points="20 6 9 17 4 12" />
+                                                        </svg>
+                                                    ) : step.id}
+                                                </div>
+                                                <div className="pt-1">
+                                                    <p className={`text-[14px] font-bold ${isCurrent || isCompleted ? 'text-indigo-600' : 'text-slate-500'}`}>{step.title}</p>
+                                                    <p className="text-[12px] text-slate-400 mt-1 leading-snug">{step.description}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                <h4 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
+                                    {createStep === 1 ? 'Pick a case' : createStep === 2 ? 'Choose agency' : 'Finalize referral'}
+                                </h4>
+                                <ul className="mt-3 space-y-2 text-[13px] text-slate-600">
+                                    {createStep === 1 && (
+                                        <>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Select an open case from your list.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Review case details before proceeding.</span></li>
+                                        </>
+                                    )}
+                                    {createStep === 2 && (
+                                        <>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Choose the agency to refer to.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Services will be loaded based on agency.</span></li>
+                                        </>
+                                    )}
+                                    {createStep === 3 && (
+                                        <>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Select services and upload required documents.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add optional remarks for the agency.</span></li>
+                                        </>
+                                    )}
+                                </ul>
+                                <p className="mt-4 text-[12px] text-slate-500">You can track referral status from the referrals page.</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 px-5 py-4 md:grid-cols-2">
-                        {createStep === 1 && (
-                            <>
-                                <FieldLabel label="Case" full>
-                                    <select
-                                        value={data.case_id}
-                                        disabled={openCases.length === 0}
-                                        onChange={(e) => {
-                                            const nextCase = openCases.find((c) => c.id === e.target.value);
-                                            setData('case_id', e.target.value);
-                                            if (nextCase) {
-                                                setData('agcy_id', '');
-                                                setData('services', []);
-                                            }
-                                        }}
-                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                    >
-                                        {openCases.map((item) => (
-                                            <option key={item.id} value={item.id}>
-                                                {item.case_number} - {item.client?.first_name} {item.client?.last_name}
-                                            </option>
-                                        ))}
-                                        {openCases.length === 0 && <option value="">No open cases available</option>}
-                                    </select>
-                                </FieldLabel>
+                    <div className="flex-1 flex flex-col p-8">
+                        <div className="flex-1">
+                            <div className="mb-6 rounded-xl border border-slate-200 bg-gradient-to-br from-indigo-50 via-white to-white p-6">
+                                <div className="flex flex-wrap items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-indigo-600">Step {createStep}</p>
+                                        <h2 className="text-xl font-bold text-slate-800 mt-2">{STEPS[createStep - 1].title}</h2>
+                                        <p className="text-[13px] text-slate-500 mt-1">{STEPS[createStep - 1].description}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Progress</p>
+                                        <p className="text-[14px] font-bold text-slate-800 mt-1">{stepProgress}% complete</p>
+                                    </div>
+                                </div>
+                            </div>
 
-                                {selectedCase && (
-                                    <div className="rounded-[3px] border border-[#e2e8f0] bg-slate-50 px-3 py-3 md:col-span-2">
-                                        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Selected Case Details</p>
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                            <InfoRow label="Case Number" value={selectedCase.case_number} />
-                                            <InfoRow label="Client Name" value={`${selectedCase.client?.first_name || ''} ${selectedCase.client?.last_name || ''}`} />
-                                            <InfoRow label="Client Type" value={selectedCase.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'} />
-                                            <InfoRow label="Status" value={selectedCase.status} />
-                                            <InfoRow label="Date Created" value={formatDisplayDate(selectedCase.created_at)} subtext={formatDisplayTime(selectedCase.created_at)} />
-                                            {selectedCase.summary && (
-                                                <div className="md:col-span-2">
-                                                    <InfoRow label="Case Narrative" value={selectedCase.summary} />
+                            <div className="space-y-6">
+                                {createStep === 1 && (
+                                    <div className="space-y-5">
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Selection</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Choose the case you want to refer to an agency.</p>
+                                            <div className="mt-4">
+                                                <Field label="Case" required>
+                                                    {openCases.length === 0 ? (
+                                                        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                                            <span className="material-symbols-outlined text-[40px] mb-3">folder_off</span>
+                                                            <p className="text-[14px] font-medium text-slate-500">No open cases available</p>
+                                                            <p className="text-[12px] text-slate-400 mt-1">There are no cases to refer at this time.</p>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                value={searchQuery}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    setSearchQuery(value);
+                                                                    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                                                                    searchDebounceRef.current = setTimeout(() => {
+                                                                        setDebouncedSearch(value);
+                                                                    }, 300);
+                                                                }}
+                                                                placeholder="Search by case number or client name..."
+                                                                className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            />
+
+                                                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                {filteredCases.map((item) => (
+                                                                    <button
+                                                                        key={item.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setData('case_id', item.id);
+                                                                            setData('agcy_id', '');
+                                                                            setData('services', []);
+                                                                        }}
+                                                                        className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                                                            item.id === data.case_id
+                                                                                ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/30'
+                                                                                : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-md'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            <span className="text-[13px] font-bold text-indigo-700">{item.case_number}</span>
+                                                                            <div className="flex shrink-0 gap-1.5">
+                                                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                                                                    item.client_type === 'OFW'
+                                                                                        ? 'bg-blue-100 text-blue-700'
+                                                                                        : 'bg-amber-100 text-amber-700'
+                                                                                }`}>
+                                                                                    {item.client_type === 'OFW' ? 'OFW' : 'NOK'}
+                                                                                </span>
+                                                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                                                                    item.status === 'open' ? 'bg-green-100 text-green-700' :
+                                                                                    item.status === 'ongoing' ? 'bg-yellow-100 text-yellow-700' :
+                                                                                    'bg-slate-100 text-slate-700'
+                                                                                }`}>
+                                                                                    {item.status}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <p className="text-[13px] font-semibold text-slate-800">
+                                                                            {item.client?.first_name || ''} {item.client?.last_name || ''}
+                                                                        </p>
+                                                                        <p className="text-[11px] text-slate-500">
+                                                                            Created: {formatDisplayDate(item.created_at)}
+                                                                        </p>
+                                                                        {item.summary && (
+                                                                            <p className="text-[12px] text-slate-600 line-clamp-2 leading-relaxed">
+                                                                                {item.summary}
+                                                                            </p>
+                                                                        )}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+
+                                                            {filteredCases.length === 0 && (
+                                                                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                                                    <span className="material-symbols-outlined text-[40px] mb-3">folder_off</span>
+                                                                    <p className="text-[14px] font-medium text-slate-500">No cases found</p>
+                                                                    <p className="text-[12px] text-slate-400 mt-1">Try a different search term.</p>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        {selectedCase && (
+                                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                                <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Selected Case Details</h3>
+                                                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                    <InfoRow label="Case Number" value={selectedCase.case_number} />
+                                                    <InfoRow label="Client Name" value={`${selectedCase.client?.first_name || ''} ${selectedCase.client?.last_name || ''}`} />
+                                                    <InfoRow label="Client Type" value={selectedCase.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'} />
+                                                    <InfoRow label="Status" value={selectedCase.status} />
+                                                    <InfoRow label="Date Created" value={formatDisplayDate(selectedCase.created_at)} subtext={formatDisplayTime(selectedCase.created_at)} />
+                                                    {selectedCase.summary && (
+                                                        <div className="md:col-span-2">
+                                                            <InfoRow label="Case Narrative" value={selectedCase.summary} />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {createStep === 2 && (
+                                    <div className="space-y-5">
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Agency Selection</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Choose the agency to handle this referral.</p>
+                                            <div className="mt-4">
+                                                <Field label="Agency" required>
+                                                    <select
+                                                        value={data.agcy_id}
+                                                        onChange={(e) => {
+                                                            const nextAgencyId = e.target.value;
+                                                            const agency = agencies.find((a) => a.id === nextAgencyId);
+                                                            const nextServices = agency?.services?.map((s) => s.name) || [];
+                                                            const valid = data.services.filter((s) => nextServices.includes(s));
+                                                            setData('agcy_id', nextAgencyId);
+                                                            setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
+                                                        }}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select an agency...</option>
+                                                        {agencies.map((agency) => (
+                                                            <option key={agency.id} value={agency.id}>
+                                                                {agency.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        {selectedCase && (
+                                            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-5 shadow-sm">
+                                                <p className="text-[12px] text-indigo-700">
+                                                    Referring case: <span className="font-bold">{selectedCase.client?.first_name} {selectedCase.client?.last_name}</span> ({selectedCase.case_number})
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {createStep === 3 && (
+                                    <div className="space-y-5">
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Services</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Select one or more services offered by {selectedAgency?.name || 'the agency'}.</p>
+                                            <div className="mt-4 rounded-lg border border-[#cbd5e1] bg-white px-4 py-3">
+                                                {availableServices.length ? (
+                                                    <div className="space-y-2">
+                                                        {availableServices.map((service) => (
+                                                            <label key={service} className="flex items-center gap-3 text-[13px] text-slate-700 cursor-pointer py-1">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={data.services.includes(service)}
+                                                                    onChange={() => toggleServiceSelection(service)}
+                                                                    className="h-4 w-4 rounded border-[#cbd5e1] text-indigo-600 focus:ring-indigo-500"
+                                                                />
+                                                                <span>{service}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[12px] text-slate-500">No available services for this agency.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {selectedServiceDetails.length > 0 && (
+                                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                                <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Service Requirements</h3>
+                                                <p className="mt-2 text-[13px] text-slate-500">Upload required documents for each selected service.</p>
+                                                <div className="mt-4 space-y-4">
+                                                    {selectedServiceDetails.map((service) => {
+                                                        const docs = parseRequiredDocs(service);
+                                                        return (
+                                                            <div key={service.name} className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+                                                                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">{service.name}</p>
+                                                                <p className="mt-1 text-[12px] text-slate-500">
+                                                                    Processing Time: <span className="font-semibold text-indigo-600">{service.processing_days || 'N/A'} business days</span>
+                                                                </p>
+
+                                                                {docs.length ? (
+                                                                    <div className="mt-3 space-y-2">
+                                                                        {docs.map((requirement) => {
+                                                                            const requirementKey = buildServiceRequirementKey(service.name, requirement);
+                                                                            const hasFile = Boolean(requirementUploads[requirementKey]);
+                                                                            return (
+                                                                                <div key={requirementKey}
+                                                                                    className={`rounded-lg border px-4 py-3 ${!hasFile ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-white'}`}
+                                                                                >
+                                                                                    <p className="text-[12px] font-semibold text-slate-700">{requirement}</p>
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        onChange={(e) => handleFileChange(requirementKey, e.target.files?.[0] || null)}
+                                                                                        className="mt-2 block w-full rounded-[3px] border border-[#cbd5e1] bg-white px-3 py-2 text-[12px] text-slate-700 file:mr-3 file:rounded-[3px] file:border-0 file:bg-indigo-50 file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-700"
+                                                                                    />
+                                                                                    {hasFile ? (
+                                                                                        <p className="mt-1 text-[11px] text-emerald-600">Attached: {requirementUploads[requirementKey]?.name}</p>
+                                                                                    ) : (
+                                                                                        <p className="mt-1 text-[11px] text-rose-700">Upload is required for this document.</p>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="mt-2 text-[12px] text-slate-500">No listed requirements for this service.</p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {hasMissingRequirementUploads && (
+                                                    <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-800">
+                                                        Missing uploads: {missingRequirementKeys.length}. Attach one file for each required service document to continue.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Remarks</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Add optional context for the receiving agency.</p>
+                                            <div className="mt-4">
+                                                <textarea
+                                                    rows={4}
+                                                    value={notesValue}
+                                                    onChange={(e) => setNotesValue(e.target.value)}
+                                                    placeholder="Optional context for the receiving agency..."
+                                                    className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 )}
-                            </>
-                        )}
-
-                        {createStep === 2 && (
-                            <>
-                                <FieldLabel label="Agency" full>
-                                    <select
-                                        value={data.agcy_id}
-                                        onChange={(e) => {
-                                            const nextAgencyId = e.target.value;
-                                            const agency = agencies.find((a) => a.id === nextAgencyId);
-                                            const nextServices = agency?.services?.map((s) => s.name) || [];
-                                            const valid = data.services.filter((s) => nextServices.includes(s));
-                                            setData('agcy_id', nextAgencyId);
-                                            setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
-                                        }}
-                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Select an agency...</option>
-                                        {agencies.map((agency) => (
-                                            <option key={agency.id} value={agency.id}>
-                                                {agency.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </FieldLabel>
-
-                                {selectedCase && (
-                                    <div className="rounded-[3px] border border-[#e2e8f0] bg-slate-50 px-3 py-2 text-[12px] text-slate-600 md:col-span-2">
-                                        Selected case: <span className="font-semibold text-slate-800">{selectedCase.client?.first_name} {selectedCase.client?.last_name}</span> ({selectedCase.case_number})
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {createStep === 3 && (
-                            <>
-                                <FieldLabel label="Services" full>
-                                    <div className="rounded-[3px] border border-[#cbd5e1] bg-white px-3 py-2">
-                                        {availableServices.length ? (
-                                            <div className="space-y-2">
-                                                {availableServices.map((service) => (
-                                                    <label key={service} className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={data.services.includes(service)}
-                                                            onChange={() => toggleServiceSelection(service)}
-                                                            className="h-4 w-4 rounded border-[#cbd5e1] text-indigo-600 focus:ring-indigo-500"
-                                                        />
-                                                        <span>{service}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-[12px] text-slate-500">No available services for this stakeholder.</p>
-                                        )}
-                                    </div>
-                                    <p className="mt-1 text-[11px] text-slate-500">Select one or more services.</p>
-                                </FieldLabel>
-
-                                <FieldLabel label="Service Requirements" full>
-                                    <div className="rounded-[3px] border border-[#e2e8f0] bg-slate-50 px-3 py-2">
-                                                {selectedServiceDetails.length ? (
-                                            <div className="space-y-3">
-                                                {selectedServiceDetails.map((service) => {
-                                                    const docs = parseRequiredDocs(service);
-                                                    return (
-                                                        <div key={service.name} className="rounded-[3px] border border-[#dbe5ef] bg-white px-3 py-3">
-                                                            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">{service.name}</p>
-                                                            <p className="mt-1 text-[12px] font-semibold text-slate-700">
-                                                                Processing Time: <span className="text-indigo-600">{service.processing_days || 'N/A'} business days</span>
-                                                            </p>
-
-                                                            {docs.length ? (
-                                                                <div className="mt-3 space-y-2">
-                                                                    {docs.map((requirement) => {
-                                                                        const requirementKey = buildServiceRequirementKey(service.name, requirement);
-                                                                        const hasFile = Boolean(requirementUploads[requirementKey]);
-                                                                        return (
-                                                                            <div key={requirementKey}
-                                                                                className={`rounded-[3px] border px-3 py-2 ${!hasFile ? 'border-rose-300 bg-rose-50/40' : 'border-[#dbe5ef] bg-white'}`}
-                                                                            >
-                                                                                <p className="text-[12px] font-semibold text-slate-700">{requirement}</p>
-                                                                                <input
-                                                                                    type="file"
-                                                                                    onChange={(e) => handleFileChange(requirementKey, e.target.files?.[0] || null)}
-                                                                                    className="mt-2 block w-full rounded-[3px] border border-[#cbd5e1] bg-white px-3 py-2 text-[12px] text-slate-700 file:mr-3 file:rounded-[3px] file:border-0 file:bg-indigo-50 file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-700"
-                                                                                />
-                                                                                {hasFile ? (
-                                                                                    <p className="mt-1 text-[11px] text-slate-500">Attached: {requirementUploads[requirementKey]?.name}</p>
-                                                                                ) : (
-                                                                                    <p className="mt-1 text-[11px] text-rose-700">Upload is required for this document.</p>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            ) : (
-                                                                <p className="mt-2 text-[12px] text-slate-500">No listed requirements for this service.</p>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <p className="text-[12px] text-slate-500">Select services above to see their requirements.</p>
-                                        )}
-
-                                        {hasMissingRequirementUploads && (
-                                            <div className="mt-3 rounded-[3px] border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-800">
-                                                Missing uploads: {missingRequirementKeys.length}. Attach one file for each required service document to continue.
-                                            </div>
-                                        )}
-                                    </div>
-                                </FieldLabel>
-
-                                <FieldLabel label="Remarks" full>
-                                    <textarea
-                                        rows={4}
-                                        value={notesValue}
-                                        onChange={(e) => setNotesValue(e.target.value)}
-                                        placeholder="Optional context for the receiving agency"
-                                        className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                    />
-                                </FieldLabel>
-                            </>
-                        )}
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-[#e2e8f0] px-5 py-3">
-                        <div>
-                            {errors.services && <p className="text-[12px] text-red-600">{errors.services}</p>}
-                            {errors.case_id && <p className="text-[12px] text-red-600">{errors.case_id}</p>}
-                            {errors.agcy_id && <p className="text-[12px] text-red-600">{errors.agcy_id}</p>}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Link
-                                href={route('referrals.index')}
-                                className="inline-flex items-center rounded-[3px] border border-[#cbd5e1] bg-white px-4 py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50"
-                            >
-                                Cancel
-                            </Link>
 
-                            {createStep > 1 && (
-                                <button
-                                    type="button"
-                                    onClick={goToPreviousStep}
-                                    className="inline-flex items-center rounded-[3px] border border-[#cbd5e1] bg-white px-4 py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50"
-                                >
-                                    Back
+                        <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
+                            <div className="flex items-center gap-2">
+                                <button type="button" onClick={goToPreviousStep} disabled={createStep === 1}
+                                    className="inline-flex items-center gap-2 rounded-md border border-[#cbd5e1] bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
                                 </button>
-                            )}
-
+                            </div>
                             {createStep < 3 ? (
-                                <button
-                                    type="button"
-                                    onClick={goToNextStep}
-                                    disabled={(createStep === 1 && !isStepOneValid) || (createStep === 2 && !isStepTwoValid)}
-                                    className="inline-flex items-center rounded-[3px] bg-indigo-600 px-4 py-2 text-[12px] font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    Next
+                                <button type="button" onClick={goToNextStep} disabled={!canProceed()}
+                                    className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
+                                    Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                                 </button>
                             ) : (
-                                <button
-                                    type="submit"
-                                    disabled={processing || !isStepThreeValid}
-                                    className="inline-flex items-center rounded-[3px] bg-indigo-600 px-4 py-2 text-[12px] font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
+                                <button type="button" onClick={submitReferral} disabled={processing || !isStepThreeValid}
+                                    className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
                                     {processing ? 'Submitting...' : 'Submit Referral'}
                                 </button>
                             )}
