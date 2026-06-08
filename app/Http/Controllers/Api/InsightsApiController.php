@@ -129,27 +129,36 @@ class InsightsApiController extends Controller
     public function agingCases(Request $request)
     {
         $user = $request->user();
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $filters = ['from' => $from, 'to' => $to];
 
         return response()->json(
-            $this->insightsService->getAgingCases($user)
+            $this->insightsService->getAgingCases($user, $filters)
         );
     }
 
     public function stalledReferrals(Request $request)
     {
         $user = $request->user();
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $filters = ['from' => $from, 'to' => $to];
 
         return response()->json(
-            $this->insightsService->getStalledReferrals($user)
+            $this->insightsService->getStalledReferrals($user, $filters)
         );
     }
 
     public function overloadedAgencies(Request $request)
     {
         $user = $request->user();
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $filters = ['from' => $from, 'to' => $to];
 
         return response()->json(
-            $this->insightsService->getOverloadedAgencies($user)
+            $this->insightsService->getOverloadedAgencies($user, $filters)
         );
     }
 
@@ -276,36 +285,48 @@ class InsightsApiController extends Controller
     public function caseVolumeForecast(Request $request)
     {
         $user = $request->user();
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $filters = ['from' => $from, 'to' => $to];
 
         return response()->json(
-            $this->insightsService->getCaseVolumeForecast($user)
+            $this->insightsService->getCaseVolumeForecast($user, $filters)
         );
     }
 
     public function breachProbability(Request $request)
     {
         $user = $request->user();
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $filters = ['from' => $from, 'to' => $to];
 
         return response()->json(
-            $this->insightsService->getBreachProbability($user)
+            $this->insightsService->getBreachProbability($user, $filters)
         );
     }
 
     public function peakPeriods(Request $request)
     {
         $user = $request->user();
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $filters = ['from' => $from, 'to' => $to];
 
         return response()->json(
-            $this->insightsService->getPeakPeriods($user)
+            $this->insightsService->getPeakPeriods($user, $filters)
         );
     }
 
     public function capacityForecast(Request $request)
     {
         $user = $request->user();
+        $from = $this->resolveDate($request->query('from'), now()->subMonths(6));
+        $to = $this->resolveDate($request->query('to'), now());
+        $filters = ['from' => $from, 'to' => $to];
 
         return response()->json(
-            $this->insightsService->getCapacityForecast($user)
+            $this->insightsService->getCapacityForecast($user, $filters)
         );
     }
 
