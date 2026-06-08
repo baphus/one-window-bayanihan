@@ -1,6 +1,7 @@
+import { useState, useMemo } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import TrendChart from '@/Components/Insights/TrendChart';
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import axios from 'axios';
+import SectionSkeleton from '@/Components/Insights/SectionSkeleton';
 
 const INTERVAL_OPTIONS = [
   { value: 'daily', label: 'Daily' },
@@ -8,66 +9,90 @@ const INTERVAL_OPTIONS = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
-export default function TrendAnalysis({
-  caseTrends,
-  referralVolume,
-  slaCompliance,
-  from,
-  to,
-}) {
+export default function TrendAnalysis({ from, to }) {
   const [selectedInterval, setSelectedInterval] = useState('daily');
-  const [resolutionTime, setResolutionTime] = useState(null);
-  const [agencyWorkload, setAgencyWorkload] = useState(null);
-  const [rtLoading, setRtLoading] = useState(false);
-  const [awLoading, setAwLoading] = useState(false);
-  const [rtError, setRtError] = useState(null);
-  const [awError, setAwError] = useState(null);
+  const filters = useMemo(() => ({ from, to }), [from, to]);
 
-  const fetchResolutionTime = useCallback(() => {
-    setRtLoading(true);
-    setRtError(null);
-    axios
-      .get('/api/insights/trends', {
-        params: { type: 'resolution_time', interval: selectedInterval, from, to },
-      })
-      .then((res) => setResolutionTime(res.data))
-      .catch((err) =>
-        setRtError(
-          err.response?.data?.message || 'Failed to load resolution time data.',
-        ),
-      )
-      .finally(() => setRtLoading(false));
-  }, [selectedInterval, from, to]);
+  const caseTrendsQ = useQuery({
+    queryKey: ['insights', 'case-trends', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/case-trends?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
 
-  const fetchAgencyWorkload = useCallback(() => {
-    setAwLoading(true);
-    setAwError(null);
-    axios
-      .get('/api/insights/trends', {
-        params: { type: 'agency_workload', interval: selectedInterval, from, to },
-      })
-      .then((res) => setAgencyWorkload(res.data))
-      .catch((err) =>
-        setAwError(
-          err.response?.data?.message || 'Failed to load agency workload data.',
-        ),
-      )
-      .finally(() => setAwLoading(false));
-  }, [selectedInterval, from, to]);
+  const referralVolumeQ = useQuery({
+    queryKey: ['insights', 'referral-volume', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/referral-volume?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    fetchResolutionTime();
-  }, [fetchResolutionTime]);
+  const slaComplianceQ = useQuery({
+    queryKey: ['insights', 'sla-compliance', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/sla-compliance?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    fetchAgencyWorkload();
-  }, [fetchAgencyWorkload]);
+  const resolutionTime = useQuery({
+    queryKey: ['insights', 'trends', 'resolution_time', selectedInterval, filters],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        type: 'resolution_time',
+        interval: selectedInterval,
+        ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      });
+      const res = await fetch(`/api/insights/trends?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const agencyWorkload = useQuery({
+    queryKey: ['insights', 'trends', 'agency_workload', selectedInterval, filters],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        type: 'agency_workload',
+        interval: selectedInterval,
+        ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      });
+      const res = await fetch(`/api/insights/trends?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
 
   const resolutionChartData = useMemo(() => {
-    if (!resolutionTime || !resolutionTime.labels) return resolutionTime;
+    const data = resolutionTime.data;
+    if (!data || !data.labels) return data;
     const slaLine = {
       label: 'SLA Target (30 days)',
-      data: resolutionTime.labels.map(() => 30),
+      data: data.labels.map(() => 30),
       borderColor: '#ef4444',
       backgroundColor: 'rgba(239, 68, 68, 0.05)',
       borderDash: [6, 4],
@@ -76,10 +101,10 @@ export default function TrendAnalysis({
       borderWidth: 2,
     };
     return {
-      ...resolutionTime,
-      datasets: [...(resolutionTime.datasets || []), slaLine],
+      ...data,
+      datasets: [...(data.datasets || []), slaLine],
     };
-  }, [resolutionTime]);
+  }, [resolutionTime.data]);
 
   const stackedAreaOptions = useMemo(
     () => ({
@@ -127,14 +152,23 @@ export default function TrendAnalysis({
     [],
   );
 
+  const isInitialLoading =
+    caseTrendsQ.isLoading ||
+    referralVolumeQ.isLoading ||
+    slaComplianceQ.isLoading ||
+    resolutionTime.isLoading ||
+    agencyWorkload.isLoading;
+
+  if (isInitialLoading) {
+    return <SectionSkeleton type="card" count={1} />;
+  }
+
   const hasAnyData =
-    caseTrends ||
-    referralVolume ||
-    slaCompliance ||
-    rtLoading ||
-    awLoading ||
-    resolutionTime ||
-    agencyWorkload;
+    caseTrendsQ.data ||
+    referralVolumeQ.data ||
+    slaComplianceQ.data ||
+    resolutionTime.data ||
+    agencyWorkload.data;
 
   if (!hasAnyData) {
     return (
@@ -171,17 +205,26 @@ export default function TrendAnalysis({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <TrendChart
           title="Case Trends"
-          data={caseTrends}
+          data={caseTrendsQ.data}
+          loading={caseTrendsQ.isLoading}
+          error={caseTrendsQ.isError ? 'Failed to load case trends.' : null}
+          onRetry={() => caseTrendsQ.refetch()}
           emptyMessage="No case trend data available. Adjust date range."
         />
         <TrendChart
           title="Referral Volume"
-          data={referralVolume}
+          data={referralVolumeQ.data}
+          loading={referralVolumeQ.isLoading}
+          error={referralVolumeQ.isError ? 'Failed to load referral volume.' : null}
+          onRetry={() => referralVolumeQ.refetch()}
           emptyMessage="No referral volume data available. Adjust date range."
         />
         <TrendChart
           title="SLA Compliance"
-          data={slaCompliance}
+          data={slaComplianceQ.data}
+          loading={slaComplianceQ.isLoading}
+          error={slaComplianceQ.isError ? 'Failed to load SLA compliance.' : null}
+          onRetry={() => slaComplianceQ.refetch()}
           emptyMessage="No SLA compliance data available. Adjust date range."
         />
       </div>
@@ -191,37 +234,39 @@ export default function TrendAnalysis({
           title="Resolution Time"
           type="line"
           data={resolutionChartData}
-          loading={rtLoading}
-          error={rtError}
+          loading={resolutionTime.isLoading}
+          error={resolutionTime.isError ? 'Failed to load resolution time data.' : null}
+          onRetry={() => resolutionTime.refetch()}
           emptyMessage="No resolution time data available for the selected period."
           options={resolutionTimeOptions}
         />
         <TrendChart
           title="Agency Workload"
           type="area"
-          data={agencyWorkload}
-          loading={awLoading}
-          error={awError}
+          data={agencyWorkload.data}
+          loading={agencyWorkload.isLoading}
+          error={agencyWorkload.isError ? 'Failed to load agency workload data.' : null}
+          onRetry={() => agencyWorkload.refetch()}
           emptyMessage="No agency workload data available for the selected period."
           options={stackedAreaOptions}
         />
       </div>
 
-      {!caseTrends && (
+      {!caseTrendsQ.data && (
         <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <p className="py-6 text-center text-[13px] text-slate-400">
             No case trend data available for the selected period.
           </p>
         </article>
       )}
-      {!referralVolume && (
+      {!referralVolumeQ.data && (
         <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <p className="py-6 text-center text-[13px] text-slate-400">
             No referral volume data available for the selected period.
           </p>
         </article>
       )}
-      {!slaCompliance && (
+      {!slaComplianceQ.data && (
         <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
           <p className="py-6 text-center text-[13px] text-slate-400">
             No SLA compliance data available for the selected period.

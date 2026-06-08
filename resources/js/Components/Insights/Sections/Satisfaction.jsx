@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData } from '@tanstack/react-query';
 import TrendChart from '@/Components/Insights/TrendChart';
 import { Radar } from 'react-chartjs-2';
+import SectionSkeleton from '../SectionSkeleton';
+import useInsightsAccess from '@/Hooks/useInsightsAccess';
 
 const radarOptions = {
   responsive: true,
@@ -212,29 +216,106 @@ function AgencyRanking({ data }) {
   );
 }
 
-export default function Satisfaction({
-  satisfactionTrend,
-  servqualScores,
-  agencySatisfactionRanking,
-  feedbackVolume,
-}) {
+function ErrorPanel({ title, error, onRetry }) {
+  return (
+    <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+      <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{title}</h3>
+      <div className="flex flex-col items-center gap-2 py-8 text-center">
+        <p className="text-[13px] text-red-500">
+          {error?.response?.data?.message || error?.message || 'An error occurred.'}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded border border-[#cbd5e1] bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function useSatisfactionQuery(endpoint, filters) {
+  return useQuery({
+    queryKey: ['insights', endpoint, filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/${endpoint}?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export default function Satisfaction({ from, to }) {
+  const { can } = useInsightsAccess();
+  const filters = { from, to };
+
+  const trendQ = useSatisfactionQuery('satisfaction-trend', filters);
+  const servqualQ = useSatisfactionQuery('servqual-scores', filters);
+  const rankingQ = useSatisfactionQuery('agency-satisfaction-ranking', filters);
+  const feedbackQ = useSatisfactionQuery('feedback-volume', filters);
+
+  const isLoading = trendQ.isLoading || servqualQ.isLoading || rankingQ.isLoading || feedbackQ.isLoading;
+  if (isLoading) return <SectionSkeleton type="chart" count={2} />;
+
+  const errMsg = (q) => q.error?.response?.data?.message || q.error?.message || null;
+
+  const agencySatisfactionRanking = useMemo(() => {
+    if (!can('satisfaction_other')) return null;
+    const data = rankingQ.data;
+    if (!data) return [];
+    return (data.labels ?? []).map((l, i) => ({
+      name: l,
+      score: data.data?.[i] ?? 0,
+      trend: null,
+    }));
+  }, [rankingQ.data, can]);
+
   return (
     <div className="space-y-4">
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <TrendChart
           title="Satisfaction Trend"
-          data={satisfactionTrend}
+          data={trendQ.data}
           emptyMessage="No satisfaction trend data available."
+          error={errMsg(trendQ)}
+          onRetry={() => trendQ.refetch()}
         />
-        <ServqualChart data={servqualScores} />
+        {servqualQ.error ? (
+          <ErrorPanel
+            title="SERVQUAL Scores"
+            error={servqualQ.error}
+            onRetry={() => servqualQ.refetch()}
+          />
+        ) : (
+          <ServqualChart data={servqualQ.data} />
+        )}
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <AgencyRanking data={agencySatisfactionRanking} />
+        {rankingQ.error ? (
+          <ErrorPanel
+            title="Agency Satisfaction Ranking"
+            error={rankingQ.error}
+            onRetry={() => rankingQ.refetch()}
+          />
+        ) : (
+          <AgencyRanking data={agencySatisfactionRanking} />
+        )}
         <TrendChart
           title="Feedback Volume"
-          data={feedbackVolume}
+          data={feedbackQ.data}
           emptyMessage="No feedback volume data available."
+          error={errMsg(feedbackQ)}
+          onRetry={() => feedbackQ.refetch()}
         />
       </section>
     </div>

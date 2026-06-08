@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import MetricCard from '@/Components/Insights/MetricCard';
 import { Clock, Zap } from 'lucide-react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import SectionSkeleton from '../SectionSkeleton';
 
 const barOptions = {
   responsive: true,
@@ -91,12 +93,73 @@ function CompletionRateChart({ data }) {
   );
 }
 
-export default function Scorecards({
-  caseManagerScorecard,
-  agencyScorecard,
-  serviceCompletionRate,
-  firstResponseTime,
-}) {
+export default function Scorecards({ from, to }) {
+  const filters = { from, to };
+
+  const cmQ = useQuery({
+    queryKey: ['insights', 'cm-scorecard', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/cm-scorecard?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const agencyQ = useQuery({
+    queryKey: ['insights', 'agency-scorecard', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/agency-scorecard?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const completionQ = useQuery({
+    queryKey: ['insights', 'service-completion-rate', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/service-completion-rate?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const frtQ = useQuery({
+    queryKey: ['insights', 'first-response-time', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
+      );
+      const res = await fetch(`/api/insights/first-response-time?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const isLoading = cmQ.isLoading || agencyQ.isLoading || completionQ.isLoading || frtQ.isLoading;
+  if (isLoading) return <SectionSkeleton type="table" count={2} />;
+
+  const caseManagerScorecard = cmQ.data?.rows ?? [];
+  const agencyScorecard = agencyQ.data?.detailed ?? [];
+  const serviceCompletionRate = completionQ.data?.services ?? [];
+  const firstResponseTime = frtQ.data;
+
   const cmColumns = [
     { key: 'name', label: 'Case Manager', bold: true },
     { key: 'total', label: 'Total', align: 'right' },

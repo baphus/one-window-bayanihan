@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Doughnut, Bar } from 'react-chartjs-2';
+import SectionSkeleton from '../SectionSkeleton';
+import useInsightsAccess from '@/Hooks/useInsightsAccess';
 
 const doughnutOptions = {
   responsive: true,
@@ -29,6 +32,36 @@ function SectionCard({ title, children }) {
       <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{title}</h3>
       {children}
     </article>
+  );
+}
+
+function useOperationalQuery(endpoint, filters) {
+  return useQuery({
+    queryKey: ['insights', 'operational', endpoint, filters],
+    queryFn: async () => {
+      const params = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null))
+      );
+      const res = await fetch(`/api/insights/${endpoint}?${params}`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+function ErrorPanel({ onRetry }) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 text-center">
+      <p className="text-[13px] text-slate-500">Unable to load data</p>
+      <button
+        onClick={onRetry}
+        className="rounded bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-200"
+      >
+        Retry
+      </button>
+    </div>
   );
 }
 
@@ -239,36 +272,101 @@ function RejectionAnalysis({ data }) {
   );
 }
 
-export default function OperationalMonitor({
-  agingCases,
-  stalledReferrals,
-  overloadedAgencies,
-  bottleneckAnalysis,
-  rejectionAnalysis,
-}) {
+export default function OperationalMonitor({ from, to }) {
+  const { can } = useInsightsAccess();
+  const filters = { from, to };
+
+  const agingQ = useOperationalQuery('aging-cases', filters);
+  const stalledQ = useOperationalQuery('stalled-referrals', filters);
+  const overloadedQ = useOperationalQuery('overloaded-agencies', filters);
+  const bottleneckQ = useOperationalQuery('bottleneck-analysis', filters);
+  const rejectionQ = useOperationalQuery('rejection-analysis', filters);
+
+  const isLoading = agingQ.isLoading || stalledQ.isLoading || overloadedQ.isLoading || bottleneckQ.isLoading || rejectionQ.isLoading;
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <SectionSkeleton type="table" count={2} />
+      </div>
+    );
+  }
+
+  const agingCases = useMemo(() => {
+    if (!can('aging_cases')) return null;
+    return agingQ.data?.details ?? [];
+  }, [agingQ.data, can]);
+
+  const stalledReferrals = useMemo(() => {
+    return stalledQ.data?.referrals ?? [];
+  }, [stalledQ.data]);
+
+  const overloadedAgencies = useMemo(() => {
+    if (!can('overloaded_agencies') || !overloadedQ.data) return null;
+    return overloadedQ.data.labels.map((name, i) => ({
+      agency_name: name,
+      active_cases: overloadedQ.data.data[i],
+      capacity: overloadedQ.data.threshold,
+    }));
+  }, [overloadedQ.data, can]);
+
+  const bottleneckAnalysis = useMemo(() => {
+    if (!can('bottleneck_detection') || !bottleneckQ.data) return null;
+    return bottleneckQ.data.labels.map((label, i) => ({
+      label,
+      count: bottleneckQ.data.datasets?.[0]?.data?.[i] ?? 0,
+      is_bottleneck: (bottleneckQ.data.datasets?.[0]?.data?.[i] ?? 0) > 24,
+      percentage: Math.min(100, ((bottleneckQ.data.datasets?.[0]?.data?.[i] ?? 0) / 48) * 100),
+    }));
+  }, [bottleneckQ.data, can]);
+
+  const rejectionAnalysis = useMemo(() => {
+    if (!rejectionQ.data) return [];
+    return rejectionQ.data.labels.map((l, i) => ({ reason: l, count: rejectionQ.data.data[i] }));
+  }, [rejectionQ.data]);
+
   return (
     <div className="space-y-4">
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <SectionCard title="Aging Cases">
-          <AgingCasesTable data={agingCases} />
+          {agingQ.isError ? (
+            <ErrorPanel onRetry={() => agingQ.refetch()} />
+          ) : (
+            <AgingCasesTable data={agingCases} />
+          )}
         </SectionCard>
         <SectionCard title="Stalled Referrals">
-          <StalledReferralsTable data={stalledReferrals} />
+          {stalledQ.isError ? (
+            <ErrorPanel onRetry={() => stalledQ.refetch()} />
+          ) : (
+            <StalledReferralsTable data={stalledReferrals} />
+          )}
         </SectionCard>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <SectionCard title="Overloaded Agencies">
-          <OverloadedAgenciesChart data={overloadedAgencies} />
+          {overloadedQ.isError ? (
+            <ErrorPanel onRetry={() => overloadedQ.refetch()} />
+          ) : (
+            <OverloadedAgenciesChart data={overloadedAgencies} />
+          )}
         </SectionCard>
         <SectionCard title="Bottleneck Analysis">
-          <BottleneckAnalysis data={bottleneckAnalysis} />
+          {bottleneckQ.isError ? (
+            <ErrorPanel onRetry={() => bottleneckQ.refetch()} />
+          ) : (
+            <BottleneckAnalysis data={bottleneckAnalysis} />
+          )}
         </SectionCard>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <SectionCard title="Rejection Analysis">
-          <RejectionAnalysis data={rejectionAnalysis} />
+          {rejectionQ.isError ? (
+            <ErrorPanel onRetry={() => rejectionQ.refetch()} />
+          ) : (
+            <RejectionAnalysis data={rejectionAnalysis} />
+          )}
         </SectionCard>
       </section>
     </div>

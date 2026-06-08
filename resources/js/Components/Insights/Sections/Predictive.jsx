@@ -2,6 +2,9 @@ import { useMemo } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
 import MetricCard from '@/Components/Insights/MetricCard';
 import { ShieldCheck, AlertTriangle, Ban, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData } from '@tanstack/react-query';
+import SectionSkeleton from '../SectionSkeleton';
 
 const lineOptions = {
   responsive: true,
@@ -291,22 +294,66 @@ function CapacityForecast({ data }) {
   );
 }
 
-export default function Predictive({
-  caseVolumeForecast,
-  breachProbability,
-  peakPeriods,
-  capacityForecast,
-}) {
+export default function Predictive({ from, to }) {
+  const filters = {};
+
+  const forecastQ = useQuery({
+    queryKey: ['insights', 'case-volume-forecast'],
+    queryFn: async () => {
+      const res = await fetch(`/api/insights/case-volume-forecast`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const breachQ = useQuery({
+    queryKey: ['insights', 'breach-probability'],
+    queryFn: async () => {
+      const res = await fetch(`/api/insights/breach-probability`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const peaksQ = useQuery({
+    queryKey: ['insights', 'peak-periods'],
+    queryFn: async () => {
+      const res = await fetch(`/api/insights/peak-periods`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const capacityQ = useQuery({
+    queryKey: ['insights', 'capacity-forecast'],
+    queryFn: async () => {
+      const res = await fetch(`/api/insights/capacity-forecast`);
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const isLoading = forecastQ.isLoading || breachQ.isLoading || peaksQ.isLoading || capacityQ.isLoading;
+  if (isLoading) return <SectionSkeleton type="chart" count={2} />;
+
   return (
     <div className="space-y-4">
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
-        <CaseVolumeForecast data={caseVolumeForecast} />
-        <BreachProbabilityCards data={breachProbability} />
+        <CaseVolumeForecast data={forecastQ.data} />
+        <BreachProbabilityCards data={breachQ.data} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <PeakPeriodsHeatmap data={peakPeriods} />
-        <CapacityForecast data={capacityForecast} />
+        <PeakPeriodsHeatmap data={peaksQ.data} />
+        <CapacityForecast data={capacityQ.data} />
       </section>
     </div>
   );
