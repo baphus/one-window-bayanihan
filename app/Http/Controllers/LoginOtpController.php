@@ -47,6 +47,35 @@ class LoginOtpController extends Controller
         ]);
     }
 
+    public function resendOtp(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'string', 'email'],
+        ]);
+
+        $user = User::where('email', $request->input('email'))->first();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'email' => 'User not found.',
+            ]);
+        }
+
+        $otp = $this->otpService->generate($user->email, 'login');
+
+        $emailParts = explode('@', $user->email);
+        $hint = strlen($emailParts[0]) > 2
+            ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
+            : $user->email;
+
+        return Inertia::render('Auth/Login', [
+            'step' => 'otp',
+            'email' => $user->email,
+            'hint' => $hint,
+            'debug_otp' => SystemSetting::getValue('debug_otp_enabled', false) ? $otp : null,
+        ]);
+    }
+
     public function verifyOtp(Request $request)
     {
         $request->validate([

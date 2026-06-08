@@ -15,9 +15,31 @@ export default function Login({ status, canResetPassword }) {
     const [otpError, setOtpError] = useState('');
     const [processing, setProcessing] = useState(false);
     const [selectedRole, setSelectedRole] = useState(null);
+    const [resendCooldown, setResendCooldown] = useState(0);
     const otpRefs = useRef([]);
     const autoFilled = useRef(false);
+    const cooldownInterval = useRef(null);
 
+
+    useEffect(() => {
+        if (step === 'otp') {
+            setResendCooldown(30);
+        }
+    }, [step]);
+
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            cooldownInterval.current = setInterval(() => {
+                setResendCooldown((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => {
+            if (cooldownInterval.current) {
+                clearInterval(cooldownInterval.current);
+                cooldownInterval.current = null;
+            }
+        };
+    }, [resendCooldown > 0]);
 
     useEffect(() => {
         if (debug_otp && step === 'otp' && !autoFilled.current) {
@@ -115,6 +137,29 @@ export default function Login({ status, canResetPassword }) {
                 setProcessing(false);
             },
             onFinish: () => setProcessing(false),
+        });
+    };
+
+    const handleResendOtp = (e) => {
+        e.preventDefault();
+        if (resendCooldown > 0) return;
+
+        setProcessing(true);
+        setOtpError('');
+
+        router.post(route('login.resend-otp'), { email }, {
+            onSuccess: (page) => {
+                setProcessing(false);
+                setResendCooldown(30);
+                setOtp(['', '', '', '', '', '']);
+                otpRefs.current[0]?.focus();
+                autoFilled.current = false;
+                if (page.props?.hint) setHint(page.props.hint);
+            },
+            onError: (err) => {
+                setProcessing(false);
+                setOtpError(err.email || 'Failed to resend OTP. Please try again.');
+            },
         });
     };
 
@@ -317,6 +362,25 @@ export default function Login({ status, canResetPassword }) {
                                             {processing ? 'Verifying...' : 'Verify & Continue'}
                                         </button>
                                     </form>
+
+                                    <div className="mt-6 text-center">
+                                        <button
+                                            type="button"
+                                            onClick={handleResendOtp}
+                                            disabled={resendCooldown > 0 || processing}
+                                            className="text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {resendCooldown > 0 ? (
+                                                <span className="text-on-surface-variant">
+                                                    Resend code in <span className="text-primary">{resendCooldown}s</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-primary hover:text-primary/80 underline underline-offset-2">
+                                                    Resend code
+                                                </span>
+                                            )}
+                                        </button>
+                                    </div>
 
                                     {debug_otp && (
                                         <div className="mt-4 rounded bg-amber-50 border border-amber-300 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">

@@ -25,6 +25,10 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:otp')
         ->name('login.verify-otp');
 
+    Route::post('login/resend-otp', [LoginOtpController::class, 'resendOtp'])
+        ->middleware('throttle:otp')
+        ->name('login.resend-otp');
+
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
