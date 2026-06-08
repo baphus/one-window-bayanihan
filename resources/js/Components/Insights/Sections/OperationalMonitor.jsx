@@ -282,15 +282,7 @@ export default function OperationalMonitor({ from, to }) {
   const bottleneckQ = useOperationalQuery('bottleneck-analysis', filters);
   const rejectionQ = useOperationalQuery('rejection-analysis', filters);
 
-  const isLoading = agingQ.isLoading || stalledQ.isLoading || overloadedQ.isLoading || bottleneckQ.isLoading || rejectionQ.isLoading;
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <SectionSkeleton type="table" count={2} />
-      </div>
-    );
-  }
-
+  // ALL useMemo calls MUST be before any conditional return (React Hooks rules)
   const agingCases = useMemo(() => {
     if (!can('aging_cases')) return null;
     return agingQ.data?.details ?? [];
@@ -323,6 +315,15 @@ export default function OperationalMonitor({ from, to }) {
     if (!rejectionQ.data) return [];
     return rejectionQ.data.labels.map((l, i) => ({ reason: l, count: rejectionQ.data.data[i] }));
   }, [rejectionQ.data]);
+
+  const isLoading = agingQ.isLoading || stalledQ.isLoading || overloadedQ.isLoading || bottleneckQ.isLoading || rejectionQ.isLoading;
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <SectionSkeleton type="table" count={2} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

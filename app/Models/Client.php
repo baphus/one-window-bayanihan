@@ -37,11 +37,24 @@ class Client extends Model
     }
 
     /**
+     * Singular relationship for the latest case file.
+     * Enables eager loading via Client::with('caseFile') and whereHas('caseFile', ...).
+     */
+    public function caseFile()
+    {
+        return $this->hasOne(CaseFile::class, 'client_id')->latestOfMany();
+    }
+
+    /**
      * Backward-compatible accessor: returns the latest case for this client.
-     * Used where existing code still references $client->caseFile (singular).
+     * Respects eager-loaded relationship when available.
      */
     public function getCaseFileAttribute()
     {
+        if ($this->relationLoaded('caseFile')) {
+            return $this->getRelation('caseFile');
+        }
+
         return $this->caseFiles()->latest()->first();
     }
 

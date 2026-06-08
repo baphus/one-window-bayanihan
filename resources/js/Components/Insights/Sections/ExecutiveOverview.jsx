@@ -43,7 +43,7 @@ export default function ExecutiveOverview({ from, to }) {
     if (!data || data.length === 0) return null;
     const total = data.reduce((s, v) => s + (v.count || 0), 0) || 1;
     return {
-      labels: data.map((b) => b.label || b.status),
+      labels: data.map((b) => b.category),
       datasets: [{
         data: data.map((b) => b.count || b.value || 0),
         backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
@@ -140,13 +140,14 @@ export default function ExecutiveOverview({ from, to }) {
             const count = b.count || b.value || 0;
             const total = breachChartData._total;
             const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            const category = b.category || 'unknown';
             const colorMap = { within_sla: 'emerald', warning: 'amber', breached: 'rose' };
-            const dotColor = colorMap[b.status] || 'slate';
+            const dotColor = colorMap[category] || 'slate';
             return (
-              <div key={b.status} className="flex items-center justify-between text-[11px]">
+              <div key={category} className="flex items-center justify-between text-[11px]">
                 <span className="inline-flex items-center gap-1.5 text-slate-600">
                   <span className={`h-2 w-2 rounded-full bg-${dotColor}-500 shrink-0`} />
-                  <span className="font-medium capitalize">{b.label || b.status}</span>
+                  <span className="font-medium capitalize">{category.replace(/_/g, ' ')}</span>
                 </span>
                 <span className="font-bold text-slate-700">{count} ({pct}%)</span>
               </div>

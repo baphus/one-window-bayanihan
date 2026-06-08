@@ -10,8 +10,56 @@ const SEVERITY_CONFIG = {
   success: { icon: CheckCircle2, dot: 'bg-emerald-500', label: 'Success' },
 };
 
+// Map Laravel notification class short names to severity levels
+const NOTIFICATION_TYPE_SEVERITY = {
+  'CaseCreated': 'info',
+  'CaseUpdated': 'info',
+  'CaseAssigned': 'info',
+  'CaseClosed': 'success',
+  'CaseReopened': 'warning',
+  'ReferralCreated': 'info',
+  'ReferralUpdated': 'info',
+  'ReferralCompleted': 'success',
+  'StatusChanged': 'info',
+  'UserCreated': 'info',
+  'UserUpdated': 'info',
+  'AlertGenerated': 'warning',
+  'SystemAlert': 'critical',
+};
+
 function getSeverityConfig(severity) {
   return SEVERITY_CONFIG[severity?.toLowerCase()] || SEVERITY_CONFIG.info;
+}
+
+/**
+ * Extract the short class name from a Laravel notification type string.
+ * e.g. "App\Notifications\Cases\CaseCreatedNotification" → "CaseCreated"
+ */
+function extractNotificationTypeName(type) {
+  if (!type) return null;
+  const parts = type.split('\\');
+  const className = parts[parts.length - 1] || '';
+  return className.replace(/Notification$/, '') || null;
+}
+
+/**
+ * Normalize a Laravel database notification into the alert display format.
+ */
+function normalizeNotification(notification) {
+  const shortName = extractNotificationTypeName(notification.type);
+  const severity = NOTIFICATION_TYPE_SEVERITY[shortName] || 'info';
+  const data = notification.data || {};
+
+  return {
+    id: `notification-${notification.id}`,
+    _rawId: notification.id,
+    _source: 'notification',
+    severity,
+    title: data.title || data.subject || (shortName ? shortName.replace(/([A-Z])/g, ' $1').trim() : 'Notification'),
+    message: data.message || data.body || '',
+    created_at: notification.created_at,
+    is_read: notification.read_at !== null || notification.read === true,
+  };
 }
 
 function timeAgo(dateStr) {
@@ -40,7 +88,8 @@ export default function NotificationPanel() {
   // Use alert_count from Inertia props for initial badge value while query loads
   const { alert_count: initialCount } = usePage().props;
 
-  const { data, isLoading, error } = useQuery({
+  // ── Alerts query (existing) ──
+  const { data: alertsData, isLoading: alertsLoading, error: alertsError } = useQuery({
     queryKey: ['alerts'],
     queryFn: async () => {
       const res = await fetch('/api/alerts', {
@@ -53,16 +102,65 @@ export default function NotificationPanel() {
     staleTime: 30000,
   });
 
+  // ── Notifications query (new) ──
+  const { data: notifData, isLoading: notifLoading, error: notifError } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const res = await fetch('/notifications?per_page=20', {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+
+  // ── Notifications unread count (separate query) ──
+  const { data: notifUnreadData } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: async () => {
+      const res = await fetch('/notifications/unread-count', {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      return res.json();
+    },
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+
   // Log errors for debugging but don't show error UI
   useEffect(() => {
-    if (error) {
-      console.error('[NotificationPanel] Alert fetch failed:', error.message);
+    if (alertsError) {
+      console.error('[NotificationPanel] Alert fetch failed:', alertsError.message);
     }
-  }, [error]);
+  }, [alertsError]);
 
-  const alerts = data?.data ?? [];
-  const unreadCount = data?.unread_count ?? initialCount ?? 0;
+  useEffect(() => {
+    if (notifError) {
+      console.error('[NotificationPanel] Notifications fetch failed:', notifError.message);
+    }
+  }, [notifError]);
 
+  // ── Raw data ──
+  const alerts = alertsData?.data ?? [];
+  const rawNotifications = notifData?.data ?? [];
+
+  // Normalize Laravel notifications to alert format
+  const notifications = rawNotifications.map(normalizeNotification);
+
+  // ── Merge & sort by created_at descending, take top 10 ──
+  const mergedItems = [...alerts, ...notifications]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 10);
+
+  // ── Combined unread count ──
+  const alertsUnread = alertsError ? 0 : (alertsData?.unread_count ?? initialCount ?? 0);
+  const notifsUnread = notifError ? 0 : (notifUnreadData?.count ?? 0);
+  const unreadCount = alertsUnread + notifsUnread;
+
+  // ── Mutations ──
   const dismissMutation = useMutation({
     mutationFn: (id) =>
       fetch(`/api/alerts/${id}/dismiss`, {
@@ -75,7 +173,7 @@ export default function NotificationPanel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alerts'] }),
   });
 
-  const markReadMutation = useMutation({
+  const markAlertReadMutation = useMutation({
     mutationFn: (id) =>
       fetch(`/api/alerts/${id}/read`, {
         method: 'POST',
@@ -85,6 +183,21 @@ export default function NotificationPanel() {
         return res.json();
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alerts'] }),
+  });
+
+  const markNotifReadMutation = useMutation({
+    mutationFn: (rawId) =>
+      fetch(`/notifications/${rawId}/read`, {
+        method: 'PATCH',
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      }).then((res) => {
+        if (!res.ok) throw new Error(`Failed to mark as read: ${res.status}`);
+        return res.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+    },
   });
 
   // Close on click outside
@@ -109,8 +222,8 @@ export default function NotificationPanel() {
     }
   }, [open]);
 
-  const recentAlerts = alerts.slice(0, 10);
-  const displayCount = error ? 0 : unreadCount;
+  const isLoading = alertsLoading && notifLoading;
+  const displayCount = unreadCount;
 
   return (
     <div className="relative" ref={panelRef}>
@@ -148,26 +261,27 @@ export default function NotificationPanel() {
 
           {/* Body */}
           <div className="max-h-96 overflow-y-auto">
-            {isLoading && alerts.length === 0 ? (
+            {isLoading && mergedItems.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Loader2 className="w-6 h-6 animate-spin text-slate-300 mx-auto" />
                 <p className="mt-2 text-xs text-slate-400">Loading notifications...</p>
               </div>
-            ) : recentAlerts.length === 0 ? (
+            ) : mergedItems.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
                 <p className="mt-2 text-xs font-semibold text-slate-500">No new notifications</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">You're all caught up</p>
               </div>
             ) : (
-              recentAlerts.map((alert) => {
-                const config = getSeverityConfig(alert.severity || alert.type);
+              mergedItems.map((item) => {
+                const config = getSeverityConfig(item.severity || item.type);
                 const Icon = config.icon;
-                const isUnread = !alert.read_at && !alert.is_read;
+                const isUnread = !item.read_at && !item.is_read;
+                const isNotification = item._source === 'notification';
 
                 return (
                   <div
-                    key={alert.id}
+                    key={item.id}
                     className={`px-4 py-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors ${
                       isUnread ? 'bg-blue-50/40' : ''
                     }`}
@@ -185,27 +299,38 @@ export default function NotificationPanel() {
                           <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
                             {config.label}
                           </span>
+                          {isNotification && (
+                            <span className="text-[9px] font-semibold text-slate-300 uppercase tracking-wider">
+                              System
+                            </span>
+                          )}
                         </div>
                         <p className="mt-0.5 text-[12px] font-semibold text-slate-800 leading-snug line-clamp-2">
-                          {alert.title || alert.subject || 'Alert'}
+                          {item.title || item.subject || 'Alert'}
                         </p>
-                        {alert.message && (
+                        {item.message && (
                           <p className="mt-0.5 text-[11px] text-slate-500 leading-relaxed line-clamp-2">
-                            {alert.message}
+                            {item.message}
                           </p>
                         )}
                         <div className="mt-1.5 flex items-center justify-between">
                           <span className="text-[10px] text-slate-400">
-                            {timeAgo(alert.created_at)}
+                            {timeAgo(item.created_at)}
                           </span>
                           <div className="flex items-center gap-2">
-                            {isUnread && !markReadMutation.isPending && (
+                            {/* Read button — shown for both alerts and notifications */}
+                            {isUnread && (
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  markReadMutation.mutate(alert.id);
+                                  if (isNotification) {
+                                    markNotifReadMutation.mutate(item._rawId);
+                                  } else {
+                                    markAlertReadMutation.mutate(item.id);
+                                  }
                                 }}
+                                disabled={markAlertReadMutation.isPending || markNotifReadMutation.isPending}
                                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-blue-500 transition-colors"
                                 title="Mark as read"
                               >
@@ -213,12 +338,13 @@ export default function NotificationPanel() {
                                 Read
                               </button>
                             )}
-                            {!dismissMutation.isPending && (
+                            {/* Dismiss button — only for alerts (notifications don't support dismiss) */}
+                            {!isNotification && !dismissMutation.isPending && (
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  dismissMutation.mutate(alert.id);
+                                  dismissMutation.mutate(item.id);
                                 }}
                                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-rose-500 transition-colors"
                                 title="Dismiss"

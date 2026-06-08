@@ -33,16 +33,17 @@ const SERVQUAL_DIMENSIONS = ['Tangibility', 'Reliability', 'Responsiveness', 'As
 function ServqualChart({ data }) {
   const { chartData, gaps } = useMemo(() => {
     const empty = { chartData: null, gaps: [] };
-    if (!data || data.length === 0) return empty;
+    const items = data?.dimensions ?? data;
+    if (!items || !Array.isArray(items) || items.length === 0) return empty;
 
-    const hasNamedDimensions = data.some((d) => d.dimension || d.name);
+    const hasNamedDimensions = items.some((d) => d.dimension || d.name);
 
     if (hasNamedDimensions) {
-      const labels = data.map((d) => d.dimension || d.name);
-      const hasDual = data.some((d) => d.expectation !== undefined || d.expected !== undefined);
+      const labels = items.map((d) => d.dimension || d.name);
+      const hasDual = items.some((d) => d.expectation !== undefined || d.expected !== undefined);
       if (hasDual) {
-        const expectations = data.map((d) => d.expectation ?? d.expected ?? 0);
-        const perceptions = data.map((d) => d.perception ?? d.perceived ?? d.score ?? d.value ?? 0);
+        const expectations = items.map((d) => d.expectation ?? d.expected ?? 0);
+        const perceptions = items.map((d) => d.perception ?? d.perceived ?? d.score ?? d.value ?? 0);
         const g = labels.map((label, i) => ({
           dimension: label,
           gap: Number((perceptions[i] - expectations[i]).toFixed(2)),
@@ -80,7 +81,7 @@ function ServqualChart({ data }) {
           gaps: g,
         };
       }
-      const values = data.map((d) => d.score || d.value || 0);
+      const values = items.map((d) => d.score || d.value || 0);
       return {
         chartData: {
           labels,
@@ -100,7 +101,7 @@ function ServqualChart({ data }) {
       };
     }
 
-    const values = SERVQUAL_DIMENSIONS.map((dim) => data[dim] || data[dim.toLowerCase()] || 0);
+    const values = SERVQUAL_DIMENSIONS.map((dim) => items[dim] || items[dim.toLowerCase()] || 0);
     return {
       chartData: {
         labels: SERVQUAL_DIMENSIONS,
@@ -263,11 +264,7 @@ export default function Satisfaction({ from, to }) {
   const rankingQ = useSatisfactionQuery('agency-satisfaction-ranking', filters);
   const feedbackQ = useSatisfactionQuery('feedback-volume', filters);
 
-  const isLoading = trendQ.isLoading || servqualQ.isLoading || rankingQ.isLoading || feedbackQ.isLoading;
-  if (isLoading) return <SectionSkeleton type="chart" count={2} />;
-
-  const errMsg = (q) => q.error?.response?.data?.message || q.error?.message || null;
-
+  // ALL hooks must be before any conditional return (React Hooks rules)
   const agencySatisfactionRanking = useMemo(() => {
     if (!can('satisfaction_other')) return null;
     const data = rankingQ.data;
@@ -278,6 +275,11 @@ export default function Satisfaction({ from, to }) {
       trend: null,
     }));
   }, [rankingQ.data, can]);
+
+  const isLoading = trendQ.isLoading || servqualQ.isLoading || rankingQ.isLoading || feedbackQ.isLoading;
+  if (isLoading) return <SectionSkeleton type="chart" count={2} />;
+
+  const errMsg = (q) => q.error?.response?.data?.message || q.error?.message || null;
 
   return (
     <div className="space-y-4">

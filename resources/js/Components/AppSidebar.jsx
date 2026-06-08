@@ -6,7 +6,6 @@ const navByRole = {
   CASE_MANAGER: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
-      { name: 'Insights', href: '/insights', icon: 'analytics' },
     ]},
     { label: 'Management', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
@@ -18,6 +17,7 @@ const navByRole = {
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
+      { name: 'Insights', href: '/insights', icon: 'analytics' },
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
@@ -27,7 +27,6 @@ const navByRole = {
   AGENCY: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
-      { name: 'Insights', href: '/insights', icon: 'analytics' },
     ]},
     { label: 'Operations', items: [
       { name: 'Referred Cases', href: '/referrals', icon: 'assignment' },
@@ -39,7 +38,8 @@ const navByRole = {
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
-    { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
+      { name: 'Insights', href: '/insights', icon: 'analytics' },
+      { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
       { name: 'Help Center', href: '/helpdesk', icon: 'help' },
@@ -48,6 +48,9 @@ const navByRole = {
   ADMIN: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+    ]},
+    { label: 'Reports', items: [
+      { name: 'Reports', href: '/reports', icon: 'summarize' },
       { name: 'Insights', href: '/insights', icon: 'analytics' },
     ]},
     { label: 'Case Operations', items: [

@@ -102,7 +102,7 @@ export default function Scorecards({ from, to }) {
       const params = new URLSearchParams(
         Object.fromEntries(Object.entries(filters).filter(([_, v]) => v != null)),
       );
-      const res = await fetch(`/api/insights/cm-scorecard?${params}`);
+      const res = await fetch(`/api/insights/case-manager-scorecard?${params}`);
       if (!res.ok) throw new Error(`Failed: ${res.status}`);
       return res.json();
     },
