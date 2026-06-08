@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, router } from '@inertiajs/react';
-import { useState, useEffect, useCallback } from 'react';
+import { Head } from '@inertiajs/react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, BarElement, ArcElement,
@@ -48,35 +48,6 @@ export default function InsightsIndex(props) {
     tab: initialTab,
     from: initialFrom,
     to: initialTo,
-    kpiCards,
-    caseTrends,
-    referralVolume,
-    slaCompliance,
-    agencies,
-    categories,
-    caseManagers,
-    statusDistribution,
-    categoryDistribution,
-    serviceDistribution,
-    geographicDistribution,
-    clientTypeSplit,
-    agingCases,
-    stalledReferrals,
-    overloadedAgencies,
-    bottleneckAnalysis,
-    rejectionAnalysis,
-    caseManagerScorecard,
-    agencyScorecard,
-    serviceCompletionRate,
-    firstResponseTime,
-    satisfactionTrend,
-    servqualScores,
-    agencySatisfactionRanking,
-    feedbackVolume,
-    caseVolumeForecast,
-    breachProbability,
-    peakPeriods,
-    capacityForecast,
   } = props;
 
   const { can, allowedTabs } = useInsightsAccess();
@@ -101,7 +72,9 @@ export default function InsightsIndex(props) {
     return '6M';
   });
 
-  // Sync filters to URL query params
+  const isInitialRender = useRef(true);
+
+  // Sync filters to URL query params (silent replaceState, no Inertia reload)
   useEffect(() => {
     const params = new URLSearchParams();
     params.set('from', fromDate);
@@ -115,12 +88,10 @@ export default function InsightsIndex(props) {
     if (clientType) params.set('client_type', clientType);
     const qs = params.toString();
     const current = window.location.search.slice(1);
-    if (current !== qs) {
-      router.get(route('insights.index') + '?' + qs, {}, {
-        preserveState: true,
-        replace: true,
-      });
+    if (current !== qs && !isInitialRender.current) {
+      window.history.replaceState(null, '', route('insights.index') + '?' + qs);
     }
+    isInitialRender.current = false;
   }, [fromDate, toDate, activeTab, agency, category, caseManager, clientType]);
 
   const handleFromChange = useCallback((d) => {
@@ -158,10 +129,6 @@ export default function InsightsIndex(props) {
     setActiveTab(tab);
   }, []);
 
-  const handleRefresh = useCallback(() => {
-    router.reload({ preserveState: true, preserveScroll: true });
-  }, []);
-
   return (
     <AppLayout title="Insights">
       <Head title="Insights" />
@@ -183,13 +150,10 @@ export default function InsightsIndex(props) {
             activePreset={activePreset}
             onPresetChange={handlePresetChange}
             onReset={handleReset}
-            agencies={agencies}
             agency={agency}
             onAgencyChange={handleAgencyChange}
-            categories={categories}
             category={category}
             onCategoryChange={handleCategoryChange}
-            caseManagers={caseManagers}
             caseManager={caseManager}
             onCaseManagerChange={handleCaseManagerChange}
             clientType={clientType}
@@ -201,20 +165,13 @@ export default function InsightsIndex(props) {
 
         {activeTab === 'executive' && (
           <ExecutiveOverview
-            kpiCards={kpiCards}
-            caseTrends={caseTrends}
-            breachProbability={breachProbability}
             from={fromDate}
             to={toDate}
-            onRefresh={handleRefresh}
           />
         )}
 
         {activeTab === 'trends' && (
           <TrendAnalysis
-            caseTrends={caseTrends}
-            referralVolume={referralVolume}
-            slaCompliance={slaCompliance}
             from={fromDate}
             to={toDate}
           />
@@ -222,57 +179,36 @@ export default function InsightsIndex(props) {
 
         {activeTab === 'distribution' && (
           <Distributions
-            statusDistribution={can('status_distribution') ? statusDistribution : null}
-            categoryDistribution={can('category_distribution') ? categoryDistribution : null}
-            serviceDistribution={serviceDistribution}
-            geographicDistribution={can('geographic') ? geographicDistribution : null}
-            clientTypeSplit={can('client_type_split') ? clientTypeSplit : null}
+            from={fromDate}
+            to={toDate}
           />
         )}
 
         {activeTab === 'operational' && (
           <OperationalMonitor
-            agingCases={can('aging_cases') ? (agingCases?.details ?? []) : null}
-            stalledReferrals={stalledReferrals?.referrals ?? []}
-            overloadedAgencies={can('overloaded_agencies') && overloadedAgencies ? overloadedAgencies.labels.map((name, i) => ({
-              agency_name: name,
-              active_cases: overloadedAgencies.data[i],
-              capacity: overloadedAgencies.threshold,
-            })) : null}
-            bottleneckAnalysis={can('bottleneck_detection') && bottleneckAnalysis ? bottleneckAnalysis.labels.map((label, i) => ({
-              label,
-              count: bottleneckAnalysis.datasets?.[0]?.data?.[i] ?? 0,
-              is_bottleneck: (bottleneckAnalysis.datasets?.[0]?.data?.[i] ?? 0) > 24,
-              percentage: Math.min(100, ((bottleneckAnalysis.datasets?.[0]?.data?.[i] ?? 0) / 48) * 100),
-            })) : null}
-            rejectionAnalysis={rejectionAnalysis ? rejectionAnalysis.labels.map((l, i) => ({ reason: l, count: rejectionAnalysis.data[i] })) : []}
+            from={fromDate}
+            to={toDate}
           />
         )}
 
         {activeTab === 'scorecards' && (
           <Scorecards
-            caseManagerScorecard={can('cm_scorecard') ? (caseManagerScorecard?.rows ?? []) : null}
-            agencyScorecard={can('agency_scorecard') ? (agencyScorecard?.detailed ?? []) : null}
-            serviceCompletionRate={serviceCompletionRate?.services ?? []}
-            firstResponseTime={firstResponseTime}
+            from={fromDate}
+            to={toDate}
           />
         )}
 
         {activeTab === 'satisfaction' && (
           <Satisfaction
-            satisfactionTrend={satisfactionTrend}
-            servqualScores={servqualScores?.dimensions ?? []}
-            agencySatisfactionRanking={can('satisfaction_other') ? (agencySatisfactionRanking?.labels?.map?.((l, i) => ({ name: l, score: agencySatisfactionRanking.data?.[i] ?? 0 })) ?? []) : null}
-            feedbackVolume={feedbackVolume}
+            from={fromDate}
+            to={toDate}
           />
         )}
 
         {activeTab === 'predictive' && (
           <Predictive
-            caseVolumeForecast={caseVolumeForecast}
-            breachProbability={breachProbability}
-            peakPeriods={peakPeriods}
-            capacityForecast={capacityForecast}
+            from={fromDate}
+            to={toDate}
           />
         )}
 
