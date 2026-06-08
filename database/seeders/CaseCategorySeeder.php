@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\CaseCategory;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class CaseCategorySeeder extends Seeder
 {
@@ -21,7 +22,7 @@ class CaseCategorySeeder extends Seeder
         foreach ($categories as $category) {
             CaseCategory::firstOrCreate(
                 ['name' => $category['name']],
-                $category,
+                array_merge($category, ['id' => (string) Str::uuid()]),
             );
         }
     }

@@ -25,15 +25,32 @@ class AgencySeeder extends Seeder
         ];
 
         foreach ($agencies as $i => $agency) {
-            DB::table('agencies')->updateOrInsert(
-                ['slug' => $agency['slug']],
-                array_merge($agency, [
+            $existing = DB::table('agencies')->where('slug', $agency['slug'])->first();
+
+            if ($existing) {
+                DB::table('agencies')->where('slug', $agency['slug'])->update([
+                    'short' => $agency['short'],
+                    'name' => $agency['name'],
+                    'logo_url' => $agency['logo_url'],
+                    'location_query' => $agency['location_query'],
+                    'is_active' => true,
+                    'is_default' => $agency['slug'] === 'dmw',
+                    'updated_at' => $now,
+                ]);
+            } else {
+                DB::table('agencies')->insert([
+                    'id' => $agency['id'],
+                    'short' => $agency['short'],
+                    'slug' => $agency['slug'],
+                    'name' => $agency['name'],
+                    'logo_url' => $agency['logo_url'],
+                    'location_query' => $agency['location_query'],
                     'is_active' => true,
                     'is_default' => $agency['slug'] === 'dmw',
                     'created_at' => $now,
                     'updated_at' => $now,
-                ])
-            );
+                ]);
+            }
         }
     }
 }

@@ -25,49 +25,58 @@ class DemoDataSeeder extends Seeder
             $servicesByName[$s->name] = $s->id;
         }
 
-        $cmId = (string) Str::uuid();
-        DB::table('users')->insert([
-            'id' => $cmId,
-            'name' => 'Maria Santos',
-            'email' => 'case@bayanihan.gov.ph',
-            'password' => Hash::make('password'),
-            'role' => 'CASE_MANAGER',
-            'contact_number' => '09171234567',
-            'is_active' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $cmEmail = 'case@bayanihan.gov.ph';
+        $cmId = DB::table('users')->where('email', $cmEmail)->value('id') ?? (string) Str::uuid();
+        DB::table('users')->updateOrInsert(
+            ['email' => $cmEmail],
+            [
+                'id' => $cmId,
+                'name' => 'Maria Santos',
+                'password' => Hash::make('password'),
+                'role' => 'CASE_MANAGER',
+                'contact_number' => '09171234567',
+                'is_active' => true,
+                'updated_at' => $now,
+                'created_at' => $now,
+            ]
+        );
 
         $testUsers = [];
         foreach ($agenciesBySlug as $slug => $id) {
-            $uid = (string) Str::uuid();
-            DB::table('users')->insert([
-                'id' => $uid,
-                'name' => strtoupper($slug).' Focal',
-                'email' => $slug.'@bayanihan.gov.ph',
-                'password' => Hash::make('password'),
-                'role' => 'AGENCY',
-                'agcy_id' => $id,
-                'contact_number' => '09170000000',
-                'is_active' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            $agencyEmail = $slug.'@bayanihan.gov.ph';
+            $uid = DB::table('users')->where('email', $agencyEmail)->value('id') ?? (string) Str::uuid();
+            DB::table('users')->updateOrInsert(
+                ['email' => $agencyEmail],
+                [
+                    'id' => $uid,
+                    'name' => strtoupper($slug).' Focal',
+                    'password' => Hash::make('password'),
+                    'role' => 'AGENCY',
+                    'agcy_id' => $id,
+                    'contact_number' => '09170000000',
+                    'is_active' => true,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
             $testUsers[$slug] = $uid;
         }
 
-        $adminId = (string) Str::uuid();
-        DB::table('users')->insert([
-            'id' => $adminId,
-            'name' => 'Admin User',
-            'email' => 'admin@bayanihan.gov.ph',
-            'password' => Hash::make('password'),
-            'role' => 'ADMIN',
-            'contact_number' => '09171234568',
-            'is_active' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $adminEmail = 'admin@bayanihan.gov.ph';
+        $adminId = DB::table('users')->where('email', $adminEmail)->value('id') ?? (string) Str::uuid();
+        DB::table('users')->updateOrInsert(
+            ['email' => $adminEmail],
+            [
+                'id' => $adminId,
+                'name' => 'Admin User',
+                'password' => Hash::make('password'),
+                'role' => 'ADMIN',
+                'contact_number' => '09171234568',
+                'is_active' => true,
+                'updated_at' => $now,
+                'created_at' => $now,
+            ]
+        );
 
         $sampleCases = [
             [
@@ -115,8 +124,18 @@ class DemoDataSeeder extends Seeder
 
         foreach ($sampleCases as $i => $caseData) {
             $caseId = (string) Str::uuid();
+            $clientId = (string) Str::uuid();
             $status = $statuses[$i % count($statuses)];
 
+            if (DB::table('cases')->where('case_number', $caseData['case_number'])->exists()) {
+                continue;
+            }
+
+            DB::table('clients')->insert(array_merge($caseData['client'], [
+                'id' => $clientId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]));
             DB::table('cases')->insert([
                 'id' => $caseId,
                 'case_number' => $caseData['case_number'],
@@ -124,18 +143,11 @@ class DemoDataSeeder extends Seeder
                 'tracker_number' => $caseData['tracker_number'],
                 'summary' => $caseData['summary'],
                 'status' => $status === 'COMPLETED' ? 'CLOSED' : 'OPEN',
+                'client_id' => $clientId,
                 'user_id' => $cmId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-
-            $clientId = (string) Str::uuid();
-            DB::table('clients')->insert(array_merge($caseData['client'], [
-                'id' => $clientId,
-                'case_id' => $caseId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]));
 
             DB::table('client_addresses')->insert(array_merge($caseData['address'], [
                 'id' => (string) Str::uuid(),

@@ -45,8 +45,10 @@ return new class extends Migration
             // subqueries in index predicates, so terminal slugs are inlined
             DB::statement("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_referrals_stalled ON referrals (updated_at, status) WHERE is_deleted = FALSE AND status NOT IN ('COMPLETED', 'REJECTED')");
 
-            // Index 5: province-based geographic queries on clients
-            DB::statement("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_clients_province ON clients ((address->>'province_code'))");
+            // Index 5: province-based geographic queries (client_addresses, not clients)
+            // Note: clients table has no JSONB address column — addresses are in
+            // client_addresses table via client_id FK. If needed, index on
+            // client_addresses.province instead.
 
             echo "✅ Created analytics performance indexes.\n";
         } catch (Throwable $e) {
