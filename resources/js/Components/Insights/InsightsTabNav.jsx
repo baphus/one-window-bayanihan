@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, PieChart, Activity, Award, SmilePlus, BrainCircuit, Bell } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, PieChart, Activity, Award, SmilePlus, BrainCircuit } from 'lucide-react';
 
 const TABS = [
   { id: 'executive', label: 'Executive', icon: LayoutDashboard },
@@ -8,7 +8,6 @@ const TABS = [
   { id: 'scorecards', label: 'Scorecards', icon: Award },
   { id: 'satisfaction', label: 'Satisfaction', icon: SmilePlus },
   { id: 'predictive', label: 'Predictive', icon: BrainCircuit },
-  { id: 'alerts', label: 'Alerts', icon: Bell },
 ];
 
 export default function InsightsTabNav({ activeTab, onTabChange, tabs: allowedTabs }) {

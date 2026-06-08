@@ -11,7 +11,6 @@ import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, Aler
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
-import NotificationBell from '@/Components/ui/NotificationBell';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
 
 ChartJS.register(
@@ -30,7 +29,6 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
                     <p className="text-sm text-slate-500 mt-0.5">Overview of your agency's referrals and performance.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <NotificationBell notifications={dashboardNotifications ?? []} />
                 </div>
             </header>
 
@@ -572,7 +570,6 @@ function CaseManagerDashboard({
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <NotificationBell notifications={dashboardNotifications} />
         </div>
       </header>
 

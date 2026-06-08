@@ -17,7 +17,6 @@ import OperationalMonitor from '@/Components/Insights/Sections/OperationalMonito
 import Scorecards from '@/Components/Insights/Sections/Scorecards';
 import Satisfaction from '@/Components/Insights/Sections/Satisfaction';
 import Predictive from '@/Components/Insights/Sections/Predictive';
-import AlertsPanel from '@/Components/Insights/Sections/AlertsPanel';
 import useInsightsAccess from '@/Hooks/useInsightsAccess';
 
 ChartJS.register(
@@ -212,9 +211,7 @@ export default function InsightsIndex(props) {
           />
         )}
 
-        {activeTab === 'alerts' && (
-          <AlertsPanel />
-        )}
+
       </div>
     </AppLayout>
   );

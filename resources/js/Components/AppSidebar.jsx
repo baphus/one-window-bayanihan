@@ -1,7 +1,6 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useMemo } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
-import AlertBell from '@/Components/Insights/AlertBell';
 
 const navByRole = {
   CASE_MANAGER: [
@@ -156,7 +155,6 @@ export default function AppSidebar() {
                           </span>
                           {item.name}
                         </Link>
-                        <AlertBell />
                       </div>
                     );
                   }
