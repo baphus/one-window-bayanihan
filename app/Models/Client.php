@@ -42,7 +42,14 @@ class Client extends Model
      */
     public function caseFile()
     {
-        return $this->hasOne(CaseFile::class, 'client_id')->latestOfMany();
+        return $this->hasOne(CaseFile::class, 'client_id')
+            ->whereRaw('cases.id = (
+                SELECT c2.id FROM cases c2
+                WHERE c2.client_id = cases.client_id
+                AND c2.deleted_at IS NULL
+                ORDER BY c2.created_at DESC, c2.id DESC
+                LIMIT 1
+            )');
     }
 
     /**

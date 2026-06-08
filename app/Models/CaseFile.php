@@ -22,6 +22,7 @@ class CaseFile extends Model
         'tracker_number',
         'summary',
         'status',
+        'closed_at',
         'consent_given_at',
         'user_id',
         'client_id',
@@ -31,6 +32,7 @@ class CaseFile extends Model
 
     protected $casts = [
         'is_deleted' => 'boolean',
+        'closed_at' => 'datetime',
         'consent_given_at' => 'datetime',
         'draft_client_data' => 'array',
     ];
