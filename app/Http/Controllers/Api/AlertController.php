@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\AlertService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -48,5 +49,19 @@ class AlertController extends Controller
             ->update(['read_at' => now()]);
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Mark all non-dismissed, unread alerts as read for the authenticated user.
+     */
+    public function markAllAsRead(): JsonResponse
+    {
+        $count = DB::table('alerts')
+            ->where('assigned_to_id', Auth::id())
+            ->whereNull('dismissed_at')
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return response()->json(['success' => true, 'count' => $count]);
     }
 }

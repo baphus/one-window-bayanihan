@@ -145,6 +145,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
     Route::patch('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::get('/notifications/page', function () {
+        return Inertia::render('Notifications/Index');
+    })->name('notifications.page');
 
     Route::middleware('role:AGENCY')->group(function () {
         Route::get('/services', [AgencyServiceController::class, 'index'])->name('agency.services.index');
@@ -301,6 +304,7 @@ Route::middleware('auth')->prefix('api')->group(function () {
     Route::get('/alerts', [AlertController::class, 'index']);
     Route::post('/alerts/{id}/dismiss', [AlertController::class, 'dismiss']);
     Route::post('/alerts/{id}/read', [AlertController::class, 'read']);
+    Route::post('/alerts/mark-all-read', [AlertController::class, 'markAllAsRead']);
 
     // Insights API
     Route::get('/insights/trends', [InsightsApiController::class, 'trends']);
