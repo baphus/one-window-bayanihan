@@ -14,6 +14,11 @@ class Client extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'client';
+    }
+
     protected $fillable = [
         'first_name',
         'last_name',
@@ -56,6 +61,11 @@ class Client extends Model
      * Backward-compatible accessor: returns the latest case for this client.
      * Respects eager-loaded relationship when available.
      */
+    public function getCaseIdAttribute(): ?string
+    {
+        return $this->caseFile?->id;
+    }
+
     public function getCaseFileAttribute()
     {
         if ($this->relationLoaded('caseFile')) {

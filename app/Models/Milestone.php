@@ -13,6 +13,11 @@ class Milestone extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'refr_id'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'milestone';
+    }
+
     protected $fillable = [
         'title',
         'description',

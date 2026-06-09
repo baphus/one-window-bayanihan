@@ -16,6 +16,11 @@ class HelpdeskArticle extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'helpdesk_article';
+    }
+
     protected $table = 'helpdesk_articles';
 
     protected $fillable = [

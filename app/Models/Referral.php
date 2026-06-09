@@ -13,6 +13,11 @@ class Referral extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'case_id'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'referral';
+    }
+
     protected $fillable = [
         'required_services',
         'notes',

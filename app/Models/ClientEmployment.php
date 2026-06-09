@@ -13,6 +13,11 @@ class ClientEmployment extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'client_id'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'client_employment';
+    }
+
     protected $fillable = [
         'client_id',
         'employer_name',

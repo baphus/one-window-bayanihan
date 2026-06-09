@@ -44,7 +44,7 @@ class AuditObserver
     {
         $log = AuditLog::create([
             'action' => $action,
-            'module' => $model->getTable(),
+            'module' => method_exists($model, 'getAuditModuleName') ? $model->getAuditModuleName() : $model->getTable(),
             'entity_id' => $model->getKey(),
             'old_value' => $old,
             'new_value' => $new,

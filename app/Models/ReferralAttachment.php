@@ -15,6 +15,11 @@ class ReferralAttachment extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'referral_id', 'file_path', 'replaces_id', 'version_group_id'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'referral_attachment';
+    }
+
     protected $fillable = [
         'referral_id',
         'file_name',

@@ -91,7 +91,7 @@ class DashboardService
             ->toArray();
 
         $recentActivity = AuditLog::with('user')
-            ->whereNotIn('module', ['clients', 'client_addresses', 'client_employments', 'milestones', 'referral_attachments'])
+            ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
@@ -103,7 +103,7 @@ class DashboardService
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
                         'action' => $log->action,
-                        'module' => $log->module,
+                        'module' => $display['module'],
                         'actor' => 'System',
                         'timestamp' => $log->timestamp?->toISOString(),
                         'hasChanges' => false,
@@ -284,7 +284,7 @@ class DashboardService
             ->toArray();
 
         $recentActivity = AuditLog::whereIn('entity_id', $referralIds)
-            ->where('module', 'referrals')
+            ->whereIn('module', ['referral', 'referrals'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
@@ -370,7 +370,7 @@ class DashboardService
             ->toArray();
 
         $recentLogs = AuditLog::with('user')
-            ->whereNotIn('module', ['clients', 'client_addresses', 'client_employments', 'milestones', 'referral_attachments'])
+            ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
@@ -382,7 +382,7 @@ class DashboardService
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
                         'action' => $log->action,
-                        'module' => $log->module,
+                        'module' => $display['module'],
                         'actor' => $log->user?->name ?? 'System',
                         'timestamp' => $log->timestamp?->toISOString(),
                         'hasChanges' => false,

@@ -17,6 +17,11 @@ class User extends Authenticatable
 
     public static array $auditExclude = ['password', 'remember_token', 'id', 'created_at', 'updated_at', 'email_verified_at'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'user';
+    }
+
     public $incrementing = false;
 
     protected $keyType = 'string';

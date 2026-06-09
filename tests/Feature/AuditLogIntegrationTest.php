@@ -124,4 +124,108 @@ class AuditLogIntegrationTest extends TestCase
             ->expectsOutputToContain('Would backfill 1 descriptions. Use without --dry-run to execute.')
             ->assertExitCode(0);
     }
+
+    public function test_mixed_old_and_new_module_names_display_correctly(): void
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'description' => 'Created case file record',
+            'new_value' => ['case_number' => 'CAS-001'],
+            'timestamp' => now()->subHours(4),
+        ]);
+
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'referrals',
+            'description' => 'Updated referral status',
+            'old_value' => ['status' => 'PENDING'],
+            'new_value' => ['status' => 'COMPLETED'],
+            'timestamp' => now()->subHours(3),
+        ]);
+
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'case',
+            'description' => 'Created new case',
+            'new_value' => ['case_number' => 'CAS-002'],
+            'timestamp' => now()->subHours(2),
+        ]);
+
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'description' => 'Updated referral details',
+            'old_value' => ['status' => 'ACTIVE'],
+            'new_value' => ['status' => 'CLOSED'],
+            'timestamp' => now()->subHour(),
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs');
+
+        $response->assertStatus(200);
+
+        $props = $response->json('props');
+        $modules = collect($props['logs']['data'])->pluck('module')->toArray();
+
+        $this->assertContains('case_files', $modules);
+        $this->assertContains('referrals', $modules);
+        $this->assertContains('case', $modules);
+        $this->assertContains('referral', $modules);
+        $this->assertGreaterThanOrEqual(4, count($props['logs']['data']));
+    }
+
+    public function test_filter_matches_both_old_and_new_modules(): void
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'description' => 'Old module name entry',
+            'new_value' => ['case_number' => 'CAS-001'],
+            'timestamp' => now()->subHour(),
+        ]);
+
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'description' => 'New module name entry',
+            'old_value' => ['status' => 'OPEN'],
+            'new_value' => ['status' => 'CLOSED'],
+            'timestamp' => now(),
+        ]);
+
+        // Filter by old module name — should return both old and new
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?module=case_files');
+
+        $response->assertStatus(200);
+        $props = $response->json('props');
+        $modules = collect($props['logs']['data'])->pluck('module')->toArray();
+
+        $this->assertContains('case_files', $modules);
+        $this->assertContains('case', $modules);
+        $this->assertCount(2, $props['logs']['data']);
+
+        // Filter by new module name — should also return both
+        $response2 = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?module=case');
+
+        $response2->assertStatus(200);
+        $props2 = $response2->json('props');
+        $modules2 = collect($props2['logs']['data'])->pluck('module')->toArray();
+
+        $this->assertContains('case_files', $modules2);
+        $this->assertContains('case', $modules2);
+        $this->assertCount(2, $props2['logs']['data']);
+    }
 }

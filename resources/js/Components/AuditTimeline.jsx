@@ -9,6 +9,7 @@ import { formatRelativeTime, formatDateGroup, formatTimeAgo } from '@/lib/relati
  * @param {Function} [props.onFilterChange] - Callback when filters change
  * @param {string[]} [props.availableActions=[]] - Available action types for filter dropdown
  * @param {Object[]} [props.availableModules=[]] - Available modules for filter dropdown
+ * @param {Object} [props.availableModulesLabels={}] - Maps module -> human label for filter dropdown
  * @param {Object} [props.filterValues={}] - Current filter state
  * @param {Object} [props.pagination] - Pagination info with total, currentPage, totalPages
  * @param {Function} [props.onPageChange] - Callback for page change
@@ -19,6 +20,7 @@ export function AuditTimeline({
     onFilterChange = () => {},
     availableActions = [],
     availableModules = [],
+    availableModulesLabels = {},
     filterValues = {},
     pagination,
     onPageChange = () => {},
@@ -53,6 +55,7 @@ export function AuditTimeline({
                 <FilterBar 
                     availableActions={availableActions}
                     availableModules={availableModules}
+                    availableModulesLabels={availableModulesLabels}
                     filterValues={filterValues}
                     onFilterChange={onFilterChange}
                 />
@@ -151,7 +154,7 @@ function TimelineEntry({ log }) {
                         <p className="text-slate-400">{displayDetail}</p>
                     ) : null}
                     <p>
-                        {formatRelativeTime(log.timestamp)} <span className="mx-1">•</span> {log.module}
+                        {formatRelativeTime(log.timestamp)} <span className="mx-1">•</span> {log.formatted_module || log.module}
                         {actorName !== '??' ? <> <span className="mx-1">•</span> {actorName}</> : null}
                     </p>
                 </div>
@@ -200,7 +203,7 @@ function TimelineEntry({ log }) {
                                                 if (oldV === newV) return null;
                                                 return (
                                                     <tr key={key} className="hover:bg-slate-50">
-                                                        <td className="px-3 py-2 font-mono text-[11px] font-medium text-slate-700">{key}</td>
+                                                        <td className="px-3 py-2 font-mono text-[11px] font-medium text-slate-700">{log.formatted_fields?.[key] || key}</td>
                                                         <td className="px-3 py-2 text-red-600 break-words max-w-[200px] bg-red-50/30">{oldV}</td>
                                                         <td className="px-3 py-2 text-emerald-600 break-words max-w-[200px] bg-emerald-50/30">{newV}</td>
                                                     </tr>
@@ -218,7 +221,7 @@ function TimelineEntry({ log }) {
     );
 }
 
-function FilterBar({ availableActions, availableModules, filterValues, onFilterChange }) {
+function FilterBar({ availableActions, availableModules, availableModulesLabels, filterValues, onFilterChange }) {
     const handleActionToggle = (action) => {
         const currentActions = (filterValues.action || '').split(',').filter(Boolean);
         const newActions = currentActions.includes(action)
@@ -273,7 +276,7 @@ function FilterBar({ availableActions, availableModules, filterValues, onFilterC
                     >
                         <option value="">All Modules</option>
                         {availableModules.map(m => (
-                            <option key={m} value={m}>{m}</option>
+                            <option key={m} value={m}>{availableModulesLabels[m] || m}</option>
                         ))}
                     </select>
                     

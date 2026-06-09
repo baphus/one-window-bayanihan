@@ -239,6 +239,40 @@ class AuditLogFormatterTest extends TestCase
         $this->assertStringContainsString('Maria Santos signed in', $formatter->format($log));
     }
 
+    public function test_format_create_works_with_new_module_name(): void
+    {
+        $log = new AuditLog([
+            'action' => 'CREATE',
+            'module' => 'case',
+            'new_value' => ['case_number' => 'CAS-001', 'client_type' => 'OFW'],
+            'timestamp' => now(),
+        ]);
+
+        $formatter = new AuditLogFormatter;
+
+        $result = $formatter->format($log);
+
+        $this->assertStringContainsString('opened', $result);
+        $this->assertStringContainsString('CAS-001', $result);
+    }
+
+    public function test_format_update_works_with_new_module_name(): void
+    {
+        $log = new AuditLog([
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'old_value' => ['status' => 'PROCESSING'],
+            'new_value' => ['status' => 'COMPLETED'],
+            'timestamp' => now(),
+        ]);
+
+        $formatter = new AuditLogFormatter;
+
+        $result = $formatter->format($log);
+
+        $this->assertStringContainsString('Completed', $result);
+    }
+
     #[DataProvider('loginTimezoneProvider')]
     public function test_it_formats_login_timezone(Carbon $timestamp, string $timezone, string $expected): void
     {
@@ -294,6 +328,19 @@ class AuditLogFormatterTest extends TestCase
             ['client_employments', 'Employment Record'],
             ['milestones', 'Milestone'],
             ['referral_attachments', 'Attachment'],
+            // New singular/modern module names
+            ['agency', 'Agency'],
+            ['case', 'Case'],
+            ['cases', 'Case'],
+            ['client', 'Client'],
+            ['client_address', 'Address'],
+            ['client_employment', 'Employment Record'],
+            ['helpdesk_article', 'Helpdesk Article'],
+            ['milestone', 'Milestone'],
+            ['referral', 'Referral'],
+            ['referral_attachment', 'Attachment'],
+            ['service', 'Service'],
+            ['user', 'User'],
         ];
     }
 
@@ -307,6 +354,20 @@ class AuditLogFormatterTest extends TestCase
             ['role', 'user role'],
             ['is_active', 'active status'],
             ['required_services', 'service type'],
+            // New field name mappings
+            ['assigned_to', 'assigned to'],
+            ['avatar_url', 'avatar url'],
+            ['case_id', 'case id'],
+            ['category_id', 'category id'],
+            ['client_id', 'client id'],
+            ['closed_at', 'closed at'],
+            ['contact_number', 'contact number'],
+            ['decision', 'decision'],
+            ['decision_reason', 'decision reason'],
+            ['due_date', 'due date'],
+            ['draft_client_data', 'draft client data'],
+            ['priority', 'priority'],
+            ['suffix', 'suffix'],
         ];
     }
 

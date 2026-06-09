@@ -44,16 +44,28 @@ class AuditLogFormatter
     {
         return match ($module) {
             'case_files' => 'Case',
+            'cases' => 'Case',
+            'case' => 'Case',
             'clients' => 'Client',
+            'client' => 'Client',
             'client_addresses' => 'Address',
+            'client_address' => 'Address',
             'client_employments' => 'Employment Record',
+            'client_employment' => 'Employment Record',
             'referrals' => 'Referral',
+            'referral' => 'Referral',
             'milestones' => 'Milestone',
+            'milestone' => 'Milestone',
             'referral_attachments' => 'Attachment',
+            'referral_attachment' => 'Attachment',
             'agencies' => 'Agency',
+            'agency' => 'Agency',
             'users' => 'User',
+            'user' => 'User',
             'services' => 'Service',
+            'service' => 'Service',
             'helpdesk_articles' => 'Helpdesk Article',
+            'helpdesk_article' => 'Helpdesk Article',
             default => ucfirst(str_replace('_', ' ', $module)),
         };
     }
@@ -269,7 +281,7 @@ class AuditLogFormatter
         $moduleRaw = (string) $log->module;
 
         // Specific template: User creation
-        if ($moduleRaw === 'users') {
+        if (in_array($moduleRaw, ['users', 'user'])) {
             $name = $newValues['name'] ?? $newValues['first_name'] ?? null;
             $role = isset($newValues['role']) ? $this->formatFieldValue($moduleRaw, 'role', $newValues['role']) : null;
             if ($name && $role) {
@@ -281,7 +293,7 @@ class AuditLogFormatter
         }
 
         // Specific template: Case creation
-        if ($moduleRaw === 'case_files') {
+        if (in_array($moduleRaw, ['case_files', 'case'])) {
             $caseNumber = $newValues['case_number'] ?? null;
             $clientType = isset($newValues['client_type']) ? $this->formatFieldValue($moduleRaw, 'client_type', $newValues['client_type']) : null;
             if ($caseNumber && $clientType) {
@@ -293,7 +305,7 @@ class AuditLogFormatter
         }
 
         // Specific template: Referral creation
-        if ($moduleRaw === 'referrals') {
+        if (in_array($moduleRaw, ['referrals', 'referral'])) {
             $serviceType = $newValues['required_services'] ?? null;
             $identifier = $this->extractEntityDetail($newValues, $moduleRaw);
             $base = $identifier ? sprintf('Referral %s created', $identifier) : 'Referral created';

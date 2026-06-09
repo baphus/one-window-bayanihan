@@ -40,19 +40,19 @@ class AuditLog extends Model
     {
         return $query->where(function ($q) use ($clientId, $caseId, $referralIds) {
             $q->where('entity_id', $clientId)
-                ->whereIn('module', ['clients']);
+                ->whereIn('module', ['clients', 'client']);
 
             if ($caseId) {
                 $q->orWhere(function ($sub) use ($caseId) {
                     $sub->where('entity_id', $caseId)
-                        ->whereIn('module', ['CASE', 'cases', 'case_files']);
+                        ->whereIn('module', ['CASE', 'cases', 'case_files', 'case']);
                 });
             }
 
             if (! empty($referralIds)) {
                 $q->orWhere(function ($sub) use ($referralIds) {
                     $sub->whereIn('entity_id', $referralIds)
-                        ->whereIn('module', ['REFERRAL', 'referrals']);
+                        ->whereIn('module', ['REFERRAL', 'referrals', 'referral']);
                 });
             }
         })

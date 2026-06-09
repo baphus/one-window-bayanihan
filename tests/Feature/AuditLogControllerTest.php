@@ -137,7 +137,69 @@ class AuditLogControllerTest extends TestCase
         $response->assertStatus(200);
         $props = $response->json('props');
         $this->assertEqualsCanonicalizing(['CREATE', 'UPDATE'], $props['availableActions']);
-        $this->assertEqualsCanonicalizing(['case_files', 'referrals'], $props['availableModules']);
+        $this->assertEqualsCanonicalizing(['case', 'referral'], $props['availableModules']);
+    }
+
+    #[Test]
+    public function it_returns_available_modules_from_both_old_and_new_data(): void
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'timestamp' => now()->subMinutes(2),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'timestamp' => now()->subMinute(),
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs');
+
+        $response->assertStatus(200);
+        $props = $response->json('props');
+        $this->assertEqualsCanonicalizing(['case'], $props['availableModules']);
+    }
+
+    #[Test]
+    public function it_filters_by_module_using_either_old_or_new_name(): void
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'case_files',
+            'timestamp' => now()->subMinutes(3),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'timestamp' => now()->subMinutes(2),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'VIEW',
+            'module' => 'referrals',
+            'timestamp' => now()->subMinute(),
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?module=case_files');
+
+        $response->assertStatus(200);
+        $this->assertCount(2, $response->json('props.logs.data'));
+
+        $response2 = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?module=case');
+
+        $response2->assertStatus(200);
+        $this->assertCount(2, $response2->json('props.logs.data'));
     }
 
     #[Test]

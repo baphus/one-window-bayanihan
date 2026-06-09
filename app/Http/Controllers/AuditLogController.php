@@ -22,7 +22,12 @@ class AuditLogController extends Controller
 
         $query->when($request->filled('module'), function ($q) use ($request) {
             $modules = explode(',', $request->input('module'));
-            $q->whereIn('module', $modules);
+            $expanded = collect($modules)
+                ->flatMap(fn ($m) => static::moduleAliases($m))
+                ->unique()
+                ->values()
+                ->toArray();
+            $q->whereIn('module', $expanded);
         });
 
         $query->when($request->filled('user_id'), function ($q) use ($request) {
@@ -62,12 +67,46 @@ class AuditLogController extends Controller
             $log->detail = $display['detail'];
             $log->actor = $display['actor'];
             $log->hasChanges = $display['hasChanges'];
+            $log->formatted_module = $display['module'];
+
+            if ($log->old_value || $log->new_value) {
+                $fields = array_unique(array_merge(
+                    array_keys($log->old_value ?? []),
+                    array_keys($log->new_value ?? [])
+                ));
+                $log->formatted_fields = collect($fields)
+                    ->mapWithKeys(fn ($f) => [$f => $formatter->formatFieldName($f)])
+                    ->toArray();
+            } else {
+                $log->formatted_fields = [];
+            }
 
             return $log;
         });
 
         $availableActions = AuditLog::distinct()->pluck('action')->values()->toArray();
-        $availableModules = AuditLog::distinct()->pluck('module')->values()->toArray();
+
+        $canonicalMap = [
+            'case_files' => 'case', 'case' => 'case',
+            'clients' => 'client', 'client' => 'client',
+            'client_addresses' => 'client_address', 'client_address' => 'client_address',
+            'client_employments' => 'client_employment', 'client_employment' => 'client_employment',
+            'referrals' => 'referral', 'referral' => 'referral',
+            'milestones' => 'milestone', 'milestone' => 'milestone',
+            'referral_attachments' => 'referral_attachment', 'referral_attachment' => 'referral_attachment',
+            'agencies' => 'agency', 'agency' => 'agency',
+            'users' => 'user', 'user' => 'user',
+            'services' => 'service', 'service' => 'service',
+            'helpdesk_articles' => 'helpdesk_article', 'helpdesk_article' => 'helpdesk_article',
+        ];
+
+        $availableModulesRaw = AuditLog::distinct()->pluck('module')->values()->toArray();
+        $availableModules = collect($availableModulesRaw)
+            ->map(fn ($m) => $canonicalMap[$m] ?? $m)
+            ->unique()
+            ->sort()
+            ->values()
+            ->toArray();
         $availableModulesLabels = collect($availableModules)->mapWithKeys(fn ($m) => [
             $m => $formatter->formatModule($m),
         ])->toArray();
@@ -79,5 +118,23 @@ class AuditLogController extends Controller
             'availableModulesLabels' => $availableModulesLabels,
             'filterValues' => $request->only(['action', 'module', 'user_id', 'date_from', 'date_to', 'search', 'per_page']),
         ]);
+    }
+
+    public static function moduleAliases(string $module): array
+    {
+        return match ($module) {
+            'case_files', 'case' => ['case_files', 'case'],
+            'clients', 'client' => ['clients', 'client'],
+            'client_addresses', 'client_address' => ['client_addresses', 'client_address'],
+            'client_employments', 'client_employment' => ['client_employments', 'client_employment'],
+            'referrals', 'referral' => ['referrals', 'referral'],
+            'milestones', 'milestone' => ['milestones', 'milestone'],
+            'referral_attachments', 'referral_attachment' => ['referral_attachments', 'referral_attachment'],
+            'agencies', 'agency' => ['agencies', 'agency'],
+            'users', 'user' => ['users', 'user'],
+            'services', 'service' => ['services', 'service'],
+            'helpdesk_articles', 'helpdesk_article' => ['helpdesk_articles', 'helpdesk_article'],
+            default => [$module],
+        };
     }
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,11 @@ class ClientAuditLogScopeTest extends TestCase
 
         $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
         $this->client = Client::factory()->create();
+
+        CaseFile::factory()->create([
+            'client_id' => $this->client->id,
+            'user_id' => $this->user->id,
+        ]);
 
         AuditLog::truncate();
     }
@@ -220,6 +226,61 @@ class ClientAuditLogScopeTest extends TestCase
         $logs = $this->client->relatedAuditLogs();
 
         $this->assertCount(2, $logs);
+    }
+
+    public function test_scope_returns_client_logs_with_new_module_name(): void
+    {
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'client',
+            'entity_id' => $this->client->id,
+            'description' => 'Client audit log with new module name',
+            'timestamp' => now(),
+        ]);
+
+        $logs = AuditLog::forClient($this->client->id)->get();
+
+        $this->assertCount(1, $logs);
+        $this->assertEquals('client', $logs->first()->module);
+    }
+
+    public function test_scope_returns_case_logs_with_new_module_name(): void
+    {
+        $caseId = $this->client->case_id;
+
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'entity_id' => $caseId,
+            'description' => 'Case audit log with new module name',
+            'timestamp' => now(),
+        ]);
+
+        $logs = AuditLog::forClient($this->client->id, $caseId)->get();
+
+        $this->assertCount(1, $logs);
+        $this->assertEquals('case', $logs->first()->module);
+    }
+
+    public function test_scope_returns_referral_logs_with_new_module_name(): void
+    {
+        $referralId = '00000000-0000-0000-0000-000000000003';
+
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'entity_id' => $referralId,
+            'description' => 'Referral audit log with new module name',
+            'timestamp' => now(),
+        ]);
+
+        $logs = AuditLog::forClient($this->client->id, null, [$referralId])->get();
+
+        $this->assertCount(1, $logs);
+        $this->assertEquals('referral', $logs->first()->module);
     }
 
     public function test_returns_empty_when_no_matching_logs(): void

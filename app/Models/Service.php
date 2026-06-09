@@ -13,6 +13,11 @@ class Service extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'agcy_id'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'service';
+    }
+
     protected $fillable = [
         'name',
         'description',

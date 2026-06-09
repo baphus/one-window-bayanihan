@@ -13,6 +13,11 @@ class Agency extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
 
+    public function getAuditModuleName(): string
+    {
+        return 'agency';
+    }
+
     protected $fillable = [
         'name',
         'short',

@@ -50,26 +50,26 @@ class ClientController extends Controller
             ->where(function ($q) use ($client) {
                 // Direct client changes
                 // Direct client changes (from AuditObserver on Client model)
-                $q->whereIn('module', ['clients'])->where('entity_id', $client->id);
+                $q->whereIn('module', ['clients', 'client'])->where('entity_id', $client->id);
 
                 // Case file changes if client has case (from AuditObserver + CaseService)
                 if ($client->caseFile) {
                     $q->orWhere(function ($q2) use ($client) {
-                        $q2->whereIn('module', ['CASE', 'cases', 'case_files'])->where('entity_id', $client->caseFile->id);
+                        $q2->whereIn('module', ['CASE', 'cases', 'case_files', 'case'])->where('entity_id', $client->caseFile->id);
                     });
 
                     // Referral changes (from AuditObserver + ReferralService)
                     $referralIds = $client->caseFile->referrals->pluck('id');
                     if ($referralIds->isNotEmpty()) {
                         $q->orWhere(function ($q2) use ($referralIds) {
-                            $q2->whereIn('module', ['REFERRAL', 'referrals'])->whereIn('entity_id', $referralIds);
+                            $q2->whereIn('module', ['REFERRAL', 'referrals', 'referral'])->whereIn('entity_id', $referralIds);
                         });
 
                         // Milestone changes (from ReferralService)
                         $milestoneIds = $client->caseFile->referrals->flatMap->milestones->pluck('id');
                         if ($milestoneIds->isNotEmpty()) {
                             $q->orWhere(function ($q2) use ($milestoneIds) {
-                                $q2->whereIn('module', ['MILESTONE', 'milestones'])->whereIn('entity_id', $milestoneIds);
+                                $q2->whereIn('module', ['MILESTONE', 'milestones', 'milestone'])->whereIn('entity_id', $milestoneIds);
                             });
                         }
                     }
