@@ -7,6 +7,9 @@ const navByRole = {
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     ]},
+    { label: 'Notifications', items: [
+      { name: 'Notifications', href: '/notifications/page', icon: 'notifications' },
+    ]},
     { label: 'Management', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
       { name: 'My Drafts', href: '/cases/drafts', icon: 'drafts' },
@@ -28,6 +31,9 @@ const navByRole = {
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     ]},
+    { label: 'Notifications', items: [
+      { name: 'Notifications', href: '/notifications/page', icon: 'notifications' },
+    ]},
     { label: 'Operations', items: [
       { name: 'Referred Cases', href: '/referrals', icon: 'assignment' },
       { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
@@ -48,6 +54,9 @@ const navByRole = {
   ADMIN: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+    ]},
+    { label: 'Notifications', items: [
+      { name: 'Notifications', href: '/notifications/page', icon: 'notifications' },
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },

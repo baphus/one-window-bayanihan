@@ -2,83 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, X, AlertTriangle, ShieldAlert, Info, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { usePage } from '@inertiajs/react';
-
-const SEVERITY_CONFIG = {
-  warning: { icon: AlertTriangle, dot: 'bg-amber-500', label: 'Warning' },
-  critical: { icon: ShieldAlert, dot: 'bg-rose-500', label: 'Critical' },
-  info: { icon: Info, dot: 'bg-blue-500', label: 'Info' },
-  success: { icon: CheckCircle2, dot: 'bg-emerald-500', label: 'Success' },
-};
-
-// Map Laravel notification class short names to severity levels
-const NOTIFICATION_TYPE_SEVERITY = {
-  'CaseCreated': 'info',
-  'CaseUpdated': 'info',
-  'CaseAssigned': 'info',
-  'CaseClosed': 'success',
-  'CaseReopened': 'warning',
-  'ReferralCreated': 'info',
-  'ReferralUpdated': 'info',
-  'ReferralCompleted': 'success',
-  'StatusChanged': 'info',
-  'UserCreated': 'info',
-  'UserUpdated': 'info',
-  'AlertGenerated': 'warning',
-  'SystemAlert': 'critical',
-};
-
-function getSeverityConfig(severity) {
-  return SEVERITY_CONFIG[severity?.toLowerCase()] || SEVERITY_CONFIG.info;
-}
-
-/**
- * Extract the short class name from a Laravel notification type string.
- * e.g. "App\Notifications\Cases\CaseCreatedNotification" → "CaseCreated"
- */
-function extractNotificationTypeName(type) {
-  if (!type) return null;
-  const parts = type.split('\\');
-  const className = parts[parts.length - 1] || '';
-  return className.replace(/Notification$/, '') || null;
-}
-
-/**
- * Normalize a Laravel database notification into the alert display format.
- */
-function normalizeNotification(notification) {
-  const shortName = extractNotificationTypeName(notification.type);
-  const severity = NOTIFICATION_TYPE_SEVERITY[shortName] || 'info';
-  const data = notification.data || {};
-
-  return {
-    id: `notification-${notification.id}`,
-    _rawId: notification.id,
-    _source: 'notification',
-    severity,
-    title: data.title || data.subject || (shortName ? shortName.replace(/([A-Z])/g, ' $1').trim() : 'Notification'),
-    message: data.message || data.body || '',
-    created_at: notification.created_at,
-    is_read: notification.read_at !== null || notification.read === true,
-  };
-}
-
-function timeAgo(dateStr) {
-  if (!dateStr) return '';
-  const now = Date.now();
-  const date = new Date(dateStr).getTime();
-  const diffMs = now - date;
-  if (diffMs < 0) return 'just now';
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths < 12) return `${diffMonths}mo ago`;
-  return `${Math.floor(diffMonths / 12)}y ago`;
-}
+import { SEVERITY_CONFIG, getSeverityConfig, extractNotificationTypeName, normalizeNotification, timeAgo } from '@/lib/notifications';
 
 export default function NotificationPanel() {
   const [open, setOpen] = useState(false);
@@ -365,7 +289,7 @@ export default function NotificationPanel() {
 
           {/* Footer */}
           <a
-            href="/insights?tab=operational"
+            href="/notifications/page"
             onClick={() => setOpen(false)}
             className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-slate-100 text-[11px] font-bold text-blue-900 hover:bg-blue-50/50 transition-colors"
           >
