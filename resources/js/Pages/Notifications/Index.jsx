@@ -29,11 +29,12 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
   const normalized = items.map(normalizeNotification);
   const unreadItems = normalized.filter((n) => !n.is_read);
   const hasUnread = unreadItems.length > 0;
-  const total = data?.total ?? 0;
-  const perPage = data?.per_page ?? 20;
-  const lastPage = data?.last_page ?? 1;
-  const from = data?.from ?? 0;
-  const to = data?.to ?? 0;
+  const total = data?.meta?.total ?? 0;
+  const perPage = data?.meta?.per_page ?? 20;
+  const lastPage = data?.meta?.last_page ?? 1;
+  const currentPage = data?.meta?.current_page ?? 1;
+  const from = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
+  const to = total > 0 ? Math.min(currentPage * perPage, total) : 0;
 
   if (isLoading) {
     return (

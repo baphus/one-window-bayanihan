@@ -102,7 +102,7 @@ class Client extends Model
     public function auditLogs()
     {
         return $this->hasMany(AuditLog::class, 'entity_id')
-            ->whereIn('module', ['clients'])
+            ->whereIn('module', ['clients', 'client'])
             ->orderBy('timestamp', 'desc');
     }
 
@@ -110,19 +110,19 @@ class Client extends Model
     {
         $query = AuditLog::where(function ($q) {
             $q->where('entity_id', $this->id)
-                ->whereIn('module', ['clients']);
+                ->whereIn('module', ['clients', 'client']);
 
             if ($this->caseFile) {
                 $q->orWhere(function ($sub) {
                     $sub->where('entity_id', $this->caseFile->id)
-                        ->whereIn('module', ['CASE', 'cases', 'case_files']);
+                        ->whereIn('module', ['CASE', 'cases', 'case_files', 'case']);
                 });
 
                 $referralIds = $this->caseFile->referrals()->pluck('id');
                 if ($referralIds->isNotEmpty()) {
                     $q->orWhere(function ($sub) use ($referralIds) {
                         $sub->whereIn('entity_id', $referralIds)
-                            ->whereIn('module', ['REFERRAL', 'referrals']);
+                            ->whereIn('module', ['REFERRAL', 'referrals', 'referral']);
                     });
                 }
             }

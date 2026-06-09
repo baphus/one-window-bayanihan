@@ -382,7 +382,7 @@ class DashboardService
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
                         'action' => $log->action,
-                        'module' => $display['module'],
+                        'module' => $log->module,
                         'actor' => $log->user?->name ?? 'System',
                         'timestamp' => $log->timestamp?->toISOString(),
                         'hasChanges' => false,
