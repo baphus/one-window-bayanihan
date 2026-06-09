@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // 1. mv_daily_case_summary — daily case count aggregations
         //    Note: cases.status is a VARCHAR matching case_statuses.slug
         DB::statement('
@@ -58,6 +62,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement('DROP MATERIALIZED VIEW IF EXISTS mv_agency_performance');
         DB::statement('DROP MATERIALIZED VIEW IF EXISTS mv_daily_case_summary');
     }
