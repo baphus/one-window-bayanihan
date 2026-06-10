@@ -17,6 +17,7 @@ class UpdateCaseRequest extends FormRequest
         return [
             'client_type' => ['required', Rule::in(['OFW', 'NEXT_OF_KIN'])],
             'vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
+            'nok_vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'summary' => ['nullable', 'string', 'max:5000'],
         ];
     }

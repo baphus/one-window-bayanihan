@@ -124,6 +124,12 @@ class CaseService
                             'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
                             'email' => $data['next_of_kin']['email'] ?? null,
                             'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
+                            'region' => $data['next_of_kin']['region'] ?? null,
+                            'province' => $data['next_of_kin']['province'] ?? null,
+                            'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
+                            'barangay' => $data['next_of_kin']['barangay'] ?? null,
+                            'street' => $data['next_of_kin']['street'] ?? null,
                         ]);
                     } else {
                         $client->nextOfKin()->create([
@@ -135,6 +141,12 @@ class CaseService
                             'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
                             'email' => $data['next_of_kin']['email'] ?? null,
                             'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
+                            'region' => $data['next_of_kin']['region'] ?? null,
+                            'province' => $data['next_of_kin']['province'] ?? null,
+                            'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
+                            'barangay' => $data['next_of_kin']['barangay'] ?? null,
+                            'street' => $data['next_of_kin']['street'] ?? null,
                         ]);
                     }
                 }
@@ -187,6 +199,12 @@ class CaseService
                             'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
                             'email' => $data['next_of_kin']['email'] ?? null,
                             'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
+                            'region' => $data['next_of_kin']['region'] ?? null,
+                            'province' => $data['next_of_kin']['province'] ?? null,
+                            'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
+                            'barangay' => $data['next_of_kin']['barangay'] ?? null,
+                            'street' => $data['next_of_kin']['street'] ?? null,
                         ]);
                     }
                 }
@@ -285,6 +303,9 @@ class CaseService
                         if (! empty($data['next_of_kin'])) {
                             $draftData['next_of_kin'] = $data['next_of_kin'];
                         }
+                        if (isset($data['nok_vulnerability_indicator'])) {
+                            $draftData['nok_vulnerability_indicator'] = $data['nok_vulnerability_indicator'];
+                        }
                         if (isset($data['consent'])) {
                             $draftData['consent'] = $data['consent'];
                         }
@@ -358,6 +379,12 @@ class CaseService
                                 'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
                                 'email' => $data['next_of_kin']['email'] ?? null,
                                 'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                                'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
+                                'region' => $data['next_of_kin']['region'] ?? null,
+                                'province' => $data['next_of_kin']['province'] ?? null,
+                                'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
+                                'barangay' => $data['next_of_kin']['barangay'] ?? null,
+                                'street' => $data['next_of_kin']['street'] ?? null,
                             ]);
                         } else {
                             $client->nextOfKin()->create([
@@ -369,6 +396,12 @@ class CaseService
                                 'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
                                 'email' => $data['next_of_kin']['email'] ?? null,
                                 'full_address' => $data['next_of_kin']['full_address'] ?? null,
+                                'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
+                                'region' => $data['next_of_kin']['region'] ?? null,
+                                'province' => $data['next_of_kin']['province'] ?? null,
+                                'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
+                                'barangay' => $data['next_of_kin']['barangay'] ?? null,
+                                'street' => $data['next_of_kin']['street'] ?? null,
                             ]);
                         }
                     }
@@ -473,6 +506,12 @@ class CaseService
                         'phone_number' => $draftData['next_of_kin']['phone_number'] ?? null,
                         'email' => $draftData['next_of_kin']['email'] ?? null,
                         'full_address' => $draftData['next_of_kin']['full_address'] ?? null,
+                        'nok_vulnerability_indicator' => $draftData['nok_vulnerability_indicator'] ?? null,
+                        'region' => $draftData['next_of_kin']['region'] ?? null,
+                        'province' => $draftData['next_of_kin']['province'] ?? null,
+                        'city_municipality' => $draftData['next_of_kin']['city_municipality'] ?? null,
+                        'barangay' => $draftData['next_of_kin']['barangay'] ?? null,
+                        'street' => $draftData['next_of_kin']['street'] ?? null,
                     ]);
                 }
 
@@ -516,6 +555,10 @@ class CaseService
 
         if (! empty($filters['vulnerability_indicator'])) {
             $query->where('vulnerability_indicator', $filters['vulnerability_indicator']);
+        }
+
+        if (! empty($filters['nok_vulnerability_indicator'])) {
+            $query->where('nok_vulnerability_indicator', $filters['nok_vulnerability_indicator']);
         }
 
         if (! empty($filters['user_id'])) {
@@ -574,6 +617,7 @@ class CaseService
             $case->update([
                 'client_type' => $data['client_type'],
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
+                'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
                 'category_id' => $data['category_id'] ?? $case->category_id,
             ]);
@@ -747,7 +791,7 @@ class CaseService
         $case->loadMissing('client');
 
         $changes = [];
-        $meaningfulFields = ['client_type', 'vulnerability_indicator', 'summary'];
+        $meaningfulFields = ['client_type', 'vulnerability_indicator', 'nok_vulnerability_indicator', 'summary'];
 
         foreach ($meaningfulFields as $field) {
             $oldVal = $oldData[$field] ?? null;

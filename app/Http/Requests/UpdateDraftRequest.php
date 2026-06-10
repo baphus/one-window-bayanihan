@@ -41,6 +41,7 @@ class UpdateDraftRequest extends FormRequest
             'is_draft' => ['nullable', 'boolean'],
             'client_type' => ['nullable', Rule::in(['OFW', 'NEXT_OF_KIN'])],
             'vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
+            'nok_vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'summary' => ['nullable', 'string', 'max:5000'],
             'category_id' => ['nullable', 'string', 'exists:case_categories,id'],
 
@@ -61,6 +62,11 @@ class UpdateDraftRequest extends FormRequest
             'next_of_kin.phone_number' => ['nullable', 'string', 'max:50'],
             'next_of_kin.email' => ['nullable', 'email', 'max:255'],
             'next_of_kin.full_address' => ['nullable', 'string'],
+            'next_of_kin.region' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.province' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.city_municipality' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.barangay' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.street' => ['nullable', 'string'],
 
             'selected_client_id' => ['nullable', 'string', 'exists:clients,id'],
 

@@ -5,6 +5,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
+import PhoneInput from '@/Components/PhoneInput';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 
@@ -36,7 +37,7 @@ function Field({ label, required, children, className }) {
     return (
         <div className={className}>
             <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
-                {label}{required ? ' *' : ''}
+                {label}{required ? <span className="text-red-500 ml-0.5">*</span> : ''}
             </label>
             {children}
         </div>
@@ -88,6 +89,7 @@ export default function CaseCreate() {
         client_type: 'OFW',
         category_id: '',
         vulnerability_indicator: '',
+        nok_vulnerability_indicator: '',
         summary: '',
         client: {
             first_name: '',
@@ -125,6 +127,7 @@ export default function CaseCreate() {
             phone_number: '',
             email: '',
             full_address: '',
+            nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
         },
         consent: false,
         selected_client_id: '',
@@ -158,11 +161,12 @@ export default function CaseCreate() {
             client_type: 'OFW',
             category_id: '',
             vulnerability_indicator: '',
+            nok_vulnerability_indicator: '',
             summary: '',
             client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
             address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
-            next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' },
+            next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } },
             consent: false,
             is_draft: false,
         },
@@ -179,6 +183,7 @@ export default function CaseCreate() {
         return a.client_type === b.client_type
             && a.category_id === b.category_id
             && a.vulnerability_indicator === b.vulnerability_indicator
+            && a.nok_vulnerability_indicator === b.nok_vulnerability_indicator
             && a.summary === b.summary
             && a.client.first_name === b.client.first_name
             && a.client.last_name === b.client.last_name
@@ -209,6 +214,11 @@ export default function CaseCreate() {
             && a.next_of_kin.phone_number === b.next_of_kin.phone_number
             && a.next_of_kin.email === b.next_of_kin.email
             && a.next_of_kin.full_address === b.next_of_kin.full_address
+            && a.next_of_kin.nok_address.region === b.next_of_kin.nok_address.region
+            && a.next_of_kin.nok_address.province === b.next_of_kin.nok_address.province
+            && a.next_of_kin.nok_address.city_municipality === b.next_of_kin.nok_address.city_municipality
+            && a.next_of_kin.nok_address.barangay === b.next_of_kin.nok_address.barangay
+            && a.next_of_kin.nok_address.street === b.next_of_kin.nok_address.street
             && a.consent === b.consent
             && a.is_draft === b.is_draft;
     }
@@ -310,6 +320,7 @@ export default function CaseCreate() {
                     client_type: 'OFW',
                     category_id: '',
                     vulnerability_indicator: '',
+                    nok_vulnerability_indicator: '',
                     summary: '',
                     client: {
                         first_name: client.first_name || '',
@@ -347,6 +358,7 @@ export default function CaseCreate() {
                         phone_number: client.nextOfKin?.[0]?.phone_number || '',
                         email: client.nextOfKin?.[0]?.email || '',
                         full_address: client.nextOfKin?.[0]?.full_address || '',
+                        nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                     },
                     consent: false,
                     is_draft: false,
@@ -531,6 +543,7 @@ export default function CaseCreate() {
                 client_type: existingDraft.client_type || 'OFW',
                 category_id: existingDraft.category_id || '',
                 vulnerability_indicator: existingDraft.vulnerability_indicator || '',
+                nok_vulnerability_indicator: '',
                 summary: existingDraft.summary || '',
                 client: {
                     first_name: c.first_name || '',
@@ -568,6 +581,7 @@ export default function CaseCreate() {
                     phone_number: (noks[0]?.phone_number || c.next_of_kin?.phone_number) || '',
                     email: (noks[0]?.email || c.next_of_kin?.email) || '',
                     full_address: (noks[0]?.full_address || c.next_of_kin?.full_address) || '',
+                    nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 },
                 consent: false,
                 is_draft: true,
@@ -605,7 +619,7 @@ export default function CaseCreate() {
             setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
             setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
             setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
-            setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' });
+            setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } });
             setClientGender('Male');
             setClientEmail('');
             setClientContact('');
@@ -695,6 +709,14 @@ export default function CaseCreate() {
         }
     }
 
+    function handleNokAddressChange(field, value) {
+        if (typeof field === 'object') {
+            setData('next_of_kin', { ...data.next_of_kin, nok_address: { ...data.next_of_kin.nok_address, ...field } });
+        } else {
+            setData('next_of_kin', { ...data.next_of_kin, nok_address: { ...data.next_of_kin.nok_address, [field]: value } });
+        }
+    }
+
     function handleEmploymentChange(field, value) {
         setData('employment', { ...data.employment, [field]: value });
     }
@@ -715,7 +737,8 @@ export default function CaseCreate() {
 
     function canProceed() {
         if (currentStep === 1) {
-            return data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
+            const base = data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
+            return clientSource === 'new' ? (base && clientEmail.trim().length > 0) : base;
         }
         if (currentStep === 2) return true;
         return true;
@@ -724,7 +747,7 @@ export default function CaseCreate() {
     function canSubmit() {
         return data.client.first_name.trim().length > 0
             && data.client.last_name.trim().length > 0
-            && (clientSource === 'existing' || consent);
+            && (clientSource === 'existing' || (clientEmail.trim().length > 0 && consent));
     }
 
     function handleSaveDraft(e) {
@@ -849,7 +872,7 @@ export default function CaseCreate() {
         setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
         setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
-        setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' });
+        setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } });
         setClientGender('Male');
         setClientEmail('');
         setClientContact('');
@@ -871,11 +894,12 @@ export default function CaseCreate() {
                 client_type: 'OFW',
                 category_id: '',
                 vulnerability_indicator: '',
+                nok_vulnerability_indicator: '',
                 summary: '',
                 client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
-                next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '' },
+                next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } },
                 consent: false,
                 is_draft: false,
             },
@@ -966,6 +990,7 @@ function handleConfirmClient(client) {
             client_type: 'OFW',
             category_id: '',
             vulnerability_indicator: '',
+            nok_vulnerability_indicator: '',
             summary: '',
             client: {
                 first_name: client.first_name || '',
@@ -1003,6 +1028,7 @@ function handleConfirmClient(client) {
                 phone_number: client.nextOfKin?.[0]?.phone_number || '',
                 email: client.nextOfKin?.[0]?.email || '',
                 full_address: client.nextOfKin?.[0]?.full_address || '',
+                nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
             },
             consent: false,
             is_draft: false,
@@ -1291,11 +1317,17 @@ function handleConfirmClient(client) {
                                                     <Field label="Gender">
                                                         <Select value={clientGender} onChange={(e) => setClientGender(e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} />
                                                     </Field>
-                                                    <Field label="Email Address">
+                                                    <Field label="Email Address" required>
                                                         <Input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
                                                     </Field>
+                                                    <div className="col-span-4 -mt-2">
+                                                        <p className="flex items-center gap-1.5 text-[11px] text-amber-700">
+                                                            <span className="material-symbols-outlined text-[14px]">info</span>
+                                                            This email will be used to send case notifications and updates to the client.
+                                                        </p>
+                                                    </div>
                                                     <Field label="Contact Number">
-                                                        <Input value={clientContact} onChange={(e) => setClientContact(e.target.value)} placeholder="+63 XXX XXX XXXX" />
+                                                        <PhoneInput value={clientContact} onChange={(val) => setClientContact(val)} />
                                                     </Field>
                                                 </div>
                                             </Subsection>
@@ -1355,15 +1387,18 @@ function handleConfirmClient(client) {
                                                                 placeholder="Select relationship" />
                                                         </Field>
                                                         <Field label="Phone Number">
-                                                            <Input value={nokContact} onChange={(e) => setNokContact(e.target.value)} placeholder="+63 XXX XXX XXXX" />
+                                                            <PhoneInput value={nokContact} onChange={(val) => setNokContact(val)} />
                                                         </Field>
                                                         <Field label="Email">
                                                             <Input type="email" value={data.next_of_kin.email} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, email: e.target.value })} />
                                                         </Field>
                                                         <div className="md:col-span-2">
-                                                            <Field label="Full Address">
-                                                                <Input value={data.next_of_kin.full_address} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, full_address: e.target.value })} />
-                                                            </Field>
+                                                            <Subsection title="Address">
+                                                                <AddressDropdowns
+                                                                    values={data.next_of_kin.nok_address}
+                                                                    onChange={handleNokAddressChange}
+                                                                />
+                                                            </Subsection>
                                                         </div>
                                                     </div>
                                                 )}
@@ -1373,11 +1408,25 @@ function handleConfirmClient(client) {
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Vulnerability Status</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Indicate if the client falls under any vulnerable sector.</p>
-                                            <div className="mt-4">
-                                                <Field label="Vulnerability Indicator">
+                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <Field label={data.client_type === 'OFW' ? 'OFW Vulnerability Status' : data.client_type === 'NEXT_OF_KIN' ? 'Client Vulnerability Status' : 'Vulnerability Indicator'}>
                                                     <select
                                                         value={data.vulnerability_indicator}
                                                         onChange={(e) => setData('vulnerability_indicator', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select vulnerability...</option>
+                                                        <option value="PWD">PWD</option>
+                                                        <option value="Senior Citizen">Senior Citizen</option>
+                                                        <option value="Solo Parent">Solo Parent</option>
+                                                        <option value="Indigenous Person">Indigenous Person</option>
+                                                        <option value="None">None</option>
+                                                    </select>
+                                                </Field>
+                                                <Field label="Next of Kin Vulnerability Status">
+                                                    <select
+                                                        value={data.nok_vulnerability_indicator}
+                                                        onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
                                                         className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                     >
                                                         <option value="">Select vulnerability...</option>

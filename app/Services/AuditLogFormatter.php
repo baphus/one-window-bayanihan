@@ -110,6 +110,7 @@ class AuditLogFormatter
             'password' => 'password',
             'remember_token' => 'remember token',
             'vulnerability_indicator' => 'vulnerability level',
+            'nok_vulnerability_indicator' => 'NOK vulnerability level',
             'consent_given_at' => 'consent date',
             default => str_replace('_', ' ', $field),
         };

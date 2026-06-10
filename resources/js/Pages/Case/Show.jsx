@@ -35,6 +35,12 @@ function formatAddress(addr, names) {
   return parts.join(', ');
 }
 
+function formatNokAddress(nok) {
+  if (!nok) return 'N/A';
+  const parts = [nok.street, nok.barangay, nok.city_municipality, nok.province, nok.region].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : (nok.full_address || 'N/A');
+}
+
 function Subsection({ title, children }) {
   return (
     <div className="space-y-2.5">
@@ -52,6 +58,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
+  const [nokVulnerability, setNokVulnerability] = useState(caseFile.nok_vulnerability_indicator || '');
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
   const [saving, setSaving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
@@ -94,12 +101,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     }
   }
 
-  const initialEditRef = useRef({ clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', summary: caseFile.summary || '' });
+  const initialEditRef = useRef({ clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
   const hasEditDirty = useMemo(() => (
     formClientType !== initialEditRef.current.clientType
     || formVulnerability !== initialEditRef.current.vulnerability
+    || nokVulnerability !== initialEditRef.current.nokVulnerability
     || formSummary !== initialEditRef.current.summary
-  ), [formClientType, formVulnerability, formSummary]);
+  ), [formClientType, formVulnerability, nokVulnerability, formSummary]);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
   const primaryAddress = client?.addresses?.[0] || null;
@@ -274,6 +282,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     router.patch(route('cases.update', caseFile.id), {
       client_type: formClientType,
       vulnerability_indicator: formVulnerability,
+      nok_vulnerability_indicator: nokVulnerability,
       summary: formSummary,
     }, {
       preserveScroll: true,
@@ -343,6 +352,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             onClick={() => {
               setFormClientType(caseFile.client_type);
               setFormVulnerability(caseFile.vulnerability_indicator || '');
+              setNokVulnerability(caseFile.nok_vulnerability_indicator || '');
               setFormSummary(caseFile.summary || '');
               setIsEditOpen(true);
             }}
@@ -422,14 +432,28 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                   )}
                 </div>
 
-                {caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None' && (
+                {((caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None') || (caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None')) && (
                   <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] p-3">
                     <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#7c889b]">Vulnerability</p>
-                    <div className="mt-2">
-                      <span className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[11px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                        <span className="material-symbols-outlined text-[16px]">{vulnConfig[caseFile.vulnerability_indicator]?.icon || 'warning'}</span>
-                        {caseFile.vulnerability_indicator}
-                      </span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None' && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[#64748b]">OFW:</span>
+                          <span className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[11px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                            <span className="material-symbols-outlined text-[16px]">{vulnConfig[caseFile.vulnerability_indicator]?.icon || 'warning'}</span>
+                            {caseFile.vulnerability_indicator}
+                          </span>
+                        </div>
+                      )}
+                      {caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None' && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[#64748b]">NOK:</span>
+                          <span className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[11px] font-bold ${vulnConfig[caseFile.nok_vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                            <span className="material-symbols-outlined text-[16px]">{vulnConfig[caseFile.nok_vulnerability_indicator]?.icon || 'warning'}</span>
+                            {caseFile.nok_vulnerability_indicator}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -456,7 +480,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                     <InfoCell label="Relationship" value={primaryNok.relationship || 'N/A'} />
                     <InfoCell label="Contact Number" value={primaryNok.phone_number || 'N/A'} />
                     <InfoCell label="Email Address" value={primaryNok.email || 'N/A'} />
-                    <InfoCell label="Home Address" value={primaryNok.full_address || 'N/A'} fullRow />
+                    <InfoCell label="Home Address" value={formatNokAddress(primaryNok)} fullRow />
                   </div>
                 ) : (
                   <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2 text-[12px] text-slate-600">
@@ -696,6 +720,21 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 <select
                   value={formVulnerability}
                   onChange={(e) => setFormVulnerability(e.target.value)}
+                  className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                >
+                  <option value="">None</option>
+                  <option value="PWD">PWD</option>
+                  <option value="Senior Citizen">Senior Citizen</option>
+                  <option value="Solo Parent">Solo Parent</option>
+                  <option value="Indigenous Person">Indigenous Person</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">NOK Vulnerability</label>
+                <select
+                  value={nokVulnerability}
+                  onChange={(e) => setNokVulnerability(e.target.value)}
                   className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
                 >
                   <option value="">None</option>

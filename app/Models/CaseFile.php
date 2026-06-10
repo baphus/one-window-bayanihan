@@ -24,6 +24,7 @@ class CaseFile extends Model
         'case_number',
         'client_type',
         'vulnerability_indicator',
+        'nok_vulnerability_indicator',
         'tracker_number',
         'summary',
         'status',

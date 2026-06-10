@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class NextOfKin extends Model
 {
-    use HasFactory, UsesUuid, SoftDeleteFlag;
+    use HasFactory, SoftDeleteFlag, UsesUuid;
 
     protected $fillable = [
         'client_id',
@@ -21,6 +21,11 @@ class NextOfKin extends Model
         'phone_number',
         'email',
         'full_address',
+        'region',
+        'province',
+        'city_municipality',
+        'barangay',
+        'street',
     ];
 
     protected $casts = [
