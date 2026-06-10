@@ -150,6 +150,7 @@ class DashboardService
             ->map(fn ($c) => [
                 'id' => $c->id,
                 'caseNo' => $c->case_number,
+                'trackerNumber' => $c->tracker_number,
                 'clientName' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
                 'clientType' => $c->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                 'status' => $c->status,

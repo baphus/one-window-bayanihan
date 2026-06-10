@@ -406,6 +406,7 @@ function CaseManagerDashboard({
     return {
       rowId: item.id,
       caseNo: item.caseNo,
+      trackerNumber: item.trackerNumber,
       clientName: item.clientName,
       clientType: item.clientType === 'Overseas Filipino Worker' ? 'OFW' : 'NOK',
       age: formatCaseAge(item.createdAt),
@@ -511,10 +512,14 @@ function CaseManagerDashboard({
 
   const activeCasesColumns = [
     {
-      key: 'caseNo',
+      key: 'trackerNumber',
       title: 'CASE',
       render: (row) => (
-        <button onClick={() => router.visit(`/cases/${row.rowId}`)} className="text-xs font-bold text-blue-900 hover:underline font-body">{row.caseNo}</button>
+        <button onClick={() => router.visit(`/cases/${row.rowId}`)} className="text-left">
+          <span className="text-xs font-bold text-blue-900 hover:underline font-body">{row.trackerNumber || row.caseNo}</span>
+          <br />
+          <span className="text-[10px] text-slate-400 font-body">{row.caseNo}</span>
+        </button>
       ),
     },
     {

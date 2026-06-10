@@ -9,12 +9,10 @@ class SystemHealthService
 {
     public function getOverview(): array
     {
-        $checks = DB::table('health_check_logs')
-            ->select('check_type', 'status', 'metric_value', 'message', 'checked_at')
-            ->whereIn('id', function ($q) {
-                $q->selectRaw('MAX(id)')->from('health_check_logs')->groupBy('check_type');
-            })
-            ->orderBy('checked_at', 'desc')
+        $checks = DB::table('health_check_logs as h1')
+            ->select('h1.check_type', 'h1.status', 'h1.metric_value', 'h1.message', 'h1.checked_at')
+            ->whereRaw('h1.id = (select h2.id from health_check_logs h2 where h2.check_type = h1.check_type order by h2.checked_at desc limit 1)')
+            ->orderBy('h1.checked_at', 'desc')
             ->get();
 
         $overall = 'healthy';
