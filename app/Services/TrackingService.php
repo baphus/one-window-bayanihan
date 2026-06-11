@@ -42,6 +42,10 @@ class TrackingService
         $caseNotifications = [];
         $unreadCount = 0;
 
+        $primaryNok = $client && $client->nextOfKin->isNotEmpty()
+            ? ($client->nextOfKin->where('is_primary', true)->first() ?? $client->nextOfKin->first())
+            : null;
+
         $caseOverview = [
             'narrative' => $case->summary ?? '',
             'ofw' => $client ? [
@@ -54,10 +58,10 @@ class TrackingService
                 'homeAddressParts' => $this->formatAddressParts($client->addresses->first()),
                 'specialCategories' => [],
             ] : null,
-            'nextOfKin' => $client && $client->nextOfKin->isNotEmpty() ? [
-                'fullName' => $client->nextOfKin->first()->first_name.' '.$client->nextOfKin->first()->last_name,
-                'relationship' => $client->nextOfKin->first()->relationship,
-                'contact' => $client->nextOfKin->first()->phone_number ?? $client->nextOfKin->first()->email,
+            'nextOfKin' => $primaryNok ? [
+                'fullName' => $primaryNok->first_name.' '.$primaryNok->last_name,
+                'relationship' => $primaryNok->relationship,
+                'contact' => $primaryNok->phone_number ?? $primaryNok->email,
             ] : null,
             'workHistory' => $client && $client->employments->isNotEmpty() ? [
                 'lastCountry' => $client->employments->first()->last_country ?? $client->employments->first()->country ?? '',

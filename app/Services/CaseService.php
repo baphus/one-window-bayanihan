@@ -110,43 +110,42 @@ class CaseService
                     }
                 }
 
-                if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
-                    $nok = $client->nextOfKin()->first();
-                    if ($nok) {
-                        $nok->update([
-                            'first_name' => $data['next_of_kin']['first_name'],
-                            'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
-                            'last_name' => $data['next_of_kin']['last_name'] ?? null,
-                            'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
-                            'relationship' => $data['next_of_kin']['relationship'] ?? null,
-                            'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
-                            'email' => $data['next_of_kin']['email'] ?? null,
-                            'full_address' => $data['next_of_kin']['full_address'] ?? null,
-                            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
-                            'region' => $data['next_of_kin']['region'] ?? null,
-                            'province' => $data['next_of_kin']['province'] ?? null,
-                            'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
-                            'barangay' => $data['next_of_kin']['barangay'] ?? null,
-                            'street' => $data['next_of_kin']['street'] ?? null,
-                        ]);
+                if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
+                    $nokList = $data['next_of_kin'];
+
+                    // Handle old single-object format (backward compat): update first NOK or create
+                    if (isset($nokList['first_name'])) {
+                        $nok = $client->nextOfKin()->first();
+                        $normalized = $this->normalizeNokData($nokList);
+                        if ($nok) {
+                            $nok->update($normalized);
+                        } else {
+                            $client->nextOfKin()->create($normalized);
+                        }
                     } else {
-                        $client->nextOfKin()->create([
-                            'first_name' => $data['next_of_kin']['first_name'],
-                            'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
-                            'last_name' => $data['next_of_kin']['last_name'] ?? null,
-                            'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
-                            'relationship' => $data['next_of_kin']['relationship'] ?? null,
-                            'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
-                            'email' => $data['next_of_kin']['email'] ?? null,
-                            'full_address' => $data['next_of_kin']['full_address'] ?? null,
-                            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
-                            'region' => $data['next_of_kin']['region'] ?? null,
-                            'province' => $data['next_of_kin']['province'] ?? null,
-                            'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
-                            'barangay' => $data['next_of_kin']['barangay'] ?? null,
-                            'street' => $data['next_of_kin']['street'] ?? null,
-                        ]);
+                        // Multi-NOK array format: run sync algorithm
+                        $existingIds = $client->nextOfKin()->pluck('id')->toArray();
+                        $incomingIds = array_filter(array_column($nokList, 'id'));
+                        $idsToDelete = array_diff($existingIds, $incomingIds);
+
+                        if (! empty($idsToDelete)) {
+                            $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
+                        }
+
+                        foreach ($nokList as $nokData) {
+                            $normalized = $this->normalizeNokData($nokData);
+                            if (! empty($nokData['id'])) {
+                                $nok = $client->nextOfKin()->find($nokData['id']);
+                                if ($nok) {
+                                    $nok->update($normalized);
+                                }
+                            } else {
+                                $client->nextOfKin()->create($normalized);
+                            }
+                        }
                     }
+
+                    $this->ensureSinglePrimary($client->id);
                 }
             }
 
@@ -300,43 +299,42 @@ class CaseService
                     }
                 }
 
-                if (! empty($data['next_of_kin']) && ! empty($data['next_of_kin']['first_name'])) {
-                    $nok = $client->nextOfKin()->first();
-                    if ($nok) {
-                        $nok->update([
-                            'first_name' => $data['next_of_kin']['first_name'],
-                            'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
-                            'last_name' => $data['next_of_kin']['last_name'] ?? null,
-                            'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
-                            'relationship' => $data['next_of_kin']['relationship'] ?? null,
-                            'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
-                            'email' => $data['next_of_kin']['email'] ?? null,
-                            'full_address' => $data['next_of_kin']['full_address'] ?? null,
-                            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
-                            'region' => $data['next_of_kin']['region'] ?? null,
-                            'province' => $data['next_of_kin']['province'] ?? null,
-                            'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
-                            'barangay' => $data['next_of_kin']['barangay'] ?? null,
-                            'street' => $data['next_of_kin']['street'] ?? null,
-                        ]);
+                if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
+                    $nokList = $data['next_of_kin'];
+
+                    // Handle old single-object format (backward compat): update first NOK or create
+                    if (isset($nokList['first_name'])) {
+                        $nok = $client->nextOfKin()->first();
+                        $normalized = $this->normalizeNokData($nokList);
+                        if ($nok) {
+                            $nok->update($normalized);
+                        } else {
+                            $client->nextOfKin()->create($normalized);
+                        }
                     } else {
-                        $client->nextOfKin()->create([
-                            'first_name' => $data['next_of_kin']['first_name'],
-                            'middle_initial' => $data['next_of_kin']['middle_initial'] ?? null,
-                            'last_name' => $data['next_of_kin']['last_name'] ?? null,
-                            'is_primary' => $data['next_of_kin']['is_primary'] ?? false,
-                            'relationship' => $data['next_of_kin']['relationship'] ?? null,
-                            'phone_number' => $data['next_of_kin']['phone_number'] ?? null,
-                            'email' => $data['next_of_kin']['email'] ?? null,
-                            'full_address' => $data['next_of_kin']['full_address'] ?? null,
-                            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
-                            'region' => $data['next_of_kin']['region'] ?? null,
-                            'province' => $data['next_of_kin']['province'] ?? null,
-                            'city_municipality' => $data['next_of_kin']['city_municipality'] ?? null,
-                            'barangay' => $data['next_of_kin']['barangay'] ?? null,
-                            'street' => $data['next_of_kin']['street'] ?? null,
-                        ]);
+                        // Multi-NOK array format: run sync algorithm
+                        $existingIds = $client->nextOfKin()->pluck('id')->toArray();
+                        $incomingIds = array_filter(array_column($nokList, 'id'));
+                        $idsToDelete = array_diff($existingIds, $incomingIds);
+
+                        if (! empty($idsToDelete)) {
+                            $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
+                        }
+
+                        foreach ($nokList as $nokData) {
+                            $normalized = $this->normalizeNokData($nokData);
+                            if (! empty($nokData['id'])) {
+                                $nok = $client->nextOfKin()->find($nokData['id']);
+                                if ($nok) {
+                                    $nok->update($normalized);
+                                }
+                            } else {
+                                $client->nextOfKin()->create($normalized);
+                            }
+                        }
                     }
+
+                    $this->ensureSinglePrimary($client->id);
                 }
             }
 
@@ -427,24 +425,24 @@ class CaseService
                     ]);
                 }
 
-                if (! empty($draftData['next_of_kin']) && ! empty($draftData['next_of_kin']['first_name'])) {
-                    NextOfKin::create([
-                        'client_id' => $client->id,
-                        'first_name' => $draftData['next_of_kin']['first_name'],
-                        'middle_initial' => $draftData['next_of_kin']['middle_initial'] ?? null,
-                        'last_name' => $draftData['next_of_kin']['last_name'] ?? null,
-                        'is_primary' => $draftData['next_of_kin']['is_primary'] ?? false,
-                        'relationship' => $draftData['next_of_kin']['relationship'] ?? null,
-                        'phone_number' => $draftData['next_of_kin']['phone_number'] ?? null,
-                        'email' => $draftData['next_of_kin']['email'] ?? null,
-                        'full_address' => $draftData['next_of_kin']['full_address'] ?? null,
-                        'nok_vulnerability_indicator' => $draftData['nok_vulnerability_indicator'] ?? null,
-                        'region' => $draftData['next_of_kin']['region'] ?? null,
-                        'province' => $draftData['next_of_kin']['province'] ?? null,
-                        'city_municipality' => $draftData['next_of_kin']['city_municipality'] ?? null,
-                        'barangay' => $draftData['next_of_kin']['barangay'] ?? null,
-                        'street' => $draftData['next_of_kin']['street'] ?? null,
-                    ]);
+                if (! empty($draftData['next_of_kin'])) {
+                    $nokRecords = $draftData['next_of_kin'];
+
+                    // Handle old single-object format (backward compat)
+                    if (isset($nokRecords['first_name'])) {
+                        $nokRecords = [$nokRecords];
+                    }
+
+                    foreach ($nokRecords as $nokData) {
+                        if (! empty($nokData['first_name'])) {
+                            NextOfKin::create(array_merge(
+                                ['client_id' => $client->id],
+                                $this->normalizeNokData($nokData),
+                            ));
+                        }
+                    }
+
+                    $this->ensureSinglePrimary($client->id);
                 }
 
                 $case->client_id = $client->id;
@@ -778,6 +776,49 @@ class CaseService
             ['old_status' => $oldStatus, 'new_status' => $newStatus],
             route('cases.show', $case->id),
         );
+    }
+
+    private function normalizeNokData(array $data): array
+    {
+        return [
+            'first_name' => $data['first_name'] ?? '',
+            'middle_initial' => $data['middle_initial'] ?? null,
+            'last_name' => $data['last_name'] ?? null,
+            'is_primary' => $data['is_primary'] ?? false,
+            'relationship' => $data['relationship'] ?? null,
+            'phone_number' => $data['phone_number'] ?? null,
+            'email' => $data['email'] ?? null,
+            'full_address' => $data['full_address'] ?? null,
+            'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
+            'region' => $data['region'] ?? $data['nok_address']['region'] ?? null,
+            'province' => $data['province'] ?? $data['nok_address']['province'] ?? null,
+            'city_municipality' => $data['city_municipality'] ?? $data['nok_address']['city_municipality'] ?? null,
+            'barangay' => $data['barangay'] ?? $data['nok_address']['barangay'] ?? null,
+            'street' => $data['street'] ?? $data['nok_address']['street'] ?? null,
+            'sort_order' => $data['sort_order'] ?? 0,
+        ];
+    }
+
+    private function ensureSinglePrimary(string $clientId): void
+    {
+        $noks = NextOfKin::where('client_id', $clientId)
+            ->whereNull('deleted_at')
+            ->orderBy('sort_order')
+            ->orderBy('created_at')
+            ->get();
+
+        $primaryCount = $noks->where('is_primary', true)->count();
+
+        if ($primaryCount === 0 && $noks->isNotEmpty()) {
+            $noks->first()->update(['is_primary' => true]);
+
+            return;
+        }
+
+        if ($primaryCount > 1) {
+            // Keep first primary, demote others
+            $noks->where('is_primary', true)->slice(1)->each(fn ($n) => $n->update(['is_primary' => false]));
+        }
     }
 
     private function generateCaseNumber(): string
