@@ -26,6 +26,7 @@ class NextOfKin extends Model
         'city_municipality',
         'barangay',
         'street',
+        'sort_order',
     ];
 
     protected $casts = [

@@ -30,8 +30,14 @@ class UpdateDraftRequest extends FormRequest
             $this->merge(['client' => array_merge($this->input('client', []), ['email' => null])]);
         }
 
-        if ($this->has('next_of_kin.email') && $this->input('next_of_kin.email') === '') {
-            $this->merge(['next_of_kin' => array_merge($this->input('next_of_kin', []), ['email' => null])]);
+        if ($this->has('next_of_kin') && is_array($this->input('next_of_kin'))) {
+            $noks = $this->input('next_of_kin');
+            foreach ($noks as $key => $nok) {
+                if (isset($nok['email']) && $nok['email'] === '') {
+                    $noks[$key]['email'] = null;
+                }
+            }
+            $this->merge(['next_of_kin' => $noks]);
         }
     }
 
@@ -54,19 +60,20 @@ class UpdateDraftRequest extends FormRequest
             'client.email' => ['nullable', 'email', 'max:255'],
             'client.contact_number' => ['nullable', 'string', 'max:50'],
 
-            'next_of_kin.first_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.middle_initial' => ['nullable', 'string', 'max:10'],
-            'next_of_kin.last_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.is_primary' => ['nullable', 'boolean'],
-            'next_of_kin.relationship' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.phone_number' => ['nullable', 'string', 'max:50'],
-            'next_of_kin.email' => ['nullable', 'email', 'max:255'],
-            'next_of_kin.full_address' => ['nullable', 'string'],
-            'next_of_kin.region' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.province' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.city_municipality' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.barangay' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.street' => ['nullable', 'string'],
+            'next_of_kin' => ['nullable', 'array'],
+            'next_of_kin.*.first_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.middle_initial' => ['nullable', 'string', 'max:10'],
+            'next_of_kin.*.last_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.is_primary' => ['nullable', 'boolean'],
+            'next_of_kin.*.relationship' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.phone_number' => ['nullable', 'string', 'max:50'],
+            'next_of_kin.*.email' => ['nullable', 'email', 'max:255'],
+            'next_of_kin.*.full_address' => ['nullable', 'string'],
+            'next_of_kin.*.nok_address.region' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.province' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.city_municipality' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.barangay' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
 
             'selected_client_id' => ['nullable', 'string', 'exists:clients,id'],
 

@@ -87,6 +87,13 @@ class ClientSelectController extends Controller
                 'phone_number' => $n->phone_number,
                 'email' => $n->email,
                 'full_address' => $n->full_address,
+                'region' => $n->region,
+                'province' => $n->province,
+                'city_municipality' => $n->city_municipality,
+                'barangay' => $n->barangay,
+                'street' => $n->street,
+                'is_primary' => $n->is_primary,
+                'sort_order' => $n->sort_order,
             ]),
             'case_file' => $client->caseFile ? [
                 'case_number' => $client->caseFile->case_number,
