@@ -31,6 +31,34 @@ class AuditLog extends Model
         'is_deleted' => 'boolean',
     ];
 
+    private static array $sensitiveFields = [
+        'password',
+        'remember_token',
+        'mfa_secret',
+        'mfa_recovery_codes',
+        'mfa_enabled_at',
+    ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::saving(function (self $auditLog) {
+            foreach (['old_value', 'new_value'] as $column) {
+                $value = $auditLog->$column;
+                if (! is_array($value)) {
+                    continue;
+                }
+                array_walk_recursive($value, function (&$v, $k) {
+                    if (in_array($k, self::$sensitiveFields, true)) {
+                        $v = '[REDACTED]';
+                    }
+                });
+                $auditLog->$column = $value;
+            }
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

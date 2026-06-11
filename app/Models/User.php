@@ -15,7 +15,7 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['password', 'remember_token', 'id', 'created_at', 'updated_at', 'email_verified_at'];
+    public static array $auditExclude = ['password', 'remember_token', 'id', 'created_at', 'updated_at', 'email_verified_at', 'mfa_secret', 'mfa_recovery_codes', 'mfa_enabled_at'];
 
     public function getAuditModuleName(): string
     {
