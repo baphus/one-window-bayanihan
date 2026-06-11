@@ -474,17 +474,33 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               </Subsection>
 
               <Subsection title="Next of Kin Information">
-                {primaryNok ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
-                    <InfoCell label="Full Name" value={[primaryNok.first_name, primaryNok.last_name].filter(Boolean).join(' ')} />
-                    <InfoCell label="Relationship" value={primaryNok.relationship || 'N/A'} />
-                    <InfoCell label="Contact Number" value={primaryNok.phone_number || 'N/A'} />
-                    <InfoCell label="Email Address" value={primaryNok.email || 'N/A'} />
-                    <InfoCell label="Home Address" value={formatNokAddress(primaryNok)} fullRow />
+                {client?.nextOfKin?.length > 0 ? (
+                  <div className="space-y-3">
+                    {client.nextOfKin.map((nok, idx) => (
+                      <div key={nok.id} className="rounded-[3px] border border-[#d8dee8]">
+                        <div className="flex items-center justify-between border-b border-[#d8dee8] bg-[#f8fafc] px-3 py-1.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#334155]">
+                            Next of Kin #{idx + 1}
+                          </span>
+                          {nok.is_primary && (
+                            <span className="inline-flex items-center rounded-full bg-[#6366f1] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 p-3">
+                          <InfoCell label="Full Name" value={[nok.first_name, nok.last_name].filter(Boolean).join(' ')} />
+                          <InfoCell label="Relationship" value={nok.relationship || 'N/A'} />
+                          <InfoCell label="Contact Number" value={nok.phone_number || 'N/A'} />
+                          <InfoCell label="Email Address" value={nok.email || 'N/A'} />
+                          <InfoCell label="Home Address" value={formatNokAddress(nok)} fullRow />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2 text-[12px] text-slate-600">
-                    No next of kin indicated for this case.
+                    No next of kin listed.
                   </div>
                 )}
               </Subsection>
