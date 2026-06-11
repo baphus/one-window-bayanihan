@@ -120,19 +120,8 @@ export default function CaseCreate() {
             last_position: '',
             date_of_arrival: '',
         },
-        next_of_kin: {
-            first_name: '',
-            middle_initial: '',
-            last_name: '',
-            is_primary: false,
-            relationship: '',
-            phone_number: '',
-            email: '',
-            full_address: '',
-            nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
-        },
+        next_of_kin: [],
         consent: false,
-        has_next_of_kin: true,
         selected_client_id: '',
         is_draft: false,
     });
@@ -159,9 +148,8 @@ export default function CaseCreate() {
             client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
             address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
-            next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } },
+            next_of_kin: [],
             consent: false,
-            has_next_of_kin: true,
             is_draft: false,
         },
         clientSource: 'new',
@@ -194,21 +182,8 @@ export default function CaseCreate() {
             && a.employment.last_country === b.employment.last_country
             && a.employment.last_position === b.employment.last_position
             && a.employment.date_of_arrival === b.employment.date_of_arrival
-            && a.next_of_kin.first_name === b.next_of_kin.first_name
-            && a.next_of_kin.middle_initial === b.next_of_kin.middle_initial
-            && a.next_of_kin.last_name === b.next_of_kin.last_name
-            && a.next_of_kin.is_primary === b.next_of_kin.is_primary
-            && a.next_of_kin.relationship === b.next_of_kin.relationship
-            && a.next_of_kin.phone_number === b.next_of_kin.phone_number
-            && a.next_of_kin.email === b.next_of_kin.email
-            && a.next_of_kin.full_address === b.next_of_kin.full_address
-            && a.next_of_kin.nok_address.region === b.next_of_kin.nok_address.region
-            && a.next_of_kin.nok_address.province === b.next_of_kin.nok_address.province
-            && a.next_of_kin.nok_address.city_municipality === b.next_of_kin.nok_address.city_municipality
-            && a.next_of_kin.nok_address.barangay === b.next_of_kin.nok_address.barangay
-            && a.next_of_kin.nok_address.street === b.next_of_kin.nok_address.street
+            && JSON.stringify(a.next_of_kin) === JSON.stringify(b.next_of_kin)
             && a.consent === b.consent
-            && a.has_next_of_kin === b.has_next_of_kin
             && a.is_draft === b.is_draft;
     }
 
@@ -239,14 +214,16 @@ export default function CaseCreate() {
         if (backupData.client) setData('client', { ...backupData.client });
         if (backupData.address) setData('address', { ...backupData.address });
         if (backupData.employment) setData('employment', { ...backupData.employment });
-        if (backupData.next_of_kin) setData('next_of_kin', { ...backupData.next_of_kin });
+        if (backupData.next_of_kin) {
+            const nok = Array.isArray(backupData.next_of_kin) ? backupData.next_of_kin : [backupData.next_of_kin];
+            setData('next_of_kin', [...nok]);
+        }
         setData('client_type', backupData.client_type || 'OFW');
         setData('category_id', backupData.category_id || '');
         setData('vulnerability_indicator', backupData.vulnerability_indicator || '');
         setData('nok_vulnerability_indicator', backupData.nok_vulnerability_indicator || '');
         setData('summary', backupData.summary || '');
         setData('consent', backupData.consent ?? false);
-        setData('has_next_of_kin', backupData.has_next_of_kin ?? true);
 
         initialFormRef.current = {
             formData: backupData,
@@ -306,17 +283,25 @@ export default function CaseCreate() {
                 });
             }
 
-            if (client.nextOfKin?.[0]) {
-                setData('next_of_kin', {
-                    ...data.next_of_kin,
-                    first_name: client.nextOfKin[0].first_name || '',
-                    middle_initial: client.nextOfKin[0].middle_initial || '',
-                    last_name: client.nextOfKin[0].last_name || '',
-                    relationship: client.nextOfKin[0].relationship || '',
-                    phone_number: client.nextOfKin[0].phone_number || '',
-                    email: client.nextOfKin[0].email || '',
-                    full_address: client.nextOfKin[0].full_address || '',
-                });
+            if (client.nextOfKin?.length) {
+                setData('next_of_kin', client.nextOfKin.map(nok => ({
+                    id: nok.id,
+                    first_name: nok.first_name || '',
+                    middle_initial: nok.middle_initial || '',
+                    last_name: nok.last_name || '',
+                    is_primary: nok.is_primary || false,
+                    relationship: nok.relationship || '',
+                    phone_number: nok.phone_number || '',
+                    email: nok.email || '',
+                    full_address: nok.full_address || '',
+                    nok_address: {
+                        region: nok.region || '',
+                        province: nok.province || '',
+                        city_municipality: nok.city_municipality || '',
+                        barangay: nok.barangay || '',
+                        street: nok.street || '',
+                    },
+                })));
             }
 
             // Update initial ref so dirty tracking starts from pre-filled state
@@ -354,19 +339,27 @@ export default function CaseCreate() {
                         last_position: client.employments?.[0]?.last_position || '',
                         date_of_arrival: client.employments?.[0]?.date_of_arrival || '',
                     },
-                    next_of_kin: {
-                        first_name: client.nextOfKin?.[0]?.first_name || '',
-                        middle_initial: client.nextOfKin?.[0]?.middle_initial || '',
-                        last_name: client.nextOfKin?.[0]?.last_name || '',
-                        is_primary: false,
-                        relationship: client.nextOfKin?.[0]?.relationship || '',
-                        phone_number: client.nextOfKin?.[0]?.phone_number || '',
-                        email: client.nextOfKin?.[0]?.email || '',
-                        full_address: client.nextOfKin?.[0]?.full_address || '',
-                        nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
-                    },
+                    next_of_kin: client.nextOfKin?.length
+                        ? client.nextOfKin.map(nok => ({
+                            id: nok.id,
+                            first_name: nok.first_name || '',
+                            middle_initial: nok.middle_initial || '',
+                            last_name: nok.last_name || '',
+                            is_primary: nok.is_primary || false,
+                            relationship: nok.relationship || '',
+                            phone_number: nok.phone_number || '',
+                            email: nok.email || '',
+                            full_address: nok.full_address || '',
+                            nok_address: {
+                                region: nok.region || '',
+                                province: nok.province || '',
+                                city_municipality: nok.city_municipality || '',
+                                barangay: nok.barangay || '',
+                                street: nok.street || '',
+                            },
+                        }))
+                        : [],
                     consent: false,
-                    has_next_of_kin: true,
                     is_draft: false,
                 },
                 clientSource: 'existing',
@@ -433,17 +426,25 @@ export default function CaseCreate() {
                 });
             }
 
-            if (existingDraft.client.nextOfKin?.[0]) {
-                setData('next_of_kin', {
-                    ...data.next_of_kin,
-                    first_name: existingDraft.client.nextOfKin[0].first_name || '',
-                    middle_initial: existingDraft.client.nextOfKin[0].middle_initial || '',
-                    last_name: existingDraft.client.nextOfKin[0].last_name || '',
-                    relationship: existingDraft.client.nextOfKin[0].relationship || '',
-                    phone_number: existingDraft.client.nextOfKin[0].phone_number || '',
-                    email: existingDraft.client.nextOfKin[0].email || '',
-                    full_address: existingDraft.client.nextOfKin[0].full_address || '',
-                });
+            if (existingDraft.client.nextOfKin?.length) {
+                setData('next_of_kin', existingDraft.client.nextOfKin.map(nok => ({
+                    id: nok.id,
+                    first_name: nok.first_name || '',
+                    middle_initial: nok.middle_initial || '',
+                    last_name: nok.last_name || '',
+                    is_primary: nok.is_primary || false,
+                    relationship: nok.relationship || '',
+                    phone_number: nok.phone_number || '',
+                    email: nok.email || '',
+                    full_address: nok.full_address || '',
+                    nok_address: {
+                        region: nok.region || '',
+                        province: nok.province || '',
+                        city_municipality: nok.city_municipality || '',
+                        barangay: nok.barangay || '',
+                        street: nok.street || '',
+                    },
+                })));
             }
         } else if (existingDraft.draft_client_data) {
             // JSON blob from new-client drafts
@@ -492,16 +493,26 @@ export default function CaseCreate() {
                 }
 
                 if (clientData.next_of_kin) {
-                    setData('next_of_kin', {
-                        ...data.next_of_kin,
-                        first_name: clientData.next_of_kin.first_name || '',
-                        middle_initial: clientData.next_of_kin.middle_initial || '',
-                        last_name: clientData.next_of_kin.last_name || '',
-                        relationship: clientData.next_of_kin.relationship || '',
-                        phone_number: clientData.next_of_kin.phone_number || '',
-                        email: clientData.next_of_kin.email || '',
-                        full_address: clientData.next_of_kin.full_address || '',
-                    });
+                    const raw = clientData.next_of_kin;
+                    const nokArray = Array.isArray(raw) ? raw : (raw.first_name ? [raw] : []);
+                    setData('next_of_kin', nokArray.map((nok, idx) => ({
+                        id: nok.id || null,
+                        first_name: nok.first_name || '',
+                        middle_initial: nok.middle_initial || '',
+                        last_name: nok.last_name || '',
+                        is_primary: nok.is_primary ?? (idx === 0),
+                        relationship: nok.relationship || '',
+                        phone_number: nok.phone_number || '',
+                        email: nok.email || '',
+                        full_address: nok.full_address || '',
+                        nok_address: {
+                            region: nok.region || nok.nok_address?.region || '',
+                            province: nok.province || nok.nok_address?.province || '',
+                            city_municipality: nok.city_municipality || nok.nok_address?.city_municipality || '',
+                            barangay: nok.barangay || nok.nok_address?.barangay || '',
+                            street: nok.street || nok.nok_address?.street || '',
+                        },
+                    })));
                 }
             }
         }
@@ -554,19 +565,28 @@ export default function CaseCreate() {
                     last_position: (emps[0]?.last_position || c.employment?.last_position) || '',
                     date_of_arrival: (emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '',
                 },
-                next_of_kin: {
-                    first_name: (noks[0]?.first_name || c.next_of_kin?.first_name) || '',
-                    middle_initial: (noks[0]?.middle_initial || c.next_of_kin?.middle_initial) || '',
-                    last_name: (noks[0]?.last_name || c.next_of_kin?.last_name) || '',
-                    is_primary: false,
-                    relationship: (noks[0]?.relationship || c.next_of_kin?.relationship) || '',
-                    phone_number: (noks[0]?.phone_number || c.next_of_kin?.phone_number) || '',
-                    email: (noks[0]?.email || c.next_of_kin?.email) || '',
-                    full_address: (noks[0]?.full_address || c.next_of_kin?.full_address) || '',
-                    nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
-                },
+                next_of_kin: (() => {
+                    const rawNoks = noks.length ? noks : (c.next_of_kin ? (Array.isArray(c.next_of_kin) ? c.next_of_kin : [c.next_of_kin]) : []);
+                    return rawNoks.map(nok => ({
+                        id: nok.id || null,
+                        first_name: nok.first_name || '',
+                        middle_initial: nok.middle_initial || '',
+                        last_name: nok.last_name || '',
+                        is_primary: nok.is_primary || false,
+                        relationship: nok.relationship || '',
+                        phone_number: nok.phone_number || '',
+                        email: nok.email || '',
+                        full_address: nok.full_address || '',
+                        nok_address: {
+                            region: nok.region || nok.nok_address?.region || '',
+                            province: nok.province || nok.nok_address?.province || '',
+                            city_municipality: nok.city_municipality || nok.nok_address?.city_municipality || '',
+                            barangay: nok.barangay || nok.nok_address?.barangay || '',
+                            street: nok.street || nok.nok_address?.street || '',
+                        },
+                    }));
+                })(),
                 consent: false,
-                has_next_of_kin: !!(noks[0] || c.next_of_kin),
                 is_draft: true,
             },
             clientSource: src,
@@ -588,7 +608,7 @@ export default function CaseCreate() {
             setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
             setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
             setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
-            setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } });
+            setData('next_of_kin', []);
             return;
         }
 
@@ -631,17 +651,25 @@ export default function CaseCreate() {
             });
         }
 
-        if (c.nextOfKin?.[0]) {
-            setData('next_of_kin', {
-                ...data.next_of_kin,
-                first_name: c.nextOfKin[0].first_name || '',
-                middle_initial: c.nextOfKin[0].middle_initial || '',
-                last_name: c.nextOfKin[0].last_name || '',
-                relationship: c.nextOfKin[0].relationship || '',
-                phone_number: c.nextOfKin[0].phone_number || '',
-                email: c.nextOfKin[0].email || '',
-                full_address: c.nextOfKin[0].full_address || '',
-            });
+        if (c.nextOfKin?.length) {
+            setData('next_of_kin', c.nextOfKin.map(nok => ({
+                id: nok.id,
+                first_name: nok.first_name || '',
+                middle_initial: nok.middle_initial || '',
+                last_name: nok.last_name || '',
+                is_primary: nok.is_primary || false,
+                relationship: nok.relationship || '',
+                phone_number: nok.phone_number || '',
+                email: nok.email || '',
+                full_address: nok.full_address || '',
+                nok_address: {
+                    region: nok.region || '',
+                    province: nok.province || '',
+                    city_municipality: nok.city_municipality || '',
+                    barangay: nok.barangay || '',
+                    street: nok.street || '',
+                },
+            })));
         }
     }
 
@@ -656,16 +684,57 @@ export default function CaseCreate() {
         }
     }
 
-    function handleNokAddressChange(field, value) {
-        if (typeof field === 'object') {
-            setData('next_of_kin', { ...data.next_of_kin, nok_address: { ...data.next_of_kin.nok_address, ...field } });
-        } else {
-            setData('next_of_kin', { ...data.next_of_kin, nok_address: { ...data.next_of_kin.nok_address, [field]: value } });
-        }
-    }
-
     function handleEmploymentChange(field, value) {
         setData('employment', { ...data.employment, [field]: value });
+    }
+
+    function addNok() {
+        setData('next_of_kin', [
+            ...data.next_of_kin,
+            {
+                id: null,
+                first_name: '',
+                middle_initial: '',
+                last_name: '',
+                is_primary: data.next_of_kin.length === 0,
+                relationship: '',
+                phone_number: '',
+                email: '',
+                full_address: '',
+                nok_address: {
+                    region: '', province: '', city_municipality: '', barangay: '', street: '',
+                },
+            },
+        ]);
+    }
+
+    function removeNok(idx) {
+        const updated = data.next_of_kin.filter((_, i) => i !== idx);
+        if (data.next_of_kin[idx]?.is_primary && updated.length > 0) {
+            updated[0].is_primary = true;
+        }
+        setData('next_of_kin', updated);
+    }
+
+    function updateNokField(idx, field, value) {
+        const updated = data.next_of_kin.map((nok, i) =>
+            i === idx ? { ...nok, [field]: value } : nok
+        );
+        setData('next_of_kin', updated);
+    }
+
+    function updateNokAddress(idx, address) {
+        const updated = data.next_of_kin.map((nok, i) =>
+            i === idx ? { ...nok, nok_address: { ...(nok.nok_address || {}), ...address } } : nok
+        );
+        setData('next_of_kin', updated);
+    }
+
+    function setPrimaryNok(idx) {
+        const updated = data.next_of_kin.map((n, i) => ({
+            ...n, is_primary: i === idx
+        }));
+        setData('next_of_kin', updated);
     }
 
     async function handleNext() {
@@ -713,7 +782,6 @@ export default function CaseCreate() {
 
         const submitData = {
             ...data,
-            has_next_of_kin: undefined,
             is_draft: true,
         };
 
@@ -758,7 +826,7 @@ export default function CaseCreate() {
         }
 
         post(route('cases.store'), {
-            data: { ...data, has_next_of_kin: undefined, is_draft: false },
+            data: { ...data, is_draft: false },
             onSuccess: () => { clearLocalBackup(); },
             onError: (errors) => {
                 console.error('Validation failed:', errors);
@@ -778,7 +846,7 @@ export default function CaseCreate() {
         setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
         setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
-        setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } });
+        setData('next_of_kin', []);
         setData('consent', false);
         setSelectedClient(null);
         setSearchQuery('');
@@ -793,9 +861,8 @@ export default function CaseCreate() {
                 client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
-                next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } },
+                next_of_kin: [],
                 consent: false,
-                has_next_of_kin: true,
                 is_draft: false,
             },
             clientSource: 'new',
@@ -849,18 +916,25 @@ function handleConfirmClient(client) {
         });
     }
 
-    if (client.nextOfKin?.[0]) {
-        const nok = client.nextOfKin[0];
-        setData('next_of_kin', {
-            ...data.next_of_kin,
+    if (client.nextOfKin?.length) {
+        setData('next_of_kin', client.nextOfKin.map(nok => ({
+            id: nok.id,
             first_name: nok.first_name || '',
             middle_initial: nok.middle_initial || '',
             last_name: nok.last_name || '',
+            is_primary: nok.is_primary || false,
             relationship: nok.relationship || '',
             phone_number: nok.phone_number || '',
             email: nok.email || '',
             full_address: nok.full_address || '',
-        });
+            nok_address: {
+                region: nok.region || '',
+                province: nok.province || '',
+                city_municipality: nok.city_municipality || '',
+                barangay: nok.barangay || '',
+                street: nok.street || '',
+            },
+        })));
     }
 
     // CRITICAL: Update initialFormRef so dirty tracking starts from pre-filled state
@@ -898,19 +972,27 @@ function handleConfirmClient(client) {
                 last_position: client.employments?.[0]?.last_position || '',
                 date_of_arrival: client.employments?.[0]?.date_of_arrival || '',
             },
-            next_of_kin: {
-                first_name: client.nextOfKin?.[0]?.first_name || '',
-                middle_initial: client.nextOfKin?.[0]?.middle_initial || '',
-                last_name: client.nextOfKin?.[0]?.last_name || '',
-                is_primary: false,
-                relationship: client.nextOfKin?.[0]?.relationship || '',
-                phone_number: client.nextOfKin?.[0]?.phone_number || '',
-                email: client.nextOfKin?.[0]?.email || '',
-                full_address: client.nextOfKin?.[0]?.full_address || '',
-                nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
-            },
+            next_of_kin: client.nextOfKin?.length
+                ? client.nextOfKin.map(nok => ({
+                    id: nok.id,
+                    first_name: nok.first_name || '',
+                    middle_initial: nok.middle_initial || '',
+                    last_name: nok.last_name || '',
+                    is_primary: nok.is_primary || false,
+                    relationship: nok.relationship || '',
+                    phone_number: nok.phone_number || '',
+                    email: nok.email || '',
+                    full_address: nok.full_address || '',
+                    nok_address: {
+                        region: nok.region || '',
+                        province: nok.province || '',
+                        city_municipality: nok.city_municipality || '',
+                        barangay: nok.barangay || '',
+                        street: nok.street || '',
+                    },
+                }))
+                : [],
             consent: false,
-            has_next_of_kin: true,
             is_draft: false,
         },
         clientSource: 'existing',
@@ -919,8 +1001,8 @@ function handleConfirmClient(client) {
     setSelectedClient(null);
 }
 
-    const nokSummary = data.has_next_of_kin
-        ? [data.next_of_kin.first_name, data.next_of_kin.last_name].filter(Boolean).join(' ') || 'Not yet provided'
+    const nokSummary = data.next_of_kin.length > 0
+        ? data.next_of_kin.map(n => [n.first_name, n.last_name].filter(Boolean).join(' ')).filter(Boolean).join(', ') || 'Not yet provided'
         : 'No next of kin indicated';
 
     return (
@@ -1226,50 +1308,93 @@ function handleConfirmClient(client) {
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Next of Kin Information">
-                                                <div className="mb-4">
-                                                    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${data.has_next_of_kin ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <input type="radio" name="has-nok" className="sr-only" checked={data.has_next_of_kin} onChange={() => setData('has_next_of_kin', true)} /> Yes
-                                                        </label>
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${!data.has_next_of_kin ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <input type="radio" name="has-nok" className="sr-only" checked={!data.has_next_of_kin} onChange={() => { setData('has_next_of_kin', false); setData('next_of_kin', { ...data.next_of_kin, first_name: '', last_name: '', relationship: '', phone_number: '' }); }} /> No
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                                {data.has_next_of_kin && (
-                                                    <>
+                                                <p className="mb-3 text-[13px] text-slate-500">Add one or more next of kin contacts. The first entry is auto-selected as primary.</p>
+
+                                                {data.next_of_kin.length === 0 && (
+                                                    <p className="mb-4 text-[13px] text-slate-400">No next of kin added. Click "Add Next of Kin" to add one.</p>
+                                                )}
+
+                                                {data.next_of_kin.map((nok, idx) => (
+                                                    <div key={idx} className="mb-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                                        <div className="mb-4 flex items-center justify-between">
+                                                            <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#334155]">
+                                                                Next of Kin #{idx + 1}
+                                                            </h4>
+                                                            <div className="flex items-center gap-3">
+                                                                <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="primary-nok"
+                                                                        checked={nok.is_primary}
+                                                                        onChange={() => setPrimaryNok(idx)}
+                                                                        className="h-3.5 w-3.5 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    Primary
+                                                                </label>
+                                                                {data.next_of_kin.length > 0 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeNok(idx)}
+                                                                        className="text-red-400 hover:text-red-600 transition-colors"
+                                                                        title="Remove"
+                                                                    >
+                                                                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                            <polyline points="3 6 5 6 21 6" />
+                                                                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                                                            <path d="M10 11v6" />
+                                                                            <path d="M14 11v6" />
+                                                                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                                                        </svg>
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
                                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                                             <Field label="First Name">
-                                                                <Input value={data.next_of_kin.first_name} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, first_name: e.target.value })} />
+                                                                <Input value={nok.first_name} onChange={(e) => updateNokField(idx, 'first_name', e.target.value)} />
                                                             </Field>
                                                             <Field label="Middle Initial">
-                                                                <Input value={data.next_of_kin.middle_initial} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, middle_initial: e.target.value })} maxLength={10} />
+                                                                <Input value={nok.middle_initial} onChange={(e) => updateNokField(idx, 'middle_initial', e.target.value)} maxLength={10} />
                                                             </Field>
                                                             <Field label="Last Name">
-                                                                <Input value={data.next_of_kin.last_name} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, last_name: e.target.value })} />
+                                                                <Input value={nok.last_name} onChange={(e) => updateNokField(idx, 'last_name', e.target.value)} />
                                                             </Field>
                                                             <Field label="Relationship">
-                                                                <Select value={data.next_of_kin.relationship} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, relationship: e.target.value })}
+                                                                <Select value={nok.relationship} onChange={(e) => updateNokField(idx, 'relationship', e.target.value)}
                                                                     options={['Mother', 'Father', 'Spouse', 'Sibling', 'Other'].map((r) => ({ label: r, value: r }))}
                                                                     placeholder="Select relationship" />
                                                             </Field>
                                                             <Field label="Phone Number" className="md:col-span-2">
-                                                                <PhoneInput value={data.next_of_kin.phone_number} onChange={(val) => setData('next_of_kin', { ...data.next_of_kin, phone_number: val })} />
+                                                                <PhoneInput value={nok.phone_number} onChange={(val) => updateNokField(idx, 'phone_number', val)} />
                                                             </Field>
                                                             <Field label="Email" className="md:col-span-2">
-                                                                <Input type="email" value={data.next_of_kin.email} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, email: e.target.value })} />
+                                                                <Input type="email" value={nok.email} onChange={(e) => updateNokField(idx, 'email', e.target.value)} />
                                                             </Field>
                                                         </div>
+
                                                         <div className="mt-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                                             <Subsection title="Address">
                                                                 <AddressDropdowns
-                                                                    values={data.next_of_kin.nok_address}
-                                                                    onChange={handleNokAddressChange}
+                                                                    values={nok.nok_address || { region: '', province: '', city_municipality: '', barangay: '', street: '' }}
+                                                                    onChange={(address) => updateNokAddress(idx, address)}
                                                                 />
                                                             </Subsection>
                                                         </div>
-                                                    </>
-                                                )}
+                                                    </div>
+                                                ))}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={addNok}
+                                                    className="inline-flex items-center gap-2 rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-[13px] font-bold text-slate-500 transition hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                                >
+                                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                                    </svg>
+                                                    Add Next of Kin
+                                                </button>
                                             </Subsection>
                                         </div>
 
