@@ -193,10 +193,9 @@ export default function CaseCreate() {
     }, [data, clientSource]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
 
-    const { autoSaveStatus, saveOnStepChange, draftId: autoSaveDraftId, setDraftId } = useAutoSave({
+    const { autoSaveStatus, draftId: autoSaveDraftId } = useAutoSave({
         formData: data,
         draftId: existingDraft?.id || null,
-        step: currentStep,
     });
 
     const { hasLocalBackup, localBackup, clearLocalBackup } = useLocalStorageDraft({
@@ -737,25 +736,15 @@ export default function CaseCreate() {
         setData('next_of_kin', updated);
     }
 
-    async function handleNext() {
+    function handleNext() {
         if (currentStep < 3) {
-            const result = await saveOnStepChange(currentStep, currentStep + 1);
-            if (result?.id) {
-                setDraftId(result.id);
-                draftIdRef.current = result.id;
-            }
             clearErrors();
             setCurrentStep((prev) => prev + 1);
         }
     }
 
-    async function handleBack() {
+    function handleBack() {
         if (currentStep > 1) {
-            const result = await saveOnStepChange(currentStep, currentStep - 1);
-            if (result?.id) {
-                setDraftId(result.id);
-                draftIdRef.current = result.id;
-            }
             clearErrors();
             setCurrentStep((prev) => prev - 1);
         }

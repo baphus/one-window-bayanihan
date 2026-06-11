@@ -207,10 +207,12 @@ class CaseService
                     'category_id' => $data['category_id'] ?? $case->category_id,
                 ];
 
+                $draftClientData = $case->draft_client_data ?? [];
+
                 // Update draft_client_data when new client data is provided (no selected_client_id)
                 if (! empty($data['client'])) {
-                    $current = $case->draft_client_data ?? [];
-                    $updateData['draft_client_data'] = array_merge($current, [
+                    $current = $draftClientData;
+                    $draftClientData = array_merge($current, [
                         'first_name' => $data['client']['first_name'] ?? $current['first_name'] ?? '',
                         'last_name' => $data['client']['last_name'] ?? $current['last_name'] ?? '',
                         'middle_name' => $data['client']['middle_name'] ?? $current['middle_name'] ?? null,
@@ -220,28 +222,28 @@ class CaseService
                         'sex' => $data['client']['sex'] ?? $current['sex'] ?? null,
                         'date_of_birth' => $data['client']['date_of_birth'] ?? $current['date_of_birth'] ?? null,
                     ]);
+                }
 
-                    // Also store address/employment/next_of_kin in draft_client_data for new-client drafts
-                    if (empty($data['selected_client_id']) && empty($case->client_id)) {
-                        $draftData = $updateData['draft_client_data'];
-                        if (! empty($data['address'])) {
-                            $draftData['address'] = $data['address'];
-                        }
-                        if (! empty($data['employment'])) {
-                            $draftData['employment'] = $data['employment'];
-                        }
-                        if (! empty($data['next_of_kin'])) {
-                            $draftData['next_of_kin'] = $data['next_of_kin'];
-                        }
-                        if (isset($data['nok_vulnerability_indicator'])) {
-                            $draftData['nok_vulnerability_indicator'] = $data['nok_vulnerability_indicator'];
-                        }
-                        if (isset($data['consent'])) {
-                            $draftData['consent'] = $data['consent'];
-                        }
-                        $updateData['draft_client_data'] = $draftData;
+                // Store address/employment/next_of_kin in draft_client_data for new-client drafts
+                if (empty($data['selected_client_id']) && empty($case->client_id)) {
+                    if (! empty($data['address'])) {
+                        $draftClientData['address'] = $data['address'];
+                    }
+                    if (! empty($data['employment'])) {
+                        $draftClientData['employment'] = $data['employment'];
+                    }
+                    if (! empty($data['next_of_kin'])) {
+                        $draftClientData['next_of_kin'] = $data['next_of_kin'];
+                    }
+                    if (isset($data['nok_vulnerability_indicator'])) {
+                        $draftClientData['nok_vulnerability_indicator'] = $data['nok_vulnerability_indicator'];
+                    }
+                    if (isset($data['consent'])) {
+                        $draftClientData['consent'] = $data['consent'];
                     }
                 }
+
+                $updateData['draft_client_data'] = $draftClientData;
 
                 $case->update($updateData);
             });

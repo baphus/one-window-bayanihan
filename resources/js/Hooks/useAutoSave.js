@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
- * useAutoSave — debounced field-change auto-save + step-navigation save + page-unload save
+ * useAutoSave — debounced field-change auto-save + page-unload save
  * for the case creation draft system.
  *
  * @param {object}  params
  * @param {object}  params.formData  — The current form data (deeply nested object)
  * @param {string|null} params.draftId — Existing draft ID from server, or null
- * @param {number}  params.step     — Current wizard step (1–3)
  * @param {object}  [params.options]
  * @param {number}  [params.options.debounceMs=2000] — Debounce delay in ms
- * @returns {{ autoSaveStatus, saveOnStepChange, draftId, setDraftId }}
+ * @returns {{ autoSaveStatus, draftId, setDraftId }}
  */
-export default function useAutoSave({ formData, draftId, step, options = {} }) {
+export default function useAutoSave({ formData, draftId, options = {} }) {
     const { debounceMs = 2000 } = options;
     const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // idle | saving | saved | error
     const [localDraftId, setLocalDraftId] = useState(null);
@@ -23,9 +22,6 @@ export default function useAutoSave({ formData, draftId, step, options = {} }) {
     const debounceRef = useRef(null);
     const abortRef = useRef(null);
     const lastSavedDataRef = useRef('');
-
-    // Track step changes to trigger immediate saves
-    const lastStepRef = useRef(step);
 
     // Skip first render — set to false after mount
     useEffect(() => {
@@ -116,53 +112,6 @@ export default function useAutoSave({ formData, draftId, step, options = {} }) {
         };
     }, [formData, effectiveDraftId, debounceMs, doSave]);
 
-    // --- Step-navigation save ---
-    // Detect step changes and save immediately when navigating forward
-    useEffect(() => {
-        if (isFirstRenderRef.current) return;
-
-        const prevStep = lastStepRef.current;
-        lastStepRef.current = step;
-
-        // Only save on forward navigation (step increased)
-        if (step > prevStep) {
-            // Cancel any pending debounce
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            // Check if there's meaningful data to save
-            const hasData =
-                formData.client?.first_name?.trim()?.length > 0 ||
-                formData.client?.last_name?.trim()?.length > 0;
-
-            if (hasData && effectiveDraftId) {
-                doSave(formData, true);
-            }
-        }
-    }, [step, formData, effectiveDraftId, doSave]);
-
-    // --- saveOnStepChange: exposed function for manual step navigation ---
-    const saveOnStepChange = useCallback(
-        async (currentStep, nextStep) => {
-            // Cancel any pending debounce
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            // Do NOT save if no meaningful data entered
-            const hasData =
-                formData.client?.first_name?.trim()?.length > 0 ||
-                formData.client?.last_name?.trim()?.length > 0;
-            if (!hasData) return null;
-
-            // Save immediately (not debounced)
-            const result = await doSave(formData, true);
-            return result?.id || null;
-        },
-        [formData, doSave],
-    );
-
     // --- Page-unload auto-save via sendBeacon ---
     useEffect(() => {
         const handler = () => {
@@ -185,7 +134,6 @@ export default function useAutoSave({ formData, draftId, step, options = {} }) {
 
     return {
         autoSaveStatus,
-        saveOnStepChange,
         draftId: effectiveDraftId,
         setDraftId: setLocalDraftId,
     };
