@@ -980,7 +980,12 @@
         "name":  "Zimbabwe"
     },
     {
+        "code":  "WW",
+        "name":  "Worldwide"
+    },
+    {
         "code":  "XX",
         "name":  "Others"
     }
+
 ]
