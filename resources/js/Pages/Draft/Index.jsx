@@ -30,6 +30,16 @@ function ageColor(dateStr) {
   return 'bg-red-100 text-red-700';
 }
 
+function getDraftClientName(draft) {
+  if (draft.client) {
+    return `${draft.client.first_name} ${draft.client.last_name}`;
+  }
+  if (draft.draft_client_data?.first_name || draft.draft_client_data?.last_name) {
+    return `${draft.draft_client_data.first_name ?? ''} ${draft.draft_client_data.last_name ?? ''}`.trim();
+  }
+  return '\u2014';
+}
+
 export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [publishing, setPublishing] = useState(null);
@@ -239,7 +249,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-700">
-                        {draft.client ? `${draft.client.first_name} ${draft.client.last_name}` : '\u2014'}
+                        {getDraftClientName(draft)}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={draft.client_type === 'OFW' ? 'OFW' : 'NOK'} />

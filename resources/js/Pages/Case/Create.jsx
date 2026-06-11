@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useAutoSave from '@/Hooks/useAutoSave';
+import useLocalStorageDraft from '@/Hooks/useLocalStorageDraft';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
@@ -83,7 +85,7 @@ function Select({ value, onChange, options, placeholder }) {
 }
 
 export default function CaseCreate() {
-    const { client, existingClients = [], categories = [], existingDraft } = usePage().props;
+    const { client, existingClients = [], categories = [], existingDraft, auth } = usePage().props;
 
     const { data, setData, post, put, processing, errors, clearErrors } = useForm({
         client_type: 'OFW',
@@ -97,7 +99,7 @@ export default function CaseCreate() {
             middle_name: '',
             suffix: '',
             date_of_birth: '',
-            sex: '',
+            sex: 'Male',
             email: '',
             contact_number: '',
         },
@@ -130,6 +132,7 @@ export default function CaseCreate() {
             nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
         },
         consent: false,
+        has_next_of_kin: true,
         selected_client_id: '',
         is_draft: false,
     });
@@ -138,23 +141,13 @@ export default function CaseCreate() {
     const [caseId, setCaseId] = useState(() => GenerateCaseId());
     const [trackingId, setTrackingId] = useState(() => GenerateTrackingId());
     const [clientSource, setClientSource] = useState('new');
-    const [hasNextOfKin, setHasNextOfKin] = useState(true);
-    const [nokFirstName, setNokFirstName] = useState('');
-    const [nokLastName, setNokLastName] = useState('');
-    const [nokContact, setNokContact] = useState('');
-    const [nokRelationship, setNokRelationship] = useState('');
-    const [clientGender, setClientGender] = useState('Male');
-    const [clientEmail, setClientEmail] = useState('');
-    const [clientContact, setClientContact] = useState('');
-    const [lastCountry, setLastCountry] = useState('');
-    const [lastJob, setLastJob] = useState('');
-    const [arrivalDate, setArrivalDate] = useState('');
-    const [consent, setConsent] = useState(false);
     const [selectedClient, setSelectedClient] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const searchDebounceRef = useRef(null);
+    const draftIdRef = useRef(existingDraft?.id || null);
+    const restoredRef = useRef(false);
 
     const initialFormRef = useRef({
         formData: {
@@ -163,20 +156,15 @@ export default function CaseCreate() {
             vulnerability_indicator: '',
             nok_vulnerability_indicator: '',
             summary: '',
-            client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
+            client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
             address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
             next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } },
             consent: false,
+            has_next_of_kin: true,
             is_draft: false,
         },
-        useState: {
-            clientSource: 'new',
-            nokFirstName: '', nokLastName: '', nokContact: '', nokRelationship: '',
-            clientGender: 'Male', clientEmail: '', clientContact: '',
-            lastCountry: '', lastJob: '', arrivalDate: '',
-            hasNextOfKin: true, consent: false,
-        },
+        clientSource: 'new',
     });
 
     function formDataEqual(a, b) {
@@ -220,27 +208,55 @@ export default function CaseCreate() {
             && a.next_of_kin.nok_address.barangay === b.next_of_kin.nok_address.barangay
             && a.next_of_kin.nok_address.street === b.next_of_kin.nok_address.street
             && a.consent === b.consent
+            && a.has_next_of_kin === b.has_next_of_kin
             && a.is_draft === b.is_draft;
     }
 
     const hasDirty = useMemo(() => {
-        const i = initialFormRef.current;
-        return !formDataEqual(data, i.formData)
-            || clientSource !== i.useState.clientSource
-            || nokFirstName !== i.useState.nokFirstName
-            || nokLastName !== i.useState.nokLastName
-            || nokContact !== i.useState.nokContact
-            || nokRelationship !== i.useState.nokRelationship
-            || clientGender !== i.useState.clientGender
-            || clientEmail !== i.useState.clientEmail
-            || clientContact !== i.useState.clientContact
-            || lastCountry !== i.useState.lastCountry
-            || lastJob !== i.useState.lastJob
-            || arrivalDate !== i.useState.arrivalDate
-            || hasNextOfKin !== i.useState.hasNextOfKin
-            || consent !== i.useState.consent;
-    }, [data, clientSource, nokFirstName, nokLastName, nokContact, nokRelationship, clientGender, clientEmail, clientContact, lastCountry, lastJob, arrivalDate, hasNextOfKin, consent]);
+        return !formDataEqual(data, initialFormRef.current.formData)
+            || clientSource !== initialFormRef.current.clientSource;
+    }, [data, clientSource]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
+
+    const { autoSaveStatus, saveOnStepChange, draftId: autoSaveDraftId, setDraftId } = useAutoSave({
+        formData: data,
+        draftId: existingDraft?.id || null,
+        step: currentStep,
+    });
+
+    const { hasLocalBackup, localBackup, clearLocalBackup } = useLocalStorageDraft({
+        formData: data,
+        userId: auth.user?.id,
+        enabled: !existingDraft && clientSource === 'new',
+    });
+
+    useEffect(() => {
+        if (!hasLocalBackup || existingDraft || !localBackup?.data || restoredRef.current) return;
+        restoredRef.current = true;
+
+        const backupData = localBackup.data;
+
+        if (backupData.client) setData('client', { ...backupData.client });
+        if (backupData.address) setData('address', { ...backupData.address });
+        if (backupData.employment) setData('employment', { ...backupData.employment });
+        if (backupData.next_of_kin) setData('next_of_kin', { ...backupData.next_of_kin });
+        setData('client_type', backupData.client_type || 'OFW');
+        setData('category_id', backupData.category_id || '');
+        setData('vulnerability_indicator', backupData.vulnerability_indicator || '');
+        setData('nok_vulnerability_indicator', backupData.nok_vulnerability_indicator || '');
+        setData('summary', backupData.summary || '');
+        setData('consent', backupData.consent ?? false);
+        setData('has_next_of_kin', backupData.has_next_of_kin ?? true);
+
+        initialFormRef.current = {
+            formData: backupData,
+            clientSource: 'new',
+        };
+    }, [hasLocalBackup, existingDraft, localBackup, setData]);
+
+    useEffect(() => {
+        if (autoSaveDraftId) draftIdRef.current = autoSaveDraftId;
+    }, [autoSaveDraftId]);
 
     const filteredClients = useMemo(() => {
         const q = debouncedSearch.trim().toLowerCase();
@@ -255,10 +271,6 @@ export default function CaseCreate() {
         if (client) {
             setClientSource('existing');
             setData('selected_client_id', client.id);
-            setClientGender(client.sex || 'Male');
-            setClientEmail(client.email || '');
-            setClientContact(client.contact_number || '');
-
             setData('client', {
                 ...data.client,
                 first_name: client.first_name || '',
@@ -266,7 +278,7 @@ export default function CaseCreate() {
                 middle_name: client.middle_name || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
-                sex: client.sex || '',
+                sex: client.sex || 'Male',
                 email: client.email || '',
                 contact_number: client.contact_number || '',
             });
@@ -292,9 +304,6 @@ export default function CaseCreate() {
                     last_position: client.employments[0].last_position || '',
                     date_of_arrival: client.employments[0].date_of_arrival || '',
                 });
-                setLastCountry(client.employments[0].last_country || client.employments[0].country || '');
-                setLastJob(client.employments[0].last_position || client.employments[0].position || '');
-                setArrivalDate(client.employments[0].date_of_arrival || '');
             }
 
             if (client.nextOfKin?.[0]) {
@@ -308,10 +317,6 @@ export default function CaseCreate() {
                     email: client.nextOfKin[0].email || '',
                     full_address: client.nextOfKin[0].full_address || '',
                 });
-                setNokFirstName(client.nextOfKin[0].first_name || '');
-                setNokLastName(client.nextOfKin[0].last_name || '');
-                setNokContact(client.nextOfKin[0].phone_number || '');
-                setNokRelationship(client.nextOfKin[0].relationship || '');
             }
 
             // Update initial ref so dirty tracking starts from pre-filled state
@@ -361,24 +366,13 @@ export default function CaseCreate() {
                         nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                     },
                     consent: false,
+                    has_next_of_kin: true,
                     is_draft: false,
                 },
-                useState: {
-                    clientSource: 'existing',
-                    nokFirstName: client.nextOfKin?.[0]?.first_name || '',
-                    nokLastName: client.nextOfKin?.[0]?.last_name || '',
-                    nokContact: client.nextOfKin?.[0]?.phone_number || '',
-                    nokRelationship: client.nextOfKin?.[0]?.relationship || '',
-                    clientGender: client.sex || 'Male',
-                    clientEmail: client.email || '',
-                    clientContact: client.contact_number || '',
-                    lastCountry: client.employments?.[0]?.last_country || client.employments?.[0]?.country || '',
-                    lastJob: client.employments?.[0]?.last_position || client.employments?.[0]?.position || '',
-                    arrivalDate: client.employments?.[0]?.date_of_arrival || '',
-                    hasNextOfKin: true,
-                    consent: false,
-                },
+                clientSource: 'existing',
             };
+
+            setSelectedClient(null);
         }
     }, []);
 
@@ -512,25 +506,13 @@ export default function CaseCreate() {
             }
         }
 
-        // 3. Individual useState overrides
+        // 3. Client source and selection
         const c = clientData || {};
         const emps = c.employments || [];
         const noks = c.nextOfKin || [];
 
         setClientSource(src);
         setData('selected_client_id', selId);
-        setClientGender(c.sex || 'Male');
-        setClientEmail(c.email || '');
-        setClientContact(c.contact_number || '');
-        setLastCountry((emps[0]?.last_country || emps[0]?.country || c.employment?.last_country || c.employment?.country) || '');
-        setLastJob((emps[0]?.last_position || emps[0]?.position || c.employment?.last_position || c.employment?.position) || '');
-        setArrivalDate((emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '');
-        setNokFirstName((noks[0]?.first_name || c.next_of_kin?.first_name) || '');
-        setNokLastName((noks[0]?.last_name || c.next_of_kin?.last_name) || '');
-        setNokContact((noks[0]?.phone_number || c.next_of_kin?.phone_number) || '');
-        setNokRelationship((noks[0]?.relationship || c.next_of_kin?.relationship) || '');
-        setHasNextOfKin(!!(noks[0] || c.next_of_kin));
-        setConsent(false);
         setData('consent', false);
 
         // 4. Generated IDs — override with existing draft's real IDs
@@ -584,23 +566,10 @@ export default function CaseCreate() {
                     nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 },
                 consent: false,
+                has_next_of_kin: !!(noks[0] || c.next_of_kin),
                 is_draft: true,
             },
-            useState: {
-                clientSource: src,
-                nokFirstName: (noks[0]?.first_name || c.next_of_kin?.first_name) || '',
-                nokLastName: (noks[0]?.last_name || c.next_of_kin?.last_name) || '',
-                nokContact: (noks[0]?.phone_number || c.next_of_kin?.phone_number) || '',
-                nokRelationship: (noks[0]?.relationship || c.next_of_kin?.relationship) || '',
-                clientGender: c.sex || 'Male',
-                clientEmail: c.email || '',
-                clientContact: c.contact_number || '',
-                lastCountry: (emps[0]?.last_country || emps[0]?.country || c.employment?.last_country || c.employment?.country) || '',
-                lastJob: (emps[0]?.last_position || emps[0]?.position || c.employment?.last_position || c.employment?.position) || '',
-                arrivalDate: (emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '',
-                hasNextOfKin: !!(noks[0] || c.next_of_kin),
-                consent: false,
-            },
+            clientSource: src,
         };
     }, []);
 
@@ -620,17 +589,6 @@ export default function CaseCreate() {
             setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
             setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
             setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } });
-            setClientGender('Male');
-            setClientEmail('');
-            setClientContact('');
-            setLastCountry('');
-            setLastJob('');
-            setArrivalDate('');
-            setNokFirstName('');
-            setNokLastName('');
-            setNokContact('');
-            setNokRelationship('');
-            setHasNextOfKin(true);
             return;
         }
 
@@ -649,10 +607,6 @@ export default function CaseCreate() {
             email: c.email || '',
             contact_number: c.contact_number || '',
         });
-
-        setClientGender(c.sex || 'Male');
-        setClientEmail(c.email || '');
-        setClientContact(c.contact_number || '');
 
         if (c.addresses?.[0]) {
             setData('address', {
@@ -675,9 +629,6 @@ export default function CaseCreate() {
                 last_position: c.employments[0].last_position || '',
                 date_of_arrival: c.employments[0].date_of_arrival || '',
             });
-            setLastCountry(c.employments[0].last_country || c.employments[0].country || '');
-            setLastJob(c.employments[0].last_position || c.employments[0].position || '');
-            setArrivalDate(c.employments[0].date_of_arrival || '');
         }
 
         if (c.nextOfKin?.[0]) {
@@ -691,10 +642,6 @@ export default function CaseCreate() {
                 email: c.nextOfKin[0].email || '',
                 full_address: c.nextOfKin[0].full_address || '',
             });
-            setNokFirstName(c.nextOfKin[0].first_name || '');
-            setNokLastName(c.nextOfKin[0].last_name || '');
-            setNokContact(c.nextOfKin[0].phone_number || '');
-            setNokRelationship(c.nextOfKin[0].relationship || '');
         }
     }
 
@@ -721,15 +668,25 @@ export default function CaseCreate() {
         setData('employment', { ...data.employment, [field]: value });
     }
 
-    function handleNext() {
+    async function handleNext() {
         if (currentStep < 3) {
+            const result = await saveOnStepChange(currentStep, currentStep + 1);
+            if (result?.id) {
+                setDraftId(result.id);
+                draftIdRef.current = result.id;
+            }
             clearErrors();
             setCurrentStep((prev) => prev + 1);
         }
     }
 
-    function handleBack() {
+    async function handleBack() {
         if (currentStep > 1) {
+            const result = await saveOnStepChange(currentStep, currentStep - 1);
+            if (result?.id) {
+                setDraftId(result.id);
+                draftIdRef.current = result.id;
+            }
             clearErrors();
             setCurrentStep((prev) => prev - 1);
         }
@@ -738,7 +695,7 @@ export default function CaseCreate() {
     function canProceed() {
         if (currentStep === 1) {
             const base = data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
-            return clientSource === 'new' ? (base && clientEmail.trim().length > 0) : base;
+            return clientSource === 'new' ? (base && data.client.email.trim().length > 0) : base;
         }
         if (currentStep === 2) return true;
         return true;
@@ -747,7 +704,7 @@ export default function CaseCreate() {
     function canSubmit() {
         return data.client.first_name.trim().length > 0
             && data.client.last_name.trim().length > 0
-            && (clientSource === 'existing' || (clientEmail.trim().length > 0 && consent));
+            && (clientSource === 'existing' || (data.client.email.trim().length > 0 && data.consent));
     }
 
     function handleSaveDraft(e) {
@@ -756,30 +713,7 @@ export default function CaseCreate() {
 
         const submitData = {
             ...data,
-            client: {
-                ...data.client,
-                sex: clientGender,
-                email: clientEmail,
-                contact_number: clientContact,
-            },
-            consent,
-            employment: {
-                ...data.employment,
-                country: lastCountry || data.employment.country,
-                position: lastJob || data.employment.position,
-                last_country: lastCountry,
-                last_position: lastJob,
-                date_of_arrival: arrivalDate,
-            },
-            ...(hasNextOfKin && {
-                next_of_kin: {
-                    ...data.next_of_kin,
-                    first_name: nokFirstName,
-                    last_name: nokLastName,
-                    relationship: nokRelationship,
-                    phone_number: nokContact,
-                },
-            }),
+            has_next_of_kin: undefined,
             is_draft: true,
         };
 
@@ -814,7 +748,7 @@ export default function CaseCreate() {
             // Publishing does NOT send form data — publishes the draft as last saved.
             // User should save via "Update Draft" first.
             post(route('cases.publish', existingDraft.id), {
-                onSuccess: () => { },
+                onSuccess: () => { clearLocalBackup(); },
                 onError: (errors) => {
                     console.error('Publish failed:', errors);
                 },
@@ -823,37 +757,9 @@ export default function CaseCreate() {
             return;
         }
 
-        const submitData = {
-            ...data,
-            client: {
-                ...data.client,
-                sex: clientGender,
-                email: clientEmail,
-                contact_number: clientContact,
-            },
-            consent,
-            employment: {
-                ...data.employment,
-                country: lastCountry || data.employment.country,
-                position: lastJob || data.employment.position,
-                last_country: lastCountry,
-                last_position: lastJob,
-                date_of_arrival: arrivalDate,
-            },
-            ...(hasNextOfKin && {
-                next_of_kin: {
-                    ...data.next_of_kin,
-                    first_name: nokFirstName,
-                    last_name: nokLastName,
-                    relationship: nokRelationship,
-                    phone_number: nokContact,
-                },
-            }),
-        };
-
         post(route('cases.store'), {
-            data: submitData,
-            onSuccess: () => { },
+            data: { ...data, has_next_of_kin: undefined, is_draft: false },
+            onSuccess: () => { clearLocalBackup(); },
             onError: (errors) => {
                 console.error('Validation failed:', errors);
             },
@@ -873,18 +779,6 @@ export default function CaseCreate() {
         setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
         setData('next_of_kin', { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } });
-        setClientGender('Male');
-        setClientEmail('');
-        setClientContact('');
-        setLastCountry('');
-        setLastJob('');
-        setArrivalDate('');
-        setNokFirstName('');
-        setNokLastName('');
-        setNokContact('');
-        setNokRelationship('');
-        setHasNextOfKin(true);
-        setConsent(false);
         setData('consent', false);
         setSelectedClient(null);
         setSearchQuery('');
@@ -901,20 +795,16 @@ export default function CaseCreate() {
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
                 next_of_kin: { first_name: '', middle_initial: '', last_name: '', is_primary: false, relationship: '', phone_number: '', email: '', full_address: '', nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } },
                 consent: false,
+                has_next_of_kin: true,
                 is_draft: false,
             },
-            useState: {
-                clientSource: 'new',
-                nokFirstName: '', nokLastName: '', nokContact: '', nokRelationship: '',
-                clientGender: 'Male', clientEmail: '', clientContact: '',
-                lastCountry: '', lastJob: '', arrivalDate: '',
-                hasNextOfKin: true, consent: false,
-            },
+            clientSource: 'new',
         };
     }
 
     function handleSwitchToExisting() {
         setClientSource('existing');
+        clearLocalBackup();
     }
 
 function handleConfirmClient(client) {
@@ -922,10 +812,6 @@ function handleConfirmClient(client) {
 
     setClientSource('existing');
     setData('selected_client_id', client.id);
-
-    setClientGender(client.sex || 'Male');
-    setClientEmail(client.email || '');
-    setClientContact(client.contact_number || '');
     setData('client', {
         ...data.client,
         first_name: client.first_name || '',
@@ -961,9 +847,6 @@ function handleConfirmClient(client) {
             last_position: emp.last_position || '',
             date_of_arrival: emp.date_of_arrival || '',
         });
-        setLastCountry(emp.last_country || emp.country || '');
-        setLastJob(emp.last_position || emp.position || '');
-        setArrivalDate(emp.date_of_arrival || '');
     }
 
     if (client.nextOfKin?.[0]) {
@@ -978,10 +861,6 @@ function handleConfirmClient(client) {
             email: nok.email || '',
             full_address: nok.full_address || '',
         });
-        setNokFirstName(nok.first_name || '');
-        setNokLastName(nok.last_name || '');
-        setNokContact(nok.phone_number || '');
-        setNokRelationship(nok.relationship || '');
     }
 
     // CRITICAL: Update initialFormRef so dirty tracking starts from pre-filled state
@@ -1031,30 +910,17 @@ function handleConfirmClient(client) {
                 nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
             },
             consent: false,
+            has_next_of_kin: true,
             is_draft: false,
         },
-        useState: {
-            clientSource: 'existing',
-            nokFirstName: client.nextOfKin?.[0]?.first_name || '',
-            nokLastName: client.nextOfKin?.[0]?.last_name || '',
-            nokContact: client.nextOfKin?.[0]?.phone_number || '',
-            nokRelationship: client.nextOfKin?.[0]?.relationship || '',
-            clientGender: client.sex || 'Male',
-            clientEmail: client.email || '',
-            clientContact: client.contact_number || '',
-            lastCountry: client.employments?.[0]?.last_country || client.employments?.[0]?.country || '',
-            lastJob: client.employments?.[0]?.last_position || client.employments?.[0]?.position || '',
-            arrivalDate: client.employments?.[0]?.date_of_arrival || '',
-            hasNextOfKin: true,
-            consent: false,
-        },
+        clientSource: 'existing',
     };
 
     setSelectedClient(null);
 }
 
-    const nokSummary = hasNextOfKin
-        ? [nokFirstName, nokLastName].filter(Boolean).join(' ') || 'Not yet provided'
+    const nokSummary = data.has_next_of_kin
+        ? [data.next_of_kin.first_name, data.next_of_kin.last_name].filter(Boolean).join(' ') || 'Not yet provided'
         : 'No next of kin indicated';
 
     return (
@@ -1315,10 +1181,10 @@ function handleConfirmClient(client) {
                                                         <Input type="date" value={data.client.date_of_birth} onChange={(e) => handleClientChange('date_of_birth', e.target.value)} />
                                                     </Field>
                                                     <Field label="Gender">
-                                                        <Select value={clientGender} onChange={(e) => setClientGender(e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} />
+                                                        <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} />
                                                     </Field>
                                                     <Field label="Email Address" required>
-                                                        <Input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+                                                        <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} />
                                                     </Field>
                                                     <div className="col-span-4 -mt-2">
                                                         <p className="flex items-center gap-1.5 text-[11px] text-amber-700">
@@ -1327,7 +1193,7 @@ function handleConfirmClient(client) {
                                                         </p>
                                                     </div>
                                                     <Field label="Contact Number">
-                                                        <PhoneInput value={clientContact} onChange={(val) => setClientContact(val)} />
+                                                        <PhoneInput value={data.client.contact_number} onChange={(val) => handleClientChange('contact_number', val)} />
                                                     </Field>
                                                 </div>
                                             </Subsection>
@@ -1346,13 +1212,13 @@ function handleConfirmClient(client) {
                                             <Subsection title="Work History">
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                     <Field label="Last Country of Employment">
-                                                        <CountrySelect value={lastCountry} onChange={(v) => { setLastCountry(v); handleEmploymentChange('last_country', v); }} placeholder="Select country..." />
+                                                        <CountrySelect value={data.employment.last_country} onChange={(v) => handleEmploymentChange('last_country', v)} placeholder="Select country..." />
                                                     </Field>
                                                     <Field label="Last Job Position">
-                                                        <Input value={lastJob} onChange={(e) => { setLastJob(e.target.value); handleEmploymentChange('position', e.target.value); }} />
+                                                        <Input value={data.employment.last_position} onChange={(e) => handleEmploymentChange('last_position', e.target.value)} />
                                                     </Field>
                                                     <Field label="Arrival Date in Philippines">
-                                                        <Input type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} />
+                                                        <Input type="date" value={data.employment.date_of_arrival} onChange={(e) => setData('employment.date_of_arrival', e.target.value)} />
                                                     </Field>
                                                 </div>
                                             </Subsection>
@@ -1362,37 +1228,39 @@ function handleConfirmClient(client) {
                                             <Subsection title="Next of Kin Information">
                                                 <div className="mb-4">
                                                     <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${hasNextOfKin ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <input type="radio" name="has-nok" className="sr-only" checked={hasNextOfKin} onChange={() => setHasNextOfKin(true)} /> Yes
+                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${data.has_next_of_kin ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                            <input type="radio" name="has-nok" className="sr-only" checked={data.has_next_of_kin} onChange={() => setData('has_next_of_kin', true)} /> Yes
                                                         </label>
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${!hasNextOfKin ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <input type="radio" name="has-nok" className="sr-only" checked={!hasNextOfKin} onChange={() => setHasNextOfKin(false)} /> No
+                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${!data.has_next_of_kin ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                            <input type="radio" name="has-nok" className="sr-only" checked={!data.has_next_of_kin} onChange={() => { setData('has_next_of_kin', false); setData('next_of_kin', { ...data.next_of_kin, first_name: '', last_name: '', relationship: '', phone_number: '' }); }} /> No
                                                         </label>
                                                     </div>
                                                 </div>
-                                                {hasNextOfKin && (
-                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                        <Field label="First Name">
-                                                            <Input value={nokFirstName} onChange={(e) => setNokFirstName(e.target.value)} />
-                                                        </Field>
-                                                        <Field label="Middle Initial">
-                                                            <Input value={data.next_of_kin.middle_initial} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, middle_initial: e.target.value })} maxLength={10} />
-                                                        </Field>
-                                                        <Field label="Last Name">
-                                                            <Input value={nokLastName} onChange={(e) => setNokLastName(e.target.value)} />
-                                                        </Field>
-                                                        <Field label="Relationship">
-                                                            <Select value={nokRelationship} onChange={(e) => setNokRelationship(e.target.value)}
-                                                                options={['Mother', 'Father', 'Spouse', 'Sibling', 'Other'].map((r) => ({ label: r, value: r }))}
-                                                                placeholder="Select relationship" />
-                                                        </Field>
-                                                        <Field label="Phone Number">
-                                                            <PhoneInput value={nokContact} onChange={(val) => setNokContact(val)} />
-                                                        </Field>
-                                                        <Field label="Email">
-                                                            <Input type="email" value={data.next_of_kin.email} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, email: e.target.value })} />
-                                                        </Field>
-                                                        <div className="md:col-span-2">
+                                                {data.has_next_of_kin && (
+                                                    <>
+                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                            <Field label="First Name">
+                                                                <Input value={data.next_of_kin.first_name} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, first_name: e.target.value })} />
+                                                            </Field>
+                                                            <Field label="Middle Initial">
+                                                                <Input value={data.next_of_kin.middle_initial} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, middle_initial: e.target.value })} maxLength={10} />
+                                                            </Field>
+                                                            <Field label="Last Name">
+                                                                <Input value={data.next_of_kin.last_name} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, last_name: e.target.value })} />
+                                                            </Field>
+                                                            <Field label="Relationship">
+                                                                <Select value={data.next_of_kin.relationship} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, relationship: e.target.value })}
+                                                                    options={['Mother', 'Father', 'Spouse', 'Sibling', 'Other'].map((r) => ({ label: r, value: r }))}
+                                                                    placeholder="Select relationship" />
+                                                            </Field>
+                                                            <Field label="Phone Number" className="md:col-span-2">
+                                                                <PhoneInput value={data.next_of_kin.phone_number} onChange={(val) => setData('next_of_kin', { ...data.next_of_kin, phone_number: val })} />
+                                                            </Field>
+                                                            <Field label="Email" className="md:col-span-2">
+                                                                <Input type="email" value={data.next_of_kin.email} onChange={(e) => setData('next_of_kin', { ...data.next_of_kin, email: e.target.value })} />
+                                                            </Field>
+                                                        </div>
+                                                        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                                             <Subsection title="Address">
                                                                 <AddressDropdowns
                                                                     values={data.next_of_kin.nok_address}
@@ -1400,7 +1268,7 @@ function handleConfirmClient(client) {
                                                                 />
                                                             </Subsection>
                                                         </div>
-                                                    </div>
+                                                    </>
                                                 )}
                                             </Subsection>
                                         </div>
@@ -1449,10 +1317,10 @@ function handleConfirmClient(client) {
                                                     referral coordination, and service delivery.
                                                 </p>
                                                 <label className="mt-4 inline-flex items-start gap-3 text-[13px] font-semibold text-amber-900 cursor-pointer">
-                                                    <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-600" />
+                                                    <input type="checkbox" checked={data.consent} onChange={(e) => setData('consent', e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-600" />
                                                     <span>I acknowledge and confirm client consent for data use in the system.</span>
                                                 </label>
-                                                {!consent && <p className="mt-3 text-[12px] font-medium text-amber-800">Required to create a case for a new client.</p>}
+                                                {!data.consent && <p className="mt-3 text-[12px] font-medium text-amber-800">Required to create a case for a new client.</p>}
                                             </div>
                                         )}
                                     </>
@@ -1556,11 +1424,22 @@ function handleConfirmClient(client) {
                                     className="inline-flex items-center gap-2 rounded-md border border-[#cbd5e1] bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
                                 </button>
-                                <button type="button" onClick={handleSaveDraft} disabled={processing}
-                                    className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-5 py-2.5 text-[13px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
-                                    <span className="material-symbols-outlined text-[18px]">save</span>
-                                    {processing ? (existingDraft ? 'Updating...' : 'Saving...') : (existingDraft ? 'Update Draft' : 'Save as Draft')}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button type="button" onClick={handleSaveDraft} disabled={processing || autoSaveStatus === 'saving'}
+                                        className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-5 py-2.5 text-[13px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
+                                        <span className="material-symbols-outlined text-[18px]">save</span>
+                                        {processing ? (existingDraft ? 'Updating...' : 'Saving...') : (existingDraft ? 'Update Draft' : 'Save as Draft')}
+                                    </button>
+                                    {autoSaveStatus === 'saving' && (
+                                        <span className="text-[12px] text-slate-500 animate-pulse">Saving...</span>
+                                    )}
+                                    {autoSaveStatus === 'saved' && (
+                                        <span className="text-[12px] text-green-600">Draft saved</span>
+                                    )}
+                                    {autoSaveStatus === 'error' && (
+                                        <span className="text-[12px] text-red-500">Save failed</span>
+                                    )}
+                                </div>
                             </div>
                             {currentStep < 3 ? (
                                 <button type="button" onClick={handleNext} disabled={!canProceed()}

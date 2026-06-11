@@ -83,23 +83,14 @@ class CaseController extends Controller
 
     public function store(StoreCaseRequest $request)
     {
-        $isDraft = $request->boolean('is_draft');
-
-        $case = $this->caseService->createCase(
+        $this->caseService->createCase(
             $request->validated(),
             $request->user()->id,
-            $isDraft,
         );
 
-        if ($isDraft) {
-            return redirect()
-                ->route('cases.drafts')
-                ->with('success', 'Draft saved successfully.');
-        }
-
         return redirect()
-            ->route('cases.show', $case)
-            ->with('success', 'Case created successfully.');
+            ->route('cases.drafts')
+            ->with('success', 'Draft saved successfully.');
     }
 
     public function editDraft(Request $request, string $id)
@@ -143,7 +134,15 @@ class CaseController extends Controller
 
     public function updateDraft(UpdateDraftRequest $request, string $id)
     {
-        $this->caseService->updateDraft($id, $request->validated(), $request->user()->id);
+        $case = $this->caseService->updateDraft($id, $request->validated(), $request->user()->id);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'id' => $case->id,
+                'saved_at' => $case->updated_at?->toIso8601String() ?? now()->toIso8601String(),
+            ]);
+        }
 
         return redirect()
             ->route('cases.drafts')

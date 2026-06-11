@@ -37,8 +37,6 @@ class StoreCaseRequest extends FormRequest
 
     public function rules(): array
     {
-        $required = $this->boolean('is_draft') ? 'nullable' : 'required';
-
         return [
             'is_draft' => ['nullable', 'boolean'],
             'client_type' => ['required', Rule::in(['OFW', 'NEXT_OF_KIN'])],
@@ -47,13 +45,13 @@ class StoreCaseRequest extends FormRequest
             'summary' => ['nullable', 'string', 'max:5000'],
             'category_id' => ['nullable', 'string', 'exists:case_categories,id'],
 
-            'client.first_name' => [$required, 'string', 'max:255'],
-            'client.last_name' => [$required, 'string', 'max:255'],
+            'client.first_name' => ['nullable', 'string', 'max:255'],
+            'client.last_name' => ['nullable', 'string', 'max:255'],
             'client.middle_name' => ['nullable', 'string', 'max:255'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
             'client.date_of_birth' => ['nullable', 'date'],
             'client.sex' => ['nullable', 'string', 'max:50'],
-            'client.email' => [$required, 'email', 'max:255'],
+            'client.email' => ['nullable', 'email', 'max:255'],
             'client.contact_number' => ['nullable', 'string', 'max:50'],
 
             'next_of_kin.first_name' => ['nullable', 'string', 'max:255'],
