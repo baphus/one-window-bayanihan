@@ -12,7 +12,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 
 const STEPS = [
-    { id: 1, title: 'Client Profile', description: 'Enter client information and vulnerability status' },
+    { id: 1, title: 'Client Profile', description: 'Enter client information and employment details' },
     { id: 2, title: 'Case Setup', description: 'Define case parameters and tracking' },
     { id: 3, title: 'Case Narrative', description: 'Document client situation' },
 ];
@@ -121,6 +121,7 @@ export default function CaseCreate() {
             date_of_arrival: '',
         },
         next_of_kin: [],
+        selected_nok_index: '',
         consent: false,
         selected_client_id: '',
         is_draft: false,
@@ -149,6 +150,7 @@ export default function CaseCreate() {
             address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
             next_of_kin: [],
+            selected_nok_index: '',
             consent: false,
             is_draft: false,
         },
@@ -183,6 +185,7 @@ export default function CaseCreate() {
             && a.employment.last_position === b.employment.last_position
             && a.employment.date_of_arrival === b.employment.date_of_arrival
             && JSON.stringify(a.next_of_kin) === JSON.stringify(b.next_of_kin)
+            && a.selected_nok_index === b.selected_nok_index
             && a.consent === b.consent
             && a.is_draft === b.is_draft;
     }
@@ -219,6 +222,7 @@ export default function CaseCreate() {
         }
         setData('client_type', backupData.client_type || 'OFW');
         setData('category_id', backupData.category_id || '');
+        setData('selected_nok_index', backupData.selected_nok_index ?? '');
         setData('vulnerability_indicator', backupData.vulnerability_indicator || '');
         setData('nok_vulnerability_indicator', backupData.nok_vulnerability_indicator || '');
         setData('summary', backupData.summary || '');
@@ -358,6 +362,7 @@ export default function CaseCreate() {
                             },
                         }))
                         : [],
+                    selected_nok_index: '',
                     consent: false,
                     is_draft: false,
                 },
@@ -375,6 +380,7 @@ export default function CaseCreate() {
         // 1. Case-level fields
         setData('client_type', existingDraft.client_type || 'OFW');
         setData('category_id', existingDraft.category_id || '');
+        setData('selected_nok_index', existingDraft.selected_nok_index ?? '');
         setData('vulnerability_indicator', existingDraft.vulnerability_indicator || '');
         setData('summary', existingDraft.summary || '');
         setData('is_draft', true);
@@ -585,6 +591,7 @@ export default function CaseCreate() {
                         },
                     }));
                 })(),
+                selected_nok_index: '',
                 consent: false,
                 is_draft: true,
             },
@@ -755,7 +762,12 @@ export default function CaseCreate() {
             const base = data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
             return clientSource === 'new' ? (base && data.client.email.trim().length > 0) : base;
         }
-        if (currentStep === 2) return true;
+        if (currentStep === 2) {
+            if (data.client_type === 'NEXT_OF_KIN') {
+                return data.selected_nok_index !== '';
+            }
+            return true;
+        }
         return true;
     }
 
@@ -851,6 +863,7 @@ export default function CaseCreate() {
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
                 next_of_kin: [],
+                selected_nok_index: '',
                 consent: false,
                 is_draft: false,
             },
@@ -981,6 +994,7 @@ function handleConfirmClient(client) {
                     },
                 }))
                 : [],
+            selected_nok_index: '',
             consent: false,
             is_draft: false,
         },
@@ -1082,13 +1096,13 @@ function handleConfirmClient(client) {
                                         <>
                                             <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Fill in complete client details.</span></li>
                                             <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add work history and next of kin if applicable.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Indicate any vulnerability status.</span></li>
                                         </>
                                     )}
                                     {currentStep === 2 && (
                                         <>
                                             <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>We generate the case number and tracking ID for you.</span></li>
                                             <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Choose the right client type.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Indicate any vulnerability status.</span></li>
                                         </>
                                     )}
                                     {currentStep === 3 && (
@@ -1281,7 +1295,10 @@ function handleConfirmClient(client) {
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Work History">
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                    <Field label="Employer Name">
+                                                        <Input value={data.employment.employer_name} onChange={(e) => handleEmploymentChange('employer_name', e.target.value)} />
+                                                    </Field>
                                                     <Field label="Last Country of Employment">
                                                         <CountrySelect value={data.employment.last_country} onChange={(v) => handleEmploymentChange('last_country', v)} placeholder="Select country..." />
                                                     </Field>
@@ -1387,41 +1404,6 @@ function handleConfirmClient(client) {
                                             </Subsection>
                                         </div>
 
-                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Vulnerability Status</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Indicate if the client falls under any vulnerable sector.</p>
-                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <Field label={data.client_type === 'OFW' ? 'OFW Vulnerability Status' : data.client_type === 'NEXT_OF_KIN' ? 'Client Vulnerability Status' : 'Vulnerability Indicator'}>
-                                                    <select
-                                                        value={data.vulnerability_indicator}
-                                                        onChange={(e) => setData('vulnerability_indicator', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    >
-                                                        <option value="">Select vulnerability...</option>
-                                                        <option value="PWD">PWD</option>
-                                                        <option value="Senior Citizen">Senior Citizen</option>
-                                                        <option value="Solo Parent">Solo Parent</option>
-                                                        <option value="Indigenous Person">Indigenous Person</option>
-                                                        <option value="None">None</option>
-                                                    </select>
-                                                </Field>
-                                                <Field label="Next of Kin Vulnerability Status">
-                                                    <select
-                                                        value={data.nok_vulnerability_indicator}
-                                                        onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    >
-                                                        <option value="">Select vulnerability...</option>
-                                                        <option value="PWD">PWD</option>
-                                                        <option value="Senior Citizen">Senior Citizen</option>
-                                                        <option value="Solo Parent">Solo Parent</option>
-                                                        <option value="Indigenous Person">Indigenous Person</option>
-                                                        <option value="None">None</option>
-                                                    </select>
-                                                </Field>
-                                            </div>
-                                        </div>
-
                                         {clientSource === 'new' && (
                                             <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-6 shadow-sm">
                                                 <h3 className="text-[12px] font-bold uppercase tracking-wider text-amber-800">Data Privacy Consent</h3>
@@ -1481,6 +1463,67 @@ function handleConfirmClient(client) {
                                                         {categories.map((cat) => (
                                                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                                                         ))}
+                                                    </select>
+                                                </Field>
+                                            </div>
+                                            {data.client_type === 'NEXT_OF_KIN' && (
+                                                <div className="mt-4 pt-4 border-t border-slate-200">
+                                                    {data.next_of_kin.length > 0 ? (
+                                                        <Field label="Select Next of Kin" required>
+                                                            <select
+                                                                value={data.selected_nok_index}
+                                                                onChange={(e) => setData('selected_nok_index', e.target.value)}
+                                                                className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            >
+                                                                <option value="">Select next of kin...</option>
+                                                                {data.next_of_kin.map((nok, idx) => (
+                                                                    <option key={idx} value={String(idx)}>
+                                                                        {[nok.first_name, nok.last_name].filter(Boolean).join(' ')}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </Field>
+                                                    ) : (
+                                                        <p className="text-[13px] text-amber-600 bg-amber-50 rounded-md px-4 py-3 border border-amber-200">
+                                                            Please add Next of Kin entries in Step 1 first.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">
+                                                {data.client_type === 'OFW' ? 'OFW Vulnerability Status' : 'Next of Kin Vulnerability Status'}
+                                            </h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Indicate if the client falls under any vulnerable sector.</p>
+                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <Field label={data.client_type === 'OFW' ? 'OFW Vulnerability Status' : 'Client Vulnerability Status'}>
+                                                    <select
+                                                        value={data.vulnerability_indicator}
+                                                        onChange={(e) => setData('vulnerability_indicator', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select vulnerability...</option>
+                                                        <option value="PWD">PWD</option>
+                                                        <option value="Senior Citizen">Senior Citizen</option>
+                                                        <option value="Solo Parent">Solo Parent</option>
+                                                        <option value="Indigenous Person">Indigenous Person</option>
+                                                        <option value="None">None</option>
+                                                    </select>
+                                                </Field>
+                                                <Field label="Next of Kin Vulnerability Status">
+                                                    <select
+                                                        value={data.nok_vulnerability_indicator}
+                                                        onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select vulnerability...</option>
+                                                        <option value="PWD">PWD</option>
+                                                        <option value="Senior Citizen">Senior Citizen</option>
+                                                        <option value="Solo Parent">Solo Parent</option>
+                                                        <option value="Indigenous Person">Indigenous Person</option>
+                                                        <option value="None">None</option>
                                                     </select>
                                                 </Field>
                                             </div>
