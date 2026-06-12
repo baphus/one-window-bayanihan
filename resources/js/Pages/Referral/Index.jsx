@@ -3,12 +3,14 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import TypeBadge from '@/Components/ui/TypeBadge';
 
 const COLUMN_DEFS = [
     { key: 'referral_id', label: 'Referral #', default: true },
     { key: 'case_number', label: 'Case #', default: true },
     { key: 'client', label: 'Client', default: true },
     { key: 'agency', label: 'Agency', default: true },
+    { key: 'type', label: 'Type', default: true },
     { key: 'required_services', label: 'Service', default: true },
     { key: 'status', label: 'Status', default: true },
     { key: 'id', label: 'Actions', default: true },
@@ -34,6 +36,7 @@ export default function ReferralIndex({ referrals, filters }) {
     );
 
     const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
+    const [typeFilter, setTypeFilter] = useState(filters?.type ?? '');
 
     useEffect(() => {
         return () => clearTimeout(searchTimeout.current);
@@ -60,16 +63,19 @@ export default function ReferralIndex({ referrals, filters }) {
     const activeFilters = useMemo(() => {
         const chips = [];
         if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter });
+        if (typeFilter) chips.push({ key: 'type', label: 'Type', value: typeFilter });
         return chips;
-    }, [statusFilter]);
+    }, [statusFilter, typeFilter]);
 
     const handleRemoveFilter = (filter) => {
         if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
+        if (filter.key === 'type') { setTypeFilter(''); navigateWith({ type: undefined }); }
     };
 
     const handleClearFilters = () => {
         setStatusFilter('');
-        navigateWith({ status: undefined });
+        setTypeFilter('');
+        navigateWith({ status: undefined, type: undefined });
     };
 
     function paginatorProps(paginator) {
@@ -134,6 +140,13 @@ export default function ReferralIndex({ referrals, filters }) {
                             sortable: false,
                             render: (row) => <span className="max-w-xs truncate block">{row.required_services}</span>,
                         };
+                    case 'type':
+                        return {
+                            ...base,
+                            render: (row) => (
+                                <TypeBadge type={row.type} />
+                            ),
+                        };
                     case 'status':
                         return {
                             ...base,
@@ -192,8 +205,25 @@ export default function ReferralIndex({ referrals, filters }) {
                     <option value="REJECTED">Rejected</option>
                 </select>
             </div>
+            <div>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Type</label>
+                <select
+                    value={typeFilter}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setTypeFilter(val);
+                        setFilterOpen(false);
+                        navigateWith({ type: val || undefined });
+                    }}
+                    className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                >
+                    <option value="">All Types</option>
+                    <option value="standard">Standard</option>
+                    <option value="intervention">Intervention</option>
+                </select>
+            </div>
         </div>
-    ), [statusFilter]);
+    ), [statusFilter, typeFilter]);
 
     const columnControlContent = useMemo(() => (
         <div className="space-y-2">
