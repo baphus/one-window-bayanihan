@@ -1,6 +1,17 @@
 import Modal from '@/Components/Modal';
 import { MetaTile } from '@/Components/ui/CardSection';
 
+function formatDate(value) {
+    if (!value) return 'N/A';
+    try {
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return 'N/A';
+        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+        return 'N/A';
+    }
+}
+
 export default function ClientProfileSummaryModal({
     show,
     onClose,
@@ -61,10 +72,10 @@ export default function ClientProfileSummaryModal({
                     </h3>
                     {address ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <MetaTile label="Region" value={address.region || 'N/A'} />
-                            <MetaTile label="Province" value={address.province || 'N/A'} />
-                            <MetaTile label="City/Municipality" value={address.city_municipality || 'N/A'} />
-                            <MetaTile label="Barangay" value={address.barangay || 'N/A'} />
+                            <MetaTile label="Region" value={address.region_name || address.region || 'N/A'} />
+                            <MetaTile label="Province" value={address.province_name || address.province || 'N/A'} />
+                            <MetaTile label="City/Municipality" value={address.city_municipality_name || address.city_municipality || 'N/A'} />
+                            <MetaTile label="Barangay" value={address.barangay_name || address.barangay || 'N/A'} />
                             <MetaTile label="Street" value={address.street || 'N/A'} />
                         </div>
                     ) : (
@@ -82,7 +93,7 @@ export default function ClientProfileSummaryModal({
                             <MetaTile label="Last Country" value={employment.last_country || 'N/A'} />
                             <MetaTile label="Last Position" value={employment.last_position || 'N/A'} />
                             <MetaTile label="Employer Name" value={employment.employer_name || 'N/A'} />
-                            <MetaTile label="Date of Arrival" value={employment.date_of_arrival || 'N/A'} />
+                            <MetaTile label="Date of Arrival" value={formatDate(employment.date_of_arrival)} />
                         </div>
                     ) : (
                         <p className="text-[13px] italic text-slate-400">No employment history recorded</p>
