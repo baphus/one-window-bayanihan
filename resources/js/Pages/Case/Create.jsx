@@ -196,7 +196,7 @@ export default function CaseCreate() {
     }, [data, clientSource]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
 
-    const { autoSaveStatus, draftId: autoSaveDraftId } = useAutoSave({
+    const { autoSaveStatus, draftId: autoSaveDraftId, cancelPendingSave } = useAutoSave({
         formData: data,
         draftId: existingDraft?.id || null,
     });
@@ -745,6 +745,7 @@ export default function CaseCreate() {
 
     function handleNext() {
         if (currentStep < 3) {
+            cancelPendingSave();
             clearErrors();
             setCurrentStep((prev) => prev + 1);
         }
@@ -752,6 +753,7 @@ export default function CaseCreate() {
 
     function handleBack() {
         if (currentStep > 1) {
+            cancelPendingSave();
             clearErrors();
             setCurrentStep((prev) => prev - 1);
         }

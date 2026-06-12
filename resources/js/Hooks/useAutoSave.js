@@ -112,6 +112,17 @@ export default function useAutoSave({ formData, draftId, options = {} }) {
         };
     }, [formData, effectiveDraftId, debounceMs, doSave]);
 
+    const cancelPendingSave = useCallback(() => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+            debounceRef.current = null;
+        }
+        if (abortRef.current) {
+            abortRef.current.abort();
+            abortRef.current = null;
+        }
+    }, []);
+
     // --- Page-unload auto-save via sendBeacon ---
     useEffect(() => {
         const handler = () => {
@@ -136,5 +147,6 @@ export default function useAutoSave({ formData, draftId, options = {} }) {
         autoSaveStatus,
         draftId: effectiveDraftId,
         setDraftId: setLocalDraftId,
+        cancelPendingSave,
     };
 }
