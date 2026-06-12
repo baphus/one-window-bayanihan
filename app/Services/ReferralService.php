@@ -9,6 +9,7 @@ use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
 use App\Models\User;
+use App\Notifications\InterventionCreated;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
@@ -371,5 +372,16 @@ class ReferralService
             ->with('user')
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    public function notifyInterventionCreated(Referral $referral): void
+    {
+        $dmwUsers = User::where('agcy_id', $referral->agcy_id)
+            ->where('is_active', true)
+            ->get();
+
+        if ($dmwUsers->isNotEmpty()) {
+            Notification::send($dmwUsers, new InterventionCreated($referral));
+        }
     }
 }

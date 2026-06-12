@@ -21,6 +21,8 @@ class CaseService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
+        private readonly DefaultAgencyService $defaultAgencyService,
+        private readonly ReferralService $referralService,
     ) {}
 
     public function createCase(array $data, string $userId): CaseFile
@@ -397,7 +399,7 @@ class CaseService
                     'middle_name' => $draftData['middle_name'] ?? null,
                     'suffix' => $draftData['suffix'] ?? null,
                     'date_of_birth' => $draftData['date_of_birth'] ?? null,
-                    'sex' => ! empty($draftData['sex']) ? strtoupper($draftData['sex']) : null,
+                    'sex' => ! empty($draftData['sex']) ? $draftData['sex'] : null,
                     'email' => $draftData['email'] ?? null,
                     'contact_number' => $draftData['contact_number'] ?? null,
                 ]);
@@ -455,6 +457,9 @@ class CaseService
             $case->update([
                 'status' => 'OPEN',
             ]);
+
+            // Auto-create DMW intervention referral when a case transitions from DRAFT to OPEN
+            $this->createInterventionReferral($case);
 
             AuditLog::create([
                 'action' => 'PUBLISH',
@@ -654,6 +659,7 @@ class CaseService
         $case = CaseFile::findOrFail($id);
 
         $pendingReferrals = $case->referrals()
+            ->where('type', '!=', 'intervention')
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
             ->count();
 
@@ -714,6 +720,36 @@ class CaseService
                 'category',
             ]);
         });
+    }
+
+    private function createInterventionReferral(CaseFile $case): ?Referral
+    {
+        // Idempotency: skip if an intervention referral already exists for this case
+        if ($case->referrals()->where('type', 'intervention')->exists()) {
+            return null;
+        }
+
+        // Get the default DMW agency
+        $dmw = $this->defaultAgencyService->getDefaultAgency();
+        if (! $dmw) {
+            return null;
+        }
+
+        $referral = Referral::create([
+            'type' => 'intervention',
+            'status' => 'PROCESSING',
+            'agcy_id' => $dmw->id,
+            'notes' => 'Auto-created DMW intervention referral',
+            'required_services' => '',
+            'case_id' => $case->id,
+        ]);
+
+        // Notify about the intervention referral (method_exists guard — created by Task 8 in parallel)
+        if (method_exists($this->referralService, 'notifyInterventionCreated')) {
+            $this->referralService->notifyInterventionCreated($referral);
+        }
+
+        return $referral;
     }
 
     private function dispatchCaseUpdateNotification(CaseFile $case, array $oldData, string $userId): void
