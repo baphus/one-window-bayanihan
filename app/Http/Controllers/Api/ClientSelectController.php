@@ -4,10 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Services\PhilippineAddressService;
 use Illuminate\Http\Request;
 
 class ClientSelectController extends Controller
 {
+    public function __construct(
+        private readonly PhilippineAddressService $addressService,
+    ) {}
+
     public function search(Request $request)
     {
         $query = Client::with('caseFile')
@@ -61,14 +66,31 @@ class ClientSelectController extends Controller
             'email' => $client->email,
             'contact_number' => $client->contact_number,
             'avatar_url' => $client->avatar_url,
-            'addresses' => $client->addresses->map(fn ($a) => [
-                'id' => $a->id,
-                'region' => $a->region,
-                'province' => $a->province,
-                'city_municipality' => $a->city_municipality,
-                'barangay' => $a->barangay,
-                'street' => $a->street,
-            ]),
+            'addresses' => (function () use ($client) {
+                $codes = collect();
+                foreach ($client->addresses as $a) {
+                    $codes->push($a->region);
+                    $codes->push($a->province);
+                    $codes->push($a->city_municipality);
+                    $codes->push($a->barangay);
+                }
+                $names = $this->addressService->resolveNames(
+                    $codes->filter()->unique()->values()->toArray()
+                );
+
+                return $client->addresses->map(fn ($a) => [
+                    'id' => $a->id,
+                    'region' => $a->region,
+                    'province' => $a->province,
+                    'city_municipality' => $a->city_municipality,
+                    'barangay' => $a->barangay,
+                    'street' => $a->street,
+                    'region_name' => $a->region ? ($names[$a->region] ?? null) : null,
+                    'province_name' => $a->province ? ($names[$a->province] ?? null) : null,
+                    'city_municipality_name' => $a->city_municipality ? ($names[$a->city_municipality] ?? null) : null,
+                    'barangay_name' => $a->barangay ? ($names[$a->barangay] ?? null) : null,
+                ]);
+            })(),
             'employments' => $client->employments->map(fn ($e) => [
                 'id' => $e->id,
                 'employer_name' => $e->employer_name,

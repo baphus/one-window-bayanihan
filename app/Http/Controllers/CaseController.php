@@ -12,6 +12,7 @@ use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\CaseService;
+use App\Services\PhilippineAddressService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -19,6 +20,7 @@ class CaseController extends Controller
 {
     public function __construct(
         private readonly CaseService $caseService,
+        private readonly PhilippineAddressService $addressService,
     ) {}
 
     public function index(Request $request)
@@ -48,29 +50,14 @@ class CaseController extends Controller
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
         }
 
-        $existingClients = Client::with(['addresses', 'employments', 'nextOfKin'])
-            ->withCount('caseFiles')
-            ->where('is_deleted', false)
-            ->orderBy('last_name')
-            ->limit(200)
-            ->get()
-            ->map(fn ($c) => [
-                'id' => $c->id,
-                'full_name' => trim("{$c->first_name} {$c->middle_name} {$c->last_name} {$c->suffix}"),
-                'first_name' => $c->first_name,
-                'last_name' => $c->last_name,
-                'middle_name' => $c->middle_name,
-                'suffix' => $c->suffix,
-                'sex' => $c->sex,
-                'date_of_birth' => $c->date_of_birth?->format('Y-m-d'),
-                'email' => $c->email,
-                'contact_number' => $c->contact_number,
-                'addresses' => $c->addresses,
-                'employments' => $c->employments,
-                'nextOfKin' => $c->nextOfKin,
-                'has_case' => $c->case_files_count > 0,
-                'case_count' => $c->case_files_count,
-            ]);
+        $existingClients = $this->mapExistingClients(
+            Client::with(['addresses', 'employments', 'nextOfKin'])
+                ->withCount('caseFiles')
+                ->where('is_deleted', false)
+                ->orderBy('last_name')
+                ->limit(200)
+                ->get()
+        );
 
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
 
@@ -99,29 +86,14 @@ class CaseController extends Controller
         abort_unless($case->status === 'DRAFT', 404);
         abort_unless($case->user_id === $request->user()->id, 403);
 
-        $existingClients = Client::with(['addresses', 'employments', 'nextOfKin'])
-            ->withCount('caseFiles')
-            ->where('is_deleted', false)
-            ->orderBy('last_name')
-            ->limit(200)
-            ->get()
-            ->map(fn ($c) => [
-                'id' => $c->id,
-                'full_name' => trim("{$c->first_name} {$c->middle_name} {$c->last_name} {$c->suffix}"),
-                'first_name' => $c->first_name,
-                'last_name' => $c->last_name,
-                'middle_name' => $c->middle_name,
-                'suffix' => $c->suffix,
-                'sex' => $c->sex,
-                'date_of_birth' => $c->date_of_birth?->format('Y-m-d'),
-                'email' => $c->email,
-                'contact_number' => $c->contact_number,
-                'addresses' => $c->addresses,
-                'employments' => $c->employments,
-                'nextOfKin' => $c->nextOfKin,
-                'has_case' => $c->case_files_count > 0,
-                'case_count' => $c->case_files_count,
-            ]);
+        $existingClients = $this->mapExistingClients(
+            Client::with(['addresses', 'employments', 'nextOfKin'])
+                ->withCount('caseFiles')
+                ->where('is_deleted', false)
+                ->orderBy('last_name')
+                ->limit(200)
+                ->get()
+        );
 
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
 
@@ -255,6 +227,51 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.drafts')
             ->with('success', 'Draft deleted successfully.');
+    }
+
+    private function mapExistingClients($clients): array
+    {
+        $allCodes = collect();
+        foreach ($clients as $c) {
+            foreach ($c->addresses as $a) {
+                $allCodes->push($a->region);
+                $allCodes->push($a->province);
+                $allCodes->push($a->city_municipality);
+                $allCodes->push($a->barangay);
+            }
+        }
+        $names = $this->addressService->resolveNames(
+            $allCodes->filter()->unique()->values()->toArray()
+        );
+
+        return $clients->map(fn ($c) => [
+            'id' => $c->id,
+            'full_name' => trim("{$c->first_name} {$c->middle_name} {$c->last_name} {$c->suffix}"),
+            'first_name' => $c->first_name,
+            'last_name' => $c->last_name,
+            'middle_name' => $c->middle_name,
+            'suffix' => $c->suffix,
+            'sex' => $c->sex,
+            'date_of_birth' => $c->date_of_birth?->format('Y-m-d'),
+            'email' => $c->email,
+            'contact_number' => $c->contact_number,
+            'addresses' => $c->addresses->map(fn ($a) => [
+                'id' => $a->id,
+                'region' => $a->region,
+                'province' => $a->province,
+                'city_municipality' => $a->city_municipality,
+                'barangay' => $a->barangay,
+                'street' => $a->street,
+                'region_name' => $a->region ? ($names[$a->region] ?? null) : null,
+                'province_name' => $a->province ? ($names[$a->province] ?? null) : null,
+                'city_municipality_name' => $a->city_municipality ? ($names[$a->city_municipality] ?? null) : null,
+                'barangay_name' => $a->barangay ? ($names[$a->barangay] ?? null) : null,
+            ]),
+            'employments' => $c->employments,
+            'nextOfKin' => $c->nextOfKin,
+            'has_case' => $c->case_files_count > 0,
+            'case_count' => $c->case_files_count,
+        ])->toArray();
     }
 
     private function authorizeCaseAccess($case, $user)
