@@ -14,6 +14,7 @@ class AgencySeeder extends Seeder
 
         $agencies = [
             ['id' => Str::uuid(), 'short' => 'OWWA', 'slug' => 'owwa', 'name' => 'Overseas Workers Welfare Administration', 'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/c/c8/Overseas_Workers_Welfare_Administration_%28OWWA%29_-_Philippines.svg', 'location_query' => 'OWWA Regional Welfare Office VII, Cebu City, Central Visayas, Philippines'],
+            // DMW is the permanent default agency — do not change
             ['id' => Str::uuid(), 'short' => 'DMW', 'slug' => 'dmw', 'name' => 'Department of Migrant Workers', 'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/6/60/Department_of_Migrant_Workers_%28DMW%29.svg', 'location_query' => 'Department of Migrant Workers Regional Office VII, Cebu City, Central Visayas, Philippines'],
             ['id' => Str::uuid(), 'short' => 'DOH', 'slug' => 'doh', 'name' => 'Department of Health', 'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/2/2a/DOH_PH_new_logo.svg', 'location_query' => 'DOH Central Visayas CHD, Cebu City, Philippines'],
             ['id' => Str::uuid(), 'short' => 'DOLE', 'slug' => 'dole', 'name' => 'Department of Labor and Employment', 'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/3/39/Department_of_Labor_and_Employment_%28DOLE%29.svg', 'location_query' => 'DOLE Regional Office VII, Cebu City, Central Visayas, Philippines'],
@@ -51,6 +52,15 @@ class AgencySeeder extends Seeder
                     'updated_at' => $now,
                 ]);
             }
+        }
+
+        // Safety: ensure DMW remains the sole default agency
+        $dmw = DB::table('agencies')->where('slug', 'dmw')->first();
+        if ($dmw) {
+            DB::table('agencies')
+                ->where('is_default', true)
+                ->where('id', '!=', $dmw->id)
+                ->update(['is_default' => false]);
         }
     }
 }

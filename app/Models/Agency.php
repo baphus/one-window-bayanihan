@@ -13,6 +13,25 @@ class Agency extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Agency $agency) {
+            if ($agency->is_default) {
+                throw new \LogicException('Cannot delete the default agency.');
+            }
+        });
+    }
+
+    public function scopeDefault($query): void
+    {
+        $query->where('is_default', true);
+    }
+
+    public function isDeletable(): bool
+    {
+        return ! $this->is_default;
+    }
+
     public function getAuditModuleName(): string
     {
         return 'agency';

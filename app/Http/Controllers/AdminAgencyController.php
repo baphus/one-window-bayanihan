@@ -44,6 +44,12 @@ class AdminAgencyController extends Controller
     {
         $agency = Agency::findOrFail($id);
 
+        if ($request->has('is_default') && $request->is_default === false && $agency->is_default) {
+            if (Agency::where('is_default', true)->count() <= 1) {
+                abort(422, 'Cannot unset is_default on the only default agency.');
+            }
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'short' => 'required|string|max:50',
@@ -81,6 +87,11 @@ class AdminAgencyController extends Controller
     public function destroy(string $id)
     {
         $agency = Agency::findOrFail($id);
+
+        if ($agency->is_default) {
+            abort(422, 'Cannot delete the default agency.');
+        }
+
         $agency->is_active = false;
         $agency->is_deleted = true;
         $agency->save();
