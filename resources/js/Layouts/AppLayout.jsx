@@ -6,25 +6,27 @@ import NotificationPanel from '@/Components/ui/NotificationPanel';
 import { useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 
+// Module-level variables persist across AppLayout instances (which remount on every navigation)
+let savedScrollTop = 0;
+let navIdCounter = 0;
+
 export default function AppLayout({ title, children }) {
   const mainRef = useRef(null);
-  const savedScrollTopRef = useRef(0);
-  const navIdRef = useRef(0);
 
   useEffect(() => {
     const onBefore = () => {
-      navIdRef.current += 1;
+      navIdCounter += 1;
       if (mainRef.current) {
-        savedScrollTopRef.current = mainRef.current.scrollTop;
+        savedScrollTop = mainRef.current.scrollTop;
       }
     };
 
     const onFinish = (event) => {
-      const currentNavId = navIdRef.current;
-      if (event.detail.visit.completed && mainRef.current && savedScrollTopRef.current > 0) {
+      const currentNavId = navIdCounter;
+      if (event.detail.visit.completed && mainRef.current && savedScrollTop > 0) {
         requestAnimationFrame(() => {
-          if (navIdRef.current === currentNavId && mainRef.current) {
-            mainRef.current.scrollTop = savedScrollTopRef.current;
+          if (navIdCounter === currentNavId && mainRef.current) {
+            mainRef.current.scrollTop = savedScrollTop;
           }
         });
       }

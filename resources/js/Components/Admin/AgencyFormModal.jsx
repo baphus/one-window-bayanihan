@@ -1,4 +1,6 @@
 import { useForm } from '@inertiajs/react';
+import LogoUpload from '../LogoUpload';
+import MapPicker from '../MapPicker';
 
 export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const isEdit = !!agency;
@@ -9,6 +11,8 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     contact_info: agency?.contact_info ?? '',
     logo_url: agency?.logo_url ?? '',
     location_query: agency?.location_query ?? '',
+    latitude: agency?.latitude ?? null,
+    longitude: agency?.longitude ?? null,
     is_active: agency?.is_active ?? true,
   });
 
@@ -48,13 +52,23 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             <label className="block text-sm font-medium text-slate-700">Contact Info</label>
             <input type="text" value={data.contact_info} onChange={(e) => setData('contact_info', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Logo URL</label>
-            <input type="text" value={data.logo_url} onChange={(e) => setData('logo_url', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-          </div>
+          <LogoUpload
+            currentLogoUrl={data.logo_url}
+            onChange={(file) => setData('logo_url', file)}
+          />
           <div>
             <label className="block text-sm font-medium text-slate-700">Location Query</label>
             <input type="text" value={data.location_query} onChange={(e) => setData('location_query', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+          </div>
+          <div>
+            <MapPicker
+              latitude={data.latitude}
+              longitude={data.longitude}
+              onChange={({ latitude, longitude }) => {
+                setData('latitude', latitude);
+                setData('longitude', longitude);
+              }}
+            />
           </div>
           {isEdit && (
             <div className="flex items-center gap-2">
