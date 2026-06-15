@@ -813,6 +813,7 @@ export default function CaseCreate() {
 
     function handleSubmit(e) {
         e.preventDefault();
+        if (currentStep !== 3) return;
         bypassNext();
 
         if (existingDraft) {
@@ -1047,9 +1048,10 @@ function handleConfirmClient(client) {
             </div>
 
             <form onSubmit={handleSubmit} onKeyDown={(e) => {
-                if (e.key === 'Enter' && currentStep < 3 && e.target.tagName !== 'TEXTAREA') {
+                // Only intercept Enter on text inputs (not buttons, selects, textareas)
+                // This prevents Enter from submitting the form on Steps 1-2
+                if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
                     e.preventDefault();
-                    if (canProceed()) handleNext();
                 }
             }}>
                 <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-[#cbd5e1] bg-white shadow-sm">
@@ -1606,7 +1608,7 @@ function handleConfirmClient(client) {
                                     Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                                 </button>
                             ) : (
-                                <button type="submit" disabled={processing || !canSubmit()}
+                                <button type="button" onClick={handleSubmit} disabled={processing || !canSubmit()}
                                     className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
                                     {processing ? (existingDraft ? 'Publishing...' : 'Creating...') : (existingDraft ? 'Publish Draft' : 'Create Case')}
                                 </button>
