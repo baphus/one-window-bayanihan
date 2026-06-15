@@ -44,6 +44,8 @@ class Agency extends Model
         'description',
         'contact_info',
         'map_link',
+        'latitude',
+        'longitude',
         'logo_url',
         'location_query',
         'is_active',
@@ -54,7 +56,18 @@ class Agency extends Model
         'is_deleted' => 'boolean',
         'is_active' => 'boolean',
         'is_default' => 'boolean',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
+
+    public function generateMapLink(): ?string
+    {
+        if ($this->latitude && $this->longitude) {
+            return sprintf('https://www.google.com/maps?q=%s,%s', $this->latitude, $this->longitude);
+        }
+
+        return null;
+    }
 
     public function users()
     {

@@ -66,7 +66,10 @@ export default function PublicAgencies({ agencies }) {
 
                   {agency.location_query && (
                     <a
-                      href={`https://www.google.com/maps?q=${encodeURIComponent(agency.location_query)}`}
+                      href={agency.latitude && agency.longitude
+                        ? `https://www.google.com/maps?q=${agency.latitude},${agency.longitude}`
+                        : `https://www.google.com/maps?q=${encodeURIComponent(agency.location_query)}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs font-semibold text-[#0b5c92] hover:underline"

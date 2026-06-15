@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import AppButton from './AppButton';
 
-function getMapsUrl(q) {
-  return `https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+function getMapsUrl(agency) {
+  if (agency.latitude && agency.longitude) {
+    return `https://www.google.com/maps?q=${agency.latitude},${agency.longitude}&output=embed`;
+  }
+  return `https://www.google.com/maps?q=${encodeURIComponent(agency.location_query || '')}&output=embed`;
 }
 
 function AgencyLogo({ agency }) {
@@ -47,7 +50,7 @@ export default function PartnersSection({ agencies }) {
                 </div>
               </div>
               <div className="h-[110px] overflow-hidden border border-outline-variant/30 bg-white">
-                <iframe title={`${agency.name} map`} src={getMapsUrl(agency.location_query)} className="h-full w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+                <iframe title={`${agency.name} map`} src={getMapsUrl(agency)} className="h-full w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
               </div>
               <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-secondary">View Agency Location</p>
             </div>

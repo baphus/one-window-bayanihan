@@ -36,9 +36,11 @@ function InfoItem({ label, value }) {
 
 export default function StakeholderShow({ stakeholder, stats }) {
     const services = stakeholder.services || [];
-    const mapSrc = stakeholder.location_query
-        ? `https://maps.google.com/maps?q=${encodeURIComponent(stakeholder.location_query)}&output=embed`
-        : null;
+    const mapSrc = stakeholder.latitude && stakeholder.longitude
+        ? `https://maps.google.com/maps?q=${stakeholder.latitude},${stakeholder.longitude}&output=embed`
+        : stakeholder.location_query
+            ? `https://maps.google.com/maps?q=${encodeURIComponent(stakeholder.location_query)}&output=embed`
+            : null;
 
     return (
         <AppLayout title={stakeholder.short}>

@@ -6,6 +6,8 @@ import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import LogoUpload from '@/Components/LogoUpload';
+import MapPicker from '@/Components/MapPicker';
 
 const TABS = ['Referrals', 'Services', 'Focal Persons'];
 
@@ -23,6 +25,7 @@ export default function AdminAgencyShow({ agency }) {
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editErrors, setEditErrors] = useState({});
+  const [logoFile, setLogoFile] = useState(null);
 
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm || isEditing);
 
@@ -36,8 +39,11 @@ export default function AdminAgencyShow({ agency }) {
       contact_info: agency.contact_info || '',
       logo_url: agency.logo_url || '',
       location_query: agency.location_query || '',
+      latitude: agency.latitude ?? null,
+      longitude: agency.longitude ?? null,
       is_active: agency.is_active,
     });
+    setLogoFile(null);
     setIsEditing(true);
     setEditErrors({});
   }
@@ -45,6 +51,7 @@ export default function AdminAgencyShow({ agency }) {
   function cancelEditing() {
     setIsEditing(false);
     setEditData(null);
+    setLogoFile(null);
     setEditErrors({});
   }
 
@@ -52,11 +59,26 @@ export default function AdminAgencyShow({ agency }) {
     e.preventDefault();
     bypassNext();
     setSaving(true);
-    router.patch(route('admin.agencies.update', agency.id), editData, {
+
+    let data;
+    if (logoFile) {
+      data = new FormData();
+      Object.entries(editData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          data.append(key, value);
+        }
+      });
+      data.append('logo', logoFile);
+    } else {
+      data = { ...editData };
+    }
+
+    router.patch(route('admin.agencies.update', agency.id), data, {
       preserveScroll: true,
       onSuccess: () => {
         setIsEditing(false);
         setEditData(null);
+        setLogoFile(null);
         setEditErrors({});
       },
       onError: (errors) => {
@@ -188,26 +210,40 @@ export default function AdminAgencyShow({ agency }) {
             )}
           </div>
 
-          {/* Logo URL */}
+          {/* Logo */}
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Logo URL</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Logo</p>
             {isEditing ? (
               <>
-                <input type="text" value={editData.logo_url} onChange={(e) => setField('logo_url', e.target.value)} className={inputClass} />
+                <LogoUpload currentLogoUrl={editData.logo_url} onChange={setLogoFile} />
                 {editErrors.logo_url && <p className={errorClass}>{editErrors.logo_url}</p>}
               </>
             ) : (
-              <p className="text-sm text-slate-900 truncate">{agency.logo_url || '—'}</p>
+              agency.logo_url ? (
+                <img src={agency.logo_url} alt={`${agency.name} logo`} className="max-h-16 rounded shadow" />
+              ) : (
+                <p className="text-sm text-slate-900">—</p>
+              )
             )}
           </div>
 
           {/* Location Query */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 md:col-span-2">
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Location Query</p>
             {isEditing ? (
               <>
                 <input type="text" value={editData.location_query} onChange={(e) => setField('location_query', e.target.value)} className={inputClass} />
                 {editErrors.location_query && <p className={errorClass}>{editErrors.location_query}</p>}
+                <div className="mt-3">
+                  <MapPicker
+                    latitude={editData.latitude}
+                    longitude={editData.longitude}
+                    onChange={({ latitude, longitude }) => {
+                      setField('latitude', latitude);
+                      setField('longitude', longitude);
+                    }}
+                  />
+                </div>
               </>
             ) : (
               <p className="text-sm text-slate-900">{agency.location_query || '—'}</p>

@@ -27,12 +27,27 @@ class AdminAgencyController extends Controller
             'short' => 'required|string|max:50',
             'description' => 'nullable|string',
             'contact_info' => 'nullable|string',
-            'logo_url' => 'nullable|string',
+            'logo_url' => 'nullable|image|max:2048',
             'location_query' => 'nullable|string',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
         ]);
 
         $validated['slug'] = Str::slug($validated['short']);
         $validated['is_active'] = true;
+
+        // Handle logo upload
+        if ($request->hasFile('logo_url')) {
+            $path = $request->file('logo_url')->store('logos', 'public');
+            $validated['logo_url'] = '/storage/'.$path;
+        }
+
+        // Auto-generate map_link from lat/lng
+        if (! empty($validated['latitude']) && ! empty($validated['longitude'])) {
+            $validated['map_link'] = "https://www.google.com/maps?q={$validated['latitude']},{$validated['longitude']}";
+        } elseif (array_key_exists('latitude', $validated) || array_key_exists('longitude', $validated)) {
+            $validated['map_link'] = null;
+        }
 
         Agency::create($validated);
 
@@ -55,13 +70,32 @@ class AdminAgencyController extends Controller
             'short' => 'required|string|max:50',
             'description' => 'nullable|string',
             'contact_info' => 'nullable|string',
-            'logo_url' => 'nullable|string',
+            'logo_url' => 'nullable|image|max:2048',
             'location_query' => 'nullable|string',
             'is_active' => 'boolean',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
         ]);
+
+        // Handle logo upload
+        if ($request->hasFile('logo_url')) {
+            $path = $request->file('logo_url')->store('logos', 'public');
+            $validated['logo_url'] = '/storage/'.$path;
+        } elseif ($request->has('logo_url') && $request->input('logo_url') === null) {
+            // Explicitly set to null — clear existing logo
+            $validated['logo_url'] = null;
+        }
+        // If logo_url not in request, keep existing value (not in validated)
 
         if (isset($validated['short']) && $validated['short'] !== $agency->short) {
             $validated['slug'] = Str::slug($validated['short']);
+        }
+
+        // Auto-generate map_link from lat/lng
+        if (! empty($validated['latitude']) && ! empty($validated['longitude'])) {
+            $validated['map_link'] = "https://www.google.com/maps?q={$validated['latitude']},{$validated['longitude']}";
+        } elseif (array_key_exists('latitude', $validated) || array_key_exists('longitude', $validated)) {
+            $validated['map_link'] = null;
         }
 
         $agency->update($validated);
