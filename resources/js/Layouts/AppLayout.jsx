@@ -3,8 +3,42 @@ import { Head } from '@inertiajs/react';
 import ChatBot from '@/Components/ChatBot';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import NotificationPanel from '@/Components/ui/NotificationPanel';
+import { useRef, useEffect } from 'react';
+import { router } from '@inertiajs/react';
 
 export default function AppLayout({ title, children }) {
+  const mainRef = useRef(null);
+  const savedScrollTopRef = useRef(0);
+  const navIdRef = useRef(0);
+
+  useEffect(() => {
+    const onBefore = () => {
+      navIdRef.current += 1;
+      if (mainRef.current) {
+        savedScrollTopRef.current = mainRef.current.scrollTop;
+      }
+    };
+
+    const onFinish = (event) => {
+      const currentNavId = navIdRef.current;
+      if (event.detail.visit.completed && mainRef.current && savedScrollTopRef.current > 0) {
+        requestAnimationFrame(() => {
+          if (navIdRef.current === currentNavId && mainRef.current) {
+            mainRef.current.scrollTop = savedScrollTopRef.current;
+          }
+        });
+      }
+    };
+
+    const removeBefore = router.on('before', onBefore);
+    const removeFinish = router.on('finish', onFinish);
+
+    return () => {
+      if (typeof removeBefore === 'function') removeBefore();
+      if (typeof removeFinish === 'function') removeFinish();
+    };
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
       <Head title={title} />
@@ -20,7 +54,7 @@ export default function AppLayout({ title, children }) {
         </header>
 
         {/* Scrollable main content */}
-        <main className="flex-1 overflow-y-auto p-8">
+        <main ref={mainRef} scroll-region="" className="flex-1 overflow-y-auto p-8">
           {children}
         </main>
       </div>
