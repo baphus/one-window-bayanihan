@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Ai\AiService;
+use App\Services\Export\DataExportService;
 use App\Services\ReportsService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -103,5 +104,129 @@ class ReportsController extends Controller
         $pdf = Pdf::loadView('pdf.report', $data);
 
         return $pdf->download('bayanihan-report-'.now()->format('Ymd-His').'.pdf');
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $user = $request->user();
+        $fromDate = $request->query('from');
+        $toDate = $request->query('to');
+
+        $data = $this->reportsService->getAll(
+            userId: $user->id,
+            role: $user->role,
+            fromDate: $fromDate,
+            toDate: $toDate,
+        );
+
+        // Sheet 1: Overview — KPI metrics as key/value pairs
+        $overviewRows = collect();
+        foreach (($data['kpis'] ?? []) as $key => $value) {
+            if ($key === 'kpiChanges') {
+                continue;
+            }
+            $overviewRows->push(['metric' => ucwords(preg_replace('/([A-Z])/', ' $1', $key)), 'value' => (string) $value]);
+        }
+        foreach (($data['overview'] ?? []) as $key => $value) {
+            $overviewRows->push(['metric' => ucwords(preg_replace('/([A-Z])/', ' $1', $key)), 'value' => (string) $value]);
+        }
+        $overviewColumnMap = [
+            ['key' => 'metric', 'label' => 'Metric', 'type' => 'string'],
+            ['key' => 'value',  'label' => 'Value',  'type' => 'string'],
+        ];
+
+        // Sheet 2: Referral Status
+        $referralStatusRows = collect();
+        $statusDist = $data['referralStatusDistribution'] ?? [];
+        foreach (($statusDist['labels'] ?? []) as $i => $label) {
+            $referralStatusRows->push(['status' => (string) $label, 'count' => (string) ($statusDist['data'][$i] ?? 0)]);
+        }
+        $referralStatusColumnMap = [
+            ['key' => 'status', 'label' => 'Status', 'type' => 'string'],
+            ['key' => 'count',  'label' => 'Count',  'type' => 'string'],
+        ];
+
+        // Sheet 3: Agency Scorecard
+        $agencyScorecardRows = collect();
+        foreach (($data['agencyScorecard'] ?? []) as $row) {
+            $agencyScorecardRows->push([
+                'agency' => (string) ($row['agency'] ?? ''),
+                'total' => (string) ($row['total'] ?? 0),
+                'completed' => (string) ($row['completed'] ?? 0),
+                'pending' => (string) ($row['pending'] ?? 0),
+                'completion_rate' => ($row['completionRate'] ?? 0).'%',
+                'avg_days' => (string) ($row['avgDays'] ?? 0),
+            ]);
+        }
+        $agencyScorecardColumnMap = [
+            ['key' => 'agency',          'label' => 'Agency',          'type' => 'string'],
+            ['key' => 'total',           'label' => 'Total Referrals', 'type' => 'string'],
+            ['key' => 'completed',       'label' => 'Completed',       'type' => 'string'],
+            ['key' => 'pending',         'label' => 'Pending',         'type' => 'string'],
+            ['key' => 'completion_rate', 'label' => 'Completion Rate', 'type' => 'string'],
+            ['key' => 'avg_days',        'label' => 'Avg. Days',       'type' => 'string'],
+        ];
+
+        // Sheet 4: Geographic
+        $geographicRows = collect();
+        $geoDist = $data['geographicDistribution'] ?? [];
+        foreach (($geoDist['labels'] ?? []) as $i => $label) {
+            $geographicRows->push(['province' => (string) $label, 'count' => (string) ($geoDist['data'][$i] ?? 0)]);
+        }
+        $geographicColumnMap = [
+            ['key' => 'province', 'label' => 'Province', 'type' => 'string'],
+            ['key' => 'count',    'label' => 'Count',    'type' => 'string'],
+        ];
+
+        // Sheet 5: Categories
+        $categoriesRows = collect();
+        foreach (($data['categoryDistribution'] ?? []) as $cat) {
+            $categoriesRows->push([
+                'name' => (string) ($cat['name'] ?? ''),
+                'count' => (string) ($cat['count'] ?? 0),
+                'percentage' => ($cat['percentage'] ?? 0).'%',
+            ]);
+        }
+        $categoriesColumnMap = [
+            ['key' => 'name',       'label' => 'Category',   'type' => 'string'],
+            ['key' => 'count',      'label' => 'Count',      'type' => 'string'],
+            ['key' => 'percentage', 'label' => 'Percentage', 'type' => 'string'],
+        ];
+
+        // Sheet 6: Employment
+        $employmentRows = collect();
+        $empDist = $data['employmentDistribution'] ?? [];
+        foreach (($empDist['labels'] ?? []) as $i => $label) {
+            $employmentRows->push(['country' => (string) $label, 'count' => (string) ($empDist['data'][$i] ?? 0)]);
+        }
+        $employmentColumnMap = [
+            ['key' => 'country', 'label' => 'Country', 'type' => 'string'],
+            ['key' => 'count',   'label' => 'Count',   'type' => 'string'],
+        ];
+
+        // Sheet 7: Cycle Time
+        $cycleTimeRows = collect();
+        $cycleDist = $data['cycleTimeDistribution'] ?? [];
+        foreach (($cycleDist['labels'] ?? []) as $i => $label) {
+            $cycleTimeRows->push(['range' => (string) $label, 'count' => (string) ($cycleDist['data'][$i] ?? 0)]);
+        }
+        $cycleTimeColumnMap = [
+            ['key' => 'range', 'label' => 'Duration Range', 'type' => 'string'],
+            ['key' => 'count', 'label' => 'Count',          'type' => 'string'],
+        ];
+
+        $sheets = [
+            ['title' => 'Overview',         'columnMap' => $overviewColumnMap,        'rows' => $overviewRows],
+            ['title' => 'Referral Status',  'columnMap' => $referralStatusColumnMap,  'rows' => $referralStatusRows],
+            ['title' => 'Agency Scorecard', 'columnMap' => $agencyScorecardColumnMap, 'rows' => $agencyScorecardRows],
+            ['title' => 'Geographic',       'columnMap' => $geographicColumnMap,      'rows' => $geographicRows],
+            ['title' => 'Categories',       'columnMap' => $categoriesColumnMap,      'rows' => $categoriesRows],
+            ['title' => 'Employment',       'columnMap' => $employmentColumnMap,      'rows' => $employmentRows],
+            ['title' => 'Cycle Time',       'columnMap' => $cycleTimeColumnMap,       'rows' => $cycleTimeRows],
+        ];
+
+        $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.xlsx';
+
+        return (new DataExportService)->generateMultiSheet($sheets, $filename);
     }
 }

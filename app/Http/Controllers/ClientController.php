@@ -6,6 +6,9 @@ use App\Http\Requests\ProfilePictureRequest;
 use App\Models\AuditLog;
 use App\Models\Client;
 use App\Services\AuditLogFormatter;
+use App\Services\Export\ColumnMaps;
+use App\Services\Export\DataExportQueries;
+use App\Services\Export\DataExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -113,5 +116,16 @@ class ClientController extends Controller
         $client->save();
 
         return redirect()->route('clients.show', $client)->with('success', 'Profile picture removed successfully.');
+    }
+
+    public function exportExcel()
+    {
+        $user = auth()->user();
+        $queries = new DataExportQueries;
+        $clients = $queries->getClients($user);
+        $columnMap = ColumnMaps::getMap('clients');
+        $filename = 'clients-export-'.now()->format('Ymd-His').'.xlsx';
+
+        return (new DataExportService)->generateSingleSheet('Clients', $columnMap, $clients, $filename);
     }
 }

@@ -255,6 +255,14 @@ function CaseManagerReports({
               <FileDown className="h-3.5 w-3.5" />
               Export PDF
             </button>
+            <button
+              type="button"
+              onClick={() => window.open(route('reports.export-excel', { from: fromDateISO, to: toDateISO }))}
+              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Export Excel
+            </button>
           </div>
         </div>
       </header>
@@ -611,6 +619,14 @@ function AgencyReports({
               <FileDown className="h-3.5 w-3.5" />
               Export PDF
             </button>
+            <button
+              type="button"
+              onClick={() => window.open(route('reports.export-excel', { from: fromDateISO, to: toDateISO }))}
+              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Export Excel
+            </button>
           </div>
         </div>
       </header>
@@ -899,6 +915,14 @@ function AdminReports({
             >
               <FileDown className="h-3.5 w-3.5" />
               Export PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => window.open(route('reports.export-excel', { from: fromDateISO, to: toDateISO }))}
+              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 hover:text-slate-700"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Export Excel
             </button>
           </div>
         </div>

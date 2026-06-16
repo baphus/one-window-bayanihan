@@ -3,7 +3,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
+import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock, FileDown } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
 const vulnStyles = {
@@ -461,6 +461,14 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           </h1>
           <p className="text-sm text-slate-400 font-body mt-0.5">Manage all client cases and track their progress.</p>
         </div>
+        <button
+          type="button"
+          onClick={() => window.open(route('cases.export-excel'))}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 transition-colors"
+        >
+          <FileDown className="w-3.5 h-3.5" />
+          Export Excel
+        </button>
       </header>
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

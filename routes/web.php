@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AdminCaseStatusController;
 use App\Http\Controllers\Admin\AlertConfigController;
 use App\Http\Controllers\Admin\BackupStatusController;
 use App\Http\Controllers\Admin\CloudinaryStorageController;
+use App\Http\Controllers\Admin\DataExportController;
 use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\HelpdeskArticleController;
 use App\Http\Controllers\Admin\HelpdeskCategoryController;
@@ -93,6 +94,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
+    Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
     Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
     Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
     Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
@@ -115,6 +117,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
+    Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel');
     Route::get('/referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
     Route::patch('/referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update-status');
     Route::post('/referrals/{referral}/milestones', [ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
@@ -129,12 +132,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
     Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
+    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
 
     Route::get('/insights', [InsightsController::class, 'index'])->name('insights.index');
     Route::post('/insights/export/csv', [InsightsExportController::class, 'exportCsv'])->name('insights.export.csv');
     Route::post('/insights/export/pdf', [InsightsExportController::class, 'exportPdf'])->name('insights.export.pdf');
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+    Route::get('/clients/export-excel', [ClientController::class, 'exportExcel'])->name('clients.export-excel');
     Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
     Route::post('/clients/{client}/avatar', [ClientController::class, 'storeAvatar'])->name('clients.avatar.store');
     Route::delete('/clients/{client}/avatar', [ClientController::class, 'destroyAvatar'])->name('clients.avatar.destroy');
@@ -215,6 +220,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/case-statuses', [AdminCaseStatusController::class, 'store'])->name('case-statuses.store');
         Route::patch('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'update'])->name('case-statuses.update');
         Route::delete('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'destroy'])->name('case-statuses.destroy');
+
+        Route::get('/data-export', [DataExportController::class, 'index'])->name('data-export.index');
+        Route::get('/data-export/export', [DataExportController::class, 'export'])->name('data-export.export');
 
         Route::prefix('system')->name('system.')->group(function () {
             Route::get('/health', [SystemHealthController::class, 'index'])->name('health');

@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import TypeBadge from '@/Components/ui/TypeBadge';
+import { FileDown } from 'lucide-react';
 
 const COLUMN_DEFS = [
     { key: 'referral_id', label: 'Referral #', default: true },
@@ -280,6 +281,14 @@ export default function ReferralIndex({ referrals, filters }) {
                         </h1>
                         <p className="text-sm text-slate-500 mt-1">Track and manage all referrals across agencies.</p>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => window.open(route('referrals.export-excel'))}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 transition-colors"
+                    >
+                        <FileDown className="w-3.5 h-3.5" />
+                        Export Excel
+                    </button>
                 </div>
             </div>
 

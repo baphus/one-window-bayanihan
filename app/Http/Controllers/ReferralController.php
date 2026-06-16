@@ -8,6 +8,9 @@ use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\CaseFile;
 use App\Models\ReferralAttachment;
 use App\Models\SystemSetting;
+use App\Services\Export\ColumnMaps;
+use App\Services\Export\DataExportQueries;
+use App\Services\Export\DataExportService;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -237,6 +240,17 @@ class ReferralController extends Controller
         $versions = $this->referralService->getAttachmentVersions($versionGroupId);
 
         return response()->json($versions);
+    }
+
+    public function exportExcel()
+    {
+        $user = auth()->user();
+        $queries = new DataExportQueries;
+        $referrals = $queries->getReferrals($user);
+        $columnMap = ColumnMaps::getMap('referrals');
+        $filename = 'referrals-export-'.now()->format('Ymd-His').'.xlsx';
+
+        return (new DataExportService)->generateSingleSheet('Referrals', $columnMap, $referrals, $filename);
     }
 
     private function authorizeReferralAccess($referral, $user)

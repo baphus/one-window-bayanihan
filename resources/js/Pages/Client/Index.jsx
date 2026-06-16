@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { FileDown } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/utils';
 
 const COLUMN_DEFS = [
@@ -215,9 +216,19 @@ export default function ClientIndex({ clients, filters }) {
   return (
     <AppLayout title="Clients">
       <Head title="Clients" />
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
-        <p className="text-sm text-slate-500 mt-1">View all registered clients and their associated cases.</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
+          <p className="text-sm text-slate-500 mt-1">View all registered clients and their associated cases.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.open(route('clients.export-excel'))}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 transition-colors"
+        >
+          <FileDown className="w-3.5 h-3.5" />
+          Export Excel
+        </button>
       </div>
 
       <UnifiedTable

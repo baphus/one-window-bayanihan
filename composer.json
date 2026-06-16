@@ -14,6 +14,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "openai-php/client": "^0.19.2",
+        "phpoffice/phpspreadsheet": "*",
         "pragmarx/google2fa-laravel": "*",
         "tightenco/ziggy": "^2.0"
     },

@@ -12,6 +12,9 @@ use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\CaseService;
+use App\Services\Export\ColumnMaps;
+use App\Services\Export\DataExportQueries;
+use App\Services\Export\DataExportService;
 use App\Services\PhilippineAddressService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -272,6 +275,17 @@ class CaseController extends Controller
             'has_case' => $c->case_files_count > 0,
             'case_count' => $c->case_files_count,
         ])->toArray();
+    }
+
+    public function exportExcel()
+    {
+        $user = auth()->user();
+        $queries = new DataExportQueries;
+        $cases = $queries->getCases($user);
+        $columnMap = ColumnMaps::getMap('cases');
+        $filename = 'cases-export-'.now()->format('Ymd-His').'.xlsx';
+
+        return (new DataExportService)->generateSingleSheet('Cases', $columnMap, $cases, $filename);
     }
 
     private function authorizeCaseAccess($case, $user)
