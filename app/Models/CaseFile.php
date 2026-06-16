@@ -67,4 +67,9 @@ class CaseFile extends Model
     {
         return $this->hasMany(CaseDocument::class, 'case_id');
     }
+
+    public function comments()
+    {
+        return $this->hasMany(CaseComment::class, 'case_id');
+    }
 }

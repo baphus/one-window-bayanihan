@@ -109,6 +109,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
     Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
 
+    Route::post('/cases/{case}/comments', [CaseCommentController::class, 'store'])->name('cases.comments.store');
+    Route::post('/cases/{case}/comments/{comment}/reply', [CaseCommentController::class, 'reply'])->name('cases.comments.reply');
+
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
