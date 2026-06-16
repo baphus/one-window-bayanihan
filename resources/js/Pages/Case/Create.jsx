@@ -1376,7 +1376,7 @@ function handleConfirmClient(client) {
                                                                     placeholder="Select relationship" />
                                                             </Field>
                                                             <Field label="Phone Number" className="md:col-span-2">
-                                                                <PhoneInput value={nok.phone_number} onChange={(val) => updateNokField(idx, 'phone_number', val)} />
+                                                                <PhoneInput value={nok.phone_number} onChange={(val) => updateNokField(idx, 'phone_number', val)} className="min-w-0" />
                                                             </Field>
                                                             <Field label="Email" className="md:col-span-2">
                                                                 <Input type="email" value={nok.email} onChange={(e) => updateNokField(idx, 'email', e.target.value)} />
@@ -1387,7 +1387,13 @@ function handleConfirmClient(client) {
                                                             <Subsection title="Address">
                                                                 <AddressDropdowns
                                                                     values={nok.nok_address || { region: '', province: '', city_municipality: '', barangay: '', street: '' }}
-                                                                    onChange={(address) => updateNokAddress(idx, address)}
+                                                                    onChange={(field, value) => {
+                                                                        if (typeof field === 'object') {
+                                                                            updateNokAddress(idx, field);
+                                                                        } else {
+                                                                            updateNokAddress(idx, { [field]: value });
+                                                                        }
+                                                                    }}
                                                                 />
                                                             </Subsection>
                                                         </div>
@@ -1501,7 +1507,7 @@ function handleConfirmClient(client) {
                                                 {data.client_type === 'OFW' ? 'OFW Vulnerability Status' : 'Next of Kin Vulnerability Status'}
                                             </h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Indicate if the client falls under any vulnerable sector.</p>
-                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className={`mt-4 grid ${data.client_type === 'OFW' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
                                                 <Field label={data.client_type === 'OFW' ? 'OFW Vulnerability Status' : 'Client Vulnerability Status'}>
                                                     <select
                                                         value={data.vulnerability_indicator}
@@ -1516,20 +1522,22 @@ function handleConfirmClient(client) {
                                                         <option value="None">None</option>
                                                     </select>
                                                 </Field>
-                                                <Field label="Next of Kin Vulnerability Status">
-                                                    <select
-                                                        value={data.nok_vulnerability_indicator}
-                                                        onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    >
-                                                        <option value="">Select vulnerability...</option>
-                                                        <option value="PWD">PWD</option>
-                                                        <option value="Senior Citizen">Senior Citizen</option>
-                                                        <option value="Solo Parent">Solo Parent</option>
-                                                        <option value="Indigenous Person">Indigenous Person</option>
-                                                        <option value="None">None</option>
-                                                    </select>
-                                                </Field>
+                                                {data.client_type === 'NEXT_OF_KIN' && (
+                                                    <Field label="Next of Kin Vulnerability Status">
+                                                        <select
+                                                            value={data.nok_vulnerability_indicator}
+                                                            onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
+                                                            className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        >
+                                                            <option value="">Select vulnerability...</option>
+                                                            <option value="PWD">PWD</option>
+                                                            <option value="Senior Citizen">Senior Citizen</option>
+                                                            <option value="Solo Parent">Solo Parent</option>
+                                                            <option value="Indigenous Person">Indigenous Person</option>
+                                                            <option value="None">None</option>
+                                                        </select>
+                                                    </Field>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

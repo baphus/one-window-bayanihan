@@ -72,6 +72,61 @@ export default function AddressDropdowns({ values, onChange, errors }) {
             .finally(() => setLoadingRegions(false));
     }, []);
 
+    // Fetch provinces on mount if region is already set
+    useEffect(() => {
+        if (values.region) {
+            setLoadingProvinces(true);
+            fetch(`/api/address/provinces?region=${encodeURIComponent(values.region)}`)
+                .then((res) => res.json())
+                .then((data) => {
+                    setProvinces(Array.isArray(data) ? data : []);
+                })
+                .catch(() => {
+                    setApiFailed(true);
+                    setProvinces([]);
+                })
+                .finally(() => setLoadingProvinces(false));
+        }
+        // Only run on mount — region changes are handled by handleRegionChange
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Fetch cities on mount if province is already set
+    useEffect(() => {
+        if (values.province) {
+            setLoadingCities(true);
+            fetch(`/api/address/cities?province=${encodeURIComponent(values.province)}`)
+                .then((res) => res.json())
+                .then((data) => {
+                    setCities(Array.isArray(data) ? data : []);
+                })
+                .catch(() => {
+                    setApiFailed(true);
+                    setCities([]);
+                })
+                .finally(() => setLoadingCities(false));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Fetch barangays on mount if city is already set
+    useEffect(() => {
+        if (values.city_municipality) {
+            setLoadingBarangays(true);
+            fetch(`/api/address/barangays?city=${encodeURIComponent(values.city_municipality)}`)
+                .then((res) => res.json())
+                .then((data) => {
+                    setBarangays(Array.isArray(data) ? data : []);
+                })
+                .catch(() => {
+                    setApiFailed(true);
+                    setBarangays([]);
+                })
+                .finally(() => setLoadingBarangays(false));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // When region changes, fetch provinces
     const handleRegionChange = useCallback((value) => {
         // Single atomic update — React 18 batches separate setData calls, causing
