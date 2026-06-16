@@ -39,7 +39,6 @@ const COLUMN_DEFS = [
   { key: 'client_name', label: 'Client Name', default: true },
   { key: 'author', label: 'Author', default: true },
   { key: 'vulnerability_indicator', label: 'Vulnerability', default: true },
-  { key: 'nok_vulnerability_indicator', label: 'NOK Vulnerability', default: true },
   { key: 'category', label: 'Category', default: true },
   { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
@@ -66,7 +65,6 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
   const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
   const [typeFilter, setTypeFilter] = useState(filters?.client_type ?? '');
   const [vulnFilter, setVulnFilter] = useState(filters?.vulnerability_indicator ?? '');
-  const [nokVulnFilter, setNokVulnFilter] = useState(filters?.nok_vulnerability_indicator ?? '');
   const [authorFilter, setAuthorFilter] = useState(filters?.user_id ?? '');
   const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
   const [categoryFilter, setCategoryFilter] = useState(filters?.category_id ?? '');
@@ -98,7 +96,6 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter });
     if (typeFilter) chips.push({ key: 'client_type', label: 'Client Type', value: typeFilter === 'OFW' ? 'OFW' : 'NOK' });
     if (vulnFilter) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: vulnFilter });
-    if (nokVulnFilter) chips.push({ key: 'nok_vulnerability_indicator', label: 'NOK Vulnerability', value: nokVulnFilter });
     if (authorFilter) {
       const author = users.find(u => u.id === authorFilter);
       chips.push({ key: 'user_id', label: 'Author', value: author?.name || authorFilter });
@@ -112,13 +109,12 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       chips.push({ key: 'category_id', label: 'Category', value: cat?.name || categoryFilter });
     }
     return chips;
-  }, [statusFilter, typeFilter, vulnFilter, nokVulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
+  }, [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
 
   const handleRemoveFilter = (filter) => {
     if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
     if (filter.key === 'client_type') { setTypeFilter(''); navigateWith({ client_type: undefined }); }
     if (filter.key === 'vulnerability_indicator') { setVulnFilter(''); navigateWith({ vulnerability_indicator: undefined }); }
-    if (filter.key === 'nok_vulnerability_indicator') { setNokVulnFilter(''); navigateWith({ nok_vulnerability_indicator: undefined }); }
     if (filter.key === 'user_id') { setAuthorFilter(''); navigateWith({ user_id: undefined }); }
     if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
     if (filter.key === 'category_id') { setCategoryFilter(''); navigateWith({ category_id: undefined }); }
@@ -128,11 +124,10 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     setStatusFilter('');
     setTypeFilter('');
     setVulnFilter('');
-    setNokVulnFilter('');
     setAuthorFilter('');
     setAgencyFilter('');
     setCategoryFilter('');
-    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined, nok_vulnerability_indicator: undefined, user_id: undefined, agcy_id: undefined, category_id: undefined });
+    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined, user_id: undefined, agcy_id: undefined, category_id: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -217,25 +212,13 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
               ...base,
               sortable: false,
               render: (row) => {
-                const val = row.vulnerability_indicator;
+                // Show the appropriate vulnerability based on client type
+                const isNok = row.client_type === 'NEXT_OF_KIN';
+                const val = isNok ? row.nok_vulnerability_indicator : row.vulnerability_indicator;
                 if (!val || val === 'None') return <span className="text-slate-400">&mdash;</span>;
                 return (
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold leading-none ${vulnStyles[val] || 'bg-slate-100 text-slate-700'}`}>
                     {val}
-                  </span>
-                );
-              },
-            };
-          case 'nok_vulnerability_indicator':
-            return {
-              ...base,
-              sortable: false,
-              render: (row) => {
-                const nokVal = row.nok_vulnerability_indicator;
-                if (!nokVal || nokVal === 'None') return <span className="text-slate-300">&mdash;</span>;
-                return (
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
-                    {nokVal}
                   </span>
                 );
               },
@@ -384,26 +367,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           <option value="None">None</option>
         </select>
       </div>
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">NOK Vulnerability</label>
-        <select
-          value={nokVulnFilter}
-          onChange={(e) => {
-            const val = e.target.value;
-            setNokVulnFilter(val);
-            setFilterOpen(false);
-            navigateWith({ nok_vulnerability_indicator: val || undefined });
-          }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
-        >
-          <option value="">All</option>
-          <option value="PWD">PWD</option>
-          <option value="Senior Citizen">Senior Citizen</option>
-          <option value="Solo Parent">Solo Parent</option>
-          <option value="Indigenous Person">Indigenous Person</option>
-          <option value="None">None</option>
-        </select>
-      </div>
+
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
         <select
@@ -459,7 +423,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
         </select>
       </div>
     </div>
-  ), [statusFilter, typeFilter, vulnFilter, nokVulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
+  ), [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
