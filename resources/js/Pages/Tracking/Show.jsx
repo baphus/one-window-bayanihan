@@ -6,19 +6,19 @@ import TrackingNotFoundState from '@/Components/TrackingNotFoundState';
 import ChatBot from '@/Components/ChatBot';
 
 const STATUS_CONFIG = {
-  IN_PROGRESS:    { label: 'Your case is being processed',  icon: 'pending_actions', bg: 'bg-blue-50',   border: 'border-blue-200',  text: 'text-blue-800',  topBorder: 'border-t-blue-500'  },
-  RESOLVED:       { label: 'Your case has been resolved',   icon: 'check_circle',    bg: 'bg-green-50',  border: 'border-green-200', text: 'text-green-800', topBorder: 'border-t-green-500' },
-  BEING_PREPARED: { label: 'Your case is being prepared',   icon: 'hourglass_empty', bg: 'bg-amber-50',  border: 'border-amber-200', text: 'text-amber-800', topBorder: 'border-t-amber-500' },
-  ARCHIVED:       { label: 'This case has been archived',   icon: 'archive',         bg: 'bg-slate-50',  border: 'border-slate-200', text: 'text-slate-700', topBorder: 'border-t-slate-400' },
-  UNKNOWN:        { label: 'Case status unavailable',       icon: 'help_outline',    bg: 'bg-slate-50',  border: 'border-slate-200', text: 'text-slate-700', topBorder: 'border-t-slate-400' },
+  IN_PROGRESS:    { label: 'Your case is being processed',  icon: 'pending_actions', bg: 'bg-primary-fixed',   border: 'border-primary-fixed-dim',  text: 'text-primary-container',  topBorder: 'border-t-primary'  },
+  RESOLVED:       { label: 'Your case has been resolved',   icon: 'check_circle',    bg: 'bg-secondary-fixed',  border: 'border-secondary-fixed-dim', text: 'text-on-secondary-container', topBorder: 'border-t-secondary' },
+  BEING_PREPARED: { label: 'Your case is being prepared',   icon: 'hourglass_empty', bg: 'bg-tertiary-fixed',  border: 'border-tertiary-fixed-dim', text: 'text-tertiary-container', topBorder: 'border-t-tertiary' },
+  ARCHIVED:       { label: 'This case has been archived',   icon: 'archive',         bg: 'bg-surface-container-low',  border: 'border-outline-variant', text: 'text-on-surface-variant', topBorder: 'border-t-outline-variant' },
+  UNKNOWN:        { label: 'Case status unavailable',       icon: 'help_outline',    bg: 'bg-surface-container-low',  border: 'border-outline-variant', text: 'text-on-surface-variant', topBorder: 'border-t-outline-variant' },
 };
 
 const EVENT_CONFIG = {
-  case_opened:     { dot: 'bg-blue-500',   icon: 'folder_open',  iconColor: 'text-white' },
-  referral_sent:   { dot: 'bg-purple-500', icon: 'send',         iconColor: 'text-white' },
-  referral_status: { dot: 'bg-orange-400', icon: 'sync_alt',     iconColor: 'text-white' },
-  milestone:       { dot: 'bg-green-500',  icon: 'flag',         iconColor: 'text-white' },
-  case_closed:     { dot: 'bg-slate-500',  icon: 'check_circle', iconColor: 'text-white' },
+  case_opened:     { dot: 'bg-primary',   icon: 'folder_open',  iconColor: 'text-on-primary' },
+  referral_sent:   { dot: 'bg-secondary', icon: 'send',         iconColor: 'text-on-secondary' },
+  referral_status: { dot: 'bg-tertiary',  icon: 'sync_alt',     iconColor: 'text-on-tertiary' },
+  milestone:       { dot: 'bg-secondary', icon: 'flag',         iconColor: 'text-on-secondary' },
+  case_closed:     { dot: 'bg-outline',   icon: 'check_circle', iconColor: 'text-on-surface' },
 };
 
 function formatEventDate(dateStr) {
@@ -36,27 +36,27 @@ function AgencyCard({ name, note, status, statusTone, borderTone, textTone, line
   const isRejected = status === 'REJECTED';
 
   return (
-    <article className={`rounded-xl border bg-white shadow-sm overflow-hidden border-t-4 ${borderTone}`}>
-      <div className="px-5 py-4 sm:px-6 flex items-start justify-between gap-3 border-b border-slate-100">
+    <article className={`rounded-xl border border-outline-variant bg-white shadow-sm overflow-hidden border-t-4 ${borderTone}`}>
+      <div className="px-5 py-4 sm:px-6 flex items-start justify-between gap-3 border-b border-outline-variant">
         <div className="min-w-0">
-          <h3 className="text-base font-bold text-slate-900 leading-tight truncate">{name}</h3>
-          {note && <p className="text-xs text-slate-500 mt-1 leading-snug">{note}</p>}
+          <h3 className="text-base font-bold text-on-surface leading-tight truncate">{name}</h3>
+          {note && <p className="text-xs text-on-surface-variant mt-1 leading-snug">{note}</p>}
         </div>
-        <span className={`shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-full ${statusTone}`}>
+        <span className={`shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-[2px] ${statusTone}`}>
           {isRejected ? 'Not Accepted' : status.replace('_', ' ')}
         </span>
       </div>
 
       <div className="px-5 py-5 sm:px-6">
         {isRejected ? (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg bg-error-container border border-error px-4 py-3 text-sm text-on-error-container">
             <span className="material-symbols-outlined text-[16px] align-middle mr-1" style={{ fontVariationSettings: "'FILL' 1" }}>cancel</span>
             This agency was unable to process your case.
           </div>
         ) : (
           <>
             <div className="relative px-2">
-              <div className="absolute left-[20px] right-[20px] top-[14px] h-[3px] rounded-full bg-slate-100" />
+              <div className="absolute left-[20px] right-[20px] top-[14px] h-[3px] rounded-full bg-surface-container-high" />
               <div
                 className={`absolute left-[20px] top-[14px] h-[3px] rounded-full transition-all duration-500 ${lineTone}`}
                 style={{ width: `${completedCount > 0 ? ((completedCount - 1) / (steps.length - 1)) * 100 : 0}%` }}
@@ -67,29 +67,29 @@ function AgencyCard({ name, note, status, statusTone, borderTone, textTone, line
                     <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full ${
                       step.state === 'complete' ? 'bg-white ring-2 ring-primary shadow-sm' :
                       step.state === 'active'   ? 'bg-white ring-2 ring-blue-400 shadow-sm' :
-                      'bg-slate-100'
+                      'bg-surface-container-high'
                     }`}>
                       {step.state === 'complete' ? (
                         <span className="material-symbols-outlined text-[14px] text-primary" style={{ fontVariationSettings: "'FILL' 1, 'wght' 700" }}>check</span>
                       ) : step.state === 'active' ? (
                         <span className="material-symbols-outlined text-[13px] text-blue-500 animate-spin" style={{ fontVariationSettings: "'FILL' 1" }}>sync</span>
                       ) : (
-                        <span className="material-symbols-outlined text-[11px] text-slate-400">radio_button_unchecked</span>
+                        <span className="material-symbols-outlined text-[11px] text-on-surface-variant">radio_button_unchecked</span>
                       )}
                     </div>
                     <span className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${
                       step.state === 'active'   ? textTone :
-                      step.state === 'complete' ? 'text-slate-700' :
-                      'text-slate-400'
+                      step.state === 'complete' ? 'text-on-surface' :
+                      'text-on-surface-variant'
                     }`}>{step.label}</span>
                   </div>
                 ))}
               </div>
             </div>
             {latestMilestoneLabel && (
-              <p className="mt-4 text-xs text-slate-500 text-center">
+              <p className="mt-4 text-xs text-on-surface-variant text-center">
                 <span className="material-symbols-outlined text-[12px] align-middle mr-1 text-green-500">flag</span>
-                Latest: <span className="font-semibold text-slate-700">{latestMilestoneLabel}</span>
+                Latest: <span className="font-semibold text-on-surface">{latestMilestoneLabel}</span>
               </p>
             )}
           </>
@@ -134,7 +134,7 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
 
   if (!trackedCase) {
     return (
-      <div className="bg-[#F5F7FA] min-h-screen font-body">
+      <div className="bg-surface min-h-screen font-body">
         <Head title="Tracking ID Not Found" />
         <AppHeader />
         <main className="mx-auto w-full max-w-[640px] px-4 pt-[88px] pb-6 sm:px-6">
@@ -147,7 +147,7 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
   }
 
   return (
-    <div className="bg-[#F5F7FA] min-h-screen font-body text-slate-900">
+    <div className="bg-surface min-h-screen font-body text-on-surface">
       <Head title={`Tracking — ${trackingId}`} />
       <AppHeader />
 
@@ -156,13 +156,13 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
         {/* Status Banner */}
         <div className={`rounded-xl border ${config.border} bg-white shadow-sm overflow-hidden border-t-4 ${config.topBorder}`}>
           <div className="p-5 sm:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1">Case Tracking</p>
-            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 mb-3">{trackingId}</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-1">Case Tracking</p>
+            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-on-surface mb-3">{trackingId}</h1>
             <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${config.bg} ${config.border}`}>
               <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>{config.icon}</span>
               <span className={`text-[11px] font-bold uppercase tracking-wider ${config.text}`}>{config.label}</span>
             </div>
-            <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-on-surface-variant">
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[13px]">groups</span>
                 {agencyCountText}
@@ -178,16 +178,16 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
         {/* Case Narrative */}
         {caseOverview?.narrative && (
           <section>
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-3">About This Case</h2>
-            <article className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
-              <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{caseOverview.narrative}</p>
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-3">About This Case</h2>
+            <article className="rounded-xl border border-outline-variant bg-white p-5 sm:p-6 shadow-sm">
+              <p className="text-sm leading-relaxed text-on-surface whitespace-pre-wrap">{caseOverview.narrative}</p>
             </article>
           </section>
         )}
 
         {/* Agencies */}
         <section>
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-3">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-3">
             Agencies Handling Your Case
           </h2>
           {trackingAgencies.length > 0 ? (
@@ -197,10 +197,10 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
               ))}
             </div>
           ) : (
-            <article className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-              <span className="material-symbols-outlined text-4xl text-slate-300 block mb-3">hourglass_empty</span>
-              <h3 className="text-sm font-bold text-slate-700">No agencies assigned yet</h3>
-              <p className="mt-1 text-sm text-slate-500">Your case manager will refer your case to the appropriate agencies.</p>
+            <article className="rounded-xl border border-outline-variant bg-white p-8 text-center shadow-sm">
+              <span className="material-symbols-outlined text-4xl text-outline-variant block mb-3">hourglass_empty</span>
+              <h3 className="text-sm font-bold text-on-surface">No agencies assigned yet</h3>
+              <p className="mt-1 text-sm text-on-surface-variant">Your case manager will refer your case to the appropriate agencies.</p>
             </article>
           )}
         </section>
@@ -208,7 +208,7 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
         {/* Timeline */}
         <section>
           <div className="flex items-center justify-between mb-3 gap-3">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-1.5">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[14px]">history</span>
               Case Timeline
             </h2>
@@ -216,7 +216,7 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
               <select
                 value={timelineAgencyFilter}
                 onChange={e => setTimelineAgencyFilter(e.target.value)}
-                className="text-xs font-semibold text-slate-700 border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:border-primary"
+                className="text-xs font-semibold text-on-surface border border-outline-variant rounded-lg px-2 py-1.5 bg-white outline-none focus:border-primary"
               >
                 <option value="ALL">All agencies</option>
                 {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
@@ -225,14 +225,14 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
           </div>
 
           {filteredTimeline.length === 0 ? (
-            <article className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-              <span className="material-symbols-outlined text-4xl text-slate-300 block mb-3">history</span>
-              <p className="text-sm text-slate-500">No activity recorded yet. Your case manager will update you as things progress.</p>
+            <article className="rounded-xl border border-outline-variant bg-white p-8 text-center shadow-sm">
+              <span className="material-symbols-outlined text-4xl text-outline-variant block mb-3">history</span>
+              <p className="text-sm text-on-surface-variant">No activity recorded yet. Your case manager will update you as things progress.</p>
             </article>
           ) : (
-            <article className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+            <article className="rounded-xl border border-outline-variant bg-white p-5 sm:p-6 shadow-sm">
               <div className="relative">
-                <div className="absolute left-[13px] top-2 bottom-2 w-0.5 bg-slate-100" />
+                <div className="absolute left-[13px] top-2 bottom-2 w-0.5 bg-surface-container-high" />
                 <div className="space-y-6">
                   {filteredTimeline.map((item, index) => {
                     const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone;
@@ -242,12 +242,12 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
                           <span className={`material-symbols-outlined text-[13px] ${cfg.iconColor}`} style={{ fontVariationSettings: "'FILL' 1, 'wght' 600" }}>{cfg.icon}</span>
                         </div>
                         <div className="min-w-0 pt-0.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant mb-0.5">
                             {formatEventDate(item.date)}
-                            {item.agency && <span className="ml-2 text-slate-400">· {item.agency}</span>}
+                            {item.agency && <span className="ml-2 text-on-surface-variant">· {item.agency}</span>}
                           </p>
-                          <h3 className="text-sm font-semibold text-slate-900 leading-snug">{item.title}</h3>
-                          {item.description && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.description}</p>}
+                          <h3 className="text-sm font-semibold text-on-surface leading-snug">{item.title}</h3>
+                          {item.description && <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">{item.description}</p>}
                         </div>
                       </div>
                     );

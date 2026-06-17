@@ -61,5 +61,9 @@ class SystemSettingSeeder extends Seeder
             ['key' => 'chatbot_temperature'],
             ['value' => '0.7'],
         );
+        SystemSetting::firstOrCreate(
+            ['key' => 'debug_tracking_otp_enabled'],
+            ['value' => 'false'],
+        );
     }
 }

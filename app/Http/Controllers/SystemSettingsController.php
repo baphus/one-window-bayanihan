@@ -12,6 +12,7 @@ class SystemSettingsController extends Controller
     {
         return Inertia::render('SystemSettings/Index', [
             'debug_otp_enabled' => SystemSetting::getValue('debug_otp_enabled', false),
+            'debug_tracking_otp_enabled' => SystemSetting::getValue('debug_tracking_otp_enabled', false),
             'referral_overdue_days' => (int) SystemSetting::getValue('referral_overdue_days', 7),
             'chatbot_enabled' => SystemSetting::getValue('chatbot_enabled', false) === 'true' || SystemSetting::getValue('chatbot_enabled', false) === true,
             'chatbot_provider' => SystemSetting::getValue('chatbot_provider', 'openai'),
@@ -28,6 +29,7 @@ class SystemSettingsController extends Controller
     {
         $validated = $request->validate([
             'debug_otp_enabled' => ['nullable', 'boolean'],
+            'debug_tracking_otp_enabled' => ['nullable', 'boolean'],
             'referral_overdue_days' => ['nullable', 'integer', 'min:1', 'max:365'],
             'chatbot_enabled' => ['nullable', 'boolean'],
             'chatbot_provider' => ['nullable', 'in:openai,anthropic,gemini,custom'],
@@ -41,6 +43,10 @@ class SystemSettingsController extends Controller
 
         if ($request->has('debug_otp_enabled')) {
             SystemSetting::setValue('debug_otp_enabled', $request->boolean('debug_otp_enabled'));
+        }
+
+        if ($request->has('debug_tracking_otp_enabled')) {
+            SystemSetting::setValue('debug_tracking_otp_enabled', $request->boolean('debug_tracking_otp_enabled'));
         }
 
         if ($request->has('referral_overdue_days')) {

@@ -291,6 +291,9 @@ Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
     ->name('track.send-otp')
     ->middleware('throttle:tracking');
+Route::get('/track/verify-otp', function () {
+    return redirect()->route('track.index');
+})->name('track.verify-otp.get');
 Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
     ->name('track.verify-otp')
     ->middleware('throttle:tracking');

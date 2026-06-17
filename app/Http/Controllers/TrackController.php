@@ -44,7 +44,7 @@ class TrackController extends Controller
             'tracker_number' => $request->input('tracker_number'),
             'email' => $request->input('email'),
             'hint' => $hint,
-            'debug_otp' => SystemSetting::getValue('debug_otp_enabled', false) ? $otp : null,
+            'debug_otp' => SystemSetting::getValue('debug_tracking_otp_enabled', false) ? $otp : null,
         ]);
     }
 
