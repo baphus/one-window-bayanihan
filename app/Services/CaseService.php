@@ -21,7 +21,6 @@ class CaseService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
-        private readonly DefaultAgencyService $defaultAgencyService,
         private readonly ReferralService $referralService,
     ) {}
 
@@ -458,9 +457,6 @@ class CaseService
                 'status' => 'OPEN',
             ]);
 
-            // Auto-create DMW intervention referral when a case transitions from DRAFT to OPEN
-            $this->createInterventionReferral($case);
-
             AuditLog::create([
                 'action' => 'PUBLISH',
                 'module' => 'CASE',
@@ -720,36 +716,6 @@ class CaseService
                 'category',
             ]);
         });
-    }
-
-    private function createInterventionReferral(CaseFile $case): ?Referral
-    {
-        // Idempotency: skip if an intervention referral already exists for this case
-        if ($case->referrals()->where('type', 'intervention')->exists()) {
-            return null;
-        }
-
-        // Get the default DMW agency
-        $dmw = $this->defaultAgencyService->getDefaultAgency();
-        if (! $dmw) {
-            return null;
-        }
-
-        $referral = Referral::create([
-            'type' => 'intervention',
-            'status' => 'PROCESSING',
-            'agcy_id' => $dmw->id,
-            'notes' => 'Auto-created DMW intervention referral',
-            'required_services' => '',
-            'case_id' => $case->id,
-        ]);
-
-        // Notify about the intervention referral (method_exists guard — created by Task 8 in parallel)
-        if (method_exists($this->referralService, 'notifyInterventionCreated')) {
-            $this->referralService->notifyInterventionCreated($referral);
-        }
-
-        return $referral;
     }
 
     private function dispatchCaseUpdateNotification(CaseFile $case, array $oldData, string $userId): void
