@@ -14,8 +14,14 @@ function isActive(currentPath, link) {
   return currentPath.startsWith(link.href);
 }
 
+function getInitials(name) {
+  if (!name) return '?';
+  return name.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+}
+
 export default function AppHeader({ onTrackCaseClick, minimal }) {
-  const { url } = usePage();
+  const { url, props } = usePage();
+  const user = props.auth?.user ?? null;
 
   return (
     <nav className={`fixed top-0 z-50 w-full border-b border-outline-variant ${minimal ? 'bg-surface-bright' : 'bg-white border-gray-200'}`}>
@@ -57,9 +63,31 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               ) : (
                 <AppButton href="#tracker" variant="primary">Track Case</AppButton>
               )}
-              <Link href={route('login')}>
-                <AppButton variant="outline">Login</AppButton>
-              </Link>
+
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <Link href={route('dashboard')}>
+                    <AppButton variant="primary">Dashboard</AppButton>
+                  </Link>
+                  <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#005288] text-xs font-bold text-white">
+                      {getInitials(user.name)}
+                    </span>
+                    <span className="hidden text-sm font-medium text-slate-700 md:inline">{user.name}</span>
+                    <button
+                      onClick={() => router.post(route('logout'))}
+                      className="ml-1 text-xs font-medium text-slate-400 hover:text-red-500 transition-colors"
+                      title="Logout"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">logout</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <Link href={route('login')}>
+                  <AppButton variant="outline">Login</AppButton>
+                </Link>
+              )}
             </div>
           </>
         )}
