@@ -70,6 +70,7 @@ class TrackingService
             ] : null,
         ];
 
+        // Legacy caseTimeline (kept for backward compatibility — includes raw audit logs)
         $timeline = collect();
         foreach ($referrals as $ref) {
             $agencyLogo = $ref->agency?->logo_url ?? '';
@@ -120,6 +121,7 @@ class TrackingService
 
         $timeline = $timeline->sortBy('date')->values()->toArray();
 
+        // Agency cards with 4-step progress model
         $agencyCards = $referrals->map(function ($ref) {
             $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
 
@@ -128,23 +130,39 @@ class TrackingService
                 'note' => $ref->notes ?? '',
                 'status' => $ref->status,
                 'statusTone' => match ($ref->status) {
-                    'PENDING' => 'yellow',
-                    'PROCESSING' => 'blue',
-                    'FOR_COMPLIANCE' => 'orange',
-                    'COMPLETED' => 'green',
-                    'REJECTED' => 'red',
-                    default => 'gray',
+                    'PENDING' => 'bg-amber-100 text-amber-800',
+                    'PROCESSING' => 'bg-blue-100 text-blue-800',
+                    'FOR_COMPLIANCE' => 'bg-orange-100 text-orange-800',
+                    'COMPLETED' => 'bg-green-100 text-green-800',
+                    'REJECTED' => 'bg-red-100 text-red-800',
+                    default => 'bg-slate-100 text-slate-700',
                 },
-                'borderTone' => 'border-gray-200',
-                'textTone' => 'text-gray-700',
-                'lineTone' => 'bg-gray-200',
-                'steps' => [
-                    ['label' => 'Pending', 'state' => 'complete'],
-                    ['label' => 'Processing', 'state' => $ref->status === 'PROCESSING' ? 'active' : ($ref->milestones->count() > 0 ? 'complete' : 'pending')],
-                    ['label' => 'Completed', 'state' => in_array($ref->status, ['COMPLETED', 'REJECTED']) ? 'complete' : 'pending'],
-                ],
+                'borderTone' => match ($ref->status) {
+                    'PENDING' => 'border-amber-300',
+                    'PROCESSING' => 'border-blue-300',
+                    'FOR_COMPLIANCE' => 'border-orange-300',
+                    'COMPLETED' => 'border-green-300',
+                    'REJECTED' => 'border-red-300',
+                    default => 'border-slate-200',
+                },
+                'textTone' => match ($ref->status) {
+                    'PENDING' => 'text-amber-700',
+                    'PROCESSING' => 'text-blue-700',
+                    'FOR_COMPLIANCE' => 'text-orange-700',
+                    'COMPLETED' => 'text-green-700',
+                    'REJECTED' => 'text-red-700',
+                    default => 'text-slate-600',
+                },
+                'lineTone' => match ($ref->status) {
+                    'PENDING' => 'bg-amber-400',
+                    'PROCESSING' => 'bg-blue-400',
+                    'FOR_COMPLIANCE' => 'bg-orange-400',
+                    'COMPLETED' => 'bg-green-400',
+                    'REJECTED' => 'bg-red-400',
+                    default => 'bg-slate-300',
+                },
+                'steps' => $this->buildAgencySteps($ref->status),
                 'latestMilestoneLabel' => $latestMilestone?->title,
-                'latestMilestonePath' => route('referrals.show', $ref),
             ];
         })->toArray();
 
@@ -180,18 +198,145 @@ class TrackingService
                 'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                 'service' => $referrals->first()?->required_services ?? '',
                 'milestone' => '',
-                'status' => $case->status === 'OPEN' ? 'PENDING' : 'COMPLETED',
+                'status' => match ($case->status) {
+                    'OPEN' => 'IN_PROGRESS',
+                    'CLOSED' => 'RESOLVED',
+                    'ARCHIVED' => 'ARCHIVED',
+                    'DRAFT' => 'BEING_PREPARED',
+                    default => 'UNKNOWN',
+                },
                 'createdAt' => $case->created_at->toISOString(),
                 'updatedAt' => $case->updated_at->toISOString(),
             ],
             'caseOverview' => $caseOverview,
             'caseTimeline' => $timeline,
+            'milestoneTimeline' => $this->buildMilestoneTimeline($case),
             'trackingAgencies' => $agencyCards,
             'caseNotifications' => [
                 'unread_count' => $unreadCount,
                 'items' => $caseNotifications,
             ],
         ];
+    }
+
+    /**
+     * Build a clean, client-facing milestone timeline.
+     * Contains ONLY human-readable events — no raw audit logs, no UUIDs, no field names.
+     */
+    private function buildMilestoneTimeline(CaseFile $case): array
+    {
+        $events = collect();
+        $referrals = $case->referrals;
+
+        // 1. Case opened — always first
+        $events->push([
+            'date' => $case->created_at->toISOString(),
+            'type' => 'case_opened',
+            'agency' => null,
+            'title' => 'Your case has been opened',
+            'description' => 'Your case is now being reviewed by the Bayanihan team.',
+        ]);
+
+        foreach ($referrals as $ref) {
+            $agencyName = $ref->agency?->name ?? 'an agency';
+
+            // 2. Referral sent
+            $events->push([
+                'date' => $ref->created_at->toISOString(),
+                'type' => 'referral_sent',
+                'agency' => $agencyName,
+                'title' => 'Referred to '.$agencyName,
+                'description' => $ref->required_services
+                    ? 'Services requested: '.$ref->required_services
+                    : '',
+            ]);
+
+            // 3. Referral status (only if past PENDING — PENDING is already covered by referral_sent)
+            if (! in_array($ref->status, ['PENDING'], true)) {
+                $statusTitle = match ($ref->status) {
+                    'PROCESSING' => $agencyName.' is now processing your case',
+                    'FOR_COMPLIANCE' => 'Additional documents may be needed for '.$agencyName,
+                    'COMPLETED' => 'Your referral with '.$agencyName.' has been completed',
+                    'REJECTED' => $agencyName.' was unable to process your referral',
+                    default => $agencyName.' updated your referral',
+                };
+
+                $events->push([
+                    'date' => $ref->updated_at->toISOString(),
+                    'type' => 'referral_status',
+                    'agency' => $agencyName,
+                    'title' => $statusTitle,
+                    'description' => '',
+                ]);
+            }
+
+            // 4. Milestones
+            foreach ($ref->milestones->sortBy('created_at') as $ms) {
+                $events->push([
+                    'date' => $ms->created_at->toISOString(),
+                    'type' => 'milestone',
+                    'agency' => $agencyName,
+                    'title' => $ms->title,
+                    'description' => $ms->description ?? '',
+                ]);
+            }
+        }
+
+        // 5. Case closed — only if CLOSED
+        if ($case->status === 'CLOSED') {
+            $events->push([
+                'date' => ($case->closed_at ?? $case->updated_at)->toISOString(),
+                'type' => 'case_closed',
+                'agency' => null,
+                'title' => 'Your case has been resolved',
+                'description' => 'All referrals have been processed and your case is now closed.',
+            ]);
+        }
+
+        return $events->sortBy('date')->values()->toArray();
+    }
+
+    /**
+     * Build the 4-step agency progress array for a given referral status.
+     * Steps: Received → Processing → Compliance → Completed
+     */
+    private function buildAgencySteps(string $status): array
+    {
+        return [
+            ['label' => 'Received',   'state' => $this->stepState($status, 'PENDING')],
+            ['label' => 'Processing', 'state' => $this->stepState($status, 'PROCESSING')],
+            ['label' => 'Compliance', 'state' => $this->stepState($status, 'FOR_COMPLIANCE')],
+            ['label' => 'Completed',  'state' => $this->stepState($status, 'COMPLETED')],
+        ];
+    }
+
+    /**
+     * Determine the visual state of a step given the current referral status.
+     * Returns 'complete', 'active', or 'pending'.
+     */
+    private function stepState(string $currentStatus, string $stepStatus): string
+    {
+        $order = [
+            'PENDING' => 0,
+            'PROCESSING' => 1,
+            'FOR_COMPLIANCE' => 2,
+            'COMPLETED' => 3,
+            'REJECTED' => 4,
+        ];
+
+        // REJECTED: only the first step (Received) is complete, rest are pending
+        if ($currentStatus === 'REJECTED') {
+            return $stepStatus === 'PENDING' ? 'complete' : 'pending';
+        }
+
+        $current = $order[$currentStatus] ?? 0;
+        $step = $order[$stepStatus] ?? 0;
+
+        if ($current === $step) {
+            return 'active';
+        }
+
+        return $current > $step ? 'complete' : 'pending';
     }
 
     private function formatAddressParts($address): array
