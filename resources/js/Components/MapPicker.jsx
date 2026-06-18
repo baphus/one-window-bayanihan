@@ -45,11 +45,15 @@ export default function MapPicker({ latitude, longitude, onChange }) {
     onChange?.({ latitude: lat, longitude: lng, location_query: query });
   }
 
-  /** Format display_name to short: city, province, country */
+  /** Format display_name: preserve specific place name + city + province */
   function formatDisplayName(displayName) {
     if (!displayName) return '';
     const parts = displayName.split(',').map((p) => p.trim()).filter(Boolean);
-    return parts.slice(-3).join(', ');
+    if (parts.length <= 3) return parts.join(', ');
+    // Keep first part (specific place name) + city + province, drop region/country
+    const city = parts.length >= 4 ? parts[parts.length - 3] : null;
+    const province = parts.length >= 3 ? parts[parts.length - 2] : null;
+    return [parts[0], city, province].filter(Boolean).join(', ');
   }
 
   /** Rate-limited Nominatim search with 1s cooldown */
@@ -65,7 +69,7 @@ export default function MapPicker({ latitude, longitude, onChange }) {
           await new Promise((r) => setTimeout(r, 1000 - elapsed));
         }
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=PH`,
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=10&countrycodes=PH`,
           {
             headers: {
               'Accept-Language': 'en',
@@ -146,7 +150,8 @@ export default function MapPicker({ latitude, longitude, onChange }) {
   /** Handle selection from dropdown */
   function handleResultSelect(result) {
     const displayName = result.display_name;
-    setSearchQuery(formatDisplayName(displayName));
+    const parts = displayName.split(',').map((p) => p.trim()).filter(Boolean);
+    setSearchQuery(parts[0]); // Show just the specific place name in the input
     setShowDropdown(false);
     setHighlightedIndex(-1);
     setError(null);
@@ -307,6 +312,11 @@ export default function MapPicker({ latitude, longitude, onChange }) {
                     }`}
                   >
                     {formatDisplayName(result.display_name)}
+                    {result.type && (
+                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+                        {result.type}
+                      </span>
+                    )}
                   </button>
                 ))}
             </div>
