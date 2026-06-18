@@ -40,6 +40,7 @@ class User extends Authenticatable
         'office_location',
         'bio',
         'emergency_contact',
+        'notifications_config',
         'timezone',
         'mfa_secret',
         'mfa_recovery_codes',
@@ -65,6 +66,7 @@ class User extends Authenticatable
             'is_deleted' => 'boolean',
             'mfa_recovery_codes' => 'array',
             'emergency_contact' => 'array',
+            'notifications_config' => 'array',
             'mfa_enabled_at' => 'datetime',
         ];
     }

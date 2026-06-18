@@ -1,9 +1,6 @@
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
-import { Transition } from '@headlessui/react';
-import { useForm, usePage } from '@inertiajs/react';
 import { useRef, useEffect } from 'react';
 
 const timezones = [
@@ -12,34 +9,8 @@ const timezones = [
     'America/New_York', 'America/Los_Angeles', 'Europe/London', 'UTC',
 ];
 
-export default function PersonalInfoForm({ onDirtyChange, onBypass }) {
-    const user = usePage().props.auth.user;
-
-    const initialRef = useRef({
-        name: user.name,
-        email: user.email,
-        position: user.position || '',
-        department: user.department || '',
-        office_location: user.office_location || '',
-        bio: user.bio || '',
-        timezone: user.timezone || 'Asia/Manila',
-        emergency_name: user.emergency_contact?.name || '',
-        emergency_relation: user.emergency_contact?.relation || '',
-        emergency_phone: user.emergency_contact?.phone || '',
-    });
-
-    const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
-        name: user.name,
-        email: user.email,
-        position: user.position || '',
-        department: user.department || '',
-        office_location: user.office_location || '',
-        bio: user.bio || '',
-        timezone: user.timezone || 'Asia/Manila',
-        emergency_name: user.emergency_contact?.name || '',
-        emergency_relation: user.emergency_contact?.relation || '',
-        emergency_phone: user.emergency_contact?.phone || '',
-    });
+export default function PersonalInfoForm({ data, setData, errors, onDirtyChange }) {
+    const initialRef = useRef(structuredClone(data));
 
     const isDirty = data.name !== initialRef.current.name
         || data.email !== initialRef.current.email
@@ -48,22 +19,12 @@ export default function PersonalInfoForm({ onDirtyChange, onBypass }) {
         || data.office_location !== initialRef.current.office_location
         || data.bio !== initialRef.current.bio
         || data.timezone !== initialRef.current.timezone
-        || data.emergency_name !== initialRef.current.emergency_name
-        || data.emergency_relation !== initialRef.current.emergency_relation
-        || data.emergency_phone !== initialRef.current.emergency_phone;
+        || data.contact_number !== initialRef.current.contact_number
+        || data.emergency_contact?.name !== initialRef.current.emergency_contact?.name
+        || data.emergency_contact?.relation !== initialRef.current.emergency_contact?.relation
+        || data.emergency_contact?.phone !== initialRef.current.emergency_contact?.phone;
 
     useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
-
-    function submit(e) {
-        e.preventDefault();
-        onBypass?.();
-        patch(route('profile.update'), {
-            onSuccess: () => {
-                onDirtyChange?.(false);
-                initialRef.current = { ...data };
-            },
-        });
-    }
 
     return (
         <section>
@@ -72,7 +33,7 @@ export default function PersonalInfoForm({ onDirtyChange, onBypass }) {
                 <p className="mt-1 text-sm text-gray-600">Update your profile details and contact information.</p>
             </header>
 
-            <form onSubmit={submit} className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <InputLabel htmlFor="name" value="Name" />
@@ -121,6 +82,12 @@ export default function PersonalInfoForm({ onDirtyChange, onBypass }) {
                 </div>
 
                 <div>
+                    <InputLabel htmlFor="contact_number" value="Contact Number" />
+                    <TextInput id="contact_number" type="tel" className="mt-1 block w-full" value={data.contact_number} onChange={(e) => setData('contact_number', e.target.value)} />
+                    <InputError className="mt-2" message={errors.contact_number} />
+                </div>
+
+                <div>
                     <InputLabel htmlFor="bio" value="Bio / About Me" />
                     <textarea
                         id="bio"
@@ -137,33 +104,23 @@ export default function PersonalInfoForm({ onDirtyChange, onBypass }) {
                     <h3 className="text-sm font-medium text-gray-900 mb-3">Emergency Contact</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <InputLabel htmlFor="emergency_name" value="Full Name" />
-                            <TextInput id="emergency_name" className="mt-1 block w-full" value={data.emergency_name} onChange={(e) => setData('emergency_name', e.target.value)} />
+                            <InputLabel htmlFor="emergency_contact_name" value="Full Name" />
+                            <TextInput id="emergency_contact_name" className="mt-1 block w-full" value={data.emergency_contact?.name || ''} onChange={(e) => setData('emergency_contact.name', e.target.value)} />
+                            <InputError className="mt-2" message={errors['emergency_contact.name']} />
                         </div>
                         <div>
-                            <InputLabel htmlFor="emergency_relation" value="Relation" />
-                            <TextInput id="emergency_relation" className="mt-1 block w-full" value={data.emergency_relation} onChange={(e) => setData('emergency_relation', e.target.value)} />
+                            <InputLabel htmlFor="emergency_contact_relation" value="Relation" />
+                            <TextInput id="emergency_contact_relation" className="mt-1 block w-full" value={data.emergency_contact?.relation || ''} onChange={(e) => setData('emergency_contact.relation', e.target.value)} />
+                            <InputError className="mt-2" message={errors['emergency_contact.relation']} />
                         </div>
                         <div>
-                            <InputLabel htmlFor="emergency_phone" value="Phone Number" />
-                            <TextInput id="emergency_phone" type="tel" className="mt-1 block w-full" value={data.emergency_phone} onChange={(e) => setData('emergency_phone', e.target.value)} />
+                            <InputLabel htmlFor="emergency_contact_phone" value="Phone Number" />
+                            <TextInput id="emergency_contact_phone" type="tel" className="mt-1 block w-full" value={data.emergency_contact?.phone || ''} onChange={(e) => setData('emergency_contact.phone', e.target.value)} />
+                            <InputError className="mt-2" message={errors['emergency_contact.phone']} />
                         </div>
                     </div>
                 </div>
-
-                <div className="flex items-center gap-4">
-                    <PrimaryButton disabled={processing}>Save Changes</PrimaryButton>
-                    <Transition
-                        show={recentlySuccessful}
-                        enter="transition ease-in-out"
-                        enterFrom="opacity-0"
-                        leave="transition ease-in-out"
-                        leaveTo="opacity-0"
-                    >
-                        <p className="text-sm text-gray-600">Saved.</p>
-                    </Transition>
-                </div>
-            </form>
+            </div>
         </section>
     );
 }

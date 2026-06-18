@@ -26,6 +26,12 @@ class ProfileController extends Controller
             'status' => session('status'),
             'mfaEnabled' => $request->user()->mfa_enabled_at !== null,
             'defaultAgency' => app(DefaultAgencyService::class)->getDefaultAgency(),
+            'notificationPrefs' => $request->user()->notifications_config ?? [
+                'email_on_case_assigned' => true,
+                'email_on_case_status_change' => true,
+                'email_on_referral' => true,
+                'in_app_notifications' => true,
+            ],
         ]);
     }
 
@@ -34,13 +40,21 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->fill($request->validated());
+
+        if ($request->hasFile('avatar')) {
+            $file = $request->file('avatar');
+            $path = $file->storeAs('avatars', 'user-'.$user->id.'-'.time().'.'.$file->extension(), 'public');
+            $user->avatar_url = $path;
         }
 
-        $request->user()->save();
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
+        }
+
+        $user->save();
 
         return Redirect::route('profile.edit');
     }

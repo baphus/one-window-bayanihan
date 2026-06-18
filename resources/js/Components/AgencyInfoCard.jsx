@@ -7,14 +7,14 @@ export default function AgencyInfoCard() {
 
     if (!agency) {
         return (
-            <CardSection title="Agency">
+            <CardSection title="Agency" className="w-full">
                 <p className="text-sm text-slate-500">No agency assigned.</p>
             </CardSection>
         );
     }
 
     return (
-        <CardSection title="Agency">
+        <CardSection title="Agency" className="w-full">
             <div className="space-y-4">
                 <div className="flex items-center gap-3">
                     {agency.logo_url ? (

@@ -1,6 +1,7 @@
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
+import Section from '@/Components/Section';
 import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { useForm } from '@inertiajs/react';
@@ -57,19 +58,12 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
     };
 
     return (
-        <section className={className}>
-            <header>
-                <h2 className="text-lg font-medium text-gray-900">
-                    Update Password
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-600">
-                    Ensure your account is using a long, random password to stay
-                    secure.
-                </p>
-            </header>
-
-            <form onSubmit={updatePassword} className="mt-6 space-y-6">
+        <Section
+            title="Update Password"
+            description="Ensure your account is using a long, random password to stay secure."
+            className={className}
+        >
+            <form onSubmit={updatePassword} className="space-y-6">
                 <div>
                     <InputLabel
                         htmlFor="current_password"
@@ -149,6 +143,6 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                     </Transition>
                 </div>
             </form>
-        </section>
+        </Section>
     );
 }
