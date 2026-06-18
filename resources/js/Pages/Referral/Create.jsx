@@ -126,6 +126,12 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         });
     }, [selectedServiceRequirements]);
 
+    useEffect(() => {
+        if (case_id) {
+            setCreateStep(2);
+        }
+    }, []);
+
     const isStepOneValid = Boolean(selectedCase);
     const isStepTwoValid = Boolean(data.agcy_id);
     const isStepThreeValid = Boolean(
@@ -443,9 +449,31 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                         </div>
 
                                         {selectedCase && (
-                                            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-5 shadow-sm">
-                                                <p className="text-[12px] text-indigo-700">
-                                                    Referring case: <span className="font-bold">{selectedCase.client?.first_name} {selectedCase.client?.last_name}</span> ({selectedCase.case_number})
+                                            <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4 shadow-sm">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <span className="text-[13px] font-bold text-indigo-700">{selectedCase.case_number}</span>
+                                                    <div className="flex shrink-0 gap-1.5">
+                                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                                            selectedCase.client_type === 'OFW'
+                                                                ? 'bg-blue-100 text-blue-700'
+                                                                : 'bg-amber-100 text-amber-700'
+                                                        }`}>
+                                                            {selectedCase.client_type === 'OFW' ? 'OFW' : 'NOK'}
+                                                        </span>
+                                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                                            selectedCase.status === 'open' ? 'bg-green-100 text-green-700' :
+                                                            selectedCase.status === 'ongoing' ? 'bg-yellow-100 text-yellow-700' :
+                                                            'bg-slate-100 text-slate-700'
+                                                        }`}>
+                                                            {selectedCase.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <p className="mt-2 text-[13px] font-semibold text-slate-800">
+                                                    {selectedCase.client?.first_name || ''} {selectedCase.client?.last_name || ''}
+                                                </p>
+                                                <p className="mt-2 text-[11px] text-slate-500">
+                                                    This case is pre-selected. You can go back to change it.
                                                 </p>
                                             </div>
                                         )}
