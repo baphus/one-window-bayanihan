@@ -181,7 +181,8 @@ class CaseController extends Controller
 
         return redirect()
             ->route('cases.show', $case)
-            ->with('success', 'Draft published successfully.');
+            ->with('success', 'Draft published successfully.')
+            ->with('just_published', true);
     }
 
     public function archive(Request $request, string $id)
