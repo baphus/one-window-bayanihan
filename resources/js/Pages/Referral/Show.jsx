@@ -543,6 +543,57 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         )}
                     </CardSection>
 
+                    {referral.compliance_requirements?.length > 0 && (
+                        <CardSection title="For Compliance" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                            <div className="space-y-3">
+                                {referral.compliance_requirements.map((cr) => (
+                                    <div key={cr.id} className="rounded-[3px] border border-slate-200 bg-white px-4 py-3">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] text-slate-500">{cr.service_name}</p>
+                                                <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{cr.requirement_name}</p>
+                                            </div>
+                                            <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-[2px] ${
+                                                cr.status === 'COMPLIED'
+                                                    ? 'border border-green-200 bg-green-50 text-green-700'
+                                                    : 'border border-orange-200 bg-orange-50 text-orange-700'
+                                            }`}>
+                                                {cr.status}
+                                            </span>
+                                        </div>
+
+                                        {cr.status === 'PENDING' ? (
+                                            <div className="mt-3">
+                                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-[3px] bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors">
+                                                    <span>Upload to Fulfill</span>
+                                                    <input
+                                                        type="file"
+                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            e.target.value = '';
+                                                            router.post(
+                                                                route('referrals.compliance.fulfill', [referral.id, cr.id]),
+                                                                { file },
+                                                                { preserveScroll: true }
+                                                            );
+                                                        }}
+                                                    />
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <div className="mt-2 text-[11px] text-slate-500">
+                                                Fulfilled {cr.completed_at ? new Date(cr.completed_at).toLocaleDateString() : ''}
+                                                {cr.fulfilled_by_name ? ` by ${cr.fulfilled_by_name}` : ''}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </CardSection>
+                    )}
 
                 </main>
 
