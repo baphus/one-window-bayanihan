@@ -55,6 +55,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const client = caseFile.client;
   const toast = useToast();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [showReferralPrompt, setShowReferralPrompt] = useState(!!usePage().props.just_published);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
@@ -329,6 +330,32 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
         <span className="mx-2">&gt;</span>
         <span>{caseFile.case_number}</span>
       </div>
+
+      {showReferralPrompt && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-[3px] border border-indigo-200 bg-indigo-50 px-3 py-2.5">
+          <span className="material-symbols-outlined text-[16px] text-indigo-600 shrink-0 mt-px">check_circle</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-bold text-indigo-900">Case Published Successfully</p>
+            <p className="text-[11px] leading-5 text-indigo-700">Would you like to refer this case to an agency?</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => router.visit(route('referrals.create', { case_id: caseFile.id }))}
+              className="px-3 min-h-[30px] inline-flex items-center bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]"
+            >
+              Refer to Agency
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowReferralPrompt(false)}
+              className="px-3 min-h-[30px] inline-flex items-center bg-white text-slate-600 hover:bg-slate-50 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+            >
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
