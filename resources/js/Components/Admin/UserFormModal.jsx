@@ -6,15 +6,17 @@ const roleOptions = [
   { value: 'ADMIN', label: 'System Admin' },
 ];
 
-export default function UserFormModal({ user, agencies, onClose, onBypass }) {
+export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId }) {
   const isEdit = !!user;
+  const isNewUserViaSelectedAgency = !!selectedAgencyId && !user?.id;
+
   const { data, setData, post, patch, processing, errors } = useForm({
     name: user?.name ?? '',
     email: user?.email ?? '',
     password: '',
     password_confirmation: '',
-    role: user?.role ?? 'CASE_MANAGER',
-    agcy_id: user?.agcy_id ?? '',
+    role: user?.role ?? (isNewUserViaSelectedAgency ? 'AGENCY' : 'CASE_MANAGER'),
+    agcy_id: user?.agcy_id ?? (isNewUserViaSelectedAgency ? selectedAgencyId : ''),
     contact_number: user?.contact_number ?? '',
     is_active: user?.is_active ?? true,
   });
@@ -60,7 +62,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass }) {
               ))}
             </select>
           </div>
-          {data.role === 'AGENCY' && (
+          {!isNewUserViaSelectedAgency && data.role === 'AGENCY' && (
             <div>
               <label className="block text-sm font-medium text-slate-700">Agency</label>
               <select value={data.agcy_id} onChange={(e) => setData('agcy_id', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Service;
 use App\Models\Agency;
-use Inertia\Inertia;
+use App\Models\Service;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class AdminServiceController extends Controller
 {
@@ -30,9 +30,18 @@ class AdminServiceController extends Controller
             'description' => 'nullable|string',
             'agcy_id' => 'required|exists:agencies,id',
             'processing_days' => 'nullable|integer|min:0|max:365',
+            'requirements' => 'nullable|array',
+            'requirements.*.id' => 'nullable|string',
+            'requirements.*.name' => 'required|string|max:255',
+            'requirements.*.description' => 'nullable|string',
+            'requirements.*.is_required' => 'boolean',
         ]);
 
-        Service::create($validated);
+        $service = Service::create($validated);
+
+        if ($request->has('requirements')) {
+            $this->syncRequirements($service, $validated['requirements'] ?? []);
+        }
 
         return redirect()->route('admin.services.index')
             ->with('success', 'Service created successfully.');
@@ -47,9 +56,30 @@ class AdminServiceController extends Controller
             'description' => 'nullable|string',
             'agcy_id' => 'required|exists:agencies,id',
             'processing_days' => 'nullable|integer|min:0|max:365',
+            'requirements' => 'nullable|array',
+            'requirements.*.id' => 'nullable|string',
+            'requirements.*.name' => 'required|string|max:255',
+            'requirements.*.description' => 'nullable|string',
+            'requirements.*.is_required' => 'boolean',
         ]);
 
+        // Validate that any provided requirement IDs belong to this service
+        if ($request->has('requirements')) {
+            $providedIds = collect($request->input('requirements'))->pluck('id')->filter();
+            if ($providedIds->isNotEmpty()) {
+                $existingIds = $service->requirements()->whereIn('id', $providedIds)->pluck('id');
+                $invalidIds = $providedIds->diff($existingIds);
+                if ($invalidIds->isNotEmpty()) {
+                    return redirect()->back()->withErrors(['requirements' => 'Invalid requirement IDs detected.']);
+                }
+            }
+        }
+
         $service->update($validated);
+
+        if ($request->has('requirements')) {
+            $this->syncRequirements($service, $validated['requirements'] ?? []);
+        }
 
         return redirect()->route('admin.services.index')
             ->with('success', 'Service updated successfully.');
@@ -62,5 +92,26 @@ class AdminServiceController extends Controller
 
         return redirect()->route('admin.services.index')
             ->with('success', 'Service deleted successfully.');
+    }
+
+    private function syncRequirements(Service $service, array $requirements): void
+    {
+        $keepIds = collect($requirements)->pluck('id')->filter()->values();
+        $service->requirements()->whereNotIn('id', $keepIds)->delete();
+        foreach ($requirements as $req) {
+            if (! empty($req['id'])) {
+                $service->requirements()->where('id', $req['id'])->update([
+                    'name' => $req['name'],
+                    'description' => $req['description'] ?? '',
+                    'is_required' => $req['is_required'] ?? false,
+                ]);
+            } else {
+                $service->requirements()->create([
+                    'name' => $req['name'],
+                    'description' => $req['description'] ?? '',
+                    'is_required' => $req['is_required'] ?? false,
+                ]);
+            }
+        }
     }
 }

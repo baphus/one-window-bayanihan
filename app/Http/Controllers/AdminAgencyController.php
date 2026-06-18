@@ -3,20 +3,50 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agency;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class AdminAgencyController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $agencies = Agency::withCount('referrals')
-            ->orderBy('name')
-            ->paginate(15);
+        $filters = $request->only(['search', 'status', 'is_default']);
+
+        $query = Agency::withCount('referrals');
+
+        if ($search = $request->search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                    ->orWhere('short', 'ilike', "%{$search}%")
+                    ->orWhere('description', 'ilike', "%{$search}%")
+                    ->orWhere('contact_info', 'ilike', "%{$search}%")
+                    ->orWhere('location_query', 'ilike', "%{$search}%");
+            });
+        }
+
+        if ($request->has('status')) {
+            $query->where('is_active', $request->boolean('status'));
+        }
+
+        if ($request->has('is_default')) {
+            $query->where('is_default', $request->boolean('is_default'));
+        }
+
+        $perPage = min((int) ($request->per_page ?? 15), 100);
+        $agencies = $query->orderBy('name')->paginate($perPage);
 
         return Inertia::render('Admin/Agency/Index', [
             'agencies' => $agencies,
+            'filters' => $filters,
+            'stats' => [
+                'total' => Agency::count(),
+                'active' => Agency::where('is_active', true)->count(),
+                'inactive' => Agency::where('is_active', false)->count(),
+                'default' => Agency::where('is_default', true)->count(),
+                'total_users' => User::count(),
+            ],
         ]);
     }
 
@@ -70,7 +100,7 @@ class AdminAgencyController extends Controller
             'short' => 'required|string|max:50',
             'description' => 'nullable|string',
             'contact_info' => 'nullable|string',
-            'logo_url' => 'nullable|image|max:2048',
+            'logo_url' => 'nullable',
             'location_query' => 'nullable|string',
             'is_active' => 'boolean',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -109,6 +139,7 @@ class AdminAgencyController extends Controller
         $agency = Agency::withCount('referrals')->findOrFail($id);
         $agency->load([
             'services',
+            'services.requirements',
             'users',
             'referrals' => fn ($q) => $q->with(['caseFile.client'])->latest(),
         ]);

@@ -60,18 +60,8 @@ export default function AdminAgencyShow({ agency }) {
     bypassNext();
     setSaving(true);
 
-    let data;
-    if (logoFile) {
-      data = new FormData();
-      Object.entries(editData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          data.append(key, value);
-        }
-      });
-      data.append('logo', logoFile);
-    } else {
-      data = { ...editData };
-    }
+    // Inertia auto-detects File objects in the data and converts to FormData
+    const data = logoFile ? { ...editData, logo_url: logoFile } : { ...editData };
 
     router.patch(route('admin.agencies.update', agency.id), data, {
       preserveScroll: true,
@@ -92,8 +82,8 @@ export default function AdminAgencyShow({ agency }) {
     setEditData((prev) => ({ ...prev, [field]: value }));
   }
 
-  const inputClass = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm';
-  const errorClass = 'mt-1 text-sm text-red-600';
+  const inputClass = 'w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]';
+  const errorClass = 'mt-1.5 text-xs text-red-600 font-medium';
 
   // ── Service / User modal handlers ──
 
@@ -116,7 +106,7 @@ export default function AdminAgencyShow({ agency }) {
   // ── Helpers ──
 
   function formatDate(dateStr) {
-    if (!dateStr) return '—';
+    if (!dateStr) return '\u2014';
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   }
@@ -126,35 +116,36 @@ export default function AdminAgencyShow({ agency }) {
   return (
     <AppLayout title={agency.name}>
       {showForm && editingService && (
-        <ServiceFormModal service={editingService} allAgencies={[agency]} onClose={closeForm} onBypass={bypassNext} />
+        <ServiceFormModal service={editingService} allAgencies={[agency]} onClose={closeForm} onBypass={bypassNext} selectedAgencyId={!editingService?.id ? agency.id : undefined} />
       )}
       {showForm && editingUser && (
-        <UserFormModal user={editingUser} agencies={[agency]} onClose={closeForm} onBypass={bypassNext} />
+        <UserFormModal user={editingUser} agencies={[agency]} onClose={closeForm} onBypass={bypassNext} selectedAgencyId={!editingUser?.id ? agency.id : undefined} />
       )}
       <Head title={agency.name} />
 
       {/* ── Header ── */}
-      <div className="mb-8 flex items-start justify-between">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           {isAdmin && (
-            <Link href={route('admin.agencies.index')} className="text-sm text-[#0b5384] hover:underline mb-2 inline-block">&larr; Back to Agencies</Link>
+            <Link href={route('admin.agencies.index')} className="text-sm text-[#0b5384] hover:underline mb-1 inline-block">&larr; Back to Agencies</Link>
           )}
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">{agency.name}</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">{agency.name}</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Agency details, services, and focal persons.</p>
         </div>
         {isAdmin && !isEditing && (
-          <button onClick={startEditing} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] shrink-0">
+          <button onClick={startEditing} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] shrink-0 transition-colors">
             Edit Agency
           </button>
         )}
-      </div>
+      </header>
 
       {/* ── Agency Editor / Info Cards ── */}
       <form onSubmit={handleSave}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
 
           {/* Name */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Name</p>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Name</p>
             {isEditing ? (
               <>
                 <input type="text" value={editData.name} onChange={(e) => setField('name', e.target.value)} className={inputClass} />
@@ -166,8 +157,8 @@ export default function AdminAgencyShow({ agency }) {
           </div>
 
           {/* Short Name */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Short Name</p>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Short Name</p>
             {isEditing ? (
               <>
                 <input type="text" value={editData.short} onChange={(e) => setField('short', e.target.value)} className={inputClass} />
@@ -178,41 +169,60 @@ export default function AdminAgencyShow({ agency }) {
             )}
           </div>
 
-          {/* Slug (read-only) */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Slug</p>
-            <p className="text-sm font-semibold text-slate-900">{agency.slug}</p>
+          {/* Total Referrals */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Total Referrals</p>
+            <p className="text-2xl font-black text-slate-900">{agency.referrals_count ?? 0}</p>
           </div>
 
           {/* Description */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 md:col-span-2">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Description</p>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 col-span-full">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Description</p>
             {isEditing ? (
               <>
                 <textarea rows={3} value={editData.description} onChange={(e) => setField('description', e.target.value)} className={inputClass} />
                 {editErrors.description && <p className={errorClass}>{editErrors.description}</p>}
               </>
             ) : (
-              <p className="text-sm text-slate-900">{agency.description || '—'}</p>
+              <p className="text-sm text-slate-900">{agency.description || '\u2014'}</p>
             )}
           </div>
 
           {/* Contact Info */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Contact Info</p>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Contact Info</p>
             {isEditing ? (
               <>
                 <textarea rows={2} value={editData.contact_info} onChange={(e) => setField('contact_info', e.target.value)} className={inputClass} />
                 {editErrors.contact_info && <p className={errorClass}>{editErrors.contact_info}</p>}
               </>
             ) : (
-              <p className="text-sm text-slate-900 whitespace-pre-wrap">{agency.contact_info || '—'}</p>
+              <p className="text-sm text-slate-900 whitespace-pre-wrap">{agency.contact_info || '\u2014'}</p>
+            )}
+          </div>
+
+          {/* Status */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Status</p>
+            {isEditing ? (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={editData.is_active}
+                  onChange={(e) => setField('is_active', e.target.checked)}
+                  className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] h-4 w-4"
+                />
+                <label htmlFor="is_active" className="text-[13px] text-slate-700 select-none font-medium">Active</label>
+              </div>
+            ) : (
+              <StatusBadge status={agency.is_active ? 'ACTIVE' : 'INACTIVE'} />
             )}
           </div>
 
           {/* Logo */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Logo</p>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Logo</p>
             {isEditing ? (
               <>
                 <LogoUpload currentLogoUrl={editData.logo_url} onChange={setLogoFile} />
@@ -222,61 +232,61 @@ export default function AdminAgencyShow({ agency }) {
               agency.logo_url ? (
                 <img src={agency.logo_url} alt={`${agency.name} logo`} className="max-h-16 rounded shadow" />
               ) : (
-                <p className="text-sm text-slate-900">—</p>
+                <p className="text-sm text-slate-900">{'\u2014'}</p>
               )
             )}
           </div>
 
-          {/* Location Query */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 md:col-span-2">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Location Query</p>
+          {/* Location / Map — MapPicker has built-in search */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 col-span-full">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Location</p>
             {isEditing ? (
               <>
-                <input type="text" value={editData.location_query} onChange={(e) => setField('location_query', e.target.value)} className={inputClass} />
-                {editErrors.location_query && <p className={errorClass}>{editErrors.location_query}</p>}
-                <div className="mt-3">
-                  <MapPicker
-                    latitude={editData.latitude}
-                    longitude={editData.longitude}
-                    onChange={({ latitude, longitude }) => {
-                      setField('latitude', latitude);
-                      setField('longitude', longitude);
-                    }}
-                  />
-                </div>
+                <MapPicker
+                  latitude={editData.latitude}
+                  longitude={editData.longitude}
+                  onChange={({ latitude, longitude, location_query }) => {
+                    setField('latitude', latitude);
+                    setField('longitude', longitude);
+                    if (location_query) setField('location_query', location_query);
+                  }}
+                />
+                {editErrors.latitude && <p className={errorClass}>{editErrors.latitude}</p>}
+                {editErrors.longitude && <p className={errorClass}>{editErrors.longitude}</p>}
               </>
             ) : (
-              <p className="text-sm text-slate-900">{agency.location_query || '—'}</p>
-            )}
-          </div>
-
-          {/* Status */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Status</p>
-            {isEditing ? (
-              <div className="flex items-center gap-2 mt-2">
-                <input type="checkbox" id="is_active" checked={editData.is_active} onChange={(e) => setField('is_active', e.target.checked)} className="rounded border-slate-300 h-4 w-4" />
-                <label htmlFor="is_active" className="text-sm text-slate-700 select-none">Active</label>
+              <div>
+                {agency.location_query ? (
+                  <p className="text-sm text-slate-900 mb-2">{agency.location_query}</p>
+                ) : (
+                  <p className="text-sm text-slate-500 mb-2">No location set</p>
+                )}
+                {agency.latitude != null && agency.longitude != null && (
+                  <p className="text-xs text-slate-400">
+                    {Number(agency.latitude).toFixed(6)}, {Number(agency.longitude).toFixed(6)}
+                  </p>
+                )}
               </div>
-            ) : (
-              <StatusBadge status={agency.is_active ? 'ACTIVE' : 'INACTIVE'} />
             )}
-          </div>
-
-          {/* Referrals (read-only) */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Total Referrals</p>
-            <p className="text-sm font-semibold text-slate-900">{agency.referrals_count ?? 0}</p>
           </div>
         </div>
 
         {/* ── Save / Cancel buttons (edit mode only) ── */}
         {isEditing && (
-          <div className="flex items-center gap-3 mb-8 pb-6 border-b border-slate-200">
-            <button type="submit" disabled={saving} className="px-6 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] disabled:opacity-50">
+          <div className="flex items-center gap-3 mb-8">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] disabled:opacity-50 transition-colors"
+            >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
-            <button type="button" onClick={cancelEditing} disabled={saving} className="px-6 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50">
+            <button
+              type="button"
+              onClick={cancelEditing}
+              disabled={saving}
+              className="px-6 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-[3px] hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
               Cancel
             </button>
           </div>
@@ -308,7 +318,7 @@ export default function AdminAgencyShow({ agency }) {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Referrals assigned to this agency.</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -328,9 +338,9 @@ export default function AdminAgencyShow({ agency }) {
                 ) : (
                   agency.referrals.map((ref) => (
                     <tr key={ref.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{ref.caseFile?.case_number || '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{ref.caseFile?.client ? `${ref.caseFile.client.first_name} ${ref.caseFile.client.last_name}` : '—'}</td>
-                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{ref.required_services || '—'}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">{ref.caseFile?.case_number || '\u2014'}</td>
+                      <td className="px-4 py-3 text-slate-600">{ref.caseFile?.client ? `${ref.caseFile.client.first_name} ${ref.caseFile.client.last_name}` : '\u2014'}</td>
+                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{ref.required_services || '\u2014'}</td>
                       <td className="px-4 py-3">
                         <StatusBadge status={ref.status} />
                       </td>
@@ -355,12 +365,12 @@ export default function AdminAgencyShow({ agency }) {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Services offered by this agency.</p>
             {isAdmin && (
-              <button onClick={openAddService} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
+              <button onClick={openAddService} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] transition-colors">
                 + Add Service
               </button>
             )}
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -379,8 +389,8 @@ export default function AdminAgencyShow({ agency }) {
                   agency.services.map((service) => (
                     <tr key={service.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-900">{service.name}</td>
-                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{service.description || '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{service.processing_days ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{service.description || '\u2014'}</td>
+                      <td className="px-4 py-3 text-slate-600">{service.processing_days ?? '\u2014'}</td>
                       {isAdmin && (
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
@@ -404,12 +414,12 @@ export default function AdminAgencyShow({ agency }) {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Agency focal persons for this agency.</p>
             {isAdmin && (
-              <button onClick={openAddUser} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
+              <button onClick={openAddUser} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] transition-colors">
                 + Add Focal Person
               </button>
             )}
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -430,7 +440,7 @@ export default function AdminAgencyShow({ agency }) {
                     <tr key={user.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-900">{user.name}</td>
                       <td className="px-4 py-3 text-slate-600">{user.email}</td>
-                      <td className="px-4 py-3 text-slate-600">{user.contact_number || '—'}</td>
+                      <td className="px-4 py-3 text-slate-600">{user.contact_number || '\u2014'}</td>
                       <td className="px-4 py-3">
                         <StatusBadge status={user.is_active ? 'ACTIVE' : 'INACTIVE'} />
                       </td>
