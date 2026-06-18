@@ -74,6 +74,11 @@ class Referral extends Model
         return $this->hasMany(ReferralAttachment::class, 'referral_id');
     }
 
+    public function complianceRequirements()
+    {
+        return $this->hasMany(ReferralComplianceRequirement::class, 'referral_id');
+    }
+
     public function comments()
     {
         return $this->hasMany(ReferralComment::class, 'refr_id');
