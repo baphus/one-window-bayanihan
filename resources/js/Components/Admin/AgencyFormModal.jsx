@@ -57,16 +57,14 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             onChange={(file) => setData('logo_url', file)}
           />
           <div>
-            <label className="block text-sm font-medium text-slate-700">Location Query</label>
-            <input type="text" value={data.location_query} onChange={(e) => setData('location_query', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-          </div>
-          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
             <MapPicker
               latitude={data.latitude}
               longitude={data.longitude}
-              onChange={({ latitude, longitude }) => {
+              onChange={({ latitude, longitude, location_query }) => {
                 setData('latitude', latitude);
                 setData('longitude', longitude);
+                if (location_query) setData('location_query', location_query);
               }}
             />
           </div>
