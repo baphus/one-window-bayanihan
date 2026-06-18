@@ -8,6 +8,7 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
+use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
@@ -36,6 +37,19 @@ class ReferralService
                 'case_id' => $data['case_id'],
                 'agcy_id' => $data['agcy_id'],
             ]);
+
+            if (! empty($data['compliance_requirements'])) {
+                foreach ($data['compliance_requirements'] as $req) {
+                    ReferralComplianceRequirement::create([
+                        'referral_id' => $referral->id,
+                        'service_name' => $req['service_name'],
+                        'requirement_name' => $req['requirement_name'],
+                        'status' => 'PENDING',
+                    ]);
+                }
+                $referral->update(['status' => 'FOR_COMPLIANCE']);
+                $referral->refresh();
+            }
 
             AuditLog::create([
                 'action' => 'CREATE',
@@ -126,6 +140,7 @@ class ReferralService
             'attachments.user',
             'comments.user',
             'comments.replies.user',
+            'complianceRequirements',
         ])->findOrFail($id);
     }
 
@@ -339,6 +354,35 @@ class ReferralService
         ]);
 
         return $attachment->load('user');
+    }
+
+    public function fulfillCompliance(string $complianceId, array $fileData, string $userId): ReferralAttachment
+    {
+        return DB::transaction(function () use ($complianceId, $fileData, $userId) {
+            $requirement = ReferralComplianceRequirement::findOrFail($complianceId);
+
+            if ($requirement->status !== 'PENDING') {
+                throw new \InvalidArgumentException('Compliance requirement is not pending.');
+            }
+
+            $attachment = $this->addAttachment($requirement->referral_id, $fileData, $userId);
+
+            $requirement->update([
+                'status' => 'COMPLIED',
+                'fulfilled_by' => $userId,
+                'completed_at' => now(),
+            ]);
+
+            AuditLog::create([
+                'action' => 'CREATE',
+                'module' => 'REFERRAL_COMPLIANCE',
+                'entity_id' => $requirement->id,
+                'new_value' => $requirement->fresh()->toArray(),
+                'user_id' => $userId,
+            ]);
+
+            return $attachment;
+        });
     }
 
     public function replaceAttachment(string $attachmentId, array $fileData, string $userId): ReferralAttachment

@@ -202,6 +202,32 @@ class ReferralController extends Controller
             ->with('success', 'Attachment added.');
     }
 
+    public function fulfillCompliance(Request $request, string $id, string $complianceId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp', 'max:10240'],
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->store('referrals', 'public');
+
+        $this->referralService->fulfillCompliance(
+            $complianceId,
+            [
+                'name' => $file->getClientOriginalName(),
+                'path' => $path,
+                'type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+            ],
+            $request->user()->id,
+        );
+
+        return redirect()->back()->with('success', 'Compliance requirement fulfilled.');
+    }
+
     public function replaceAttachment(Request $request, string $id, string $attachmentId)
     {
         $referral = $this->referralService->getReferral($id);
