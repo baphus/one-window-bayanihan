@@ -56,7 +56,7 @@ export default function FeedbackIndex({ feedbacks }) {
                     {fb.servqual_responses.map((sr) => (
                       <div key={sr.id} className="text-xs">
                         <span className="text-slate-500">{sr.dimension}:</span>{' '}
-                        <span className="font-medium text-slate-900">{sr.rating}/5</span>
+                        <span className="font-medium text-slate-900">{sr.perception}/5</span>
                       </div>
                     ))}
                   </div>

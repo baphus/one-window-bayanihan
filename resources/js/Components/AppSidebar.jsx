@@ -41,6 +41,7 @@ const navByRole = {
     ]},
     { label: 'Feedback', items: [
       { name: 'Feedbacks', href: '/feedbacks', icon: 'feedback' },
+      { name: 'SERVQUAL Config', href: '/servqual-configs', icon: 'tune' },
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
@@ -61,6 +62,7 @@ const navByRole = {
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
       { name: 'Insights', href: '/insights', icon: 'analytics' },
+      { name: 'Feedbacks', href: '/feedbacks', icon: 'feedback' },
     ]},
     { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },

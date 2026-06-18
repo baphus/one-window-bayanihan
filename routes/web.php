@@ -22,6 +22,7 @@ use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
+use App\Http\Controllers\AgencyServqualConfigController;
 use App\Http\Controllers\AnonymizedAnalyticsController;
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ClientSelectController;
@@ -149,6 +150,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
+    Route::get('/feedbacks/servqual-config', [FeedbackController::class, 'servqualConfig'])->name('feedbacks.servqual-config');
+    Route::get('/feedbacks/submit-page', [FeedbackController::class, 'submitPage'])->name('feedbacks.submit-page');
+    Route::get('/feedbacks/export-excel', [FeedbackController::class, 'exportExcel'])->name('feedbacks.export-excel');
+    Route::get('/feedbacks/{feedback}', [FeedbackController::class, 'show'])->name('feedbacks.show');
+    Route::post('/feedbacks/submit', [FeedbackController::class, 'submit'])->name('feedbacks.submit');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
@@ -163,6 +169,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/services', [AgencyServiceController::class, 'store'])->name('agency.services.store');
         Route::patch('/services/{service}', [AgencyServiceController::class, 'update'])->name('agency.services.update');
         Route::delete('/services/{service}', [AgencyServiceController::class, 'destroy'])->name('agency.services.destroy');
+    });
+
+    Route::middleware('role:AGENCY')->prefix('servqual-configs')->name('servqual-configs.')->group(function () {
+        Route::get('/', [AgencyServqualConfigController::class, 'index'])->name('index');
+        Route::get('/create', [AgencyServqualConfigController::class, 'create'])->name('create');
+        Route::post('/', [AgencyServqualConfigController::class, 'store'])->name('store');
+        Route::get('/{config}/edit', [AgencyServqualConfigController::class, 'edit'])->name('edit');
+        Route::patch('/{config}', [AgencyServqualConfigController::class, 'update'])->name('update');
+        Route::delete('/{config}', [AgencyServqualConfigController::class, 'destroy'])->name('destroy');
     });
 
     // Agency detail — accessible by ADMIN and CASE_MANAGER (read-only for non-ADMIN)

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TrackingNotFoundState from '@/Components/TrackingNotFoundState';
@@ -284,6 +284,48 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
             </article>
           )}
         </section>
+
+        {/* Feedback CTA — COMPLETED referrals with a feedback_request notification */}
+        {(() => {
+          const isCompleted = trackingAgencies.some(a => a.status === 'COMPLETED');
+          const feedbackNtfn = caseNotifications?.items?.find(n => n.type === 'feedback_request');
+          if (!isCompleted || !feedbackNtfn) return null;
+
+          const d = feedbackNtfn.data || {};
+          const params = new URLSearchParams({
+            tracking_token: d.tracking_token || '',
+            case_id: trackedCase?.id || '',
+            agency_id: d.agency_id || '',
+            referral_id: d.referral_id || '',
+            service_name: d.service_name || '',
+          }).toString();
+
+          return (
+            <section>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-3">Feedback</h2>
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 sm:p-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
+                    <span className="material-symbols-outlined text-indigo-600 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>feedback</span>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-indigo-900">Your feedback matters</h3>
+                    <p className="text-sm text-indigo-700 mt-1 leading-relaxed">
+                      Help us improve our services by sharing your experience.
+                    </p>
+                    <Link
+                      href={`/feedbacks/submit-page?${params}`}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                    >
+                      Give Feedback
+                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })()}
 
       </main>
 

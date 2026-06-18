@@ -287,6 +287,68 @@ class DataExportQueries
     }
 
     /**
+     * Get feedback with SERVQUAL dimension averages for export.
+     * ADMIN: all. CASE_MANAGER/AGENCY: scoped.
+     * Uses the feedback_servqual_responses table for dimension calculations.
+     *
+     * @param  array  $filters  Optional filters: agency_id, date_from, date_to
+     */
+    public function getFeedbackWithServqual(?User $user = null, array $filters = []): Collection
+    {
+        // Base query joins feedback with referrals, cases, clients, agencies
+        $query = DB::table('feedback')
+            ->select([
+                'feedback.id',
+                'feedback.case_id',
+                'feedback.referral_id',
+                DB::raw("CONCAT(clients.first_name, ' ', clients.last_name) AS client_name"),
+                'agencies.name AS agency_name',
+                'referrals.status AS referral_status',
+                'feedback.service_name',
+                'feedback.overall_rating',
+                'feedback.comments',
+                'feedback.created_at',
+                // SERVQUAL dimension averages (subquery approach)
+                DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Tangibles\') AS tangibles_avg'),
+                DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Reliability\') AS reliability_avg'),
+                DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Responsiveness\') AS responsiveness_avg'),
+                DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Assurance\') AS assurance_avg'),
+                DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Empathy\') AS empathy_avg'),
+            ])
+            ->leftJoin('referrals', 'feedback.referral_id', '=', 'referrals.id')
+            ->leftJoin('cases', 'feedback.case_id', '=', 'cases.id')
+            ->leftJoin('clients', 'cases.client_id', '=', 'clients.id')
+            ->leftJoin('agencies', 'feedback.agency_id', '=', 'agencies.id');
+
+        // Role-based scoping
+        if (! $this->isAdmin($user)) {
+            if ($user && $user->role === 'AGENCY' && $user->agcy_id) {
+                $query->where('feedback.agency_id', $user->agcy_id);
+            } else {
+                $query->whereIn('feedback.case_id', function ($q) use ($user) {
+                    $q->select('id')
+                        ->from('cases')
+                        ->where('user_id', $user->id)
+                        ->where('is_deleted', false);
+                });
+            }
+        }
+
+        // Apply optional filters
+        if (! empty($filters['agency_id'])) {
+            $query->where('feedback.agency_id', $filters['agency_id']);
+        }
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('feedback.created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('feedback.created_at', '<=', $filters['date_to']);
+        }
+
+        return $query->orderBy('feedback.created_at', 'desc')->get();
+    }
+
+    /**
      * Get case documents. ADMIN: all. CASE_MANAGER: via case_id → cases → user_id.
      */
     public function getCaseDocuments(?User $user = null): Collection

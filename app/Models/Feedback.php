@@ -13,6 +13,7 @@ class Feedback extends Model
     protected $fillable = [
         'case_id',
         'agency_id',
+        'referral_id',
         'service_name',
         'overall_rating',
         'comments',
@@ -26,6 +27,11 @@ class Feedback extends Model
     public function agency()
     {
         return $this->belongsTo(Agency::class, 'agency_id');
+    }
+
+    public function referral()
+    {
+        return $this->belongsTo(Referral::class);
     }
 
     public function servqualResponses()

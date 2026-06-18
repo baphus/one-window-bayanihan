@@ -23,5 +23,9 @@ class DatabaseSeeder extends Seeder
             DemoDataSeeder::class,
             SystemSettingSeeder::class,
         ]);
+
+        if (app()->environment('local', 'testing')) {
+            $this->call(DefaultServqualQuestionsSeeder::class);
+        }
     }
 }

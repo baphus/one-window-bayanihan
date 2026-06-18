@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\ReferralCompleted;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\Milestone;
@@ -208,6 +209,11 @@ class ReferralService
                         route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
                     );
                 }
+            }
+
+            // Dispatch ReferralCompleted event for feedback request
+            if ($status === 'COMPLETED' && $oldStatus !== 'COMPLETED') {
+                event(new ReferralCompleted($referral->fresh()));
             }
 
             return $referral->fresh(['agency', 'caseFile', 'milestones']);
