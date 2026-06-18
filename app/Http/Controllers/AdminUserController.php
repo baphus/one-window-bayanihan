@@ -12,18 +12,68 @@ use Inertia\Inertia;
 
 class AdminUserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::with('agency')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $filters = $request->only(['search', 'role', 'status', 'agcy_id']);
 
-        $agencies = Agency::where('is_active', true)->orderBy('name')->get();
+        $query = User::with('agency');
+
+        if ($search = $request->search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%")
+                    ->orWhere('position', 'ilike', "%{$search}%")
+                    ->orWhere('department', 'ilike', "%{$search}%")
+                    ->orWhere('contact_number', 'ilike', "%{$search}%");
+            });
+        }
+
+        if ($role = $request->role) {
+            $query->where('role', $role);
+        }
+
+        if ($request->has('status')) {
+            $query->where('is_active', $request->boolean('status'));
+        }
+
+        if ($agcyId = $request->agcy_id) {
+            $query->where('agcy_id', $agcyId);
+        }
+
+        if ($mfaStatus = $request->mfa_status) {
+            if ($mfaStatus === 'enabled') {
+                $query->whereNotNull('mfa_enabled_at');
+            } elseif ($mfaStatus === 'disabled') {
+                $query->whereNull('mfa_enabled_at');
+            }
+        }
+
+        $perPage = min((int) ($request->per_page ?? 15), 100);
+        $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        $agencies = Agency::where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'logo_url', 'short']);
 
         return Inertia::render('Admin/User/Index', [
             'users' => $users,
+            'filters' => $filters,
             'agencies' => $agencies,
+            'stats' => [
+                'total' => User::count(),
+                'active' => User::where('is_active', true)->count(),
+                'case_managers' => User::where('role', 'CASE_MANAGER')->count(),
+                'agency_focals' => User::where('role', 'AGENCY')->count(),
+                'admins' => User::where('role', 'ADMIN')->count(),
+            ],
         ]);
+    }
+
+    public function show(string $id)
+    {
+        $user = User::with('agency')->findOrFail($id);
+
+        return Inertia::render('Admin/User/Show', ['user' => $user]);
     }
 
     public function store(Request $request)

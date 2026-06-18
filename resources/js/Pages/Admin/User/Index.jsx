@@ -1,18 +1,113 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, router } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import StatusBadge from '@/Components/ui/StatusBadge';
+import UserAvatar from '@/Components/ui/UserAvatar';
+import { Users, UserCheck, Briefcase, Building2, Shield } from 'lucide-react';
+import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
-import StatusBadge from '@/Components/ui/StatusBadge';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 
-export default function AdminUserIndex({ users, agencies }) {
+const roleBadgeStyles = {
+  ADMIN: 'bg-purple-100 text-purple-800 border-purple-300',
+  CASE_MANAGER: 'bg-blue-100 text-blue-800 border-blue-300',
+  AGENCY: 'bg-amber-100 text-amber-800 border-amber-300',
+};
+
+const roleLabels = {
+  CASE_MANAGER: 'Case Manager',
+  AGENCY: 'Agency Focal',
+  ADMIN: 'System Admin',
+};
+
+const COLUMN_DEFS = [
+  { key: 'name', label: 'Name', default: true },
+  { key: 'email', label: 'Email', default: true },
+  { key: 'role', label: 'Role', default: true },
+  { key: 'agency', label: 'Agency', default: true },
+  { key: 'position', label: 'Position', default: false },
+  { key: 'department', label: 'Department', default: false },
+  { key: 'contact_number', label: 'Contact', default: false },
+  { key: 'mfa_status', label: 'MFA', default: false },
+  { key: 'status', label: 'Status', default: true },
+  { key: 'created_at', label: 'Date Created', default: false },
+  { key: 'actions', label: 'Actions', default: true },
+];
+
+export default function AdminUserIndex({ users, filters, stats, agencies = [] }) {
+  const { auth } = usePage().props;
+  const isAdmin = auth.user.role === 'ADMIN';
+
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
-  const roleLabels = { CASE_MANAGER: 'Case Manager', AGENCY: 'Agency Focal', ADMIN: 'System Admin' };
+  const [searchValue, setSearchValue] = useState(filters?.search ?? '');
+  const [viewMode, setViewMode] = useState('list');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+
+  const searchTimeout = useRef(null);
+
+  const [visibleColumns, setVisibleColumns] = useState(
+    COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
+  );
+
+  const [roleFilter, setRoleFilter] = useState(filters?.role ?? '');
+  const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
+  const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
+  const [mfaFilter, setMfaFilter] = useState(filters?.mfa_status ?? '');
+
+  useEffect(() => {
+    return () => clearTimeout(searchTimeout.current);
+  }, []);
+
+  const navigateWith = (params) => {
+    const url = new URL(window.location);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v) url.searchParams.set(k, v);
+      else url.searchParams.delete(k);
+    });
+    url.searchParams.delete('page');
+    router.get(url.toString(), {}, { preserveState: true, replace: true });
+  };
+
+  const handleSearchChange = (value) => {
+    setSearchValue(value);
+    clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      navigateWith({ search: value || undefined });
+    }, 400);
+  };
+
+  const activeFilters = useMemo(() => {
+    const chips = [];
+    if (roleFilter) chips.push({ key: 'role', label: 'Role', value: roleLabels[roleFilter] || roleFilter });
+    if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter === 'active' ? 'Active' : 'Inactive' });
+    if (agencyFilter) {
+      const agency = agencies.find(a => a.id === agencyFilter);
+      chips.push({ key: 'agcy_id', label: 'Agency', value: agency?.name || agencyFilter });
+    }
+    if (mfaFilter) chips.push({ key: 'mfa_status', label: 'MFA', value: mfaFilter === 'enabled' ? 'Enabled' : 'Disabled' });
+    return chips;
+  }, [roleFilter, statusFilter, agencyFilter, mfaFilter, agencies]);
+
+  const handleRemoveFilter = (filter) => {
+    if (filter.key === 'role') { setRoleFilter(''); navigateWith({ role: undefined }); }
+    if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
+    if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
+    if (filter.key === 'mfa_status') { setMfaFilter(''); navigateWith({ mfa_status: undefined }); }
+  };
+
+  const handleClearFilters = () => {
+    setRoleFilter('');
+    setStatusFilter('');
+    setAgencyFilter('');
+    setMfaFilter('');
+    navigateWith({ role: undefined, status: undefined, agcy_id: undefined, mfa_status: undefined });
+  };
 
   function paginatorProps(paginator) {
     return {
@@ -22,7 +117,6 @@ export default function AdminUserIndex({ users, agencies }) {
       currentPage: paginator.current_page,
       totalPages: paginator.last_page,
       rowsPerPage: paginator.per_page,
-      hideControlBar: true,
       onPageChange: (page) => {
         const url = new URL(window.location);
         url.searchParams.set('page', page);
@@ -37,67 +131,351 @@ export default function AdminUserIndex({ users, agencies }) {
     };
   }
 
-  const columns = useMemo(() => [
-    { key: 'name', title: 'Name', sortable: true,
-      render: (row) => row.name,
-    },
-    {
-      key: 'email',
-      title: 'Email',
-      sortable: true,
-      render: (row) => row.email,
-    },
-    {
-      key: 'role',
-      title: 'Role',
-      sortable: true,
-      render: (row) => roleLabels[row.role] || row.role,
-    },
-    {
-      key: 'agency',
-      title: 'Agency',
-      sortable: false,
-      render: (row) => row.agency?.name || '—',
-    },
-    {
-      key: 'is_active',
-      title: 'Status',
-      sortable: true,
-      render: (row) => <StatusBadge status={row.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-    },
-    {
-      key: 'id',
-      title: 'Actions',
-      sortable: false,
-      render: (row) => (
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => { setEditingUser(row); setShowForm(true); }} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
-          <button onClick={() => { if (confirm('Deactivate this user?')) router.delete(route('admin.users.destroy', row.id), { preserveScroll: true }); }} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Deactivate</button>
-        </div>
-      ),
-    },
-  ], []);
+  const columns = useMemo(() =>
+    COLUMN_DEFS
+      .filter((col) => visibleColumns.includes(col.key))
+      .map((col) => {
+        const base = { key: col.key, title: col.label, sortable: true };
+        switch (col.key) {
+          case 'name':
+            return {
+              ...base,
+              render: (row) => (
+                <div className="flex items-center gap-3">
+                  <UserAvatar user={row} size="sm" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-800 truncate max-w-[180px]">{row.name}</div>
+                  </div>
+                </div>
+              ),
+              sortAccessor: (row) => row.name,
+            };
+          case 'email':
+            return {
+              ...base,
+              render: (row) => (
+                <span className="text-xs text-slate-500">{row.email}</span>
+              ),
+            };
+          case 'role':
+            return {
+              ...base,
+              render: (row) => (
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${roleBadgeStyles[row.role] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                  {roleLabels[row.role] || row.role}
+                </span>
+              ),
+            };
+          case 'agency':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => {
+                const agency = row.agency;
+                if (!agency) return <span className="text-slate-400">&mdash;</span>;
+                return (
+                  <div className="flex items-center gap-2">
+                    {agency.logo_url ? (
+                      <img
+                        src={agency.logo_url}
+                        alt={agency.name}
+                        className="w-5 h-5 rounded object-contain border border-slate-200 shrink-0"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <span className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0">
+                        <Building2 className="w-3 h-3 text-slate-400" />
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-700 truncate max-w-[140px]">{agency.name}</span>
+                  </div>
+                );
+              },
+            };
+          case 'position':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className="text-xs text-slate-600">{row.position || <span className="text-slate-400">&mdash;</span>}</span>
+              ),
+            };
+          case 'department':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className="text-xs text-slate-600">{row.department || <span className="text-slate-400">&mdash;</span>}</span>
+              ),
+            };
+          case 'contact_number':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className="text-xs text-slate-600">{row.contact_number || <span className="text-slate-400">&mdash;</span>}</span>
+              ),
+            };
+          case 'mfa_status':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${row.mfa_enabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                  {row.mfa_enabled ? 'On' : 'Off'}
+                </span>
+              ),
+            };
+          case 'status':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <StatusBadge status={row.is_active ? 'ACTIVE' : 'INACTIVE'} />
+              ),
+            };
+          case 'created_at':
+            return {
+              ...base,
+              render: (row) => (
+                <div>
+                  <div className="text-xs text-slate-700">{formatDisplayDate(row.created_at)}</div>
+                  <div className="text-[10px] text-slate-500">{formatDisplayTime(row.created_at)}</div>
+                </div>
+              ),
+            };
+          case 'actions':
+            return {
+              ...base,
+              sortable: false,
+              title: 'Actions',
+              render: (row) => (
+                <div className="flex items-center gap-1.5">
+                  <a
+                    href={route('admin.users.show', row.id)}
+                    className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384] inline-flex items-center"
+                  >
+                    View
+                  </a>
+                  <button
+                    onClick={() => { setEditingUser(row); setShowForm(true); }}
+                    className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+                  >
+                    Edit
+                  </button>
+                  {isAdmin && row.is_active && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Deactivate this user? They will lose access to the system.')) {
+                          router.delete(route('admin.users.destroy', row.id), { preserveScroll: true });
+                        }
+                      }}
+                      className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200"
+                    >
+                      Deactivate
+                    </button>
+                  )}
+                </div>
+              ),
+            };
+          default:
+            return { ...base, render: (row) => row[col.key] };
+        }
+      }),
+  [visibleColumns, editingUser, showForm, isAdmin]);
+
+  const advancedFilterContent = useMemo(() => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Role</label>
+        <select
+          value={roleFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setRoleFilter(val);
+            setFilterOpen(false);
+            navigateWith({ role: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All Roles</option>
+          <option value="CASE_MANAGER">Case Manager</option>
+          <option value="AGENCY">Agency Focal</option>
+          <option value="ADMIN">System Admin</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Agency</label>
+        <select
+          value={agencyFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setAgencyFilter(val);
+            setFilterOpen(false);
+            navigateWith({ agcy_id: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All Agencies</option>
+          {agencies.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setStatusFilter(val);
+            setFilterOpen(false);
+            navigateWith({ status: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">MFA Status</label>
+        <select
+          value={mfaFilter}
+          onChange={(e) => {
+            const val = e.target.value;
+            setMfaFilter(val);
+            setFilterOpen(false);
+            navigateWith({ mfa_status: val || undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All</option>
+          <option value="enabled">Enabled</option>
+          <option value="disabled">Disabled</option>
+        </select>
+      </div>
+    </div>
+  ), [roleFilter, statusFilter, agencyFilter, mfaFilter, agencies]);
+
+  const columnControlContent = useMemo(() => (
+    <div className="space-y-2">
+      {COLUMN_DEFS.map((col) => (
+        <label
+          key={col.key}
+          className="flex items-center gap-2.5 text-[13px] text-slate-700 cursor-pointer select-none hover:text-slate-900 transition-colors"
+        >
+          <input
+            type="checkbox"
+            checked={visibleColumns.includes(col.key)}
+            onChange={() => {
+              setVisibleColumns((prev) =>
+                prev.includes(col.key)
+                  ? prev.filter((k) => k !== col.key)
+                  : [...prev, col.key],
+              );
+            }}
+            className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] focus:ring-offset-0"
+          />
+          {col.label}
+        </label>
+      ))}
+    </div>
+  ), [visibleColumns]);
 
   return (
     <AppLayout title="Manage Users">
-      {showForm && <UserFormModal user={editingUser} agencies={agencies} onClose={() => { setShowForm(false); setEditingUser(null); }} onBypass={bypassNext} />}
       <Head title="Manage Users" />
-      <div className="mb-8 flex items-center justify-between">
+
+      {showForm && (
+        <UserFormModal
+          user={editingUser}
+          agencies={agencies}
+          onClose={() => { setShowForm(false); setEditingUser(null); }}
+          onBypass={bypassNext}
+        />
+      )}
+
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Users</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage system users and their roles.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
+            Users
+          </h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Manage system users, roles, and agency assignments.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
-          + New User
-        </button>
-      </div>
+      </header>
+
+      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Users</p>
+            <span className="p-1.5 bg-blue-50 rounded-lg"><Users className="w-4 h-4 text-blue-900" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{stats?.total ?? 0}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active</p>
+            <span className="p-1.5 bg-emerald-50 rounded-lg"><UserCheck className="w-4 h-4 text-emerald-600" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{stats?.active ?? 0}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="text-[11px] font-medium text-slate-500">
+              {stats?.total > 0 ? `${((stats.active / stats.total) * 100).toFixed(0)}%` : '—'}
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Case Managers</p>
+            <span className="p-1.5 bg-blue-50 rounded-lg"><Briefcase className="w-4 h-4 text-blue-600" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{stats?.case_managers ?? 0}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Agency Focals</p>
+            <span className="p-1.5 bg-amber-50 rounded-lg"><Building2 className="w-4 h-4 text-amber-600" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{stats?.agency_focals ?? 0}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Admins</p>
+            <span className="p-1.5 bg-purple-50 rounded-lg"><Shield className="w-4 h-4 text-purple-600" /></span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{stats?.admins ?? 0}</p>
+        </div>
+      </section>
 
       <UnifiedTable
         columns={columns}
         data={users.data}
         keyExtractor={(row) => row.id}
         {...paginatorProps(users)}
+        searchValue={searchValue}
+        searchPlaceholder="Search by name, email, or position..."
+        onSearchChange={handleSearchChange}
+        onAdvancedFilters={() => setFilterOpen((v) => { setColumnsOpen(false); return !v; })}
+        isAdvancedFiltersOpen={filterOpen}
+        advancedFiltersContent={advancedFilterContent}
+        onColumnsControl={() => setColumnsOpen((v) => { setFilterOpen(false); return !v; })}
+        isColumnsControlOpen={columnsOpen}
+        columnsControlContent={columnControlContent}
+        onViewModeChange={setViewMode}
+        viewMode={viewMode}
+        onNewRecord={() => { setEditingUser(null); setShowForm(true); }}
+        newRecordLabel="New User"
+        activeFilters={activeFilters}
+        onRemoveFilter={handleRemoveFilter}
+        onClearFilters={handleClearFilters}
       />
+
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
