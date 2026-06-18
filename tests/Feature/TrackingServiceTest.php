@@ -181,32 +181,54 @@ class TrackingServiceTest extends TestCase
         $this->assertNotEquals('COMPLETED', $data['trackedCase']['status']);
     }
 
-    public function test_agency_steps_has_four_steps(): void
+    public function test_agency_steps_has_correct_count_for_processing(): void
     {
         $service = app(TrackingService::class);
         $case = CaseFile::factory()->create();
-        Referral::factory()->create(['case_id' => $case->id, 'status' => 'PROCESSING']);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'status' => 'PROCESSING']);
         $this->loadRelations($case);
 
         $data = $service->buildTrackingData($case);
+        $steps = $data['trackingAgencies'][0]['steps'];
 
-        $this->assertCount(4, $data['trackingAgencies'][0]['steps']);
+        // PROCESSING with no compliance history → 5 steps: Created, Referred, Received, Processing, Completed
+        $this->assertCount(5, $steps);
+        $this->assertEquals('Created', $steps[0]['label']);
+        $this->assertEquals('complete', $steps[0]['state']);
+        $this->assertStringContainsString('Referred to', $steps[1]['label']);
+        $this->assertEquals('complete', $steps[1]['state']);
+        $this->assertStringContainsString('Received by', $steps[2]['label']);
+        $this->assertEquals('complete', $steps[2]['state']);
+        $this->assertEquals('Processing', $steps[3]['label']);
+        $this->assertEquals('active', $steps[3]['state']);
+        $this->assertEquals('Completed', $steps[4]['label']);
+        $this->assertEquals('pending', $steps[4]['state']);
     }
 
     public function test_agency_steps_for_compliance_is_active(): void
     {
         $service = app(TrackingService::class);
         $case = CaseFile::factory()->create();
-        Referral::factory()->create(['case_id' => $case->id, 'status' => 'FOR_COMPLIANCE']);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'status' => 'FOR_COMPLIANCE']);
         $this->loadRelations($case);
 
         $data = $service->buildTrackingData($case);
         $steps = $data['trackingAgencies'][0]['steps'];
 
-        $this->assertEquals('complete', $steps[0]['state']); // Received
-        $this->assertEquals('complete', $steps[1]['state']); // Processing
-        $this->assertEquals('active', $steps[2]['state']); // Compliance
-        $this->assertEquals('pending', $steps[3]['state']); // Completed
+        // FOR_COMPLIANCE → 6 steps: Created, Referred, Received, For Compliance, Processing after compliance, Completed
+        $this->assertCount(6, $steps);
+        $this->assertEquals('Created', $steps[0]['label']);
+        $this->assertEquals('complete', $steps[0]['state']);
+        $this->assertStringContainsString('Referred to', $steps[1]['label']);
+        $this->assertEquals('complete', $steps[1]['state']);
+        $this->assertStringContainsString('Received by', $steps[2]['label']);
+        $this->assertEquals('complete', $steps[2]['state']);
+        $this->assertEquals('For Compliance', $steps[3]['label']);
+        $this->assertEquals('active', $steps[3]['state']);
+        $this->assertEquals('Processing after compliance', $steps[4]['label']);
+        $this->assertEquals('pending', $steps[4]['state']);
+        $this->assertEquals('Completed', $steps[5]['label']);
+        $this->assertEquals('pending', $steps[5]['state']);
     }
 
     public function test_agency_cards_have_no_internal_route_links(): void

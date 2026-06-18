@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -194,13 +195,17 @@ class ClientSelectApiTest extends TestCase
 
     public function test_show_returns_case_file_when_present(): void
     {
-        $client = Client::factory()->create(['is_deleted' => false]);
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $client = Client::factory()->create(['is_deleted' => false]);
+        $caseFile = CaseFile::factory()->create([
+            'client_id' => $client->id,
+            'user_id' => $user->id,
+        ]);
 
         $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
 
         $response->assertOk()
-            ->assertJsonPath('data.case_file.case_number', $client->caseFile->case_number);
+            ->assertJsonPath('data.case_file.case_number', $caseFile->case_number);
     }
 
     public function test_search_limits_to_20_results(): void

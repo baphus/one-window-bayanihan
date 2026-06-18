@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
+use App\Models\Referral;
 
 class TrackingService
 {
@@ -161,7 +162,7 @@ class TrackingService
                     'REJECTED' => 'bg-red-400',
                     default => 'bg-slate-300',
                 },
-                'steps' => $this->buildAgencySteps($ref->status),
+                'steps' => $this->buildAgencySteps($ref),
                 'latestMilestoneLabel' => $latestMilestone?->title,
             ];
         })->toArray();
@@ -297,17 +298,86 @@ class TrackingService
     }
 
     /**
-     * Build the 4-step agency progress array for a given referral status.
-     * Steps: Received → Processing → Compliance → Completed
+     * Build dynamic agency progress steps based on the referral's current status
+     * and compliance history. Returns 3–6 steps with label and state keys.
      */
-    private function buildAgencySteps(string $status): array
+    private function buildAgencySteps(Referral $referral): array
     {
-        return [
-            ['label' => 'Received',   'state' => $this->stepState($status, 'PENDING')],
-            ['label' => 'Processing', 'state' => $this->stepState($status, 'PROCESSING')],
-            ['label' => 'Compliance', 'state' => $this->stepState($status, 'FOR_COMPLIANCE')],
-            ['label' => 'Completed',  'state' => $this->stepState($status, 'COMPLETED')],
-        ];
+        $agencyName = $referral->agency?->name ?? 'Agency';
+        $status = $referral->status;
+        $hasCompliance = $this->hasComplianceHistory($referral);
+
+        $steps = [];
+
+        // Step 1: Created — always complete
+        $steps[] = ['label' => 'Created', 'state' => 'complete'];
+
+        // Step 2: Referred to {agency} — always complete
+        $steps[] = ['label' => "Referred to {$agencyName}", 'state' => 'complete'];
+
+        // Step 3: Received by {agency}
+        if ($status === 'PENDING') {
+            $steps[] = ['label' => "Received by {$agencyName}", 'state' => 'active'];
+
+            return $steps;
+        }
+        $steps[] = ['label' => "Received by {$agencyName}", 'state' => 'complete'];
+
+        if ($status === 'REJECTED') {
+            return $steps;
+        }
+
+        if ($hasCompliance || $status === 'FOR_COMPLIANCE') {
+            // === COMPLIANCE PATH ===
+            if ($status === 'FOR_COMPLIANCE') {
+                $steps[] = ['label' => 'For Compliance', 'state' => 'active'];
+                $steps[] = ['label' => 'Processing after compliance', 'state' => 'pending'];
+                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+            } elseif ($status === 'COMPLETED') {
+                $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
+                $steps[] = ['label' => 'Processing after compliance', 'state' => 'complete'];
+                $steps[] = ['label' => 'Completed', 'state' => 'active'];
+            } elseif ($status === 'REJECTED') {
+                $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
+                $steps[] = ['label' => 'Processing after compliance', 'state' => 'complete'];
+                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+            } else {
+                // PROCESSING (after having been in compliance)
+                $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
+                $steps[] = ['label' => 'Processing after compliance', 'state' => 'active'];
+                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+            }
+        } else {
+            // === STANDARD PATH (no compliance history) ===
+            if ($status === 'PROCESSING') {
+                $steps[] = ['label' => 'Processing', 'state' => 'active'];
+                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+            } elseif ($status === 'COMPLETED') {
+                $steps[] = ['label' => 'Processing', 'state' => 'complete'];
+                $steps[] = ['label' => 'Completed', 'state' => 'active'];
+            } else {
+                // fallback (shouldn't happen but handle gracefully)
+                $steps[] = ['label' => 'Processing', 'state' => 'pending'];
+                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+            }
+        }
+
+        return $steps;
+    }
+
+    /**
+     * Determine whether the referral has ever entered a compliance-related state.
+     * Returns true if status is FOR_COMPLIANCE or any milestone title contains "compli".
+     */
+    private function hasComplianceHistory(Referral $referral): bool
+    {
+        if ($referral->status === 'FOR_COMPLIANCE') {
+            return true;
+        }
+
+        return $referral->milestones->contains(function ($ms) {
+            return mb_stripos($ms->title, 'compli') !== false;
+        });
     }
 
     /**

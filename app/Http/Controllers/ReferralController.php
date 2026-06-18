@@ -58,11 +58,6 @@ class ReferralController extends Controller
             $request->user()->id,
         );
 
-        $request->validate([
-            'documents' => 'nullable|array',
-            'documents.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp|max:10240',
-        ]);
-
         if ($request->hasFile('documents')) {
             foreach ($request->file('documents') as $key => $file) {
                 $path = $file->store('referrals', 'public');

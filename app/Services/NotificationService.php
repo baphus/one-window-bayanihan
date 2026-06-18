@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Mail\ClientUpdateMail;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class NotificationService
@@ -35,6 +37,14 @@ class NotificationService
         if (empty($clientEmail)) {
             return null;
         }
+
+        // Queue a friendly email to the client with case update details.
+        Mail::to($clientEmail)->queue(new ClientUpdateMail(
+            trackingNumber: $case->tracker_number,
+            caseNumber: $case->case_number,
+            title: $title,
+            message: $message,
+        ));
 
         return CaseNotification::create([
             'case_id' => $case->id,

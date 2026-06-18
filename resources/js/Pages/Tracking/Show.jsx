@@ -59,9 +59,15 @@ function AgencyCard({ name, note, status, statusTone, borderTone, textTone, line
               <div className="absolute left-[20px] right-[20px] top-[14px] h-[3px] rounded-full bg-surface-container-high" />
               <div
                 className={`absolute left-[20px] top-[14px] h-[3px] rounded-full transition-all duration-500 ${lineTone}`}
-                style={{ width: `${completedCount > 0 ? ((completedCount - 1) / (steps.length - 1)) * 100 : 0}%` }}
+                style={{ width: `${completedCount > 0 && steps.length > 1 ? ((completedCount - 1) / (steps.length - 1)) * 100 : 0}%` }}
               />
-              <div className="relative z-10 grid grid-cols-4 gap-1">
+              <div
+                className="relative z-10 grid"
+                style={{
+                  gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+                  gap: steps.length > 4 ? '2px' : '0.25rem',
+                }}
+              >
                 {steps.map((step) => (
                   <div key={step.label} className="flex flex-col items-center text-center">
                     <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full ${

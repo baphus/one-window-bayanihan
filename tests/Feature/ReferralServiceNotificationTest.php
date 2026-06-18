@@ -11,6 +11,7 @@ use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use App\Services\ReferralService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -23,6 +24,7 @@ class ReferralServiceNotificationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Mail::fake();
         $this->service = app(ReferralService::class);
     }
 
@@ -165,16 +167,14 @@ class ReferralServiceNotificationTest extends TestCase
 
     private function createCase(User $user): CaseFile
     {
-        $case = CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'status' => 'OPEN',
-        ]);
-
-        Client::factory()->create([
-            'case_id' => $case->id,
+        $client = Client::factory()->create([
             'email' => 'ofw@example.com',
         ]);
 
-        return $case;
+        return CaseFile::factory()->create([
+            'user_id' => $user->id,
+            'client_id' => $client->id,
+            'status' => 'OPEN',
+        ]);
     }
 }

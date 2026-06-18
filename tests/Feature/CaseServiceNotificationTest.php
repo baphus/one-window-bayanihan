@@ -9,6 +9,7 @@ use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
 use App\Services\CaseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -21,6 +22,7 @@ class CaseServiceNotificationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Mail::fake();
         $this->service = app(CaseService::class);
     }
 
@@ -110,19 +112,17 @@ class CaseServiceNotificationTest extends TestCase
 
     private function createCase(User $user): CaseFile
     {
-        $case = CaseFile::factory()->create([
+        $client = Client::factory()->create([
+            'email' => 'ofw@example.com',
+        ]);
+
+        return CaseFile::factory()->create([
             'user_id' => $user->id,
+            'client_id' => $client->id,
             'client_type' => 'OFW',
             'vulnerability_indicator' => 'Low',
             'summary' => 'Test summary',
             'status' => 'OPEN',
         ]);
-
-        Client::factory()->create([
-            'case_id' => $case->id,
-            'email' => 'ofw@example.com',
-        ]);
-
-        return $case;
     }
 }

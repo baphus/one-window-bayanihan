@@ -15,6 +15,17 @@ function buildServiceRequirementKey(serviceTitle, requirement) {
     return `${serviceTitle}::${requirement}`;
 }
 
+const ALLOWED_FILE_TYPES = [
+    { ext: '.pdf', mime: 'application/pdf' },
+    { ext: '.doc', mime: 'application/msword' },
+    { ext: '.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+    { ext: '.jpg', mime: 'image/jpeg' },
+    { ext: '.jpeg', mime: 'image/jpeg' },
+    { ext: '.png', mime: 'image/png' },
+    { ext: '.gif', mime: 'image/gif' },
+    { ext: '.webp', mime: 'image/webp' },
+];
+
 function Field({ label, required, children, className }) {
     return (
         <div className={className}>
@@ -46,6 +57,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
 
     const [createStep, setCreateStep] = useState(1);
     const [requirementUploads, setRequirementUploads] = useState({});
+    const [fileErrors, setFileErrors] = useState({});
     const [notesValue, setNotesValue] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -158,7 +170,43 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         );
     }
 
+    function isValidFileType(file) {
+        if (!file) return false;
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        const mime = (file.type || '').toLowerCase();
+        return ALLOWED_FILE_TYPES.some(
+            (t) => t.ext === ext && (!mime || mime === t.mime)
+        );
+    }
+
     function handleFileChange(requirementKey, file) {
+        if (!file) {
+            setFileErrors((current) => {
+                const next = { ...current };
+                delete next[requirementKey];
+                return next;
+            });
+            setRequirementUploads((current) => {
+                const next = { ...current };
+                delete next[requirementKey];
+                return next;
+            });
+            return;
+        }
+
+        if (!isValidFileType(file)) {
+            setFileErrors((current) => ({
+                ...current,
+                [requirementKey]: 'Invalid file type. Allowed: PDF, DOC, DOCX, JPG, PNG, GIF, WEBP',
+            }));
+            return;
+        }
+
+        setFileErrors((current) => {
+            const next = { ...current };
+            delete next[requirementKey];
+            return next;
+        });
         setRequirementUploads((current) => ({ ...current, [requirementKey]: file }));
     }
 
@@ -170,6 +218,20 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     function submitReferral(e) {
         if (e) e.preventDefault();
         if (!isStepThreeValid) return;
+
+        const newFileErrors = {};
+        let hasInvalidFiles = false;
+        Object.entries(requirementUploads).forEach(([key, file]) => {
+            if (file && !isValidFileType(file)) {
+                newFileErrors[key] = 'Invalid file type. Allowed: PDF, DOC, DOCX, JPG, PNG, GIF, WEBP';
+                hasInvalidFiles = true;
+            }
+        });
+
+        if (hasInvalidFiles) {
+            setFileErrors((current) => ({ ...current, ...newFileErrors }));
+            return;
+        }
 
         Object.entries(requirementUploads).forEach(([key, file]) => {
             if (file) {
@@ -532,6 +594,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                                     <p className="text-[12px] font-semibold text-slate-700">{requirement}</p>
                                                                                     <input
                                                                                         type="file"
+                                                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
                                                                                         onChange={(e) => handleFileChange(requirementKey, e.target.files?.[0] || null)}
                                                                                         className="mt-2 block w-full rounded-[3px] border border-[#cbd5e1] bg-white px-3 py-2 text-[12px] text-slate-700 file:mr-3 file:rounded-[3px] file:border-0 file:bg-indigo-50 file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-700"
                                                                                     />
@@ -539,6 +602,9 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                                         <p className="mt-1 text-[11px] text-emerald-600">Attached: {requirementUploads[requirementKey]?.name}</p>
                                                                                     ) : (
                                                                                         <p className="mt-1 text-[11px] text-rose-700">Upload is required for this document.</p>
+                                                                                    )}
+                                                                                    {fileErrors[requirementKey] && (
+                                                                                        <p className="mt-1 text-[11px] text-red-600">{fileErrors[requirementKey]}</p>
                                                                                     )}
                                                                                 </div>
                                                                             );

@@ -23,6 +23,7 @@ class StoreReferralRequest extends FormRequest
             'services.*' => ['string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'documents' => ['nullable', 'array'],
+            'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp', 'max:10240'],
         ];
     }
 }
