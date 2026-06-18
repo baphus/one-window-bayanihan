@@ -20,6 +20,7 @@ class TrackingService
             'client.addresses',
             'client.employments',
             'referrals.agency',
+            'referrals.complianceRequirements',
             'referrals.milestones.user',
             'referrals.attachments',
             'user',
@@ -164,6 +165,13 @@ class TrackingService
                 },
                 'steps' => $this->buildAgencySteps($ref),
                 'latestMilestoneLabel' => $latestMilestone?->title,
+                'compliance_requirements' => $ref->complianceRequirements->map(fn ($cr) => [
+                    'id' => $cr->id,
+                    'service_name' => $cr->service_name,
+                    'requirement_name' => $cr->requirement_name,
+                    'status' => $cr->status,
+                    'completed_at' => $cr->completed_at?->toISOString(),
+                ])->values()->toArray(),
             ];
         })->toArray();
 
