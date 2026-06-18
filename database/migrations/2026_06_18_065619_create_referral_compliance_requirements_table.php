@@ -25,7 +25,7 @@ return new class extends Migration
             $table->timestamp('deleted_at')->nullable();
             $table->uuid('deleted_by')->nullable();
 
-            $table->foreign('referral_id')->references('id')->on('referrals')->onDelete('cascade');
+            $table->foreign('referral_id')->references('id')->on('referrals')->onDelete('restrict');
             $table->foreign('fulfilled_by')->references('id')->on('users')->onDelete('set null');
 
             $table->index(['referral_id', 'status']);
