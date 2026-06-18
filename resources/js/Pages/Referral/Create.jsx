@@ -61,6 +61,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     const [notesValue, setNotesValue] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [complianceMode, setComplianceMode] = useState({});
     const searchDebounceRef = useRef(null);
 
     const filteredCases = useMemo(() => {
@@ -109,8 +110,8 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     }, [selectedServiceDetails]);
 
     const missingRequirementKeys = useMemo(() => {
-        return selectedServiceRequirements.filter((item) => !requirementUploads[item.key]).map((item) => item.key);
-    }, [selectedServiceRequirements, requirementUploads]);
+        return selectedServiceRequirements.filter((item) => !requirementUploads[item.key] && !complianceMode[item.key]).map((item) => item.key);
+    }, [selectedServiceRequirements, requirementUploads, complianceMode]);
 
     const hasMissingRequirementUploads = missingRequirementKeys.length > 0;
 
@@ -131,6 +132,12 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     useEffect(() => {
         const activeKeys = new Set(selectedServiceRequirements.map((item) => item.key));
         setRequirementUploads((current) => {
+            const next = Object.fromEntries(
+                Object.entries(current).filter(([key]) => activeKeys.has(key))
+            );
+            return Object.keys(next).length === Object.keys(current).length ? current : next;
+        });
+        setComplianceMode((current) => {
             const next = Object.fromEntries(
                 Object.entries(current).filter(([key]) => activeKeys.has(key))
             );
@@ -208,6 +215,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
             return next;
         });
         setRequirementUploads((current) => ({ ...current, [requirementKey]: file }));
+        setComplianceMode((current) => ({ ...current, [requirementKey]: false }));
     }
 
     function parseRequiredDocs(service) {
@@ -231,6 +239,16 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         if (hasInvalidFiles) {
             setFileErrors((current) => ({ ...current, ...newFileErrors }));
             return;
+        }
+
+        const complianceEntries = selectedServiceRequirements
+            .filter((item) => complianceMode[item.key])
+            .map((item) => ({
+                service_name: item.serviceTitle,
+                requirement_name: item.requirement,
+            }));
+        if (complianceEntries.length > 0) {
+            setData('compliance_requirements', complianceEntries);
         }
 
         Object.entries(requirementUploads).forEach(([key, file]) => {
@@ -587,24 +605,80 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                         {docs.map((requirement) => {
                                                                             const requirementKey = buildServiceRequirementKey(service.name, requirement);
                                                                             const hasFile = Boolean(requirementUploads[requirementKey]);
+                                                                            const isCompliance = Boolean(complianceMode[requirementKey]);
+                                                                            const borderClass = isCompliance
+                                                                                ? 'border-orange-200 bg-orange-50/40'
+                                                                                : !hasFile
+                                                                                    ? 'border-rose-300 bg-rose-50/40'
+                                                                                    : 'border-slate-200 bg-white';
                                                                             return (
                                                                                 <div key={requirementKey}
-                                                                                    className={`rounded-lg border px-4 py-3 ${!hasFile ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200 bg-white'}`}
+                                                                                    className={`rounded-lg border px-4 py-3 ${borderClass}`}
                                                                                 >
                                                                                     <p className="text-[12px] font-semibold text-slate-700">{requirement}</p>
-                                                                                    <input
-                                                                                        type="file"
-                                                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
-                                                                                        onChange={(e) => handleFileChange(requirementKey, e.target.files?.[0] || null)}
-                                                                                        className="mt-2 block w-full rounded-[3px] border border-[#cbd5e1] bg-white px-3 py-2 text-[12px] text-slate-700 file:mr-3 file:rounded-[3px] file:border-0 file:bg-indigo-50 file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-700"
-                                                                                    />
-                                                                                    {hasFile ? (
-                                                                                        <p className="mt-1 text-[11px] text-emerald-600">Attached: {requirementUploads[requirementKey]?.name}</p>
+
+                                                                                    <div className="mt-2 flex items-center gap-3">
+                                                                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                                                                            <input
+                                                                                                type="radio"
+                                                                                                name={`upload-mode-${requirementKey}`}
+                                                                                                checked={!isCompliance}
+                                                                                                onChange={() => {
+                                                                                                    setComplianceMode((prev) => ({ ...prev, [requirementKey]: false }));
+                                                                                                }}
+                                                                                                className="h-3 w-3 text-indigo-600"
+                                                                                            />
+                                                                                            <span className="text-[11px] text-slate-600">Upload File</span>
+                                                                                        </label>
+                                                                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                                                                            <input
+                                                                                                type="radio"
+                                                                                                name={`upload-mode-${requirementKey}`}
+                                                                                                checked={isCompliance}
+                                                                                                onChange={() => {
+                                                                                                    setComplianceMode((prev) => ({ ...prev, [requirementKey]: true }));
+                                                                                                    setRequirementUploads((current) => {
+                                                                                                        const next = { ...current };
+                                                                                                        delete next[requirementKey];
+                                                                                                        return next;
+                                                                                                    });
+                                                                                                    setFileErrors((current) => {
+                                                                                                        const next = { ...current };
+                                                                                                        delete next[requirementKey];
+                                                                                                        return next;
+                                                                                                    });
+                                                                                                }}
+                                                                                                className="h-3 w-3 text-orange-500"
+                                                                                            />
+                                                                                            <span className="text-[11px] text-slate-600">For Compliance</span>
+                                                                                        </label>
+                                                                                    </div>
+
+                                                                                    {isCompliance ? (
+                                                                                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1">
+                                                                                            <svg className="h-3.5 w-3.5 text-orange-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                                                                                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                                                                                            </svg>
+                                                                                            <span className="text-[11px] font-bold uppercase tracking-wider text-orange-700">FOR COMPLIANCE</span>
+                                                                                        </div>
                                                                                     ) : (
-                                                                                        <p className="mt-1 text-[11px] text-rose-700">Upload is required for this document.</p>
-                                                                                    )}
-                                                                                    {fileErrors[requirementKey] && (
-                                                                                        <p className="mt-1 text-[11px] text-red-600">{fileErrors[requirementKey]}</p>
+                                                                                        <>
+                                                                                            <input
+                                                                                                type="file"
+                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                                                                                                onChange={(e) => handleFileChange(requirementKey, e.target.files?.[0] || null)}
+                                                                                                className="mt-2 block w-full rounded-[3px] border border-[#cbd5e1] bg-white px-3 py-2 text-[12px] text-slate-700 file:mr-3 file:rounded-[3px] file:border-0 file:bg-indigo-50 file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-700"
+                                                                                            />
+                                                                                            {hasFile ? (
+                                                                                                <p className="mt-1 text-[11px] text-emerald-600">Attached: {requirementUploads[requirementKey]?.name}</p>
+                                                                                            ) : (
+                                                                                                <p className="mt-1 text-[11px] text-rose-700">Upload is required for this document.</p>
+                                                                                            )}
+                                                                                            {fileErrors[requirementKey] && (
+                                                                                                <p className="mt-1 text-[11px] text-red-600">{fileErrors[requirementKey]}</p>
+                                                                                            )}
+                                                                                        </>
                                                                                     )}
                                                                                 </div>
                                                                             );
