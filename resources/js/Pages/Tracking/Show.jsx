@@ -31,7 +31,7 @@ function formatEventDate(dateStr) {
   return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function AgencyCard({ name, note, status, statusTone, borderTone, textTone, lineTone, steps, latestMilestoneLabel }) {
+function AgencyCard({ name, note, status, statusTone, borderTone, textTone, lineTone, steps, latestMilestoneLabel, compliance_requirements }) {
   const completedCount = steps.filter(s => s.state === 'complete').length;
   const isRejected = status === 'REJECTED';
 
@@ -97,6 +97,27 @@ function AgencyCard({ name, note, status, statusTone, borderTone, textTone, line
                 <span className="material-symbols-outlined text-[12px] align-middle mr-1 text-green-500">flag</span>
                 Latest: <span className="font-semibold text-on-surface">{latestMilestoneLabel}</span>
               </p>
+            )}
+            {compliance_requirements?.length > 0 && (
+              <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50/40 px-4 py-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="material-symbols-outlined text-[14px] text-orange-600">clipboard_list</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-700">For Compliance</span>
+                </div>
+                <div className="space-y-2">
+                  {compliance_requirements.map((cr) => (
+                    <div key={cr.id} className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-orange-600/70">{cr.service_name}</p>
+                        <p className="text-[11px] font-medium text-orange-800">{cr.requirement_name}</p>
+                      </div>
+                      <span className="shrink-0 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-[2px] border border-orange-300 bg-orange-100 text-orange-700">
+                        Needed
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </>
         )}
