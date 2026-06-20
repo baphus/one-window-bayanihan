@@ -24,6 +24,10 @@ class UpdateDraftRequest extends FormRequest
             $this->merge(['category_id' => null]);
         }
 
+        if ($this->has('case_issue_id') && $this->case_issue_id === '') {
+            $this->merge(['case_issue_id' => null]);
+        }
+
         // Inertia sends JSON — ConvertEmptyStringsToNull middleware doesn't apply.
         // Convert empty email strings to null so 'nullable|email' passes correctly.
         if ($this->has('client.email') && $this->input('client.email') === '') {
@@ -50,6 +54,7 @@ class UpdateDraftRequest extends FormRequest
             'nok_vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'summary' => ['nullable', 'string', 'max:5000'],
             'category_id' => ['nullable', 'string', 'exists:case_categories,id'],
+            'case_issue_id' => ['nullable', 'string', 'exists:case_issues,id'],
 
             'client.first_name' => ['nullable', 'string', 'max:255'],
             'client.last_name' => ['nullable', 'string', 'max:255'],
