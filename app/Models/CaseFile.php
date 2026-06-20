@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\CaseIssue;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,6 +34,7 @@ class CaseFile extends Model
         'user_id',
         'client_id',
         'category_id',
+        'case_issue_id',
         'draft_client_data',
     ];
 
@@ -56,6 +58,11 @@ class CaseFile extends Model
     public function category()
     {
         return $this->belongsTo(CaseCategory::class, 'category_id');
+    }
+
+    public function caseIssue()
+    {
+        return $this->belongsTo(CaseIssue::class, 'case_issue_id');
     }
 
     public function referrals()
