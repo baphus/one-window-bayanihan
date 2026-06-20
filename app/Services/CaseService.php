@@ -471,7 +471,7 @@ class CaseService
 
     public function getCases(array $filters = [])
     {
-        $query = CaseFile::with(['client', 'user', 'referrals'])
+        $query = CaseFile::with(['client', 'user', 'category', 'referrals.agency', 'referrals.milestones'])
             ->orderBy('created_at', 'desc');
 
         $query->where('status', '!=', 'DRAFT');

@@ -14,17 +14,30 @@ const vulnStyles = {
   'None': 'bg-slate-100 text-slate-500',
 };
 
-function formatCaseAge(createdAt) {
-  const parsed = new Date(createdAt);
-  if (Number.isNaN(parsed.getTime())) return 'N/A';
-  const ageInMs = Math.max(0, Date.now() - parsed.getTime());
-  const oneDayInMs = 24 * 60 * 60 * 1000;
-  const ageInDays = Math.floor(ageInMs / oneDayInMs);
-  if (ageInDays > 0) return `${ageInDays} day${ageInDays === 1 ? '' : 's'}`;
-  const ageInHours = Math.floor(ageInMs / (60 * 60 * 1000));
-  if (ageInHours > 0) return `${ageInHours} hr${ageInHours === 1 ? '' : 's'}`;
-  const ageInMinutes = Math.floor(ageInMs / (60 * 1000));
-  return `${Math.max(1, ageInMinutes)} min`;
+function getClientAge(dob) {
+  if (!dob) return '\u2014';
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return '\u2014';
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return `${age} yr${age !== 1 ? 's' : ''}`;
+}
+
+function getLatestUpdate(row) {
+  const timestamps = [];
+  if (row.created_at) timestamps.push(new Date(row.created_at));
+  (row.referrals || []).forEach((ref) => {
+    if (ref.created_at) timestamps.push(new Date(ref.created_at));
+    (ref.milestones || []).forEach((ms) => {
+      if (ms.created_at) timestamps.push(new Date(ms.created_at));
+    });
+  });
+  if (timestamps.length === 0) return null;
+  return timestamps.reduce((a, b) => (a > b ? a : b)).toISOString();
 }
 
 function referredToAgencies(referrals) {
@@ -43,6 +56,7 @@ const COLUMN_DEFS = [
   { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
   { key: 'referred_to', label: 'Referred To', default: true },
+  { key: 'latest_update', label: 'Latest Update', default: true },
   { key: 'created_at', label: 'Date Created', default: true },
   { key: 'actions', label: 'Actions', default: true },
 ];
@@ -244,9 +258,9 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
             return {
               ...base,
               sortable: true,
-              sortAccessor: (row) => new Date(row.created_at).getTime(),
+              sortAccessor: (row) => (row.client?.date_of_birth ? new Date(row.client.date_of_birth).getTime() : 0),
               render: (row) => (
-                <span className="text-xs text-slate-600">{formatCaseAge(row.created_at)}</span>
+                <span className="text-xs text-slate-600">{getClientAge(row.client?.date_of_birth)}</span>
               ),
             };
           case 'status':
@@ -263,6 +277,21 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
               render: (row) => (
                 <span className="text-xs text-slate-600 max-w-[200px] truncate block">{referredToAgencies(row.referrals)}</span>
               ),
+            };
+          case 'latest_update':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => {
+                const ts = getLatestUpdate(row);
+                if (!ts) return <span className="text-slate-400">&mdash;</span>;
+                return (
+                  <div>
+                    <div className="text-xs text-slate-700">{formatDisplayDate(ts)}</div>
+                    <div className="text-[10px] text-slate-500">{formatDisplayTime(ts)}</div>
+                  </div>
+                );
+              },
             };
           case 'created_at':
             return {
