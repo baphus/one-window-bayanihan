@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateDraftRequest;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -35,6 +36,7 @@ class CaseController extends Controller
         );
 
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
+        $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
@@ -43,6 +45,7 @@ class CaseController extends Controller
             'users' => User::select('id', 'name')->orderBy('name')->get(),
             'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
             'categories' => $categories,
+            'caseIssues' => $caseIssues,
         ]);
     }
 
@@ -63,11 +66,13 @@ class CaseController extends Controller
         );
 
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
+        $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Case/Create', [
             'client' => $client,
             'existingClients' => $existingClients,
             'categories' => $categories,
+            'caseIssues' => $caseIssues,
         ]);
     }
 
@@ -110,11 +115,13 @@ class CaseController extends Controller
         );
 
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
+        $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Case/Create', [
             'existingDraft' => $case,
             'existingClients' => $existingClients,
             'categories' => $categories,
+            'caseIssues' => $caseIssues,
         ]);
     }
 

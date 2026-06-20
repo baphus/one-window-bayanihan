@@ -37,6 +37,7 @@ class CaseService
                 'consent_given_at' => ! empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
                 'category_id' => $data['category_id'] ?? null,
+                'case_issue_id' => $data['case_issue_id'] ?? null,
             ];
 
             $createData['draft_client_data'] = [
@@ -155,7 +156,7 @@ class CaseService
                 $case->save();
             }
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
         });
     }
 
@@ -206,6 +207,7 @@ class CaseService
                     'vulnerability_indicator' => $data['vulnerability_indicator'] ?? $case->vulnerability_indicator,
                     'summary' => $data['summary'] ?? $case->summary,
                     'category_id' => $data['category_id'] ?? $case->category_id,
+                    'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
                 ];
 
                 $draftClientData = $case->draft_client_data ?? [];
@@ -345,7 +347,7 @@ class CaseService
             // No notifications — draft updates are internal
             // No case_number/tracker_number regeneration — keep existing values
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
         });
     }
 
@@ -465,13 +467,13 @@ class CaseService
                 'user_id' => $userId,
             ]);
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
         });
     }
 
     public function getCases(array $filters = [])
     {
-        $query = CaseFile::with(['client', 'user', 'category', 'referrals.agency', 'referrals.milestones'])
+        $query = CaseFile::with(['client', 'user', 'category', 'caseIssue', 'referrals.agency', 'referrals.milestones'])
             ->orderBy('created_at', 'desc');
 
         $query->where('status', '!=', 'DRAFT');
@@ -537,6 +539,7 @@ class CaseService
             'referrals.attachments.user',
             'user',
             'category',
+            'caseIssue',
             'documents' => fn ($q) => $q->where('is_deleted', false),
         ])->findOrFail($id);
     }
@@ -553,6 +556,7 @@ class CaseService
                 'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
                 'category_id' => $data['category_id'] ?? $case->category_id,
+                'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
             ]);
 
             AuditLog::create([
@@ -576,6 +580,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'caseIssue',
             ]);
         });
     }
@@ -614,6 +619,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'caseIssue',
             ]);
         });
     }
@@ -646,6 +652,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'caseIssue',
             ]);
         });
     }
@@ -714,6 +721,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'caseIssue',
             ]);
         });
     }
