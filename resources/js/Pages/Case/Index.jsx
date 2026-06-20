@@ -28,16 +28,25 @@ function getClientAge(dob) {
 }
 
 function getLatestUpdate(row) {
-  const timestamps = [];
-  if (row.created_at) timestamps.push(new Date(row.created_at));
+  const events = [];
+  if (row.created_at) {
+    const d = new Date(row.created_at);
+    if (!Number.isNaN(d.getTime())) events.push({ timestamp: d.toISOString(), title: 'Case Created', description: null });
+  }
   (row.referrals || []).forEach((ref) => {
-    if (ref.created_at) timestamps.push(new Date(ref.created_at));
+    if (ref.created_at) {
+      const d = new Date(ref.created_at);
+      if (!Number.isNaN(d.getTime())) events.push({ timestamp: d.toISOString(), title: `Referred to ${ref.agency?.name || 'Agency'}`, description: ref.required_services || null });
+    }
     (ref.milestones || []).forEach((ms) => {
-      if (ms.created_at) timestamps.push(new Date(ms.created_at));
+      if (ms.created_at) {
+        const d = new Date(ms.created_at);
+        if (!Number.isNaN(d.getTime())) events.push({ timestamp: d.toISOString(), title: ms.title, description: ms.description || null });
+      }
     });
   });
-  if (timestamps.length === 0) return null;
-  return timestamps.reduce((a, b) => (a > b ? a : b)).toISOString();
+  if (events.length === 0) return null;
+  return events.reduce((a, b) => (a.timestamp > b.timestamp ? a : b));
 }
 
 function referredToAgencies(referrals) {
@@ -283,12 +292,15 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
               ...base,
               sortable: false,
               render: (row) => {
-                const ts = getLatestUpdate(row);
-                if (!ts) return <span className="text-slate-400">&mdash;</span>;
+                const ev = getLatestUpdate(row);
+                if (!ev) return <span className="text-slate-400">&mdash;</span>;
                 return (
-                  <div>
-                    <div className="text-xs text-slate-700">{formatDisplayDate(ts)}</div>
-                    <div className="text-[10px] text-slate-500">{formatDisplayTime(ts)}</div>
+                  <div className="max-w-[200px]">
+                    <div className="text-xs font-medium text-slate-800 truncate" title={ev.title}>{ev.title}</div>
+                    {ev.description && (
+                      <div className="text-[10px] text-slate-500 truncate" title={ev.description}>{ev.description}</div>
+                    )}
+                    <div className="text-[10px] text-slate-400 mt-0.5">{formatDisplayDate(ev.timestamp)} {formatDisplayTime(ev.timestamp)}</div>
                   </div>
                 );
               },

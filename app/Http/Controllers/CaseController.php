@@ -73,10 +73,21 @@ class CaseController extends Controller
 
     public function store(StoreCaseRequest $request)
     {
-        $this->caseService->createCase(
+        $case = $this->caseService->createCase(
             $request->validated(),
             $request->user()->id,
         );
+
+        $isDraft = $request->validated()['is_draft'] ?? true;
+
+        if (! $isDraft) {
+            $case = $this->caseService->publishDraft($case->id, $request->user()->id);
+
+            return redirect()
+                ->route('cases.show', $case)
+                ->with('success', 'Case created successfully.')
+                ->with('just_published', true);
+        }
 
         return redirect()
             ->route('cases.drafts')
