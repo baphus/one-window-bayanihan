@@ -437,6 +437,9 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                   </span>
                 } />
               )}
+              {caseFile.case_issue && (
+                <MetaTile label="Issue/Concern" value={caseFile.case_issue.name} />
+              )}
               <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
               <MetaTile label="Case Age" value={getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)} />
             </div>

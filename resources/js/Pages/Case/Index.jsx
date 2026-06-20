@@ -62,6 +62,7 @@ const COLUMN_DEFS = [
   { key: 'author', label: 'Author', default: true },
   { key: 'vulnerability_indicator', label: 'Vulnerability', default: true },
   { key: 'category', label: 'Category', default: true },
+  { key: 'issue_concern', label: 'Issue/Concern', default: true },
   { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
   { key: 'referred_to', label: 'Referred To', default: true },
@@ -261,6 +262,15 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
                     {row.category.name}
                   </span>
                 );
+              },
+            };
+          case 'issue_concern':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => {
+                if (!row.case_issue) return <span className="text-slate-400">&mdash;</span>;
+                return <span className="text-xs text-slate-700">{row.case_issue.name}</span>;
               },
             };
           case 'age':
