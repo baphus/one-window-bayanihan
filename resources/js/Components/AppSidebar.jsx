@@ -96,6 +96,7 @@ const navByRole = {
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
       { name: 'Case Statuses', href: '/admin/case-statuses', icon: 'label' },
       { name: 'Case Categories', href: '/admin/case-categories', icon: 'topic' },
+      { name: 'Case Issues', href: '/admin/case-issues', icon: 'feedback' },
       { name: 'Data Export', href: '/admin/data-export', icon: 'file_download' },
       { name: 'Maintenance Mode', href: '/admin/system/maintenance', icon: 'construction' },
     ]},

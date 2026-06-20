@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ActiveSessionsController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
+use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
 use App\Http\Controllers\Admin\AlertConfigController;
 use App\Http\Controllers\Admin\BackupStatusController;
@@ -235,6 +236,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/case-statuses', [AdminCaseStatusController::class, 'store'])->name('case-statuses.store');
         Route::patch('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'update'])->name('case-statuses.update');
         Route::delete('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'destroy'])->name('case-statuses.destroy');
+
+        Route::get('/case-issues', [AdminCaseIssueController::class, 'index'])->name('case-issues.index');
+        Route::post('/case-issues', [AdminCaseIssueController::class, 'store'])->name('case-issues.store');
+        Route::patch('/case-issues/{caseIssue}', [AdminCaseIssueController::class, 'update'])->name('case-issues.update');
+        Route::delete('/case-issues/{caseIssue}', [AdminCaseIssueController::class, 'destroy'])->name('case-issues.destroy');
 
         Route::get('/data-export', [DataExportController::class, 'index'])->name('data-export.index');
         Route::get('/data-export/export', [DataExportController::class, 'export'])->name('data-export.export');
