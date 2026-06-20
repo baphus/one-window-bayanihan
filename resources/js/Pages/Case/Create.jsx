@@ -85,7 +85,7 @@ function Select({ value, onChange, options, placeholder }) {
 }
 
 export default function CaseCreate() {
-    const { client, existingClients = [], categories = [], existingDraft, auth } = usePage().props;
+    const { client, existingClients = [], categories = [], existingDraft, auth, caseIssues = [] } = usePage().props;
 
     const { data, setData, post, put, processing, errors, clearErrors } = useForm({
         client_type: 'OFW',
@@ -125,6 +125,7 @@ export default function CaseCreate() {
         consent: false,
         selected_client_id: '',
         is_draft: false,
+        case_issue_id: '',
     });
 
     const [currentStep, setCurrentStep] = useState(1);
@@ -153,6 +154,7 @@ export default function CaseCreate() {
             selected_nok_index: '',
             consent: false,
             is_draft: false,
+            case_issue_id: '',
         },
         clientSource: 'new',
     });
@@ -187,7 +189,8 @@ export default function CaseCreate() {
             && JSON.stringify(a.next_of_kin) === JSON.stringify(b.next_of_kin)
             && a.selected_nok_index === b.selected_nok_index
             && a.consent === b.consent
-            && a.is_draft === b.is_draft;
+            && a.is_draft === b.is_draft
+            && a.case_issue_id === b.case_issue_id;
     }
 
     const hasDirty = useMemo(() => {
@@ -227,6 +230,7 @@ export default function CaseCreate() {
         setData('nok_vulnerability_indicator', backupData.nok_vulnerability_indicator || '');
         setData('summary', backupData.summary || '');
         setData('consent', backupData.consent ?? false);
+        if (backupData.case_issue_id !== undefined) setData('case_issue_id', backupData.case_issue_id);
 
         initialFormRef.current = {
             formData: backupData,
@@ -365,6 +369,7 @@ export default function CaseCreate() {
                     selected_nok_index: '',
                     consent: false,
                     is_draft: false,
+                    case_issue_id: '',
                 },
                 clientSource: 'existing',
             };
@@ -384,6 +389,7 @@ export default function CaseCreate() {
         setData('vulnerability_indicator', existingDraft.vulnerability_indicator || '');
         setData('summary', existingDraft.summary || '');
         setData('is_draft', true);
+        if (existingDraft.case_issue_id) setData('case_issue_id', existingDraft.case_issue_id);
 
         let clientData = null;
         let src = 'new';
@@ -594,6 +600,7 @@ export default function CaseCreate() {
                 selected_nok_index: '',
                 consent: false,
                 is_draft: true,
+                case_issue_id: existingDraft.case_issue_id || '',
             },
             clientSource: src,
         };
@@ -761,14 +768,14 @@ export default function CaseCreate() {
 
     function canProceed() {
         if (currentStep === 1) {
-            const base = data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
-            return clientSource === 'new' ? (base && data.client.email.trim().length > 0) : base;
+            return data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
         }
         if (currentStep === 2) {
+            const hasEmail = clientSource === 'existing' || data.client.email.trim().length > 0;
             if (data.client_type === 'NEXT_OF_KIN') {
-                return data.selected_nok_index !== '';
+                return hasEmail && data.selected_nok_index !== '';
             }
-            return true;
+            return hasEmail;
         }
         return true;
     }
@@ -869,6 +876,7 @@ export default function CaseCreate() {
                 selected_nok_index: '',
                 consent: false,
                 is_draft: false,
+                case_issue_id: '',
             },
             clientSource: 'new',
         };
@@ -1000,6 +1008,7 @@ function handleConfirmClient(client) {
             selected_nok_index: '',
             consent: false,
             is_draft: false,
+            case_issue_id: '',
         },
         clientSource: 'existing',
     };
@@ -1074,9 +1083,9 @@ function handleConfirmClient(client) {
                                         const isCurrent = currentStep === step.id;
                                         return (
                                             <div key={step.id} className="flex gap-4 group">
-                                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-bold transition-colors bg-white ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'border-indigo-600 text-indigo-600' : 'border-[#cbd5e1] text-slate-400 group-hover:border-slate-400'}`}>
+                                                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-[13px] font-extrabold transition-colors ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'border-indigo-600 text-indigo-600 bg-white' : 'border-slate-300 text-slate-400 bg-white'}`}>
                                                     {isCompleted ? (
-                                                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                                                             <polyline points="20 6 9 17 4 12" />
                                                         </svg>
                                                     ) : step.id}
@@ -1272,15 +1281,6 @@ function handleConfirmClient(client) {
                                                     <Field label="Gender">
                                                         <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} />
                                                     </Field>
-                                                    <Field label="Email Address" required>
-                                                        <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} />
-                                                    </Field>
-                                                    <div className="col-span-4 -mt-2">
-                                                        <p className="flex items-center gap-1.5 text-[11px] text-amber-700">
-                                                            <span className="material-symbols-outlined text-[14px]">info</span>
-                                                            This email will be used to send case notifications and updates to the client.
-                                                        </p>
-                                                    </div>
                                                     <Field label="Contact Number">
                                                         <PhoneInput value={data.client.contact_number} onChange={(val) => handleClientChange('contact_number', val)} />
                                                     </Field>
@@ -1476,6 +1476,15 @@ function handleConfirmClient(client) {
                                                     </select>
                                                 </Field>
                                             </div>
+                                            <div className="mt-5 pt-5 border-t border-slate-200">
+                                                <Field label="Notification Email" required>
+                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} placeholder="client@email.com" />
+                                                </Field>
+                                                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700">
+                                                    <span className="material-symbols-outlined text-[14px]">info</span>
+                                                    This email will be used to send case updates and notifications to the client.
+                                                </p>
+                                            </div>
                                             {data.client_type === 'NEXT_OF_KIN' && (
                                                 <div className="mt-4 pt-4 border-t border-slate-200">
                                                     {data.next_of_kin.length > 0 ? (
@@ -1557,6 +1566,27 @@ function handleConfirmClient(client) {
                                                         placeholder="Describe the client situation and reason for opening the case..."
                                                         className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                     />
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Issues/Concerns</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">
+                                                Select the primary issue or concern related to this case.
+                                            </p>
+                                            <div className="mt-4">
+                                                <Field label="Issue/Concern">
+                                                    <select
+                                                        value={data.case_issue_id}
+                                                        onChange={(e) => setData('case_issue_id', e.target.value)}
+                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Select issue/concern...</option>
+                                                        {caseIssues.map((issue) => (
+                                                            <option key={issue.id} value={issue.id}>{issue.name}</option>
+                                                        ))}
+                                                    </select>
                                                 </Field>
                                             </div>
                                         </div>
