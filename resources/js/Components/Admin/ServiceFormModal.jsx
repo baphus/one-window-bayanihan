@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
+import { serviceFormSchema } from '@/Schemas/adminSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 function genTempId() {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -7,12 +10,14 @@ function genTempId() {
 
 export default function ServiceFormModal({ service, allAgencies, onClose, onBypass, selectedAgencyId = null }) {
   const isEdit = !!service?.id;
-  const { data, setData, post, patch, processing, errors, transform } = useForm({
+  const { data, setData, post, patch, processing, errors, transform, clearErrors } = useForm({
     name: service?.name ?? '',
     description: service?.description ?? '',
     agcy_id: selectedAgencyId ?? service?.agcy_id ?? '',
     processing_days: service?.processing_days ?? '',
   });
+
+  const { validate } = useClientValidation(serviceFormSchema, data, setError);
 
   const [requirements, setRequirements] = useState(
     () => (service?.requirements ?? []).map((r) => ({
@@ -44,6 +49,8 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
   function handleSubmit(e) {
     e.preventDefault();
     onBypass?.();
+    clearErrors();
+    if (!validate()) return;
 
     transform((current) => ({
       ...current,
@@ -73,28 +80,30 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Name *</label>
-            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={255} />
+            <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Description</label>
             <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <InputError message={errors.description} className="mt-1" />
           </div>
           {!selectedAgencyId && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Agency *</label>
-              <select value={data.agcy_id} onChange={(e) => setData('agcy_id', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+              <select value={data.agcy_id} onChange={(e) => setData('agcy_id', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required>
                 <option value="">Select an agency...</option>
                 {allAgencies.map((agency) => (
                   <option key={agency.id} value={agency.id}>{agency.name}</option>
                 ))}
               </select>
-              {errors.agcy_id && <p className="mt-1 text-sm text-red-600">{errors.agcy_id}</p>}
+              <InputError message={errors.agcy_id} className="mt-1" />
             </div>
           )}
           <div>
             <label className="block text-sm font-medium text-slate-700">Processing Days</label>
             <input type="number" min="0" max="365" value={data.processing_days} onChange={(e) => setData('processing_days', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <InputError message={errors.processing_days} className="mt-1" />
           </div>
 
           {/* Requirements Section */}

@@ -1,10 +1,13 @@
 import { useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
 import LogoUpload from '../LogoUpload';
 import MapPicker from '../MapPicker';
+import { agencyFormSchema } from '@/Schemas/adminSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const isEdit = !!agency;
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors } = useForm({
     name: agency?.name ?? '',
     short: agency?.short ?? '',
     description: agency?.description ?? '',
@@ -16,9 +19,13 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     is_active: agency?.is_active ?? true,
   });
 
+  const { validate } = useClientValidation(agencyFormSchema, data, setError);
+
   function handleSubmit(e) {
     e.preventDefault();
     onBypass?.();
+    clearErrors();
+    if (!validate()) return;
     if (isEdit) {
       patch(route('admin.agencies.update', agency.id), { onSuccess: onClose });
     } else {
@@ -36,21 +43,23 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Name *</label>
-            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={255} />
+            <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Short Name *</label>
-            <input type="text" value={data.short} onChange={(e) => setData('short', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.short && <p className="mt-1 text-sm text-red-600">{errors.short}</p>}
+            <input type="text" value={data.short} onChange={(e) => setData('short', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={50} />
+            <InputError message={errors.short} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Description</label>
             <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <InputError message={errors.description} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Contact Info</label>
             <input type="text" value={data.contact_info} onChange={(e) => setData('contact_info', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <InputError message={errors.contact_info} className="mt-1" />
           </div>
           <LogoUpload
             currentLogoUrl={data.logo_url}

@@ -1,17 +1,23 @@
 import { useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
+import { caseCategorySchema } from '@/Schemas/adminSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
   const isEdit = !!category;
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     name: category?.name ?? '',
     description: category?.description ?? '',
     color: category?.color ?? '',
     sort_order: category?.sort_order ?? 0,
     is_active: category?.is_active ?? true,
   });
+  const { validate } = useClientValidation(caseCategorySchema, data, setError);
 
   function handleSubmit(e) {
     e.preventDefault();
+    clearErrors();
+    if (!validate()) return;
     onBypass?.();
     if (isEdit) {
       patch(route('admin.case-categories.update', category.id), { onSuccess: onClose });
@@ -30,12 +36,13 @@ export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Name *</label>
-            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={255} />
+            <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Description</label>
             <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <InputError message={errors.description} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Color</label>
@@ -43,7 +50,7 @@ export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
               <input type="color" value={data.color || '#0b5384'} onChange={(e) => setData('color', e.target.value)} className="w-10 h-10 rounded border border-slate-300 cursor-pointer" />
               <input type="text" value={data.color} onChange={(e) => setData('color', e.target.value)} placeholder="#HEX" className="block w-32 rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
             </div>
-            {errors.color && <p className="mt-1 text-sm text-red-600">{errors.color}</p>}
+            <InputError message={errors.color} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Sort Order</label>

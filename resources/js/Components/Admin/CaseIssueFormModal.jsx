@@ -1,15 +1,21 @@
 import { useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
+import { caseIssueSchema } from '@/Schemas/adminSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function CaseIssueFormModal({ issue, onClose, onBypass }) {
   const isEdit = !!issue;
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     name: issue?.name ?? '',
     sort_order: issue?.sort_order ?? 0,
     is_active: issue?.is_active ?? true,
   });
+  const { validate } = useClientValidation(caseIssueSchema, data, setError);
 
   function handleSubmit(e) {
     e.preventDefault();
+    clearErrors();
+    if (!validate()) return;
     onBypass?.();
     if (isEdit) {
       patch(route('admin.case-issues.update', issue.id), { onSuccess: onClose });
@@ -28,12 +34,13 @@ export default function CaseIssueFormModal({ issue, onClose, onBypass }) {
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Name *</label>
-            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={255} />
+            <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Sort Order</label>
             <input type="number" min="0" value={data.sort_order} onChange={(e) => setData('sort_order', parseInt(e.target.value, 10) || 0)} className="mt-1 block w-24 rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <InputError message={errors.sort_order} className="mt-1" />
           </div>
           {isEdit && (
             <div className="flex items-center gap-2">

@@ -1,4 +1,7 @@
 import { useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
+import { userFormSchema } from '@/Schemas/adminSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 const roleOptions = [
   { value: 'CASE_MANAGER', label: 'Case Manager' },
@@ -10,7 +13,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
   const isEdit = !!user;
   const isNewUserViaSelectedAgency = !!selectedAgencyId && !user?.id;
 
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors } = useForm({
     name: user?.name ?? '',
     email: user?.email ?? '',
     password: '',
@@ -21,9 +24,13 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     is_active: user?.is_active ?? true,
   });
 
+  const { validate } = useClientValidation(userFormSchema, data, setError);
+
   function handleSubmit(e) {
     e.preventDefault();
     onBypass?.();
+    clearErrors();
+    if (!validate()) return;
     if (isEdit) {
       patch(route('admin.users.update', user.id), { onSuccess: onClose });
     } else {
@@ -41,41 +48,44 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Name *</label>
-            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={255} />
+            <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Email *</label>
-            <input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+            <input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required />
+            <InputError message={errors.email} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Password {isEdit ? '(leave blank to keep current)' : '*'}</label>
-            <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+            <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" minLength={8} />
+            <InputError message={errors.password} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Role *</label>
-            <select value={data.role} onChange={(e) => setData('role', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+            <select value={data.role} onChange={(e) => setData('role', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required>
               {roleOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+            <InputError message={errors.role} className="mt-1" />
           </div>
           {!isNewUserViaSelectedAgency && data.role === 'AGENCY' && (
             <div>
               <label className="block text-sm font-medium text-slate-700">Agency</label>
-              <select value={data.agcy_id} onChange={(e) => setData('agcy_id', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+              <select value={data.agcy_id} onChange={(e) => setData('agcy_id', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required>
                 <option value="">Select agency...</option>
                 {agencies.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
+              <InputError message={errors.agcy_id} className="mt-1" />
             </div>
           )}
           <div>
             <label className="block text-sm font-medium text-slate-700">Contact Number</label>
             <input type="text" value={data.contact_number} onChange={(e) => setData('contact_number', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <InputError message={errors.contact_number} className="mt-1" />
           </div>
           {isEdit && (
             <div className="flex items-center gap-2">
