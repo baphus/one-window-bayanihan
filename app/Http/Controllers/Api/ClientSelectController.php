@@ -66,31 +66,27 @@ class ClientSelectController extends Controller
             'email' => $client->email,
             'contact_number' => $client->contact_number,
             'avatar_url' => $client->avatar_url,
-            'addresses' => (function () use ($client) {
-                $codes = collect();
-                foreach ($client->addresses as $a) {
-                    $codes->push($a->region);
-                    $codes->push($a->province);
-                    $codes->push($a->city_municipality);
-                    $codes->push($a->barangay);
-                }
-                $names = $this->addressService->resolveNames(
-                    $codes->filter()->unique()->values()->toArray()
-                );
-
-                return $client->addresses->map(fn ($a) => [
-                    'id' => $a->id,
+            'addresses' => $client->addresses->map(function ($a) {
+                $codes = $this->addressService->resolveAddressToCodes([
                     'region' => $a->region,
                     'province' => $a->province,
                     'city_municipality' => $a->city_municipality,
                     'barangay' => $a->barangay,
-                    'street' => $a->street,
-                    'region_name' => $a->region ? ($names[$a->region] ?? null) : null,
-                    'province_name' => $a->province ? ($names[$a->province] ?? null) : null,
-                    'city_municipality_name' => $a->city_municipality ? ($names[$a->city_municipality] ?? null) : null,
-                    'barangay_name' => $a->barangay ? ($names[$a->barangay] ?? null) : null,
                 ]);
-            })(),
+
+                return [
+                    'id' => $a->id,
+                    'region' => $codes['region'] ?? $a->region,
+                    'province' => $codes['province'] ?? $a->province,
+                    'city_municipality' => $codes['city_municipality'] ?? $a->city_municipality,
+                    'barangay' => $codes['barangay'] ?? $a->barangay,
+                    'street' => $a->street,
+                    'region_name' => $a->region,
+                    'province_name' => $a->province,
+                    'city_municipality_name' => $a->city_municipality,
+                    'barangay_name' => $a->barangay,
+                ];
+            }),
             'employments' => $client->employments->map(fn ($e) => [
                 'id' => $e->id,
                 'employer_name' => $e->employer_name,

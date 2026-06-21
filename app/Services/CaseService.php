@@ -781,12 +781,14 @@ class CaseService
 
         $names = $this->addressService->resolveNames($codes);
 
-        return array_merge($address, [
-            'region' => $names[$address['region']] ?? $address['region'],
-            'province' => $names[$address['province']] ?? $address['province'],
-            'city_municipality' => $names[$address['city_municipality']] ?? $address['city_municipality'],
-            'barangay' => $names[$address['barangay']] ?? $address['barangay'],
-        ]);
+        // Only override keys that exist in the input (partial address data)
+        foreach (['region', 'province', 'city_municipality', 'barangay'] as $key) {
+            if (isset($address[$key])) {
+                $address[$key] = $names[$address[$key]] ?? $address[$key];
+            }
+        }
+
+        return $address;
     }
 
     private function normalizeNokData(array $data): array

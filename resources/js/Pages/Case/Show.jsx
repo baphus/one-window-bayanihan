@@ -37,14 +37,14 @@ function getClientAge(dob) {
   return age;
 }
 
-function formatAddress(addr, names) {
+function formatAddress(addr) {
   if (!addr) return '';
   const parts = [];
   if (addr.street) parts.push(addr.street);
-  if (addr.barangay) parts.push(names[addr.barangay] || addr.barangay);
-  if (addr.city_municipality) parts.push(names[addr.city_municipality] || addr.city_municipality);
-  if (addr.province) parts.push(names[addr.province] || addr.province);
-  if (addr.region) parts.push(names[addr.region] || addr.region);
+  if (addr.barangay) parts.push(addr.barangay);
+  if (addr.city_municipality) parts.push(addr.city_municipality);
+  if (addr.province) parts.push(addr.province);
+  if (addr.region) parts.push(addr.region);
   return parts.join(', ');
 }
 
@@ -67,7 +67,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
   const [saving, setSaving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [addressNames, setAddressNames] = useState({});
   const docInputRef = useRef(null);
   
   function handleDocumentUpload(e) {
@@ -118,22 +117,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const primaryAddress = client?.addresses?.[0] || null;
   const primaryEmployment = client?.employments?.[0] || null;
   const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
-
-  useEffect(() => {
-    if (!primaryAddress) return;
-    const codes = [];
-    if (primaryAddress.barangay) codes.push(primaryAddress.barangay);
-    if (primaryAddress.city_municipality) codes.push(primaryAddress.city_municipality);
-    if (primaryAddress.province) codes.push(primaryAddress.province);
-    if (primaryAddress.region) codes.push(primaryAddress.region);
-    if (codes.length === 0) return;
-    const params = new URLSearchParams();
-    codes.forEach(c => params.append('codes[]', c));
-    fetch(`/api/address/resolve?${params.toString()}`)
-      .then(r => r.json())
-      .then(data => setAddressNames(data))
-      .catch(() => {});
-  }, [primaryAddress]);
 
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
@@ -728,7 +711,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               {/* Address - full width */}
               <div>
                 <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
-                <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{primaryAddress ? formatAddress(primaryAddress, addressNames) : 'No address recorded'}</p>
+                <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{primaryAddress ? formatAddress(primaryAddress) : 'No address recorded'}</p>
               </div>
 
               {/* Work History — compact inline */}

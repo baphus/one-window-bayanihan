@@ -117,11 +117,24 @@ class CaseController extends Controller
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
         $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
+        // Resolve draft address names to codes for cascade dropdown pre-population
+        $draftResolvedAddress = [];
+        $draftData = $case->draft_client_data;
+        if (! empty($draftData['address'])) {
+            $region = $draftData['address']['region'] ?? '';
+            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
+                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
+            } else {
+                $draftResolvedAddress = $draftData['address'];
+            }
+        }
+
         return Inertia::render('Case/Create', [
             'existingDraft' => $case,
             'existingClients' => $existingClients,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
+            'draftResolvedAddress' => $draftResolvedAddress,
         ]);
     }
 
@@ -253,18 +266,28 @@ class CaseController extends Controller
 
     private function mapExistingClients($clients): array
     {
-        $allCodes = collect();
+        $addresses = collect();
         foreach ($clients as $c) {
             foreach ($c->addresses as $a) {
-                $allCodes->push($a->region);
-                $allCodes->push($a->province);
-                $allCodes->push($a->city_municipality);
-                $allCodes->push($a->barangay);
+                $addresses->push($a);
             }
         }
-        $names = $this->addressService->resolveNames(
-            $allCodes->filter()->unique()->values()->toArray()
-        );
+
+        $resolved = $addresses->map(fn ($a) => [
+            'id' => $a->id,
+            'codes' => $this->addressService->resolveAddressToCodes([
+                'region' => $a->region,
+                'province' => $a->province,
+                'city_municipality' => $a->city_municipality,
+                'barangay' => $a->barangay,
+            ]),
+            'names' => [
+                'region' => $a->region,
+                'province' => $a->province,
+                'city_municipality' => $a->city_municipality,
+                'barangay' => $a->barangay,
+            ],
+        ])->keyBy('id');
 
         return $clients->map(fn ($c) => [
             'id' => $c->id,
@@ -279,15 +302,15 @@ class CaseController extends Controller
             'contact_number' => $c->contact_number,
             'addresses' => $c->addresses->map(fn ($a) => [
                 'id' => $a->id,
-                'region' => $a->region,
-                'province' => $a->province,
-                'city_municipality' => $a->city_municipality,
-                'barangay' => $a->barangay,
+                'region' => $resolved[$a->id]['codes']['region'] ?? $a->region,
+                'province' => $resolved[$a->id]['codes']['province'] ?? $a->province,
+                'city_municipality' => $resolved[$a->id]['codes']['city_municipality'] ?? $a->city_municipality,
+                'barangay' => $resolved[$a->id]['codes']['barangay'] ?? $a->barangay,
                 'street' => $a->street,
-                'region_name' => $a->region ? ($names[$a->region] ?? null) : null,
-                'province_name' => $a->province ? ($names[$a->province] ?? null) : null,
-                'city_municipality_name' => $a->city_municipality ? ($names[$a->city_municipality] ?? null) : null,
-                'barangay_name' => $a->barangay ? ($names[$a->barangay] ?? null) : null,
+                'region_name' => $resolved[$a->id]['names']['region'] ?? null,
+                'province_name' => $resolved[$a->id]['names']['province'] ?? null,
+                'city_municipality_name' => $resolved[$a->id]['names']['city_municipality'] ?? null,
+                'barangay_name' => $resolved[$a->id]['names']['barangay'] ?? null,
             ]),
             'employments' => $c->employments,
             'nextOfKin' => $c->nextOfKin,
