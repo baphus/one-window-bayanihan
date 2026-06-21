@@ -5,6 +5,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import DangerButton from '@/Components/DangerButton';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
+import { useToast } from '@/Hooks/useToast';
 import TextInput from '@/Components/TextInput';
 
 export default function MfaSetup({ mfaEnabled }) {
@@ -16,6 +17,7 @@ export default function MfaSetup({ mfaEnabled }) {
     const [error, setError] = useState('');
     const [recoveryCodes, setRecoveryCodes] = useState([]);
     const [showRecovery, setShowRecovery] = useState(false);
+    const toast = useToast();
     const [loading, setLoading] = useState(false);
 
     function handleEnable() {
@@ -32,7 +34,7 @@ export default function MfaSetup({ mfaEnabled }) {
             setQrUrl(data.qr_code_url);
             setStep('show_qr');
         })
-        .catch(() => setError('Failed to generate MFA secret.'))
+        .catch(() => { setError('Failed to generate MFA secret.'); toast.error('Failed to generate MFA secret.'); })
         .finally(() => setLoading(false));
     }
 
@@ -53,13 +55,15 @@ export default function MfaSetup({ mfaEnabled }) {
         .then(({ ok, data }) => {
             if (!ok) {
                 setError(data.message || 'Invalid code. Please try again.');
+                toast.error(data.message || 'Invalid code. Please try again.');
                 return;
             }
             setEnabled(true);
             setStep('recovery');
             setRecoveryCodes(data.recovery_codes || []);
+            toast.success('Two-factor authentication enabled successfully!');
         })
-        .catch(() => setError('Verification failed.'))
+        .catch(() => { setError('Verification failed.'); toast.error('Verification failed.'); })
         .finally(() => setLoading(false));
     }
 
@@ -81,8 +85,9 @@ export default function MfaSetup({ mfaEnabled }) {
             setOtp('');
             setRecoveryCodes([]);
             setShowRecovery(false);
+            toast.success('Two-factor authentication disabled.');
         })
-        .catch((e) => setError(e.message))
+        .catch((e) => { setError(e.message); toast.error(e.message); })
         .finally(() => setLoading(false));
     }
 
@@ -94,7 +99,7 @@ export default function MfaSetup({ mfaEnabled }) {
         })
         .then(r => r.json())
         .then(data => setRecoveryCodes(data.recovery_codes || []))
-        .catch(() => setError('Failed to regenerate codes.'))
+        .catch(() => { setError('Failed to regenerate codes.'); toast.error('Failed to regenerate codes.'); })
         .finally(() => setLoading(false));
     }
 
@@ -115,7 +120,7 @@ export default function MfaSetup({ mfaEnabled }) {
     return (
         <CardSection title="Two-Factor Authentication">
             <div className="space-y-4" aria-live="polite">
-                {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+                {error && <InputError message={error} className="mb-3" />}
 
                 {!enabled && step === 'idle' && (
                     <div>

@@ -7,6 +7,7 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import InputError from '@/Components/InputError';
 import { referralSchema } from '@/Schemas/referralSchema';
 import useClientValidation from '@/Hooks/useClientValidation';
+import { useToast } from '@/Hooks/useToast';
 
 const STEPS = [
     { id: 1, title: 'Select Case', description: 'Choose the case to refer' },
@@ -51,7 +52,7 @@ function InfoRow({ label, value, subtext }) {
 }
 
 export default function ReferralCreate({ case_id, agencies, cases: openCases }) {
-    const { data, setData, post, processing, errors, clearErrors } = useForm({
+    const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
         case_id: case_id || '',
         agcy_id: '',
         services: [],
@@ -59,6 +60,8 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     });
 
     const { validate } = useClientValidation(referralSchema, data, setError);
+
+    const toast = useToast();
 
     const [createStep, setCreateStep] = useState(1);
     const [requirementUploads, setRequirementUploads] = useState({});
@@ -267,9 +270,14 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
 
         bypassNext();
 
+        if (hasMissingRequirementUploads) {
+            toast.warning('Upload all required documents before submitting.');
+            return;
+        }
+
         post(route('referrals.store'), {
-            onSuccess: () => { },
-            onError: () => { },
+            onSuccess: () => { toast.success('Referral submitted successfully!'); },
+            onError: (errs) => { const msgs = Object.values(errs); toast.error(msgs[0] || 'Failed to submit referral.'); },
         });
     }
 
@@ -675,9 +683,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                                             ) : (
                                                                                                 <p className="mt-1 text-[11px] text-rose-700">Upload is required for this document.</p>
                                                                                             )}
-                                                                                            {fileErrors[requirementKey] && (
-                                                                                                <p className="mt-1 text-[11px] text-red-600">{fileErrors[requirementKey]}</p>
-                                                                                            )}
+                                                                                            <InputError message={fileErrors[requirementKey]} className="mt-1" />
                                                                                         </>
                                                                                     )}
                                                                                 </div>
@@ -692,11 +698,6 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                     })}
                                                 </div>
 
-                                                {hasMissingRequirementUploads && (
-                                                    <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-800">
-                                                        Missing uploads: {missingRequirementKeys.length}. Attach one file for each required service document to continue.
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
 

@@ -6,6 +6,7 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
+import { useToast } from '@/Hooks/useToast';
 
 const DIMENSION_ORDER = [
   'Tangibles',
@@ -137,7 +138,6 @@ export default function FeedbackSubmit({
 }) {
   const { url } = usePage();
   const [submitted, setSubmitted] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
 
   // Extract tracking token from URL query string
   const trackingToken = useMemo(() => {
@@ -170,6 +170,7 @@ export default function FeedbackSubmit({
   });
 
   const { validate } = useClientValidation(surveySchema, data, setError);
+  const toast = useToast();
 
   // --- Unsaved changes tracking ---
   const initialSnapshotRef = useRef(null);
@@ -241,19 +242,17 @@ export default function FeedbackSubmit({
   // --- Submit ---
   const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmitError(null);
     clearErrors();
     if (!validate()) return;
 
     post('/feedbacks/submit', {
       preserveScroll: true,
-      onSuccess: () => setSubmitted(true),
+      onSuccess: () => {
+        toast.success('Thank you for your feedback!');
+        setSubmitted(true);
+      },
       onError: (errs) => {
-        if (typeof errs === 'string') {
-          setSubmitError(errs);
-        } else if (errs?.message) {
-          setSubmitError(errs.message);
-        }
+        toast.error(typeof errs === 'string' ? errs : (errs?.message || 'Failed to submit feedback. Please try again.'));
       },
     });
   };
@@ -370,13 +369,6 @@ export default function FeedbackSubmit({
             </li>
           </ul>
         </div>
-
-        {/* ── General error ── */}
-        {submitError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-            {submitError}
-          </div>
-        )}
 
         {/* ── SERVQUAL Questionnaire ── */}
         {questions?.length > 0 ? (
