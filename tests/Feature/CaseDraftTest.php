@@ -74,7 +74,7 @@ class CaseDraftTest extends TestCase
         $this->assertEquals($initialCount, Client::count());
     }
 
-    public function test_store_with_is_draft_false_still_creates_draft(): void
+    public function test_store_with_is_draft_false_publishes_case(): void
     {
         $this->actingAs($this->user)->post(route('cases.store'), [
             'client_type' => 'OFW',
@@ -88,7 +88,7 @@ class CaseDraftTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('cases', [
-            'status' => 'DRAFT',
+            'status' => 'OPEN',
         ]);
     }
 

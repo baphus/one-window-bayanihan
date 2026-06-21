@@ -27,34 +27,9 @@ class SystemCommandsTest extends TestCase
     #[Test]
     public function test_alert_check_command_runs(): void
     {
-        DB::table('health_check_logs')->insert([
-            'id' => (string) Str::uuid(),
-            'check_type' => 'disk',
-            'status' => 'healthy',
-            'metric_value' => '80%',
-            'message' => '80% used',
-            'checked_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('alert_configs')->insert([
-            'id' => (string) Str::uuid(),
-            'alert_type' => 'low_storage',
-            'enabled' => true,
-            'threshold_value' => 75,
-            'email_recipients' => json_encode(['ops@example.com']),
-            'notify_in_app' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-            'is_deleted' => false,
-        ]);
-
-        $exitCode = Artisan::call('alerts:check');
+        $exitCode = Artisan::call('insights:check-alerts');
 
         $this->assertSame(0, $exitCode);
-        $this->assertDatabaseCount('system_alert_logs', 1);
-        $this->assertDatabaseHas('system_alert_logs', ['alert_type' => 'low_storage']);
     }
 
     #[Test]

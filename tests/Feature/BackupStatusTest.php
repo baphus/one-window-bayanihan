@@ -18,6 +18,11 @@ class BackupStatusTest extends TestCase
     {
         parent::setUp();
 
+        config([
+            'services.supabase.url' => 'https://testproject.supabase.co',
+            'services.supabase.service_key' => 'test-service-key',
+        ]);
+
         $this->admin = User::factory()->create(['role' => 'ADMIN']);
     }
 

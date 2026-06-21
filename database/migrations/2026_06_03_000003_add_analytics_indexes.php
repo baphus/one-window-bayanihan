@@ -28,6 +28,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            echo 'ℹ️  Skipping PostgreSQL-specific analytics indexes (current driver: '.DB::connection()->getDriverName().").\n";
+
+            return;
+        }
+
         try {
             // Index 1: feedback trend queries by agency over time
             DB::statement('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_feedback_created_agency ON feedback (created_at, agency_id)');
