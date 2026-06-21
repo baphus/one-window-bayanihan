@@ -531,7 +531,7 @@ class ReportsService
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->leftJoin('philippine_addresses as pa', function ($join) {
-                $join->on('pa.code', '=', 'ca.province')
+                $join->on('pa.name', '=', 'ca.province')
                     ->where('pa.type', '=', 'province');
             })
             ->whereNotNull('ca.province')
