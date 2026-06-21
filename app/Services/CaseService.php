@@ -22,6 +22,7 @@ class CaseService
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly ReferralService $referralService,
+        private readonly PhilippineAddressService $addressService,
     ) {}
 
     public function createCase(array $data, string $userId): CaseFile
@@ -66,22 +67,11 @@ class CaseService
 
                 if (! empty($data['address'])) {
                     $address = $client->addresses()->first();
+                    $resolvedAddress = $this->resolveAddressNames($data['address']);
                     if ($address) {
-                        $address->update([
-                            'region' => $data['address']['region'] ?? null,
-                            'province' => $data['address']['province'] ?? null,
-                            'city_municipality' => $data['address']['city_municipality'] ?? null,
-                            'barangay' => $data['address']['barangay'] ?? null,
-                            'street' => $data['address']['street'] ?? null,
-                        ]);
+                        $address->update($resolvedAddress);
                     } else {
-                        $client->addresses()->create([
-                            'region' => $data['address']['region'] ?? null,
-                            'province' => $data['address']['province'] ?? null,
-                            'city_municipality' => $data['address']['city_municipality'] ?? null,
-                            'barangay' => $data['address']['barangay'] ?? null,
-                            'street' => $data['address']['street'] ?? null,
-                        ]);
+                        $client->addresses()->create($resolvedAddress);
                     }
                 }
 
@@ -258,22 +248,11 @@ class CaseService
 
                 if (! empty($data['address'])) {
                     $address = $client->addresses()->first();
+                    $resolvedAddress = $this->resolveAddressNames($data['address']);
                     if ($address) {
-                        $address->update([
-                            'region' => $data['address']['region'] ?? null,
-                            'province' => $data['address']['province'] ?? null,
-                            'city_municipality' => $data['address']['city_municipality'] ?? null,
-                            'barangay' => $data['address']['barangay'] ?? null,
-                            'street' => $data['address']['street'] ?? null,
-                        ]);
+                        $address->update($resolvedAddress);
                     } else {
-                        $client->addresses()->create([
-                            'region' => $data['address']['region'] ?? null,
-                            'province' => $data['address']['province'] ?? null,
-                            'city_municipality' => $data['address']['city_municipality'] ?? null,
-                            'barangay' => $data['address']['barangay'] ?? null,
-                            'street' => $data['address']['street'] ?? null,
-                        ]);
+                        $client->addresses()->create($resolvedAddress);
                     }
                 }
 
@@ -406,14 +385,11 @@ class CaseService
                 ]);
 
                 if (! empty($draftData['address'])) {
-                    ClientAddress::create([
-                        'client_id' => $client->id,
-                        'region' => $draftData['address']['region'] ?? null,
-                        'province' => $draftData['address']['province'] ?? null,
-                        'city_municipality' => $draftData['address']['city_municipality'] ?? null,
-                        'barangay' => $draftData['address']['barangay'] ?? null,
-                        'street' => $draftData['address']['street'] ?? null,
-                    ]);
+                    $resolvedAddress = $this->resolveAddressNames($draftData['address']);
+                    ClientAddress::create(array_merge(
+                        ['client_id' => $client->id],
+                        $resolvedAddress,
+                    ));
                 }
 
                 if (! empty($draftData['employment'])) {
@@ -790,9 +766,32 @@ class CaseService
         );
     }
 
+    private function resolveAddressNames(array $address): array
+    {
+        $codes = array_filter([
+            $address['region'] ?? null,
+            $address['province'] ?? null,
+            $address['city_municipality'] ?? null,
+            $address['barangay'] ?? null,
+        ]);
+
+        if (empty($codes)) {
+            return $address;
+        }
+
+        $names = $this->addressService->resolveNames($codes);
+
+        return array_merge($address, [
+            'region' => $names[$address['region']] ?? $address['region'],
+            'province' => $names[$address['province']] ?? $address['province'],
+            'city_municipality' => $names[$address['city_municipality']] ?? $address['city_municipality'],
+            'barangay' => $names[$address['barangay']] ?? $address['barangay'],
+        ]);
+    }
+
     private function normalizeNokData(array $data): array
     {
-        return [
+        $result = [
             'first_name' => $data['first_name'] ?? '',
             'middle_initial' => $data['middle_initial'] ?? null,
             'last_name' => $data['last_name'] ?? null,
@@ -809,6 +808,26 @@ class CaseService
             'street' => $data['street'] ?? $data['nok_address']['street'] ?? null,
             'sort_order' => $data['sort_order'] ?? 0,
         ];
+
+        // Resolve PSGC codes to location names (region, province, city_municipality, barangay)
+        $codes = array_filter([
+            $result['region'],
+            $result['province'],
+            $result['city_municipality'],
+            $result['barangay'],
+        ]);
+
+        if (! empty($codes)) {
+            $names = $this->addressService->resolveNames($codes);
+            if (! empty($names)) {
+                $result['region'] = $names[$result['region']] ?? $result['region'];
+                $result['province'] = $names[$result['province']] ?? $result['province'];
+                $result['city_municipality'] = $names[$result['city_municipality']] ?? $result['city_municipality'];
+                $result['barangay'] = $names[$result['barangay']] ?? $result['barangay'];
+            }
+        }
+
+        return $result;
     }
 
     private function ensureSinglePrimary(string $clientId): void
