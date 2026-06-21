@@ -10,7 +10,7 @@ function genTempId() {
 
 export default function ServiceFormModal({ service, allAgencies, onClose, onBypass, selectedAgencyId = null }) {
   const isEdit = !!service?.id;
-  const { data, setData, post, patch, processing, errors, transform, clearErrors } = useForm({
+  const { data, setData, post, patch, processing, errors, transform, clearErrors, setError } = useForm({
     name: service?.name ?? '',
     description: service?.description ?? '',
     agcy_id: selectedAgencyId ?? service?.agcy_id ?? '',

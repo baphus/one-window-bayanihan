@@ -6,7 +6,7 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { useToast } from '@/Hooks/useToast';
 import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
-import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
+import { CardSection, MetaTile } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
@@ -52,15 +52,6 @@ function formatNokAddress(nok) {
   if (!nok) return 'N/A';
   const parts = [nok.street, nok.barangay, nok.city_municipality, nok.province, nok.region].filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : (nok.full_address || 'N/A');
-}
-
-function Subsection({ title, children }) {
-  return (
-    <div className="space-y-2.5">
-      <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#334155]">{title}</h4>
-      {children}
-    </div>
-  );
 }
 
 export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
@@ -230,15 +221,20 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   }, [caseFile]);
 
   const timelineAgencies = useMemo(() => {
-    const unique = new Set(timelineItems.map((item) => item.agency));
-    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+    const agencies = timelineItems
+      .filter((item) => item.type !== 'system')
+      .map((item) => item.agency)
+      .filter(Boolean);
+    return Array.from(new Set(agencies)).sort((a, b) => a.localeCompare(b));
   }, [timelineItems]);
 
   const [timelineFilter, setTimelineFilter] = useState('ALL');
 
   const filteredTimeline = useMemo(() => {
     if (timelineFilter === 'ALL') return timelineItems;
-    return timelineItems.filter((item) => item.agency === timelineFilter);
+    return timelineItems.filter(
+      (item) => item.type === 'system' || item.agency === timelineFilter
+    );
   }, [timelineItems, timelineFilter]);
 
   const allAttachments = useMemo(() => {
@@ -435,122 +431,55 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <main className="xl:col-span-8 space-y-4">
-          <CardSection title="Case Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-              <MetaTile label="Case No." value={caseFile.case_number} />
-              <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
-              <MetaTile label="Client Type" value={clientTypeLabel} />
-              {caseFile.category && (
-                <MetaTile label="Category" value={
-                  <span className="inline-flex items-center gap-1.5">
-                    {caseFile.category.color && (
-                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: caseFile.category.color }} />
-                    )}
-                    {caseFile.category.name}
-                  </span>
-                } />
-              )}
-              {caseFile.case_issue && (
-                <MetaTile label="Issue/Concern" value={caseFile.case_issue.name} />
-              )}
-              <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
-              <MetaTile label="Case Age" value={getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)} />
-            </div>
-          </CardSection>
-
-          <CardSection title="Client Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-            <div className="space-y-5">
-              <Subsection title="Client Profile">
-                <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
-                  <InfoCell label="Full Name" value={client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : 'N/A'} />
-                  <InfoCell label="Date of Birth" value={client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
-                  <InfoCell label="Age" value={client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'} />
-                  <InfoCell label="Gender" value={client?.sex || 'N/A'} />
-                  <InfoCell label="Email Address" value={client?.email || 'N/A'} />
-                  <InfoCell label="Contact Number" value={client?.contact_number || 'N/A'} />
-                  <InfoCell label=" " value=" " />
-                  {primaryAddress ? (
-                    <InfoCell label="Home Address" value={formatAddress(primaryAddress, addressNames)} fullRow />
-                  ) : (
-                    <InfoCell label="Home Address" value="No address recorded" fullRow />
+          {/* Key Stats Ribbon */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-[3px] border border-[#d8dee8] bg-white px-4 py-2.5 shadow-sm">
+            <StatusBadge status={caseFile.status} size="sm" />
+            <span className="text-[11px] text-slate-300 select-none">|</span>
+            <span className="text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-800">{getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)}</span>
+              <span className="text-slate-400 ml-1">since created</span>
+            </span>
+            <span className="text-[11px] text-slate-300 select-none">|</span>
+            <span className="text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-800">{(caseFile.referrals || []).length}</span>
+              <span className="text-slate-400 ml-1">referral{(caseFile.referrals || []).length !== 1 ? 's' : ''}</span>
+            </span>
+            {hasOverdueReferrals && (
+              <>
+                <span className="text-[11px] text-slate-300 select-none">|</span>
+                <span className="inline-flex items-center gap-1 text-[11px] text-red-600 font-semibold">
+                  <span className="material-symbols-outlined text-[14px]">warning</span>
+                  {referralRows.filter(r => r.isOverdue).length} overdue
+                </span>
+              </>
+            )}
+            <span className="text-[11px] text-slate-300 select-none">|</span>
+            <span className="text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-800">{clientTypeLabel}</span>
+            </span>
+            {caseFile.category && (
+              <>
+                <span className="text-[11px] text-slate-300 select-none">|</span>
+                <span className="text-[11px] text-slate-600">
+                  {caseFile.category.color && (
+                    <span className="w-2 h-2 rounded-full inline-block mr-1" style={{ backgroundColor: caseFile.category.color }} />
                   )}
-                </div>
+                  <span className="font-semibold text-slate-800">{caseFile.category.name}</span>
+                </span>
+              </>
+            )}
+          </div>
 
-                {((caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None') || (caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None')) && (
-                  <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] p-3">
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#7c889b]">Vulnerability</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None' && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[#64748b]">OFW:</span>
-                          <span className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[11px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                            <span className="material-symbols-outlined text-[16px]">{vulnConfig[caseFile.vulnerability_indicator]?.icon || 'warning'}</span>
-                            {caseFile.vulnerability_indicator}
-                          </span>
-                        </div>
-                      )}
-                      {caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None' && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[#64748b]">NOK:</span>
-                          <span className={`inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[11px] font-bold ${vulnConfig[caseFile.nok_vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                            <span className="material-symbols-outlined text-[16px]">{vulnConfig[caseFile.nok_vulnerability_indicator]?.icon || 'warning'}</span>
-                            {caseFile.nok_vulnerability_indicator}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </Subsection>
-
-              <Subsection title="Work History">
-                {primaryEmployment ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
-                    <InfoCell label="Last Country" value={primaryEmployment.last_country || primaryEmployment.country || 'N/A'} />
-                    <InfoCell label="Last Position" value={primaryEmployment.last_position || primaryEmployment.position || 'N/A'} />
-                    <InfoCell label="Arrival Date" value={primaryEmployment.date_of_arrival ? formatDisplayDate(primaryEmployment.date_of_arrival) : 'N/A'} />
-                  </div>
-                ) : (
-                  <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2 text-[12px] text-slate-600">
-                    No work history recorded for this case.
-                  </div>
-                )}
-              </Subsection>
-
-              <Subsection title="Next of Kin Information">
-                {client?.nextOfKin?.length > 0 ? (
-                  <div className="space-y-3">
-                    {client.nextOfKin.map((nok, idx) => (
-                      <div key={nok.id} className="rounded-[3px] border border-[#d8dee8]">
-                        <div className="flex items-center justify-between border-b border-[#d8dee8] bg-[#f8fafc] px-3 py-1.5">
-                          <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#334155]">
-                            Next of Kin #{idx + 1}
-                          </span>
-                          {nok.is_primary && (
-                            <span className="inline-flex items-center rounded-full bg-[#6366f1] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 p-3">
-                          <InfoCell label="Full Name" value={[nok.first_name, nok.last_name].filter(Boolean).join(' ')} />
-                          <InfoCell label="Relationship" value={nok.relationship || 'N/A'} />
-                          <InfoCell label="Contact Number" value={nok.phone_number || 'N/A'} />
-                          <InfoCell label="Email Address" value={nok.email || 'N/A'} />
-                          <InfoCell label="Home Address" value={formatNokAddress(nok)} fullRow />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2 text-[12px] text-slate-600">
-                    No next of kin listed.
-                  </div>
-                )}
-              </Subsection>
-            </div>
+          {/* Case Narrative — moved to top of main column */}
+          <CardSection title="Case Narrative" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            {caseFile.summary ? (
+              <p className="text-[13px] leading-6 text-slate-700 whitespace-pre-wrap">{caseFile.summary}</p>
+            ) : (
+              <p className="text-[12px] text-slate-500 italic">No narrative recorded for this case.</p>
+            )}
           </CardSection>
 
+          {/* Referrals table — unchanged */}
           <CardSection title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -604,6 +533,56 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             />
           </CardSection>
 
+          {/* Timeline — moved from sidebar, full width */}
+          <CardSection title="Case Timeline" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#64748b]">Chronological Events</span>
+                {filteredTimeline.length > 0 && (
+                  <span className="text-[10px] text-slate-400">({filteredTimeline.length} event{filteredTimeline.length !== 1 ? 's' : ''})</span>
+                )}
+              </div>
+              <select
+                value={timelineFilter}
+                onChange={(e) => setTimelineFilter(e.target.value)}
+                className="h-[30px] w-[170px] max-w-full shrink-0 rounded-[3px] border border-[#cbd5e1] bg-white px-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600"
+              >
+                <option value="ALL">All agencies</option>
+                {timelineAgencies.map((agency) => (
+                  <option key={agency} value={agency}>{agency}</option>
+                ))}
+              </select>
+            </div>
+            {filteredTimeline.length > 0 ? (
+              <div className="relative mt-4">
+                <div className="absolute left-[10px] top-1 bottom-1 w-px bg-[#cbd5e1]" />
+                <div className="flex flex-col-reverse gap-4">
+                  {filteredTimeline.map((item) => (
+                    <div key={item.id} className="relative grid grid-cols-[22px_1fr] items-start gap-3">
+                      <div className={`z-10 mt-0.5 flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full border border-white bg-white shadow-sm ${item.type === 'system' ? 'text-[#0b5384]' : 'text-slate-500'}`}>
+                        <span className="material-symbols-outlined text-[13px]">
+                          {item.type === 'system' ? 'account_balance' : 'business'}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] leading-5 font-semibold text-slate-700">{item.title}</p>
+                        {item.description && (
+                          <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
+                        )}
+                        <p className="mt-0.5 text-[10px] text-slate-400">
+                          {formatDisplayDateTime(item.timestamp)} &middot; {item.actor}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[12px] text-slate-500 py-4 text-center">No timeline events recorded.</p>
+            )}
+          </CardSection>
+
+          {/* Documents + Attachments — side by side, unchanged */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CardSection title="Case Documents" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
               <div className="space-y-4">
@@ -707,54 +686,148 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
         </main>
 
         <aside className="xl:col-span-4 space-y-4">
-          <CardSection title="Case Narrative" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-            {caseFile.summary ? (
-              <p className="text-[12px] leading-5 text-slate-600 whitespace-pre-wrap">{caseFile.summary}</p>
-            ) : (
-              <p className="text-[12px] text-slate-500 italic">No narrative recorded for this case.</p>
-            )}
-          </CardSection>
+          {/* Client Profile — compact all-in-one card */}
+          <CardSection title="Client Profile" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Full Name</p>
+                <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">
+                  {client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : 'N/A'}
+                </p>
+              </div>
 
-          <CardSection title="Case Timeline" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <select
-                value={timelineFilter}
-                onChange={(e) => setTimelineFilter(e.target.value)}
-                className="h-[30px] w-[170px] max-w-full shrink-0 rounded-[3px] border border-[#cbd5e1] bg-white px-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600"
-              >
-                <option value="ALL">All agencies</option>
-                {timelineAgencies.map((agency) => (
-                  <option key={agency} value={agency}>{agency}</option>
-                ))}
-              </select>
-            </div>
-            {filteredTimeline.length > 0 ? (
-              <div className="relative mt-4">
-                <div className="absolute left-[10px] top-1 bottom-1 w-px bg-[#cbd5e1]" />
-                <div className="flex flex-col-reverse gap-4">
-                  {filteredTimeline.map((item) => (
-                    <div key={item.id} className="relative grid grid-cols-[22px_1fr] items-start gap-3">
-                      <div className={`z-10 mt-0.5 flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full border border-white bg-white shadow-sm ${item.type === 'system' ? 'text-[#0b5384]' : 'text-slate-500'}`}>
-                        <span className="material-symbols-outlined text-[13px]">
-                          {item.type === 'system' ? 'account_balance' : 'business'}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] leading-5 font-semibold text-slate-700">{item.title}</p>
-                        {item.description && (
-                          <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
-                        )}
-                        <p className="mt-0.5 text-[10px] text-slate-400">
-                          {formatDisplayDateTime(item.timestamp)} &middot; {item.actor}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+              {/* DOB · Age · Sex */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="min-w-0">
+                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500 break-words">Date of Birth</p>
+                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Age</p>
+                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Sex</p>
+                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.sex || 'N/A'}</p>
                 </div>
               </div>
-            ) : (
-              <p className="text-[12px] text-slate-500 py-4 text-center">No timeline events recorded.</p>
-            )}
+
+              {/* Email · Contact */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="min-w-0">
+                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Email</p>
+                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.email || 'N/A'}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Contact No.</p>
+                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.contact_number || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Address - full width */}
+              <div>
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
+                <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{primaryAddress ? formatAddress(primaryAddress, addressNames) : 'No address recorded'}</p>
+              </div>
+
+              {/* Work History — compact inline */}
+              {primaryEmployment && (
+                <>
+                  <hr className="border-[#e2e8f0]" />
+                  <div>
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Work History</p>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <span className="font-semibold text-slate-700 shrink-0">{primaryEmployment.last_country || primaryEmployment.country || 'N/A'}</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-slate-600 truncate">{primaryEmployment.last_position || primaryEmployment.position || 'N/A'}</span>
+                      </div>
+                      {primaryEmployment.date_of_arrival && (
+                        <p className="text-[11px] text-slate-500">Arrived {formatDisplayDate(primaryEmployment.date_of_arrival)}</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Next of Kin — compact */}
+              {client?.nextOfKin?.length > 0 && (
+                <>
+                  <hr className="border-[#e2e8f0]" />
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Next of Kin</p>
+                      <p className="text-[9px] text-slate-400">{client.nextOfKin.length} record{client.nextOfKin.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {client.nextOfKin.map((nok, idx) => (
+                        <div key={nok.id} className={`text-[12px] text-slate-700 ${idx > 0 ? 'pt-2 border-t border-[#e2e8f0]' : ''}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{[nok.first_name, nok.last_name].filter(Boolean).join(' ')}</span>
+                            {nok.is_primary && (
+                              <span className="inline-flex items-center rounded-full bg-[#6366f1] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white">Primary</span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
+                            {nok.relationship && <span>{nok.relationship}</span>}
+                            {nok.phone_number && <span>{nok.phone_number}</span>}
+                            {nok.email && <span className="break-all">{nok.email}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Vulnerability — compact badges */}
+              {((caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None') || (caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None')) && (
+                <>
+                  <hr className="border-[#e2e8f0]" />
+                  <div>
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Vulnerability</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None' && (
+                        <span className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                          <span className="material-symbols-outlined text-[13px]">{vulnConfig[caseFile.vulnerability_indicator]?.icon || 'warning'}</span>
+                          OFW: {caseFile.vulnerability_indicator}
+                        </span>
+                      )}
+                      {caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None' && (
+                        <span className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.nok_vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                          <span className="material-symbols-outlined text-[13px]">{vulnConfig[caseFile.nok_vulnerability_indicator]?.icon || 'warning'}</span>
+                          NOK: {caseFile.nok_vulnerability_indicator}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardSection>
+
+          {/* Case Information — single column to prevent overflow */}
+          <CardSection title="Case Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <div className="space-y-2">
+              <MetaTile label="Case No." value={caseFile.case_number} />
+              <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
+              <MetaTile label="Client Type" value={clientTypeLabel} />
+              <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
+              {caseFile.category && (
+                <MetaTile label="Category" value={
+                  <span className="inline-flex items-center gap-1.5">
+                    {caseFile.category.color && (
+                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: caseFile.category.color }} />
+                    )}
+                    {caseFile.category.name}
+                  </span>
+                } />
+              )}
+              {caseFile.case_issue && (
+                <MetaTile label="Issue/Concern" value={caseFile.case_issue.name} />
+              )}
+            </div>
           </CardSection>
         </aside>
       </div>
