@@ -4,6 +4,17 @@ import MarkdownEditor from '@/Components/Helpdesk/MarkdownEditor';
 import { useState, useRef, useMemo } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import InputError from '@/Components/InputError';
+import { z } from 'zod';
+import useClientValidation from '@/Hooks/useClientValidation';
+
+const articleSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  slug: z.string().min(1, 'Slug is required'),
+  content_markdown: z.string().optional(),
+  category_id: z.string().min(1, 'Category is required'),
+  tag_ids: z.array(z.string()).optional(),
+});
 
 /* ---------- Inline Tag Creator ---------- */
 function CreateTagModal({ open, onClose, onCreated }) {
@@ -173,7 +184,7 @@ export default function Edit({ article, categories, tags }) {
   const [localCategories, setLocalCategories] = useState(categories || []);
   const [localTags, setLocalTags] = useState(tags || []);
 
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     title: article?.title || '',
     slug: article?.slug || '',
     content_markdown: article?.content_markdown || '',
@@ -184,6 +195,7 @@ export default function Edit({ article, categories, tags }) {
     tag_ids: article?.tags?.map((t) => t.id) || [],
     edit_notes: '',
   });
+  const { validate } = useClientValidation(articleSchema, data, setError);
 
   const articleInitialRef = useRef({
     title: article?.title || '',
@@ -224,6 +236,8 @@ export default function Edit({ article, categories, tags }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    clearErrors();
+    if (!validate()) return;
     bypassNext();
     if (isEditing) {
       patch(route('admin.helpdesk.articles.update', article.id), {
@@ -295,10 +309,10 @@ export default function Edit({ article, categories, tags }) {
                     onChange={(e) => handleTitleChange(e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     placeholder="Enter article title"
+                    required
+                    maxLength={255}
                   />
-                  {errors.title && (
-                    <p className="mt-1 text-xs text-red-500">{errors.title}</p>
-                  )}
+                  <InputError message={errors.title} className="mt-1" />
                 </div>
 
                 <div>
@@ -311,10 +325,10 @@ export default function Edit({ article, categories, tags }) {
                     onChange={(e) => setData('slug', e.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     placeholder="article-url-slug"
+                    required
+                    maxLength={255}
                   />
-                  {errors.slug && (
-                    <p className="mt-1 text-xs text-red-500">{errors.slug}</p>
-                  )}
+                  <InputError message={errors.slug} className="mt-1" />
                 </div>
 
                 <div>
@@ -328,9 +342,7 @@ export default function Edit({ article, categories, tags }) {
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     placeholder="Brief summary of the article"
                   />
-                  {errors.excerpt && (
-                    <p className="mt-1 text-xs text-red-500">{errors.excerpt}</p>
-                  )}
+                  <InputError message={errors.excerpt} className="mt-1" />
                 </div>
 
                 <div>
@@ -342,9 +354,7 @@ export default function Edit({ article, categories, tags }) {
                     onChange={(value) => setData('content_markdown', value || '')}
                     uploadUrl={route('admin.helpdesk.articles.upload-image')}
                   />
-                  {errors.content_markdown && (
-                    <p className="mt-1 text-xs text-red-500">{errors.content_markdown}</p>
-                  )}
+                  <InputError message={errors.content_markdown} className="mt-1" />
                 </div>
               </div>
             </div>
@@ -403,6 +413,7 @@ export default function Edit({ article, categories, tags }) {
                       );
                     })}
                   </select>
+                  <InputError message={errors.category_id} className="mt-1" />
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -452,6 +463,7 @@ export default function Edit({ article, categories, tags }) {
                   <p className="text-xs text-slate-400">No tags yet.</p>
                 )}
               </div>
+              <InputError message={errors.tag_ids} className="mt-1" />
             </div>
 
             {isEditing && (
@@ -466,6 +478,7 @@ export default function Edit({ article, categories, tags }) {
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   placeholder="What changed in this update?"
                 />
+                <InputError message={errors.edit_notes} className="mt-1" />
               </div>
             )}
 

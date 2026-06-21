@@ -5,6 +5,9 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import InputError from '@/Components/InputError';
+import { caseStatusSchema } from '@/Schemas/adminSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 const typeColors = {
   case: 'bg-blue-100 text-blue-800',
@@ -13,16 +16,19 @@ const typeColors = {
 
 function StatusForm({ status, onClose, onBypass }) {
   const isEdit = !!status;
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     name: status?.name ?? '',
     type: status?.type ?? 'referral',
     color: status?.color ?? '',
     sort_order: status?.sort_order ?? 0,
     is_active: status?.is_active ?? true,
   });
+  const { validate } = useClientValidation(caseStatusSchema, data, setError);
 
   function handleSubmit(e) {
     e.preventDefault();
+    clearErrors();
+    if (!validate()) return;
     onBypass?.();
     if (isEdit) {
       patch(route('admin.case-statuses.update', status.id), { onSuccess: onClose });
@@ -46,8 +52,10 @@ function StatusForm({ status, onClose, onBypass }) {
               value={data.name}
               onChange={(e) => setData('name', e.target.value)}
               className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              required
+              maxLength={255}
             />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Type *</label>
@@ -55,11 +63,12 @@ function StatusForm({ status, onClose, onBypass }) {
               value={data.type}
               onChange={(e) => setData('type', e.target.value)}
               className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              required
             >
               <option value="case">Case</option>
               <option value="referral">Referral</option>
             </select>
-            {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type}</p>}
+            <InputError message={errors.type} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Color</label>
@@ -78,7 +87,7 @@ function StatusForm({ status, onClose, onBypass }) {
                 className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               />
             </div>
-            {errors.color && <p className="mt-1 text-sm text-red-600">{errors.color}</p>}
+            <InputError message={errors.color} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Sort Order</label>
@@ -89,6 +98,7 @@ function StatusForm({ status, onClose, onBypass }) {
               onChange={(e) => setData('sort_order', parseInt(e.target.value) || 0)}
               className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
             />
+            <InputError message={errors.sort_order} className="mt-1" />
           </div>
           <div className="flex items-center gap-2">
             <input

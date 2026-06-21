@@ -4,11 +4,20 @@ import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import InputError from '@/Components/InputError';
+import { z } from 'zod';
+import useClientValidation from '@/Hooks/useClientValidation';
+
+const categorySchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255, 'Name must not exceed 255 characters'),
+  slug: z.string().min(1, 'Slug is required'),
+  description: z.string().optional(),
+});
 
 function CategoryForm({ show, onClose, category, allCategories, onBypass }) {
   const isEditing = !!category;
 
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     name: category?.name || '',
     slug: category?.slug || '',
     description: category?.description || '',
@@ -17,9 +26,12 @@ function CategoryForm({ show, onClose, category, allCategories, onBypass }) {
     sort_order: category?.sort_order ?? 0,
     is_active: category?.is_active ?? true,
   });
+  const { validate } = useClientValidation(categorySchema, data, setError);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    clearErrors();
+    if (!validate()) return;
     onBypass?.();
     if (isEditing) {
       patch(route('admin.helpdesk.categories.update', category.id), {
@@ -49,8 +61,10 @@ function CategoryForm({ show, onClose, category, allCategories, onBypass }) {
               value={data.name}
               onChange={(e) => setData('name', e.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              required
+              maxLength={255}
             />
-            {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
+            <InputError message={errors.name} className="mt-1" />
           </div>
 
           <div>
@@ -60,7 +74,10 @@ function CategoryForm({ show, onClose, category, allCategories, onBypass }) {
               value={data.slug}
               onChange={(e) => setData('slug', e.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              required
+              maxLength={255}
             />
+            <InputError message={errors.slug} className="mt-1" />
           </div>
 
           <div>
@@ -93,6 +110,7 @@ function CategoryForm({ show, onClose, category, allCategories, onBypass }) {
               <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-1">Sort Order</label>
               <input
                 type="number"
+                min="0"
                 value={data.sort_order}
                 onChange={(e) => setData('sort_order', parseInt(e.target.value))}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -118,7 +136,9 @@ function CategoryForm({ show, onClose, category, allCategories, onBypass }) {
               onChange={(e) => setData('description', e.target.value)}
               rows={3}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              maxLength={1000}
             />
+            <InputError message={errors.description} className="mt-1" />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

@@ -4,17 +4,28 @@ import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import InputError from '@/Components/InputError';
+import { z } from 'zod';
+import useClientValidation from '@/Hooks/useClientValidation';
+
+const tagSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255, 'Name must not exceed 255 characters'),
+  slug: z.string().min(1, 'Slug is required'),
+});
 
 function TagForm({ show, onClose, tag, onBypass }) {
   const isEditing = !!tag;
 
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     name: tag?.name || '',
     slug: tag?.slug || '',
   });
+  const { validate } = useClientValidation(tagSchema, data, setError);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    clearErrors();
+    if (!validate()) return;
     onBypass?.();
     if (isEditing) {
       patch(route('admin.helpdesk.tags.update', tag.id), {
@@ -44,8 +55,10 @@ function TagForm({ show, onClose, tag, onBypass }) {
               value={data.name}
               onChange={(e) => setData('name', e.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              required
+              maxLength={255}
             />
-            {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
+            <InputError message={errors.name} className="mt-1" />
           </div>
 
           <div>
