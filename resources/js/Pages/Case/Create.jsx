@@ -12,6 +12,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 import { createCaseSchema } from '@/Schemas/caseSchema';
 import useClientValidation from '@/Hooks/useClientValidation';
+import { useToast } from '@/Hooks/useToast';
 
 const STEPS = [
     { id: 1, title: 'Client Profile', description: 'Enter client information and employment details' },
@@ -135,6 +136,7 @@ export default function CaseCreate() {
     });
 
     const { validate } = useClientValidation(createCaseSchema, data, setError);
+    const toast = useToast();
 
     const [currentStep, setCurrentStep] = useState(1);
     const [caseId, setCaseId] = useState(() => GenerateCaseId());
@@ -819,43 +821,61 @@ export default function CaseCreate() {
     function validateStep(step) {
         clearErrors();
         let isValid = true;
+        const missing = [];
 
         if (step === 1) {
             if (!data.client.first_name.trim()) {
                 setError('client.first_name', 'First name is required.');
                 isValid = false;
+                missing.push('First Name');
             }
             if (!data.client.last_name.trim()) {
                 setError('client.last_name', 'Last name is required.');
                 isValid = false;
+                missing.push('Last Name');
             }
             if (!data.client.date_of_birth) {
                 setError('client.date_of_birth', 'Date of birth is required.');
                 isValid = false;
+                missing.push('Date of Birth');
             }
             if (!data.client.sex) {
                 setError('client.sex', 'Sex is required.');
                 isValid = false;
+                missing.push('Sex');
             }
             if (!data.client.contact_number.trim()) {
                 setError('client.contact_number', 'Contact number is required.');
                 isValid = false;
+                missing.push('Contact Number');
             }
             if (!data.address.region) {
                 setError('address.region', 'Region is required.');
                 isValid = false;
+                missing.push('Region');
             }
             if (!data.address.province) {
                 setError('address.province', 'Province is required.');
                 isValid = false;
+                missing.push('Province');
             }
             if (!data.address.city_municipality) {
                 setError('address.city_municipality', 'City/Municipality is required.');
                 isValid = false;
+                missing.push('City/Municipality');
             }
             if (!data.address.barangay) {
                 setError('address.barangay', 'Barangay is required.');
                 isValid = false;
+                missing.push('Barangay');
+            }
+
+            if (!isValid) {
+                if (missing.length === 1) {
+                    toast.error(`${missing[0]} is required.`);
+                } else {
+                    toast.error(`Complete ${missing.length} required fields: ${missing.join(', ')}`);
+                }
             }
         }
 
@@ -863,10 +883,12 @@ export default function CaseCreate() {
             if (!data.category_id) {
                 setError('category_id', 'Category is required.');
                 isValid = false;
+                toast.error('Please select a case category.');
             }
             if (data.client.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client.email.trim())) {
                 setError('client.email', 'Please provide a valid email address.');
                 isValid = false;
+                toast.error('Please provide a valid email address.');
             }
         }
 
@@ -893,7 +915,8 @@ export default function CaseCreate() {
                 data: submitData,
                 onSuccess: () => { },
                 onError: (errors) => {
-                    console.error('Validation failed:', errors);
+                    const msgs = Object.values(errors);
+                    toast.error(msgs[0] || 'Validation failed.');
                 },
                 preserveState: false,
                 preserveScroll: true,
@@ -903,7 +926,8 @@ export default function CaseCreate() {
                 data: submitData,
                 onSuccess: () => { },
                 onError: (errors) => {
-                    console.error('Validation failed:', errors);
+                    const msgs = Object.values(errors);
+                    toast.error(msgs[0] || 'Validation failed.');
                 },
                 preserveState: false,
                 preserveScroll: true,
@@ -914,7 +938,7 @@ export default function CaseCreate() {
     function handleSubmit(e) {
         e.preventDefault();
         clearErrors();
-        if (!validate()) return;
+        if (!validate()) { toast.error('Please check the form for errors.'); return; }
         if (currentStep !== 3) return;
         bypassNext();
 
@@ -924,7 +948,8 @@ export default function CaseCreate() {
             post(route('cases.publish', existingDraft.id), {
                 onSuccess: () => { clearLocalBackup(); },
                 onError: (errors) => {
-                    console.error('Publish failed:', errors);
+                    const msgs = Object.values(errors);
+                    toast.error(msgs[0] || 'Validation failed.');
                 },
                 preserveScroll: true,
             });
@@ -935,7 +960,8 @@ export default function CaseCreate() {
             data: { ...data, is_draft: false },
             onSuccess: () => { clearLocalBackup(); },
             onError: (errors) => {
-                console.error('Validation failed:', errors);
+                const msgs = Object.values(errors);
+                toast.error(msgs[0] || 'Validation failed.');
             },
             preserveScroll: true,
         });
@@ -1118,17 +1144,6 @@ function handleConfirmClient(client) {
     return (
         <AppLayout title={existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'}>
             <Head title={existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'} />
-
-            {Object.keys(errors).length > 0 && (
-                <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3">
-                    <h3 className="text-sm font-bold text-red-800">Unable to create case</h3>
-                    <ul className="mt-2 list-disc pl-5 text-sm text-red-700">
-                        {Object.entries(errors).map(([field, message]) => (
-                            <li key={field}>{field}: {message}</li>
-                        ))}
-                    </ul>
-                </div>
-            )}
 
             {client && (
                 <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
@@ -1575,7 +1590,7 @@ function handleConfirmClient(client) {
                                             </div>
                                             <div className="mt-5 pt-5 border-t border-slate-200">
                                                 <Field label="Notification Email" required>
-                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} onBlur={() => { const val = data.client.email.trim(); if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) { setError('client.email', 'Please provide a valid email address.'); } else { clearErrors('client.email'); } }} placeholder="client@email.com" required maxLength={255} />
+                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} onBlur={() => { const val = data.client.email.trim(); if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) { setError('client.email', 'Please provide a valid email address.'); toast.error('Please provide a valid email address.'); } else { clearErrors('client.email'); } }} placeholder="client@email.com" required maxLength={255} />
                                                 </Field>
                                                 <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700">
                                                     <span className="material-symbols-outlined text-[14px]">info</span>
