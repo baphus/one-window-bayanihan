@@ -10,6 +10,8 @@ import CountrySelect from '@/Components/CountrySelect';
 import PhoneInput from '@/Components/PhoneInput';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
+import { createCaseSchema } from '@/Schemas/caseSchema';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 const STEPS = [
     { id: 1, title: 'Client Profile', description: 'Enter client information and employment details' },
@@ -55,7 +57,7 @@ function Subsection({ title, children }) {
     );
 }
 
-function Input({ value, onChange, placeholder, type = 'text', maxLength, readOnly, className = '' }) {
+function Input({ value, onChange, placeholder, type = 'text', maxLength, minLength, readOnly, required, className = '' }) {
     return (
         <input
             type={type}
@@ -63,17 +65,20 @@ function Input({ value, onChange, placeholder, type = 'text', maxLength, readOnl
             onChange={onChange}
             placeholder={placeholder}
             maxLength={maxLength}
+            minLength={minLength}
             readOnly={readOnly}
+            required={required}
             className={`h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${readOnly ? 'bg-slate-50' : ''} ${className}`}
         />
     );
 }
 
-function Select({ value, onChange, options, placeholder }) {
+function Select({ value, onChange, options, placeholder, required }) {
     return (
         <select
             value={value}
             onChange={onChange}
+            required={required}
             className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         >
             {placeholder && <option value="">{placeholder}</option>}
@@ -128,6 +133,8 @@ export default function CaseCreate() {
         case_issue_id: '',
     });
 
+    const { validate } = useClientValidation(createCaseSchema, data, setError);
+
     const [currentStep, setCurrentStep] = useState(1);
     const [caseId, setCaseId] = useState(() => GenerateCaseId());
     const [trackingId, setTrackingId] = useState(() => GenerateTrackingId());
@@ -139,6 +146,11 @@ export default function CaseCreate() {
     const searchDebounceRef = useRef(null);
     const draftIdRef = useRef(existingDraft?.id || null);
     const restoredRef = useRef(false);
+    const [showAddIssue, setShowAddIssue] = useState(false);
+    const [newIssueName, setNewIssueName] = useState('');
+    const [addingIssue, setAddingIssue] = useState(false);
+    const [localIssues, setLocalIssues] = useState(caseIssues);
+    useEffect(() => { setLocalIssues(caseIssues); }, [caseIssues]);
 
     const initialFormRef = useRef({
         formData: {
@@ -209,6 +221,24 @@ export default function CaseCreate() {
         userId: auth.user?.id,
         enabled: !existingDraft && clientSource === 'new',
     });
+
+    async function handleQuickAddIssue() {
+        const name = newIssueName.trim();
+        if (!name || addingIssue) return;
+        setAddingIssue(true);
+        try {
+            const res = await window.axios.post(route('case-issues.quick'), { name });
+            const newIssue = res.data;
+            setLocalIssues(prev => [...prev, newIssue]);
+            setData('case_issue_id', newIssue.id);
+            setNewIssueName('');
+            setShowAddIssue(false);
+        } catch (err) {
+            alert(err.response?.data?.errors?.name?.[0] || 'Failed to add issue.');
+        } finally {
+            setAddingIssue(false);
+        }
+    }
 
     useEffect(() => {
         if (!hasLocalBackup || existingDraft || !localBackup?.data || restoredRef.current) return;
@@ -820,6 +850,8 @@ export default function CaseCreate() {
 
     function handleSubmit(e) {
         e.preventDefault();
+        clearErrors();
+        if (!validate()) return;
         if (currentStep !== 3) return;
         bypassNext();
 
@@ -1264,24 +1296,24 @@ function handleConfirmClient(client) {
                                             <Subsection title="Client Information">
                                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                                     <Field label="First Name" required>
-                                                        <Input value={data.client.first_name} onChange={(e) => handleClientChange('first_name', e.target.value)} />
+                                                        <Input value={data.client.first_name} onChange={(e) => handleClientChange('first_name', e.target.value)} required maxLength={255} />
                                                     </Field>
                                                     <Field label="Middle Name">
-                                                        <Input value={data.client.middle_name} onChange={(e) => handleClientChange('middle_name', e.target.value)} />
+                                                        <Input value={data.client.middle_name} onChange={(e) => handleClientChange('middle_name', e.target.value)} maxLength={255} />
                                                     </Field>
                                                     <Field label="Last Name" required>
-                                                        <Input value={data.client.last_name} onChange={(e) => handleClientChange('last_name', e.target.value)} />
+                                                        <Input value={data.client.last_name} onChange={(e) => handleClientChange('last_name', e.target.value)} required maxLength={255} />
                                                     </Field>
                                                     <Field label="Suffix">
                                                         <Select value={data.client.suffix} onChange={(e) => handleClientChange('suffix', e.target.value)} options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))} placeholder="None" />
                                                     </Field>
-                                                    <Field label="Date of Birth">
-                                                        <Input type="date" value={data.client.date_of_birth} onChange={(e) => handleClientChange('date_of_birth', e.target.value)} />
+                                                    <Field label="Date of Birth" required>
+                                                        <Input type="date" value={data.client.date_of_birth} onChange={(e) => handleClientChange('date_of_birth', e.target.value)} required />
                                                     </Field>
-                                                    <Field label="Gender">
-                                                        <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} />
+                                                    <Field label="Gender" required>
+                                                        <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} required />
                                                     </Field>
-                                                    <Field label="Contact Number">
+                                                    <Field label="Contact Number" required>
                                                         <PhoneInput value={data.client.contact_number} onChange={(val) => handleClientChange('contact_number', val)} />
                                                     </Field>
                                                 </div>
@@ -1458,6 +1490,7 @@ function handleConfirmClient(client) {
                                                         value={data.client_type}
                                                         onChange={(e) => setData('client_type', e.target.value)}
                                                         className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        required
                                                     >
                                                         <option value="OFW">Overseas Filipino Worker</option>
                                                         <option value="NEXT_OF_KIN">Next of Kin</option>
@@ -1468,6 +1501,7 @@ function handleConfirmClient(client) {
                                                         value={data.category_id}
                                                         onChange={(e) => setData('category_id', e.target.value)}
                                                         className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        required
                                                     >
                                                         <option value="">Select category</option>
                                                         {categories.map((cat) => (
@@ -1478,7 +1512,7 @@ function handleConfirmClient(client) {
                                             </div>
                                             <div className="mt-5 pt-5 border-t border-slate-200">
                                                 <Field label="Notification Email" required>
-                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} placeholder="client@email.com" />
+                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} placeholder="client@email.com" required maxLength={255} />
                                                 </Field>
                                                 <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700">
                                                     <span className="material-symbols-outlined text-[14px]">info</span>
@@ -1493,6 +1527,7 @@ function handleConfirmClient(client) {
                                                                 value={data.selected_nok_index}
                                                                 onChange={(e) => setData('selected_nok_index', e.target.value)}
                                                                 className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                required
                                                             >
                                                                 <option value="">Select next of kin...</option>
                                                                 {data.next_of_kin.map((nok, idx) => (
@@ -1577,18 +1612,60 @@ function handleConfirmClient(client) {
                                             </p>
                                             <div className="mt-4">
                                                 <Field label="Issue/Concern">
-                                                    <select
-                                                        value={data.case_issue_id}
-                                                        onChange={(e) => setData('case_issue_id', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    >
-                                                        <option value="">Select issue/concern...</option>
-                                                        {caseIssues.map((issue) => (
-                                                            <option key={issue.id} value={issue.id}>{issue.name}</option>
-                                                        ))}
-                                                    </select>
+                                                    <div className="flex gap-2">
+                                                        <select
+                                                            value={data.case_issue_id}
+                                                            onChange={(e) => setData('case_issue_id', e.target.value)}
+                                                            className="h-10 flex-1 rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        >
+                                                            <option value="">Select issue/concern...</option>
+                                                            {localIssues.map((issue) => (
+                                                                <option key={issue.id} value={issue.id}>{issue.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
+                                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-indigo-300 text-indigo-600 transition hover:bg-indigo-50"
+                                                            title="Add new issue"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[20px]">add</span>
+                                                        </button>
+                                                    </div>
                                                 </Field>
                                             </div>
+                                            {showAddIssue && (
+                                                <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                                                    <Field label="New Issue Name">
+                                                        <input
+                                                            type="text"
+                                                            value={newIssueName}
+                                                            onChange={(e) => setNewIssueName(e.target.value)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
+                                                            placeholder="Enter new issue name..."
+                                                            className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            autoFocus
+                                                        />
+                                                    </Field>
+                                                    <div className="mt-2 flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleQuickAddIssue}
+                                                            disabled={addingIssue || !newIssueName.trim()}
+                                                            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {addingIssue ? 'Adding...' : 'Add'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
+                                                            className="text-[12px] font-medium text-slate-500 hover:text-slate-700"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="rounded-xl border border-slate-200 bg-[#fcfdff] p-6 shadow-sm">

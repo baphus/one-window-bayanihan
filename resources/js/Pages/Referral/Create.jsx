@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import InputError from '@/Components/InputError';
+import { referralSchema } from '@/Schemas/referralSchema';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 const STEPS = [
     { id: 1, title: 'Select Case', description: 'Choose the case to refer' },
@@ -48,12 +51,14 @@ function InfoRow({ label, value, subtext }) {
 }
 
 export default function ReferralCreate({ case_id, agencies, cases: openCases }) {
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, clearErrors } = useForm({
         case_id: case_id || '',
         agcy_id: '',
         services: [],
         notes: '',
     });
+
+    const { validate } = useClientValidation(referralSchema, data, setError);
 
     const [createStep, setCreateStep] = useState(1);
     const [requirementUploads, setRequirementUploads] = useState({});
@@ -225,6 +230,8 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
 
     function submitReferral(e) {
         if (e) e.preventDefault();
+        clearErrors();
+        if (!validate()) return;
         if (!isStepThreeValid) return;
 
         const newFileErrors = {};
@@ -275,17 +282,6 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     return (
         <AppLayout title="Refer to Agency">
             <Head title="Refer to Agency" />
-
-            {Object.keys(errors).length > 0 && (
-                <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3">
-                    <h3 className="text-sm font-bold text-red-800">Unable to create referral</h3>
-                    <ul className="mt-2 list-disc pl-5 text-sm text-red-700">
-                        {Object.entries(errors).map(([field, message]) => (
-                            <li key={field}>{field}: {message}</li>
-                        ))}
-                    </ul>
-                </div>
-            )}
 
             <div className="mb-6">
                 <div className="flex items-center justify-between">
@@ -475,6 +471,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                         </>
                                                     )}
                                                 </Field>
+                                                <InputError message={errors.case_id} className="mt-1" />
                                             </div>
                                         </div>
 
@@ -516,6 +513,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                             setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
                                                         }}
                                                         className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        required
                                                     >
                                                         <option value="">Select an agency...</option>
                                                         {agencies.map((agency) => (
@@ -525,6 +523,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                         ))}
                                                     </select>
                                                 </Field>
+                                                <InputError message={errors.agcy_id} className="mt-1" />
                                             </div>
                                         </div>
 
@@ -585,6 +584,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                 )}
                                             </div>
                                         </div>
+                                        <InputError message={errors.services} className="mt-1" />
 
                                         {selectedServiceDetails.length > 0 && (
                                             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -712,6 +712,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                     className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                 />
                                             </div>
+                                            <InputError message={errors.notes} className="mt-1" />
                                         </div>
                                     </div>
                                 )}
