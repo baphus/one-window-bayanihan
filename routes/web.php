@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\InsightsApiController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\CaseDocumentController;
+use App\Http\Controllers\CaseIssueController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
@@ -105,6 +106,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
     Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
     Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
+
+    Route::post('/case-issues/quick', [CaseIssueController::class, 'quickStore'])->name('case-issues.quick');
 
     Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
     Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
