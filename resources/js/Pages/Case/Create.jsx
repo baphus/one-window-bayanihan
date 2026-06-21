@@ -57,12 +57,13 @@ function Subsection({ title, children }) {
     );
 }
 
-function Input({ value, onChange, placeholder, type = 'text', maxLength, minLength, readOnly, required, className = '' }) {
+function Input({ value, onChange, placeholder, type = 'text', maxLength, minLength, readOnly, required, onBlur, className = '' }) {
     return (
         <input
             type={type}
             value={value}
             onChange={onChange}
+            onBlur={onBlur}
             placeholder={placeholder}
             maxLength={maxLength}
             minLength={minLength}
@@ -92,7 +93,7 @@ function Select({ value, onChange, options, placeholder, required }) {
 export default function CaseCreate() {
     const { client, existingClients = [], categories = [], existingDraft, auth, caseIssues = [] } = usePage().props;
 
-    const { data, setData, post, put, processing, errors, clearErrors } = useForm({
+    const { data, setData, post, put, processing, errors, setError, clearErrors } = useForm({
         client_type: 'OFW',
         category_id: '',
         vulnerability_indicator: '',
@@ -783,6 +784,7 @@ export default function CaseCreate() {
     function handleNext() {
         if (currentStep < 3) {
             cancelPendingSave();
+            if (!validateStep(currentStep)) return;
             clearErrors();
             setCurrentStep((prev) => prev + 1);
         }
@@ -798,16 +800,77 @@ export default function CaseCreate() {
 
     function canProceed() {
         if (currentStep === 1) {
-            return data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0;
+            const stepFields = ['client.first_name', 'client.last_name', 'client.date_of_birth', 'client.sex', 'client.contact_number', 'address.region', 'address.province', 'address.city_municipality', 'address.barangay'];
+            const hasErrors = stepFields.some(f => errors[f]);
+            return data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0 && !hasErrors;
         }
         if (currentStep === 2) {
             const hasEmail = clientSource === 'existing' || data.client.email.trim().length > 0;
+            const stepFields = ['category_id', 'client.email'];
+            const hasErrors = stepFields.some(f => errors[f]);
             if (data.client_type === 'NEXT_OF_KIN') {
-                return hasEmail && data.selected_nok_index !== '';
+                return hasEmail && data.selected_nok_index !== '' && !hasErrors;
             }
-            return hasEmail;
+            return hasEmail && !hasErrors;
         }
         return true;
+    }
+
+    function validateStep(step) {
+        clearErrors();
+        let isValid = true;
+
+        if (step === 1) {
+            if (!data.client.first_name.trim()) {
+                setError('client.first_name', 'First name is required.');
+                isValid = false;
+            }
+            if (!data.client.last_name.trim()) {
+                setError('client.last_name', 'Last name is required.');
+                isValid = false;
+            }
+            if (!data.client.date_of_birth) {
+                setError('client.date_of_birth', 'Date of birth is required.');
+                isValid = false;
+            }
+            if (!data.client.sex) {
+                setError('client.sex', 'Sex is required.');
+                isValid = false;
+            }
+            if (!data.client.contact_number.trim()) {
+                setError('client.contact_number', 'Contact number is required.');
+                isValid = false;
+            }
+            if (!data.address.region) {
+                setError('address.region', 'Region is required.');
+                isValid = false;
+            }
+            if (!data.address.province) {
+                setError('address.province', 'Province is required.');
+                isValid = false;
+            }
+            if (!data.address.city_municipality) {
+                setError('address.city_municipality', 'City/Municipality is required.');
+                isValid = false;
+            }
+            if (!data.address.barangay) {
+                setError('address.barangay', 'Barangay is required.');
+                isValid = false;
+            }
+        }
+
+        if (step === 2) {
+            if (!data.category_id) {
+                setError('category_id', 'Category is required.');
+                isValid = false;
+            }
+            if (data.client.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client.email.trim())) {
+                setError('client.email', 'Please provide a valid email address.');
+                isValid = false;
+            }
+        }
+
+        return isValid;
     }
 
     function canSubmit() {
@@ -1512,7 +1575,7 @@ function handleConfirmClient(client) {
                                             </div>
                                             <div className="mt-5 pt-5 border-t border-slate-200">
                                                 <Field label="Notification Email" required>
-                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} placeholder="client@email.com" required maxLength={255} />
+                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} onBlur={() => { const val = data.client.email.trim(); if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) { setError('client.email', 'Please provide a valid email address.'); } else { clearErrors('client.email'); } }} placeholder="client@email.com" required maxLength={255} />
                                                 </Field>
                                                 <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700">
                                                     <span className="material-symbols-outlined text-[14px]">info</span>
