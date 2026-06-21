@@ -4,19 +4,24 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { registerSchema } from '@/Schemas/authSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 
 export default function Register() {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
         name: '',
         email: '',
         password: '',
         password_confirmation: '',
     });
 
+    const { validate } = useClientValidation(registerSchema, data, setError);
 
     const submit = (e) => {
         e.preventDefault();
+        clearErrors();
+        if (!validate()) return;
 
         post(route('register'), {
             onFinish: () => reset('password', 'password_confirmation'),
@@ -40,6 +45,7 @@ export default function Register() {
                         isFocused={true}
                         onChange={(e) => setData('name', e.target.value)}
                         required
+                        maxLength={255}
                     />
 
                     <InputError message={errors.name} className="mt-2" />
@@ -74,6 +80,7 @@ export default function Register() {
                         autoComplete="new-password"
                         onChange={(e) => setData('password', e.target.value)}
                         required
+                        minLength={8}
                     />
 
                     <InputError message={errors.password} className="mt-2" />
@@ -96,6 +103,7 @@ export default function Register() {
                             setData('password_confirmation', e.target.value)
                         }
                         required
+                        minLength={8}
                     />
 
                     <InputError

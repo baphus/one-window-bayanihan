@@ -4,19 +4,24 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, useForm } from '@inertiajs/react';
+import { resetPasswordSchema } from '@/Schemas/authSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 
 export default function ResetPassword({ token, email }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         token: token,
         email: email,
         password: '',
         password_confirmation: '',
     });
 
+    const { validate } = useClientValidation(resetPasswordSchema, data, setError);
 
     const submit = (e) => {
         e.preventDefault();
+        clearErrors();
+        if (!validate()) return;
 
         post(route('password.store'), {
             onFinish: () => reset('password', 'password_confirmation'),
@@ -39,6 +44,7 @@ export default function ResetPassword({ token, email }) {
                         className="mt-1 block w-full"
                         autoComplete="username"
                         onChange={(e) => setData('email', e.target.value)}
+                        required
                     />
 
                     <InputError message={errors.email} className="mt-2" />
@@ -56,6 +62,8 @@ export default function ResetPassword({ token, email }) {
                         autoComplete="new-password"
                         isFocused={true}
                         onChange={(e) => setData('password', e.target.value)}
+                        required
+                        minLength={8}
                     />
 
                     <InputError message={errors.password} className="mt-2" />
@@ -77,6 +85,8 @@ export default function ResetPassword({ token, email }) {
                         onChange={(e) =>
                             setData('password_confirmation', e.target.value)
                         }
+                        required
+                        minLength={8}
                     />
 
                     <InputError

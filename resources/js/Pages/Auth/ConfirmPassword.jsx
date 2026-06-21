@@ -4,15 +4,20 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, useForm } from '@inertiajs/react';
+import { confirmPasswordSchema } from '@/Schemas/authSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function ConfirmPassword() {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         password: '',
     });
 
+    const { validate } = useClientValidation(confirmPasswordSchema, data, setError);
 
     const submit = (e) => {
         e.preventDefault();
+        clearErrors();
+        if (!validate()) return;
 
         post(route('password.confirm'), {
             onFinish: () => reset('password'),
@@ -40,6 +45,7 @@ export default function ConfirmPassword() {
                         className="mt-1 block w-full"
                         isFocused={true}
                         onChange={(e) => setData('password', e.target.value)}
+                        required
                     />
 
                     <InputError message={errors.password} className="mt-2" />
