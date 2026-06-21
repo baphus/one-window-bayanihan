@@ -5,6 +5,8 @@ import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { useRef, useEffect } from 'react';
+import { profileSchema } from '@/Schemas/profileSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function UpdateProfileInformation({
     mustVerifyEmail,
@@ -17,11 +19,13 @@ export default function UpdateProfileInformation({
 
     const initialRef = useRef({ name: user.name, email: user.email });
 
-    const { data, setData, patch, errors, processing, recentlySuccessful } =
+    const { data, setData, patch, errors, processing, recentlySuccessful, setError, clearErrors } =
         useForm({
             name: user.name,
             email: user.email,
         });
+
+    const { validate } = useClientValidation(profileSchema, data, setError);
 
     const isDirty = data.name !== initialRef.current.name || data.email !== initialRef.current.email;
     useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
@@ -29,6 +33,9 @@ export default function UpdateProfileInformation({
     const submit = (e) => {
         e.preventDefault();
         onBypass?.();
+
+        clearErrors();
+        if (!validate()) return;
 
         patch(route('profile.update'), {
             onSuccess: () => onDirtyChange?.(false),
@@ -57,6 +64,7 @@ export default function UpdateProfileInformation({
                         value={data.name}
                         onChange={(e) => setData('name', e.target.value)}
                         required
+                        maxLength={255}
                         isFocused
                         autoComplete="name"
                     />

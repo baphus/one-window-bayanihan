@@ -6,6 +6,8 @@ import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { useForm } from '@inertiajs/react';
 import { useRef, useEffect, useMemo } from 'react';
+import { updatePasswordSchema } from '@/Schemas/profileSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function UpdatePasswordForm({ className = '', onDirtyChange, onBypass }) {
     const passwordInput = useRef();
@@ -20,11 +22,15 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
         reset,
         processing,
         recentlySuccessful,
+        setError,
+        clearErrors,
     } = useForm({
         current_password: '',
         password: '',
         password_confirmation: '',
     });
+
+    const { validate } = useClientValidation(updatePasswordSchema, data, setError);
 
     const isDirty = useMemo(() => (
         data.current_password !== initialRef.current.current_password
@@ -36,6 +42,9 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
     const updatePassword = (e) => {
         e.preventDefault();
         onBypass?.();
+
+        clearErrors();
+        if (!validate()) return;
 
         put(route('password.update'), {
             preserveScroll: true,
@@ -80,6 +89,7 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                         type="password"
                         className="mt-1 block w-full"
                         autoComplete="current-password"
+                        required
                     />
 
                     <InputError
@@ -99,6 +109,8 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                         type="password"
                         className="mt-1 block w-full"
                         autoComplete="new-password"
+                        required
+                        minLength={8}
                     />
 
                     <InputError message={errors.password} className="mt-2" />
@@ -119,6 +131,8 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                         type="password"
                         className="mt-1 block w-full"
                         autoComplete="new-password"
+                        required
+                        minLength={8}
                     />
 
                     <InputError

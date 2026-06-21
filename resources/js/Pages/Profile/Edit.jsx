@@ -11,11 +11,13 @@ import MfaSetup from '@/Components/MfaSetup';
 import PrimaryButton from '@/Components/PrimaryButton';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import { profileSchema } from '@/Schemas/profileSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgency, notificationPrefs }) {
     const user = usePage().props.auth.user;
 
-    const { data, setData, patch, errors, processing } = useForm({
+    const { data, setData, patch, errors, processing, setError, clearErrors } = useForm({
         name: user.name,
         email: user.email,
         position: user.position || '',
@@ -35,6 +37,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
 
     const [avatarPreview, setAvatarPreview] = useState(null);
     const [avatarDirty, setAvatarDirty] = useState(false);
+    const { validate } = useClientValidation(profileSchema, data, setError);
     const initialRef = useRef(JSON.parse(JSON.stringify({ ...data, avatar: null })));
 
     // Dirty tracking: exclude avatar (can be a File object, not JSON-serializable)
@@ -58,6 +61,9 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
     function handleSubmit(e) {
         e.preventDefault();
         bypassNext();
+
+        clearErrors();
+        if (!validate()) return;
 
         patch(route('profile.update'), {
             preserveScroll: true,
