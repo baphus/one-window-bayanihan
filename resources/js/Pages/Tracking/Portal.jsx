@@ -1,15 +1,18 @@
-import { useRef, useMemo, useState } from 'react';
+import { useRef, useMemo } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppButton from '@/Components/landing/AppButton';
 import FaqSection from '@/Components/landing/FaqSection';
 import ChatBot from '@/Components/ChatBot';
+import InputError from '@/Components/InputError';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import useClientValidation from '@/Hooks/useClientValidation';
+import { z } from 'zod';
 
 export default function TrackingPortal() {
-  const { data, setData, post, processing, errors } = useForm({
+  const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
     tracker_number: '',
     email: '',
   });
@@ -19,38 +22,29 @@ export default function TrackingPortal() {
     || data.email !== initialRef.current.email
   ), [data]);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
-  const [inputError, setInputError] = useState('');
+
+  const localSchema = z.object({
+    tracker_number: z.string().min(1, 'Please enter your Tracking ID.'),
+    email: z
+      .string()
+      .min(1, 'Please enter your email address.')
+      .email('Please enter a valid email address.'),
+  });
+
+  const { validate } = useClientValidation(localSchema, data, setError);
 
   const handleTrackSubmit = () => {
     const normalized = data.tracker_number.trim().toUpperCase();
-
-    if (!normalized) {
-      setInputError('Please enter your Tracking ID.');
-      return;
-    }
-
-    if (!/^OWBAP-[A-Z0-9]{7}$/.test(normalized)) {
-      setInputError('Tracking ID must be in the format OWBAP-XXXXXXX.');
-      return;
-    }
-
-    if (!data.email.trim()) {
-      setInputError('Please enter your email address.');
-      return;
-    }
-
-    setInputError('');
     setData('tracker_number', normalized);
+    clearErrors();
+    if (!validate()) return;
     bypassNext();
     post(route('track.send-otp'));
   };
 
   const handleTrackerChange = (value) => {
     setData('tracker_number', value.toUpperCase());
-    if (inputError) setInputError('');
   };
-
-  const displayError = inputError || errors.tracker_number || errors.email;
 
   return (
     <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface">
@@ -98,7 +92,9 @@ export default function TrackingPortal() {
                     placeholder="Enter Tracking Number"
                     className="w-full border border-outline bg-surface-container px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:pl-14"
                     aria-label="Tracker Number"
+                    required
                   />
+                  <InputError message={errors.tracker_number} className="mt-1" />
                 </div>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
@@ -111,8 +107,8 @@ export default function TrackingPortal() {
                     aria-label="Email Address"
                     required
                   />
+                  <InputError message={errors.email} className="mt-1" />
                 </div>
-                {displayError && <p className="text-sm text-error font-medium">{displayError}</p>}
                 <AppButton
                   type="submit"
                   disabled={processing}

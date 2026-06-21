@@ -3,6 +3,9 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+import InputError from '@/Components/InputError';
+import useClientValidation from '@/Hooks/useClientValidation';
+import { z } from 'zod';
 
 const DIMENSIONS = ['Tangibles', 'Reliability', 'Responsiveness', 'Assurance', 'Empathy'];
 
@@ -25,7 +28,7 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
     }));
   };
 
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, processing, errors, setError, clearErrors } = useForm({
     service_name: config?.service_name ?? '',
     questions: buildInitialQuestions(),
   });
@@ -40,6 +43,18 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
   const dirty = data.service_name !== initialRef.current.service_name || questionsDirty;
 
   const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(dirty);
+
+  const questionsSchema = z.object({
+    dimension: z.string().min(1, 'Dimension is required'),
+    question: z.string().min(1, 'Question text is required').max(255, 'Maximum 255 characters'),
+  });
+
+  const localSchema = z.object({
+    service_name: z.string().min(1, 'Service name is required').max(255, 'Maximum 255 characters'),
+    questions: z.array(questionsSchema).min(1, 'At least one question is required'),
+  });
+
+  const { validate } = useClientValidation(localSchema, data, setError);
 
   const setQuestionField = (index, field, value) => {
     setData('questions', (prev) => {
@@ -77,6 +92,8 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    clearErrors();
+    if (!validate()) return;
 
     if (isEditing) {
       patch(route('servqual-configs.update', config.id));
@@ -84,9 +101,6 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
       post(route('servqual-configs.store'));
     }
   };
-
-  const hasQuestionsError =
-    errors.questions || errors['questions.0.question'];
 
   return (
     <AppLayout
@@ -133,17 +147,15 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
             onChange={(e) => setData('service_name', e.target.value)}
             disabled={isEditing}
             placeholder="e.g. OFW Assistance Desk"
+            required
+            maxLength={255}
             className={`h-10 w-full max-w-lg rounded border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
               errors.service_name
                 ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
                 : 'border-slate-300 focus:border-indigo-600 focus:ring-indigo-600'
             } ${isEditing ? 'cursor-not-allowed bg-slate-100 text-slate-500' : 'bg-white'}`}
           />
-          {errors.service_name && (
-            <p className="mt-1.5 text-xs font-medium text-red-600">
-              {errors.service_name}
-            </p>
-          )}
+          <InputError message={errors.service_name} className="mt-1.5" />
         </div>
 
         {/* Questions */}
@@ -152,11 +164,6 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Survey Questions
             </label>
-            {hasQuestionsError && (
-              <p className="text-xs font-medium text-red-600">
-                {errors.questions ?? 'Each question must have text.'}
-              </p>
-            )}
           </div>
 
           {data.questions.length === 0 ? (
@@ -186,6 +193,7 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
                         onChange={(e) =>
                           setQuestionField(index, 'dimension', e.target.value)
                         }
+                        required
                         className={`h-10 w-full rounded border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
                           errors[`questions.${index}.dimension`]
                             ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
@@ -198,11 +206,7 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
                           </option>
                         ))}
                       </select>
-                      {errors[`questions.${index}.dimension`] && (
-                        <p className="mt-1 text-xs font-medium text-red-600">
-                          {errors[`questions.${index}.dimension`]}
-                        </p>
-                      )}
+                      <InputError message={errors[`questions.${index}.dimension`]} className="mt-1" />
                     </div>
 
                     {/* Question text */}
@@ -214,17 +218,15 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
                           setQuestionField(index, 'question', e.target.value)
                         }
                         placeholder="Enter question text"
+                        required
+                        maxLength={255}
                         className={`h-10 w-full rounded border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
                           errors[`questions.${index}.question`]
                             ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
                             : 'border-slate-300 focus:border-indigo-600 focus:ring-indigo-600'
                         }`}
                       />
-                      {errors[`questions.${index}.question`] && (
-                        <p className="mt-1 text-xs font-medium text-red-600">
-                          {errors[`questions.${index}.question`]}
-                        </p>
-                      )}
+                      <InputError message={errors[`questions.${index}.question`]} className="mt-1" />
                     </div>
                   </div>
 
@@ -269,13 +271,6 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
             + Add Question
           </button>
         </div>
-
-        {/* Form-wide error */}
-        {errors.questions && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-medium text-red-700">{errors.questions}</p>
-          </div>
-        )}
 
         {/* Submit */}
         <div className="flex items-center justify-end gap-3 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">

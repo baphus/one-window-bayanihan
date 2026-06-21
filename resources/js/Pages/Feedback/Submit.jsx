@@ -4,6 +4,8 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useClientValidation from '@/Hooks/useClientValidation';
+import { z } from 'zod';
 
 const DIMENSION_ORDER = [
   'Tangibles',
@@ -28,6 +30,35 @@ const RATING_LABELS = {
   4: 'High',
   5: 'Very High',
 };
+
+const surveySchema = z.object({
+  tracking_token: z.string().min(1),
+  servqual_responses: z
+    .array(
+      z.object({
+        dimension: z.string(),
+        question_text: z.string(),
+        question: z.string(),
+        expectation: z
+          .number({
+            required_error: 'Please rate your minimum expectation',
+            invalid_type_error: 'Please rate your minimum expectation',
+          })
+          .min(1)
+          .max(5),
+        perception: z
+          .number({
+            required_error: 'Please rate your actual experience',
+            invalid_type_error: 'Please rate your actual experience',
+          })
+          .min(1)
+          .max(5),
+      }),
+    )
+    .min(1),
+  overall_rating: z.number().min(1).max(5).nullable().optional(),
+  comments: z.string().max(1000).optional(),
+});
 
 /** Inline clickable star rating 1-5 with hover highlight */
 function StarRating({ value, onChange }) {
@@ -131,12 +162,14 @@ export default function FeedbackSubmit({
     [questions],
   );
 
-  const { data, setData, post, processing, errors, reset } = useForm({
+  const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
     tracking_token: trackingToken,
     servqual_responses: initialServqual,
     overall_rating: null,
     comments: '',
   });
+
+  const { validate } = useClientValidation(surveySchema, data, setError);
 
   // --- Unsaved changes tracking ---
   const initialSnapshotRef = useRef(null);
@@ -209,6 +242,8 @@ export default function FeedbackSubmit({
   const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitError(null);
+    clearErrors();
+    if (!validate()) return;
 
     post('/feedbacks/submit', {
       preserveScroll: true,
