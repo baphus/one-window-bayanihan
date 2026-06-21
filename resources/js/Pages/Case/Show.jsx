@@ -24,6 +24,19 @@ function getCaseAgeDays(createdAt, status, updatedAt) {
   return `${days} day${days > 1 ? 's' : ''}`;
 }
 
+function getClientAge(dob) {
+  if (!dob) return '\u2014';
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return '\u2014';
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 function formatAddress(addr, names) {
   if (!addr) return '';
   const parts = [];
@@ -451,6 +464,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 border border-[#d8dee8]">
                   <InfoCell label="Full Name" value={client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : 'N/A'} />
                   <InfoCell label="Date of Birth" value={client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
+                  <InfoCell label="Age" value={client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'} />
                   <InfoCell label="Gender" value={client?.sex || 'N/A'} />
                   <InfoCell label="Email Address" value={client?.email || 'N/A'} />
                   <InfoCell label="Contact Number" value={client?.contact_number || 'N/A'} />

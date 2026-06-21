@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import InputError from '@/Components/InputError';
 
 function Field({ label, required, children, className }) {
     return (
@@ -216,15 +217,19 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Field label="Region">
                         <Input value={values.region} onChange={(v) => onChange('region', v)} placeholder="e.g. Central Visayas" />
+                        <InputError message={errors?.region} className="mt-1" />
                     </Field>
                     <Field label="Province">
                         <Input value={values.province} onChange={(v) => onChange('province', v)} placeholder="e.g. Cebu" />
+                        <InputError message={errors?.province} className="mt-1" />
                     </Field>
                     <Field label="City/Municipality">
                         <Input value={values.city_municipality} onChange={(v) => onChange('city_municipality', v)} placeholder="e.g. Cebu City" />
+                        <InputError message={errors?.city_municipality} className="mt-1" />
                     </Field>
                     <Field label="Barangay">
                         <Input value={values.barangay} onChange={(v) => onChange('barangay', v)} placeholder="e.g. Poblacion" />
+                        <InputError message={errors?.barangay} className="mt-1" />
                     </Field>
                     <div className="md:col-span-2">
                         <Field label="Street">
@@ -245,6 +250,7 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     options={regions}
                     placeholder={loadingRegions ? 'Loading regions...' : 'Select region...'}
                 />
+                <InputError message={errors?.region} className="mt-1" />
             </Field>
             <Field label="Province">
                 <Select
@@ -254,6 +260,7 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     placeholder={!values.region ? 'Select region first' : loadingProvinces ? 'Loading provinces...' : 'Select province...'}
                     disabled={!values.region}
                 />
+                <InputError message={errors?.province} className="mt-1" />
             </Field>
             <Field label="City/Municipality">
                 <Select
@@ -263,6 +270,7 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     placeholder={!values.province ? 'Select province first' : loadingCities ? 'Loading cities...' : 'Select city/municipality...'}
                     disabled={!values.province}
                 />
+                <InputError message={errors?.city_municipality} className="mt-1" />
             </Field>
             <Field label="Barangay">
                 <Select
@@ -272,6 +280,7 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     placeholder={!values.city_municipality ? 'Select city first' : loadingBarangays ? 'Loading barangays...' : 'Select barangay...'}
                     disabled={!values.city_municipality}
                 />
+                <InputError message={errors?.barangay} className="mt-1" />
             </Field>
             <div className="md:col-span-2">
                 <Field label="Street">

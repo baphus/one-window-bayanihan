@@ -10,8 +10,7 @@ import CountrySelect from '@/Components/CountrySelect';
 import PhoneInput from '@/Components/PhoneInput';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
-import { createCaseSchema } from '@/Schemas/caseSchema';
-import useClientValidation from '@/Hooks/useClientValidation';
+import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
 
 const STEPS = [
@@ -135,7 +134,6 @@ export default function CaseCreate() {
         case_issue_id: '',
     });
 
-    const { validate } = useClientValidation(createCaseSchema, data, setError);
     const toast = useToast();
 
     const [currentStep, setCurrentStep] = useState(1);
@@ -643,6 +641,9 @@ export default function CaseCreate() {
 
     function handleClientChange(field, value) {
         setData('client', { ...data.client, [field]: value });
+        if (errors['client.' + field]) {
+            setError('client.' + field, '');
+        }
     }
 
     function handleClientDropdownChange(e) {
@@ -727,6 +728,9 @@ export default function CaseCreate() {
             setData('address', { ...data.address, ...field });
         } else {
             setData('address', { ...data.address, [field]: value });
+            if (errors['address.' + field]) {
+                setError('address.' + field, '');
+            }
         }
     }
 
@@ -802,20 +806,46 @@ export default function CaseCreate() {
 
     function canProceed() {
         if (currentStep === 1) {
-            const stepFields = ['client.first_name', 'client.last_name', 'client.date_of_birth', 'client.sex', 'client.contact_number', 'address.region', 'address.province', 'address.city_municipality', 'address.barangay'];
-            const hasErrors = stepFields.some(f => errors[f]);
-            return data.client.first_name.trim().length > 0 && data.client.last_name.trim().length > 0 && !hasErrors;
+            return data.client.first_name.trim().length > 0
+                && data.client.last_name.trim().length > 0
+                && data.client.date_of_birth.length > 0
+                && data.client.sex.length > 0
+                && data.client.contact_number.trim().length > 0
+                && data.address.region.length > 0
+                && data.address.province.length > 0
+                && data.address.city_municipality.length > 0
+                && data.address.barangay.length > 0;
         }
         if (currentStep === 2) {
             const hasEmail = clientSource === 'existing' || data.client.email.trim().length > 0;
-            const stepFields = ['category_id', 'client.email'];
-            const hasErrors = stepFields.some(f => errors[f]);
             if (data.client_type === 'NEXT_OF_KIN') {
-                return hasEmail && data.selected_nok_index !== '' && !hasErrors;
+                return hasEmail && data.selected_nok_index !== '';
             }
-            return hasEmail && !hasErrors;
+            return hasEmail;
         }
         return true;
+    }
+
+    function getMissingFields() {
+        if (currentStep === 1) {
+            const missing = [];
+            if (!data.client.first_name.trim()) missing.push('First Name');
+            if (!data.client.last_name.trim()) missing.push('Last Name');
+            if (!data.client.date_of_birth) missing.push('Date of Birth');
+            if (!data.client.sex) missing.push('Sex');
+            if (!data.client.contact_number.trim()) missing.push('Contact Number');
+            if (!data.address.region) missing.push('Region');
+            if (!data.address.province) missing.push('Province');
+            if (!data.address.city_municipality) missing.push('City/Municipality');
+            if (!data.address.barangay) missing.push('Barangay');
+            return missing;
+        }
+        if (currentStep === 2) {
+            const missing = [];
+            if (clientSource !== 'existing' && !data.client.email.trim()) missing.push('Email');
+            return missing;
+        }
+        return [];
     }
 
     function validateStep(step) {
@@ -840,7 +870,7 @@ export default function CaseCreate() {
                 missing.push('Date of Birth');
             }
             if (!data.client.sex) {
-                setError('client.sex', 'Sex is required.');
+                setError('client.sex', 'Gender is required.');
                 isValid = false;
                 missing.push('Sex');
             }
@@ -937,8 +967,6 @@ export default function CaseCreate() {
 
     function handleSubmit(e) {
         e.preventDefault();
-        clearErrors();
-        if (!validate()) { toast.error('Please check the form for errors.'); return; }
         if (currentStep !== 3) return;
         bypassNext();
 
@@ -1388,7 +1416,7 @@ function handleConfirmClient(client) {
                                                     <Field label="Date of Birth" required>
                                                         <Input type="date" value={data.client.date_of_birth} onChange={(e) => handleClientChange('date_of_birth', e.target.value)} required />
                                                     </Field>
-                                                    <Field label="Gender" required>
+                                                    <Field label="Sex" required>
                                                         <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} required />
                                                     </Field>
                                                     <Field label="Contact Number" required>
@@ -1403,6 +1431,12 @@ function handleConfirmClient(client) {
                                                 <AddressDropdowns
                                                     values={data.address}
                                                     onChange={handleAddressChange}
+                                                    errors={{
+                                                        region: errors['address.region'],
+                                                        province: errors['address.province'],
+                                                        city_municipality: errors['address.city_municipality'],
+                                                        barangay: errors['address.barangay'],
+                                                    }}
                                                 />
                                             </Subsection>
                                         </div>
@@ -1591,6 +1625,7 @@ function handleConfirmClient(client) {
                                             <div className="mt-5 pt-5 border-t border-slate-200">
                                                 <Field label="Notification Email" required>
                                                     <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} onBlur={() => { const val = data.client.email.trim(); if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) { setError('client.email', 'Please provide a valid email address.'); toast.error('Please provide a valid email address.'); } else { clearErrors('client.email'); } }} placeholder="client@email.com" required maxLength={255} />
+                                                    <InputError message={errors['client.email']} className="mt-1" />
                                                 </Field>
                                                 <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700">
                                                     <span className="material-symbols-outlined text-[14px]">info</span>
@@ -1796,10 +1831,17 @@ function handleConfirmClient(client) {
                                 </div>
                             </div>
                             {currentStep < 3 ? (
-                                <button type="button" onClick={handleNext} disabled={!canProceed()}
-                                    className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
-                                    Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-                                </button>
+                                <div className="flex flex-col items-end gap-1">
+                                    <button type="button" onClick={handleNext} disabled={!canProceed()}
+                                        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
+                                        Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                                    </button>
+                                    {!canProceed() && getMissingFields().length > 0 && (
+                                        <span className="text-[11px] text-amber-600 text-right leading-tight">
+                                            Complete: {getMissingFields().join(', ')}
+                                        </span>
+                                    )}
+                                </div>
                             ) : (
                                 <button type="button" onClick={handleSubmit} disabled={processing || !canSubmit()}
                                     className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">

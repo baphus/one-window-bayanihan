@@ -16,8 +16,6 @@ export {
   updatePasswordSchema,
 } from './profileSchemas';
 export { referralSchema } from './referralSchema';
-export { createCaseSchema } from './caseSchema';
-
 export type {
   RegisterInput,
   ResetPasswordInput,
@@ -36,4 +34,3 @@ export type {
   UpdatePasswordInput,
 } from './profileSchemas';
 export type { ReferralInput } from './referralSchema';
-export type { CreateCaseInput } from './caseSchema';
