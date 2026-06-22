@@ -9,6 +9,13 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * NOTE: AuditLog is created manually via AuditLog::create([...]) rather than
+ * through an AuditLogFactory. This pattern is intentional — no AuditLogFactory
+ * exists because audit logs have complex relationships and the manual creation
+ * keeps test setup explicit and readable. See AuditLog model for fillable fields:
+ * action, module, entity_id, description, old_value, new_value, user_id, timestamp.
+ */
 class ClientAuditLogScopeTest extends TestCase
 {
     use RefreshDatabase;
