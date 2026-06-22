@@ -20,4 +20,29 @@ class ReferralFactory extends Factory
             'agcy_id' => Agency::factory(),
         ];
     }
+
+    public function pending(): static
+    {
+        return $this->state(['status' => 'PENDING']);
+    }
+
+    public function processing(): static
+    {
+        return $this->state(['status' => 'PROCESSING']);
+    }
+
+    public function forCompliance(): static
+    {
+        return $this->state(['status' => 'FOR_COMPLIANCE']);
+    }
+
+    public function completed(): static
+    {
+        return $this->state(['status' => 'COMPLETED']);
+    }
+
+    public function rejected(): static
+    {
+        return $this->state(['status' => 'REJECTED']);
+    }
 }
