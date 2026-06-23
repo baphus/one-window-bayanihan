@@ -45,6 +45,8 @@ class User extends Authenticatable
         'mfa_secret',
         'mfa_recovery_codes',
         'mfa_enabled_at',
+        'onboarding_completed_at',
+        'onboarding_step',
     ];
 
     protected $hidden = [
@@ -68,6 +70,7 @@ class User extends Authenticatable
             'emergency_contact' => 'array',
             'notifications_config' => 'array',
             'mfa_enabled_at' => 'datetime',
+            'onboarding_completed_at' => 'datetime',
         ];
     }
 

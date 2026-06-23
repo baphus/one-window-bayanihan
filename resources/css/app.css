@@ -38,3 +38,58 @@ body {
         opacity: 1;
     }
 }
+
+/* ── Driver.js popover overrides ────────────────────────────────── */
+.driver-popover {
+    font-family: inherit !important;
+    border-radius: 3px !important;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+.driver-popover-title {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    color: rgb(15 23 42) !important; /* slate-900 */
+}
+.driver-popover-description {
+    font-size: 13px !important;
+    color: rgb(71 85 105) !important; /* slate-600 */
+    line-height: 1.625 !important;
+}
+.driver-popover-close-btn {
+    color: rgb(100 116 139) !important; /* slate-500 */
+}
+.driver-popover-prev-btn {
+    background: white !important;
+    border: 1px solid rgb(203 213 225) !important; /* slate-300 */
+    color: rgb(51 65 85) !important; /* slate-700 */
+    border-radius: 3px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+}
+.driver-popover-next-btn {
+    background: rgb(79 70 229) !important; /* indigo-600 */
+    color: white !important;
+    border-radius: 3px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+}
+.driver-popover-navigation-btns {
+    gap: 8px !important;
+}
+
+/* Skip Tour button injected into the popover footer */
+.driver-popover-skip-btn {
+    background: transparent !important;
+    border: none !important;
+    color: rgb(100 116 139) !important; /* slate-500 */
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    padding: 0 8px !important;
+    cursor: pointer !important;
+    text-decoration: underline !important;
+    text-underline-offset: 2px !important;
+    transition: color 0.15s ease !important;
+}
+.driver-popover-skip-btn:hover {
+    color: rgb(71 85 105) !important; /* slate-600 */
+}

@@ -1194,7 +1194,7 @@ function handleConfirmClient(client) {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} onKeyDown={(e) => {
+            <form data-tour="case-create-form" onSubmit={handleSubmit} onKeyDown={(e) => {
                 // Only intercept Enter on text inputs (not buttons, selects, textareas)
                 // This prevents Enter from submitting the form on Steps 1-2
                 if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
@@ -1202,7 +1202,7 @@ function handleConfirmClient(client) {
                 }
             }}>
                 <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-[#cbd5e1] bg-white shadow-sm">
-                    <div className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-[#cbd5e1] bg-slate-50/60 p-8">
+                    <div data-tour="case-create-steps" className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-[#cbd5e1] bg-slate-50/60 p-8">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Step Guide</h3>
                             <p className="mt-2 text-[14px] font-bold text-slate-800">Step {currentStep} of {STEPS.length}</p>

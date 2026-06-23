@@ -216,7 +216,7 @@ export default function ClientIndex({ clients, filters }) {
   return (
     <AppLayout title="Clients">
       <Head title="Clients" />
-      <div className="mb-8 flex items-center justify-between">
+      <div data-tour="clients-header" className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
           <p className="text-sm text-slate-500 mt-1">View all registered clients and their associated cases.</p>
@@ -231,6 +231,7 @@ export default function ClientIndex({ clients, filters }) {
         </button>
       </div>
 
+      <div data-tour="clients-table">
       <UnifiedTable
         columns={columns}
         data={clients.data}
@@ -251,6 +252,7 @@ export default function ClientIndex({ clients, filters }) {
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
       />
+      </div>
     </AppLayout>
   );
 }

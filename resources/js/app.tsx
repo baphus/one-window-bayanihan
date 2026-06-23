@@ -1,12 +1,13 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { lazy, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import ToastProvider from '@/Components/ToastProvider';
+import OnboardingProvider from '@/Onboarding/OnboardingProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -21,6 +22,52 @@ const queryClient = new QueryClient({
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+/**
+ * Lazy DevTools component — only loaded in DEV mode.
+ * Static import of @tanstack/react-query-devtools causes build issues
+ * because it depends on Node.js modules that get externalized with an empty name.
+ */
+const DevTools = lazy(() =>
+    import('@tanstack/react-query-devtools').then((m) => ({
+        default: () => <m.ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />,
+    }))
+);
+
+/**
+ * Wraps the app tree, feeding OnboardingProvider with the current page's
+ * onboarding_required prop. OnboardingProvider lives above <App> in the
+ * React tree (outside the Inertia page context), so we use Inertia's
+ * global 'success' event to pick up the value from each page navigation.
+ */
+function AppWithOnboarding({ App, appProps }) {
+    const [onboardingRequired, setOnboardingRequired] = useState(
+        (appProps.initialPage.props as Record<string, unknown>).onboarding_required,
+    );
+
+    useEffect(() => {
+        const removeListener = router.on('success', (event) => {
+            const page = event.detail?.page;
+            if (page?.props?.onboarding_required !== undefined) {
+                setOnboardingRequired(page.props.onboarding_required);
+            }
+        });
+        return () => {
+            if (typeof removeListener === 'function') removeListener();
+        };
+    }, []);
+
+    return (
+        <OnboardingProvider onboardingRequired={onboardingRequired}>
+            <QueryClientProvider client={queryClient}>
+                <ToastProvider>
+                    <App {...appProps} />
+                </ToastProvider>
+                {import.meta.env.DEV && <DevTools />}
+            </QueryClientProvider>
+        </OnboardingProvider>
+    );
+}
+
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => {
@@ -34,14 +81,7 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(
-            <QueryClientProvider client={queryClient}>
-                <ToastProvider>
-                    <App {...props} />
-                </ToastProvider>
-                {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />}
-            </QueryClientProvider>,
-        );
+        root.render(<AppWithOnboarding App={App} appProps={props} />);
     },
     progress: {
         color: '#4B5563',

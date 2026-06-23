@@ -148,7 +148,7 @@ export default function Index({ articles, filters, categories }) {
     <AppLayout title="Helpdesk Articles">
       <Head title="Helpdesk Articles" />
 
-      <div className="mb-8 flex items-center justify-between">
+      <div data-tour="helpdesk-header" className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Helpdesk Articles</h1>
           <p className="text-sm text-slate-500 mt-1">Manage the knowledge base articles.</p>
@@ -195,12 +195,14 @@ export default function Index({ articles, filters, categories }) {
         </div>
       </div>
 
+      <div data-tour="helpdesk-articles">
       <UnifiedTable
         columns={columns}
         data={articleList}
         keyExtractor={(row) => row.id}
         {...paginatorProps(pagination)}
       />
+      </div>
     </AppLayout>
   );
 }

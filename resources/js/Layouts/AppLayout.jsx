@@ -1,10 +1,15 @@
 import AppSidebar from '@/Components/AppSidebar';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import ChatBot from '@/Components/ChatBot';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import NotificationPanel from '@/Components/ui/NotificationPanel';
 import { useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
+import WelcomeModal from '@/Components/WelcomeModal';
+import TourManager from '@/Onboarding/TourManager';
+import { useOnboarding } from '@/Onboarding/OnboardingProvider';
+import { skipOnboarding } from '@/Onboarding/api';
+import { getTourConfig } from '@/Onboarding/index';
 
 // Module-level variables persist across AppLayout instances (which remount on every navigation)
 let savedScrollTop = 0;
@@ -12,6 +17,8 @@ let navIdCounter = 0;
 
 export default function AppLayout({ title, children }) {
   const mainRef = useRef(null);
+  const { auth } = usePage().props;
+  const { isOpen, phase, startTour, endTour, dismissRemindLater } = useOnboarding();
 
   useEffect(() => {
     const onBefore = () => {
@@ -60,7 +67,24 @@ export default function AppLayout({ title, children }) {
           {children}
         </main>
       </div>
-      <ChatBot />
+      {/* Hide ChatBot during welcome/tour to avoid z-index conflicts */}
+      {!isOpen && <ChatBot />}
+
+      {/* Onboarding UI */}
+      {phase === 'welcome' && (
+        <WelcomeModal
+          onStartTour={() => {
+            const role = auth.user?.role;
+            const config = getTourConfig(role);
+            if (config) startTour(config);
+          }}
+          onSkipTour={() => {
+            skipOnboarding().then(() => endTour());
+          }}
+          onRemindLater={dismissRemindLater}
+        />
+      )}
+      <TourManager />
     </div>
   );
 }

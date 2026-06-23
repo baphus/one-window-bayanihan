@@ -1,8 +1,21 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
+    resolve: {
+        alias: {
+            /**
+             * Stub Node.js `util` module for browser build.
+             * `object-inspect` (dep of side-channel -> qs -> @inertiajs/core)
+             * does `require('./util.inspect')` which does `require('util').inspect`.
+             * Without this alias, Vite externalizes `util` as a Proxy that throws
+             * on any property access with "Module "" has been externalized".
+             */
+            util: path.resolve(__dirname, 'resources/js/vendor-stubs/util-stub.js'),
+        },
+    },
     server: {
         host: '127.0.0.1',
         allowedHosts: ['.lhr.life'],

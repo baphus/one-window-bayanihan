@@ -129,12 +129,12 @@ export default function SystemSettings({
     return (
         <AppLayout title="System Settings">
             <Head title="System Settings" />
-            <div className="mb-8">
+            <div data-tour="settings-header" className="mb-8">
                 <h1 className="text-2xl font-bold text-slate-900">System Settings</h1>
                 <p className="text-sm text-slate-500 mt-1">Manage system-wide configuration and preferences.</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 max-w-2xl">
+            <div data-tour="settings-form" className="grid grid-cols-1 gap-6 max-w-2xl">
                 <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
                     <h3 className="text-base font-semibold text-slate-900 mb-4">Application Information</h3>
                     <dl className="space-y-3 text-sm">

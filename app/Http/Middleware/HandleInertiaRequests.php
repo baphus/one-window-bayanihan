@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\SystemSetting;
 use App\Services\AlertService;
+use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -14,6 +15,16 @@ class HandleInertiaRequests extends Middleware
     public function version(Request $request): ?string
     {
         return parent::version($request);
+    }
+
+    private function getOnboardingRequired(Request $request): bool
+    {
+        $user = $request->user();
+        if (! $user) {
+            return false;
+        }
+
+        return app(OnboardingService::class)->isOnboardingRequired($user);
     }
 
     public function share(Request $request): array
@@ -32,6 +43,7 @@ class HandleInertiaRequests extends Middleware
                     : 0,
             ],
             'just_published' => $request->session()->get('just_published'),
+            'onboarding_required' => fn () => $this->getOnboardingRequired($request),
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

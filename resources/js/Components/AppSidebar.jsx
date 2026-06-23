@@ -1,6 +1,9 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useMemo } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
+import { useOnboarding } from '@/Onboarding/OnboardingProvider';
+import { replayOnboarding } from '@/Onboarding/api';
+import { getTourConfig } from '@/Onboarding/index';
 
 const navByRole = {
   CASE_MANAGER: [
@@ -117,6 +120,7 @@ const roleLabels = {
 export default function AppSidebar() {
   const { url } = usePage();
   const user = usePage().props.auth.user;
+  const { startTour } = useOnboarding();
 
   const navigation = useMemo(() => {
     return navByRole[user?.role] || [];
@@ -126,6 +130,17 @@ export default function AppSidebar() {
     if (href === '/dashboard') return url === '/dashboard';
     if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/drafts');
     return url.startsWith(href);
+  };
+
+  const handleReplayTour = async () => {
+    try {
+      await replayOnboarding();
+      const role = user?.role;
+      const config = getTourConfig(role);
+      if (config) startTour(config);
+    } catch {
+      // silently fail — API error shouldn't break the UI
+    }
   };
 
   return (
@@ -208,6 +223,16 @@ export default function AppSidebar() {
               </span>
             </div>
           </div>
+
+          {user?.onboarding_completed_at && (
+            <button
+              onClick={handleReplayTour}
+              className="flex items-center gap-2 px-4 py-2 mt-3 text-[12px] font-bold text-slate-500 hover:text-indigo-600 hover:bg-slate-50 transition-colors w-full rounded-md"
+            >
+              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 400" }}>travel_explore</span>
+              Take a Tour
+            </button>
+          )}
 
           <div className="mt-4 flex items-center gap-2">
             <Link

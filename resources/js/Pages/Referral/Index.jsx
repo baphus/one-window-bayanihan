@@ -273,7 +273,7 @@ export default function ReferralIndex({ referrals, filters }) {
         <AppLayout title={isAgency ? 'My Agency Referrals' : 'Referral Management'}>
             <Head title="Referrals" />
 
-            <div className="mb-8">
+            <div data-tour="referrals-header" className="mb-8">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">
@@ -292,6 +292,7 @@ export default function ReferralIndex({ referrals, filters }) {
                 </div>
             </div>
 
+            <div data-tour="referrals-table">
             <UnifiedTable
                 columns={columns}
                 data={referrals.data}
@@ -314,6 +315,7 @@ export default function ReferralIndex({ referrals, filters }) {
                 onRemoveFilter={handleRemoveFilter}
                 onClearFilters={handleClearFilters}
             />
+            </div>
 
             {pendingDecision && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

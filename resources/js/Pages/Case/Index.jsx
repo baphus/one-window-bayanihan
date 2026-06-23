@@ -505,7 +505,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     <AppLayout title="Case Management">
       <Head title="Case Management" />
 
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+      <header data-tour="cases-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
             Cases
@@ -522,7 +522,8 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
         </button>
       </header>
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div data-tour="cases-filter">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-start justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Cases</p>
@@ -577,7 +578,9 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           <p className="text-[10px] text-slate-400 mt-0.5">Across all cases</p>
         </div>
       </section>
+      </div>
 
+      <div data-tour="cases-table">
       <UnifiedTable
         columns={columns}
         data={cases.data}
@@ -627,6 +630,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           </>
         }
       />
+      </div>
     </AppLayout>
   );
 }

@@ -349,12 +349,12 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div data-tour="case-header" className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
           <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Case Details</h1>
           <p className="mt-1 text-[14px] leading-6 text-slate-600">Overview of client profile, referral progress, and timeline updates.</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
           <StatusBadge status={caseFile.status} size="md" />
           {caseFile.user && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-[3px]">
@@ -517,6 +517,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           </CardSection>
 
           {/* Timeline — moved from sidebar, full width */}
+          <div data-tour="case-timeline">
           <CardSection title="Case Timeline" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -564,6 +565,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               <p className="text-[12px] text-slate-500 py-4 text-center">No timeline events recorded.</p>
             )}
           </CardSection>
+          </div>
 
           {/* Documents + Attachments — side by side, unchanged */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -397,7 +397,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         />
       )}
 
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+      <header data-tour="users-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
             Users
@@ -406,7 +406,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         </div>
       </header>
 
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <section data-tour="users-stats" className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-start justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Users</p>
@@ -453,6 +453,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         </div>
       </section>
 
+      <div data-tour="users-table">
       <UnifiedTable
         columns={columns}
         data={users.data}
@@ -475,6 +476,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
       />
+      </div>
 
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>

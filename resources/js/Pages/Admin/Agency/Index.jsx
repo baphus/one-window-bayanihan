@@ -310,7 +310,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         />
       )}
 
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+      <header data-tour="agencies-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
             Agencies
@@ -319,7 +319,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <section data-tour="agencies-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-start justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Agencies</p>
@@ -363,6 +363,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         </div>
       </section>
 
+      <div data-tour="agencies-table">
       <UnifiedTable
         columns={columns}
         data={agencies.data}
@@ -385,6 +386,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
       />
+      </div>
 
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>

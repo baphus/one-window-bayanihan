@@ -12,6 +12,7 @@ import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
+import TourPrototype from './__TourPrototype';
 
 ChartJS.register(
     CategoryScale, LinearScale, BarElement,
@@ -23,7 +24,7 @@ const pieOptions = { responsive: true, maintainAspectRatio: false, plugins: { le
 function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNotifications }) {
     return (
         <div className="max-w-7xl mx-auto pb-6">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+            <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Agency Dashboard</h1>
                     <p className="text-sm text-slate-500 mt-0.5">Overview of your agency's referrals and performance.</p>
@@ -32,15 +33,17 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                <KpiCard title="Total Referrals" value={stats.totalReferrals} accent="border-l-blue-900" icon="send" />
-                <KpiCard title="Pending" value={stats.pendingReferrals} accent="border-l-yellow-500" icon="hourglass" />
-                <KpiCard title="Processing" value={stats.processingReferrals} accent="border-l-blue-500" icon="sync" />
-                <KpiCard title="Completed" value={stats.completedReferrals} accent="border-l-green-500" icon="check_circle" />
-            </div>
+            <section data-tour="dashboard-stats" className="mb-8">
+                <div data-tour="dashboard-agency-metrics" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                    <KpiCard title="Total Referrals" value={stats.totalReferrals} accent="border-l-blue-900" icon="send" />
+                    <KpiCard title="Pending" value={stats.pendingReferrals} accent="border-l-yellow-500" icon="hourglass" />
+                    <KpiCard title="Processing" value={stats.processingReferrals} accent="border-l-blue-500" icon="sync" />
+                    <KpiCard title="Completed" value={stats.completedReferrals} accent="border-l-green-500" icon="check_circle" />
+                </div>
+            </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                <div className="lg:col-span-8">
+                <div data-tour="dashboard-agency-referrals" className="lg:col-span-8">
                     <RecentTable
                         title="Recent Referrals"
                         data={recentReferrals ?? []}
@@ -58,7 +61,7 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
                 </div>
 
                 <div className="lg:col-span-4 space-y-3">
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div data-tour="dashboard-quick-actions" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Quick Actions</h3>
                         <div className="space-y-2">
                             <button
@@ -141,10 +144,12 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
 function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
     return (
         <>
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-                <p className="text-sm text-slate-500 mt-1">System-wide overview and monitoring.</p>
-            </div>
+            <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+                    <p className="text-sm text-slate-500 mt-1">System-wide overview and monitoring.</p>
+                </div>
+            </header>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                 <KpiCard title="Total Cases" value={stats.totalCases} accent="border-l-indigo-500" icon="folder" />
@@ -155,7 +160,7 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
 
             {/* System Health Overview */}
             {systemHealth && (
-                <div className="mb-6">
+                <div data-tour="dashboard-admin-system" className="mb-6">
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-base font-semibold text-slate-900">System Health</h3>
                         <Link href="/admin/system/health" className="text-sm text-indigo-600 hover:text-indigo-900">View Details</Link>
@@ -510,6 +515,9 @@ function CaseManagerDashboard({
     weekday: 'long', month: 'long', day: '2-digit', year: 'numeric',
   }).format(new Date())
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const showTour = urlParams.get('__TOUR_PROTO__') === '1';
+
   const activeCasesColumns = [
     {
       key: 'trackerNumber',
@@ -556,7 +564,8 @@ function CaseManagerDashboard({
 
   return (
     <div className="max-w-7xl mx-auto pb-6">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+      {showTour && <TourPrototype />}
+      <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900 flex items-center gap-2">
             Good morning! <span role="img" aria-label="wave">👋</span>
@@ -578,7 +587,7 @@ function CaseManagerDashboard({
         </div>
       </header>
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <section data-tour="dashboard-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-start justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Cases</p>
@@ -661,13 +670,15 @@ function CaseManagerDashboard({
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 lg:col-span-8 space-y-4">
-          <RecentTable
-            title="Active Cases"
-            data={recentCaseRows}
-            columns={activeCasesColumns}
-            keyExtractor={(row) => row.rowId}
-            onViewAll={() => router.visit('/cases')}
-          />
+          <div data-tour="dashboard-recent">
+            <RecentTable
+              title="Active Cases"
+              data={recentCaseRows}
+              columns={activeCasesColumns}
+              keyExtractor={(row) => row.rowId}
+              onViewAll={() => router.visit('/cases')}
+            />
+          </div>
 
           {stats?.myRecentDrafts?.length > 0 && (
             <RecentTable
@@ -689,7 +700,7 @@ function CaseManagerDashboard({
             />
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div data-tour="dashboard-chart" className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Status</h3>
               <div className="flex items-center gap-4">
@@ -767,7 +778,7 @@ function CaseManagerDashboard({
         </div>
 
         <div className="col-span-12 lg:col-span-4 space-y-3">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div data-tour="dashboard-quick-actions" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Quick Actions</h3>
             <div className="space-y-2">
               <button

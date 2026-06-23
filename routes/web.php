@@ -39,6 +39,7 @@ use App\Http\Controllers\HelpdeskController;
 use App\Http\Controllers\InsightsController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportsController;
@@ -187,6 +188,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->prefix('admin')->name('admin.')
         ->get('/agencies/{agency}', [AdminAgencyController::class, 'show'])
         ->name('agencies.show');
+
+    // Onboarding routes
+    Route::get('/onboarding/state', [OnboardingController::class, 'state'])->name('onboarding.state');
+    Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
+    Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
+    Route::post('/onboarding/replay', [OnboardingController::class, 'replay'])->name('onboarding.replay');
 
     Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');

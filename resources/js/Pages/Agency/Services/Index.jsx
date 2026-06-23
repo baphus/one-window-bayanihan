@@ -176,14 +176,14 @@ export default function AgencyServicesIndex({ services, allServices }) {
         <AppLayout title="Agency Services">
             <Head title="Agency Services" />
 
-            <div className="mb-8">
+            <div data-tour="services-header" className="mb-8">
                 <h1 className="text-2xl font-bold text-slate-900">Agency Services</h1>
                 <p className="text-sm text-slate-500 mt-1">
                     Manage the services offered by your agency to case managers and clients.
                 </p>
             </div>
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-6">
+            <section data-tour="services-actions" className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-6">
                 <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total Services</p>
                     <p className="mt-2 text-3xl font-black text-slate-800">{stats.total}</p>
@@ -198,6 +198,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 </div>
             </section>
 
+            <div data-tour="services-list">
             <UnifiedTable
                 data={filteredServices}
                 columns={columns}
@@ -216,6 +217,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 endIndex={filteredServices.length}
                 hidePagination
             />
+            </div>
 
             {isEditOpen && selectedService && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
