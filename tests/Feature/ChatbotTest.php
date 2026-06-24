@@ -75,7 +75,7 @@ class ChatbotTest extends TestCase
             'message' => 'hello',
         ]);
 
-        $response->assertOk()
-            ->assertSeeText('Hello!');
+        $response->assertStatus(503)
+            ->assertJson(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.']);
     }
 }

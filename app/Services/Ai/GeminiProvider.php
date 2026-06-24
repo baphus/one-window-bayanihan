@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Observability\RetrievalLogger;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class GeminiProvider implements AiProvider
 {
@@ -67,12 +67,7 @@ class GeminiProvider implements AiProvider
             ])->post($url, $payload);
 
             if ($response->failed()) {
-                Log::warning('Gemini API returned error', [
-                    'status' => $response->status(),
-                    'body' => $response->json(),
-                ]);
-
-                return '';
+                throw new \RuntimeException('Gemini API returned error: status '.$response->status());
             }
 
             $body = $response->json();
@@ -86,14 +81,11 @@ class GeminiProvider implements AiProvider
                 }
             }
 
+            app(RetrievalLogger::class)->logTokenUsage('gemini', $this->model, $body['usageMetadata']['promptTokenCount'] ?? 0, $body['usageMetadata']['candidatesTokenCount'] ?? 0);
+
             return $text;
         } catch (\Throwable $e) {
-            Log::warning('Gemini API call failed', [
-                'error' => $e->getMessage(),
-                'model' => $this->model,
-            ]);
-
-            return '';
+            throw new \RuntimeException('Gemini API call failed: '.$e->getMessage(), previous: $e);
         }
     }
 

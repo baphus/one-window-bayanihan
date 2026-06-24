@@ -10,6 +10,8 @@ use App\Services\Ai\PromptAssemblyService;
 use App\Services\Chatbot\ChatbotCaseService;
 use App\Services\Chatbot\ChatbotDataService;
 use App\Services\Content\ContentSanitizerService;
+use App\Services\HelpCenter\RetrievalRankingService;
+use App\Services\HelpCenter\VectorSearchService;
 use App\Services\Observability\RetrievalLogger;
 use App\Services\Observability\UnansweredTracker;
 use Illuminate\Http\Request;
@@ -43,6 +45,8 @@ class ChatbotController extends Controller
         private readonly UnansweredTracker $unansweredTracker,
         private readonly ChatbotDataService $chatbotData,
         private readonly ChatbotCaseService $chatbotCase,
+        private readonly RetrievalRankingService $ranking,
+        private readonly VectorSearchService $vectorSearchService,
     ) {}
 
     public function message(Request $request)
@@ -70,6 +74,8 @@ class ChatbotController extends Controller
                 'error' => $e->getMessage(),
                 'provider' => SystemSetting::getValue('chatbot_provider', 'unknown'),
             ]);
+
+            return response()->json(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.'], 503);
         }
 
         // If sendMessage returned empty, try tool-enabled flow with Help Center + data retrieval
@@ -85,6 +91,8 @@ class ChatbotController extends Controller
             Log::warning('Chatbot AI tool provider failed', [
                 'error' => $e->getMessage(),
             ]);
+
+            return response()->json(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.'], 503);
         }
 
         // Fallback: keyword matching
@@ -110,6 +118,11 @@ class ChatbotController extends Controller
             0.0,
             $latencyMs
         );
+
+        // Enrich with vector similarity scores
+        $vectorResults = $this->vectorSearchService->search($userMessage);
+        $vectorScores = $vectorResults->keyBy('article_id')->map(fn ($item) => $item->similarity)->toArray();
+        $this->ranking->setVectorSimilarityCallback(fn ($article) => $vectorScores[$article->id] ?? 0.0);
 
         if ($articles->isEmpty()) {
             $this->unansweredTracker->logUnanswered($userMessage, 'no articles found');
@@ -146,15 +159,7 @@ class ChatbotController extends Controller
                 // Help Center
                 'searchHelpCenter' => $this->handleSearchHelpCenter($args),
                 'getArticleBySlug' => $this->handleGetArticleBySlug($args),
-                // Public data
-                'searchAgencies' => $this->handleSearchAgencies($args),
-                'getAgencyServices' => $this->handleGetAgencyServices($args),
-                'getServiceRequirements' => $this->handleGetServiceRequirements($args),
-                'searchServices' => $this->handleSearchServices($args),
                 'getCaseStatuses' => $this->handleGetCaseStatuses(),
-                // Auth-protected case tools
-                'searchCases' => $this->handleSearchCases($args),
-                'getCaseDetail' => $this->handleGetCaseDetail($args),
                 // OFW OTP verification
                 'initiateCaseOTP' => $this->handleInitiateCaseOTP($args),
                 'verifyCaseOTP' => $this->handleVerifyCaseOTP($args),
@@ -231,92 +236,11 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Handle the searchAgencies tool call.
-     */
-    private function handleSearchAgencies(array $args): string
-    {
-        $query = $args['query'] ?? '';
-        $limit = min((int) ($args['limit'] ?? 5), 10);
-
-        if (empty($query)) {
-            return json_encode([]);
-        }
-
-        return json_encode($this->chatbotData->searchAgencies($query, $limit));
-    }
-
-    /**
-     * Handle the getAgencyServices tool call.
-     */
-    private function handleGetAgencyServices(array $args): string
-    {
-        $agencyId = $args['agencyId'] ?? '';
-
-        if (empty($agencyId)) {
-            return json_encode(['error' => 'Agency ID is required']);
-        }
-
-        return json_encode($this->chatbotData->getAgencyServices($agencyId));
-    }
-
-    /**
-     * Handle the getServiceRequirements tool call.
-     */
-    private function handleGetServiceRequirements(array $args): string
-    {
-        $serviceId = $args['serviceId'] ?? '';
-
-        if (empty($serviceId)) {
-            return json_encode(['error' => 'Service ID is required']);
-        }
-
-        return json_encode($this->chatbotData->getServiceRequirements($serviceId));
-    }
-
-    /**
-     * Handle the searchServices tool call.
-     */
-    private function handleSearchServices(array $args): string
-    {
-        $query = $args['query'] ?? '';
-        $limit = min((int) ($args['limit'] ?? 5), 10);
-
-        if (empty($query)) {
-            return json_encode([]);
-        }
-
-        return json_encode($this->chatbotData->searchServices($query, $limit));
-    }
-
-    /**
      * Handle the getCaseStatuses tool call.
      */
     private function handleGetCaseStatuses(): string
     {
         return json_encode($this->chatbotData->getCaseStatuses());
-    }
-
-    // ──────────────────────────────────────────────
-    //  Auth-protected case tools
-    // ──────────────────────────────────────────────
-
-    private function handleSearchCases(array $args): string
-    {
-        $query = $args['query'] ?? '';
-        $limit = min((int) ($args['limit'] ?? 5), 10);
-
-        return json_encode($this->chatbotCase->searchCases($query, $limit));
-    }
-
-    private function handleGetCaseDetail(array $args): string
-    {
-        $caseId = $args['caseId'] ?? '';
-
-        if (empty($caseId)) {
-            return json_encode(['success' => false, 'message' => 'Case ID is required']);
-        }
-
-        return json_encode($this->chatbotCase->getCaseDetail($caseId));
     }
 
     // ──────────────────────────────────────────────

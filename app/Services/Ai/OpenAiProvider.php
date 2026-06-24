@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai;
 
-use Illuminate\Support\Facades\Log;
+use App\Services\Observability\RetrievalLogger;
 use OpenAI;
 
 class OpenAiProvider implements AiProvider
@@ -57,14 +57,11 @@ class OpenAiProvider implements AiProvider
                 'max_tokens' => $this->maxTokens,
             ]);
 
+            app(RetrievalLogger::class)->logTokenUsage('openai', $this->model, $response->usage->promptTokens, $response->usage->completionTokens);
+
             return $response->choices[0]->message->content ?? '';
         } catch (\Throwable $e) {
-            Log::warning('OpenAI API call failed', [
-                'error' => $e->getMessage(),
-                'model' => $this->model,
-            ]);
-
-            return '';
+            throw new \RuntimeException('OpenAI API call failed: '.$e->getMessage(), previous: $e);
         }
     }
 

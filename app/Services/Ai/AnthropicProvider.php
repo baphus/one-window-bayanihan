@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Observability\RetrievalLogger;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class AnthropicProvider implements AiProvider
 {
@@ -55,26 +55,18 @@ class AnthropicProvider implements AiProvider
             $body = $response->json();
 
             if ($response->failed() || empty($body)) {
-                Log::warning('Anthropic API returned error', [
-                    'status' => $response->status(),
-                    'body' => $body,
-                ]);
-
-                return '';
+                throw new \RuntimeException('Anthropic API returned error: status '.$response->status());
             }
 
             if (isset($body['content'][0]['text'])) {
+                app(RetrievalLogger::class)->logTokenUsage('anthropic', $this->model, $body['usage']['input_tokens'] ?? 0, $body['usage']['output_tokens'] ?? 0);
+
                 return $body['content'][0]['text'];
             }
 
             return $body['content'][0] ?? '';
         } catch (\Throwable $e) {
-            Log::warning('Anthropic API call failed', [
-                'error' => $e->getMessage(),
-                'model' => $this->model,
-            ]);
-
-            return '';
+            throw new \RuntimeException('Anthropic API call failed: '.$e->getMessage(), previous: $e);
         }
     }
 

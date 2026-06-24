@@ -7,7 +7,6 @@ use App\Services\Ai\Contracts\ToolEnabledAiProvider;
 use App\Services\Ai\Providers\AnthropicToolProvider;
 use App\Services\Ai\Providers\GeminiToolProvider;
 use App\Services\Ai\Providers\OpenAiToolProvider;
-use Illuminate\Support\Facades\Log;
 
 class AiService
 {
@@ -103,19 +102,10 @@ class AiService
             return '';
         }
 
-        try {
-            return $provider->sendMessage($message, [
-                'system_prompt' => SystemSetting::getValue('chatbot_system_prompt', ''),
-                'temperature' => (float) SystemSetting::getValue('chatbot_temperature', '0.7'),
-                'max_tokens' => (int) SystemSetting::getValue('chatbot_max_tokens', '500'),
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('Chatbot AI service failed', [
-                'error' => $e->getMessage(),
-                'provider' => SystemSetting::getValue('chatbot_provider', 'unknown'),
-            ]);
-
-            return '';
-        }
+        return $provider->sendMessage($message, [
+            'system_prompt' => SystemSetting::getValue('chatbot_system_prompt', ''),
+            'temperature' => (float) SystemSetting::getValue('chatbot_temperature', '0.7'),
+            'max_tokens' => (int) SystemSetting::getValue('chatbot_max_tokens', '500'),
+        ]);
     }
 }
