@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
+import { router } from '@inertiajs/react';
 import { useOnboarding } from './OnboardingProvider';
 import { useToast } from '@/Hooks/useToast';
 import { completeOnboarding } from './api';
@@ -9,17 +10,21 @@ import { completeOnboarding } from './api';
  * TourManager — subscribes to OnboardingProvider and initializes Driver.js
  * when the phase transitions to 'touring'.
  *
- * It flattens all steps from all pages of the TourConfig into a single
- * Driver.js step list and drives the tour.
+ * Supports multi-page tours: for each page in pages[], it passes only that
+ * page's steps to Driver.js. On the last step of a non-final page it calls
+ * router.visit() to navigate to the next page, then re-initializes Driver.js
+ * with the next page's steps. On the last step of the final page it calls
+ * completeOnboarding() as before.
  *
- * - "Done" on the last step → calls completeOnboarding() API + toast
- * - "Close" on any step → just calls endTour() (no API)
- * - "Skip Tour" button (injected via onPopoverRender) → just calls endTour()
+ * - Single-page configs work as before — Done → completeOnboarding() API + toast
+ * - Multi-page configs visit each page's route in order
+ * - "Close" / "Skip Tour" on any step just calls endTour()
  * - Component unmount / phase change → cleans up without side effects
  */
 export default function TourManager() {
     const { phase, tourConfig, endTour } = useOnboarding();
     const driverRef = useRef<ReturnType<typeof driver> | null>(null);
+    const [currentPageIndex, setCurrentPageIndex] = useState(0);
     const toast = useToast();
 
     /**
@@ -28,6 +33,13 @@ export default function TourManager() {
      * (user clicks Done / Close / Skip) from a React cleanup-triggered destroy.
      */
     const cleaningUpRef = useRef(false);
+
+    // ── Reset page index when a brand-new tour starts ──────────────
+    useEffect(() => {
+        if (phase === 'touring' && tourConfig) {
+            setCurrentPageIndex(0);
+        }
+    }, [phase, tourConfig]);
 
     useEffect(() => {
         // ── No active tour → destroy any lingering driver ──────────────
@@ -39,25 +51,43 @@ export default function TourManager() {
             return;
         }
 
-        // ── Flatten all steps from all pages ───────────────────────────
-        // All current role configs only have one page (dashboard), but the
-        // TourConfig type supports multiple pages for future multi-page tours.
-        const steps = tourConfig.pages.flatMap((page) =>
-            page.steps.map((step) => ({
-                element: step.element,
-                popover: {
-                    title: step.title,
-                    description: step.description,
-                    side: step.side ?? ('bottom' as const),
-                    align: step.align ?? ('center' as const),
-                },
-            })),
-        );
-
-        if (steps.length === 0) {
+        // ── Grab the current page; bail if it doesn't exist ────────────
+        const page = tourConfig.pages[currentPageIndex];
+        if (!page) {
             endTour();
             return;
         }
+
+        // ── Only steps for the current page ────────────────────────────
+        const steps = page.steps.map((step) => ({
+            element: step.element,
+            popover: {
+                title: step.title,
+                description: step.description,
+                side: step.side ?? ('bottom' as const),
+                align: step.align ?? ('center' as const),
+            },
+        }));
+
+        // ── Empty page — skip past it ──────────────────────────────────
+        if (steps.length === 0) {
+            if (currentPageIndex < tourConfig.pages.length - 1) {
+                const nextPage = tourConfig.pages[currentPageIndex + 1];
+                router.visit(route(nextPage.route), {
+                    preserveState: false,
+                    onFinish: () => {
+                        requestAnimationFrame(() => {
+                            setCurrentPageIndex((i) => i + 1);
+                        });
+                    },
+                });
+            } else {
+                endTour();
+            }
+            return;
+        }
+
+        const isLastPage = currentPageIndex === tourConfig.pages.length - 1;
 
         // ── Closure-scoped flags ───────────────────────────────────────
         let reachedLastStep = false;
@@ -81,9 +111,6 @@ export default function TourManager() {
             },
 
             // ── Fires just before the driver is destroyed ──────────────
-            // At this point the driver state is still intact, so isLastStep()
-            // returns the correct value. Use it + the close/skip flag to
-            // decide whether the user completed the tour or cancelled it.
             onDestroyStarted: () => {
                 if (!wasClosedOrSkipped && driverObj.isLastStep()) {
                     reachedLastStep = true;
@@ -98,16 +125,32 @@ export default function TourManager() {
                 if (cleaningUpRef.current) return;
 
                 if (reachedLastStep) {
-                    // User clicked "Done" on the final step
-                    completeOnboarding()
-                        .then(() => {
-                            toast.success('Tour complete!');
-                            endTour();
-                        })
-                        .catch(() => {
-                            // API failed — still end the tour locally
-                            endTour();
+                    if (isLastPage) {
+                        // ── Last step of the FINAL page → complete ──
+                        completeOnboarding()
+                            .then(() => {
+                                toast.success('Tour complete!');
+                                endTour();
+                            })
+                            .catch(() => {
+                                // API failed — still end the tour locally
+                                endTour();
+                            });
+                    } else {
+                        // ── Last step of an INTERMEDIATE page → navigate ──
+                        const nextPage = tourConfig.pages[currentPageIndex + 1];
+                        router.visit(route(nextPage.route), {
+                            preserveState: false,
+                            onFinish: () => {
+                                // requestAnimationFrame gives React a chance
+                                // to commit the new page's DOM before we
+                                // re-initialize Driver.js
+                                requestAnimationFrame(() => {
+                                    setCurrentPageIndex((i) => i + 1);
+                                });
+                            },
                         });
+                    }
                 } else {
                     // User closed or skipped the tour
                     endTour();
@@ -148,7 +191,7 @@ export default function TourManager() {
 
             cleaningUpRef.current = false;
         };
-    }, [phase, tourConfig, endTour, toast]);
+    }, [phase, tourConfig, endTour, toast, currentPageIndex]);
 
     return null;
 }

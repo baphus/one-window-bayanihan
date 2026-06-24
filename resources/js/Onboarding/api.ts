@@ -65,3 +65,18 @@ export function replayOnboarding(): Promise<void> {
         });
     });
 }
+
+/**
+ * Track the current step during the onboarding tour.
+ * POST /onboarding/step
+ */
+export function updateStep(step: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        router.post(route('onboarding.step'), { step }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => resolve(),
+            onError: (errors) => reject(errors),
+        });
+    });
+}

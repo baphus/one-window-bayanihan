@@ -54,4 +54,19 @@ class OnboardingController extends Controller
 
         return redirect()->back()->with('success', 'Onboarding reset for replay.');
     }
+
+    /**
+     * Track the current step during the onboarding tour.
+     */
+    public function updateStep(Request $request)
+    {
+        $validated = $request->validate([
+            'step' => 'required|string',
+        ]);
+
+        $service = app(OnboardingService::class);
+        $service->updateStep($request->user(), $validated['step']);
+
+        return redirect()->back()->with('success', 'Step updated.');
+    }
 }
