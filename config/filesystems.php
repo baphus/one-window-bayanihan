@@ -47,8 +47,17 @@ return [
             'report' => false,
         ],
 
-        'cloudinary' => [
-            'driver' => 'cloudinary',
+        'supabase' => [
+            'driver' => 's3',
+            'key' => env('SUPABASE_S3_ACCESS_KEY'),
+            'secret' => env('SUPABASE_S3_SECRET_KEY'),
+            'region' => env('SUPABASE_S3_REGION', 'ap-southeast-1'),
+            'bucket' => env('SUPABASE_S3_BUCKET', 'case-files'),
+            'endpoint' => env('SUPABASE_S3_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
         ],
 
         's3' => [

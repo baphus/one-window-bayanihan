@@ -54,7 +54,7 @@ class ReferralAttachment extends Model
     public function fileUrl(): Attribute
     {
         return Attribute::get(fn () => $this->file_path
-            ? Storage::url($this->file_path)
+            ? Storage::disk('supabase')->temporaryUrl($this->file_path, now()->addHours(24))
             : null);
     }
 

@@ -13,6 +13,7 @@
         "laravel/framework": "^13.7",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
+        "league/flysystem-aws-s3-v3": "*",
         "openai-php/client": "^0.19.2",
         "phpoffice/phpspreadsheet": "*",
         "pragmarx/google2fa-laravel": "*",

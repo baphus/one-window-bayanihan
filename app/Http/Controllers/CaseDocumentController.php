@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class CaseDocumentController extends Controller
 {
@@ -28,14 +27,14 @@ class CaseDocumentController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png,gif', 'max:10240'],
         ]);
 
-        $uploaded = $request->file('file')->storeOnCloudinaryAs(
+        $path = $request->file('file')->store(
             'case-documents/'.$caseId,
-            Str::random(40)
+            'supabase'
         );
 
         $document = CaseDocument::create([
             'file_name' => $request->file('file')->getClientOriginalName(),
-            'file_path' => $uploaded->getSecureUrl(),
+            'file_path' => $path,
             'file_type' => $request->file('file')->getMimeType(),
             'case_id' => $caseId,
             'user_id' => $request->user()->id,
