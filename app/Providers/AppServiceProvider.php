@@ -20,6 +20,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Services\HelpCenter\EloquentHelpCenterProvider;
+use App\Services\HelpCenter\RetrievalRankingService;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -38,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(HelpCenterProviderInterface::class, EloquentHelpCenterProvider::class);
+        $this->app->singleton(RetrievalRankingService::class);
     }
 
     /**
