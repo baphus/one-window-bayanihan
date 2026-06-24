@@ -8,7 +8,7 @@
     "require": {
         "php": "^8.3",
         "barryvdh/laravel-dompdf": "^3.1",
-        "cloudinary/cloudinary_php": "3.0",
+        "cloudinary/cloudinary_php": "*",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^13.7",
         "laravel/sanctum": "^4.0",

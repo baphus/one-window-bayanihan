@@ -60,7 +60,7 @@ class ReferralController extends Controller
 
         if ($request->hasFile('documents')) {
             foreach ($request->file('documents') as $key => $file) {
-                $path = $file->store('referrals', 'public');
+                $path = $file->storeOnCloudinary('referrals')->getSecureUrl();
 
                 ReferralAttachment::create([
                     'referral_id' => $referral->id,
@@ -184,7 +184,7 @@ class ReferralController extends Controller
         ]);
 
         $file = $request->file('file');
-        $path = $file->store('referrals', 'public');
+        $path = $file->storeOnCloudinary('referrals')->getSecureUrl();
 
         $attachment = $this->referralService->addAttachment(
             $id,
@@ -212,7 +212,7 @@ class ReferralController extends Controller
         ]);
 
         $file = $request->file('file');
-        $path = $file->store('referrals', 'public');
+        $path = $file->storeOnCloudinary('referrals')->getSecureUrl();
 
         $this->referralService->fulfillCompliance(
             $complianceId,
@@ -238,7 +238,7 @@ class ReferralController extends Controller
         ]);
 
         $file = $request->file('file');
-        $path = $file->store('referrals', 'public');
+        $path = $file->storeOnCloudinary('referrals')->getSecureUrl();
 
         $attachment = $this->referralService->replaceAttachment(
             $attachmentId,

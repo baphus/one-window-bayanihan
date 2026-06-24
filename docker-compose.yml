@@ -20,12 +20,24 @@ services:
     image: nginx:1.27-alpine
     ports:
       - "${APP_PORT:-80}:80"
+    entrypoint: ["/docker-entrypoint.sh"]
+    command: ["nginx", "-g", "daemon off;"]
     volumes:
       # Nginx configuration
       - ./docker/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # Custom entrypoint for envsubst support
+      - ./docker/nginx/docker-entrypoint.sh:/docker-entrypoint.sh:ro
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - app-network
 
@@ -51,11 +63,37 @@ services:
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
       - FILESYSTEM_DISK=cloudinary
-      - RUN_MIGRATIONS=${RUN_MIGRATIONS:-false}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - FOWNER
+      - SETGID
+      - SETUID
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "php", "-r", "echo 'ok';"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - app-network
 
@@ -80,11 +118,32 @@ services:
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
       - FILESYSTEM_DISK=cloudinary
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - FOWNER
+      - SETGID
+      - SETUID
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     command: php artisan queue:listen --tries=3 --timeout=90
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - app-network
 
@@ -109,13 +168,70 @@ services:
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
       - FILESYSTEM_DISK=cloudinary
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - FOWNER
+      - SETGID
+      - SETUID
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     command: php artisan schedule:work
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - app-network
+
+  # ── Migration Runner (one-shot, profile-based) ───────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_URL=${APP_URL:-http://localhost}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${DB_DATABASE:-one_window}
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - CACHE_STORE=${CACHE_STORE:-database}
+      - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
+      - SESSION_DRIVER=${SESSION_DRIVER:-database}
+      - FILESYSTEM_DISK=cloudinary
+    depends_on:
+      db:
+        condition: service_healthy
+    command: php artisan migrate --force --no-interaction
+    networks:
+      - app-network
+    profiles:
+      - migrate
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ── PostgreSQL Database ───────────────────────────────────────────────────
   # For local development. In production, point DB_HOST to your Supabase host.
@@ -125,8 +241,8 @@ services:
       POSTGRES_DB: ${DB_DATABASE:-one_window}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-    ports:
-      - "${DB_EXPOSE_PORT:-5432}:5432"
+    # ports:
+    #   - "${DB_EXPOSE_PORT:-5432}:5432"  # exposed only when DB_EXPOSE_PORT is explicitly set
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -136,6 +252,11 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - app-network
 
@@ -144,8 +265,8 @@ services:
   # are set to "redis". By default this app uses database drivers.
   redis:
     image: redis:7-alpine
-    ports:
-      - "${REDIS_EXPOSE_PORT:-6379}:6379"
+    # ports:
+    #   - "${REDIS_EXPOSE_PORT:-6379}:6379"  # exposed only when REDIS_EXPOSE_PORT is explicitly set
     volumes:
       - redis-data:/data
     healthcheck:
@@ -154,6 +275,11 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - app-network
 

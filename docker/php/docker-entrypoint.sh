@@ -12,23 +12,22 @@ fi
 
 # ── Storage & cache: set permissions ──
 # Ensure framework directories are writable (Cloudinary handles file storage).
-chmod -R 775 storage bootstrap/cache
+chmod -R 755 storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 
 # ── Cache: bootstrap Laravel once ──
 if [ "${APP_ENV}" != "local" ] && [ "${APP_ENV}" != "testing" ]; then
-    php artisan config:cache --no-interaction 2>/dev/null || true
-    php artisan route:cache --no-interaction 2>/dev/null || true
-    php artisan view:cache --no-interaction 2>/dev/null || true
-    php artisan event:cache --no-interaction 2>/dev/null || true
+    php artisan config:cache --no-interaction || true
+    php artisan route:cache --no-interaction || true
+    php artisan view:cache --no-interaction || true
+    php artisan event:cache --no-interaction || true
     echo "[ENTRYPOINT] Configuration cached for ${APP_ENV}"
 fi
 
-# ── Run migrations (optional — controlled by RUN_MIGRATIONS env) ──
-if [ "${RUN_MIGRATIONS}" = "true" ]; then
-    php artisan migrate --force --no-interaction 2>/dev/null || true
-    echo "[ENTRYPOINT] Migrations executed"
-fi
+# ── Migrations ──
+# NOTE: Auto-migration at container start has been removed.
+# Migrations are now handled by a dedicated docker compose profile service.
+# Run manually: docker compose exec app php artisan migrate --force
 
 # ── Execute the main command (php-fpm, queue:listen, schedule:work, etc.) ──
 echo "[ENTRYPOINT] Starting: $@"

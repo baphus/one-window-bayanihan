@@ -35,7 +35,7 @@ class CaseDocumentController extends Controller
 
         $document = CaseDocument::create([
             'file_name' => $request->file('file')->getClientOriginalName(),
-            'file_path' => $uploaded->getSecurePath(),
+            'file_path' => $uploaded->getSecureUrl(),
             'file_type' => $request->file('file')->getMimeType(),
             'case_id' => $caseId,
             'user_id' => $request->user()->id,
