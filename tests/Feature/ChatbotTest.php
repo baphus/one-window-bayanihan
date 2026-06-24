@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\SystemSetting;
 use App\Services\Ai\AiService;
+use App\Services\Ai\Providers\AnthropicToolProvider;
+use App\Services\Ai\Providers\GeminiToolProvider;
+use App\Services\Ai\Providers\OpenAiToolProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
@@ -77,5 +80,45 @@ class ChatbotTest extends TestCase
 
         $response->assertStatus(503)
             ->assertJson(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.']);
+    }
+
+    public function test_openai_tool_provider_returns_6_tools(): void
+    {
+        $provider = new OpenAiToolProvider('test-key', 'gpt-4o-mini', '', 0.7, 500);
+        $tools = $provider->getTools();
+
+        $this->assertCount(6, $tools);
+
+        $first = $tools[0];
+        $this->assertArrayHasKey('type', $first);
+        $this->assertSame('function', $first['type']);
+        $this->assertArrayHasKey('function', $first);
+        $this->assertArrayHasKey('name', $first['function']);
+    }
+
+    public function test_anthropic_tool_provider_returns_6_tools(): void
+    {
+        $provider = new AnthropicToolProvider('test-key', 'claude-3-haiku-20240307', '', 0.7, 500);
+        $tools = $provider->getTools();
+
+        $this->assertCount(6, $tools);
+
+        $first = $tools[0];
+        $this->assertArrayHasKey('name', $first);
+        $this->assertArrayHasKey('input_schema', $first);
+        $this->assertSame('searchHelpCenter', $first['name']);
+    }
+
+    public function test_gemini_tool_provider_returns_6_tools(): void
+    {
+        $provider = new GeminiToolProvider('test-key', 'gemini-2.0-flash', '', 0.7, 500);
+        $tools = $provider->getTools();
+
+        $this->assertArrayHasKey('functionDeclarations', $tools);
+        $this->assertCount(6, $tools['functionDeclarations']);
+
+        $first = $tools['functionDeclarations'][0];
+        $this->assertArrayHasKey('name', $first);
+        $this->assertSame('searchHelpCenter', $first['name']);
     }
 }
