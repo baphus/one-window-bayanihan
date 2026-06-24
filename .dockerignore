@@ -1,0 +1,70 @@
+# Git
+.git
+.gitattributes
+.gitignore
+.gitnexus
+
+# IDE / editor
+.agents
+.claude
+.codegraph
+.cursorrules
+.idea
+.omo
+.opencode
+.playwright-mcp
+.understand-anything
+.vscode
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules
+npm-debug.log
+bun.lock
+
+# PHP
+vendor
+
+# Build artifacts
+public/build/*
+!public/build/.gitkeep
+
+# Frontend dev
+.vite
+
+# Tests
+test-results
+.phpunit.result.cache
+
+# Laravel
+.env
+.env.backup
+.env.production
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+storage/debugbar/*
+storage/pail
+
+# Documents / temp
+docs
+instructions.md
+srs_extracted.txt
+srs_legal_section.txt
+
+# QA / debug
+qa_debug.mjs
+qa_investigate.mjs
+qa_manual_test.mjs
+qa_screenshots
+
+# Logs
+*.log
+vite_output.log
+vite.log
+temp_check_latest.php
+temp_create_drafts.php
