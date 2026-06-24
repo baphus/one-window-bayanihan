@@ -63,12 +63,7 @@ class AiService
         return match ($providerName) {
             'anthropic' => new AnthropicProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
             'gemini' => new GeminiProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
-            'custom' => new CustomProvider(
-                SystemSetting::getValue('chatbot_custom_endpoint', ''),
-                $apiKey,
-                $model,
-                $systemPrompt,
-            ),
+
             default => new OpenAiProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
         };
     }
@@ -94,12 +89,7 @@ class AiService
         $this->provider = match ($providerName) {
             'anthropic' => new AnthropicProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
             'gemini' => new GeminiProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
-            'custom' => new CustomProvider(
-                SystemSetting::getValue('chatbot_custom_endpoint', ''),
-                $apiKey,
-                $model,
-                $systemPrompt,
-            ),
+
             default => new OpenAiProvider($apiKey, $model, $systemPrompt, $temperature, $maxTokens),
         };
 
