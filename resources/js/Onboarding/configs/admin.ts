@@ -9,6 +9,8 @@ export const adminTour: TourConfig = {
             steps: [
                 { element: '[data-tour="dashboard-header"]', title: 'Welcome', description: 'Your admin dashboard with system-wide overview and monitoring capabilities.', side: 'bottom' as const },
                 { element: '[data-tour="dashboard-admin-system"]', title: 'System Health', description: 'Monitor overall system status, active alerts, and health checks across services.', side: 'bottom' as const },
+                { element: '[data-tour="admin-recent-cases"]', title: 'Recent Cases', description: 'View the most recently created cases across the system. Click through to the full case directory for detailed management.', side: 'bottom' as const },
+                { element: '[data-tour="admin-recent-activity"]', title: 'Recent Activity', description: 'Track system-wide activity including case creation, updates, user logins, and referrals in real time.', side: 'left' as const },
             ],
         },
         {

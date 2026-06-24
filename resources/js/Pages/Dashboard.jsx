@@ -199,6 +199,7 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
             )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div data-tour="admin-recent-cases">
                 <RecentTable
                     title="Recent Cases"
                     data={recentCases ?? []}
@@ -212,8 +213,9 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
                     keyExtractor={(row) => row.id}
                     onViewAll={() => router.visit(route('cases.index'))}
                 />
+                </div>
 
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200">
+                <div data-tour="admin-recent-activity" className="rounded-lg bg-white shadow-sm border border-slate-200">
                     <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
                         <h3 className="text-base font-semibold text-slate-900">Recent Activity</h3>
                         <Link href={route('audit-logs.index')} className="text-sm text-indigo-600 hover:text-indigo-900">View All</Link>

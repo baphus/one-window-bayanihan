@@ -9,6 +9,8 @@ import ToastProvider from '@/Components/ToastProvider';
 import OnboardingProvider from '@/Onboarding/OnboardingProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+const reactRoots = new WeakMap<HTMLElement, ReturnType<typeof createRoot>>();
+
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
@@ -79,8 +81,11 @@ createInertiaApp({
         return page();
     },
     setup({ el, App, props }) {
-        const root = createRoot(el);
-
+        let root = reactRoots.get(el);
+        if (!root) {
+            root = createRoot(el);
+            reactRoots.set(el, root);
+        }
         root.render(<AppWithOnboarding App={App} appProps={props} />);
     },
     progress: {

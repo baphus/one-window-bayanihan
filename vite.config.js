@@ -5,6 +5,7 @@ import path from 'path';
 
 export default defineConfig({
     resolve: {
+        dedupe: ['react', 'react-dom'],
         alias: {
             /**
              * Stub Node.js `util` module for browser build.
@@ -24,6 +25,10 @@ export default defineConfig({
             origin: true,
             credentials: true,
             preflightContinue: true,
+        },
+        hmr: {
+            host: '127.0.0.1',
+            protocol: 'ws',
         },
     },
     plugins: [

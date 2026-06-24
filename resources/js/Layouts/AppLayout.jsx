@@ -70,20 +70,19 @@ export default function AppLayout({ title, children }) {
       {/* Hide ChatBot during welcome/tour to avoid z-index conflicts */}
       {!isOpen && <ChatBot />}
 
-      {/* Onboarding UI */}
-      {phase === 'welcome' && (
-        <WelcomeModal
-          onStartTour={() => {
-            const role = auth.user?.role;
-            const config = getTourConfig(role);
-            if (config) startTour(config);
-          }}
-          onSkipTour={() => {
-            skipOnboarding().then(() => endTour());
-          }}
-          onRemindLater={dismissRemindLater}
-        />
-      )}
+      {/* Onboarding UI — use show prop so Headless UI Dialog properly cleans up on close */}
+      <WelcomeModal
+        show={phase === 'welcome'}
+        onStartTour={() => {
+          const role = auth.user?.role;
+          const config = getTourConfig(role);
+          if (config) startTour(config);
+        }}
+        onSkipTour={() => {
+          skipOnboarding().then(() => endTour());
+        }}
+        onRemindLater={dismissRemindLater}
+      />
       <TourManager />
     </div>
   );

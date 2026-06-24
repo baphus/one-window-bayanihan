@@ -72,6 +72,7 @@ body {
     border-radius: 3px !important;
     font-size: 12px !important;
     font-weight: 700 !important;
+    text-shadow: none !important;       /* override driver.js native text-shadow: 1px 1px 0 #fff */
 }
 .driver-popover-navigation-btns {
     gap: 8px !important;

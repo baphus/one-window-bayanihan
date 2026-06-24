@@ -89,9 +89,7 @@ export default function TourManager() {
 
         const isLastPage = currentPageIndex === tourConfig.pages.length - 1;
 
-        // ── Closure-scoped flags ───────────────────────────────────────
-        let reachedLastStep = false;
-        let wasClosedOrSkipped = false;
+        let userCompleted = false;
 
         const driverObj = driver({
             animate: true,
@@ -105,46 +103,35 @@ export default function TourManager() {
             prevBtnText: 'Previous',
             steps,
 
-            // ── Fires when the close (X) button is clicked ─────────────
-            onCloseClick: () => {
-                wasClosedOrSkipped = true;
-            },
-
-            // ── Fires just before the driver is destroyed ──────────────
-            onDestroyStarted: () => {
-                if (!wasClosedOrSkipped && driverObj.isLastStep()) {
-                    reachedLastStep = true;
+            onNextClick: (_element, _step, opts) => {
+                if (opts.driver.hasNextStep()) {
+                    opts.driver.moveNext();
+                } else {
+                    userCompleted = true;
+                    opts.driver.destroy();
                 }
             },
 
-            // ── Fires after destroy — perform side effects ─────────────
             onDestroyed: () => {
                 driverRef.current = null;
 
-                // Ignore side effects during React cleanup
                 if (cleaningUpRef.current) return;
 
-                if (reachedLastStep) {
+                if (userCompleted) {
                     if (isLastPage) {
-                        // ── Last step of the FINAL page → complete ──
                         completeOnboarding()
                             .then(() => {
                                 toast.success('Tour complete!');
                                 endTour();
                             })
                             .catch(() => {
-                                // API failed — still end the tour locally
                                 endTour();
                             });
                     } else {
-                        // ── Last step of an INTERMEDIATE page → navigate ──
                         const nextPage = tourConfig.pages[currentPageIndex + 1];
                         router.visit(route(nextPage.route), {
                             preserveState: false,
                             onFinish: () => {
-                                // requestAnimationFrame gives React a chance
-                                // to commit the new page's DOM before we
-                                // re-initialize Driver.js
                                 requestAnimationFrame(() => {
                                     setCurrentPageIndex((i) => i + 1);
                                 });
@@ -152,12 +139,10 @@ export default function TourManager() {
                         });
                     }
                 } else {
-                    // User closed or skipped the tour
                     endTour();
                 }
             },
 
-            // ── Inject a "Skip Tour" button into each popover ──────────
             onPopoverRender: (popover, opts) => {
                 if (popover.footer.querySelector('.driver-popover-skip-btn')) {
                     return;
@@ -167,7 +152,6 @@ export default function TourManager() {
                 skipBtn.textContent = 'Skip Tour';
                 skipBtn.className = 'driver-popover-skip-btn';
                 skipBtn.onclick = () => {
-                    wasClosedOrSkipped = true;
                     opts.driver.destroy();
                 };
 
@@ -178,13 +162,10 @@ export default function TourManager() {
         driverRef.current = driverObj;
         driverObj.drive();
 
-        // ── Cleanup on unmount or dependency change ────────────────────
         return () => {
             cleaningUpRef.current = true;
 
             if (driverRef.current) {
-                // onDestroyStarted → onDestroyed fire synchronously here, but
-                // cleaningUpRef.current is already true so side effects are skipped.
                 driverRef.current.destroy();
                 driverRef.current = null;
             }
