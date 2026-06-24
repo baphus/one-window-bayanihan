@@ -20,7 +20,6 @@ class ScheduleService
 
         $knownTasks = [
             'helpcenter:sync' => ['command' => 'helpcenter:sync', 'description' => 'Sync help center articles', 'default_interval' => 'every hour', 'enabled' => true],
-            'cloudinary:check-usage' => ['command' => 'cloudinary:check-usage', 'description' => 'Check Cloudinary storage usage', 'default_interval' => 'daily', 'enabled' => true],
         ];
 
         foreach ($knownTasks as $command => $defaults) {
