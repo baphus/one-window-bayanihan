@@ -22,7 +22,7 @@ LEGAL-014Cloud adoption shall be accompanied by documented risk assessment and p
 LEGAL-015Security responsibilities across application, storage, database, and vendor-managed infrastructure shall be clearly defined.
 LEGAL-016Cloud service dependencies shall be documented as operational infrastructure assumptions.
 6.1.4 Cross-Border Processing and International Data Governance
-Because Bayanihan One Window uses managed commercial cloud services including Render, Supabase, Cloudinary, and other external service providers, certain technical operations may involve infrastructure outside Philippine jurisdiction.
+Because Bayanihan One Window uses managed commercial cloud services including Render, Supabase, Supabase Storage, and other external service providers, certain technical operations may involve infrastructure outside Philippine jurisdiction.
 Potential exposure scenarios include:
 managed hosting infrastructure 
 database replication or backups 
@@ -57,7 +57,7 @@ The system depends on managed external providers.
 Examples include:
 Render 
 Supabase
-Cloudinary
+Supabase Storage
 email/OTP providers 
 AI providers (if enabled) 
 The following governance obligations shall apply.

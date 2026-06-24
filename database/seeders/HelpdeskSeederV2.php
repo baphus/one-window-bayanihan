@@ -2008,7 +2008,7 @@ The system uses `QUEUE_CONNECTION=database`, meaning all queued jobs are stored 
 
 - **Email notifications** — OTP codes, case status updates
 - **SMS notifications** — tracker numbers, alerts
-- **Document processing** — file validation, Cloudinary uploads
+- **Document processing** — file validation, storage uploads
 - **Audit log entries** — some are queued for performance
 
 ## Checking Queue Health
@@ -2035,7 +2035,7 @@ Each failed job record contains:
 | Issue | Typical Cause | Solution |
 |-------|---------------|----------|
 | Email sending failure | SMTP configuration issue | Check mail settings |
-| Document upload failure | Cloudinary connectivity | Verify Cloudinary config |
+| Document upload failure | Storage connectivity | Verify storage config |
 | Database deadlock | Concurrent job conflicts | Retry the job |
 | Model not found | Record deleted before job ran | Check data integrity |
 
@@ -2429,11 +2429,11 @@ Accepted file formats are: **PDF, JPG, PNG**
 - Convert other image formats (.bmp, .gif, .tiff) to JPG or PNG
 - Spreadsheets and presentations cannot be uploaded directly
 
-### Cloudinary Connectivity Issues
+### Storage Connectivity Issues
 If uploads fail consistently:
-- The file is being sent to Cloudinary for storage
+- The file is being sent to Supabase Storage for storage
 - Check your internet connection
-- Cloudinary service may be temporarily unavailable
+- Supabase Storage service may be temporarily unavailable
 - Contact your system administrator if the problem persists
 
 ## Dashboard Not Loading

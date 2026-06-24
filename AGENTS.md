@@ -41,7 +41,7 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 | **User factory** | `database/factories/UserFactory.php` does not set `role` — auth tests fail with NOT NULL constraint |
 | **Dev on Windows** | `php artisan pail` needs `pcntl` (Unix-only). Removed from `composer run dev` |
 | **Storage** | `php artisan storage:link` required for referral file uploads |
-| **DB** | PostgreSQL. `.env.example` shows Redis/Pusher/Cloudinary defaults — actual `.env` uses database drivers |
+| **DB** | PostgreSQL. `.env.example` shows Redis/Pusher/Supabase Storage defaults — actual `.env` uses database drivers |
 | **Route bindings** | All PKs are UUIDs; implicit route model binding works with string IDs |
 | **Blade** | Inertia SPA — no Blade views except the root layout; all rendering is JSX |
 | **Toast/Flash** | Universal auto-toast via `HandleInertiaRequests.php` → `usePage().props.flash` → `FlashMessageWatcher` (in all 3 layouts). Any `->with('success', '...')` works. DO NOT add `seenRef` — each navigation gives a new `props.flash` object, so `useEffect` fires exactly once naturally. Files: `ToastProvider.jsx`, `useToast.jsx`, `HandleInertiaRequests.php` |

@@ -29,7 +29,7 @@ These decisions SHALL NOT be changed without documented architectural review:
 | Styling | Tailwind CSS 3 | SRS §3.1 — consistent visual language |
 | Database | PostgreSQL 17 (Supabase) | SRS §3.3.2 — managed ACID-compliant RDBMS |
 | Application Hosting | Render | SRS §3.3.3 — managed cloud hosting |
-| Media Storage | Cloudinary | SRS §3.3.4 — secure object storage + CDN |
+| Media Storage | Supabase Storage | SRS §3.3.4 — secure object storage + CDN |
 | Auth | OTP-based MFA (email) | SRS §4.1 — custom login, not Breeze |
 | Queue | Database-driven | AGENTS.md — no Redis dependency |
 | Cache | Database-driven | SRS §2.4 — CACHE_STORE=database |

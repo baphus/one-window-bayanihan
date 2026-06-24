@@ -277,7 +277,7 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| LEGAL-012 | Cloud infrastructure with security, privacy, governance satisfied | Render, Supabase, Cloudinary | ✅ |
+| LEGAL-012 | Cloud infrastructure with security, privacy, governance satisfied | Render, Supabase, Supabase Storage | ✅ |
 | LEGAL-013 | Formal provider approval as part of deployment governance | Vendor selection documented | 🟡 Partial |
 | LEGAL-014 | Risk assessment + privacy governance review for cloud adoption | PIA required before production | 🔴 |
 | LEGAL-015 | Defined security responsibilities across all infrastructure layers | ARCHITECTURE.md defines boundaries | ✅ |
@@ -305,7 +305,7 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| LEGAL-025 | Providers used only for legitimate operational purposes | Render, Supabase, Cloudinary, SMTP | ✅ |
+| LEGAL-025 | Providers used only for legitimate operational purposes | Render, Supabase, Supabase Storage, SMTP | ✅ |
 | LEGAL-026 | Providers not unrestricted controllers of OFW data | Data processing agreements scoping | 🟡 Partial |
 | LEGAL-027 | Provider permissions limited to required functionality | Least-privilege principle applied | ✅ |
 | LEGAL-028 | Provider credentials/secrets securely governed | Environment variables, not in source code | ✅ |
@@ -530,7 +530,7 @@
 | COM-SEC-003 | DB credentials restricted to authorized roles | App DB credentials only | ✅ |
 | COM-SEC-004 | App-to-DB TLS with strict certificate validation | `DB_CONNECTION=pgsql` with SSL | ✅ |
 | COM-SEC-005 | No insecure transport for sensitive internal comms | All internal comms encrypted | ✅ |
-| COM-SEC-006 | Document/media access requires auth or signed URLs | Cloudinary signed delivery | ✅ |
+| COM-SEC-006 | Document/media access requires auth or signed URLs | Supabase Storage signed URLs | ✅ |
 | COM-SEC-007 | No public exposure of protected OFW documents | Authorization gates on all document routes | ✅ |
 | COM-SEC-008 | External integrations require authenticated encrypted APIs | API keys + HTTPS | ✅ |
 | COM-SEC-009 | Privileged communication failures/suspicious events logged | AuditLog event tracking | ✅ |
@@ -549,7 +549,7 @@
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
 | COM-GOV-001 | Cross-border comms governed under privacy safeguards | Documented in deployment governance | 🟡 |
-| COM-GOV-002 | Only approved providers with contractual obligations | Render, Supabase, Cloudinary, SMTP | ✅ |
+| COM-GOV-002 | Only approved providers with contractual obligations | Render, Supabase, Supabase Storage, SMTP | ✅ |
 | COM-GOV-003 | Sensitive data not unnecessarily transmitted to third-parties | Minimized in notifications | ✅ |
 | COM-GOV-004 | External provider access governed by security controls | Vendor access restricted | 🟡 |
 

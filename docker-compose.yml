@@ -9,7 +9,7 @@
 #   Rebuild after changes:  docker compose build --no-cache app
 #
 # PRODUCTION:
-#   Set .env with your production values (Supabase, Cloudinary, Pusher, etc.)
+#   Set .env with your production values (Supabase, Storage, Pusher, etc.)
 #   Run: docker compose up -d
 #   The local PostgreSQL can be disabled by setting DB_HOST to your Supabase host
 # ============================================================================
@@ -62,7 +62,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-database}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=cloudinary
+      - FILESYSTEM_DISK=supabase
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -117,7 +117,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-database}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=cloudinary
+      - FILESYSTEM_DISK=supabase
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -167,7 +167,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-database}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=cloudinary
+      - FILESYSTEM_DISK=supabase
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -218,7 +218,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-database}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=cloudinary
+      - FILESYSTEM_DISK=supabase
     depends_on:
       db:
         condition: service_healthy

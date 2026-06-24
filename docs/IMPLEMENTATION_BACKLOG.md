@@ -91,7 +91,7 @@ No P0 items currently identified. All user-facing bugs from Wave 3 tests have be
 | NFR-PERF-002 | Data retrieval ≤ 5s | Query profiling, pagination testing |
 | NFR-PERF-003 | Real-time sync ≤ 2s | Deferred until WebSocket implemented |
 | NFR-PERF-004 | 144 concurrent users | Load test (K6, Locust, or Artillery) |
-| NFR-PERF-005 | Document load ≤ 3s | Cloudinary CDN latency test |
+| NFR-PERF-005 | Document load ≤ 3s | Supabase Storage CDN latency test |
 | NFR-PERF-006 | Reports ≤ 10s | Query optimization + caching |
 | NFR-PERF-007 | 99% uptime | Monitor with Render + Supabase SLA |
 | NFR-PERF-008 | Scalable architecture | Architecture review |
@@ -232,7 +232,7 @@ No P0 items currently identified. All user-facing bugs from Wave 3 tests have be
 | TBD-001 | Participating agencies | ✅ Finalized | DMW, OWWA, DOLE, TESDA, DSWD, DOH, Law Center Inc., Region VII LGUs |
 | TBD-002 | Intake fields | ✅ Finalized | Personal info, vulnerability flags, employment, next-of-kin, case narrative |
 | TBD-003 | Case summary format | ✅ Finalized | Structured narrative text |
-| TBD-005 | Attachment handling | ✅ Finalized | Cloudinary with app-layer validation |
+| TBD-005 | Attachment handling | ✅ Finalized | Supabase Storage with app-layer validation |
 | TBD-006 | Notification channels | ✅ Finalized | Email v1.0; SMS deferred |
 | TBD-007 | Analytics | ✅ Finalized | Dashboards, reports, descriptive analytics |
 | TBD-008 | Case closure rules | ✅ Finalized | All referrals terminal before closure |

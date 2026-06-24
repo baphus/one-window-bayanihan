@@ -152,7 +152,7 @@ The database consists of **39 tables** organized across 10 functional domains. A
 | `id` | uuid | PK | |
 | `referral_id` | uuid | FK → referrals | |
 | `file_name` | varchar(255) | NOT NULL | Original filename |
-| `file_path` | text | NOT NULL | Cloudinary URL/path (renamed from `file_url`) |
+| `file_path` | text | NOT NULL | Storage URL/path (renamed from `file_url`) |
 | `file_type` | varchar(255) | nullable | MIME type (renamed from `mime_type`) |
 | `size` | bigint | nullable | File size in bytes |
 | `user_id` | uuid | FK → users | Uploader (renamed from `uploaded_by`) |
@@ -342,7 +342,7 @@ Unique constraint on `(agency_id, service_name)`.
 |---|---|---|---|
 | `id` | uuid | PK | |
 | `file_name` | varchar(255) | NOT NULL | |
-| `file_path` | text | NOT NULL | Cloudinary URL |
+| `file_path` | text | NOT NULL | Storage URL |
 | `file_type` | varchar(50) | nullable | |
 | `case_id` | uuid | FK → cases | |
 | `user_id` | uuid | FK → users | Uploader |

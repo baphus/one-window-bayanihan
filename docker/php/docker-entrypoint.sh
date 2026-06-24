@@ -11,7 +11,7 @@ if [ ! -f "artisan" ]; then
 fi
 
 # ── Storage & cache: set permissions ──
-# Ensure framework directories are writable (Cloudinary handles file storage).
+# Ensure framework directories are writable (Supabase Storage handles file storage).
 chmod -R 755 storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 

@@ -6,14 +6,14 @@ Laravel project for the Bayanihan One Window system. The codebase follows Larave
 - Laravel (Eloquent-first)
 - PostgreSQL (Supabase managed DB)
 - Inertia.js + React + Tailwind CSS
-- Cloudinary for storage
+- Supabase Storage (S3-compatible) for file uploads
 - Redis for cache/queues
 - Pusher (or laravel-websockets) for realtime
 - UUID primary keys and audit columns
 - RBAC via `users.role` column (CheckRole middleware)
 
 ## Quick start
-1. Copy `.env.example` to `.env` and fill DB, Supabase, Cloudinary, Pusher, Redis values.
+1. Copy `.env.example` to `.env` and fill DB, Supabase, Pusher, Redis values.
 2. Generate app key: `php artisan key:generate`
 3. Run migrations: `php artisan migrate`
 4. Install frontend: `npm install` then `npm run dev`

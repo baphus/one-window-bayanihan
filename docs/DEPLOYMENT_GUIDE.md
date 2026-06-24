@@ -11,7 +11,7 @@
 |---|---|---|---|
 | Application Hosting | Render | Laravel + Vite runtime | Web Service (paid) |
 | Database | Supabase | PostgreSQL 17 | Pro plan (paid) |
-| Media Storage | Cloudinary | Document uploads + CDN | Free / Paid |
+| Media Storage | Supabase Storage | Document uploads + CDN | Supabase plan (S3 storage) |
 | Email/SMTP | SendGrid / SMTP | OTP + notifications | Free tier sufficient |
 | AI Chatbot (optional) | OpenAI | Chatbot service | Pay-as-you-go |
 
@@ -31,7 +31,7 @@
 
 - Render account (with billing configured)
 - Supabase account (with project created)
-- Cloudinary account
+- Supabase Storage enabled (S3-compatible storage in Supabase project)
 - SMTP provider (SendGrid, Mailgun, or any SMTP)
 - Domain name (optional, Render provides `*.onrender.com`)
 
@@ -60,8 +60,13 @@ CACHE_STORE=database
 QUEUE_CONNECTION=database
 SESSION_DRIVER=database
 
-# Cloudinary
-CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+# Supabase Storage (S3-compatible)
+FILESYSTEM_DISK=supabase
+SUPABASE_S3_ACCESS_KEY=your-access-key
+SUPABASE_S3_SECRET_KEY=your-secret-key
+SUPABASE_S3_REGION=ap-southeast-1
+SUPABASE_S3_ENDPOINT=your-supabase-storage-endpoint
+SUPABASE_S3_BUCKET=case-files
 
 # Mail
 MAIL_MAILER=smtp
@@ -159,15 +164,16 @@ CREATE POLICY agency_lane_isolation ON referrals
     USING (agcy_id = current_setting('app.agency_id')::uuid);
 ```
 
-### 4.4 Cloudinary Setup
+### 4.4 Supabase Storage Setup
 
 | Setting | Value |
 |---|---|
-| Upload preset | Signed (authenticated) |
+| Bucket name | `case-files` |
+| S3 endpoint | `https://<project>.supabase.co/storage/v1/s3` |
+| Region | `ap-southeast-1` |
 | Allowed file types | PDF, DOC, DOCX, JPG, PNG, JPEG |
 | Max file size | 10 MB |
-| Delivery type | Authenticated (signed URLs) |
-| Transformation | None (raw document storage) |
+| Delivery | Signed (authenticated) URLs |
 
 ---
 
@@ -199,7 +205,7 @@ CREATE POLICY agency_lane_isolation ON referrals
 - [ ] Public pages accessible
 - [ ] Admin routes accessible from whitelisted IP
 - [ ] OTP emails delivered
-- [ ] Document uploads working (Cloudinary)
+- [ ] Document uploads working (Supabase Storage)
 - [ ] SSL certificate valid (Render auto-provisions)
 
 ---
@@ -211,7 +217,7 @@ CREATE POLICY agency_lane_isolation ON referrals
 | Cache/store | `CACHE_STORE=database` — no Redis dependency in v1.0 |
 | Queue | `QUEUE_CONNECTION=database` — queue worker MUST be running for async notifications |
 | OTP delivery | Requires working SMTP configuration — test with `MAIL_MAILER=log` first |
-| Storage link | Required for local file serving — Cloudinary handles production storage |
+| Storage link | Required for local file serving — Supabase Storage handles production storage |
 | Windows dev | `php artisan pail` requires `pcntl` (Unix-only) — use `error_log` or file logging |
 | Route caching | `php artisan route:cache` — only if no closure-based routes; current codebase has closures in web.php |
 | Config caching | `php artisan config:cache` — run after every `.env` change |
@@ -224,7 +230,7 @@ CREATE POLICY agency_lane_isolation ON referrals
 |---|---|
 | DB connections | Supabase connection pooling + Render connection limits |
 | Queue throughput | Increase queue worker replicas |
-| Media delivery | Cloudinary CDN handles scaling automatically |
+| Media delivery | Supabase Storage handles scaling automatically |
 | App concurrency | Render auto-scaling (enabled on paid plans) |
 | Session storage | Database driver — add session table index if slow |
 
@@ -249,12 +255,12 @@ CREATE POLICY agency_lane_isolation ON referrals
 |---|---|---|
 | PostgreSQL | Supabase auto-backup (daily) | Point-in-time recovery |
 | Application code | Git repository | `git clone && deploy` |
-| Uploaded documents | Cloudinary auto-backup | Cloudinary media library |
+| Uploaded documents | Supabase Storage auto-backup | Supabase Storage |
 | Environment config | Render environment variables | Export before changes |
 
 ### Recovery Procedure
 
 1. **Application failure:** Restart Render web service
 2. **Database corruption:** Restore from Supabase backup (PITR)
-3. **Full disaster:** Deploy from Git, restore DB, restore Cloudinary assets
+3. **Full disaster:** Deploy from Git, restore DB, restore storage assets
 4. **Queue data:** `jobs` and `failed_jobs` tables backed up with DB

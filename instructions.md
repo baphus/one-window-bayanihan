@@ -8,7 +8,7 @@ The Bayanihan One Window is a web-based inter-agency referral and tracking syste
 - Frontend: React with Tailwind CSS, using Inertia.js for server-side routing.
 - Backend: PHP Laravel (latest version).
 - Database: PostgreSQL (hosted via Supabase) for ACID-compliant transactions.
-- Storage: Cloudinary for secure document management and CDN delivery.
+- Storage: Supabase Storage (S3-compatible) for secure document management and CDN delivery.
 - Deployment: Render (cloud hosting).
 - Communication: Pusher/Redis for real-time dashboard updates.
 

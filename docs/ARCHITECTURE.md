@@ -42,7 +42,7 @@ Bayanihan One Window is a **modular, cloud-hosted web application** following a 
               │
               ▼
 ┌──────────────────────────────────┐
-│  Cloudinary                       │
+│  Supabase Storage                  │
 │  • Document/Media Storage         │
 │  • Signed expiring URLs           │
 │  • CDN delivery                   │
@@ -89,7 +89,7 @@ Bayanihan One Window is a **modular, cloud-hosted web application** following a 
 |---|---|---|
 | App Hosting | Laravel runtime | Render |
 | Database | PostgreSQL hosting | Supabase |
-| Media Storage | Document storage + CDN | Cloudinary |
+| Media Storage | Document storage + CDN | Supabase Storage |
 | Email | OTP & notifications | SMTP (MAIL_MAILER=log for dev) |
 | AI Chatbot | OFW inquiry assistance | OpenAI-compatible (if enabled) |
 
@@ -145,7 +145,7 @@ When a user sends a message, the chatbot attempts to match keywords to helpdesk 
 ### 3.4 Case Documents
 Case Documents provide a secure repository for supporting evidence and official paperwork linked directly to a master case record. Unlike referral attachments, which are scoped to specific inter-agency transactions, case documents represent the authoritative file for the client.
 
-Documents are stored on Cloudinary and accessed via signed expiring URLs to ensure they aren't publicly enumerable. Visibility is enforced at the controller level, restricting access to the original case manager, system administrators, or agencies with an active referral for that specific case.
+Documents are stored on Supabase Storage and accessed via signed expiring URLs to ensure they aren't publicly enumerable. Visibility is enforced at the controller level, restricting access to the original case manager, system administrators, or agencies with an active referral for that specific case.
 
 ### 3.5 Request Flow (Typical Authenticated Page)
 
@@ -252,7 +252,7 @@ Layer 6: Audit             Immutable action log, VIEW tracking
 
 | Integration | Purpose | Protocol |
 |---|---|---|
-| Cloudinary API | Document upload, versioning, CDN delivery | REST HTTPS + signed auth |
+| Supabase Storage | Document upload, versioning, CDN delivery | S3-compatible REST API + signed URLs |
 | SMTP | OTP delivery, referral alerts, notifications | SMTP/TLS |
 | OpenAI API (optional) | AI chatbot responses | REST HTTPS |
 
@@ -278,9 +278,9 @@ Layer 6: Audit             Immutable action log, VIEW tracking
 │   • Vite Dev/Build        │   • Queue worker                  │
 │   • Horizon metrics       │   • Backup coordination           │
 ├──────────────────────────┼──────────────────────────────────┤
-│   Supabase                │   Cloudinary                      │
+│   Supabase                │   Supabase Storage                │
 │   • PostgreSQL 17         │   • Document storage              │
-│   • Auto-backups          │   • Image optimization            │
+│   • Auto-backups          │   • S3-compatible object storage  │
 │   • TLS connections       │   • Signed URL delivery           │
 └──────────────────────────┴──────────────────────────────────┘
 ```
@@ -294,7 +294,7 @@ Layer 6: Audit             Immutable action log, VIEW tracking
 | `QUEUE_CONNECTION` | database |
 | `SESSION_DRIVER` | database |
 | `MAIL_MAILER` | log (dev) / smtp (prod) |
-| `FILESYSTEM_DISK` | cloudinary |
+| `FILESYSTEM_DISK` | supabase |
 
 ---
 

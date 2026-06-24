@@ -1,4 +1,4 @@
-﻿Software Requirements
+Software Requirements
 Specification
 for
 Bayanihan One Window: An Inter-Agency Referral and Tracking System for Distressed OFWs in Region VII
@@ -277,7 +277,7 @@ Render managed cloud hosting platform
 Database Platform
 Supabase managed PostgreSQL
 Media / Document Storage
-Cloudinary secure object storage and CDN
+Supabase Storage (S3-compatible) for secure object storage and CDN
 Client Processor
 Intel Core i5 or equivalent
 Client Memory
@@ -311,7 +311,7 @@ Render
 Database Hosting
 Supabase
 Media Storage
-Cloudinary
+Supabase Storage
 Authentication Services
 OTP-enabled email verification
 AI Assistance
@@ -349,7 +349,7 @@ Render
 Laravel application hosting
 Supabase
 Managed PostgreSQL database
-Cloudinary
+Supabase Storage
 Secure document/media storage
 SMTP / Email Provider
 OTP and notification delivery
@@ -359,7 +359,7 @@ Modern Web Browsers
 End-user application access
 2.5 Design and Implementation Constraints
 Regulatory Compliance Constraint:The system shall comply with Republic Act No. 10173 (Data Privacy Act of 2012), Republic Act No. 11641, applicable National Privacy Commission rules, DICT Cloud First Policy, and applicable public-sector ICT governance standards.
-Commercial Cloud Deployment Constraint:The system shall operate using managed commercial cloud infrastructure including Render, Supabase, and Cloudinary.
+Commercial Cloud Deployment Constraint:The system shall operate using managed commercial cloud infrastructure including Render, Supabase, and Supabase Storage.
 Cross-Border Processing Constraint:Because commercial cloud providers may process infrastructure metadata, backups, support telemetry, or replicated content outside Philippine jurisdiction, deployment shall be governed under documented cross-border processing safeguards consistent with privacy law.
 Vendor Governance Constraint:Third-party providers shall be subject to contractual privacy, confidentiality, access restriction, and data processing obligations.
 Privacy Impact Assessment Constraint:Deployment shall require documented privacy risk assessment covering cloud exposure, vendor access risk, international transfer risk, and incident response.
@@ -374,7 +374,7 @@ AI Processing Constraint:If AI services are enabled, personal OFW data shall not
 2.6 User Documentation
 The following user documentation components will be delivered with the Bayanihan One Window system to support end users, administrative personnel, and technical maintainers:
 User Guide (User Manual)A comprehensive manual for OFWs and administrative users, including DMW Case Managers, Agency Focal Persons, and System Administrators. This document provides an overview of the system, step-by-step usage instructions, login and authentication procedures, functional walkthroughs for core tasks (e.g., case intake, referral processing, document management, case monitoring, and closure), and troubleshooting guidance for common issues. 
-Installation and Deployment GuideA technical manual intended for system administrators and developers. It includes instructions for environment setup, Laravel backend configuration, React frontend setup, dependency installation, database configuration using Supabase PostgreSQL, Cloudinary integration, deployment procedures on Render, and optional domain and SSL configuration. 
+Installation and Deployment GuideA technical manual intended for system administrators and developers. It includes instructions for environment setup, Laravel backend configuration, React frontend setup, dependency installation, database configuration using Supabase PostgreSQL, Supabase Storage integration, deployment procedures on Render, and optional domain and SSL configuration. 
 Online Help and Interactive AI AssistanceThe system includes an integrated AI chatbot module that serves as an interactive help component. It provides automated responses to frequently asked questions, procedural guidance, and assistance with case tracking inquiries for OFW users. 
 In-System Interface GuidanceContextual help elements such as prompts, validation messages, tooltips, and guided interface instructions will be embedded within the application to improve usability and support task completion.
 Documentation Component
@@ -403,7 +403,7 @@ Regulatory Stability: The requirements assume the continued legal mandate of Rep
 Staff Capacity: It is assumed that personnel will undergo basic orientation to transition from manual, paper-based, or email-centric workflows to the centralized digital coordination platform.
 2.7.2 Dependencies
 The project is dependent on the following external factors and third-party components:
-Cloud Infrastructure Providers: The system’s availability is directly dependent on Render (for application hosting), Supabase (for the PostgreSQL database), and Cloudinary (for secure media storage and CDN).
+Cloud Infrastructure Providers: The system’s availability is directly dependent on Render (for application hosting), Supabase (for the PostgreSQL database), and Supabase Storage (for secure media storage and CDN).
 AI Service Integration: The AI Chatbot module (UC-23, UC-24) depends on external AI models and APIs (e.g., OpenAI) for processing natural language inquiries and providing service guidance.
 Communication Services: Future integrations for automated SMS or advanced messaging depend on the approval of external service providers and the availability of a dedicated operational budget.
 Institutional Coordination Protocols: The functional success of the system depends on the establishment of agreed-upon Inter-Agency Protocols that define turnaround times for referral acceptance and service completion.
@@ -486,7 +486,7 @@ Database Server
 Supabase PostgreSQL
 Stores structured case, referral, and audit data
 Media Storage / CDN
-Cloudinary
+Supabase Storage
 Stores supporting documents and delivers media assets
 Logical Data and Control Interactions
 Interface Aspect
@@ -583,7 +583,7 @@ Render
 Laravel application hosting and runtime environment
 Supabase
 Managed PostgreSQL database hosting
-Cloudinary
+Supabase Storage
 Secure media/document storage and controlled content delivery
 The hosting environment shall support:
 secure HTTPS transport 
@@ -593,7 +593,7 @@ controlled deployment lifecycle management
 secure application runtime execution 
 Because these services may involve foreign-managed infrastructure, deployment shall operate under documented privacy governance and cross-border processing safeguards.
 3.3.4 Document and Media Storage Interface
-Supporting documents and uploaded case attachments shall be managed through Cloudinary secure media storage services.
+Supporting documents and uploaded case attachments shall be managed through Supabase Storage secure media storage services.
 Stored document categories may include:
 case attachments 
 referral documentation 
@@ -606,7 +606,7 @@ signed expiring access mechanisms where applicable
 prohibition of unrestricted public document exposure 
 document access logging 
 upload validation against malicious content 
-Cloudinary shall function solely as a managed storage and delivery provider and shall not be treated as an independent business processor of OFW case content beyond contracted service delivery.
+Supabase Storage shall function solely as a managed storage and delivery provider and shall not be treated as an independent business processor of OFW case content beyond contracted service delivery.
 3.3.5 Authentication and Communication Service Interfaces
 The system shall interface with approved communication services for secure messaging and identity verification.
 Supported service categories:
@@ -645,7 +645,7 @@ React Frontend → Laravel Backend
 Authenticated application session
 Laravel Backend → PostgreSQL
 Encrypted TLS-secured PostgreSQL connection
-Laravel Backend → Cloudinary
+Laravel Backend → Supabase Storage
 Authenticated API communication
 Laravel Backend → Email/OTP Provider
 Secure authenticated messaging
@@ -725,7 +725,7 @@ COM-DATA-005Unauthorized form submissions shall be rejected and auditable where 
 All communications involving system services shall follow a controlled, secure communication architecture.
 End User Browser      |HTTPS / TLS      |React Frontend      |Laravel Application Layer (Render)      |Encrypted TLS-secured PostgreSQL Connection      |Supabase PostgreSQL
 Document communications:
-Authenticated User      |Laravel Authorization Layer      |Cloudinary Signed Access / Controlled Media Delivery
+Authenticated User      |Laravel Authorization Layer      |Supabase Storage Signed Access / Controlled Media Delivery
 External services:
 Laravel Application      |Authenticated HTTPS APIs      |OTP / Email / AI Service Providers
 Communication Security Controls
@@ -1176,7 +1176,7 @@ These performance requirements assume:
 stable internet connectivity of 15–30 Mbps
 standard supported client hardware specifications 
 normal operating workloads within defined concurrency thresholds 
-availability of cloud-hosted infrastructure services (Render, Supabase, Cloudinary) 
+availability of cloud-hosted infrastructure services (Render, Supabase, Supabase Storage) 
 5.2 Safety Requirements
 The following safety requirements are intended to minimize operational risks, prevent accidental misuse, and protect the integrity of OFW case handling workflows in alignment with the ISO/IEC 25010:2023 quality model.
 NFR-SAFE-001: Confirmation for Critical ActionsThe system shall require explicit user confirmation before executing critical or irreversible actions, including case closure, referral issuance, record deactivation, and other high-impact administrative actions. 
@@ -1258,7 +1258,7 @@ NFR-SEC-037Client-side validation shall not be relied upon as the sole security 
 NFR-SEC-038Sensitive operational actions shall require authorization validation before execution.
 NFR-SEC-039Security-relevant failures shall fail securely.
 5.3.6 Document and Media Security
-Because Bayanihan One Window stores documents through Cloudinary-managed services:
+Because Bayanihan One Window stores documents through Supabase Storage-managed services:
 NFR-SEC-040Protected documents shall not be publicly enumerable or openly exposed.
 NFR-SEC-041Document access shall require authenticated authorization validation.
 NFR-SEC-042Where external media delivery is used, signed expiring access controls shall be enforced where applicable.
@@ -1291,7 +1291,7 @@ NFR-SEC-048Corrections to historical records shall be recorded as new traceable 
 Because the system relies on managed cloud and external providers:
 Render 
 Supabase
-Cloudinary
+Supabase Storage
 email / OTP providers 
 AI services (if enabled) 
 the following controls shall apply.
@@ -1391,7 +1391,7 @@ LEGAL-014Cloud adoption shall be accompanied by documented risk assessment and p
 LEGAL-015Security responsibilities across application, storage, database, and vendor-managed infrastructure shall be clearly defined.
 LEGAL-016Cloud service dependencies shall be documented as operational infrastructure assumptions.
 6.1.4 Cross-Border Processing and International Data Governance
-Because Bayanihan One Window uses managed commercial cloud services including Render, Supabase, Cloudinary, and other external service providers, certain technical operations may involve infrastructure outside Philippine jurisdiction.
+Because Bayanihan One Window uses managed commercial cloud services including Render, Supabase, Supabase Storage, and other external service providers, certain technical operations may involve infrastructure outside Philippine jurisdiction.
 Potential exposure scenarios include:
 managed hosting infrastructure 
 database replication or backups 
@@ -1426,7 +1426,7 @@ The system depends on managed external providers.
 Examples include:
 Render 
 Supabase
-Cloudinary
+Supabase Storage
 email/OTP providers 
 AI providers (if enabled) 
 The following governance obligations shall apply.
@@ -1684,7 +1684,7 @@ Acronyms and Abbreviations
 ACID: Atomicity, Consistency, Isolation, and Durability; a set of properties that guarantee reliable database transactions.
 AGY / AGCY: Agency; refers to the partner government or non-government organisations involved in the referral network.
 API: Application Programming Interface; a set of protocols for building and integrating application software.
-CDN: Content Delivery Network; a system of distributed servers that deliver web content, such as documents and images, with high performance and availability (e.g., Cloudinary).
+CDN: Content Delivery Network; a system of distributed servers that deliver web content, such as documents and images, with high performance and availability (e.g., Supabase Storage).
 DMW: Department of Migrant Workers; the primary government agency responsible for protecting the rights and welfare of OFWs.
 DOH: Department of Health.
 DOLE: Department of Labor and Employment.
@@ -1743,7 +1743,7 @@ Standardized intake fields finalized. Include personal information, vulnerabilit
 TBD-003
 Case summary format finalized. Define as structured narrative text capturing OFW circumstances, identified needs, and referral justification.
 TBD-005
-Attachment handling partially finalized. State secure cloud-based document storage for PDFs/images with application-level validation. If Cloudinary is not explicitly required in SRS architecture, avoid vendor lock-in unless already approved in SDD.
+Attachment handling finalized. Secure cloud-based document storage for PDFs/images with application-level validation. The SRS does not explicitly require a specific vendor, avoiding vendor lock-in.
 TBD-006
 Notification channels finalized for Version 1.0. Email notifications for referral alerts, OTP verification, and tracker communication.
 TBD-007

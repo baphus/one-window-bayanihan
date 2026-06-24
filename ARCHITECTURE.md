@@ -14,7 +14,7 @@
 | Cache       | Database-driven (`CACHE_STORE=database`)      |
 | Queue       | Database-driven (`QUEUE_CONNECTION=database`) |
 | Realtime    | Pusher / laravel-websockets                   |
-| Storage     | Cloudinary (media assets)                     |
+| Storage     | Supabase Storage (S3-compatible)              |
 | Build       | Vite 8, npm                                   |
 
 ### Key Dependencies
@@ -71,7 +71,7 @@ graph TB
             HelpCenterSvc["HelpCenter Providers"]
             AnalyticsSvc["AnonymizedAnalyticsService"]
             InsightsSvc["InsightsService"]
-            CloudSvc["CloudinaryService"]
+            StorageSvc["StorageService"]
             SecuritySvc["SecuritySettingsService"]
             HealthSvc["SystemHealthService"]
         end
@@ -101,7 +101,7 @@ graph TB
 
     subgraph "External"
         MailSvc["Mail (log / SMTP)"]
-        Cloudinary["Cloudinary CDN"]
+        SupabaseStorage["Supabase Storage"]
         Pusher["Pusher / WebSockets"]
     end
 
@@ -243,7 +243,7 @@ Role-gated (`ADMIN` + `ip.whitelist`) management interfaces:
 | Case Categories | `AdminCaseCategoryController` | Case type categorization |
 | Case Statuses | `AdminCaseStatusController` | Status workflow labels |
 | Helpdesk | `HelpdeskArticleController` + Category + Tag | Knowledge base management |
-| System | Health, Cloudinary, Backups, Logs, Scheduled Tasks, Maintenance, Security, Active Sessions, Alerts, Email Logs, Addresses | Comprehensive system administration |
+| System | Health, Storage, Backups, Logs, Scheduled Tasks, Maintenance, Security, Active Sessions, Alerts, Email Logs, Addresses | Comprehensive system administration |
 
 ### 10. Notifications
 

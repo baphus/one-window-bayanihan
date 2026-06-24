@@ -73,7 +73,7 @@ Layer 6: Audit & Accountability— Immutable logs, event tracking
 | NFR-SEC-030 | HTTP redirect/prevent | Render enforces HTTPS redirect | ✅ |
 | NFR-SEC-031 | No direct client-to-DB | Mediated architecture — all requests pass through Laravel | ✅ |
 | NFR-SEC-032 | Internal encrypted transport | TLS-secured PostgreSQL connections | ✅ |
-| NFR-SEC-033 | External API authenticated/encrypted | API keys + HTTPS for Cloudinary, SMTP | ✅ |
+| NFR-SEC-033 | External API authenticated/encrypted | API keys + HTTPS for storage, SMTP | ✅ |
 | NFR-SEC-034 | No deprecated crypto | TLS 1.2 minimum | ✅ |
 
 ### 2.5 Application Security (§5.3.5)
@@ -90,9 +90,9 @@ Layer 6: Audit & Accountability— Immutable logs, event tracking
 
 | SRS ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| NFR-SEC-040 | Documents not publicly enumerable | Cloudinary authenticated delivery | ✅ |
+| NFR-SEC-040 | Documents not publicly enumerable | Supabase Storage authenticated delivery | ✅ |
 | NFR-SEC-041 | Document access requires auth | Files served through application, not direct URL | ✅ |
-| NFR-SEC-042 | Signed expiring URLs | Cloudinary signed delivery | ✅ |
+| NFR-SEC-042 | Signed expiring URLs | Supabase Storage signed URLs | ✅ |
 | NFR-SEC-043 | Upload validation | File type, MIME, size, malware scanning (configurable) | ✅ |
 | NFR-SEC-044 | Unauthorized document access denied | Authorization gate on document routes | ✅ |
 
@@ -109,7 +109,7 @@ Layer 6: Audit & Accountability— Immutable logs, event tracking
 
 | SRS ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| NFR-SEC-049 | Only approved providers | Render, Supabase, Cloudinary, SMTP | ✅ |
+| NFR-SEC-049 | Only approved providers | Render, Supabase, Supabase Storage, SMTP | ✅ |
 | NFR-SEC-050 | Contractual confidentiality | Vendor DPAs required | 🟡 Partial |
 | NFR-SEC-051 | Authenticated secure channels | API keys + HTTPS for all external | ✅ |
 | NFR-SEC-052 | Secure credential management | Environment variables, not in code | ✅ |
@@ -146,7 +146,7 @@ Access to documents uploaded directly to a case is restricted via authorization 
     - **ADMIN:** Full access to all documents.
     - **CASE_MANAGER:** Access to documents in cases they created or manage.
     - **AGENCY:** Access is only granted if the agency has an active (non-terminal) referral linked to the specific case.
-- **Delivery:** Files are served via Cloudinary signed URLs that expire after a short duration.
+- **Delivery:** Files are served via Supabase Storage signed URLs that expire after a short duration.
 
 ---
 
@@ -177,7 +177,7 @@ Access to documents uploaded directly to a case is restricted via authorization 
 
 | Requirement | Implementation | Status |
 |---|---|---|
-| LEGAL-012 | Cloud infrastructure approved | Render, Supabase, Cloudinary | ✅ |
+| LEGAL-012 | Cloud infrastructure approved | Render, Supabase, Supabase Storage | ✅ |
 | LEGAL-013 | Formal provider approval | Vendor selection documented | 🟡 Partial |
 | LEGAL-014 | Risk assessment + privacy review | PIA required before production | 🔴 Not Done |
 | LEGAL-015 | Defined security responsibilities | Architecture document defines boundaries | ✅ |
@@ -205,7 +205,7 @@ Access to documents uploaded directly to a case is restricted via authorization 
 
 | Requirement | Implementation | Status |
 |---|---|---|
-| LEGAL-025 | Third-party providers used only for legitimate operational purposes | Render, Supabase, Cloudinary, SMTP all operational | ✅ |
+| LEGAL-025 | Third-party providers used only for legitimate operational purposes | Render, Supabase, Supabase Storage, SMTP all operational | ✅ |
 | LEGAL-026 | Providers not treated as unrestricted controllers of OFW data | Data processing agreements scoping | 🟡 Partial |
 | LEGAL-027 | Provider permissions limited to required functionality | Least-privilege principle applied | ✅ |
 | LEGAL-028 | Provider credentials and secrets securely governed | Environment variables, not in source code | ✅ |
