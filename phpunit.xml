@@ -32,6 +32,11 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="SUPABASE_S3_ACCESS_KEY" value="fake-access-key"/>
+        <env name="SUPABASE_S3_SECRET_KEY" value="fake-secret-key"/>
+        <env name="SUPABASE_S3_REGION" value="ap-southeast-1"/>
+        <env name="SUPABASE_S3_BUCKET" value="test-bucket"/>
+        <env name="SUPABASE_S3_ENDPOINT" value="http://localhost:9000"/>
         <ini name="memory_limit" value="256M"/>
     </php>
 </phpunit>
