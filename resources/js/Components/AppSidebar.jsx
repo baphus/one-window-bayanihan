@@ -88,7 +88,7 @@ const navByRole = {
     ]},
     { label: 'System Health', items: [
       { name: 'Health Dashboard', href: '/admin/system/health', icon: 'monitoring' },
-      { name: 'Cloudinary Storage', href: '/admin/system/cloudinary', icon: 'cloud' },
+      { name: 'Supabase', href: '/admin/system/supabase', icon: 'cloud' },
       { name: 'Database Backups', href: '/admin/system/backups', icon: 'backup' },
       { name: 'System Logs', href: '/admin/system/logs', icon: 'list_alt' },
       { name: 'Email Logs', href: '/admin/system/email-logs', icon: 'mail' },

@@ -6,7 +6,6 @@ use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
 use App\Http\Controllers\Admin\AlertConfigController;
 use App\Http\Controllers\Admin\BackupStatusController;
-use App\Http\Controllers\Admin\CloudinaryStorageController;
 use App\Http\Controllers\Admin\DataExportController;
 use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\HelpdeskArticleController;
@@ -18,6 +17,7 @@ use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\PhilippineAddressesController;
 use App\Http\Controllers\Admin\ScheduledTaskController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
+use App\Http\Controllers\Admin\SupabaseDashboardController;
 use App\Http\Controllers\Admin\SystemHealthController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
@@ -260,8 +260,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/health', [SystemHealthController::class, 'index'])->name('health');
             Route::post('/health/run-checks', [SystemHealthController::class, 'runChecks'])->name('health.run-checks');
 
-            Route::get('/cloudinary', [CloudinaryStorageController::class, 'index'])->name('cloudinary');
-            Route::post('/cloudinary/refresh', [CloudinaryStorageController::class, 'refresh'])->name('cloudinary.refresh');
+            Route::get('/supabase', [SupabaseDashboardController::class, 'index'])->name('supabase');
 
             Route::get('/backups', [BackupStatusController::class, 'index'])->name('backups');
             Route::post('/backups/refresh', [BackupStatusController::class, 'refresh'])->name('backups.refresh');
