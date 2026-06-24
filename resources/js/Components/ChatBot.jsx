@@ -5,6 +5,26 @@ import remarkGfm from 'remark-gfm';
 import axios from 'axios';
 import { MessageCircle, X, Send } from 'lucide-react';
 
+const CHAT_HISTORY_KEY = 'owb_chat_history';
+
+function loadChatHistory() {
+    try {
+        const saved = localStorage.getItem(CHAT_HISTORY_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed.map((m) => ({
+                    ...m,
+                    time: m.time ? new Date(m.time) : new Date(),
+                }));
+            }
+        }
+    } catch {
+        /* localStorage unavailable — fall through to default */
+    }
+    return null;
+}
+
 function BayaniAvatar({ size = 32 }) {
     const s = size;
     return (
@@ -64,13 +84,17 @@ export default function ChatBot() {
     if (!chatbot?.enabled) return null;
 
     const [open, setOpen] = useState(false);
-    const [messages, setMessages] = useState([
-        {
-            role: 'bot',
-            text: 'Hi there! I\'m **Bayani**, your assistant for the **Bayanihan One Window** system. How can I help you today?',
-            time: new Date(),
-        },
-    ]);
+    const [messages, setMessages] = useState(() => {
+        const saved = loadChatHistory();
+        if (saved) return saved;
+        return [
+            {
+                role: 'bot',
+                text: 'Hi there! I\'m **Bayani**, your assistant for the **Bayanihan One Window** system. How can I help you today?',
+                time: new Date(),
+            },
+        ];
+    });
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const listRef = useRef(null);
@@ -95,6 +119,19 @@ export default function ChatBot() {
             inputRef.current.focus();
         }
     }, [open]);
+
+    useEffect(() => {
+        try {
+            if (messages.length === 0) {
+                localStorage.removeItem(CHAT_HISTORY_KEY);
+            } else {
+                const last20 = messages.slice(-20);
+                localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(last20));
+            }
+        } catch {
+            /* localStorage unavailable — silently fail */
+        }
+    }, [messages]);
 
     const handleScroll = useCallback(() => {
         if (!listRef.current) return;
