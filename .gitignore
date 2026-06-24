@@ -3,6 +3,7 @@
 .env
 .env.backup
 .env.production
+.env.docker
 .phpactor.json
 .phpunit.result.cache
 /.codex
@@ -33,3 +34,4 @@ Thumbs.db
 /.claude
 /.agents
 skills-lock.json
+.env.docker.example
