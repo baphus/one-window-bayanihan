@@ -52,16 +52,51 @@ class ReportsController extends Controller
             toDate: $toDate,
         );
 
+        // Build compact KPI summary (~300 tokens instead of ~5000)
+        $kpis = $data['kpis'] ?? [];
+        $overview = $data['overview'] ?? [];
+
+        // total_cases: prefer overview.totalCases, fallback to caseStatusDistribution sum
+        $totalCases = (int) ($overview['totalCases'] ?? 0);
+        if ($totalCases === 0 && isset($data['caseStatusDistribution']['data'])) {
+            $totalCases = (int) array_sum($data['caseStatusDistribution']['data']);
+        }
+
+        // completion_rate: kpis stores it as 0-100, normalize to 0-1 float
+        $completionRate = (float) ($kpis['completionRate'] ?? 0);
+        if ($completionRate > 1) {
+            $completionRate = round($completionRate / 100, 4);
+        }
+
+        // top_categories: sort by count desc, take 3
+        $allCategories = $data['categoryDistribution'] ?? [];
+        usort($allCategories, fn ($a, $b) => ($b['count'] ?? 0) <=> ($a['count'] ?? 0));
+        $topCategories = array_map(
+            fn ($c) => ['name' => $c['name'], 'count' => (int) ($c['count'] ?? 0)],
+            array_slice($allCategories, 0, 3),
+        );
+
+        // top_agencies: sort by total desc, take 3
+        $allAgencies = $data['agencyScorecard'] ?? [];
+        usort($allAgencies, fn ($a, $b) => ($b['total'] ?? 0) <=> ($a['total'] ?? 0));
+        $topAgencies = array_map(
+            fn ($a) => ['name' => $a['agency'] ?? '', 'referral_count' => (int) ($a['total'] ?? 0)],
+            array_slice($allAgencies, 0, 3),
+        );
+
         $summary = [
-            'role' => $user->role,
-            'period' => $fromDate && $toDate ? "$fromDate to $toDate" : 'Last 12 months',
-            'kpis' => $data['kpis'] ?? [],
-            'overview' => $data['overview'] ?? [],
-            'geographicDistribution' => $data['geographicDistribution'] ?? [],
-            'employmentDistribution' => $data['employmentDistribution'] ?? [],
-            'caseStatusDistribution' => $data['caseStatusDistribution'] ?? [],
-            'referralStatusDistribution' => $data['referralStatusDistribution'] ?? [],
-            'categoryDistribution' => $data['categoryDistribution'] ?? [],
+            'user_role' => $user->role,
+            'period' => [
+                'from' => $fromDate,
+                'to' => $toDate,
+            ],
+            'total_cases' => $totalCases,
+            'avg_processing_days' => (float) ($kpis['avgCompletionDays'] ?? 0),
+            'completion_rate' => $completionRate,
+            'pending_referrals' => (int) ($kpis['pendingReferrals'] ?? 0),
+            'overdue_referrals' => 0,
+            'top_categories' => $topCategories,
+            'top_agencies' => $topAgencies,
         ];
 
         $prompt = 'Here is the report data: '.json_encode($summary)."\n\nProvide a concise business insight summary (max 3 paragraphs) highlighting key metrics, trends, and actionable recommendations.";

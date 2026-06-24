@@ -136,7 +136,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/analytics', [AnonymizedAnalyticsController::class, 'index'])->name('analytics.index');
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
-    Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight');
+    Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight')->middleware('throttle:10,1');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
 
