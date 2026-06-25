@@ -66,16 +66,16 @@ class ToolDefinitions
                 'type' => 'function',
                 'function' => [
                     'name' => 'initiateCaseOTP',
-                    'description' => 'Send a 6-digit OTP verification code to the mobile number registered with a case. Use this when an OFW wants to verify their identity to access their case details.',
+                    'description' => 'Send a 6-digit OTP verification code to the email registered with the case. Use this when an OFW wants to verify their identity to access their case details.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'mobile' => [
+                            'trackerNumber' => [
                                 'type' => 'string',
-                                'description' => 'The mobile number registered with the case to verify access for',
+                                'description' => 'The tracker number of the case to verify',
                             ],
                         ],
-                        'required' => ['mobile'],
+                        'required' => ['trackerNumber'],
                     ],
                 ],
             ],
@@ -83,20 +83,20 @@ class ToolDefinitions
                 'type' => 'function',
                 'function' => [
                     'name' => 'verifyCaseOTP',
-                    'description' => 'Verify a 6-digit OTP code that was sent to the OFW\'s mobile number. After successful verification, a case token will be returned for accessing case details.',
+                    'description' => 'Verify a 6-digit OTP code that was sent to the OFW\'s email. After successful verification, case details can be accessed using the tracker number.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'mobile' => [
+                            'trackerNumber' => [
                                 'type' => 'string',
-                                'description' => 'The mobile number that was used to initiate the OTP',
+                                'description' => 'The tracker number that was used to initiate the OTP',
                             ],
                             'otp' => [
                                 'type' => 'string',
-                                'description' => 'The 6-digit verification code sent to the mobile number',
+                                'description' => 'The 6-digit verification code sent to the registered email',
                             ],
                         ],
-                        'required' => ['mobile', 'otp'],
+                        'required' => ['trackerNumber', 'otp'],
                     ],
                 ],
             ],
@@ -104,16 +104,16 @@ class ToolDefinitions
                 'type' => 'function',
                 'function' => [
                     'name' => 'getVerifiedCaseInfo',
-                    'description' => 'Get case details using a verified case token obtained after OTP verification.',
+                    'description' => 'Get case details for a verified OFW case using the tracker number.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'token' => [
+                            'trackerNumber' => [
                                 'type' => 'string',
-                                'description' => 'The case token obtained after successful OTP verification',
+                                'description' => 'The tracker number that was verified via OTP',
                             ],
                         ],
-                        'required' => ['token'],
+                        'required' => ['trackerNumber'],
                     ],
                 ],
             ],
@@ -173,48 +173,48 @@ class ToolDefinitions
             ],
             [
                 'name' => 'initiateCaseOTP',
-                'description' => 'Send a 6-digit OTP verification code to the mobile number registered with a case. Use this when an OFW wants to verify their identity to access their case details.',
+                'description' => 'Send a 6-digit OTP verification code to the email registered with the case. Use this when an OFW wants to verify their identity to access their case details.',
                 'input_schema' => [
                     'type' => 'object',
                     'properties' => [
-                        'mobile' => [
+                        'trackerNumber' => [
                             'type' => 'string',
-                            'description' => 'The mobile number registered with the case to verify access for',
+                            'description' => 'The tracker number of the case to verify',
                         ],
                     ],
-                    'required' => ['mobile'],
+                    'required' => ['trackerNumber'],
                 ],
             ],
             [
                 'name' => 'verifyCaseOTP',
-                'description' => 'Verify a 6-digit OTP code that was sent to the OFW\'s mobile number. After successful verification, a case token will be returned for accessing case details.',
+                'description' => 'Verify a 6-digit OTP code that was sent to the OFW\'s email. After successful verification, case details can be accessed using the tracker number.',
                 'input_schema' => [
                     'type' => 'object',
                     'properties' => [
-                        'mobile' => [
+                        'trackerNumber' => [
                             'type' => 'string',
-                            'description' => 'The mobile number that was used to initiate the OTP',
+                            'description' => 'The tracker number that was used to initiate the OTP',
                         ],
                         'otp' => [
                             'type' => 'string',
-                            'description' => 'The 6-digit verification code sent to the mobile number',
+                            'description' => 'The 6-digit verification code sent to the registered email',
                         ],
                     ],
-                    'required' => ['mobile', 'otp'],
+                    'required' => ['trackerNumber', 'otp'],
                 ],
             ],
             [
                 'name' => 'getVerifiedCaseInfo',
-                'description' => 'Get case details using a verified case token obtained after OTP verification.',
+                'description' => 'Get case details for a verified OFW case using the tracker number.',
                 'input_schema' => [
                     'type' => 'object',
                     'properties' => [
-                        'token' => [
+                        'trackerNumber' => [
                             'type' => 'string',
-                            'description' => 'The case token obtained after successful OTP verification',
+                            'description' => 'The tracker number that was verified via OTP',
                         ],
                     ],
-                    'required' => ['token'],
+                    'required' => ['trackerNumber'],
                 ],
             ],
             [
@@ -271,48 +271,48 @@ class ToolDefinitions
                 ],
                 [
                     'name' => 'initiateCaseOTP',
-                    'description' => 'Send a 6-digit OTP verification code to the mobile number registered with a case. Use this when an OFW wants to verify their identity to access their case details.',
+                    'description' => 'Send a 6-digit OTP verification code to the email registered with the case. Use this when an OFW wants to verify their identity to access their case details.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'mobile' => [
+                            'trackerNumber' => [
                                 'type' => 'string',
-                                'description' => 'The mobile number registered with the case to verify access for',
+                                'description' => 'The tracker number of the case to verify',
                             ],
                         ],
-                        'required' => ['mobile'],
+                        'required' => ['trackerNumber'],
                     ],
                 ],
                 [
                     'name' => 'verifyCaseOTP',
-                    'description' => 'Verify a 6-digit OTP code that was sent to the OFW\'s mobile number. After successful verification, a case token will be returned for accessing case details.',
+                    'description' => 'Verify a 6-digit OTP code that was sent to the OFW\'s email. After successful verification, case details can be accessed using the tracker number.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'mobile' => [
+                            'trackerNumber' => [
                                 'type' => 'string',
-                                'description' => 'The mobile number that was used to initiate the OTP',
+                                'description' => 'The tracker number that was used to initiate the OTP',
                             ],
                             'otp' => [
                                 'type' => 'string',
-                                'description' => 'The 6-digit verification code sent to the mobile number',
+                                'description' => 'The 6-digit verification code sent to the registered email',
                             ],
                         ],
-                        'required' => ['mobile', 'otp'],
+                        'required' => ['trackerNumber', 'otp'],
                     ],
                 ],
                 [
                     'name' => 'getVerifiedCaseInfo',
-                    'description' => 'Get case details using a verified case token obtained after OTP verification.',
+                    'description' => 'Get case details for a verified OFW case using the tracker number.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'token' => [
+                            'trackerNumber' => [
                                 'type' => 'string',
-                                'description' => 'The case token obtained after successful OTP verification',
+                                'description' => 'The tracker number that was verified via OTP',
                             ],
                         ],
-                        'required' => ['token'],
+                        'required' => ['trackerNumber'],
                     ],
                 ],
                 [
