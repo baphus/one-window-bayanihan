@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import LogoUpload from '../LogoUpload';
-import MapPicker from '../MapPicker';
+import AgencyMapView from '@/Components/AgencyMapView';
+import { parseGoogleMapsUrl } from '@/lib/maps';
 import { agencyFormSchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 
@@ -16,10 +18,27 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     location_query: agency?.location_query ?? '',
     latitude: agency?.latitude ?? null,
     longitude: agency?.longitude ?? null,
+    map_link: agency?.map_link ?? '',
     is_active: agency?.is_active ?? true,
   });
 
+  const [mapPreview, setMapPreview] = useState(null);
+
   const { validate } = useClientValidation(agencyFormSchema, data, setError);
+
+  function handleMapLinkChange(value) {
+    setData('map_link', value);
+    const parsed = parseGoogleMapsUrl(value);
+    if (parsed.isParseable && parsed.lat != null && parsed.lng != null) {
+      setMapPreview(`📍 ${parsed.lat.toFixed(6)}, ${parsed.lng.toFixed(6)}`);
+    } else if (parsed.isParseable && parsed.query) {
+      setMapPreview(`📍 ${parsed.query}`);
+    } else if (value && value.trim()) {
+      setMapPreview('🔗 Short URL — will show as link');
+    } else {
+      setMapPreview(null);
+    }
+  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -66,16 +85,29 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             onChange={(file) => setData('logo_url', file)}
           />
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
-            <MapPicker
-              latitude={data.latitude}
-              longitude={data.longitude}
-              onChange={({ latitude, longitude, location_query }) => {
-                setData('latitude', latitude);
-                setData('longitude', longitude);
-                if (location_query) setData('location_query', location_query);
-              }}
+            <label className="block text-sm font-medium text-slate-700">Google Maps Location Link</label>
+            <input
+              type="url"
+              value={data.map_link}
+              onChange={(e) => handleMapLinkChange(e.target.value)}
+              placeholder="Paste Google Maps share link..."
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              maxLength={2048}
             />
+            {mapPreview && (
+              <p className="mt-1 text-xs text-slate-500">{mapPreview}</p>
+            )}
+            <div className="mt-2">
+              <AgencyMapView
+                mapLink={data.map_link}
+                latitude={data.latitude}
+                longitude={data.longitude}
+                locationQuery={data.location_query}
+                agencyName={data.name || 'Agency'}
+                embedHeight="180px"
+              />
+            </div>
+            <InputError message={errors.map_link} className="mt-1" />
           </div>
           {isEdit && (
             <div className="flex items-center gap-2">

@@ -7,7 +7,7 @@ import UserFormModal from '@/Components/Admin/UserFormModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import LogoUpload from '@/Components/LogoUpload';
-import MapPicker from '@/Components/MapPicker';
+import AgencyMapView from '@/Components/AgencyMapView';
 
 const TABS = ['Referrals', 'Services', 'Focal Persons'];
 
@@ -41,6 +41,7 @@ export default function AdminAgencyShow({ agency }) {
       location_query: agency.location_query || '',
       latitude: agency.latitude ?? null,
       longitude: agency.longitude ?? null,
+      map_link: agency.map_link || '',
       is_active: agency.is_active,
     });
     setLogoFile(null);
@@ -237,36 +238,43 @@ export default function AdminAgencyShow({ agency }) {
             )}
           </div>
 
-          {/* Location / Map — MapPicker has built-in search */}
+          {/* Location / Map */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 col-span-full">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Location</p>
             {isEditing ? (
               <>
-                <MapPicker
-                  latitude={editData.latitude}
-                  longitude={editData.longitude}
-                  onChange={({ latitude, longitude, location_query }) => {
-                    setField('latitude', latitude);
-                    setField('longitude', longitude);
-                    if (location_query) setField('location_query', location_query);
-                  }}
+                <label className="block text-xs font-medium text-slate-600 mb-1">Google Maps Location Link</label>
+                <input
+                  type="url"
+                  value={editData.map_link}
+                  onChange={(e) => setField('map_link', e.target.value)}
+                  placeholder="Paste Google Maps share link..."
+                  className={inputClass}
+                  maxLength={2048}
                 />
+                <div className="mt-2">
+                  <AgencyMapView
+                    mapLink={editData.map_link}
+                    latitude={editData.latitude}
+                    longitude={editData.longitude}
+                    locationQuery={editData.location_query}
+                    agencyName={editData.name || 'Agency'}
+                    embedHeight="180px"
+                  />
+                </div>
                 {editErrors.latitude && <p className={errorClass}>{editErrors.latitude}</p>}
                 {editErrors.longitude && <p className={errorClass}>{editErrors.longitude}</p>}
+                {editErrors.map_link && <p className={errorClass}>{editErrors.map_link}</p>}
               </>
             ) : (
-              <div>
-                {agency.location_query ? (
-                  <p className="text-sm text-slate-900 mb-2">{agency.location_query}</p>
-                ) : (
-                  <p className="text-sm text-slate-500 mb-2">No location set</p>
-                )}
-                {agency.latitude != null && agency.longitude != null && (
-                  <p className="text-xs text-slate-400">
-                    {Number(agency.latitude).toFixed(6)}, {Number(agency.longitude).toFixed(6)}
-                  </p>
-                )}
-              </div>
+              <AgencyMapView
+                mapLink={agency.map_link}
+                latitude={agency.latitude}
+                longitude={agency.longitude}
+                locationQuery={agency.location_query}
+                agencyName={agency.name}
+                embedHeight="200px"
+              />
             )}
           </div>
         </div>
