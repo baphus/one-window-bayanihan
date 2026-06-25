@@ -132,6 +132,86 @@ class AdminAgencyControllerTest extends TestCase
         ]);
     }
 
+    public function test_map_link_parses_google_maps_place_url_and_gets_lat_lng(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'map_link' => 'https://www.google.com/maps/place/OWWA/@10.3157,123.8854,15z',
+        ]);
+
+        $response->assertRedirect(route('admin.agencies.index'));
+
+        $this->assertDatabaseHas('agencies', [
+            'name' => 'Test Agency',
+            'map_link' => 'https://www.google.com/maps/place/OWWA/@10.3157,123.8854,15z',
+            'latitude' => 10.3157,
+            'longitude' => 123.8854,
+            'location_query' => 'OWWA',
+        ]);
+    }
+
+    public function test_map_link_parses_google_maps_query_url_with_coords(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'map_link' => 'https://www.google.com/maps?q=10.3157,123.8854',
+        ]);
+
+        $response->assertRedirect(route('admin.agencies.index'));
+
+        $agency = Agency::where('name', 'Test Agency')->first();
+        $this->assertNotNull($agency);
+        $this->assertEquals(10.3157, $agency->latitude);
+        $this->assertEquals(123.8854, $agency->longitude);
+        $this->assertNull($agency->location_query);
+    }
+
+    public function test_map_link_overwrites_direct_lat_lng_when_both_provided(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'latitude' => 10.1000,
+            'longitude' => 123.1000,
+            'map_link' => 'https://www.google.com/maps?q=10.3157,123.8854',
+        ]);
+
+        $response->assertRedirect(route('admin.agencies.index'));
+
+        $agency = Agency::where('name', 'Test Agency')->first();
+        $this->assertNotNull($agency);
+        // map_link wins, lat/lng from URL parse
+        $this->assertEquals(10.3157, $agency->latitude);
+        $this->assertEquals(123.8854, $agency->longitude);
+    }
+
+    public function test_map_link_preserves_goo_gl_url_without_parsing(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'map_link' => 'https://maps.app.goo.gl/abc123',
+        ]);
+
+        $response->assertRedirect(route('admin.agencies.index'));
+
+        $agency = Agency::where('name', 'Test Agency')->first();
+        $this->assertNotNull($agency);
+        $this->assertEquals('https://maps.app.goo.gl/abc123', $agency->map_link);
+        $this->assertNull($agency->latitude);
+        $this->assertNull($agency->longitude);
+    }
+
     public function test_map_link_remains_null_when_lat_lng_not_provided(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);

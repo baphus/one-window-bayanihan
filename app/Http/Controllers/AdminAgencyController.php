@@ -61,6 +61,7 @@ class AdminAgencyController extends Controller
             'location_query' => 'nullable|string',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
+            'map_link' => 'nullable|string|max:2048',
         ]);
 
         $validated['slug'] = Str::slug($validated['short']);
@@ -72,12 +73,7 @@ class AdminAgencyController extends Controller
             $validated['logo_url'] = '/storage/'.$path;
         }
 
-        // Auto-generate map_link from lat/lng
-        if (! empty($validated['latitude']) && ! empty($validated['longitude'])) {
-            $validated['map_link'] = "https://www.google.com/maps?q={$validated['latitude']},{$validated['longitude']}";
-        } elseif (array_key_exists('latitude', $validated) || array_key_exists('longitude', $validated)) {
-            $validated['map_link'] = null;
-        }
+        $this->parseAndSetMapLink($validated);
 
         Agency::create($validated);
 
@@ -105,6 +101,7 @@ class AdminAgencyController extends Controller
             'is_active' => 'boolean',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
+            'map_link' => 'nullable|string|max:2048',
         ]);
 
         // Handle logo upload
@@ -121,17 +118,82 @@ class AdminAgencyController extends Controller
             $validated['slug'] = Str::slug($validated['short']);
         }
 
-        // Auto-generate map_link from lat/lng
-        if (! empty($validated['latitude']) && ! empty($validated['longitude'])) {
-            $validated['map_link'] = "https://www.google.com/maps?q={$validated['latitude']},{$validated['longitude']}";
-        } elseif (array_key_exists('latitude', $validated) || array_key_exists('longitude', $validated)) {
-            $validated['map_link'] = null;
-        }
+        $this->parseAndSetMapLink($validated);
 
         $agency->update($validated);
 
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency updated successfully.');
+    }
+
+    /**
+     * Parse a Google Maps URL from map_link and extract lat/lng/location_query.
+     *
+     * Supports URL formats:
+     *   /place/Name/@lat,lng,zoom  → lat/lng + place name as location_query
+     *   ?q=lat,lng                 → lat/lng, no location_query
+     *   ?q=place+name              → location_query only
+     *   maps.app.goo.gl/*          → stored as-is, no parsing (lat/lng null)
+     *
+     * If map_link is empty/null but lat/lng are provided directly, auto-generate
+     * map_link from them (backward compat with old form format).
+     * If map_link is provided AND lat/lng are also provided directly, map_link wins
+     * and lat/lng are overwritten from the URL parse.
+     */
+    private function parseAndSetMapLink(array &$data): void
+    {
+        // Case 1: map_link provided → parse it, overwrite lat/lng/query
+        if (! empty($data['map_link'])) {
+            $url = $data['map_link'];
+            $parsedLat = null;
+            $parsedLng = null;
+            $parsedQuery = null;
+
+            // Try @lat,lng from path-based URLs like /place/Name/@10.3,123.8,15z
+            if (preg_match('/@(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $coords)) {
+                $parsedLat = (float) $coords[1];
+                $parsedLng = (float) $coords[2];
+            }
+
+            // Try ?q=lat,lng or ?q=place+name from query string
+            $queryStr = parse_url($url, PHP_URL_QUERY);
+            if ($queryStr) {
+                parse_str($queryStr, $queryParams);
+                if (! empty($queryParams['q'])) {
+                    $qValue = $queryParams['q'];
+                    // Check if q value looks like coordinates
+                    if (preg_match('/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/', $qValue, $qCoords)) {
+                        $parsedLat = (float) $qCoords[1];
+                        $parsedLng = (float) $qCoords[2];
+                        // Don't set location_query for coordinate-only queries
+                    } elseif ($parsedLat === null) {
+                        // Text query — only use if we didn't already get coords from @ pattern
+                        $parsedQuery = urldecode($qValue);
+                    }
+                }
+            }
+
+            // Extract place name from /place/Name/ path segment (for @-style URLs)
+            if ($parsedLat !== null && $parsedLng !== null) {
+                $path = parse_url($url, PHP_URL_PATH);
+                if ($path && preg_match('#/place/([^@]+?)(?:/|$)#', $path, $nameMatch)) {
+                    $parsedQuery = trim(urldecode($nameMatch[1]), '/');
+                }
+            }
+
+            $data['latitude'] = $parsedLat;
+            $data['longitude'] = $parsedLng;
+            $data['location_query'] = $parsedQuery;
+
+            return;
+        }
+
+        // Case 2: no map_link, but lat/lng provided directly → auto-generate map_link (backward compat)
+        if (! empty($data['latitude']) && ! empty($data['longitude'])) {
+            $data['map_link'] = "https://www.google.com/maps?q={$data['latitude']},{$data['longitude']}";
+        } elseif (array_key_exists('latitude', $data) || array_key_exists('longitude', $data)) {
+            $data['map_link'] = null;
+        }
     }
 
     public function show(string $id)
