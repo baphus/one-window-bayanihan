@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\SystemSetting;
 use App\Services\Ai\AiService;
 use App\Services\Ai\Providers\AnthropicToolProvider;
 use App\Services\Ai\Providers\GeminiToolProvider;
@@ -46,8 +45,8 @@ class ChatbotTest extends TestCase
 
     public function test_ai_response_when_configured()
     {
-        SystemSetting::setValue('chatbot_enabled', 'true');
-        SystemSetting::setValue('chatbot_api_key', 'test-key');
+        config()->set('ai-chatbot.enabled', 'true');
+        config()->set('ai-chatbot.api_key', 'test-key');
 
         $this->instance(AiService::class, Mockery::mock(AiService::class, function ($mock) {
             $mock->shouldReceive('sendMessage')
@@ -65,8 +64,8 @@ class ChatbotTest extends TestCase
 
     public function test_fallback_when_ai_throws()
     {
-        SystemSetting::setValue('chatbot_enabled', 'true');
-        SystemSetting::setValue('chatbot_api_key', 'test-key');
+        config()->set('ai-chatbot.enabled', 'true');
+        config()->set('ai-chatbot.api_key', 'test-key');
 
         $this->instance(AiService::class, Mockery::mock(AiService::class, function ($mock) {
             $mock->shouldReceive('sendMessage')

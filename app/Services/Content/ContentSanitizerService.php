@@ -63,4 +63,25 @@ class ContentSanitizerService
 
         return $truncated."\n\n[Content truncated due to length]";
     }
+
+    /**
+     * Sanitize LLM output for safe rendering in the React frontend.
+     * Strips HTML tags, script elements, event handlers, and normalizes whitespace.
+     */
+    public function sanitizeOutput(string $text): string
+    {
+        // Strip script tags and their content
+        $text = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $text);
+        // Strip HTML tags
+        $text = strip_tags($text);
+        // Decode HTML entities
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Strip zero-width characters
+        $text = preg_replace('/[\x{200B}\x{200C}\x{200D}\x{FEFF}]/u', '', $text);
+        // Normalize whitespace
+        $text = preg_replace('/[ \t]+/', ' ', $text);
+        $text = preg_replace("/\n{3,}/", "\n\n", $text);
+
+        return trim($text);
+    }
 }

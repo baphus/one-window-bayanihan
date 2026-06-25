@@ -5,6 +5,7 @@ namespace App\Services\Ai\Providers;
 use App\Services\Ai\Contracts\ToolEnabledAiProvider;
 use App\Services\Ai\GeminiProvider;
 use App\Services\Ai\ToolDefinitions;
+use App\Services\Content\ContentSanitizerService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -154,7 +155,7 @@ class GeminiToolProvider extends GeminiProvider implements ToolEnabledAiProvider
                     }
                 }
 
-                return $text;
+                return app(ContentSanitizerService::class)->sanitizeOutput($text);
             }
 
             // Process function calls
@@ -166,7 +167,7 @@ class GeminiToolProvider extends GeminiProvider implements ToolEnabledAiProvider
             }
 
             if (empty($toolResults)) {
-                return $assistantText;
+                return app(ContentSanitizerService::class)->sanitizeOutput($assistantText);
             }
 
             // Build follow-up request with the function response
@@ -203,7 +204,7 @@ class GeminiToolProvider extends GeminiProvider implements ToolEnabledAiProvider
                 }
             }
 
-            return $finalText;
+            return app(ContentSanitizerService::class)->sanitizeOutput($finalText);
         } catch (\Throwable $e) {
             Log::warning('Gemini tool calling failed', [
                 'error' => $e->getMessage(),

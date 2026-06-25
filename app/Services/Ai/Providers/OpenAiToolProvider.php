@@ -5,6 +5,7 @@ namespace App\Services\Ai\Providers;
 use App\Services\Ai\Contracts\ToolEnabledAiProvider;
 use App\Services\Ai\OpenAiProvider;
 use App\Services\Ai\ToolDefinitions;
+use App\Services\Content\ContentSanitizerService;
 use Illuminate\Support\Facades\Log;
 use OpenAI;
 
@@ -48,12 +49,16 @@ class OpenAiToolProvider extends OpenAiProvider implements ToolEnabledAiProvider
 
             // If no tool calls, return direct response
             if ($finishReason !== 'tool_calls') {
-                return $choice->message->content ?? '';
+                $content = $choice->message->content ?? '';
+
+                return app(ContentSanitizerService::class)->sanitizeOutput($content);
             }
 
             $toolCalls = $choice->message->toolCalls ?? [];
             if (empty($toolCalls)) {
-                return $choice->message->content ?? '';
+                $content = $choice->message->content ?? '';
+
+                return app(ContentSanitizerService::class)->sanitizeOutput($content);
             }
 
             // Add assistant message with tool_calls
@@ -95,7 +100,9 @@ class OpenAiToolProvider extends OpenAiProvider implements ToolEnabledAiProvider
                 'max_tokens' => $this->maxTokens,
             ]);
 
-            return $followUp->choices[0]->message->content ?? '';
+            $finalContent = $followUp->choices[0]->message->content ?? '';
+
+            return app(ContentSanitizerService::class)->sanitizeOutput($finalContent);
 
         } catch (\Throwable $e) {
             Log::warning('OpenAI tool calling failed', [

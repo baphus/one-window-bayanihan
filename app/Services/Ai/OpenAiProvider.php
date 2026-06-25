@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Content\ContentSanitizerService;
 use App\Services\Observability\RetrievalLogger;
 use OpenAI;
 
@@ -59,7 +60,9 @@ class OpenAiProvider implements AiProvider
 
             app(RetrievalLogger::class)->logTokenUsage('openai', $this->model, $response->usage->promptTokens, $response->usage->completionTokens);
 
-            return $response->choices[0]->message->content ?? '';
+            $content = $response->choices[0]->message->content ?? '';
+
+            return app(ContentSanitizerService::class)->sanitizeOutput($content);
         } catch (\Throwable $e) {
             throw new \RuntimeException('OpenAI API call failed: '.$e->getMessage(), previous: $e);
         }
