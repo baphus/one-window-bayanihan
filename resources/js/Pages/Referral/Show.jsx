@@ -7,38 +7,9 @@ import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import UserAvatar from '@/Components/ui/UserAvatar';
+import PeerProfileModal from '@/Components/PeerProfileModal';
 import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
-
-const avatarColors = [
-    'bg-[#0b5384]', 'bg-[#6b21a8]', 'bg-[#15803d]', 'bg-[#b45309]',
-    'bg-[#be123c]', 'bg-[#1d4ed8]', 'bg-[#0d9488]', 'bg-[#a21caf]',
-];
-
-function getAvatarColor(name) {
-    if (!name) return avatarColors[0];
-    const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    return avatarColors[hash % avatarColors.length];
-}
-
-function getInitials(name) {
-    if (!name) return '?';
-    return name.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
-}
-
-function UserAvatar({ user, size = 'sm' }) {
-    const sizeMap = { sm: 'h-6 w-6 text-[9px]', md: 'h-8 w-8 text-[11px]', lg: 'h-10 w-10 text-[13px]' };
-    const classes = `${sizeMap[size] || sizeMap.sm} rounded-full flex-shrink-0`;
-
-    if (user?.avatar_url) {
-        return <img src={user.avatar_url} alt={user.name || 'Avatar'} className={`${classes} object-cover`} />;
-    }
-
-    return (
-        <span className={`${classes} inline-flex items-center justify-center rounded-full text-white font-bold ${getAvatarColor(user?.name)}`}>
-            {getInitials(user?.name)}
-        </span>
-    );
-}
 
 function parseReferredServices(serviceValue) {
     if (!serviceValue) return [];
@@ -132,6 +103,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     const caseComments = caseFile?.comments ?? [];
     const topLevelCaseComments = caseComments.filter((c) => !c.parent_id);
 
+    const [peerProfileUser, setPeerProfileUser] = useState(null);
     const [showOverdueInfo, setShowOverdueInfo] = useState(false);
 
     const [pendingDecision, setPendingDecision] = useState(null);
@@ -675,7 +647,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                 <div className="ml-8 mr-3 pb-2.5 space-y-2">
                                                     {replies.map((reply) => (
                                                         <div key={reply.id} className="flex items-start gap-2 rounded-[2px] bg-[#f8fafc] px-2.5 py-2">
-                                                            <UserAvatar user={reply.user} size="sm" />
+                                                            <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
                                                             <div className="min-w-0 flex-1">
                                                                 <div className="flex items-baseline gap-2">
                                                                     <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
@@ -751,7 +723,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                     return (
                                         <div key={comment.id} className="rounded-[3px] border border-[#e2e8f0] bg-white shadow-sm">
                                             <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
-                                                <UserAvatar user={comment.user} size="sm" />
+                                                <UserAvatar user={comment.user} size="sm" onClick={() => setPeerProfileUser(comment.user)} />
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-baseline gap-2">
                                                         <span className="text-[11px] font-bold text-slate-800">{comment.user?.name ?? 'Unknown'}</span>
@@ -762,8 +734,8 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            setCaseReplyToCommentId(comment.id);
-                                                            setCaseCommentDraft('');
+                                                            setReplyToCommentId(comment.id);
+                                                            setCommentDraft('');
                                                         }}
                                                         className="mt-1 text-[9px] font-bold text-[#0b5384] hover:text-[#09416a] transition-colors"
                                                     >
@@ -775,7 +747,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                 <div className="ml-8 mr-3 pb-2.5 space-y-2">
                                                     {replies.map((reply) => (
                                                         <div key={reply.id} className="flex items-start gap-2 rounded-[2px] bg-[#f8fafc] px-2.5 py-2">
-                                                            <UserAvatar user={reply.user} size="sm" />
+                                                            <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
                                                             <div className="min-w-0 flex-1">
                                                                 <div className="flex items-baseline gap-2">
                                                                     <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
@@ -1041,6 +1013,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                     </div>
                 </div>
             )}
+            <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
         </AppLayout>
     );
 }

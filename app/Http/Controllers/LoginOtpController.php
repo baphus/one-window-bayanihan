@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use PragmaRX\Google2FA\Google2FA;
 
 class LoginOtpController extends Controller
 {
@@ -103,8 +104,114 @@ class LoginOtpController extends Controller
             ]);
         }
 
+        if ($user->mfa_enabled_at !== null) {
+            $request->session()->put('pending_mfa_user_id', $user->id);
+
+            $emailParts = explode('@', $user->email);
+            $hint = strlen($emailParts[0]) > 2
+                ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
+                : $user->email;
+
+            return Inertia::render('Auth/Login', [
+                'step' => 'mfa-challenge',
+                'email' => $user->email,
+                'hint' => $hint,
+            ]);
+        }
+
         Auth::login($user, true);
 
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+    public function verifyTotp(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'string', 'email'],
+            'otp' => ['required', 'string', 'size:6'],
+        ]);
+
+        $pendingId = $request->session()->get('pending_mfa_user_id');
+
+        if (! $pendingId) {
+            throw ValidationException::withMessages([
+                'email' => 'Session expired. Please log in again.',
+            ]);
+        }
+
+        $user = User::where('email', $request->input('email'))
+            ->where('id', $pendingId)
+            ->first();
+
+        if (! $user || $user->mfa_enabled_at === null) {
+            throw ValidationException::withMessages([
+                'email' => 'Unable to verify. Please log in again.',
+            ]);
+        }
+
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+
+        $valid = $google2fa->verifyKey($user->mfa_secret, $request->input('otp'));
+
+        if (! $valid) {
+            throw ValidationException::withMessages([
+                'otp' => 'Invalid authentication code.',
+            ]);
+        }
+
+        $request->session()->forget('pending_mfa_user_id');
+        Auth::login($user, true);
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+    public function verifyRecoveryCode(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'string', 'email'],
+            'recovery_code' => ['required', 'string'],
+        ]);
+
+        $pendingId = $request->session()->get('pending_mfa_user_id');
+
+        if (! $pendingId) {
+            throw ValidationException::withMessages([
+                'email' => 'Session expired. Please log in again.',
+            ]);
+        }
+
+        $user = User::where('email', $request->input('email'))
+            ->where('id', $pendingId)
+            ->first();
+
+        if (! $user || $user->mfa_enabled_at === null) {
+            throw ValidationException::withMessages([
+                'email' => 'Unable to verify. Please log in again.',
+            ]);
+        }
+
+        $recoveryCodes = $user->mfa_recovery_codes ?? [];
+
+        if (! in_array($request->input('recovery_code'), $recoveryCodes)) {
+            throw ValidationException::withMessages([
+                'recovery_code' => 'Invalid recovery code.',
+            ]);
+        }
+
+        $remainingCodes = array_values(array_filter(
+            $recoveryCodes,
+            fn ($code) => $code !== $request->input('recovery_code'),
+        ));
+
+        $user->mfa_recovery_codes = $remainingCodes;
+        $user->save();
+
+        $request->session()->forget('pending_mfa_user_id');
+        Auth::login($user, true);
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard', absolute: false));

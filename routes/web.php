@@ -195,6 +195,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
     Route::post('/onboarding/replay', [OnboardingController::class, 'replay'])->name('onboarding.replay');
     Route::post('/onboarding/step', [OnboardingController::class, 'updateStep'])->name('onboarding.step');
+    Route::post('/onboarding/skip-profile', [OnboardingController::class, 'skipProfile'])->name('onboarding.skip-profile');
 
     Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');

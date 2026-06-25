@@ -15,8 +15,10 @@ export default function useUnsavedChanges(dirty) {
         bypassRef.current = false;
         return;
       }
+      const visit = event.detail.visit;
+      if (!visit || visit.method !== 'GET') return;
       if (dirtyRef.current) {
-        pendingVisitRef.current = event.detail.visit;
+        pendingVisitRef.current = visit;
         setShowModal(true);
         return false;
       }

@@ -29,6 +29,14 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:otp')
         ->name('login.resend-otp');
 
+    Route::post('login/verify-totp', [LoginOtpController::class, 'verifyTotp'])
+        ->middleware('throttle:totp-challenge')
+        ->name('login.verify-totp');
+
+    Route::post('login/verify-recovery-code', [LoginOtpController::class, 'verifyRecoveryCode'])
+        ->middleware('throttle:recovery-code')
+        ->name('login.verify-recovery-code');
+
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 

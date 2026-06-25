@@ -85,6 +85,20 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
+        RateLimiter::for('totp-challenge', function (Request $request) {
+            return Limit::perMinute(3)->by(
+                ($request->session()->get('pending_mfa_user_id', 'guest'))
+                .'|'.$request->ip()
+            );
+        });
+
+        RateLimiter::for('recovery-code', function (Request $request) {
+            return Limit::perMinute(3)->by(
+                ($request->session()->get('pending_mfa_user_id', 'guest'))
+                .'|'.$request->ip()
+            );
+        });
+
         Event::listen(Login::class, LogSuccessfulLogin::class);
         Event::listen(ReferralCompleted::class, SendFeedbackRequest::class);
 

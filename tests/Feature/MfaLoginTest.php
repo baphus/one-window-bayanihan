@@ -1,0 +1,311 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use PragmaRX\Google2FA\Google2FA;
+use Tests\TestCase;
+
+class MfaLoginTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutMiddleware(ThrottleRequests::class);
+        Mail::fake();
+    }
+
+    public function test_user_without_mfa_skips_challenge_and_logs_in(): void
+    {
+        $user = User::factory()->create();
+
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $response = $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_user_with_mfa_can_verify_with_totp(): void
+    {
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+        $secret = $google2fa->generateSecretKey();
+
+        $user = User::factory()->create([
+            'mfa_secret' => $secret,
+            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $response = $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $response->assertInertia(fn ($page) => $page
+            ->component('Auth/Login')
+            ->where('step', 'mfa-challenge')
+            ->where('email', $user->email)
+        );
+
+        $this->assertGuest();
+
+        $validTotp = $google2fa->getCurrentOtp($secret);
+
+        $response = $this->post(route('login.verify-totp'), [
+            'email' => $user->email,
+            'otp' => $validTotp,
+        ]);
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_user_with_mfa_can_verify_with_recovery_code(): void
+    {
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+        $secret = $google2fa->generateSecretKey();
+
+        $user = User::factory()->create([
+            'mfa_secret' => $secret,
+            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $response = $this->post(route('login.verify-recovery-code'), [
+            'email' => $user->email,
+            'recovery_code' => 'ABCD-EFGH-IJKL',
+        ]);
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_invalid_totp_rejected(): void
+    {
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+        $secret = $google2fa->generateSecretKey();
+
+        $user = User::factory()->create([
+            'mfa_secret' => $secret,
+            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $response = $this->post(route('login.verify-totp'), [
+            'email' => $user->email,
+            'otp' => '000000',
+        ]);
+
+        $response->assertSessionHasErrors('otp');
+        $this->assertGuest();
+    }
+
+    public function test_invalid_recovery_code_rejected(): void
+    {
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+        $secret = $google2fa->generateSecretKey();
+
+        $user = User::factory()->create([
+            'mfa_secret' => $secret,
+            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $response = $this->post(route('login.verify-recovery-code'), [
+            'email' => $user->email,
+            'recovery_code' => 'INVALID-CODE-XXXX',
+        ]);
+
+        $response->assertSessionHasErrors('recovery_code');
+        $this->assertGuest();
+    }
+
+    public function test_recovery_code_consumed_after_use(): void
+    {
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+        $secret = $google2fa->generateSecretKey();
+
+        $user = User::factory()->create([
+            'mfa_secret' => $secret,
+            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $this->post(route('login.verify-recovery-code'), [
+            'email' => $user->email,
+            'recovery_code' => 'ABCD-EFGH-IJKL',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+
+        $user->refresh();
+
+        $this->assertCount(1, $user->mfa_recovery_codes);
+        $this->assertNotContains('ABCD-EFGH-IJKL', $user->mfa_recovery_codes);
+        $this->assertContains('MNOP-QRST-UVWX', $user->mfa_recovery_codes);
+    }
+
+    public function test_used_recovery_code_cannot_be_reused(): void
+    {
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+        $secret = $google2fa->generateSecretKey();
+
+        $user = User::factory()->create([
+            'mfa_secret' => $secret,
+            'mfa_recovery_codes' => ['ONLY-CODE-XXXX'],
+            'mfa_enabled_at' => now(),
+        ]);
+
+        // First login — consume the only recovery code
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $this->post(route('login.verify-recovery-code'), [
+            'email' => $user->email,
+            'recovery_code' => 'ONLY-CODE-XXXX',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+
+        // Logout
+        $this->post(route('logout'));
+
+        $this->assertGuest();
+
+        $user->refresh();
+        $this->assertCount(0, $user->mfa_recovery_codes);
+
+        // Second login — try same code, should fail
+        $this->post(route('login.init'), [
+            'email' => $user->email,
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $otp = Cache::get("otp:login:{$user->email}");
+        $this->assertNotNull($otp);
+
+        $this->post(route('login.verify-otp'), [
+            'email' => $user->email,
+            'otp' => $otp,
+        ]);
+
+        $response = $this->post(route('login.verify-recovery-code'), [
+            'email' => $user->email,
+            'recovery_code' => 'ONLY-CODE-XXXX',
+        ]);
+
+        $response->assertSessionHasErrors('recovery_code');
+        $this->assertGuest();
+    }
+
+    public function test_expired_session_returns_error(): void
+    {
+        $user = User::factory()->create([
+            'mfa_secret' => 'some-secret',
+            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL'],
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $response = $this->post(route('login.verify-totp'), [
+            'email' => $user->email,
+            'otp' => '123456',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+    }
+}

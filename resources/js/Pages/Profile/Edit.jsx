@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useRef } from 'react';
 import DeleteUserForm from '@/Pages/Profile/Partials/DeleteUserForm';
 import UpdatePasswordForm from '@/Pages/Profile/Partials/UpdatePasswordForm';
@@ -13,6 +13,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { profileSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import DashboardBanner from '@/Components/DashboardBanner';
 
 export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgency, notificationPrefs }) {
     const user = usePage().props.auth.user;
@@ -83,6 +84,11 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                 <h1 className="text-2xl font-bold text-slate-900">Profile</h1>
                 <p className="text-sm text-slate-500 mt-1">Manage your account settings and preferences.</p>
             </div>
+
+            <DashboardBanner
+                onSkip={() => { bypassNext(); router.post(route('onboarding.skip-profile'), {}, { preserveState: true, preserveScroll: true }); }}
+                onDismiss={() => { bypassNext(); router.post(route('onboarding.skip-profile'), {}, { preserveState: true, preserveScroll: true }); }}
+            />
 
             <div className="max-w-3xl mx-auto space-y-6">
                 {/* Profile Photo */}

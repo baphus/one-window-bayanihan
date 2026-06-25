@@ -1,6 +1,7 @@
 import { Link, usePage, router } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
+import PeerProfileModal from '@/Components/PeerProfileModal';
 import { useOnboarding } from '@/Onboarding/OnboardingProvider';
 import { replayOnboarding } from '@/Onboarding/api';
 import { getTourConfig } from '@/Onboarding/index';
@@ -121,6 +122,7 @@ export default function AppSidebar() {
   const { url } = usePage();
   const user = usePage().props.auth.user;
   const { startTour } = useOnboarding();
+  const [peerProfileUser, setPeerProfileUser] = useState(null);
 
   const navigation = useMemo(() => {
     return navByRole[user?.role] || [];
@@ -215,7 +217,7 @@ export default function AppSidebar() {
       <div className="flex flex-col shrink-0">
         <div className="px-5 py-5 bg-white border-t border-slate-200">
           <div className="flex items-center gap-3">
-            <UserAvatar user={user} size="lg" />
+            <UserAvatar user={user} size="lg" onClick={() => setPeerProfileUser(user)} />
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-[13px] text-blue-950 font-bold leading-none truncate">{user?.name}</span>
               <span className="text-[10px] font-bold tracking-[0.06em] text-slate-500 mt-1 uppercase truncate">
@@ -252,6 +254,8 @@ export default function AppSidebar() {
           </div>
         </div>
       </div>
+
+      <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
     </aside>
   );
 }

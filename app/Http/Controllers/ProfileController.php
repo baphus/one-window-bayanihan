@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Services\DefaultAgencyService;
+use App\Services\OnboardingService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,6 +56,9 @@ class ProfileController extends Controller
         }
 
         $user->save();
+
+        // Auto-mark profile as complete if all necessary fields are filled
+        app(OnboardingService::class)->isProfileIncomplete($user);
 
         return Redirect::route('profile.edit');
     }

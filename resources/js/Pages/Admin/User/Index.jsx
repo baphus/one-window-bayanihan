@@ -9,6 +9,7 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import UserFormModal from '@/Components/Admin/UserFormModal';
+import PeerProfileModal from '@/Components/PeerProfileModal';
 
 const roleBadgeStyles = {
   ADMIN: 'bg-purple-100 text-purple-800 border-purple-300',
@@ -42,6 +43,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
 
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [peerProfileUser, setPeerProfileUser] = useState(null);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
@@ -142,7 +144,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
               ...base,
               render: (row) => (
                 <div className="flex items-center gap-3">
-                  <UserAvatar user={row} size="sm" />
+                  <UserAvatar user={row} size="sm" onClick={() => setPeerProfileUser(row)} />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-800 truncate max-w-[180px]">{row.name}</div>
                   </div>
@@ -479,6 +481,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
       </div>
 
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
     </AppLayout>
   );
 }

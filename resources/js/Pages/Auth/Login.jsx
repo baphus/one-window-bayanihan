@@ -19,6 +19,12 @@ export default function Login({ status, canResetPassword }) {
     const otpRefs = useRef([]);
     const autoFilled = useRef(false);
     const cooldownInterval = useRef(null);
+    const [mfaMode, setMfaMode] = useState('totp'); // 'totp' | 'recovery'
+    const [mfaTotp, setMfaTotp] = useState(['', '', '', '', '', '']);
+    const [mfaTotpError, setMfaTotpError] = useState('');
+    const [mfaRecoveryCode, setMfaRecoveryCode] = useState('');
+    const [mfaRecoveryError, setMfaRecoveryError] = useState('');
+    const mfaTotpRefs = useRef([]);
 
 
     useEffect(() => {
@@ -132,6 +138,13 @@ export default function Login({ status, canResetPassword }) {
         setProcessing(true);
 
         router.post(route('login.verify-otp'), { email, otp: otpValue }, {
+            onSuccess: (page) => {
+                setProcessing(false);
+                if (page.props.step === 'mfa-challenge') {
+                    setStep('mfa-challenge');
+                    setHint(page.props?.hint || '');
+                }
+            },
             onError: (err) => {
                 setOtpError(err.otp || 'Invalid or expired OTP.');
                 setProcessing(false);
@@ -160,6 +173,67 @@ export default function Login({ status, canResetPassword }) {
                 setProcessing(false);
                 setOtpError(err.email || 'Failed to resend OTP. Please try again.');
             },
+        });
+    };
+
+    const handleMfaTotpChange = (index, value) => {
+        if (value.length > 1) return;
+        const next = [...mfaTotp];
+        next[index] = value;
+        setMfaTotp(next);
+        setMfaTotpError('');
+        if (value && index < 5) {
+            mfaTotpRefs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleMfaTotpKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && mfaTotp[index] === '' && index > 0) {
+            mfaTotpRefs.current[index - 1]?.focus();
+        }
+    };
+
+    const handleMfaPaste = (e) => {
+        e.preventDefault();
+        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6).split('');
+        const next = ['', '', '', '', '', ''];
+        pasted.forEach((char, idx) => { next[idx] = char; });
+        setMfaTotp(next);
+        const lastIdx = Math.min(pasted.length - 1, 5);
+        if (lastIdx >= 0) mfaTotpRefs.current[lastIdx]?.focus();
+    };
+
+    const handleVerifyTotp = (e) => {
+        e.preventDefault();
+        const code = mfaTotp.join('');
+        if (code.length !== 6) {
+            setMfaTotpError('Please enter the complete 6-digit code.');
+            return;
+        }
+        setProcessing(true);
+        router.post(route('login.verify-totp'), { email, otp: code }, {
+            onError: (err) => {
+                setMfaTotpError(err.otp || 'Invalid authentication code.');
+                setProcessing(false);
+            },
+            onFinish: () => setProcessing(false),
+        });
+    };
+
+    const handleVerifyRecoveryCode = (e) => {
+        e.preventDefault();
+        if (!mfaRecoveryCode.trim()) {
+            setMfaRecoveryError('Please enter a recovery code.');
+            return;
+        }
+        setProcessing(true);
+        router.post(route('login.verify-recovery-code'), { email, recovery_code: mfaRecoveryCode.trim() }, {
+            onSuccess: () => setProcessing(false),
+            onError: (err) => {
+                setMfaRecoveryError(err.recovery_code || 'Invalid recovery code.');
+                setProcessing(false);
+            },
+            onFinish: () => setProcessing(false),
         });
     };
 
@@ -398,6 +472,123 @@ export default function Login({ status, canResetPassword }) {
                                     </button>
                                 </div>
                             )}
+
+                            {step === 'mfa-challenge' && (
+                                <div className="max-w-md mx-auto text-center">
+                                    {mfaMode === 'totp' ? (
+                                        <>
+                                            <div className="mb-10 flex flex-col items-center gap-4">
+                                                <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                                                    <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>security</span>
+                                                </div>
+                                                <h2 className="font-headline text-2xl font-black uppercase text-primary">TWO-FACTOR AUTH</h2>
+                                                <p className="text-sm text-on-surface-variant leading-relaxed">
+                                                    Enter the 6-digit code from your authenticator app for <span className="font-bold text-on-surface">{hint}</span>
+                                                </p>
+                                            </div>
+
+                                            <form onSubmit={handleVerifyTotp}>
+                                                <div className="mb-10 flex justify-center gap-3" onPaste={handleMfaPaste}>
+                                                    {mfaTotp.map((digit, idx) => (
+                                                        <input
+                                                            key={idx}
+                                                            ref={(el) => { mfaTotpRefs.current[idx] = el; }}
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            autoComplete="one-time-code"
+                                                            maxLength={1}
+                                                            value={digit}
+                                                            onChange={(e) => handleMfaTotpChange(idx, e.target.value)}
+                                                            onKeyDown={(e) => handleMfaTotpKeyDown(idx, e)}
+                                                            className="h-14 w-12 border border-outline bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
+                                                        />
+                                                    ))}
+                                                </div>
+
+                                                {mfaTotpError && (
+                                                    <p className="text-xs font-semibold text-error mb-4">{mfaTotpError}</p>
+                                                )}
+
+                                                <button
+                                                    type="submit"
+                                                    disabled={processing}
+                                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                                >
+                                                    {processing ? 'Verifying...' : 'Verify & Continue'}
+                                                </button>
+                                            </form>
+
+                                            <div className="mt-6 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setMfaMode('recovery'); setMfaRecoveryCode(''); setMfaRecoveryError(''); }}
+                                                    className="text-sm font-bold text-primary hover:text-primary/80 underline underline-offset-2"
+                                                >
+                                                    Use a recovery code instead
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="mb-10 flex flex-col items-center gap-4">
+                                                <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                                                    <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>key</span>
+                                                </div>
+                                                <h2 className="font-headline text-2xl font-black uppercase text-primary">RECOVERY CODE</h2>
+                                                <p className="text-sm text-on-surface-variant leading-relaxed">
+                                                    Enter one of your recovery codes to access your account.
+                                                </p>
+                                            </div>
+
+                                            <form onSubmit={handleVerifyRecoveryCode}>
+                                                <div className="mb-6">
+                                                    <input
+                                                        type="text"
+                                                        value={mfaRecoveryCode}
+                                                        onChange={(e) => { setMfaRecoveryCode(e.target.value.toUpperCase()); setMfaRecoveryError(''); }}
+                                                        placeholder="XXXX-XXXX-XXXX"
+                                                        className="w-full border border-outline bg-surface-container px-4 py-3 text-center text-lg font-mono font-bold tracking-widest focus:border-primary focus:outline-none rounded-none uppercase"
+                                                        disabled={processing}
+                                                        autoComplete="off"
+                                                    />
+                                                </div>
+
+                                                {mfaRecoveryError && (
+                                                    <p className="text-xs font-semibold text-error mb-4">{mfaRecoveryError}</p>
+                                                )}
+
+                                                <button
+                                                    type="submit"
+                                                    disabled={processing}
+                                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                                >
+                                                    {processing ? 'Verifying...' : 'Verify Recovery Code'}
+                                                </button>
+                                            </form>
+
+                                            <div className="mt-6 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setMfaMode('totp'); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); }}
+                                                    className="text-sm font-bold text-primary hover:text-primary/80 underline underline-offset-2"
+                                                >
+                                                    Use authenticator app instead
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => { setStep('login'); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); setMfaMode('totp'); }}
+                                        className="mt-8 flex items-center justify-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary mx-auto transition-colors"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                                        Return to Login
+                                    </button>
+                                </div>
+                            )}
+
                         </div>
                     </div>
                 </div>

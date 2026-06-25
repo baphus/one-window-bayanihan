@@ -69,4 +69,19 @@ class OnboardingController extends Controller
 
         return redirect()->back()->with('success', 'Step updated.');
     }
+
+    // ─────────────────────────────────────────────
+    //  Profile Completion (first-time info prompt)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Skip the profile info prompt without filling in details.
+     */
+    public function skipProfile(Request $request)
+    {
+        $service = app(OnboardingService::class);
+        $service->skipProfile($request->user());
+
+        return redirect()->back()->with('success', 'Profile setup skipped.');
+    }
 }

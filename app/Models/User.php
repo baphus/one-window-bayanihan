@@ -47,6 +47,7 @@ class User extends Authenticatable
         'mfa_enabled_at',
         'onboarding_completed_at',
         'onboarding_step',
+        'profile_completed_at',
     ];
 
     protected $hidden = [
@@ -71,6 +72,7 @@ class User extends Authenticatable
             'notifications_config' => 'array',
             'mfa_enabled_at' => 'datetime',
             'onboarding_completed_at' => 'datetime',
+            'profile_completed_at' => 'datetime',
         ];
     }
 

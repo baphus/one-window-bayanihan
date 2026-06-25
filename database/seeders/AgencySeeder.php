@@ -13,16 +13,16 @@ class AgencySeeder extends Seeder
         $now = now();
 
         $agencies = [
-            ['id' => Str::uuid(), 'short' => 'OWWA', 'slug' => 'owwa', 'name' => 'Overseas Workers Welfare Administration', 'logo_url' => null, 'location_query' => 'OWWA Regional Welfare Office VII, Cebu City, Central Visayas, Philippines'],
+            ['id' => Str::uuid(), 'short' => 'OWWA', 'slug' => 'owwa', 'name' => 'Overseas Workers Welfare Administration', 'logo_url' => null, 'location_query' => 'OWWA Regional Welfare Office VII, Cebu City, Central Visayas, Philippines', 'map_link' => 'https://www.google.com/maps/place/OWWA+Regional+Welfare+Office+VII/@10.3157,123.8854,15z'],
             // DMW is the permanent default agency — do not change
-            ['id' => Str::uuid(), 'short' => 'DMW', 'slug' => 'dmw', 'name' => 'Department of Migrant Workers', 'logo_url' => null, 'location_query' => 'Department of Migrant Workers Regional Office VII, Cebu City, Central Visayas, Philippines'],
-            ['id' => Str::uuid(), 'short' => 'DOH', 'slug' => 'doh', 'name' => 'Department of Health', 'logo_url' => null, 'location_query' => 'DOH Central Visayas CHD, Cebu City, Philippines'],
-            ['id' => Str::uuid(), 'short' => 'DOLE', 'slug' => 'dole', 'name' => 'Department of Labor and Employment', 'logo_url' => null, 'location_query' => 'DOLE Regional Office VII, Cebu City, Central Visayas, Philippines'],
-            ['id' => Str::uuid(), 'short' => 'DSWD', 'slug' => 'dswd', 'name' => 'Department of Social Welfare and Development', 'logo_url' => null, 'location_query' => 'DSWD Field Office VII, Cebu City, Central Visayas, Philippines'],
-            ['id' => Str::uuid(), 'short' => 'TESDA', 'slug' => 'tesda', 'name' => 'Technical Education and Skills Development Authority', 'logo_url' => null, 'location_query' => 'TESDA Regional Office VII, Cebu City, Central Visayas, Philippines'],
-            ['id' => Str::uuid(), 'short' => 'LCI', 'slug' => 'law-center-inc', 'name' => 'Law Center Inc.', 'logo_url' => null, 'location_query' => 'Law Center Inc., Cebu City, Central Visayas, Philippines'],
-            ['id' => Str::uuid(), 'short' => 'CEBU', 'slug' => 'province-cebu', 'name' => 'Province of Cebu', 'logo_url' => null, 'location_query' => 'Cebu Provincial Capitol, Cebu City, Cebu, Philippines'],
-            ['id' => Str::uuid(), 'short' => 'CCG', 'slug' => 'city-cebu', 'name' => 'City of Cebu', 'logo_url' => null, 'location_query' => 'Cebu City Hall, Cebu City, Cebu, Philippines'],
+            ['id' => Str::uuid(), 'short' => 'DMW', 'slug' => 'dmw', 'name' => 'Department of Migrant Workers', 'logo_url' => null, 'location_query' => 'Department of Migrant Workers Regional Office VII, Cebu City, Central Visayas, Philippines', 'map_link' => 'https://www.google.com/maps/place/Department+of+Migrant+Workers+Regional+Office+VII/@10.3157,123.8854,15z'],
+            ['id' => Str::uuid(), 'short' => 'DOH', 'slug' => 'doh', 'name' => 'Department of Health', 'logo_url' => null, 'location_query' => 'DOH Central Visayas CHD, Cebu City, Philippines', 'map_link' => 'https://www.google.com/maps/place/DOH+Central+Visayas+CHD/@10.3157,123.8854,15z'],
+            ['id' => Str::uuid(), 'short' => 'DOLE', 'slug' => 'dole', 'name' => 'Department of Labor and Employment', 'logo_url' => null, 'location_query' => 'DOLE Regional Office VII, Cebu City, Central Visayas, Philippines', 'map_link' => 'https://www.google.com/maps/place/DOLE+Regional+Office+VII/@10.3157,123.8854,15z'],
+            ['id' => Str::uuid(), 'short' => 'DSWD', 'slug' => 'dswd', 'name' => 'Department of Social Welfare and Development', 'logo_url' => null, 'location_query' => 'DSWD Field Office VII, Cebu City, Central Visayas, Philippines', 'map_link' => 'https://www.google.com/maps/place/DSWD+Field+Office+VII/@10.3157,123.8854,15z'],
+            ['id' => Str::uuid(), 'short' => 'TESDA', 'slug' => 'tesda', 'name' => 'Technical Education and Skills Development Authority', 'logo_url' => null, 'location_query' => 'TESDA Regional Office VII, Cebu City, Central Visayas, Philippines', 'map_link' => 'https://www.google.com/maps/place/TESDA+Regional+Office+VII/@10.3157,123.8854,15z'],
+            ['id' => Str::uuid(), 'short' => 'LCI', 'slug' => 'law-center-inc', 'name' => 'Law Center Inc.', 'logo_url' => null, 'location_query' => 'Law Center Inc., Cebu City, Central Visayas, Philippines', 'map_link' => 'https://www.google.com/maps/place/Law+Center+Inc./@10.3157,123.8854,15z'],
+            ['id' => Str::uuid(), 'short' => 'CEBU', 'slug' => 'province-cebu', 'name' => 'Province of Cebu', 'logo_url' => null, 'location_query' => 'Cebu Provincial Capitol, Cebu City, Cebu, Philippines', 'map_link' => 'https://www.google.com/maps/place/Cebu+Provincial+Capitol/@10.3157,123.8854,15z'],
+            ['id' => Str::uuid(), 'short' => 'CCG', 'slug' => 'city-cebu', 'name' => 'City of Cebu', 'logo_url' => null, 'location_query' => 'Cebu City Hall, Cebu City, Cebu, Philippines', 'map_link' => 'https://www.google.com/maps/place/Cebu+City+Hall/@10.3157,123.8854,15z'],
         ];
 
         foreach ($agencies as $i => $agency) {
@@ -34,6 +34,7 @@ class AgencySeeder extends Seeder
                     'name' => $agency['name'],
                     'logo_url' => $agency['logo_url'],
                     'location_query' => $agency['location_query'],
+                    'map_link' => $agency['map_link'],
                     'is_active' => true,
                     'is_default' => $agency['slug'] === 'dmw',
                     'updated_at' => $now,
@@ -46,6 +47,7 @@ class AgencySeeder extends Seeder
                     'name' => $agency['name'],
                     'logo_url' => $agency['logo_url'],
                     'location_query' => $agency['location_query'],
+                    'map_link' => $agency['map_link'],
                     'is_active' => true,
                     'is_default' => $agency['slug'] === 'dmw',
                     'created_at' => $now,

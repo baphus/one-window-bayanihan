@@ -26,6 +26,16 @@ class HandleInertiaRequests extends Middleware
         return app(OnboardingService::class)->isOnboardingRequired($user);
     }
 
+    private function getProfileIncomplete(Request $request): bool
+    {
+        $user = $request->user();
+        if (! $user) {
+            return false;
+        }
+
+        return app(OnboardingService::class)->isProfileIncomplete($user);
+    }
+
     public function share(Request $request): array
     {
         return [
@@ -43,6 +53,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'just_published' => $request->session()->get('just_published'),
             'onboarding_required' => fn () => $this->getOnboardingRequired($request),
+            'profile_incomplete' => fn () => $this->getProfileIncomplete($request),
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

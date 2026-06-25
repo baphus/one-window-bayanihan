@@ -13,6 +13,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
 import TourPrototype from './__TourPrototype';
+import DashboardBanner from '@/Components/DashboardBanner';
 
 ChartJS.register(
     CategoryScale, LinearScale, BarElement,
@@ -24,6 +25,7 @@ const pieOptions = { responsive: true, maintainAspectRatio: false, plugins: { le
 function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNotifications }) {
     return (
         <div className="max-w-7xl mx-auto pb-6">
+            <DashboardBanner />
             <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Agency Dashboard</h1>
@@ -144,6 +146,7 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
 function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
     return (
         <>
+            <DashboardBanner />
             <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
@@ -566,6 +569,7 @@ function CaseManagerDashboard({
 
   return (
     <div className="max-w-7xl mx-auto pb-6">
+      <DashboardBanner />
       {showTour && <TourPrototype />}
       <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>

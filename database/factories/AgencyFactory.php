@@ -20,9 +20,9 @@ class AgencyFactory extends Factory
             'slug' => Str::slug($name).'-'.Str::random(4),
             'description' => $this->faker->sentence(),
             'contact_info' => $this->faker->address(),
-            'map_link' => $this->faker->url(),
+            'map_link' => null,
             'logo_url' => null,
-            'location_query' => $this->faker->city(),
+            'location_query' => null,
             'is_active' => true,
             'is_deleted' => false,
         ];
