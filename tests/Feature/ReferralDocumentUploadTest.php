@@ -47,7 +47,7 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function add_attachment_rejects_exe_file(): void
     {
-        Storage::fake('public');
+        Storage::fake('supabase');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
@@ -64,7 +64,7 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function add_attachment_accepts_valid_pdf(): void
     {
-        Storage::fake('public');
+        Storage::fake('supabase');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
@@ -84,7 +84,7 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function store_rejects_php_file(): void
     {
-        Storage::fake('public');
+        Storage::fake('supabase');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
@@ -106,7 +106,7 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function store_accepts_valid_pdf(): void
     {
-        Storage::fake('public');
+        Storage::fake('supabase');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 

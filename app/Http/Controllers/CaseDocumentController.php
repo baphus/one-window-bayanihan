@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
+use App\Services\StorageService;
 use Illuminate\Http\Request;
 
 class CaseDocumentController extends Controller
@@ -23,19 +24,32 @@ class CaseDocumentController extends Controller
         $case = CaseFile::findOrFail($caseId);
         $this->authorizeAccess($case, $request->user());
 
-        $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png,gif', 'max:10240'],
-        ]);
+        $file = $request->file('file');
 
-        $path = $request->file('file')->store(
-            'case-documents/'.$caseId,
-            'supabase'
-        );
+        $errors = app(StorageService::class)->validate($file, 'case_document');
+        if (! empty($errors)) {
+            if ($request->wantsJson()) {
+                return response()->json(['errors' => ['file' => [$errors[0]]]], 422);
+            }
+
+            return back()->withErrors(['file' => $errors[0]]);
+        }
+
+        $result = app(StorageService::class)->store($file, 'case-documents/'.$caseId);
+
+        if (! $result->success) {
+            if ($request->wantsJson()) {
+                return response()->json(['errors' => ['file' => [$result->error ?? 'Failed to store file.']]], 422);
+            }
+
+            return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
+        }
 
         $document = CaseDocument::create([
-            'file_name' => $request->file('file')->getClientOriginalName(),
-            'file_path' => $path,
-            'file_type' => $request->file('file')->getMimeType(),
+            'file_name' => $result->originalName,
+            'file_path' => $result->path,
+            'file_type' => $result->type,
+            'size' => $result->size,
             'case_id' => $caseId,
             'user_id' => $request->user()->id,
         ]);
@@ -66,7 +80,13 @@ class CaseDocumentController extends Controller
             ->where('is_deleted', false)
             ->firstOrFail();
 
-        return redirect($document->file_path);
+        $url = app(StorageService::class)->temporaryUrl($document->file_path, 24);
+
+        if (! $url) {
+            abort(404, 'File not found or unavailable.');
+        }
+
+        return redirect()->away($url);
     }
 
     public function destroy(Request $request, string $caseId, string $documentId)

@@ -6,6 +6,7 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { useToast } from '@/Hooks/useToast';
 import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import FileUpload from '@/Components/FileUpload';
 import { CardSection, MetaTile } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
@@ -67,35 +68,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
   const [saving, setSaving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  const docInputRef = useRef(null);
-  
-  function handleDocumentUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size exceeds 10MB limit.');
-      if (docInputRef.current) docInputRef.current.value = '';
-      return;
-    }
-
-    setUploadingDoc(true);
-    router.post(
-      route('cases.documents.store', caseFile.id),
-      { file },
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          setUploadingDoc(false);
-          if (docInputRef.current) docInputRef.current.value = '';
-        },
-        onError: () => {
-          setUploadingDoc(false);
-          if (docInputRef.current) docInputRef.current.value = '';
-        },
-      }
-    );
-  }
 
   function handleDocumentDelete(docId) {
     if (confirm('Are you sure you want to delete this document?')) {
@@ -586,7 +558,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                           </div>
                           <div className="flex items-center gap-2 shrink-0 ml-2">
                             <a
-                              href={doc.file_path}
+                              href={route('cases.documents.download', { case: caseFile.id, document: doc.id })}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-slate-500 hover:text-[#0b5384]"
@@ -611,32 +583,25 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                   <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
                 )}
                 
-                <div 
-                  className="bg-white border border-dashed border-[#cbd5e1] rounded-[3px] p-4 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors"
-                  onClick={() => docInputRef.current?.click()}
-                >
-                  <div className="text-center">
-                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#eff6ff] text-[#0b5384] border border-[#bfdbfe]">
-                      {uploadingDoc ? (
-                        <span className="material-symbols-outlined text-[20px] animate-spin">sync</span>
-                      ) : (
-                        <span className="material-symbols-outlined text-[20px]">upload</span>
-                      )}
-                    </div>
-                    <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#0b5384]">
-                      {uploadingDoc ? 'Uploading...' : 'Upload New File'}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-500">PDF or image up to 10MB</p>
-                  </div>
-                  <input
-                    type="file"
-                    ref={docInputRef}
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
-                    onChange={handleDocumentUpload}
-                    disabled={uploadingDoc}
-                  />
-                </div>
+                <FileUpload
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                  maxSize={10 * 1024 * 1024}
+                  label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                  disabled={uploadingDoc}
+                  onFilesSelected={(file) => {
+                    if (!file) return;
+                    setUploadingDoc(true);
+                    router.post(
+                      route('cases.documents.store', caseFile.id),
+                      { file },
+                      {
+                        preserveScroll: true,
+                        onSuccess: () => setUploadingDoc(false),
+                        onError: () => setUploadingDoc(false),
+                      },
+                    );
+                  }}
+                />
               </div>
             </CardSection>
 
@@ -653,7 +618,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                         </p>
                       </div>
                       <a
-                        href={att.file_path}
+                        href={route('referrals.attachments.download', { referral: att.referral_id, attachment: att.id })}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-slate-500 hover:text-[#0b5384] shrink-0 ml-2"

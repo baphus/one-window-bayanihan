@@ -5,6 +5,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import InputError from '@/Components/InputError';
+import FileUpload from '@/Components/FileUpload';
 import { referralSchema } from '@/Schemas/referralSchema';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { useToast } from '@/Hooks/useToast';
@@ -672,11 +673,10 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                                         </div>
                                                                                     ) : (
                                                                                         <>
-                                                                                            <input
-                                                                                                type="file"
+                                                                                            <FileUpload
                                                                                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
-                                                                                                onChange={(e) => handleFileChange(requirementKey, e.target.files?.[0] || null)}
-                                                                                                className="mt-2 block w-full rounded-[3px] border border-[#cbd5e1] bg-white px-3 py-2 text-[12px] text-slate-700 file:mr-3 file:rounded-[3px] file:border-0 file:bg-indigo-50 file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-700"
+                                                                                                label="Choose file"
+                                                                                                onFilesSelected={(file) => handleFileChange(requirementKey, file)}
                                                                                             />
                                                                                             {hasFile ? (
                                                                                                 <p className="mt-1 text-[11px] text-emerald-600">Attached: {requirementUploads[requirementKey]?.name}</p>

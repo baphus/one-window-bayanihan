@@ -131,6 +131,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals/{referral}/comments/{comment}/reply', [ReferralController::class, 'replyToComment'])->name('referrals.comments.reply');
     Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store');
     Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace');
+    Route::get('/referrals/{referral}/attachments/{attachment}/download', [ReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
     Route::post('/referrals/{referral}/compliance/{compliance}/fulfill', [ReferralController::class, 'fulfillCompliance'])->name('referrals.compliance.fulfill');
 

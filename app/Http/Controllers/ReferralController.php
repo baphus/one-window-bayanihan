@@ -12,6 +12,7 @@ use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferralService;
+use App\Services\StorageService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -60,14 +61,23 @@ class ReferralController extends Controller
 
         if ($request->hasFile('documents')) {
             foreach ($request->file('documents') as $key => $file) {
-                $path = $file->store('referrals/'.$referral->id, 'supabase');
+                $errors = app(StorageService::class)->validate($file, 'referral_attachment');
+                if (! empty($errors)) {
+                    return back()->withErrors(['documents.'.$key => $errors[0]]);
+                }
+
+                $result = app(StorageService::class)->store($file, 'referrals/'.$referral->id);
+
+                if (! $result->success) {
+                    return back()->withErrors(['documents.'.$key => $result->error ?? 'Failed to store file.']);
+                }
 
                 ReferralAttachment::create([
                     'referral_id' => $referral->id,
-                    'file_name' => implode(' - ', [str_replace('::', ' / ', $key), $file->getClientOriginalName()]),
-                    'file_path' => $path,
-                    'file_type' => $file->getMimeType(),
-                    'size' => $file->getSize(),
+                    'file_name' => implode(' - ', [str_replace('::', ' / ', $key), $result->originalName]),
+                    'file_path' => $result->path,
+                    'file_type' => $result->type,
+                    'size' => $result->size,
                     'user_id' => $request->user()->id,
                 ]);
             }
@@ -179,20 +189,26 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp|max:10240',
-        ]);
-
         $file = $request->file('file');
-        $path = $file->store('referrals/'.$referral->id, 'supabase');
+
+        $errors = app(StorageService::class)->validate($file, 'referral_attachment');
+        if (! empty($errors)) {
+            return back()->withErrors(['file' => $errors[0]]);
+        }
+
+        $result = app(StorageService::class)->store($file, 'referrals/'.$referral->id);
+
+        if (! $result->success) {
+            return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
+        }
 
         $attachment = $this->referralService->addAttachment(
             $id,
             [
-                'name' => $file->getClientOriginalName(),
-                'path' => $path,
-                'type' => $file->getMimeType(),
-                'size' => $file->getSize(),
+                'name' => $result->originalName,
+                'path' => $result->path,
+                'type' => $result->type,
+                'size' => $result->size,
             ],
             $request->user()->id,
         );
@@ -207,20 +223,26 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp', 'max:10240'],
-        ]);
-
         $file = $request->file('file');
-        $path = $file->store('referrals/'.$referral->id, 'supabase');
+
+        $errors = app(StorageService::class)->validate($file, 'referral_attachment');
+        if (! empty($errors)) {
+            return back()->withErrors(['file' => $errors[0]]);
+        }
+
+        $result = app(StorageService::class)->store($file, 'referrals/'.$referral->id);
+
+        if (! $result->success) {
+            return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
+        }
 
         $this->referralService->fulfillCompliance(
             $complianceId,
             [
-                'name' => $file->getClientOriginalName(),
-                'path' => $path,
-                'type' => $file->getMimeType(),
-                'size' => $file->getSize(),
+                'name' => $result->originalName,
+                'path' => $result->path,
+                'type' => $result->type,
+                'size' => $result->size,
             ],
             $request->user()->id,
         );
@@ -233,20 +255,26 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp|max:10240',
-        ]);
-
         $file = $request->file('file');
-        $path = $file->store('referrals/'.$referral->id, 'supabase');
+
+        $errors = app(StorageService::class)->validate($file, 'referral_attachment');
+        if (! empty($errors)) {
+            return back()->withErrors(['file' => $errors[0]]);
+        }
+
+        $result = app(StorageService::class)->store($file, 'referrals/'.$referral->id);
+
+        if (! $result->success) {
+            return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
+        }
 
         $attachment = $this->referralService->replaceAttachment(
             $attachmentId,
             [
-                'name' => $file->getClientOriginalName(),
-                'path' => $path,
-                'type' => $file->getMimeType(),
-                'size' => $file->getSize(),
+                'name' => $result->originalName,
+                'path' => $result->path,
+                'type' => $result->type,
+                'size' => $result->size,
             ],
             $request->user()->id,
         );
@@ -254,6 +282,25 @@ class ReferralController extends Controller
         return redirect()
             ->back()
             ->with('success', 'Attachment replaced.');
+    }
+
+    public function downloadAttachment(Request $request, string $id, string $attachmentId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        $attachment = ReferralAttachment::where('referral_id', $id)
+            ->where('id', $attachmentId)
+            ->where('is_deleted', false)
+            ->firstOrFail();
+
+        $url = app(StorageService::class)->temporaryUrl($attachment->file_path, 24);
+
+        if (! $url) {
+            abort(404, 'File not found or unavailable.');
+        }
+
+        return redirect()->away($url);
     }
 
     public function getAttachmentVersions(string $id, string $versionGroupId)

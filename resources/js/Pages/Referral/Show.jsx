@@ -5,6 +5,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
+import FileUpload from '@/Components/FileUpload';
 import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar from '@/Components/ui/UserAvatar';
@@ -123,8 +124,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     const [showMilestoneModal, setShowMilestoneModal] = useState(false);
     const milestoneForm = useForm({ title: '', description: '' });
 
-    const fileInputRefs = useRef({});
-    const attachInputRef = useRef(null);
+
     const commentsEndRef = useRef(null);
 
     const replyToComment = replyToCommentId
@@ -178,33 +178,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                 setPostingComment(false);
             },
             onError: () => setPostingComment(false),
-        });
-    }
-
-    function handleDocumentReplace(event) {
-        const files = Array.from(event.target.files ?? []);
-        const targetId = event.target.dataset.docId;
-        if (!targetId || !files[0]) return;
-        event.target.value = '';
-        const formData = new FormData();
-        formData.append('file', files[0]);
-        router.post(route('referrals.attachments.replace', [referral.id, targetId]), formData, {
-            preserveScroll: true,
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-    }
-
-    function handleAttachDocuments(event) {
-        const files = Array.from(event.target.files ?? []);
-        if (!files.length) return;
-        event.target.value = '';
-        files.forEach((file) => {
-            const formData = new FormData();
-            formData.append('file', file);
-            router.post(route('referrals.attachments.store', referral.id), formData, {
-                preserveScroll: true,
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
         });
     }
 
@@ -364,21 +337,20 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
                     <CardSection title="Attached Documents" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
                         {!isAgency && (
-                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] px-3 py-2">
-                                <p className="text-[10px] text-slate-600">Attach additional files for this referral.</p>
-                                <button
-                                    type="button"
-                                    onClick={() => attachInputRef.current?.click()}
-                                    className="h-[28px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a]"
-                                >
-                                    Attach Document
-                                </button>
-                                <input
-                                    ref={attachInputRef}
-                                    type="file"
+                            <div className="mb-3">
+                                <FileUpload
                                     multiple
-                                    onChange={handleAttachDocuments}
-                                    className="hidden"
+                                    label="Attach additional files for this referral"
+                                    onFilesSelected={(files) => {
+                                        files.forEach((file) => {
+                                            const formData = new FormData();
+                                            formData.append('file', file);
+                                            router.post(route('referrals.attachments.store', referral.id), formData, {
+                                                preserveScroll: true,
+                                                headers: { 'Content-Type': 'multipart/form-data' },
+                                            });
+                                        });
+                                    }}
                                 />
                             </div>
                         )}
@@ -419,44 +391,42 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                                                 {document.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(document.created_at)}
                                                                             </p>
                                                                         </div>
-                                                                        <div className="flex items-center gap-2 shrink-0">
-                                                                            <a href={document.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
-                                                                            {document.version_group_id && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => setActiveVersionGroupId(document.version_group_id)}
-                                                                                    className="text-[10px] text-slate-600 font-bold hover:underline"
-                                                                                >
-                                                                                    Versions
-                                                                                </button>
-                                                                            )}
-                                                                            {!isAgency && (
-                                                                            <>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => fileInputRefs.current[document.id]?.click()}
-                                                                                    className="text-[10px] text-[#0b5384] font-bold hover:underline"
-                                                                                >
-                                                                                    Replace
-                                                                                </button>
-                                                                                <input
-                                                                                    ref={(el) => { fileInputRefs.current[document.id] = el; }}
-                                                                                    data-doc-id={document.id}
-                                                                                    type="file"
-                                                                                    onChange={handleDocumentReplace}
-                                                                                    className="hidden"
-                                                                                />
-                                                                            </>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            ) : (
-                                                <p className="text-[11px] text-slate-500">No required documents configured for this referred service.</p>
+                                                                         <div className="flex items-center gap-2 shrink-0">
+                                                                             <a href={route('referrals.attachments.download', { referral: document.referral_id ?? referral.id, attachment: document.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
+                                                                             {document.version_group_id && (
+                                                                                 <button
+                                                                                     type="button"
+                                                                                     onClick={() => setActiveVersionGroupId(document.version_group_id)}
+                                                                                     className="text-[10px] text-slate-600 font-bold hover:underline"
+                                                                                 >
+                                                                                     Versions
+                                                                                 </button>
+                                                                             )}
+                                                                         </div>
+                                                                     </div>
+                                                                 )}
+                                                                 {!isAgency && document && (
+                                                                     <div className="mt-2">
+                                                                         <FileUpload
+                                                                             label="Replace file"
+                                                                             onFilesSelected={(file) => {
+                                                                                 if (!file) return;
+                                                                                 const formData = new FormData();
+                                                                                 formData.append('file', file);
+                                                                                 router.post(route('referrals.attachments.replace', [referral.id, document.id]), formData, {
+                                                                                     preserveScroll: true,
+                                                                                     headers: { 'Content-Type': 'multipart/form-data' },
+                                                                                 });
+                                                                             }}
+                                                                         />
+                                                                     </div>
+                                                                 )}
+                                                             </div>
+                                                         );
+                                                     })}
+                                                 </div>
+                                             ) : (
+                                                 <p className="text-[11px] text-slate-500">No required documents configured for this referred service.</p>
                                             )}
                                         </div>
                                     );
@@ -474,7 +444,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
+                                                    <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
                                                     {doc.version_group_id && (
                                                         <button
                                                             type="button"
@@ -484,25 +454,23 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                             Versions
                                                         </button>
                                                     )}
-                                                    {!isAgency && (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => fileInputRefs.current[doc.id]?.click()}
-                                                            className="text-[10px] text-[#0b5384] font-bold hover:underline"
-                                                        >
-                                                            Replace
-                                                        </button>
-                                                        <input
-                                                            ref={(el) => { fileInputRefs.current[doc.id] = el; }}
-                                                            data-doc-id={doc.id}
-                                                            type="file"
-                                                            onChange={handleDocumentReplace}
-                                                            className="hidden"
-                                                        />
-                                                    </>
-                                                    )}
                                                 </div>
+                                                {!isAgency && (
+                                                    <div className="mt-2">
+                                                        <FileUpload
+                                                            label="Replace file"
+                                                            onFilesSelected={(file) => {
+                                                                if (!file) return;
+                                                                const formData = new FormData();
+                                                                formData.append('file', file);
+                                                                router.post(route('referrals.attachments.replace', [referral.id, doc.id]), formData, {
+                                                                    preserveScroll: true,
+                                                                    headers: { 'Content-Type': 'multipart/form-data' },
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -536,24 +504,18 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
                                         {cr.status === 'PENDING' ? (
                                             <div className="mt-3">
-                                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-[3px] bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors">
-                                                    <span>Upload to Fulfill</span>
-                                                    <input
-                                                        type="file"
-                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
-                                                        className="hidden"
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (!file) return;
-                                                            e.target.value = '';
-                                                            router.post(
-                                                                route('referrals.compliance.fulfill', [referral.id, cr.id]),
-                                                                { file },
-                                                                { preserveScroll: true }
-                                                            );
-                                                        }}
-                                                    />
-                                                </label>
+                                                <FileUpload
+                                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                                                    label="Upload to Fulfill"
+                                                    onFilesSelected={(file) => {
+                                                        if (!file) return;
+                                                        router.post(
+                                                            route('referrals.compliance.fulfill', [referral.id, cr.id]),
+                                                            { file },
+                                                            { preserveScroll: true }
+                                                        );
+                                                    }}
+                                                />
                                             </div>
                                         ) : (
                                             <div className="mt-2 text-[11px] text-slate-500">
@@ -840,7 +802,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                 {formatDisplayDateTime(doc.created_at)} &middot; {doc.user?.name ?? 'Unknown'} &middot; {doc.is_archived ? 'Archived' : 'Current'}
                                             </p>
                                         </div>
-                                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline shrink-0">View</a>
+                                        <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline shrink-0">View</a>
                                     </div>
                                 ))
                             ) : (

@@ -17,6 +17,7 @@ class CaseDocument extends Model
         'file_name',
         'file_path',
         'file_type',
+        'size',
         'case_id',
         'user_id',
         'is_deleted',

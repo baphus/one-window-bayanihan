@@ -9,6 +9,7 @@ use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CaseDocumentTest extends TestCase
@@ -186,6 +187,29 @@ class CaseDocumentTest extends TestCase
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertForbidden();
+    }
+
+    public function test_document_creation_stores_size()
+    {
+        Storage::fake('supabase');
+
+        $file = UploadedFile::fake()->create('document.pdf', 2048);
+
+        $response = $this->actingAs($this->caseManager)
+            ->postJson(route('cases.documents.store', $this->case->id), [
+                'file' => $file,
+            ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('case_documents', [
+            'case_id' => $this->case->id,
+            'file_name' => 'document.pdf',
+        ]);
+
+        $document = CaseDocument::where('case_id', $this->case->id)->first();
+        $this->assertNotNull($document->size);
+        $this->assertGreaterThan(0, $document->size);
     }
 
     public function test_invalid_file_type_returns_422()

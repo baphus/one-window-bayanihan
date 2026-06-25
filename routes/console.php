@@ -11,3 +11,5 @@ Schedule::command('insights:check-alerts')->everyFiveMinutes();
 Schedule::command('insights:refresh-views')->everyFifteenMinutes();
 
 Schedule::command('logs:cleanup')->dailyAt('03:00');
+
+Schedule::command('storage:cleanup-orphans')->daily();
