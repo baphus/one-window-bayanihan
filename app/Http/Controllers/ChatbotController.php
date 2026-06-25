@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Contracts\HelpCenterProviderInterface;
-use App\Models\SystemSetting;
 use App\Services\Ai\AiService;
 use App\Services\Ai\Contracts\ToolEnabledAiProvider;
 use App\Services\Ai\PromptAssemblyService;
@@ -72,7 +71,7 @@ class ChatbotController extends Controller
         } catch (\Exception $e) {
             Log::warning('Chatbot AI service sendMessage failed', [
                 'error' => $e->getMessage(),
-                'provider' => SystemSetting::getValue('chatbot_provider', 'unknown'),
+                'provider' => config('ai-chatbot.provider', 'unknown'),
             ]);
 
             return response()->json(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.'], 503);
@@ -143,8 +142,8 @@ class ChatbotController extends Controller
             $this->createToolHandler(),
             [
                 'system_prompt' => $systemPrompt,
-                'temperature' => (float) SystemSetting::getValue('chatbot_temperature', '0.7'),
-                'max_tokens' => (int) SystemSetting::getValue('chatbot_max_tokens', '500'),
+                'temperature' => (float) config('ai-chatbot.temperature', '0.7'),
+                'max_tokens' => (int) config('ai-chatbot.max_tokens', '500'),
             ]
         );
     }
