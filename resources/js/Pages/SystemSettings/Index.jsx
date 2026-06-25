@@ -8,86 +8,23 @@ export default function SystemSettings({
     debug_otp_enabled,
     debug_tracking_otp_enabled,
     referral_overdue_days,
-    chatbot_enabled,
-    chatbot_provider,
-    chatbot_model,
-    chatbot_system_prompt,
-    chatbot_temperature,
-    chatbot_max_tokens,
-    chatbot_custom_endpoint,
-    has_chatbot_api_key,
 }) {
     const [debugOtp, setDebugOtp] = useState(debug_otp_enabled);
     const [debugTrackingOtp, setDebugTrackingOtp] = useState(debug_tracking_otp_enabled);
     const [overdueDays, setOverdueDays] = useState(referral_overdue_days);
-    
-    const [chatbotEnabled, setChatbotEnabled] = useState(chatbot_enabled);
-    const [chatbotProvider, setChatbotProvider] = useState(chatbot_provider);
-    const [chatbotApiKey, setChatbotApiKey] = useState('');
-    const [chatbotModel, setChatbotModel] = useState(chatbot_model);
-    const [chatbotSystemPrompt, setChatbotSystemPrompt] = useState(chatbot_system_prompt);
-    const [chatbotTemperature, setChatbotTemperature] = useState(chatbot_temperature);
-    const [chatbotMaxTokens, setChatbotMaxTokens] = useState(chatbot_max_tokens);
-    const [chatbotCustomEndpoint, setChatbotCustomEndpoint] = useState(chatbot_custom_endpoint);
 
     const initialRef = useRef({ 
         debugOtp: debug_otp_enabled,
         debugTrackingOtp: debug_tracking_otp_enabled,
         overdueDays: referral_overdue_days,
-        chatbotEnabled: chatbot_enabled,
-        chatbotProvider: chatbot_provider,
-        chatbotApiKey: '',
-        chatbotModel: chatbot_model,
-        chatbotSystemPrompt: chatbot_system_prompt,
-        chatbotTemperature: chatbot_temperature,
-        chatbotMaxTokens: chatbot_max_tokens,
-        chatbotCustomEndpoint: chatbot_custom_endpoint,
     });
     
     const hasDirty = useMemo(() => (
         debugOtp !== initialRef.current.debugOtp
         || debugTrackingOtp !== initialRef.current.debugTrackingOtp
         || overdueDays !== initialRef.current.overdueDays
-        || chatbotEnabled !== initialRef.current.chatbotEnabled
-        || chatbotProvider !== initialRef.current.chatbotProvider
-        || chatbotApiKey !== initialRef.current.chatbotApiKey
-        || chatbotModel !== initialRef.current.chatbotModel
-        || chatbotSystemPrompt !== initialRef.current.chatbotSystemPrompt
-        || chatbotTemperature !== initialRef.current.chatbotTemperature
-        || chatbotMaxTokens !== initialRef.current.chatbotMaxTokens
-        || chatbotCustomEndpoint !== initialRef.current.chatbotCustomEndpoint
-    ), [debugOtp, debugTrackingOtp, overdueDays, chatbotEnabled, chatbotProvider, chatbotApiKey, chatbotModel, chatbotSystemPrompt, chatbotTemperature, chatbotMaxTokens, chatbotCustomEndpoint]);
+    ), [debugOtp, debugTrackingOtp, overdueDays]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
-
-    const saveChatbotSettings = () => {
-        bypassNext();
-        router.post(route('admin.system-settings.update'), {
-            ...(chatbotEnabled !== initialRef.current.chatbotEnabled && { chatbot_enabled: chatbotEnabled }),
-            ...(chatbotProvider !== initialRef.current.chatbotProvider && { chatbot_provider: chatbotProvider }),
-            ...(chatbotApiKey && { chatbot_api_key: chatbotApiKey }),
-            ...(chatbotModel !== initialRef.current.chatbotModel && { chatbot_model: chatbotModel }),
-            ...(chatbotSystemPrompt !== initialRef.current.chatbotSystemPrompt && { chatbot_system_prompt: chatbotSystemPrompt }),
-            ...(chatbotTemperature !== initialRef.current.chatbotTemperature && { chatbot_temperature: chatbotTemperature }),
-            ...(chatbotMaxTokens !== initialRef.current.chatbotMaxTokens && { chatbot_max_tokens: chatbotMaxTokens }),
-            ...(chatbotCustomEndpoint !== initialRef.current.chatbotCustomEndpoint && { chatbot_custom_endpoint: chatbotCustomEndpoint }),
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setChatbotApiKey('');
-                initialRef.current = {
-                    ...initialRef.current,
-                    chatbotEnabled,
-                    chatbotProvider,
-                    chatbotApiKey: '',
-                    chatbotModel,
-                    chatbotSystemPrompt,
-                    chatbotTemperature,
-                    chatbotMaxTokens,
-                    chatbotCustomEndpoint,
-                };
-            },
-        });
-    };
 
     const toggleDebugOtp = () => {
         const next = !debugOtp;
@@ -192,128 +129,6 @@ export default function SystemSettings({
                     <p className="text-sm text-slate-600">
                         One-Time Password settings for login and tracking systems.
                     </p>
-                </div>
-
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h3 className="text-base font-semibold text-slate-900">AI Chatbot Configuration</h3>
-                            <p className="text-sm text-slate-500 mt-1">
-                                Configure the AI assistant for case summaries and recommendations.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={chatbotEnabled}
-                            onClick={() => setChatbotEnabled(!chatbotEnabled)}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${chatbotEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                        >
-                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${chatbotEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Provider</label>
-                            <select
-                                value={chatbotProvider}
-                                onChange={(e) => setChatbotProvider(e.target.value)}
-                                className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                            >
-                                <option value="openai">OpenAI</option>
-                                <option value="anthropic">Anthropic (Claude)</option>
-                                <option value="gemini">Google Gemini</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                        </div>
-
-                        {chatbotProvider === 'custom' && (
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Custom Endpoint URL</label>
-                                <input
-                                    type="text"
-                                    value={chatbotCustomEndpoint || ''}
-                                    onChange={(e) => setChatbotCustomEndpoint(e.target.value)}
-                                    placeholder="https://api.example.com/v1"
-                                    className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                />
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">API Key</label>
-                            <input
-                                type="password"
-                                value={chatbotApiKey}
-                                onChange={(e) => setChatbotApiKey(e.target.value)}
-                                placeholder={has_chatbot_api_key ? "Enter new API key to update..." : "Enter API key"}
-                                className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                            />
-                            {has_chatbot_api_key && (
-                                <p className="text-xs text-slate-500 mt-1">Leave blank to keep existing key</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Model</label>
-                            <input
-                                type="text"
-                                value={chatbotModel || ''}
-                                onChange={(e) => setChatbotModel(e.target.value)}
-                                placeholder="gpt-4o-mini"
-                                className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">System Prompt</label>
-                            <textarea
-                                value={chatbotSystemPrompt || ''}
-                                onChange={(e) => setChatbotSystemPrompt(e.target.value)}
-                                rows={6}
-                                className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Temperature ({chatbotTemperature})
-                                </label>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.1"
-                                    value={chatbotTemperature}
-                                    onChange={(e) => setChatbotTemperature(parseFloat(e.target.value))}
-                                    className="block w-full"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Max Tokens</label>
-                                <input
-                                    type="number"
-                                    min="100"
-                                    max="4000"
-                                    value={chatbotMaxTokens}
-                                    onChange={(e) => setChatbotMaxTokens(parseInt(e.target.value))}
-                                    className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="pt-4 flex justify-end">
-                            <button
-                                type="button"
-                                onClick={saveChatbotSettings}
-                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500"
-                            >
-                                Save Chatbot Settings
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">

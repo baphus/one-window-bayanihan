@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\SystemSetting;
 use App\Services\AlertService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
@@ -52,8 +51,8 @@ class HandleInertiaRequests extends Middleware
                 'status' => $request->session()->get('status'),
             ],
             'chatbot' => [
-                'enabled' => SystemSetting::getValue('chatbot_enabled', false) === 'true' || SystemSetting::getValue('chatbot_enabled', false) === true,
-                'provider' => SystemSetting::getValue('chatbot_provider', 'openai'),
+                'enabled' => config('ai-chatbot.enabled', false),
+                'provider' => config('ai-chatbot.provider', 'openai'),
             ],
         ];
     }
