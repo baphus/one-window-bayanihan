@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
+import AgencyMapView from '@/Components/AgencyMapView';
 
 function AgencyLogo({ agency }) {
   const [hasError, setHasError] = useState(false);
@@ -36,11 +37,6 @@ function InfoItem({ label, value }) {
 
 export default function StakeholderShow({ stakeholder, stats }) {
     const services = stakeholder.services || [];
-    const mapSrc = stakeholder.latitude && stakeholder.longitude
-        ? `https://maps.google.com/maps?q=${stakeholder.latitude},${stakeholder.longitude}&output=embed`
-        : stakeholder.location_query
-            ? `https://maps.google.com/maps?q=${encodeURIComponent(stakeholder.location_query)}&output=embed`
-            : null;
 
     return (
         <AppLayout title={stakeholder.short}>
@@ -124,21 +120,14 @@ export default function StakeholderShow({ stakeholder, stats }) {
                 <aside className="xl:col-span-5 space-y-6">
                     <section className="rounded-lg border border-[#d8dee8] bg-white p-6 shadow-sm">
                         <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-3">Google Maps Location</h3>
-                        {mapSrc ? (
-                            <div className="overflow-hidden rounded-[3px] border border-[#d8dee8]">
-                                <iframe
-                                    title={`${stakeholder.name} location`}
-                                    src={mapSrc}
-                                    className="h-[420px] w-full"
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer-when-downgrade"
-                                />
-                            </div>
-                        ) : (
-                            <div className="rounded-[3px] border border-dashed border-[#cbd5e1] p-4 text-[12px] text-slate-500">
-                                No location data available.
-                            </div>
-                        )}
+                        <AgencyMapView
+                            mapLink={stakeholder.map_link}
+                            latitude={stakeholder.latitude}
+                            longitude={stakeholder.longitude}
+                            locationQuery={stakeholder.location_query}
+                            agencyName={stakeholder.name}
+                            embedHeight="420px"
+                        />
                     </section>
 
                     {stakeholder.description && (

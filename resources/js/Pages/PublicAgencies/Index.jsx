@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
+import AgencyMapView from '@/Components/AgencyMapView';
 
 function AgencyLogo({ agency }) {
   const [hasError, setHasError] = useState(false);
@@ -64,20 +65,14 @@ export default function PublicAgencies({ agencies }) {
                     <p className="text-sm text-slate-600 mb-4 line-clamp-3">{agency.description}</p>
                   )}
 
-                  {agency.location_query && (
-                    <a
-                      href={agency.latitude && agency.longitude
-                        ? `https://www.google.com/maps?q=${agency.latitude},${agency.longitude}`
-                        : `https://www.google.com/maps?q=${encodeURIComponent(agency.location_query)}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#0b5c92] hover:underline"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">map</span>
-                      View Location
-                    </a>
-                  )}
+                  <AgencyMapView
+                    mapLink={agency.map_link}
+                    latitude={agency.latitude}
+                    longitude={agency.longitude}
+                    locationQuery={agency.location_query}
+                    agencyName={agency.name}
+                    embedHeight="100px"
+                  />
 
                   {agency.services?.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-slate-100">

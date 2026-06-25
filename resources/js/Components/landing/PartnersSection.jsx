@@ -1,12 +1,6 @@
 import { useState } from 'react';
 import AppButton from './AppButton';
-
-function getMapsUrl(agency) {
-  if (agency.latitude && agency.longitude) {
-    return `https://www.google.com/maps?q=${agency.latitude},${agency.longitude}&output=embed`;
-  }
-  return `https://www.google.com/maps?q=${encodeURIComponent(agency.location_query || '')}&output=embed`;
-}
+import AgencyMapView from '@/Components/AgencyMapView';
 
 function AgencyLogo({ agency }) {
   const [hasError, setHasError] = useState(false);
@@ -50,7 +44,14 @@ export default function PartnersSection({ agencies }) {
                 </div>
               </div>
               <div className="h-[110px] overflow-hidden border border-outline-variant/30 bg-white">
-                <iframe title={`${agency.name} map`} src={getMapsUrl(agency)} className="h-full w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+                <AgencyMapView
+                  mapLink={agency.map_link}
+                  latitude={agency.latitude}
+                  longitude={agency.longitude}
+                  locationQuery={agency.location_query}
+                  agencyName={agency.name}
+                  embedHeight="110px"
+                />
               </div>
               <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-secondary">View Agency Location</p>
             </div>
