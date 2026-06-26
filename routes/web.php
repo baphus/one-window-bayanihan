@@ -8,9 +8,6 @@ use App\Http\Controllers\Admin\AlertConfigController;
 use App\Http\Controllers\Admin\BackupStatusController;
 use App\Http\Controllers\Admin\DataExportController;
 use App\Http\Controllers\Admin\EmailLogController;
-use App\Http\Controllers\Admin\HelpdeskArticleController;
-use App\Http\Controllers\Admin\HelpdeskCategoryController;
-use App\Http\Controllers\Admin\HelpdeskTagController;
 use App\Http\Controllers\Admin\LogViewerController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
@@ -217,28 +214,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/system-settings', [SystemSettingsController::class, 'index'])->name('system-settings.index');
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
-
-        Route::get('/helpdesk/articles', [HelpdeskArticleController::class, 'index'])->name('helpdesk.articles.index');
-        Route::get('/helpdesk/articles/create', [HelpdeskArticleController::class, 'create'])->name('helpdesk.articles.create');
-        Route::post('/helpdesk/articles', [HelpdeskArticleController::class, 'store'])->name('helpdesk.articles.store');
-        Route::get('/helpdesk/articles/{article}/edit', [HelpdeskArticleController::class, 'edit'])->name('helpdesk.articles.edit');
-        Route::patch('/helpdesk/articles/{article}', [HelpdeskArticleController::class, 'update'])->name('helpdesk.articles.update');
-        Route::delete('/helpdesk/articles/{article}', [HelpdeskArticleController::class, 'destroy'])->name('helpdesk.articles.destroy');
-        Route::post('/helpdesk/articles/{article}/restore', [HelpdeskArticleController::class, 'restore'])->name('helpdesk.articles.restore');
-        Route::post('/helpdesk/articles/{article}/toggle-featured', [HelpdeskArticleController::class, 'toggleFeatured'])->name('helpdesk.articles.toggle-featured');
-        Route::get('/helpdesk/articles/{article}/versions', [HelpdeskArticleController::class, 'versions'])->name('helpdesk.articles.versions');
-
-        Route::get('/helpdesk/categories', [HelpdeskCategoryController::class, 'index'])->name('helpdesk.categories.index');
-        Route::post('/helpdesk/categories', [HelpdeskCategoryController::class, 'store'])->name('helpdesk.categories.store');
-        Route::patch('/helpdesk/categories/{category}', [HelpdeskCategoryController::class, 'update'])->name('helpdesk.categories.update');
-        Route::delete('/helpdesk/categories/{category}', [HelpdeskCategoryController::class, 'destroy'])->name('helpdesk.categories.destroy');
-
-        Route::get('/helpdesk/tags', [HelpdeskTagController::class, 'index'])->name('helpdesk.tags.index');
-        Route::post('/helpdesk/tags', [HelpdeskTagController::class, 'store'])->name('helpdesk.tags.store');
-        Route::patch('/helpdesk/tags/{tag}', [HelpdeskTagController::class, 'update'])->name('helpdesk.tags.update');
-        Route::delete('/helpdesk/tags/{tag}', [HelpdeskTagController::class, 'destroy'])->name('helpdesk.tags.destroy');
-
-        Route::post('/helpdesk/articles/upload-image', [HelpdeskArticleController::class, 'uploadImage'])->name('helpdesk.articles.upload-image');
 
         Route::get('/case-categories', [AdminCaseCategoryController::class, 'index'])->name('case-categories.index');
         Route::post('/case-categories', [AdminCaseCategoryController::class, 'store'])->name('case-categories.store');

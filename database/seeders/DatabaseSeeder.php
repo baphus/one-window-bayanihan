@@ -17,8 +17,6 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ServiceSeeder::class,
             AgencySeeder::class,
-            HelpdeskSeeder::class,
-            HelpdeskSeederV2::class,
             CaseCategorySeeder::class,
             CaseIssueSeeder::class,
             DemoDataSeeder::class,
