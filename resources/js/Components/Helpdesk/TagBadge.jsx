@@ -1,7 +1,8 @@
-import { Link } from '@inertiajs/react';
 import clsx from 'clsx';
 
-export default function TagBadge({ tag, href, active }) {
+export default function TagBadge({ tag, tagName, href, active }) {
+  const label = tagName ?? tag?.name;
+
   const classes = clsx(
     'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
     active
@@ -11,11 +12,11 @@ export default function TagBadge({ tag, href, active }) {
 
   if (href) {
     return (
-      <Link href={href} className={classes}>
-        {tag.name}
-      </Link>
+      <a href={href} className={classes}>
+        {label}
+      </a>
     );
   }
 
-  return <span className={classes}>{tag.name}</span>;
+  return <span className={classes}>{label}</span>;
 }

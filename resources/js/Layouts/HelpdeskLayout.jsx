@@ -1,8 +1,10 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link } from '@inertiajs/react';
+import { useState, useMemo } from 'react';
 
 import ChatBot from '@/Components/ChatBot';
 import AppHeader from '@/Components/landing/AppHeader';
+import { categories as categoryData } from '@/data/helpdesk/categories';
+import { articles } from '@/data/helpdesk/articles';
 
 function SearchBar({ query, onSearch, large }) {
   const [value, setValue] = useState(query || '');
@@ -50,7 +52,7 @@ function CategoryNav({ categories, activeSlug }) {
   return (
     <nav className="space-y-1">
       <Link
-        href={route('helpdesk.index')}
+        href="/helpdesk"
         className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
           !activeSlug
             ? 'bg-primary/10 text-primary'
@@ -82,9 +84,9 @@ function CategoryNav({ categories, activeSlug }) {
                   </span>
                 )}
                 <span>{cat.name}</span>
-                {(hasChildren ? cat.total_articles : cat.published_articles_count) > 0 && (
+                {cat.articleCount > 0 && (
                   <span className="ml-auto text-xs text-slate-400">
-                    {hasChildren ? cat.total_articles : cat.published_articles_count}
+                    {cat.articleCount}
                   </span>
                 )}
               </Link>
@@ -98,7 +100,7 @@ function CategoryNav({ categories, activeSlug }) {
                   }`}
                   title={isExpanded ? 'Collapse' : 'Expand'}
                 >
-                  <span className="material-symbols-outlined text-base transition-transform duration-200 {isExpanded ? 'rotate-90' : ''}">
+                  <span className={`material-symbols-outlined text-base transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                     {isExpanded ? 'expand_more' : 'chevron_right'}
                   </span>
                 </button>
@@ -119,8 +121,8 @@ function CategoryNav({ categories, activeSlug }) {
                       }`}
                     >
                       <span>{child.name}</span>
-                      {child.published_articles_count > 0 && (
-                        <span className="ml-auto text-xs text-slate-400">{child.published_articles_count}</span>
+                      {child.articleCount > 0 && (
+                        <span className="ml-auto text-xs text-slate-400">{child.articleCount}</span>
                       )}
                     </Link>
                   );
@@ -134,11 +136,36 @@ function CategoryNav({ categories, activeSlug }) {
   );
 }
 
-export default function HelpdeskLayout({ title, children, categories, activeSlug, query, showSearchHero }) {
-  const { auth } = usePage().props;
+export default function HelpdeskLayout({ title, children, categories: _categories, activeSlug, query, showSearchHero }) {
+  // Always compute sidebar from the flat data module, not from the prop
+  // (pages may pass a pre-computed parent-only tree which lacks child info)
+  const { parentCategories } = useMemo(() => {
+    const counts = {};
+    articles.forEach(a => {
+      counts[a.categoryId] = (counts[a.categoryId] || 0) + 1;
+    });
+
+    const children = categoryData.filter(c => c.parentId !== null);
+    const topLevel = categoryData.filter(c => c.parentId === null);
+
+    return {
+      parentCategories: topLevel.map(parent => ({
+        ...parent,
+        children: children
+          .filter(c => c.parentId === parent.id)
+          .map(child => ({
+            ...child,
+            articleCount: counts[child.id] || 0,
+          })),
+        articleCount: (counts[parent.id] || 0) + children
+          .filter(c => c.parentId === parent.id)
+          .reduce((sum, child) => sum + (counts[child.id] || 0), 0),
+      })),
+    };
+  }, [articles]);
 
   const handleSearch = (q) => {
-    window.location.href = route('helpdesk.search', { q });
+    window.location.href = '/helpdesk/search?q=' + encodeURIComponent(q);
   };
 
   return (
@@ -171,7 +198,7 @@ export default function HelpdeskLayout({ title, children, categories, activeSlug
               <h2 className="mb-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
                 Categories
               </h2>
-              <CategoryNav categories={categories} activeSlug={activeSlug} />
+              <CategoryNav categories={parentCategories} activeSlug={activeSlug} />
             </div>
           </aside>
 

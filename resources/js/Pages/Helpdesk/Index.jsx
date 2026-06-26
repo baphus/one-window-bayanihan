@@ -4,10 +4,53 @@ import ArticleCard from '@/Components/Helpdesk/ArticleCard';
 import TagBadge from '@/Components/Helpdesk/TagBadge';
 import EmptyState from '@/Components/Helpdesk/EmptyState';
 
-export default function Index({ featuredArticles, recentArticles, popularArticles, categories, tags }) {
+import { articles as allArticles } from '@/data/helpdesk/articles';
+import { categories as allCategories } from '@/data/helpdesk/categories';
+import { tags as allTags } from '@/data/helpdesk/tags';
+
+export default function Index() {
   const { auth } = usePage().props;
   const user = auth?.user;
 
+  // ── Resolve category name/icon for each article ────────────────────────────
+  const articlesWithCategory = allArticles.map((article) => {
+    const category = allCategories.find((c) => c.id === article.categoryId);
+    return {
+      ...article,
+      updated_at: article.publishedAt,
+      category: category ? { name: category.name, icon: category.icon } : undefined,
+    };
+  });
+
+  // ── Featured articles (3 with featured: true) ──────────────────────────────
+  const featuredArticles = articlesWithCategory.filter((a) => a.featured);
+
+  // ── Non-featured articles for recent / popular sections ────────────────────
+  const nonFeatured = articlesWithCategory.filter((a) => !a.featured);
+  const recentArticles = [...nonFeatured].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
+  const popularArticles = nonFeatured;
+
+  // ── Build hierarchical categories with article counts ──────────────────────
+  const parentCategories = allCategories.filter((c) => c.parentId === null);
+
+  const hierarchicalCategories = parentCategories.map((parent) => {
+    const children = allCategories
+      .filter((c) => c.parentId === parent.id)
+      .map((child) => {
+        const count = allArticles.filter((a) => a.categoryId === child.id).length;
+        return { ...child, published_articles_count: count };
+      });
+    const totalArticles = children.reduce((sum, c) => sum + c.published_articles_count, 0);
+    return {
+      ...parent,
+      children,
+      total_articles: totalArticles,
+    };
+  });
+
+  // ── Role-based greeting ────────────────────────────────────────────────────
   const roleGreeting = {
     OFW: { title: 'OFW Resources', icon: 'badge' },
     CASE_MANAGER: { title: 'Case Manager Guides', icon: 'folder' },
@@ -17,9 +60,10 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
 
   const roleInfo = user ? roleGreeting[user.role] : null;
 
-  return (
-    <HelpdeskLayout title="Help Center" categories={categories} showSearchHero={true}>
+  const hasContent = featuredArticles.length > 0 || hierarchicalCategories.length > 0;
 
+  return (
+    <HelpdeskLayout title="Help Center" categories={hierarchicalCategories} showSearchHero>
       <div className="mb-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">How can we help you?</h1>
@@ -43,7 +87,7 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
         )}
       </div>
 
-      {featuredArticles?.length > 0 && (
+      {featuredArticles.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
             Featured Articles
@@ -56,13 +100,13 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
         </section>
       )}
 
-      {categories?.length > 0 && (
+      {hierarchicalCategories.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
             Browse by Category
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((cat) => (
+            {hierarchicalCategories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/helpdesk?category=${cat.slug}`}
@@ -78,9 +122,9 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
                     <h3 className="text-sm font-semibold text-slate-900 group-hover:text-primary transition-colors">
                       {cat.name}
                     </h3>
-                    {(cat.total_articles ?? cat.published_articles_count) > 0 && (
+                    {cat.total_articles > 0 && (
                       <p className="text-xs text-slate-400">
-                        {cat.total_articles ?? cat.published_articles_count} article{(cat.total_articles ?? cat.published_articles_count) > 1 ? 's' : ''}
+                        {cat.total_articles} article{cat.total_articles !== 1 ? 's' : ''}
                       </p>
                     )}
                   </div>
@@ -92,7 +136,7 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
       )}
 
       <div className="mb-10 grid gap-8 lg:grid-cols-2">
-        {recentArticles?.length > 0 && (
+        {recentArticles.length > 0 && (
           <section>
             <h2 className="mb-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
               Recently Updated
@@ -105,7 +149,7 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
           </section>
         )}
 
-        {popularArticles?.length > 0 && (
+        {popularArticles.length > 0 && (
           <section>
             <h2 className="mb-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
               Most Popular
@@ -119,20 +163,20 @@ export default function Index({ featuredArticles, recentArticles, popularArticle
         )}
       </div>
 
-      {tags?.length > 0 && (
+      {allTags.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
             Browse by Tag
           </h2>
           <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
+            {allTags.map((tag) => (
               <TagBadge key={tag.id} tag={tag} />
             ))}
           </div>
         </section>
       )}
 
-      {!featuredArticles?.length && !categories?.length && (
+      {!hasContent && (
         <EmptyState
           icon="menu_book"
           title="Help center is being set up"
