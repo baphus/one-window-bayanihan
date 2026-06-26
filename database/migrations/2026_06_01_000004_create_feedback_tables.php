@@ -12,6 +12,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('case_id');
             $table->uuid('agency_id')->nullable();
+            $table->uuid('referral_id')->nullable();
             $table->string('service_name')->nullable();
             $table->integer('overall_rating')->nullable();
             $table->text('comments')->nullable();
@@ -19,6 +20,9 @@ return new class extends Migration
 
             $table->foreign('case_id')->references('id')->on('cases')->onDelete('restrict');
             $table->foreign('agency_id')->references('id')->on('agencies')->onDelete('restrict');
+            $table->foreign('referral_id')->references('id')->on('referrals')->onDelete('set null');
+
+            $table->unique(['case_id', 'agency_id', 'referral_id'], 'feedback_case_agency_referral_unique');
         });
 
         Schema::create('feedback_servqual_responses', function (Blueprint $table) {

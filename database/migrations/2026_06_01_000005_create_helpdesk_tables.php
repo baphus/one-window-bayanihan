@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -44,9 +45,9 @@ return new class extends Migration
             $table->text('content_markdown');
             $table->text('excerpt')->nullable();
             $table->uuid('category_id')->nullable();
-            $table->enum('status', ['draft', 'published'])->default('draft');
+            $table->string('status', 20)->default('draft');
             $table->boolean('featured')->default(false);
-            $table->enum('visibility', ['public', 'authenticated', 'role_restricted'])->default('public');
+            $table->string('visibility', 50)->default('public');
             $table->jsonb('target_roles')->nullable();
             $table->uuid('author_id');
             $table->timestamp('published_at')->nullable();
@@ -93,10 +94,28 @@ return new class extends Migration
             $table->foreign('article_id')->references('id')->on('helpdesk_articles')->onDelete('cascade');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
         });
+
+        Schema::create('helpdesk_article_chunks', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('article_id');
+            $table->longText('content');
+            $table->integer('chunk_index');
+            $table->jsonb('metadata')->nullable();
+            $table->timestamps();
+
+            $table->foreign('article_id')->references('id')->on('helpdesk_articles')->onDelete('cascade');
+        });
+
+        try {
+            DB::statement('ALTER TABLE helpdesk_article_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536)');
+        } catch (Throwable $e) {
+            echo "⚠️  vector column skipped — pgvector extension not available locally.\n";
+        }
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('helpdesk_article_chunks');
         Schema::dropIfExists('helpdesk_article_feedback');
         Schema::dropIfExists('helpdesk_article_revisions');
         Schema::dropIfExists('helpdesk_article_tag');

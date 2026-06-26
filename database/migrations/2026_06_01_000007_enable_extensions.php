@@ -14,8 +14,12 @@ return new class extends Migration
             Log::warning('pgvector extension not available locally. Run migrations on a PostgreSQL instance with pgvector installed (Supabase includes it).', [
                 'error' => $e->getMessage(),
             ]);
-            echo "⚠️  pgvector extension not available. Skipping — ensure it's available on production.\n";
         }
+
+        DB::table('system_settings')->insert([
+            'key' => 'debug_otp_enabled',
+            'value' => 'false',
+        ]);
     }
 
     public function down(): void {}
