@@ -49,7 +49,6 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/js/app.tsx',
-                'resources/js/chatbot-widget/index.jsx',
             ],
             refresh: true,
         }),
