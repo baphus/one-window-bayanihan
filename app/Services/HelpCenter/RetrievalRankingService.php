@@ -115,6 +115,6 @@ class RetrievalRankingService
 
     public function getMinimumScoreThreshold(): float
     {
-        return (float) config('ai-helpcenter.retrieval_min_score', 0.3);
+        return 0.3;
     }
 }

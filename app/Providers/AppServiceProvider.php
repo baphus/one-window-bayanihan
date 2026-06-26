@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Contracts\HelpCenterProviderInterface;
 use App\Events\ReferralCompleted;
 use App\Listeners\EmailEventSubscriber;
 use App\Listeners\LogSuccessfulLogin;
@@ -12,15 +11,12 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
-use App\Models\HelpdeskArticle;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\Service;
 use App\Models\User;
 use App\Observers\AuditObserver;
-use App\Services\HelpCenter\EloquentHelpCenterProvider;
-use App\Services\HelpCenter\RetrievalRankingService;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -36,11 +32,7 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Register any application services.
      */
-    public function register(): void
-    {
-        $this->app->bind(HelpCenterProviderInterface::class, EloquentHelpCenterProvider::class);
-        $this->app->singleton(RetrievalRankingService::class);
-    }
+    public function register(): void {}
 
     /**
      * Bootstrap any application services.
@@ -66,7 +58,6 @@ class AppServiceProvider extends ServiceProvider
             Agency::class,
             User::class,
             Service::class,
-            HelpdeskArticle::class,
         ];
 
         foreach ($auditableModels as $model) {

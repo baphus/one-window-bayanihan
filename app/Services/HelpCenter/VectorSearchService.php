@@ -37,7 +37,7 @@ class VectorSearchService
 
         $vector = $this->embeddingService->embed($query);
         $vectorString = '['.implode(',', $vector).']';
-        $limit = (int) config('ai-helpcenter.vector_search_limit', 20);
+        $limit = 20;
 
         $results = DB::select('
             SELECT article_id, AVG(similarity) AS similarity

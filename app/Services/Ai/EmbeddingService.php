@@ -20,9 +20,9 @@ class EmbeddingService
         ?string $model = null,
         ?int $dimensions = null
     ) {
-        $this->apiKey = $apiKey ?? config('ai-helpcenter.embedding_api_key', config('ai-helpcenter.api_key', ''));
-        $this->model = $model ?? config('ai-helpcenter.embedding_model', 'text-embedding-3-small');
-        $this->dimensions = $dimensions ?? config('ai-helpcenter.embedding_dimensions', 1536);
+        $this->apiKey = $apiKey ?? env('AI_EMBEDDING_API_KEY', env('AI_CHATBOT_API_KEY', ''));
+        $this->model = $model ?? env('AI_EMBEDDING_MODEL', 'text-embedding-3-small');
+        $this->dimensions = $dimensions ?? 1536;
     }
 
     /**

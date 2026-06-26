@@ -118,8 +118,8 @@ class EmbedHelpdeskArticleChunks implements ShouldQueue
      */
     protected function chunkContent(string $content): array
     {
-        $maxTokens = (int) config('ai-helpcenter.max_tokens_per_chunk', 800);
-        $overlapTokens = (int) config('ai-helpcenter.chunk_overlap_tokens', 100);
+        $maxTokens = 800;
+        $overlapTokens = 100;
 
         // Split by paragraphs first
         $paragraphs = preg_split("/\n\s*\n/", $content);

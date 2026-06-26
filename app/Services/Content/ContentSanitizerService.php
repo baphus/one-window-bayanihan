@@ -26,7 +26,7 @@ class ContentSanitizerService
      */
     public function stripPromptInjection(string $content): string
     {
-        $patterns = config('ai-helpcenter.injection_patterns', [
+        $patterns = [
             'ignore previous instructions',
             'reveal system prompt',
             'you are now',
@@ -37,7 +37,7 @@ class ContentSanitizerService
             'forget everything',
             'override instructions',
             'disregard',
-        ]);
+        ];
 
         $escaped = array_map(fn (string $p) => preg_quote($p, '/'), $patterns);
         $regex = '/('.implode('|', $escaped).')/i';

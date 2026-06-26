@@ -81,12 +81,6 @@ const navByRole = {
       { name: 'Services', href: '/admin/services', icon: 'medical_services' },
       { name: 'Users', href: '/admin/users', icon: 'manage_accounts' },
     ]},
-    { label: 'Content Management', items: [
-      { name: 'Help Center', href: '/helpdesk', icon: 'help' },
-      { name: 'Articles', href: '/admin/helpdesk/articles', icon: 'article' },
-      { name: 'Categories', href: '/admin/helpdesk/categories', icon: 'category' },
-      { name: 'Tags', href: '/admin/helpdesk/tags', icon: 'label' },
-    ]},
     { label: 'System Health', items: [
       { name: 'Health Dashboard', href: '/admin/system/health', icon: 'monitoring' },
       { name: 'Supabase', href: '/admin/system/supabase', icon: 'cloud' },

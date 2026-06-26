@@ -45,13 +45,5 @@ export const adminTour: TourConfig = {
                 { element: '[data-tour="settings-form"]', title: 'Configuration Panel', description: 'Adjust system parameters such as referral overdue thresholds, OTP debug toggles, and chatbot provider settings.', side: 'top' as const },
             ],
         },
-        {
-            route: 'admin.helpdesk.articles.index',
-            title: 'Help Center',
-            steps: [
-                { element: '[data-tour="helpdesk-header"]', title: 'Knowledge Base', description: 'Manage the helpdesk knowledge base articles that guide users through the system.', side: 'bottom' as const },
-                { element: '[data-tour="helpdesk-articles"]', title: 'Article Directory', description: 'Create, edit, publish, and manage help articles. Organize content to assist end users effectively.', side: 'top' as const },
-            ],
-        },
     ],
 };

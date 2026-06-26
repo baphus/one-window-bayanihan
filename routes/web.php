@@ -336,7 +336,6 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
     Route::get('/', [HelpdeskController::class, 'index'])->name('index');
     Route::get('/search', [HelpdeskController::class, 'search'])->name('search');
     Route::get('/{slug}', [HelpdeskController::class, 'show'])->name('show');
-    Route::post('/feedback', [HelpdeskController::class, 'feedback'])->name('feedback');
 });
 
 Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware('auth')->name('api.analytics');
@@ -385,6 +384,6 @@ Route::middleware('auth')->prefix('api')->group(function () {
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
     ->name('chatbot.message')
-    ->middleware('throttle:'.config('ai-helpcenter.rate_limit_per_minute').',1');
+    ->middleware('throttle:30,1');
 
 require __DIR__.'/auth.php';

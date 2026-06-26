@@ -36,7 +36,7 @@ class PromptAssemblyService
         }
 
         // Take top-K
-        $maxResults = (int) config('ai-helpcenter.retrieval_max_results', 5);
+        $maxResults = 5;
         $topArticles = $filtered->take($maxResults);
 
         // Format articles with sanitization

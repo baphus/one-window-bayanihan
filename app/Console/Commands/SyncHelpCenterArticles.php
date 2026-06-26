@@ -71,7 +71,7 @@ class SyncHelpCenterArticles extends Command
      */
     private function estimateChunkCount(string $content): int
     {
-        $maxTokens = (int) config('ai-helpcenter.max_tokens_per_chunk', 800);
+        $maxTokens = 800;
         $estimatedTokens = str_word_count($content) * 1.3;
 
         return max(1, (int) ceil($estimatedTokens / $maxTokens));
