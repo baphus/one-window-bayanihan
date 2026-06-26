@@ -81,12 +81,12 @@ class ChatbotTest extends TestCase
             ->assertJson(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.']);
     }
 
-    public function test_openai_tool_provider_returns_6_tools(): void
+    public function test_openai_tool_provider_returns_4_tools(): void
     {
         $provider = new OpenAiToolProvider('test-key', 'gpt-4o-mini', '', 0.7, 500);
         $tools = $provider->getTools();
 
-        $this->assertCount(6, $tools);
+        $this->assertCount(4, $tools);
 
         $first = $tools[0];
         $this->assertArrayHasKey('type', $first);
@@ -95,29 +95,27 @@ class ChatbotTest extends TestCase
         $this->assertArrayHasKey('name', $first['function']);
     }
 
-    public function test_anthropic_tool_provider_returns_6_tools(): void
+    public function test_anthropic_tool_provider_returns_4_tools(): void
     {
         $provider = new AnthropicToolProvider('test-key', 'claude-3-haiku-20240307', '', 0.7, 500);
         $tools = $provider->getTools();
 
-        $this->assertCount(6, $tools);
+        $this->assertCount(4, $tools);
 
         $first = $tools[0];
         $this->assertArrayHasKey('name', $first);
         $this->assertArrayHasKey('input_schema', $first);
-        $this->assertSame('searchHelpCenter', $first['name']);
     }
 
-    public function test_gemini_tool_provider_returns_6_tools(): void
+    public function test_gemini_tool_provider_returns_4_tools(): void
     {
         $provider = new GeminiToolProvider('test-key', 'gemini-2.0-flash', '', 0.7, 500);
         $tools = $provider->getTools();
 
         $this->assertArrayHasKey('functionDeclarations', $tools);
-        $this->assertCount(6, $tools['functionDeclarations']);
+        $this->assertCount(4, $tools['functionDeclarations']);
 
         $first = $tools['functionDeclarations'][0];
         $this->assertArrayHasKey('name', $first);
-        $this->assertSame('searchHelpCenter', $first['name']);
     }
 }
