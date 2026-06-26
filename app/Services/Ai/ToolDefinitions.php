@@ -6,8 +6,7 @@ namespace App\Services\Ai;
  * Non-instantiable static tool definitions for AI providers.
  *
  * Returns tool definitions in OpenAI, Anthropic, and Gemini formats.
- * Tools: searchHelpCenter, getArticleBySlug, initiateCaseOTP, verifyCaseOTP,
- *        getVerifiedCaseInfo, getCaseStatuses.
+ * Tools: initiateCaseOTP, verifyCaseOTP, getVerifiedCaseInfo, getCaseStatuses.
  */
 class ToolDefinitions
 {
@@ -24,44 +23,6 @@ class ToolDefinitions
     public static function forOpenAI(): array
     {
         return [
-            [
-                'type' => 'function',
-                'function' => [
-                    'name' => 'searchHelpCenter',
-                    'description' => 'Search the Help Center for articles matching a query. Use this to find documentation relevant to the user\'s question.',
-                    'parameters' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'query' => [
-                                'type' => 'string',
-                                'description' => 'The search query (natural language or keywords)',
-                            ],
-                            'category' => [
-                                'type' => 'string',
-                                'description' => 'Optional category to narrow the search (e.g., "repatriation", "legal", "welfare")',
-                            ],
-                        ],
-                        'required' => ['query'],
-                    ],
-                ],
-            ],
-            [
-                'type' => 'function',
-                'function' => [
-                    'name' => 'getArticleBySlug',
-                    'description' => 'Get a specific Help Center article by its URL slug. Use this when you need the full content of a particular article.',
-                    'parameters' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'slug' => [
-                                'type' => 'string',
-                                'description' => 'The article URL slug (e.g., "how-to-reset-password")',
-                            ],
-                        ],
-                        'required' => ['slug'],
-                    ],
-                ],
-            ],
             [
                 'type' => 'function',
                 'function' => [
@@ -140,38 +101,6 @@ class ToolDefinitions
     {
         return [
             [
-                'name' => 'searchHelpCenter',
-                'description' => 'Search the Help Center for articles matching a query. Use this to find documentation relevant to the user\'s question.',
-                'input_schema' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'query' => [
-                            'type' => 'string',
-                            'description' => 'The search query (natural language or keywords)',
-                        ],
-                        'category' => [
-                            'type' => 'string',
-                            'description' => 'Optional category to narrow the search (e.g., "repatriation", "legal", "welfare")',
-                        ],
-                    ],
-                    'required' => ['query'],
-                ],
-            ],
-            [
-                'name' => 'getArticleBySlug',
-                'description' => 'Get a specific Help Center article by its URL slug. Use this when you need the full content of a particular article.',
-                'input_schema' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'slug' => [
-                            'type' => 'string',
-                            'description' => 'The article URL slug (e.g., "how-to-reset-password")',
-                        ],
-                    ],
-                    'required' => ['slug'],
-                ],
-            ],
-            [
                 'name' => 'initiateCaseOTP',
                 'description' => 'Send a 6-digit OTP verification code to the email registered with the case. Use this when an OFW wants to verify their identity to access their case details.',
                 'input_schema' => [
@@ -237,38 +166,6 @@ class ToolDefinitions
     {
         return [
             'functionDeclarations' => [
-                [
-                    'name' => 'searchHelpCenter',
-                    'description' => 'Search the Help Center for articles matching a query. Use this to find documentation relevant to the user\'s question.',
-                    'parameters' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'query' => [
-                                'type' => 'string',
-                                'description' => 'The search query (natural language or keywords)',
-                            ],
-                            'category' => [
-                                'type' => 'string',
-                                'description' => 'Optional category to narrow the search (e.g., "repatriation", "legal", "welfare")',
-                            ],
-                        ],
-                        'required' => ['query'],
-                    ],
-                ],
-                [
-                    'name' => 'getArticleBySlug',
-                    'description' => 'Get a specific Help Center article by its URL slug. Use this when you need the full content of a particular article.',
-                    'parameters' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'slug' => [
-                                'type' => 'string',
-                                'description' => 'The article URL slug (e.g., "how-to-reset-password")',
-                            ],
-                        ],
-                        'required' => ['slug'],
-                    ],
-                ],
                 [
                     'name' => 'initiateCaseOTP',
                     'description' => 'Send a 6-digit OTP verification code to the email registered with the case. Use this when an OFW wants to verify their identity to access their case details.',

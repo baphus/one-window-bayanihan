@@ -5,7 +5,6 @@ namespace App\Services\Ai\Providers;
 use App\Services\Ai\AnthropicProvider;
 use App\Services\Ai\Contracts\ToolEnabledAiProvider;
 use App\Services\Ai\ToolDefinitions;
-use App\Services\Content\ContentSanitizerService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -58,7 +57,7 @@ class AnthropicToolProvider extends AnthropicProvider implements ToolEnabledAiPr
             if ($stopReason !== 'tool_use') {
                 $directText = $body['content'][0]['text'] ?? '';
 
-                return app(ContentSanitizerService::class)->sanitizeOutput($directText);
+                return $directText;
             }
 
             // Build message history with tool results
@@ -132,9 +131,7 @@ class AnthropicToolProvider extends AnthropicProvider implements ToolEnabledAiPr
 
             $result = $followUp->json();
 
-            $followUpText = $result['content'][0]['text'] ?? '';
-
-            return app(ContentSanitizerService::class)->sanitizeOutput($followUpText);
+            return $result['content'][0]['text'] ?? '';
 
         } catch (\Throwable $e) {
             Log::warning('Anthropic tool calling failed', [

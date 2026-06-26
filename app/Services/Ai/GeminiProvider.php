@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai;
 
-use App\Services\Content\ContentSanitizerService;
-use App\Services\Observability\RetrievalLogger;
 use Illuminate\Support\Facades\Http;
 
 class GeminiProvider implements AiProvider
@@ -82,9 +80,7 @@ class GeminiProvider implements AiProvider
                 }
             }
 
-            app(RetrievalLogger::class)->logTokenUsage('gemini', $this->model, $body['usageMetadata']['promptTokenCount'] ?? 0, $body['usageMetadata']['candidatesTokenCount'] ?? 0);
-
-            return app(ContentSanitizerService::class)->sanitizeOutput($text);
+            return $text;
         } catch (\Throwable $e) {
             throw new \RuntimeException('Gemini API call failed: '.$e->getMessage(), previous: $e);
         }

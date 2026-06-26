@@ -2,17 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Contracts\HelpCenterProviderInterface;
 use App\Services\Ai\AiService;
-use App\Services\Ai\Contracts\ToolEnabledAiProvider;
-use App\Services\Ai\PromptAssemblyService;
 use App\Services\Chatbot\ChatbotCaseService;
 use App\Services\Chatbot\ChatbotDataService;
-use App\Services\Content\ContentSanitizerService;
-use App\Services\HelpCenter\RetrievalRankingService;
-use App\Services\HelpCenter\VectorSearchService;
-use App\Services\Observability\RetrievalLogger;
-use App\Services\Observability\UnansweredTracker;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -37,15 +29,8 @@ class ChatbotController extends Controller
 
     public function __construct(
         private readonly AiService $aiService,
-        private readonly HelpCenterProviderInterface $helpCenterProvider,
-        private readonly PromptAssemblyService $promptAssembly,
-        private readonly ContentSanitizerService $sanitizer,
-        private readonly RetrievalLogger $retrievalLogger,
-        private readonly UnansweredTracker $unansweredTracker,
         private readonly ChatbotDataService $chatbotData,
         private readonly ChatbotCaseService $chatbotCase,
-        private readonly RetrievalRankingService $ranking,
-        private readonly VectorSearchService $vectorSearchService,
     ) {}
 
     public function message(Request $request)
@@ -55,15 +40,11 @@ class ChatbotController extends Controller
         ]);
 
         $userMessage = $request->input('message');
-        $startTime = microtime(true);
 
         // Try AI-first (backward-compatible flow via AiService::sendMessage)
         try {
             $aiReply = $this->aiService->sendMessage($userMessage);
             if (! empty($aiReply)) {
-                $latencyMs = (microtime(true) - $startTime) * 1000;
-                $this->retrievalLogger->logRetrieval($userMessage, 0, 0.0, $latencyMs);
-
                 return response()->json([
                     'reply' => $aiReply,
                 ]);
@@ -77,160 +58,12 @@ class ChatbotController extends Controller
             return response()->json(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.'], 503);
         }
 
-        // If sendMessage returned empty, try tool-enabled flow with Help Center + data retrieval
-        try {
-            $provider = $this->aiService->getToolProvider();
-            if ($provider instanceof ToolEnabledAiProvider && $provider->isConfigured()) {
-                $reply = $this->handleToolBasedQuery($provider, $userMessage, $startTime);
-                if (! empty($reply)) {
-                    return response()->json(['reply' => $reply]);
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('Chatbot AI tool provider failed', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.'], 503);
-        }
-
         // Fallback: keyword matching
         $message = strtolower(trim($userMessage));
         $response = $this->getResponse($message);
 
         return response()->json([
             'reply' => $response,
-        ]);
-    }
-
-    /**
-     * Handle query using a ToolEnabledAiProvider with Help Center + case data retrieval.
-     */
-    private function handleToolBasedQuery(ToolEnabledAiProvider $provider, string $userMessage, float $startTime): string
-    {
-        $articles = $this->helpCenterProvider->search($userMessage);
-        $latencyMs = (microtime(true) - $startTime) * 1000;
-
-        $this->retrievalLogger->logRetrieval(
-            $userMessage,
-            $articles->count(),
-            0.0,
-            $latencyMs
-        );
-
-        // Enrich with vector similarity scores
-        $vectorResults = $this->vectorSearchService->search($userMessage);
-        $vectorScores = $vectorResults->keyBy('article_id')->map(fn ($item) => $item->similarity)->toArray();
-        $this->ranking->setVectorSimilarityCallback(fn ($article) => $vectorScores[$article->id] ?? 0.0);
-
-        if ($articles->isEmpty()) {
-            $this->unansweredTracker->logUnanswered($userMessage, 'no articles found');
-            $systemPrompt = $this->promptAssembly->buildSystemPrompt(collect(), $userMessage);
-        } else {
-            $systemPrompt = $this->promptAssembly->buildSystemPrompt($articles, $userMessage);
-
-            if (str_contains($systemPrompt, 'could not find documentation')) {
-                $this->unansweredTracker->logUnanswered($userMessage, 'articles below relevance threshold');
-                // Fall through with data tools rather than returning early
-                $systemPrompt = $this->promptAssembly->buildSystemPrompt(collect(), $userMessage);
-            }
-        }
-
-        return $provider->sendMessageWithTools(
-            $userMessage,
-            $provider->getTools(),
-            $this->createToolHandler(),
-            [
-                'system_prompt' => $systemPrompt,
-                'temperature' => (float) config('ai-chatbot.temperature', '0.7'),
-                'max_tokens' => (int) config('ai-chatbot.max_tokens', '500'),
-            ]
-        );
-    }
-
-    /**
-     * Create a tool handler closure for all available tools.
-     */
-    private function createToolHandler(): callable
-    {
-        return function (string $name, array $args) {
-            return match ($name) {
-                // Help Center
-                'searchHelpCenter' => $this->handleSearchHelpCenter($args),
-                'getArticleBySlug' => $this->handleGetArticleBySlug($args),
-                'getCaseStatuses' => $this->handleGetCaseStatuses(),
-                // OFW OTP verification
-                'initiateCaseOTP' => $this->handleInitiateCaseOTP($args),
-                'verifyCaseOTP' => $this->handleVerifyCaseOTP($args),
-                'getVerifiedCaseInfo' => $this->handleGetVerifiedCaseInfo($args),
-                default => json_encode(['error' => "Unknown tool: {$name}"]),
-            };
-        };
-    }
-
-    /**
-     * Handle the searchHelpCenter tool call.
-     */
-    private function handleSearchHelpCenter(array $args): string
-    {
-        $query = $args['query'] ?? '';
-        $limit = min((int) ($args['limit'] ?? 5), 10);
-
-        if (empty($query)) {
-            return json_encode([]);
-        }
-
-        $articles = $this->helpCenterProvider->search($query, ['limit' => $limit]);
-        $results = [];
-
-        foreach ($articles->take($limit) as $article) {
-            $results[] = [
-                'id' => $article->id,
-                'title' => $article->title,
-                'slug' => $article->slug,
-                'excerpt' => $this->sanitizer->sanitizeForLLM(
-                    $article->excerpt ?? mb_substr($article->content_markdown ?? '', 0, 300)
-                ),
-                'category' => $article->relationLoaded('category') && $article->category
-                    ? $article->category->name
-                    : null,
-                'tags' => $article->relationLoaded('tags')
-                    ? $article->tags->pluck('name')->toArray()
-                    : [],
-            ];
-        }
-
-        return json_encode($results);
-    }
-
-    /**
-     * Handle the getArticleBySlug tool call.
-     */
-    private function handleGetArticleBySlug(array $args): string
-    {
-        $slug = $args['slug'] ?? '';
-
-        if (empty($slug)) {
-            return json_encode(['error' => 'Slug is required']);
-        }
-
-        $article = $this->helpCenterProvider->getBySlug($slug);
-
-        if (! $article) {
-            return json_encode(['error' => 'Article not found']);
-        }
-
-        return json_encode([
-            'id' => $article->id,
-            'title' => $article->title,
-            'slug' => $article->slug,
-            'content' => $this->sanitizer->sanitizeForLLM($article->content_markdown ?? ''),
-            'category' => $article->relationLoaded('category') && $article->category
-                ? $article->category->name
-                : null,
-            'tags' => $article->relationLoaded('tags')
-                ? $article->tags->pluck('name')->toArray()
-                : [],
         ]);
     }
 

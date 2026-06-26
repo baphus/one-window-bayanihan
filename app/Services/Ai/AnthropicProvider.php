@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai;
 
-use App\Services\Content\ContentSanitizerService;
-use App\Services\Observability\RetrievalLogger;
 use Illuminate\Support\Facades\Http;
 
 class AnthropicProvider implements AiProvider
@@ -60,14 +58,10 @@ class AnthropicProvider implements AiProvider
             }
 
             if (isset($body['content'][0]['text'])) {
-                app(RetrievalLogger::class)->logTokenUsage('anthropic', $this->model, $body['usage']['input_tokens'] ?? 0, $body['usage']['output_tokens'] ?? 0);
-
-                return app(ContentSanitizerService::class)->sanitizeOutput($body['content'][0]['text']);
+                return $body['content'][0]['text'];
             }
 
-            $fallback = $body['content'][0] ?? '';
-
-            return app(ContentSanitizerService::class)->sanitizeOutput($fallback);
+            return $body['content'][0] ?? '';
         } catch (\Throwable $e) {
             throw new \RuntimeException('Anthropic API call failed: '.$e->getMessage(), previous: $e);
         }
