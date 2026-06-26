@@ -38,7 +38,6 @@ return new class extends Migration
             $table->uuid('deleted_by')->nullable();
             $table->timestamps();
 
-            $table->foreign('agcy_id')->references('id')->on('agencies')->onDelete('restrict');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -104,11 +103,13 @@ return new class extends Migration
         Schema::create('notifications', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('type');
-            $table->uuid('notifiable_uuid');
+            $table->uuid('notifiable_id');
             $table->string('notifiable_type');
             $table->text('data');
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
+
+            $table->index(['notifiable_id', 'notifiable_type']);
         });
 
         Schema::table('users', function (Blueprint $table) {

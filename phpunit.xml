@@ -32,6 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="SUPABASE_S3_DRIVER" value="local"/>
         <env name="SUPABASE_S3_ACCESS_KEY" value="fake-access-key"/>
         <env name="SUPABASE_S3_SECRET_KEY" value="fake-secret-key"/>
         <env name="SUPABASE_S3_REGION" value="ap-southeast-1"/>

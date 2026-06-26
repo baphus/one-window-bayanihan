@@ -16,10 +16,6 @@ return new class extends Migration
             ]);
         }
 
-        DB::table('system_settings')->insert([
-            'key' => 'debug_otp_enabled',
-            'value' => 'false',
-        ]);
     }
 
     public function down(): void {}

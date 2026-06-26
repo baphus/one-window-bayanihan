@@ -83,8 +83,12 @@ return new class extends Migration
 
             $table->foreign('referral_id')->references('id')->on('referrals')->onDelete('restrict');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('restrict');
-            $table->foreign('replaces_id')->references('id')->on('referral_attachments')->onDelete('set null');
             $table->foreign('deleted_by')->references('id')->on('users')->onDelete('restrict');
+        });
+
+        // Self-referencing FK needs to be added after the table is created (PostgreSQL)
+        Schema::table('referral_attachments', function (Blueprint $table) {
+            $table->foreign('replaces_id')->references('id')->on('referral_attachments')->onDelete('set null');
         });
 
         // ===================================================================

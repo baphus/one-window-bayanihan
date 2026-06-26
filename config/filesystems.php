@@ -48,14 +48,17 @@ return [
         ],
 
         'supabase' => [
-            'driver' => 's3',
+            'driver' => env('SUPABASE_S3_DRIVER', 's3'),
             'key' => env('SUPABASE_S3_ACCESS_KEY'),
             'secret' => env('SUPABASE_S3_SECRET_KEY'),
             'region' => env('SUPABASE_S3_REGION', 'ap-southeast-1'),
             'bucket' => env('SUPABASE_S3_BUCKET', 'case-files'),
             'endpoint' => env('SUPABASE_S3_ENDPOINT'),
+            'root' => env('SUPABASE_S3_ROOT', storage_path('app/supabase')),
+            'url' => env('SUPABASE_S3_URL', '/supabase-storage'),
             'use_path_style_endpoint' => true,
             'visibility' => 'private',
+            'serve' => true,
             'throw' => false,
             'report' => false,
         ],

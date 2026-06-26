@@ -33,6 +33,11 @@ return new class extends Migration
             $table->foreign('deleted_by')->references('id')->on('users')->onDelete('restrict');
         });
 
+        // FK from users.agcy_id → agencies.id (created in migration 0001, ref'd from migration 0000)
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreign('agcy_id')->references('id')->on('agencies')->onDelete('restrict');
+        });
+
         // 2. services
         Schema::create('services', function (Blueprint $table) {
             $table->uuid('id')->primary();
@@ -158,6 +163,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropForeign(['agcy_id']);
+        });
+
         Schema::dropIfExists('philippine_addresses');
         Schema::dropIfExists('system_settings');
         Schema::dropIfExists('case_issues');
