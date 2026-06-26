@@ -32,7 +32,6 @@ use App\Http\Controllers\CaseIssueController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
-use App\Http\Controllers\HelpdeskController;
 use App\Http\Controllers\InsightsController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
@@ -308,9 +307,9 @@ Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
 Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
 
 Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
-    Route::get('/', [HelpdeskController::class, 'index'])->name('index');
-    Route::get('/search', [HelpdeskController::class, 'search'])->name('search');
-    Route::get('/{slug}', [HelpdeskController::class, 'show'])->name('show');
+    Route::get('/', fn () => inertia('Helpdesk/Index'))->name('index');
+    Route::get('/search', fn () => inertia('Helpdesk/Search'))->name('search');
+    Route::get('/{slug}', fn ($slug) => inertia('Helpdesk/Show', ['slug' => $slug]))->name('show');
 });
 
 Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware('auth')->name('api.analytics');

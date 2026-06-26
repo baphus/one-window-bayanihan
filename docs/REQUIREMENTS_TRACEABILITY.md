@@ -561,8 +561,8 @@ The following features have been implemented to enhance operational efficiency, 
 
 ### 1. Helpdesk/Knowledge Base
 **Description**: Full content management system for helpdesk articles with categories, tags, revisions, feedback, and featured articles.
-**Status**: ✅ Implemented
-**Key Files**: `app/Models/HelpdeskArticle.php`, `app/Models/HelpdeskCategory.php`, `app/Models/HelpdeskTag.php`, `app/Models/HelpdeskArticleRevision.php`, `app/Models/HelpdeskArticleFeedback.php`, `app/Http/Controllers/HelpdeskController.php`, `app/Http/Controllers/Admin/HelpdeskArticleController.php`, `app/Http/Controllers/Admin/HelpdeskCategoryController.php`, `app/Http/Controllers/Admin/HelpdeskTagController.php`
+**Status**: 🔄 Migrated to database models (controllers removed)
+**Key Files**: `app/Models/HelpdeskArticle.php`, `app/Models/HelpdeskCategory.php`, `app/Models/HelpdeskTag.php`, `app/Models/HelpdeskArticleRevision.php`, `app/Models/HelpdeskArticleFeedback.php`
 **Routes**: `GET /helpdesk`, `GET /helpdesk/search`, `GET /helpdesk/{slug}`, `POST /helpdesk/feedback`, `GET /admin/helpdesk/articles`, `POST /admin/helpdesk/articles`, etc.
 **Why Added**: To provide self-service information for OFWs and reduce dependency on case manager inquiries.
 
