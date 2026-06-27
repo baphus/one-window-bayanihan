@@ -1,14 +1,15 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IpWhitelist;
 use App\Http\Middleware\SetPostgresSession;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(SetPostgresSession::class);
         $middleware->trustProxies(
-            at: '*',
+            at: env('TRUSTED_PROXIES', ''),
             headers: Request::HEADER_X_FORWARDED_FOR
                 | Request::HEADER_X_FORWARDED_HOST
                 | Request::HEADER_X_FORWARDED_PORT
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->web(append: [
+            ContentSecurityPolicy::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);

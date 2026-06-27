@@ -3,12 +3,17 @@
 namespace App\Services;
 
 use App\DTOs\FileStoreResult;
+use App\Services\Contracts\MalwareScannerInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class StorageService
 {
+    public function __construct(
+        private readonly MalwareScannerInterface $malwareScanner,
+    ) {}
+
     /**
      * Store an uploaded file to the supabase disk.
      *
@@ -27,6 +32,20 @@ class StorageService
                 size: $file->getSize() ?? 0,
                 success: false,
                 error: $file->getErrorMessage() ?: 'Invalid file upload.',
+            );
+        }
+
+        // Malware scan on the uploaded temp file before persisting to disk
+        $scanResult = $this->malwareScanner->scan($file->getPathname());
+        if (! $scanResult->isClean()) {
+            return new FileStoreResult(
+                path: '',
+                originalName: $file->getClientOriginalName(),
+                storedName: '',
+                type: $file->getMimeType() ?? 'application/octet-stream',
+                size: $file->getSize() ?? 0,
+                success: false,
+                error: $scanResult->getReason() ?? 'File rejected by malware scanner.',
             );
         }
 
@@ -89,6 +108,20 @@ class StorageService
     }
 
     /**
+     * Map of file extensions to their expected MIME types for content-sniffing validation.
+     */
+    private const EXTENSION_MIME_MAP = [
+        'pdf' => ['application/pdf'],
+        'jpg' => ['image/jpeg', 'image/pjpeg'],
+        'jpeg' => ['image/jpeg'],
+        'png' => ['image/png'],
+        'gif' => ['image/gif'],
+        'webp' => ['image/webp'],
+        'doc' => ['application/msword'],
+        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    ];
+
+    /**
      * Validate an uploaded file against context-specific rules.
      *
      * Reads allowed MIME types (as extensions) and max file size from
@@ -114,6 +147,30 @@ class StorageService
             $extension = strtolower($file->guessExtension());
             if (! in_array($extension, $allowedTypes, true)) {
                 $errors[] = "File type '{$extension}' is not allowed. Allowed types: ".implode(', ', $allowedTypes).'.';
+            }
+        }
+
+        // Server-side MIME content-sniffing check (defense in depth — augments extension check above)
+        if (! empty($allowedTypes)) {
+            // Build a flat list of allowed MIME types from the allowed extensions
+            $allowedMimes = $config['allowed_mime_types'] ?? [];
+            if (empty($allowedMimes)) {
+                foreach ($allowedTypes as $ext) {
+                    $ext = strtolower($ext);
+                    if (isset(self::EXTENSION_MIME_MAP[$ext])) {
+                        $allowedMimes = array_merge($allowedMimes, self::EXTENSION_MIME_MAP[$ext]);
+                    }
+                }
+                $allowedMimes = array_unique($allowedMimes);
+            }
+
+            if (! empty($allowedMimes)) {
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $detectedMime = $finfo->file($file->getPathname());
+
+                if (! in_array($detectedMime, $allowedMimes, true)) {
+                    $errors[] = "File content (MIME: {$detectedMime}) does not match any allowed type.";
+                }
             }
         }
 
