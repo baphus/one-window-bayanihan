@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCaseDocumentRequest;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Services\StorageService;
@@ -19,11 +20,8 @@ class CaseDocumentController extends Controller
         return response()->json($documents);
     }
 
-    public function store(Request $request, string $caseId)
+    public function store(StoreCaseDocumentRequest $request, string $caseId)
     {
-        $case = CaseFile::findOrFail($caseId);
-        $this->authorizeAccess($case, $request->user());
-
         $file = $request->file('file');
 
         $errors = app(StorageService::class)->validate($file, 'case_document');

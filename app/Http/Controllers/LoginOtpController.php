@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ResendOtpRequest;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use PragmaRX\Google2FA\Google2FA;
@@ -33,7 +35,9 @@ class LoginOtpController extends Controller
             ]);
         }
 
-        $otp = $this->otpService->generate($user->email, 'login');
+        $request->session()->put('login_step', 1);
+
+        $otp = $this->otpService->generate($user->email, 'login', $request->session()->getId());
 
         $emailParts = explode('@', $user->email);
         $hint = strlen($emailParts[0]) > 2
@@ -48,13 +52,19 @@ class LoginOtpController extends Controller
         ]);
     }
 
-    public function resendOtp(Request $request)
+    public function resendOtp(ResendOtpRequest $request)
     {
-        $request->validate([
-            'email' => ['required', 'string', 'email'],
-        ]);
+        if ($request->session()->get('login_step') !== 1) {
+            abort(403, 'Login session not initiated.');
+        }
 
-        $user = User::where('email', $request->input('email'))->first();
+        if (! Auth::validate(['email' => $request->email, 'password' => $request->password])) {
+            throw ValidationException::withMessages([
+                'password' => __('auth.failed'),
+            ]);
+        }
+
+        $user = User::where('email', $request->email)->first();
 
         if (! $user) {
             throw ValidationException::withMessages([
@@ -62,7 +72,9 @@ class LoginOtpController extends Controller
             ]);
         }
 
-        $otp = $this->otpService->generate($user->email, 'login');
+        $otp = $this->otpService->generate($user->email, 'login', $request->session()->getId());
+
+        Log::info('otp_resend_successful', ['email' => $user->email]);
 
         $emailParts = explode('@', $user->email);
         $hint = strlen($emailParts[0]) > 2
@@ -88,6 +100,7 @@ class LoginOtpController extends Controller
             $request->input('email'),
             'login',
             $request->input('otp'),
+            $request->session()->getId(),
         );
 
         if (! $verified) {

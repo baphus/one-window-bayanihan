@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\DTOs\FileStoreResult;
 use App\Models\Agency;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
+use App\Services\StorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -192,6 +194,20 @@ class CaseDocumentTest extends TestCase
     public function test_document_creation_stores_size()
     {
         Storage::fake('supabase');
+
+        // Mock StorageService to bypass deep MIME inspection (empty-content
+        // fake uploads are detected as application/x-empty)
+        $this->mock(StorageService::class, function ($mock) {
+            $mock->shouldReceive('validate')->andReturn([]);
+            $mock->shouldReceive('store')->andReturn(new FileStoreResult(
+                path: 'case-documents/test/document.pdf',
+                originalName: 'document.pdf',
+                storedName: 'uuid-document.pdf',
+                type: 'application/pdf',
+                size: 2048,
+                success: true,
+            ));
+        });
 
         $file = UploadedFile::fake()->create('document.pdf', 2048);
 

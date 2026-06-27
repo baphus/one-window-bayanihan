@@ -271,7 +271,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:ADMIN'])->group(function () {
     Route::get('/overdue-referrals', [OverdueReferralController::class, 'index'])->name('overdue-referrals.index');
     Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])->name('overdue-referrals.send-reminders');
 });
@@ -312,10 +312,10 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
     Route::get('/{slug}', fn ($slug) => inertia('Helpdesk/Show', ['slug' => $slug]))->name('show');
 });
 
-Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware('auth')->name('api.analytics');
+Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware(['auth', 'verified'])->name('api.analytics');
 
 // API routes (authenticated via web session) — in web.php for session middleware support
-Route::middleware('auth')->prefix('api')->group(function () {
+Route::middleware(['auth', 'verified'])->prefix('api')->group(function () {
     // Client selection for case creation form
     Route::get('/clients', [ClientSelectController::class, 'search']);
     Route::get('/clients/{client}', [ClientSelectController::class, 'show']);

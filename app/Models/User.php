@@ -2,18 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAvatar;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Database\Factories\UserFactory;
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, SoftDeleteFlag, UsesUuid;
+    use HasAvatar, HasFactory, MustVerifyEmailTrait, Notifiable, SoftDeleteFlag, UsesUuid;
 
     public static array $auditExclude = ['password', 'remember_token', 'id', 'created_at', 'updated_at', 'email_verified_at', 'mfa_secret', 'mfa_recovery_codes', 'mfa_enabled_at'];
 
@@ -42,8 +44,6 @@ class User extends Authenticatable
         'emergency_contact',
         'notifications_config',
         'timezone',
-        'mfa_secret',
-        'mfa_recovery_codes',
         'mfa_enabled_at',
         'onboarding_completed_at',
         'onboarding_step',
@@ -53,6 +53,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'mfa_secret',
+        'mfa_recovery_codes',
     ];
 
     /**
@@ -94,17 +96,5 @@ class User extends Authenticatable
     public function isAgency(): bool
     {
         return $this->role === 'AGENCY';
-    }
-
-    public function getAvatarUrlAttribute($value): ?string
-    {
-        if (! $value) {
-            return null;
-        }
-        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
-            return $value;
-        }
-
-        return Storage::disk('public')->url($value);
     }
 }

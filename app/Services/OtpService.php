@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Mail\OtpMail;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class OtpService
@@ -12,14 +13,18 @@ class OtpService
 
     public const TTL_MINUTES = 5;
 
-    public function generate(string $identifier, string $purpose = 'default'): string
+    public function generate(string $identifier, string $purpose = 'default', ?string $sessionId = null): string
     {
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $key = "otp:{$purpose}:{$identifier}";
+        $key = $sessionId
+            ? "otp:{$purpose}:{$identifier}:{$sessionId}"
+            : "otp:{$purpose}:{$identifier}";
         Cache::put($key, $otp, now()->addMinutes(self::TTL_MINUTES));
 
         // Reset failed-attempt counter for fresh OTP
-        Cache::forget("otp:attempts:{$purpose}:{$identifier}");
+        Cache::forget($sessionId
+            ? "otp:attempts:{$purpose}:{$identifier}:{$sessionId}"
+            : "otp:attempts:{$purpose}:{$identifier}");
 
         // Send OTP via email (will log when MAIL_MAILER=log)
         if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
@@ -29,10 +34,21 @@ class OtpService
         return $otp;
     }
 
-    public function verify(string $identifier, string $purpose, string $otp): bool
+    public function verify(string $identifier, string $purpose, string $otp, ?string $sessionId = null): bool
     {
-        $key = "otp:{$purpose}:{$identifier}";
-        $attemptsKey = "otp:attempts:{$purpose}:{$identifier}";
+        $key = $sessionId
+            ? "otp:{$purpose}:{$identifier}:{$sessionId}"
+            : "otp:{$purpose}:{$identifier}";
+        $attemptsKey = $sessionId
+            ? "otp:attempts:{$purpose}:{$identifier}:{$sessionId}"
+            : "otp:attempts:{$purpose}:{$identifier}";
+
+        Log::info('OTP_VERIFY', [
+            'key' => $key,
+            'sessionId' => $sessionId,
+            'cached_value' => Cache::get($key),
+            'provided_otp' => $otp,
+        ]);
 
         // Check if max attempts exceeded — invalidate OTP
         $attempts = Cache::get($attemptsKey, 0);
