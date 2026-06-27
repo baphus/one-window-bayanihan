@@ -1483,6 +1483,12 @@ class InsightsService
             default => 'day',
         };
 
+        // Validate date_trunc unit — prevents injection even though match() restricts values
+        $allowedTrunc = ['week', 'month', 'day'];
+        if (! in_array($dateTrunc, $allowedTrunc, true)) {
+            $dateTrunc = 'day';
+        }
+
         $query = CaseFile::where('status', 'CLOSED')
             ->where('is_deleted', false)
             ->whereBetween('created_at', [$from, $to]);
@@ -1544,6 +1550,12 @@ class InsightsService
             'monthly' => 'month',
             default => 'day',
         };
+
+        // Validate date_trunc unit — prevents injection even though match() restricts values
+        $allowedTrunc = ['week', 'month', 'day'];
+        if (! in_array($dateTrunc, $allowedTrunc, true)) {
+            $dateTrunc = 'day';
+        }
 
         $query = Referral::select(
             'agencies.name',
@@ -1954,24 +1966,24 @@ class InsightsService
         $fourWeeksAgo = now()->subWeeks(4);
 
         $query = DB::table('cases')
-            ->select(
+            ->select([
                 'cases.user_id',
                 DB::raw('u.name'),
                 DB::raw("COUNT(*) FILTER (WHERE cases.status = 'OPEN' AND cases.is_deleted = false) as current_active"),
-                DB::raw("
-                    ROUND(
-                        COUNT(*) FILTER (WHERE cases.created_at >= '$fourWeeksAgo' AND cases.is_deleted = false)::numeric / 4.0,
-                        1
-                    ) as weekly_rate
-                "),
-                DB::raw("
-                    ROUND(
-                        (COUNT(*) FILTER (WHERE cases.status = 'OPEN' AND cases.is_deleted = false)::numeric
-                        + (COUNT(*) FILTER (WHERE cases.created_at >= '$fourWeeksAgo' AND cases.is_deleted = false)::numeric / 4.0) * 4),
-                        1
-                    ) as projected_load
-                ")
-            )
+            ])
+            ->selectRaw('
+                ROUND(
+                    COUNT(*) FILTER (WHERE cases.created_at >= ? AND cases.is_deleted = false)::numeric / 4.0,
+                    1
+                ) as weekly_rate
+            ', [$fourWeeksAgo])
+            ->selectRaw("
+                ROUND(
+                    (COUNT(*) FILTER (WHERE cases.status = 'OPEN' AND cases.is_deleted = false)::numeric
+                    + (COUNT(*) FILTER (WHERE cases.created_at >= ? AND cases.is_deleted = false)::numeric / 4.0) * 4),
+                    1
+                ) as projected_load
+            ", [$fourWeeksAgo])
             ->join('users as u', 'u.id', '=', 'cases.user_id')
             ->where('cases.is_deleted', false)
             ->groupBy('cases.user_id', 'u.name')
