@@ -327,7 +327,10 @@ class ReferralController extends Controller
             return;
         }
         if ($user->isCaseManager()) {
-            return;
+            if ($referral->caseFile && $referral->caseFile->user_id === $user->id) {
+                return;
+            }
+            abort(403, 'You do not have access to this referral.');
         }
         if ($referral->agcy_id === $user->agcy_id) {
             return;

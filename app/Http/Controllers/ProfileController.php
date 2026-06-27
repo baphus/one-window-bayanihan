@@ -47,7 +47,7 @@ class ProfileController extends Controller
 
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
-            $path = $file->storeAs('avatars', 'user-'.$user->id.'-'.time().'.'.$file->extension(), 'public');
+            $path = $file->storeAs('avatars', 'user-'.$user->id.'-'.time().'.'.$file->guessExtension(), 'private');
             $user->avatar_url = $path;
         }
 

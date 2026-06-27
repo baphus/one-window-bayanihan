@@ -17,6 +17,9 @@ use App\Models\ReferralAttachment;
 use App\Models\Service;
 use App\Models\User;
 use App\Observers\AuditObserver;
+use App\Services\Contracts\MalwareScannerInterface;
+use App\Services\Malware\ClamAvScanner;
+use App\Services\Malware\NullScanner;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -34,7 +37,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(MalwareScannerInterface::class, function ($app) {
+            return env('MALWARE_SCANNER', 'null') === 'clamav'
+                ? new ClamAvScanner
+                : new NullScanner;
+        });
     }
 
     /**

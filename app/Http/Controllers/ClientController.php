@@ -95,8 +95,8 @@ class ClientController extends Controller
         $client = Client::findOrFail($id);
 
         $file = $request->file('profile_picture');
-        $filename = 'client-'.$client->id.'-'.time().'-'.str_pad(mt_rand(0, 9999), 4, '0', STR_PAD_LEFT).'.'.$file->extension();
-        $path = $file->storeAs('profile-pictures', $filename, 'public');
+        $filename = 'client-'.$client->id.'-'.time().'-'.str_pad(mt_rand(0, 9999), 4, '0', STR_PAD_LEFT).'.'.$file->guessExtension();
+        $path = $file->storeAs('profile-pictures', $filename, 'private');
 
         $client->avatar_url = $path;
         $client->save();
@@ -109,7 +109,7 @@ class ClientController extends Controller
         $client = Client::findOrFail($id);
 
         if ($client->avatar_url) {
-            Storage::disk('public')->delete($client->avatar_url);
+            Storage::disk('private')->delete($client->avatar_url);
         }
 
         $client->avatar_url = null;

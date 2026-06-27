@@ -68,7 +68,9 @@ class MfaControllerTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->postJson(route('profile.mfa.disable'))
+            ->postJson(route('profile.mfa.disable'), [
+                'password' => 'P@ssw0rd!',
+            ])
             ->assertOk();
 
         $user->refresh();

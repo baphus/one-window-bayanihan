@@ -69,8 +69,8 @@ class AdminAgencyController extends Controller
 
         // Handle logo upload
         if ($request->hasFile('logo_url')) {
-            $path = $request->file('logo_url')->store('logos', 'public');
-            $validated['logo_url'] = '/storage/'.$path;
+            $path = $request->file('logo_url')->store('logos', 'private');
+            $validated['logo_url'] = $path;
         }
 
         $this->parseAndSetMapLink($validated);
@@ -106,8 +106,8 @@ class AdminAgencyController extends Controller
 
         // Handle logo upload
         if ($request->hasFile('logo_url')) {
-            $path = $request->file('logo_url')->store('logos', 'public');
-            $validated['logo_url'] = '/storage/'.$path;
+            $path = $request->file('logo_url')->store('logos', 'private');
+            $validated['logo_url'] = $path;
         } elseif ($request->has('logo_url') && $request->input('logo_url') === null) {
             // Explicitly set to null — clear existing logo
             $validated['logo_url'] = null;

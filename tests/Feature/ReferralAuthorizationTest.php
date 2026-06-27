@@ -59,11 +59,30 @@ class ReferralAuthorizationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_case_manager_can_view_any_referral(): void
+    public function test_case_manager_cannot_view_other_case_manager_referral(): void
+    {
+        $managerA = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $managerB = User::factory()->create(['role' => 'CASE_MANAGER']);
+
+        $case = CaseFile::factory()->create(['user_id' => $managerB->id]);
+        $referral = Referral::create([
+            'id' => fake()->uuid(),
+            'required_services' => 'Test service',
+            'status' => 'PENDING',
+            'case_id' => $case->id,
+            'agcy_id' => Agency::factory()->create()->id,
+        ]);
+
+        $response = $this->actingAs($managerA)->get("/referrals/{$referral->id}");
+
+        $response->assertStatus(403);
+    }
+
+    public function test_case_manager_can_view_own_referral(): void
     {
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
 
-        $case = CaseFile::factory()->create();
+        $case = CaseFile::factory()->create(['user_id' => $manager->id]);
         $referral = Referral::create([
             'id' => fake()->uuid(),
             'required_services' => 'Test service',
