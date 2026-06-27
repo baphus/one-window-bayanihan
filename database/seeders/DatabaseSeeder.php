@@ -19,12 +19,9 @@ class DatabaseSeeder extends Seeder
             ServiceSeeder::class,
             CaseCategorySeeder::class,
             CaseIssueSeeder::class,
-            DemoDataSeeder::class,
+            ProductionSeeder::class,
             SystemSettingSeeder::class,
+            DefaultServqualQuestionsSeeder::class,
         ]);
-
-        if (app()->environment('local', 'testing')) {
-            $this->call(DefaultServqualQuestionsSeeder::class);
-        }
     }
 }

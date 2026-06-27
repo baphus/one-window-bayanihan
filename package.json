@@ -30,7 +30,9 @@
     "react-dom": "^18.2.0",
     "tailwindcss": "^3.2.1",
     "vite": "^8.0.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "oh-my-openagent": "^4.13.0",
+    "playwright": "^1.60.0"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",
@@ -44,8 +46,6 @@
     "jspdf-autotable": "^5.0.7",
     "libphonenumber-js": "^1.13.6",
     "lucide-react": "^1.14.0",
-    "oh-my-openagent": "^4.13.0",
-    "playwright": "^1.60.0",
     "react-chartjs-2": "^5.3.1",
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
