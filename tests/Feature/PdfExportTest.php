@@ -47,8 +47,7 @@ class PdfExportTest extends TestCase
     /**
      * The following tests exercise the full controller stack which calls
      * ReportsService → PostgreSQL-specific functions (EXTRACT, age, etc.).
-     * These functions are incompatible with SQLite (test environment).
-     * See AGENTS.md "Core Gotchas" for details.
+     * These tests require a running PostgreSQL instance.
      * In production (PostgreSQL), the PDF endpoint returns 200 with
      * Content-Type: application/pdf and Content-Disposition: attachment.
      */

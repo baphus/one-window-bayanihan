@@ -521,7 +521,7 @@ class CaseServiceTest extends TestCase
         $user = User::factory()->create();
         $client = Client::factory()->create();
 
-        // Use explicit date strings to avoid Carbon serialization edge cases with SQLite
+        // Use explicit date strings for consistent date filtering
         $day10ago = now()->subDays(10)->format('Y-m-d H:i:s');
         $day8ago = now()->subDays(8)->format('Y-m-d H:i:s');
         $day5ago = now()->subDays(5)->format('Y-m-d H:i:s');

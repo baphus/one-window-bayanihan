@@ -54,9 +54,7 @@ return new class extends Migration
             $table->foreign('deleted_by')->references('id')->on('users')->onDelete('restrict');
         });
 
-        if (DB::getDriverName() !== 'sqlite') {
-            DB::statement('ALTER TABLE services ADD CONSTRAINT services_processing_days_check CHECK (processing_days IS NULL OR (processing_days >= 0 AND processing_days <= 365))');
-        }
+        DB::statement('ALTER TABLE services ADD CONSTRAINT services_processing_days_check CHECK (processing_days IS NULL OR (processing_days >= 0 AND processing_days <= 365))');
 
         // 3. service_requirements
         Schema::create('service_requirements', function (Blueprint $table) {

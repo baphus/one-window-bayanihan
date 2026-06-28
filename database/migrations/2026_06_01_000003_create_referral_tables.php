@@ -37,9 +37,7 @@ return new class extends Migration
             $table->foreign('deleted_by')->references('id')->on('users')->onDelete('restrict');
         });
 
-        if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE referrals ADD CONSTRAINT referrals_decision_check CHECK (decision IS NULL OR decision IN ('ACCEPT', 'REJECT'))");
-        }
+        DB::statement("ALTER TABLE referrals ADD CONSTRAINT referrals_decision_check CHECK (decision IS NULL OR decision IN ('ACCEPT', 'REJECT'))");
 
         // ===================================================================
         // MILESTONES

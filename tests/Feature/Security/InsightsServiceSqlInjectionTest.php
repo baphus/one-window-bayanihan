@@ -65,31 +65,16 @@ class InsightsServiceSqlInjectionTest extends TestCase
 
     /**
      * Verify getCapacityForecast() handles injection-like parameters
-     * gracefully (PG-specific FILTER syntax expected to fail on SQLite,
-     * but the error should not be injection-related).
+     * gracefully (now runs on PostgreSQL).
      */
     public function test_capacity_forecast_handles_injection_like_data(): void
     {
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
         $service = new InsightsService;
 
-        try {
-            $result = $service->getCapacityForecast($user);
-            // If query somehow executes (e.g. on PostgreSQL), result must be a Collection
-            $this->assertInstanceOf(Collection::class, $result);
-        } catch (\Throwable $e) {
-            // On SQLite, PG-specific syntax (FILTER) will fail — that's expected.
-            // Critical assertion: the error is NOT about SQL injection.
-            $msg = $e->getMessage();
-            $this->assertStringNotContainsStringIgnoringCase('injection', $msg,
-                'Errors must not be related to SQL injection — only PG/SQLite compatibility'
-            );
-            // Ensure no data was leaked or altered (the error must be a PG/SQLite
-            // syntax compatibility issue, not a successful injection)
-            $this->assertStringContainsStringIgnoringCase('sqlite', $msg,
-                'Error must originate from SQLite driver (PG/SQLite compatibility)'
-            );
-        }
+        $result = $service->getCapacityForecast($user);
+
+        $this->assertInstanceOf(Collection::class, $result);
     }
 
     /**

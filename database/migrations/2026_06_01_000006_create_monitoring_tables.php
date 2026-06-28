@@ -32,9 +32,7 @@ return new class extends Migration
             $table->index('entity_id', 'idx_audit_logs_entity_id');
         });
 
-        if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_action_check CHECK (action::text IN ('CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'ARCHIVE', 'UNARCHIVE', 'PUBLISH'))");
-        }
+        DB::statement("ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_action_check CHECK (action::text IN ('CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'ARCHIVE', 'UNARCHIVE', 'PUBLISH'))");
 
         // --- health_check_logs ---
         Schema::create('health_check_logs', function (Blueprint $table) {
@@ -131,9 +129,7 @@ return new class extends Migration
         Schema::dropIfExists('alert_configs');
         Schema::dropIfExists('health_check_logs');
 
-        if (DB::getDriverName() !== 'sqlite') {
-            DB::statement('ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_action_check');
-        }
+        DB::statement('ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_action_check');
 
         Schema::dropIfExists('audit_logs');
     }

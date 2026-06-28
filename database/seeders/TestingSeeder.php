@@ -20,7 +20,7 @@ namespace Database\Seeders;
  * │  11. audit_logs                 (FK → users.id)
  * │
  * │ Total rows: ~4000
- * │ Works on: PostgreSQL + SQLite
+ * │ Works on: PostgreSQL
  * │ Idempotent: guarded by DB::table('clients')->count() > 0
  * │ No Eloquent, no factories
  * └─────────────────────────────────────────────────────────────────────────────

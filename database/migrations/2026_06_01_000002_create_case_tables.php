@@ -29,9 +29,7 @@ return new class extends Migration
             $table->foreign('deleted_by')->references('id')->on('users')->onDelete('restrict');
         });
 
-        if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE clients ADD CONSTRAINT clients_sex_check CHECK (sex IS NULL OR sex IN ('MALE', 'FEMALE'))");
-        }
+        DB::statement("ALTER TABLE clients ADD CONSTRAINT clients_sex_check CHECK (sex IS NULL OR sex IN ('MALE', 'FEMALE'))");
 
         // === 2. cases ===
         Schema::create('cases', function (Blueprint $table) {

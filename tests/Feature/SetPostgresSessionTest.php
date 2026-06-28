@@ -13,10 +13,6 @@ class SetPostgresSessionTest extends TestCase
 
     public function test_middleware_sets_session_vars_when_authenticated(): void
     {
-        if (DB::getDriverName() !== 'pgsql') {
-            $this->markTestSkipped('RLS session var tests require PostgreSQL.');
-        }
-
         $user = User::factory()->create([
             'role' => 'CASE_MANAGER',
         ]);

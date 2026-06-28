@@ -11,7 +11,6 @@ use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -151,13 +150,7 @@ class FeedbackControllerTest extends TestCase
     #[Test]
     public function export_excel_returns_downloadable_xlsx(): void
     {
-        // Skip on non-PostgreSQL — DataExportQueries uses ::numeric cast syntax
-        if (DB::connection()->getDriverName() !== 'pgsql') {
-            $this->markTestSkipped(
-                'Export query uses PostgreSQL-specific syntax (perception::numeric).'
-            );
-        }
-
+        // PostgreSQL-specific cast syntax (perception::numeric)
         // Direct controller call due to route conflict:
         // GET /feedbacks/{feedback} shadows GET /feedbacks/export-excel
         $request = Request::create('/feedbacks/export-excel', 'GET');
