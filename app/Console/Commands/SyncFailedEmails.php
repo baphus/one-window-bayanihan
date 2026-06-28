@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Helpers\SecurityHelper;
 use App\Models\EmailLog;
 use Illuminate\Console\Command;
 use Illuminate\Mail\SendQueuedMailable;
@@ -77,7 +78,14 @@ class SyncFailedEmails extends Command
             return null;
         }
 
-        $command = unserialize($command);
+        $command = SecurityHelper::safeUnserialize($command, [
+            SendQueuedMailable::class,
+            SendQueuedNotifications::class,
+        ]);
+
+        if ($command === null) {
+            return null;
+        }
 
         if ($command instanceof SendQueuedMailable) {
             $mailable = $command->mailable;

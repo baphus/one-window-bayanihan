@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Helpers\SecurityHelper;
 use App\Models\EmailLog;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Mail\SendQueuedMailable;
@@ -94,7 +95,14 @@ class EmailEventSubscriber
             return null;
         }
 
-        $command = unserialize($command);
+        $command = SecurityHelper::safeUnserialize($command, [
+            SendQueuedMailable::class,
+            SendQueuedNotifications::class,
+        ]);
+
+        if ($command === null) {
+            return null;
+        }
 
         // Handle SendQueuedMailable
         if ($command instanceof SendQueuedMailable) {
