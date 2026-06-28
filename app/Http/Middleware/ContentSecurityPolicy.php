@@ -48,10 +48,11 @@ class ContentSecurityPolicy
         $viteOrigin = env('VITE_DEV_SERVER_URL', 'http://127.0.0.1:5173');
 
         return "default-src 'self'; "
-            ."script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteOrigin}; "
+            ."script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteOrigin} https://challenges.cloudflare.com; "
             ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
             ."img-src 'self' data: https://res.cloudinary.com; "
-            ."connect-src 'self' wss: {$viteOrigin} ws://127.0.0.1:5173; "
+            ."connect-src 'self' wss: {$viteOrigin} ws://127.0.0.1:5173 https://challenges.cloudflare.com; "
+            ."frame-src 'self' https://challenges.cloudflare.com; "
             ."form-action 'self'; "
             ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
     }
@@ -62,10 +63,11 @@ class ContentSecurityPolicy
     private function getProdPolicy(): string
     {
         return "default-src 'self'; "
-            ."script-src 'self'; "
+            ."script-src 'self' https://challenges.cloudflare.com; "
             ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
             ."img-src 'self' data: https://res.cloudinary.com; "
-            ."connect-src 'self' wss:; "
+            ."connect-src 'self' wss: https://challenges.cloudflare.com; "
+            ."frame-src 'self' https://challenges.cloudflare.com; "
             ."form-action 'self'; "
             ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
     }
