@@ -14,7 +14,6 @@ export default function Login({ status, canResetPassword }) {
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [otpError, setOtpError] = useState('');
     const [processing, setProcessing] = useState(false);
-    const [selectedRole, setSelectedRole] = useState(null);
     const [resendCooldown, setResendCooldown] = useState(0);
     const otpRefs = useRef([]);
     const autoFilled = useRef(false);
@@ -59,26 +58,6 @@ export default function Login({ status, canResetPassword }) {
 
     const loginForm = useRef(null);
     const errorMsg = pageErrors?.email || loginError;
-
-    const applyMockCredentials = (e, creds) => {
-        e.preventDefault();
-        setEmail(creds.email);
-        setPassword(creds.password);
-        setLoginError('');
-        setSelectedRole(null);
-    };
-
-    const handleRoleSelect = (role) => {
-        setSelectedRole(role);
-        setLoginError('');
-        if (role === 'case_manager') {
-            setEmail('case@bayanihan.gov.ph');
-            setPassword('password');
-        } else if (role === 'agency') {
-            setEmail('owwa@bayanihan.gov.ph');
-            setPassword('password');
-        }
-    };
 
     const handleLoginSubmit = (e) => {
         e.preventDefault();
@@ -252,7 +231,7 @@ export default function Login({ status, canResetPassword }) {
                         <div className="lg:w-1/2 relative min-h-[500px] flex flex-col justify-center text-white overflow-hidden">
                             <div className="absolute inset-0 z-0">
                                 <img
-                                    src="https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80"
+                                    src="https://res.cloudinary.com/dzjshue6h/image/upload/v1782637496/667817270_1254865806795018_1270259905126531748_n_ry23hh.jpg"
                                     alt=""
                                     className="h-full w-full object-cover"
                                 />
@@ -284,55 +263,6 @@ export default function Login({ status, canResetPassword }) {
                                     <div className="mb-8 flex items-center gap-3 border-b border-outline-variant pb-4">
                                         <span className="material-symbols-outlined text-primary text-2xl">lock_open</span>
                                         <h2 className="font-headline text-xl font-bold">Sign In</h2>
-                                    </div>
-
-                                    <div className="mb-6">
-                                        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Log in as</p>
-                                        <div className="relative flex border-2 border-outline-variant bg-surface-container">
-                                            <div
-                                                className={`absolute top-0 bottom-0 w-1/2 bg-primary transition-all duration-200 ease-in-out ${
-                                                    selectedRole === 'agency' ? 'left-1/2' : 'left-0'
-                                                }`}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRoleSelect('case_manager')}
-                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 py-3 text-sm font-bold transition-colors duration-200 ${
-                                                    selectedRole !== 'agency'
-                                                        ? 'text-on-primary'
-                                                        : 'text-on-surface-variant hover:text-primary'
-                                                }`}
-                                            >
-                                                <span className="material-symbols-outlined text-[18px]">badge</span>
-                                                Case Manager
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRoleSelect('agency')}
-                                                className={`relative z-10 flex w-1/2 items-center justify-center gap-2 py-3 text-sm font-bold transition-colors duration-200 ${
-                                                    selectedRole === 'agency'
-                                                        ? 'text-on-primary'
-                                                        : 'text-on-surface-variant hover:text-primary'
-                                                }`}
-                                            >
-                                                <span className="material-symbols-outlined text-[18px]">account_balance</span>
-                                                Agency Focal
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="mb-8 bg-surface-container-highest/20 p-5 border border-outline-variant/20 italic">
-                                        <div className="flex items-start gap-3 text-xs font-medium text-on-surface-variant">
-                                            <span className="material-symbols-outlined text-primary shrink-0 text-[20px]">info</span>
-                                            <div>
-                                                <p className="font-bold text-primary mb-1 uppercase tracking-tighter">Mock Credentials:</p>
-                                                <div className="flex flex-col gap-2">
-                                                    <button type="button" onClick={(e) => applyMockCredentials(e, { email: 'admin@bayanihan.gov.ph', password: 'password' })} className="text-left hover:underline">System Admin: admin@bayanihan.gov.ph</button>
-                                                    <button type="button" onClick={(e) => applyMockCredentials(e, { email: 'case@bayanihan.gov.ph', password: 'password' })} className="text-left hover:underline">Case Manager: case@bayanihan.gov.ph</button>
-                                                    <button type="button" onClick={(e) => applyMockCredentials(e, { email: 'owwa@bayanihan.gov.ph', password: 'password' })} className="text-left hover:underline">Agency: owwa@bayanihan.gov.ph</button>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <form onSubmit={handleLoginSubmit} className="space-y-6">
