@@ -32,6 +32,7 @@ function ContextDisplay() {
         <div>
             <span data-testid="phase">{ctx.phase}</span>
             <span data-testid="isOpen">{String(ctx.isOpen)}</span>
+            <span data-testid="pageIndex">{ctx.currentPageIndex}</span>
             <button
                 data-testid="startTour-btn"
                 onClick={() => ctx.startTour(mockTourConfig)}
@@ -40,6 +41,12 @@ function ContextDisplay() {
             </button>
             <button data-testid="dismiss-btn" onClick={ctx.dismissRemindLater}>
                 Dismiss
+            </button>
+            <button data-testid="advancePage-btn" onClick={ctx.advancePage}>
+                Advance Page
+            </button>
+            <button data-testid="endTour-btn" onClick={ctx.endTour}>
+                End Tour
             </button>
         </div>
     );
@@ -101,5 +108,43 @@ describe('OnboardingProvider', () => {
 
         expect(sessionStorage.getItem('onboarding_dismissed')).toBe('true');
         expect(screen.getByTestId('phase')).toHaveTextContent('idle');
+    });
+
+    it('currentPageIndex starts at 0', () => {
+        renderWithProvider(false);
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('0');
+    });
+
+    it('advancePage increments currentPageIndex', () => {
+        renderWithProvider(false);
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('0');
+
+        fireEvent.click(screen.getByTestId('advancePage-btn'));
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('1');
+
+        fireEvent.click(screen.getByTestId('advancePage-btn'));
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('2');
+    });
+
+    it('startTour resets currentPageIndex to 0', () => {
+        renderWithProvider(false);
+
+        fireEvent.click(screen.getByTestId('advancePage-btn'));
+        fireEvent.click(screen.getByTestId('advancePage-btn'));
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('2');
+
+        fireEvent.click(screen.getByTestId('startTour-btn'));
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('0');
+    });
+
+    it('endTour resets currentPageIndex to 0', () => {
+        renderWithProvider(true);
+        fireEvent.click(screen.getByTestId('startTour-btn'));
+
+        fireEvent.click(screen.getByTestId('advancePage-btn'));
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('1');
+
+        fireEvent.click(screen.getByTestId('endTour-btn'));
+        expect(screen.getByTestId('pageIndex')).toHaveTextContent('0');
     });
 });

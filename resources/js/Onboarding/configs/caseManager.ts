@@ -23,15 +23,6 @@ export const caseManagerTour: TourConfig = {
             ],
         },
         {
-            route: 'cases.show',
-            title: 'Case Detail',
-            steps: [
-                { element: '[data-tour="case-header"]', title: 'Case Overview', description: 'View case status, age, referral count, and key identifiers at a glance. The stats ribbon shows essential case metadata.', side: 'bottom' as const },
-                { element: '[data-tour="case-timeline"]', title: 'Case Timeline', description: 'Track chronological events from case creation through referrals and milestones. Filter by agency to focus on specific referral progress.', side: 'bottom' as const },
-                { element: '[data-tour="case-actions"]', title: 'Actions', description: 'Close, reopen, or archive the case. Edit case details, manage documents, or create new referrals from this panel.', side: 'right' as const },
-            ],
-        },
-        {
             route: 'cases.create',
             title: 'Create Case',
             steps: [

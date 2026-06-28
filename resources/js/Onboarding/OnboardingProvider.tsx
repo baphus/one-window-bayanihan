@@ -12,6 +12,8 @@ export interface OnboardingContextValue {
     tourConfig: TourConfig | null;
     /** Current phase of the onboarding state machine */
     phase: Phase;
+    /** Zero-based index of the current page in the tour (persists across Inertia navigations) */
+    currentPageIndex: number;
     /** Begin a tour with the given config, starting at step 0 */
     startTour: (config: TourConfig) => void;
     /** End the current tour and reset to idle */
@@ -22,6 +24,10 @@ export interface OnboardingContextValue {
     prevStep: () => void;
     /** Jump directly to a specific step index */
     goToStep: (n: number) => void;
+    /** Set the current page index directly */
+    setCurrentPageIndex: (n: number) => void;
+    /** Advance to the next page in the tour */
+    advancePage: () => void;
     /** Dismiss onboarding for the remainder of this session */
     dismissRemindLater: () => void;
 }
@@ -52,6 +58,7 @@ export default function OnboardingProvider({ children, onboardingRequired }: { c
     const [phase, setPhase] = useState<Phase>('idle');
     const [currentStep, setCurrentStep] = useState<number>(0);
     const [tourConfig, setTourConfig] = useState<TourConfig | null>(null);
+    const [currentPageIndex, setCurrentPageIndexState] = useState<number>(0);
 
     // On mount, check sessionStorage and onboarding_required prop
     useEffect(() => {
@@ -63,9 +70,18 @@ export default function OnboardingProvider({ children, onboardingRequired }: { c
         }
     }, [onboardingRequired]);
 
+    const setCurrentPageIndex = useCallback((n: number) => {
+        setCurrentPageIndexState(n);
+    }, []);
+
+    const advancePage = useCallback(() => {
+        setCurrentPageIndexState((prev) => prev + 1);
+    }, []);
+
     const startTour = useCallback((config: TourConfig) => {
         setTourConfig(config);
         setCurrentStep(0);
+        setCurrentPageIndexState(0);
         setPhase('touring');
     }, []);
 
@@ -73,6 +89,7 @@ export default function OnboardingProvider({ children, onboardingRequired }: { c
         setPhase('idle');
         setTourConfig(null);
         setCurrentStep(0);
+        setCurrentPageIndexState(0);
     }, []);
 
     const nextStep = useCallback(() => {
@@ -102,11 +119,14 @@ export default function OnboardingProvider({ children, onboardingRequired }: { c
         currentStep,
         tourConfig,
         phase,
+        currentPageIndex,
         startTour,
         endTour,
         nextStep,
         prevStep,
         goToStep,
+        setCurrentPageIndex,
+        advancePage,
         dismissRemindLater,
     };
 
