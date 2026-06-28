@@ -71,6 +71,10 @@ class HandleInertiaRequests extends Middleware
                 'enabled' => config('ai-chatbot.enabled', false),
                 'provider' => config('ai-chatbot.provider', 'openai'),
             ],
+            'turnstile' => [
+                'enabled' => (bool) config('turnstile.enabled', false),
+                'site_key' => config('turnstile.site_key', ''),
+            ],
         ];
     }
 }
