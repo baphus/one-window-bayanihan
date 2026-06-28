@@ -29,8 +29,11 @@ class SetPostgresSession
             if (DB::connection()->getDriverName() === 'pgsql') {
                 // Ensure UTF-8 client encoding (Windows PDO driver may default to WIN1252)
                 DB::statement('SET SESSION client_encoding TO UTF8');
-                DB::statement('SET SESSION app.current_user_id = ?', [(string) $user->id]);
-                DB::statement('SET SESSION app.user_role = ?', [$user->role]);
+                // SET SESSION does not support parameterized queries in PostgreSQL,
+                // so we interpolate directly. UUIDs (hex+dashes) and role enum values
+                // are safe — no user-supplied data reaches these strings.
+                DB::statement("SET SESSION app.current_user_id = '{$user->id}'");
+                DB::statement("SET SESSION app.user_role = '{$user->role}'");
             }
         }
 
