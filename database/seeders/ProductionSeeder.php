@@ -35,6 +35,7 @@ class ProductionSeeder extends Seeder
                 'password' => Hash::make('P@ssw0rd!'),
                 'role' => 'ADMIN',
                 'is_active' => true,
+                'email_verified_at' => $now,
                 'updated_at' => $now,
                 'created_at' => $now,
             ]

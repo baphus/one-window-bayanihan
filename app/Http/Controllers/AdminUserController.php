@@ -141,6 +141,10 @@ class AdminUserController extends Controller
             $updateData['password'] = Hash::make($request->input('password'));
         }
 
+        if ($user->email !== $validated['email']) {
+            $user->email_verified_at = null;
+        }
+
         $user->update($updateData);
 
         return redirect()->route('admin.users.index')
@@ -156,5 +160,17 @@ class AdminUserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User deactivated successfully.');
+    }
+
+    public function verify(User $user)
+    {
+        if ($user->is_deleted || ! $user->is_active) {
+            return redirect()->back()->with('error', 'Cannot verify inactive or deleted users.');
+        }
+
+        $user->email_verified_at = $user->email_verified_at ? null : now();
+        $user->save();
+
+        return redirect()->back()->with('success', 'User verification status updated.');
     }
 }

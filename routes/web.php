@@ -227,6 +227,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+        Route::patch('/users/{user}/verify', [AdminUserController::class, 'verify'])->name('users.verify');
 
         Route::get('/system-settings', [SystemSettingsController::class, 'index'])->name('system-settings.index');
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
