@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,6 +28,14 @@ class ClientProfilePictureTest extends TestCase
 
         $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
         $this->client = Client::factory()->create();
+
+        // Create a case file linking the case manager to the client
+        // (required by authorizeClientAccess for non-admin users)
+        CaseFile::factory()->create([
+            'user_id' => $this->user->id,
+            'client_id' => $this->client->id,
+            'status' => 'OPEN',
+        ]);
     }
 
     public function test_guest_cannot_upload_profile_picture(): void

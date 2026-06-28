@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProfilePictureRequest;
 use App\Models\AuditLog;
 use App\Models\Client;
+use App\Models\User;
 use App\Services\AuditLogFormatter;
 use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
@@ -17,9 +18,24 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
+
         $clients = Client::with(['caseFile' => function ($q) {
             $q->with('referrals.agency');
         }])->orderBy('created_at', 'desc');
+
+        // Role-based scoping
+        if ($user && ! $user->isAdmin()) {
+            if ($user->isCaseManager()) {
+                $clients->whereHas('caseFile', function ($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            } elseif ($user->isAgency() && $user->agcy_id) {
+                $clients->whereHas('caseFile.referrals', function ($q) use ($user) {
+                    $q->where('agcy_id', $user->agcy_id);
+                });
+            }
+        }
 
         if (! empty($request->search)) {
             $search = $request->search;
@@ -39,7 +55,7 @@ class ClientController extends Controller
         ]);
     }
 
-    public function show(string $id)
+    public function show(string $id, Request $request)
     {
         $client = Client::with([
             'caseFile' => function ($q) {
@@ -48,6 +64,8 @@ class ClientController extends Controller
             'addresses',
             'employments',
         ])->findOrFail($id);
+
+        $this->authorizeClientAccess($client, $request->user());
 
         $auditLogs = AuditLog::with('user')
             ->where(function ($q) use ($client) {
@@ -93,6 +111,7 @@ class ClientController extends Controller
     public function storeAvatar(ProfilePictureRequest $request, string $id)
     {
         $client = Client::findOrFail($id);
+        $this->authorizeClientAccess($client, $request->user());
 
         $file = $request->file('profile_picture');
         $filename = 'client-'.$client->id.'-'.time().'-'.str_pad(mt_rand(0, 9999), 4, '0', STR_PAD_LEFT).'.'.$file->guessExtension();
@@ -104,9 +123,10 @@ class ClientController extends Controller
         return redirect()->route('clients.show', $client)->with('success', 'Profile picture updated successfully.');
     }
 
-    public function destroyAvatar(string $id)
+    public function destroyAvatar(string $id, Request $request)
     {
         $client = Client::findOrFail($id);
+        $this->authorizeClientAccess($client, $request->user());
 
         if ($client->avatar_url) {
             Storage::disk('private')->delete($client->avatar_url);
@@ -127,5 +147,47 @@ class ClientController extends Controller
         $filename = 'clients-export-'.now()->format('Ymd-His').'.xlsx';
 
         return (new DataExportService)->generateSingleSheet('Clients', $columnMap, $clients, $filename);
+    }
+
+    /**
+     * Authorize that the current user can access this client record.
+     * ADMIN: all. CASE_MANAGER: client must have a case they own.
+     * AGENCY: client must have a case referred to their agency.
+     * Returns 404 on mismatch (no 403 — don't reveal existence).
+     */
+    private function authorizeClientAccess(Client $client, User $user): void
+    {
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        if ($user->isCaseManager()) {
+            $hasAccess = $client->caseFiles()
+                ->where('user_id', $user->id)
+                ->exists();
+
+            if (! $hasAccess) {
+                abort(404, 'Client not found.');
+            }
+
+            return;
+        }
+
+        if ($user->isAgency() && $user->agcy_id) {
+            $hasAccess = $client->caseFiles()
+                ->whereHas('referrals', function ($q) use ($user) {
+                    $q->where('agcy_id', $user->agcy_id);
+                })
+                ->exists();
+
+            if (! $hasAccess) {
+                abort(404, 'Client not found.');
+            }
+
+            return;
+        }
+
+        // Unknown role — deny
+        abort(404, 'Client not found.');
     }
 }
