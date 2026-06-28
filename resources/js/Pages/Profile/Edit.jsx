@@ -14,9 +14,11 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { profileSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 import DashboardBanner from '@/Components/DashboardBanner';
+import ChangeEmailForm from '@/Pages/Profile/Partials/ChangeEmailForm';
 
 export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgency, notificationPrefs }) {
     const user = usePage().props.auth.user;
+    const { email_change_step, email_change_hint, email_change_debug_otp } = usePage().props;
 
     const { data, setData, patch, errors, processing, setError, clearErrors } = useForm({
         name: user.name,
@@ -104,6 +106,13 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
 
                 {/* Notification Preferences */}
                 <NotificationPreferencesSection prefs={data.notifications_config} onToggle={handleNotificationToggle} />
+
+                {/* Email Change */}
+                <ChangeEmailForm
+                    initialStep={email_change_step || 'start'}
+                    hint={email_change_hint || ''}
+                    debugOtp={email_change_debug_otp}
+                />
 
                 {/* Save Button */}
                 <div className="flex justify-end">

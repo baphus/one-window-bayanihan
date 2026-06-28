@@ -3,38 +3,33 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class OtpMail extends Mailable
+class EmailChangedNotification extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
     public function __construct(
-        public readonly string $otp,
-        public readonly string $purpose,
+        public readonly string $oldEmail,
+        public readonly string $newEmail,
+        public readonly string $userName,
     ) {}
 
     public function envelope(): Envelope
     {
-        $subject = match ($this->purpose) {
-            'login' => 'Your Login Verification Code',
-            'track' => 'Your Case Tracking Verification Code',
-            'email_change' => 'Your Email Change Verification Code',
-            default => 'Your Verification Code',
-        };
-
         return new Envelope(
-            subject: $subject,
+            subject: 'Your email address has been changed',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.otp',
+            markdown: 'emails.email-changed',
         );
     }
 }

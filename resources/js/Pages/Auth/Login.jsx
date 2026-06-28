@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import TurnstileWidget from '@/Components/TurnstileWidget';
 
 export default function Login({ status, canResetPassword }) {
     const { errors: pageErrors, step: initialStep, email: initialEmail, hint: initialHint, debug_otp } = usePage().props;
@@ -18,6 +19,7 @@ export default function Login({ status, canResetPassword }) {
     const otpRefs = useRef([]);
     const autoFilled = useRef(false);
     const cooldownInterval = useRef(null);
+    const [turnstileToken, setTurnstileToken] = useState('');
     const [mfaMode, setMfaMode] = useState('totp'); // 'totp' | 'recovery'
     const [mfaTotp, setMfaTotp] = useState(['', '', '', '', '', '']);
     const [mfaTotpError, setMfaTotpError] = useState('');
@@ -64,7 +66,7 @@ export default function Login({ status, canResetPassword }) {
         setLoginError('');
         setProcessing(true);
 
-        router.post(route('login.init'), { email, password }, {
+        router.post(route('login.init'), { email, password, cf_turnstile_response: turnstileToken }, {
             onSuccess: (page) => {
                 setProcessing(false);
                 setStep('otp');
@@ -293,6 +295,7 @@ export default function Login({ status, canResetPassword }) {
                                                 {canResetPassword && (
                                                     <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
                                                 )}
+                                                <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
                                             </div>
                                             <div className="relative">
                                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">lock</span>
@@ -312,6 +315,8 @@ export default function Login({ status, canResetPassword }) {
                                                 </button>
                                             </div>
                                         </div>
+
+                                        <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
 
                                         <button
                                             type="submit"

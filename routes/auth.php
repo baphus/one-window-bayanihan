@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\EmailChangeController;
 use App\Http\Controllers\LoginOtpController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -18,7 +19,7 @@ Route::middleware('guest')->group(function () {
     })->name('login');
 
     Route::post('login', [LoginOtpController::class, 'init'])
-        ->middleware('throttle:login')
+        ->middleware(['turnstile', 'throttle:login'])
         ->name('login.init');
 
     Route::post('login/verify-otp', [LoginOtpController::class, 'verifyOtp'])
@@ -40,7 +41,8 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::post('register', [RegisteredUserController::class, 'store'])
+        ->middleware('turnstile');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
@@ -53,6 +55,10 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    Route::get('forgot-email', function () {
+        return Inertia::render('Auth/ForgotEmail');
+    })->name('forgot-email');
 
 });
 
@@ -75,6 +81,14 @@ Route::middleware('auth')->group(function () {
 
     Route::put('password', [PasswordController::class, 'update'])
         ->name('password.update');
+
+    Route::get('profile/email-change', [EmailChangeController::class, 'init'])->name('profile.email-change.init');
+    Route::post('profile/email-change/send-otp', [EmailChangeController::class, 'sendOtp'])
+        ->middleware('throttle:otp')
+        ->name('profile.email-change.send-otp');
+    Route::post('profile/email-change/verify-otp', [EmailChangeController::class, 'verifyOtp'])
+        ->middleware('throttle:otp')
+        ->name('profile.email-change.verify-otp');
 
     Route::post('logout', function () {
         auth()->guard('web')->logout();
