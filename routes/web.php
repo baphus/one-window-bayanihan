@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\Api\InsightsApiController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\CaseCommentController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\CaseDocumentController;
 use App\Http\Controllers\CaseIssueController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InsightsController;
+use App\Http\Controllers\InsightsExportController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
@@ -89,32 +91,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/mfa/recovery-codes', [MfaController::class, 'getRecoveryCodes'])->name('profile.mfa.recovery-codes');
     Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate');
 
-    Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
-    Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
-    Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
-    Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
-    Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
-    Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
-    Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
-    Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
-    Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show');
-    Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
-    Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
-    Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
-    Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
-    Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
-
-    Route::post('/case-issues/quick', [CaseIssueController::class, 'quickStore'])->name('case-issues.quick');
-
-    Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
-    Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
-    Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
-    Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
-    Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
-
-    Route::post('/cases/{case}/comments', [CaseCommentController::class, 'store'])->name('cases.comments.store');
-    Route::post('/cases/{case}/comments/{comment}/reply', [CaseCommentController::class, 'reply'])->name('cases.comments.reply');
-
+    // All-roles routes: referrals, analytics, reports, insights, notifications
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
@@ -141,21 +118,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/insights/export/csv', [InsightsExportController::class, 'exportCsv'])->name('insights.export.csv');
     Route::post('/insights/export/pdf', [InsightsExportController::class, 'exportPdf'])->name('insights.export.pdf');
 
-    Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
-    Route::get('/clients/export-excel', [ClientController::class, 'exportExcel'])->name('clients.export-excel');
-    Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
-    Route::post('/clients/{client}/avatar', [ClientController::class, 'storeAvatar'])->name('clients.avatar.store');
-    Route::delete('/clients/{client}/avatar', [ClientController::class, 'destroyAvatar'])->name('clients.avatar.destroy');
-    Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
-    Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
-    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
-    Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
-    Route::get('/feedbacks/servqual-config', [FeedbackController::class, 'servqualConfig'])->name('feedbacks.servqual-config');
-    Route::get('/feedbacks/submit-page', [FeedbackController::class, 'submitPage'])->name('feedbacks.submit-page');
-    Route::get('/feedbacks/export-excel', [FeedbackController::class, 'exportExcel'])->name('feedbacks.export-excel');
-    Route::get('/feedbacks/{feedback}', [FeedbackController::class, 'show'])->name('feedbacks.show');
-    Route::post('/feedbacks/submit', [FeedbackController::class, 'submit'])->name('feedbacks.submit');
-
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-as-read');
@@ -163,6 +125,61 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications/page', function () {
         return Inertia::render('Notifications/Index');
     })->name('notifications.page');
+
+    // Feedback submission — all roles
+    Route::get('/feedbacks/submit-page', [FeedbackController::class, 'submitPage'])->name('feedbacks.submit-page');
+    Route::post('/feedbacks/submit', [FeedbackController::class, 'submit'])->name('feedbacks.submit');
+
+    // Role-gated: CASE_MANAGER + ADMIN only
+    Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
+        Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
+        Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
+        Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
+        Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
+        Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
+        Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
+        Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
+        Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
+        Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
+        Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
+        Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
+        Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
+        Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
+
+        Route::post('/case-issues/quick', [CaseIssueController::class, 'quickStore'])->name('case-issues.quick');
+
+        Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
+        Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
+        Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
+        Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
+        Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
+
+        Route::post('/cases/{case}/comments', [CaseCommentController::class, 'store'])->name('cases.comments.store');
+        Route::post('/cases/{case}/comments/{comment}/reply', [CaseCommentController::class, 'reply'])->name('cases.comments.reply');
+
+        Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
+        Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
+
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+
+        Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
+        Route::get('/feedbacks/servqual-config', [FeedbackController::class, 'servqualConfig'])->name('feedbacks.servqual-config');
+        Route::get('/feedbacks/export-excel', [FeedbackController::class, 'exportExcel'])->name('feedbacks.export-excel');
+        Route::get('/feedbacks/{feedback}', [FeedbackController::class, 'show'])->name('feedbacks.show');
+    });
+
+    // Case show: AGENCY can view cases with active referrals (authorized in controller)
+    Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show')
+        ->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+
+    // Client routes: accessible to CASE_MANAGER, ADMIN, and AGENCY (controller handles per-role authorization)
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
+        Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+        Route::get('/clients/export-excel', [ClientController::class, 'exportExcel'])->name('clients.export-excel');
+        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
+        Route::post('/clients/{client}/avatar', [ClientController::class, 'storeAvatar'])->name('clients.avatar.store');
+        Route::delete('/clients/{client}/avatar', [ClientController::class, 'destroyAvatar'])->name('clients.avatar.destroy');
+    });
 
     Route::middleware('role:AGENCY')->group(function () {
         Route::get('/services', [AgencyServiceController::class, 'index'])->name('agency.services.index');
@@ -267,7 +284,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/addresses', [PhilippineAddressesController::class, 'index'])->name('addresses');
             Route::post('/addresses/sync', [PhilippineAddressesController::class, 'sync'])->name('addresses.sync');
         });
-
     });
 });
 
