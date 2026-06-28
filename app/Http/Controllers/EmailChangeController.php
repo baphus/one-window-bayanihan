@@ -36,11 +36,6 @@ class EmailChangeController extends Controller
 
     public function sendOtp(EmailChangeSendOtpRequest $request)
     {
-        // Verify session step
-        if ($request->session()->get('email_change_step') !== 1) {
-            abort(403, 'Email change session not initiated.');
-        }
-
         $newEmail = $request->input('new_email');
 
         // Generate OTP to the new email

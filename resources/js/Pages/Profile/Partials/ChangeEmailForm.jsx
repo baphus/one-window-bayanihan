@@ -69,7 +69,7 @@ export default function ChangeEmailForm({
 
     function handleInit(e) {
         e.preventDefault();
-        router.get(route('profile.email-change.init'));
+        setStep('new-email');
     }
 
     function handleSendOtp(e) {

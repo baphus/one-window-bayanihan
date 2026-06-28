@@ -25,6 +25,7 @@ class EmailChangeSendOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'password' => ['required', 'string', 'current_password'],
             'new_email' => [
                 'required',
                 'string',

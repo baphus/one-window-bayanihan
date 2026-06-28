@@ -22,8 +22,6 @@ class EmailChangeInitRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'password' => ['required', 'string', 'current_password'],
-        ];
+        return [];
     }
 }
