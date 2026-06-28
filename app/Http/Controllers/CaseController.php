@@ -198,6 +198,8 @@ class CaseController extends Controller
 
     public function publish(Request $request, CaseFile $case)
     {
+        $this->authorizeCaseAccess($case, $request->user());
+
         // Require email when publishing a new client draft
         if (empty($case->client_id) && ! empty($case->draft_client_data)) {
             $draftEmail = $case->draft_client_data['email'] ?? null;

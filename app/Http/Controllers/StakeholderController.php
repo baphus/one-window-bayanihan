@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agency;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class StakeholderController extends Controller
@@ -22,8 +23,13 @@ class StakeholderController extends Controller
         ]);
     }
 
-    public function show(Agency $stakeholder)
+    public function show(Request $request, Agency $stakeholder)
     {
+        $user = $request->user();
+        if ($user->isAgency() && $stakeholder->id !== $user->agcy_id) {
+            abort(404, 'Stakeholder not found.');
+        }
+
         $stakeholder->load([
             'services.requirements',
             'referrals' => function ($q) {

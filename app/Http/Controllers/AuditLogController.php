@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Services\AuditLogFormatter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,9 +13,22 @@ class AuditLogController extends Controller
 {
     public function index(Request $request)
     {
+        $user = $request->user();
         $formatter = app(AuditLogFormatter::class);
 
         $query = AuditLog::with('user');
+
+        if (! $user->isAdmin()) {
+            if ($user->isCaseManager()) {
+                $caseIds = CaseFile::where('user_id', $user->id)->pluck('id');
+                $referralIds = Referral::whereIn('case_id', $caseIds)->pluck('id');
+                $entityIds = $caseIds->concat($referralIds)->unique()->values()->toArray();
+                $query->whereIn('entity_id', $entityIds);
+            } elseif ($user->agcy_id) {
+                $referralIds = Referral::where('agcy_id', $user->agcy_id)->pluck('id');
+                $query->whereIn('entity_id', $referralIds->toArray());
+            }
+        }
 
         $query->when($request->filled('action'), function ($q) use ($request) {
             $actions = explode(',', $request->input('action'));

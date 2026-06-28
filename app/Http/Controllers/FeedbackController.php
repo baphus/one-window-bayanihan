@@ -35,12 +35,32 @@ class FeedbackController extends Controller
         ]);
     }
 
-    public function show(string $id): Response
+    public function show(Request $request, string $id): Response
     {
         $feedback = $this->feedbackService->getFeedbackDetail($id);
 
         if (! $feedback) {
             abort(404, 'Feedback not found');
+        }
+
+        $user = $request->user();
+        if (! $user->isAdmin()) {
+            if ($feedback->caseFile) {
+                $hasAccess = false;
+                if ($user->isCaseManager()) {
+                    $hasAccess = true;
+                } elseif ($user->agcy_id) {
+                    $hasAccess = $feedback->caseFile->referrals()
+                        ->where('agcy_id', $user->agcy_id)
+                        ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+                        ->exists();
+                }
+                if (! $hasAccess) {
+                    abort(404, 'Feedback not found');
+                }
+            } elseif (! $user->isCaseManager()) {
+                abort(404, 'Feedback not found');
+            }
         }
 
         $data = $feedback->toArray();

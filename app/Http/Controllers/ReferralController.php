@@ -303,8 +303,10 @@ class ReferralController extends Controller
         return redirect()->away($url);
     }
 
-    public function getAttachmentVersions(string $id, string $versionGroupId)
+    public function getAttachmentVersions(Request $request, string $id, string $versionGroupId)
     {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
         $versions = $this->referralService->getAttachmentVersions($versionGroupId);
 
         return response()->json($versions);

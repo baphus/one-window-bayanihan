@@ -9,6 +9,9 @@ class CaseIssueController extends Controller
 {
     public function quickStore(Request $request)
     {
+        $user = $request->user();
+        abort_unless(in_array($user->role, ['ADMIN', 'CASE_MANAGER']), 403, 'Only administrators and case managers can create case issues.');
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:case_issues,name',
         ]);
