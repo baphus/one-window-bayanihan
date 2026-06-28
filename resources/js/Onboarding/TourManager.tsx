@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { useOnboarding } from './OnboardingProvider';
 import { useToast } from '@/Hooks/useToast';
 import { completeOnboarding } from './api';
@@ -11,6 +11,7 @@ export default function TourManager() {
     const driverRef = useRef<ReturnType<typeof driver> | null>(null);
     const toast = useToast();
     const cleaningUpRef = useRef(false);
+    const { url } = usePage();
 
     useEffect(() => {
         if (phase !== 'touring' || !tourConfig) {
@@ -24,6 +25,13 @@ export default function TourManager() {
         const page = tourConfig.pages[currentPageIndex];
         if (!page) {
             endTour();
+            return;
+        }
+
+        const expectedPath = route(page.route);
+        const currentPath = url.split('?')[0];
+        if (currentPath !== new URL(expectedPath, window.location.origin).pathname) {
+            router.visit(expectedPath, { preserveState: false });
             return;
         }
 
@@ -147,7 +155,7 @@ export default function TourManager() {
 
             cleaningUpRef.current = false;
         };
-    }, [phase, tourConfig, endTour, toast, currentPageIndex, advancePage]);
+    }, [phase, tourConfig, endTour, toast, currentPageIndex, advancePage, url]);
 
     return null;
 }
