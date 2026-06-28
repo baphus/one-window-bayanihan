@@ -56,6 +56,14 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
             <input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required />
             <InputError message={errors.email} className="mt-1" />
           </div>
+          {isEdit && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium text-slate-700">Email Verified:</span>
+              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${user?.email_verified_at ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                {user?.email_verified_at ? 'Yes' : 'No'}
+              </span>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-700">Password {isEdit ? '(leave blank to keep current)' : '*'}</label>
             <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" minLength={8} />

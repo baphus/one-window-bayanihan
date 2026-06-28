@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 
 function formatNotificationLabel(key) {
@@ -61,6 +61,7 @@ export default function AdminUserShow({ user }) {
   const agency = user.agency ?? null;
   const emergency = user.emergency_contact ?? {};
   const notifications = user.notifications_config ?? {};
+  const { auth } = usePage().props;
 
   return (
     <AppLayout title={`User Details — ${user.name}`}>
@@ -224,7 +225,7 @@ export default function AdminUserShow({ user }) {
         {/* 5. Security */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Security</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Role</p>
               <p className="text-sm font-semibold text-slate-900 mt-1">{roleLabels[user.role] || user.role}</p>
@@ -233,6 +234,27 @@ export default function AdminUserShow({ user }) {
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">MFA Status</p>
               <div className="mt-1">
                 <StatusPill label={user.mfa_enabled_at ? 'Enabled' : 'Disabled'} enabled={!!user.mfa_enabled_at} />
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Verified</p>
+              <div className="mt-1 flex items-center gap-2">
+                <StatusPill label={user.email_verified_at ? 'Verified' : 'Unverified'} enabled={!!user.email_verified_at} />
+                {auth && user.id !== auth.user.id && (
+                  <button
+                    onClick={() => {
+                      if (user.email_verified_at && !confirm('Unverifying this user will lock them out of the system until an admin re-verifies them. Continue?')) return;
+                      router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
+                    }}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-[3px] border transition-colors inline-flex items-center min-h-[26px] hover:opacity-80 ${
+                      user.email_verified_at
+                        ? 'bg-red-50 text-red-600 border-red-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}
+                  >
+                    {user.email_verified_at ? 'Unverify' : 'Verify'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

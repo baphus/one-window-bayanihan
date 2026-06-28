@@ -31,6 +31,7 @@ const COLUMN_DEFS = [
   { key: 'position', label: 'Position', default: false },
   { key: 'department', label: 'Department', default: false },
   { key: 'contact_number', label: 'Contact', default: false },
+  { key: 'email_verified', label: 'Email Verified', default: true },
   { key: 'mfa_status', label: 'MFA', default: false },
   { key: 'status', label: 'Status', default: true },
   { key: 'created_at', label: 'Date Created', default: false },
@@ -216,6 +217,16 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
               sortable: false,
               render: (row) => (
                 <span className="text-xs text-slate-600">{row.contact_number || <span className="text-slate-400">&mdash;</span>}</span>
+              ),
+            };
+          case 'email_verified':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${row.email_verified_at ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                  {row.email_verified_at ? 'Verified' : 'Unverified'}
+                </span>
               ),
             };
           case 'mfa_status':
