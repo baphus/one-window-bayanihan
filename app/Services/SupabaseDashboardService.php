@@ -52,7 +52,10 @@ class SupabaseDashboardService
                 'created_at' => $data['created_at'] ?? '',
             ];
         } catch (\Exception $e) {
-            Log::warning('Supabase project API error: '.$e->getMessage());
+            Log::warning('Failed to fetch Supabase dashboard data', [
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
 
             return ['status' => 'error', 'error' => $e->getMessage()];
         }
@@ -81,7 +84,10 @@ class SupabaseDashboardService
                 'total_size_mb' => round($backups->sum('size_bytes') / 1048576, 2),
             ];
         } catch (\Exception $e) {
-            Log::warning('Supabase backup API error: '.$e->getMessage());
+            Log::warning('Failed to fetch Supabase backup data', [
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
 
             return ['error' => $e->getMessage()];
         }

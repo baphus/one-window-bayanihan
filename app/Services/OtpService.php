@@ -43,11 +43,12 @@ class OtpService
             ? "otp:attempts:{$purpose}:{$identifier}:{$sessionId}"
             : "otp:attempts:{$purpose}:{$identifier}";
 
+        $cachedOtp = Cache::get($key);
         Log::info('OTP_VERIFY', [
             'key' => $key,
             'sessionId' => $sessionId,
-            'cached_value' => Cache::get($key),
-            'provided_otp' => $otp,
+            'cached_value' => $cachedOtp ? substr($cachedOtp, 0, 2).'****' : null,
+            'provided_otp' => substr($otp, 0, 2).'****',
         ]);
 
         // Check if max attempts exceeded — invalidate OTP
@@ -58,7 +59,7 @@ class OtpService
             return false;
         }
 
-        $cached = Cache::get($key);
+        $cached = $cachedOtp;
 
         if (! $cached || $cached !== $otp) {
             // Increment failed-attempt counter

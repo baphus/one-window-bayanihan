@@ -38,7 +38,10 @@ class BackupStatusService
                     'total_size_mb' => round(collect($backups)->sum('size_mb'), 2),
                 ];
             } catch (\Exception $e) {
-                Log::warning('Supabase backup API error: '.$e->getMessage());
+                Log::warning('Backup health check failed', [
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
 
                 return [
                     'error' => 'Could not fetch backup data: '.$e->getMessage(),
