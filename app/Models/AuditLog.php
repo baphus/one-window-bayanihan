@@ -50,7 +50,18 @@ class AuditLog extends Model
                     continue;
                 }
                 array_walk_recursive($value, function (&$v, $k) {
+                    // Exact match on known sensitive fields
                     if (in_array($k, self::$sensitiveFields, true)) {
+                        $v = '[REDACTED]';
+
+                        return;
+                    }
+                    // Pattern match: any key containing password/secret/token/key
+                    $lowerKey = strtolower($k);
+                    if (str_contains($lowerKey, 'password') ||
+                        str_contains($lowerKey, 'secret') ||
+                        str_contains($lowerKey, 'token') ||
+                        str_contains($lowerKey, 'key')) {
                         $v = '[REDACTED]';
                     }
                 });

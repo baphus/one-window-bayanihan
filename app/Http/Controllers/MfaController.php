@@ -37,7 +37,6 @@ class MfaController extends Controller
         $request->session()->put('mfa_pending_secret', $secret);
 
         return response()->json([
-            'secret' => $secret,
             'qr_code_url' => $qrCodeUrl,
         ]);
     }
@@ -77,7 +76,6 @@ class MfaController extends Controller
 
         return response()->json([
             'message' => 'Two-factor authentication has been enabled.',
-            'recovery_codes' => $user->mfa_recovery_codes,
         ]);
     }
 
@@ -113,6 +111,10 @@ class MfaController extends Controller
             return response()->json(['message' => 'MFA is not enabled.'], 403);
         }
 
+        if (! $request->has('password') || ! Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Password confirmation is required.'], 403);
+        }
+
         return response()->json([
             'recovery_codes' => $user->mfa_recovery_codes ?? [],
         ]);
@@ -124,6 +126,10 @@ class MfaController extends Controller
 
         if ($user->mfa_enabled_at === null) {
             return response()->json(['message' => 'MFA is not enabled.'], 403);
+        }
+
+        if (! $request->has('password') || ! Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Password confirmation is required.'], 403);
         }
 
         $codes = $this->generateRecoveryCodes();

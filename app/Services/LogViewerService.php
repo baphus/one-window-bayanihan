@@ -19,7 +19,7 @@ class LogViewerService
         return $dates;
     }
 
-    public function getLogs(int $perPage = 50, ?string $level = null, ?string $search = null, ?string $dateFrom = null, ?string $dateTo = null): array
+    public function getLogs(int $perPage = 50, ?string $level = null, ?string $search = null, ?string $dateFrom = null, ?string $dateTo = null, bool $redact = true): array
     {
         $files = glob(storage_path('logs/laravel-*.log'));
         rsort($files);
@@ -58,6 +58,12 @@ class LogViewerService
                         'date' => $date,
                     ];
 
+                    // Redact PII from log messages
+                    if ($redact) {
+                        $entry['message'] = preg_replace('/[\w.+-]+@[\w-]+\.[\w.-]+/', '***@***.***', $entry['message']);
+                        $entry['message'] = preg_replace('/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/', '***.***.***.***', $entry['message']);
+                    }
+
                     if ($level && strtolower($entry['level']) !== strtolower($level)) {
                         continue;
                     }
@@ -83,6 +89,7 @@ class LogViewerService
             'current_page' => $page,
             'last_page' => max(1, (int) ceil($total / $perPage)),
             'levels' => ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'],
+            'warning' => '⚠️ Logs may contain sensitive data. Handle with care.',
         ];
     }
 }

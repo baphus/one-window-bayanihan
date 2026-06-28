@@ -59,10 +59,11 @@ class GeminiProvider implements AiProvider
                 ],
             ];
 
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent";
 
             $response = Http::withHeaders([
                 'content-type' => 'application/json',
+                'X-Goog-Api-Key' => $this->apiKey,
             ])->post($url, $payload);
 
             if ($response->failed()) {

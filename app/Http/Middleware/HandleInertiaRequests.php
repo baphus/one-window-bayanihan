@@ -41,7 +41,13 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user()?->only([
+                    'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
+                    'is_active', 'contact_number', 'position', 'department',
+                    'office_location', 'bio', 'timezone',
+                    'onboarding_completed_at', 'onboarding_step',
+                    'profile_completed_at',
+                ]),
             ],
             'alert_count' => $request->user()
                 ? app(AlertService::class)->getActiveAlerts($request->user())['unread_count']

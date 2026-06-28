@@ -29,6 +29,14 @@ class CaseDocument extends Model
         'file_url',
     ];
 
+    protected $hidden = [
+        'file_path',
+        'file_type',
+        'is_deleted',
+        'deleted_at',
+        'deleted_by',
+    ];
+
     protected $casts = [
         'is_deleted' => 'boolean',
     ];

@@ -55,12 +55,15 @@ class EmailChangeController extends Controller
             ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
             : $newEmail;
 
-        Log::info('email_change_otp_sent', ['new_email' => $newEmail, 'session_id' => $request->session()->getId()]);
+        Log::info('email_change_otp_sent', [
+            'new_email' => $this->redactEmail($newEmail),
+            'session_id' => substr($request->session()->getId(), 0, 8).'***',
+        ]);
 
         return Inertia::render('Profile/Edit', [
             'email_change_step' => 'otp',
             'email_change_hint' => $hint,
-            'email_change_debug_otp' => SystemSetting::getValue('debug_otp_enabled', false) ? $otp : null,
+            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
         ]);
     }
 
@@ -115,11 +118,22 @@ class EmailChangeController extends Controller
 
         Log::info('email_change_successful', [
             'user_id' => $user->id,
-            'old_email' => $oldEmail,
-            'new_email' => $newEmail,
+            'old_email' => $this->redactEmail($oldEmail),
+            'new_email' => $this->redactEmail($newEmail),
         ]);
 
         return redirect()->route('profile.edit')
             ->with('success', 'Your email address has been changed successfully.');
+    }
+
+    private function redactEmail(string $email): string
+    {
+        $parts = explode('@', $email);
+
+        if (strlen($parts[0]) <= 2) {
+            return $email;
+        }
+
+        return substr($parts[0], 0, 2).'***@'.$parts[1];
     }
 }
