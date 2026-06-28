@@ -460,6 +460,27 @@ class CaseService
             $query->whereNotIn('status', ['ARCHIVED']);
         }
 
+        // Role-based scoping — restrict which cases the current user can see
+        $user = auth()->user();
+        if ($user && $user->role !== 'ADMIN') {
+            $query->where(function ($q) use ($user) {
+                if ($user->role === 'CASE_MANAGER') {
+                    $q->where('user_id', $user->id);
+                } elseif ($user->role === 'AGENCY') {
+                    if ($user->agcy_id) {
+                        $q->whereHas('referrals', function ($rq) use ($user) {
+                            $rq->where('agcy_id', $user->agcy_id);
+                        });
+                    } else {
+                        $q->whereRaw('1=0'); // No agency assigned — see nothing
+                    }
+                }
+            });
+        } elseif ($user && $user->role === 'ADMIN' && ! empty($filters['user_id'])) {
+            // ADMIN can still filter by user_id
+            $query->where('user_id', $filters['user_id']);
+        }
+
         if (! empty($filters['client_type'])) {
             $query->where('client_type', $filters['client_type']);
         }
@@ -470,10 +491,6 @@ class CaseService
 
         if (! empty($filters['nok_vulnerability_indicator'])) {
             $query->where('nok_vulnerability_indicator', $filters['nok_vulnerability_indicator']);
-        }
-
-        if (! empty($filters['user_id'])) {
-            $query->where('user_id', $filters['user_id']);
         }
 
         if (! empty($filters['category_id'])) {

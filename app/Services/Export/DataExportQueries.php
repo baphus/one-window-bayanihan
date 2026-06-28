@@ -67,13 +67,27 @@ class DataExportQueries
             ->where('is_deleted', false);
 
         if (! $this->isAdmin($user)) {
-            $query->whereIn('id', function ($q) use ($user) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->where('user_id', $user->id)
-                    ->where('is_deleted', false)
-                    ->whereNotNull('client_id');
-            });
+            if ($user && $user->role === 'AGENCY' && $user->agcy_id) {
+                $query->whereIn('id', function ($q) use ($user) {
+                    $q->select('client_id')
+                        ->from('cases')
+                        ->where('is_deleted', false)
+                        ->whereNotNull('client_id')
+                        ->whereIn('id', function ($q2) use ($user) {
+                            $q2->select('case_id')
+                                ->from('referrals')
+                                ->where('agcy_id', $user->agcy_id);
+                        });
+                });
+            } else {
+                $query->whereIn('id', function ($q) use ($user) {
+                    $q->select('client_id')
+                        ->from('cases')
+                        ->where('user_id', $user->id)
+                        ->where('is_deleted', false)
+                        ->whereNotNull('client_id');
+                });
+            }
         }
 
         return $query->get();
