@@ -9,6 +9,7 @@ use App\Mail\EmailChangedNotification;
 use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Services\OtpService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -105,11 +106,10 @@ class EmailChangeController extends Controller
             'timestamp' => now(),
         ]);
 
-        // Invalidate sessions except current — regenerate session ID
-        $request->session()->regenerate(true);
-
-        // Clear email change session vars
-        $request->session()->forget(['email_change_step', 'pending_new_email']);
+        // Invalidate session and log the user out — forces re-login with new email
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         Log::info('email_change_successful', [
             'user_id' => $user->id,
@@ -117,8 +117,8 @@ class EmailChangeController extends Controller
             'new_email' => $this->redactEmail($newEmail),
         ]);
 
-        return redirect()->route('profile.edit')
-            ->with('success', 'Your email address has been changed successfully.');
+        return redirect()->route('login')
+            ->with('success', 'Your email address has been changed successfully. Please log in with your new email.');
     }
 
     private function redactEmail(string $email): string
