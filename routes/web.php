@@ -328,10 +328,10 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
     Route::get('/{slug}', fn ($slug) => inertia('Helpdesk/Show', ['slug' => $slug]))->name('show');
 });
 
-Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware(['auth', 'verified'])->name('api.analytics');
+Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware(['auth', 'verified', 'throttle:api-global'])->name('api.analytics');
 
 // API routes (authenticated via web session) — in web.php for session middleware support
-Route::middleware(['auth', 'verified'])->prefix('api')->group(function () {
+Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->group(function () {
     // Client selection for case creation form
     Route::get('/clients', [ClientSelectController::class, 'search']);
     Route::get('/clients/{client}', [ClientSelectController::class, 'show']);

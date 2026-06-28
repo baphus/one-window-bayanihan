@@ -100,6 +100,14 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
+        RateLimiter::for('api-global', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('api-mutations', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
         Event::listen(Login::class, LogSuccessfulLogin::class);
         Event::listen(ReferralCompleted::class, SendFeedbackRequest::class);
 
