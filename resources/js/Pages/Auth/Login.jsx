@@ -141,7 +141,7 @@ export default function Login({ status, canResetPassword }) {
         setProcessing(true);
         setOtpError('');
 
-        router.post(route('login.resend-otp'), { email }, {
+        router.post(route('login.resend-otp'), { email, password }, {
             onSuccess: (page) => {
                 setProcessing(false);
                 setResendCooldown(30);
