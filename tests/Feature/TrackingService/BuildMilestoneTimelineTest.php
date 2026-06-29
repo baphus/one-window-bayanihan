@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TrackingService;
 
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -250,5 +251,104 @@ class BuildMilestoneTimelineTest extends TestCase
         // Confirm the timeline has events from both referrals
         $sentItems = array_values(array_filter($timeline, fn ($i) => $i['type'] === 'referral_sent'));
         $this->assertCount(2, $sentItems, 'Should have 2 referral_sent events for 2 referrals');
+    }
+
+    public function test_same_timestamp_tie_breaking(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+
+        $timestamp = now();
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'created_at' => $timestamp]);
+        $milestone = Milestone::factory()->create(['refr_id' => $referral->id, 'created_at' => $timestamp]);
+
+        $this->loadRelations($case);
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['milestoneTimeline'];
+
+        $this->assertEquals('case_opened', $timeline[0]['type']);
+        $this->assertEquals('referral_sent', $timeline[1]['type']);
+        $this->assertEquals('milestone', $timeline[2]['type']);
+    }
+
+    public function test_referral_status_uses_audit_log_timestamp(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
+
+        $auditTimestamp = now()->subHour()->setMicroseconds(0);
+        AuditLog::create([
+            'entity_id' => $referral->id,
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'old_value' => ['status' => 'PENDING'],
+            'new_value' => ['status' => 'PROCESSING'],
+            'timestamp' => $auditTimestamp,
+        ]);
+
+        // Drift updated_at forward
+        $referral->update(['notes' => 'updated notes']);
+
+        $this->loadRelations($case);
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['milestoneTimeline'];
+
+        $statusItems = array_values(array_filter(
+            $timeline,
+            fn ($item) => $item['type'] === 'referral_status'
+        ));
+
+        $this->assertNotEmpty($statusItems);
+        $this->assertEquals($auditTimestamp->toISOString(), $statusItems[0]['date']);
+    }
+
+    public function test_referral_status_fallback_to_updated_at(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
+
+        $this->loadRelations($case);
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['milestoneTimeline'];
+
+        $statusItems = array_values(array_filter(
+            $timeline,
+            fn ($item) => $item['type'] === 'referral_status'
+        ));
+
+        $this->assertNotEmpty($statusItems);
+        $referral->refresh();
+        $this->assertEquals($referral->updated_at->toISOString(), $statusItems[0]['date']);
+    }
+
+    public function test_referral_status_audit_logs_exist_no_status_change(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
+
+        AuditLog::create([
+            'entity_id' => $referral->id,
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'old_value' => ['notes' => 'old note'],
+            'new_value' => ['notes' => 'new note'],
+            'timestamp' => now(),
+        ]);
+
+        $this->loadRelations($case);
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['milestoneTimeline'];
+
+        $statusItems = array_values(array_filter(
+            $timeline,
+            fn ($item) => $item['type'] === 'referral_status'
+        ));
+
+        $this->assertNotEmpty($statusItems);
+        $referral->refresh();
+        $this->assertEquals($referral->updated_at->toISOString(), $statusItems[0]['date']);
     }
 }

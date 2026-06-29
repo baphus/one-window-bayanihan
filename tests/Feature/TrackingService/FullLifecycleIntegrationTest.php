@@ -473,4 +473,136 @@ class FullLifecycleIntegrationTest extends TestCase
             'First caseTimeline event should be the manual audit log which has the earliest timestamp (7 days ago)',
         );
     }
+
+    public function test_case_timeline_no_duplicate_referral_sent(): void
+    {
+        // ARRANGE — create a case with 2 referrals and 1 milestone per referral
+        $result = $this->createCompleteCase(referralCount: 2, milestonesPerReferral: 1);
+        $case = $result['case'];
+        $referrals = $result['referrals'];
+
+        // Create referral CREATE audit logs for both referrals.
+        // These would normally be created by AuditObserver/CaseService.
+        foreach ($referrals as $referral) {
+            $this->createAuditLog(
+                entityId: $referral->id,
+                action: 'CREATE',
+                module: 'referral',
+            );
+        }
+
+        $this->loadRelations($case);
+        $service = app(TrackingService::class);
+
+        // ACT
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['caseTimeline'];
+
+        // ASSERT — caseTimeline contains exactly 2 referral_sent events (one per referral)
+        $sentEvents = array_values(array_filter(
+            $timeline,
+            fn (array $event): bool => $event['icon'] === 'send'
+        ));
+        $this->assertCount(2, $sentEvents);
+
+        // The referral CREATE audit logs should have been deduped —
+        // they match the inline referral_sent events (action=CREATE, module=referral,
+        // entity_id matches a referral ID, timestamp within ±5s).
+    }
+
+    public function test_case_timeline_same_timestamp_tie_breaking(): void
+    {
+        // ARRANGE — create events at the same timestamp to verify _sort_index tie-breaking
+        $now = now();
+        $user = User::factory()->create();
+        $client = Client::factory()->create();
+        $case = CaseFile::factory()->create([
+            'user_id' => $user->id,
+            'client_id' => $client->id,
+            'created_at' => $now->subDay(),
+        ]);
+        $referral = Referral::factory()->create([
+            'case_id' => $case->id,
+            'created_at' => $now,
+        ]);
+
+        // Create an audit log at the EXACT same timestamp as the referral
+        AuditLog::create([
+            'entity_id' => $case->id,
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'description' => 'Same timestamp audit event',
+            'timestamp' => $now,
+        ]);
+
+        $this->loadRelations($case);
+        $service = app(TrackingService::class);
+
+        // ACT
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['caseTimeline'];
+
+        // ASSERT — referral_sent (icon='send') sorts before the audit event
+        // (icon='update') because inline events get lower _sort_index values
+        // than audit logs while sharing the same date.
+        $sendIndex = null;
+        $updateIndex = null;
+        foreach ($timeline as $i => $event) {
+            if ($event['icon'] === 'send' && $sendIndex === null) {
+                $sendIndex = $i;
+            }
+            if ($event['icon'] === 'update' && $updateIndex === null) {
+                $updateIndex = $i;
+            }
+        }
+        $this->assertNotNull($sendIndex, 'Should have a send event');
+        $this->assertNotNull($updateIndex, 'Should have an update event');
+        $this->assertLessThan($updateIndex, $sendIndex, 'send event should appear before update event');
+    }
+
+    public function test_case_timeline_preserves_non_duplicate_audit_logs(): void
+    {
+        // ARRANGE — create a case with one referral
+        $result = $this->createCompleteCase();
+        $case = $result['case'];
+        $referral = $result['referrals']->first();
+
+        // Create a CaseFile UPDATE audit log (entity_id = case->id).
+        // This does NOT match dedup criteria (action=UPDATE, not CREATE), so it stays in caseTimeline.
+        $this->createAuditLog(
+            entityId: $case->id,
+            action: 'UPDATE',
+            module: 'case_files',
+            description: 'Case status updated to OPEN',
+        );
+
+        // Create a referral CREATE audit log (entity_id = referral->id).
+        // This DOES match dedup criteria so should be removed from caseTimeline.
+        $this->createAuditLog(
+            entityId: $referral->id,
+            action: 'CREATE',
+            module: 'referral',
+        );
+
+        $this->loadRelations($case);
+        $service = app(TrackingService::class);
+
+        // ACT
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['caseTimeline'];
+
+        // ASSERT — The CaseFile UPDATE audit log (icon='update') is preserved in caseTimeline
+        $updateEvents = array_values(array_filter(
+            $timeline,
+            fn (array $event): bool => $event['icon'] === 'update'
+        ));
+        $this->assertNotEmpty($updateEvents, 'CaseFile UPDATE audit log should appear in caseTimeline');
+
+        // ASSERT — Only 1 referral_sent event exists (the inline one, no extra from failed dedup)
+        $sentEvents = array_values(array_filter(
+            $timeline,
+            fn (array $event): bool => $event['icon'] === 'send'
+        ));
+        $this->assertCount(1, $sentEvents, 'Should have exactly 1 referral_sent event (referral CREATE audit log deduped)');
+    }
 }
