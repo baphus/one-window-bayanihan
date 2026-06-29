@@ -108,7 +108,7 @@ class FeedbackControllerTest extends TestCase
 
         $response->assertStatus(400);
         $response->assertJson([
-            'message' => 'Invalid or expired feedback tracking token.',
+            'message' => 'Unable to submit feedback at this time.',
         ]);
     }
 

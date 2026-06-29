@@ -57,13 +57,13 @@ export default function NotificationPanel() {
   // Log errors for debugging but don't show error UI
   useEffect(() => {
     if (alertsError) {
-      console.error('[NotificationPanel] Alert fetch failed:', alertsError.message);
+      console.error('[NotificationPanel] Alert fetch failed:', alertsError);
     }
   }, [alertsError]);
 
   useEffect(() => {
     if (notifError) {
-      console.error('[NotificationPanel] Notifications fetch failed:', notifError.message);
+      console.error('[NotificationPanel] Notifications fetch failed:', notifError);
     }
   }, [notifError]);
 

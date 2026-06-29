@@ -39,7 +39,8 @@ export default function useAlerts() {
       setUnreadCount(data.unread_count ?? 0);
     } catch (err) {
       if (err.name === 'AbortError') return;
-      setError(err.message);
+      console.error('[useAlerts] fetch failed:', err);
+      setError('Unable to load alerts.');
     } finally {
       setLoading(false);
     }
@@ -63,7 +64,8 @@ export default function useAlerts() {
         return dismissed && !dismissed.read_at ? Math.max(0, prev - 1) : prev;
       });
     } catch (err) {
-      setError(err.message);
+      console.error('[useAlerts] dismiss failed:', err);
+      setError('Unable to dismiss alert.');
     }
   }, [alerts]);
 
@@ -84,7 +86,8 @@ export default function useAlerts() {
 
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (err) {
-      setError(err.message);
+      console.error('[useAlerts] markRead failed:', err);
+      setError('Unable to update alert status.');
     }
   }, []);
 

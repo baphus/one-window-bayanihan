@@ -21,13 +21,15 @@ class TrackController extends Controller
     public function sendOtp(Request $request)
     {
         $request->validate([
-            'tracker_number' => ['required', 'string', 'exists:cases,tracker_number'],
+            'tracker_number' => ['required', 'string'],
             'email' => ['required', 'string', 'email'],
         ]);
 
         $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
         if (! $case) {
-            return back()->withErrors(['tracker_number' => 'Invalid tracker number.']);
+            // Return a generic error indistinguishable from other validation failures
+            // to prevent tracker number enumeration
+            return back()->withErrors(['tracker_number' => 'Unable to process request. Please check your details and try again.']);
         }
 
         $otp = $this->trackingService->generateOtp(
@@ -79,12 +81,14 @@ class TrackController extends Controller
     public function show(Request $request)
     {
         $request->validate([
-            'tracker_number' => ['required', 'string', 'exists:cases,tracker_number'],
+            'tracker_number' => ['required', 'string'],
         ]);
 
         $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
         if (! $case) {
-            return back()->withErrors(['tracker_number' => 'Case not found.']);
+            // Return a generic error indistinguishable from other validation failures
+            // to prevent tracker number enumeration
+            return back()->withErrors(['tracker_number' => 'Unable to process request. Please check your details and try again.']);
         }
 
         $data = $this->trackingService->buildTrackingData($case);

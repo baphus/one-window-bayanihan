@@ -44,7 +44,7 @@ class BackupStatusService
                 ]);
 
                 return [
-                    'error' => 'Could not fetch backup data: '.$e->getMessage(),
+                    'error' => 'Backup status temporarily unavailable',
                     'backups' => [],
                     'last_backup' => 'Unavailable',
                     'backup_count' => 0,

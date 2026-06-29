@@ -63,7 +63,7 @@ class DataExportService
                 'line' => $e->getLine(),
             ]);
 
-            return $this->errorResponse($e->getMessage());
+            return $this->errorResponse();
         }
     }
 
@@ -106,7 +106,7 @@ class DataExportService
                 'line' => $e->getLine(),
             ]);
 
-            return $this->errorResponse($e->getMessage());
+            return $this->errorResponse();
         }
     }
 
@@ -278,13 +278,13 @@ class DataExportService
         );
     }
 
-    private function errorResponse(string $message): StreamedResponse
+    private function errorResponse(): StreamedResponse
     {
         return new StreamedResponse(
-            function () use ($message) {
+            function () {
                 echo json_encode([
                     'error' => 'Export failed. Please try again.',
-                    'detail' => $message,
+                    'detail' => 'The export encountered an error and could not be completed.',
                 ]);
             },
             500,

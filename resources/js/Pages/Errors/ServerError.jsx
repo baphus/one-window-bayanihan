@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
 
-export default function ServerError() {
+export default function ServerError({ incidentId }) {
     return (
         <GuestLayout>
             <Head title="Something Went Wrong" />
@@ -17,6 +17,9 @@ export default function ServerError() {
                 >
                     Go back home
                 </Link>
+                {incidentId && (
+                    <p className="text-xs text-gray-400 mt-8">Ref: {incidentId}</p>
+                )}
             </div>
         </GuestLayout>
     );

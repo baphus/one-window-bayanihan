@@ -5,6 +5,7 @@ import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { lazy, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import ErrorBoundary from '@/Components/ErrorBoundary';
 import ToastProvider from '@/Components/ToastProvider';
 import OnboardingProvider from '@/Onboarding/OnboardingProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -58,6 +59,19 @@ function AppWithOnboarding({ App, appProps }) {
         };
     }, []);
 
+    useEffect(() => {
+        const removeListener = router.on('exception', (event) => {
+            const exception = event.detail?.exception;
+            console.warn('[Inertia] Navigation exception', {
+                message: exception?.message,
+                name: exception?.name,
+            });
+        });
+        return () => {
+            if (typeof removeListener === 'function') removeListener();
+        };
+    }, []);
+
     return (
         <OnboardingProvider onboardingRequired={onboardingRequired}>
             <QueryClientProvider client={queryClient}>
@@ -86,7 +100,11 @@ createInertiaApp({
             root = createRoot(el);
             reactRoots.set(el, root);
         }
-        root.render(<AppWithOnboarding App={App} appProps={props} />);
+        root.render(
+            <ErrorBoundary>
+                <AppWithOnboarding App={App} appProps={props} />
+            </ErrorBoundary>,
+        );
     },
     progress: {
         color: '#4B5563',

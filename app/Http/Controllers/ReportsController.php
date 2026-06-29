@@ -7,6 +7,7 @@ use App\Services\Export\DataExportService;
 use App\Services\ReportsService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ReportsController extends Controller
@@ -116,7 +117,9 @@ class ReportsController extends Controller
 
             return response()->json(['insight' => $insight]);
         } catch (\Exception $e) {
-            return response()->json(['insight' => null, 'error' => 'AI analysis failed: '.$e->getMessage()]);
+            Log::error('Reports AI analysis failed', ['message' => $e->getMessage(), 'exception' => $e]);
+
+            return response()->json(['insight' => null, 'error' => 'AI analysis is temporarily unavailable. Please try again.']);
         }
     }
 

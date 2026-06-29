@@ -57,7 +57,7 @@ class SupabaseDashboardService
                 'exception' => $e,
             ]);
 
-            return ['status' => 'error', 'error' => $e->getMessage()];
+            return ['status' => 'error', 'error' => 'Supabase dashboard data unavailable'];
         }
     }
 
@@ -89,7 +89,7 @@ class SupabaseDashboardService
                 'exception' => $e,
             ]);
 
-            return ['error' => $e->getMessage()];
+            return ['error' => 'Backup data temporarily unavailable'];
         }
     }
 

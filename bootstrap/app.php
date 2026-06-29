@@ -1,23 +1,30 @@
 <?php
 
+use App\Exceptions\SafeException;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IpWhitelist;
+use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPostgresSession;
 use App\Http\Middleware\VerifyTurnstile;
+use App\Services\IncidentIdService;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -28,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(SetPostgresSession::class);
+        $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
         $middleware->trustProxies(
             at: env('TRUSTED_PROXIES', ''),
@@ -52,45 +60,74 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        if (! app()->environment('local')) {
-            $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-                if ($request->is(['api/*', '*/api/*'])) {
-                    return response()->json(['message' => 'Resource not found.'], 404);
-                }
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json(['message' => 'Resource not found.'], 404);
+            }
 
-                return Inertia::render('Errors/NotFound')->toResponse($request)->setStatusCode(404);
-            });
-            $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
-                if ($request->is(['api/*', '*/api/*'])) {
-                    return response()->json(['message' => 'Forbidden.'], 403);
-                }
+            return Inertia::render('Errors/NotFound')->toResponse($request)->setStatusCode(404);
+        });
+        $exceptions->render(function (ValidationException $e, Request $request) {
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json([
+                    'message' => 'Validation failed.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
 
-                return Inertia::render('Errors/Forbidden')->toResponse($request)->setStatusCode(403);
-            });
-            $exceptions->render(function (AuthenticationException $e, Request $request) {
-                if ($request->is(['api/*', '*/api/*'])) {
-                    return response()->json(['message' => 'Unauthenticated.'], 401);
-                }
+            return null; // Let Inertia handle it
+        });
+        $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json(['message' => 'Forbidden.'], 403);
+            }
 
-                return redirect()->guest(route('login'));
-            });
-            $exceptions->render(function (Throwable $e, Request $request) {
-                if ($e instanceof HttpException) {
-                    return null;
-                }
-                Log::error('Unhandled exception', [
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'url' => $request->fullUrl(),
-                    'method' => $request->method(),
-                    'user_id' => $request->user()?->id,
-                ]);
-                if ($request->is(['api/*', '*/api/*'])) {
-                    return response()->json(['message' => 'An unexpected error occurred.'], 500);
-                }
+            return Inertia::render('Errors/Forbidden')->toResponse($request)->setStatusCode(403);
+        });
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
 
-                return Inertia::render('Errors/ServerError')->toResponse($request)->setStatusCode(500);
-            });
-        }
+            return redirect()->guest(route('login'));
+        });
+        $exceptions->render(function (TooManyRequestsHttpException $e, Request $request) {
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json(['message' => 'Too many requests. Please slow down.'], 429);
+            }
+
+            return inertia('Errors/TooManyRequests', [])->toResponse($request)->setStatusCode(429);
+        });
+        $exceptions->render(function (ModelNotFoundException $e, Request $request) {
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json(['message' => 'Resource not found.'], 404);
+            }
+
+            return null; // Let the default 404 handler take over
+        });
+        $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json(['message' => 'Method not allowed.'], 405);
+            }
+
+            return redirect('/');
+        });
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if ($e instanceof HttpException) {
+                return null;
+            }
+            $incidentId = IncidentIdService::generateId();
+            Log::error('Unhandled exception', [
+                'incident_id' => $incidentId,
+                'exception' => $e,
+            ]);
+            if ($request->is(['api/*', '*/api/*'])) {
+                return response()->json([
+                    'message' => 'An unexpected error occurred.',
+                    'incident_id' => $incidentId,
+                ], 500);
+            }
+
+            return Inertia::render('Errors/ServerError', ['incidentId' => $incidentId])->toResponse($request)->setStatusCode(500);
+        });
     })->create();

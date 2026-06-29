@@ -10,6 +10,7 @@ use App\Services\Export\DataExportService;
 use App\Services\FeedbackService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -117,8 +118,10 @@ class FeedbackController extends Controller
                 'feedback_id' => $feedback->id,
             ], 201);
         } catch (\RuntimeException $e) {
+            Log::error('Feedback submission failed', ['message' => $e->getMessage(), 'exception' => $e]);
+
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => 'Unable to submit feedback at this time.',
             ], 400);
         }
     }

@@ -87,7 +87,7 @@ export default function MfaSetup({ mfaEnabled }) {
             setShowRecovery(false);
             toast.success('Two-factor authentication disabled.');
         })
-        .catch((e) => { setError(e.message); toast.error(e.message); })
+        .catch((e) => { console.error('MFA setup failed:', e); setError('An error occurred. Please try again.'); toast.error('An error occurred. Please try again.'); })
         .finally(() => setLoading(false));
     }
 

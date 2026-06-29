@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AlertConfigService
@@ -90,7 +91,9 @@ class AlertConfigService
 
             return ['success' => true, 'message' => "Test notification logged for {$recipient}"];
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => $e->getMessage()];
+            Log::error('Alert config test notification failed', ['message' => $e->getMessage(), 'exception' => $e]);
+
+            return ['success' => false, 'message' => 'Test notification failed. Please try again.'];
         }
     }
 }

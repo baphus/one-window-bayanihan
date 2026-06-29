@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class SystemHealthService
@@ -62,7 +63,9 @@ class SystemHealthService
 
             return ['type' => 'queue', 'status' => 'healthy', 'metric_value' => (string) $count, 'message' => "$count job(s) in queue"];
         } catch (\Exception $e) {
-            return ['type' => 'queue', 'status' => 'warning', 'metric_value' => '0', 'message' => 'Queue table not accessible: '.$e->getMessage()];
+            Log::error('SystemHealth: Queue check failed', ['message' => $e->getMessage(), 'exception' => $e]);
+
+            return ['type' => 'queue', 'status' => 'warning', 'metric_value' => '0', 'message' => 'Queue health check failed'];
         }
     }
 
@@ -73,7 +76,9 @@ class SystemHealthService
 
             return ['type' => 'cache', 'status' => 'healthy', 'metric_value' => (string) $count, 'message' => "$count cache entries"];
         } catch (\Exception $e) {
-            return ['type' => 'cache', 'status' => 'warning', 'metric_value' => '0', 'message' => 'Cache table not accessible: '.$e->getMessage()];
+            Log::error('SystemHealth: Cache check failed', ['message' => $e->getMessage(), 'exception' => $e]);
+
+            return ['type' => 'cache', 'status' => 'warning', 'metric_value' => '0', 'message' => 'Cache health check failed'];
         }
     }
 
@@ -97,7 +102,9 @@ class SystemHealthService
 
             return ['type' => 'database', 'status' => 'healthy', 'metric_value' => (string) $migrations, 'message' => "Connected, $migrations migrations run"];
         } catch (\Exception $e) {
-            return ['type' => 'database', 'status' => 'critical', 'metric_value' => '0', 'message' => 'DB connection failed: '.$e->getMessage()];
+            Log::error('SystemHealth: Database check failed', ['message' => $e->getMessage(), 'exception' => $e]);
+
+            return ['type' => 'database', 'status' => 'critical', 'metric_value' => '0', 'message' => 'Database health check failed'];
         }
     }
 }
