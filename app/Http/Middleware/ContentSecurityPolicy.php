@@ -63,7 +63,7 @@ class ContentSecurityPolicy
     private function getProdPolicy(): string
     {
         return "default-src 'self'; "
-            ."script-src 'self' https://challenges.cloudflare.com; "
+            ."script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com; "
             ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
             ."img-src 'self' data: https://res.cloudinary.com; "
             ."connect-src 'self' wss: https://challenges.cloudflare.com; "

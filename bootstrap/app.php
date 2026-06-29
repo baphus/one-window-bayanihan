@@ -1,6 +1,5 @@
 <?php
 
-use App\Exceptions\SafeException;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -38,13 +37,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
         $middleware->trustProxies(
-            at: env('TRUSTED_PROXIES', ''),
+            at: '*',
             headers: Request::HEADER_X_FORWARDED_FOR
                 | Request::HEADER_X_FORWARDED_HOST
                 | Request::HEADER_X_FORWARDED_PORT
                 | Request::HEADER_X_FORWARDED_PROTO
                 | Request::HEADER_X_FORWARDED_PREFIX
-                | Request::HEADER_X_FORWARDED_AWS_ELB
         );
 
         $middleware->web(append: [
@@ -68,7 +66,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return Inertia::render('Errors/NotFound')->toResponse($request)->setStatusCode(404);
         });
         $exceptions->render(function (ValidationException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
+            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Validation failed.',
                     'errors' => $e->errors(),

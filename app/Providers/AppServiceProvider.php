@@ -51,6 +51,10 @@ class AppServiceProvider extends ServiceProvider
     {
         URL::forceRootUrl(config('app.url'));
 
+        if (! app()->environment('local', 'testing')) {
+            URL::forceScheme('https');
+        }
+
         Vite::prefetch(concurrency: 3);
 
         Password::defaults(function () {
