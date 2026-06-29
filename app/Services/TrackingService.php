@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Referral;
+use Carbon\Carbon;
 
 class TrackingService
 {
@@ -13,6 +14,29 @@ class TrackingService
         private readonly OtpService $otpService,
         private readonly AuditLogFormatter $auditFormatter,
     ) {}
+
+    /**
+     * Query the audit log for the actual status-change timestamp of a referral.
+     * Falls back gracefully when no status-change audit log exists.
+     *
+     * Two code paths create referral audit logs with different module casing:
+     * - ReferralService::updateStatus() uses 'REFERRAL' (uppercase)
+     * - AuditObserver::updated() uses 'referral' (lowercase)
+     *
+     * Must match BOTH to find the status-change event reliably.
+     */
+    private function getStatusChangeTimestamp(Referral $referral): ?Carbon
+    {
+        $logs = AuditLog::whereIn('module', ['REFERRAL', 'referral'])
+            ->where('entity_id', $referral->id)
+            ->where('action', 'UPDATE')
+            ->orderBy('timestamp', 'desc')
+            ->get()
+            ->filter(fn (AuditLog $log) => ($log->old_value['status'] ?? null) !== ($log->new_value['status'] ?? null)
+            );
+
+        return $logs->first()?->timestamp;
+    }
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
     {
@@ -74,6 +98,7 @@ class TrackingService
 
         // Legacy caseTimeline (kept for backward compatibility — includes raw audit logs)
         $timeline = collect();
+        $_sortIndex = 0;
         foreach ($referrals as $ref) {
             $agencyLogo = $ref->agency?->logo_url ?? '';
             $timeline->push([
@@ -83,6 +108,7 @@ class TrackingService
                 'detail' => $ref->required_services,
                 'icon' => 'send',
                 'logoUrl' => $agencyLogo,
+                '_sort_index' => $_sortIndex++,
             ]);
 
             foreach ($ref->milestones as $ms) {
@@ -93,6 +119,7 @@ class TrackingService
                     'detail' => $ms->description ?? '',
                     'icon' => 'milestone',
                     'logoUrl' => $agencyLogo,
+                    '_sort_index' => $_sortIndex++,
                 ]);
             }
         }
@@ -118,10 +145,11 @@ class TrackingService
                     default => 'system',
                 },
                 'logoUrl' => '',
+                '_sort_index' => $_sortIndex++,
             ]);
         }
 
-        $timeline = $timeline->sortBy('date')->values()->toArray();
+        $timeline = $timeline->sortBy([['date', 'asc'], ['_sort_index', 'asc']])->values()->toArray();
 
         // Agency cards with 4-step progress model
         $agencyCards = $referrals->map(function ($ref) {
@@ -237,6 +265,8 @@ class TrackingService
         $events = collect();
         $referrals = $case->referrals;
 
+        $_sortIndex = 0;
+
         // 1. Case opened — always first
         $events->push([
             'date' => $case->created_at->toISOString(),
@@ -244,6 +274,7 @@ class TrackingService
             'agency' => null,
             'title' => 'Your case has been opened',
             'description' => 'Your case is now being reviewed by the Bayanihan team.',
+            '_sort_index' => $_sortIndex++,
         ]);
 
         foreach ($referrals as $ref) {
@@ -258,6 +289,7 @@ class TrackingService
                 'description' => $ref->required_services
                     ? 'Services requested: '.$ref->required_services
                     : '',
+                '_sort_index' => $_sortIndex++,
             ]);
 
             // 3. Referral status (only if past PENDING — PENDING is already covered by referral_sent)
@@ -276,6 +308,7 @@ class TrackingService
                     'agency' => $agencyName,
                     'title' => $statusTitle,
                     'description' => '',
+                    '_sort_index' => $_sortIndex++,
                 ]);
             }
 
@@ -287,6 +320,7 @@ class TrackingService
                     'agency' => $agencyName,
                     'title' => $ms->title,
                     'description' => $ms->description ?? '',
+                    '_sort_index' => $_sortIndex++,
                 ]);
             }
         }
@@ -299,10 +333,11 @@ class TrackingService
                 'agency' => null,
                 'title' => 'Your case has been resolved',
                 'description' => 'All referrals have been processed and your case is now closed.',
+                '_sort_index' => $_sortIndex++,
             ]);
         }
 
-        return $events->sortBy('date')->values()->toArray();
+        return $events->sortBy([['date', 'asc'], ['_sort_index', 'asc']])->values()->toArray();
     }
 
     /**
