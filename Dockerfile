@@ -18,7 +18,7 @@ RUN npm run build
 # Stage 2: PHP runtime — PHP-FPM
 # Runs Laravel application
 # ============================================================================
-FROM php:8.3-fpm AS app
+FROM php:8.4-fpm AS app
 
 LABEL org.opencontainers.image.source="https://github.com/dmw-region7/one-window-bayanihan"
 LABEL org.opencontainers.image.description="One Window Bayanihan - DMW Region VII Case Management"
