@@ -129,7 +129,22 @@ class TrackingService
             ->orderBy('timestamp')
             ->get();
 
+        // Build lookup: referral ID → timestamp of inline referral_sent event
+        $referralSentDates = [];
+        foreach ($referrals as $ref) {
+            $referralSentDates[$ref->id] = $ref->created_at->timestamp;
+        }
+
         foreach ($auditLogs as $log) {
+            // Skip referral CREATE audit logs that duplicate inline referral_sent events
+            if (
+                $log->action === 'CREATE'
+                && in_array($log->module, ['referral', 'REFERRAL'], true)
+                && isset($referralSentDates[$log->entity_id])
+                && abs($log->timestamp->timestamp - $referralSentDates[$log->entity_id]) <= 5
+            ) {
+                continue;
+            }
             $display = $this->auditFormatter->formatForDisplay($log);
 
             $timeline->push([
@@ -303,7 +318,7 @@ class TrackingService
                 };
 
                 $events->push([
-                    'date' => $ref->updated_at->toISOString(),
+                    'date' => ($this->getStatusChangeTimestamp($ref) ?? $ref->updated_at)->toISOString(),
                     'type' => 'referral_status',
                     'agency' => $agencyName,
                     'title' => $statusTitle,
