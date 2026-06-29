@@ -12,6 +12,7 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Copy application source and build
 COPY . .
+ENV VITE_APP_NAME="One Window Bayanihan"
 RUN npm run build
 
 # ============================================================================
