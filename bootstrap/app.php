@@ -114,6 +114,11 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($e instanceof HttpException || $e instanceof ValidationException || $e instanceof AuthenticationException) {
                 return null;
             }
+
+            if (config('app.debug')) {
+                return null;
+            }
+
             $incidentId = IncidentIdService::generateId();
             Log::error('Unhandled exception', [
                 'incident_id' => $incidentId,
