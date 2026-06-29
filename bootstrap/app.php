@@ -111,7 +111,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return redirect('/');
         });
         $exceptions->render(function (Throwable $e, Request $request) {
-            if ($e instanceof HttpException) {
+            if ($e instanceof HttpException || $e instanceof ValidationException || $e instanceof AuthenticationException) {
                 return null;
             }
             $incidentId = IncidentIdService::generateId();
