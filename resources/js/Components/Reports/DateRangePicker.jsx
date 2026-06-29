@@ -1,5 +1,6 @@
 import { CalendarRange, RotateCcw } from 'lucide-react';
 import { useMemo } from 'react';
+import { COLORS } from '@/Components/Reports/pageHeadingStyles';
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -51,9 +52,6 @@ export default function DateRangePicker({
   const currentLabel = useMemo(() => formatDisplayDate(fromDateISO) + ' - ' + formatDisplayDate(toDateISO), [fromDateISO, toDateISO]);
 
   const quickOptions = [
-    { label: '7 Days', value: '7_DAYS' },
-    { label: '14 Days', value: '14_DAYS' },
-    { label: '30 Days', value: '30_DAYS' },
     { label: '6 Months', value: '6_MONTHS' },
     { label: '1 Year', value: '1_YEAR' },
     { label: 'Custom', value: 'CUSTOM' },
@@ -62,7 +60,7 @@ export default function DateRangePicker({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <CalendarRange className="h-4 w-4 text-slate-400 shrink-0" />
-      <div className="inline-flex overflow-hidden rounded-[2px] border border-[#cbd5e1] divide-x divide-[#cbd5e1]">
+      <div className="inline-flex overflow-hidden rounded-[2px] divide-x divide-slate-300" style={{ border: `1px solid ${COLORS.border}` }}>
         {quickOptions.map((option) => {
           const isActive = quickRange === option.value;
           return (
@@ -72,9 +70,10 @@ export default function DateRangePicker({
               onClick={() => onQuickRangeSelect(option.value)}
               className={`h-8 px-2.5 text-[11px] font-semibold transition-colors ${
                 isActive
-                  ? 'bg-[#0b5a8c] text-white'
+                  ? 'text-white'
                   : 'bg-white text-slate-600 hover:bg-slate-50'
               }`}
+              style={isActive ? { backgroundColor: COLORS.primary } : undefined}
             >
               {option.label}
             </button>
@@ -91,7 +90,8 @@ export default function DateRangePicker({
               onFromChange(next);
               if (next > toDateISO) onToChange(next);
             }}
-            className="h-8 min-w-[140px] rounded-[2px] border border-[#cbd5e1] bg-white px-2 text-[13px] text-slate-700 shadow-none"
+            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-[13px] text-slate-700 shadow-none"
+            style={{ border: `1px solid ${COLORS.border}` }}
           />
           <span className="px-0.5 text-slate-400">—</span>
           <input
@@ -102,7 +102,8 @@ export default function DateRangePicker({
               onToChange(next);
               if (next < fromDateISO) onFromChange(next);
             }}
-            className="h-8 min-w-[140px] rounded-[2px] border border-[#cbd5e1] bg-white px-2 text-[13px] text-slate-700 shadow-none"
+            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-[13px] text-slate-700 shadow-none"
+            style={{ border: `1px solid ${COLORS.border}` }}
           />
         </>
       ) : (

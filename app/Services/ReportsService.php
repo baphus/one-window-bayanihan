@@ -54,6 +54,7 @@ class ReportsService
             'employmentDistribution' => $this->getLastEmploymentDistribution($userId, 'CASE_MANAGER'),
             'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown($userId, 'CASE_MANAGER'),
             'caseStatusDistribution' => $this->getCaseStatusDistribution($userId, 'CASE_MANAGER'),
+            'caseIssueDistribution' => $this->getCaseIssueDistribution($userId, 'CASE_MANAGER', $from, $to),
         ];
     }
 
@@ -95,6 +96,8 @@ class ReportsService
             'employmentDistribution' => $this->getLastEmploymentDistribution(),
             'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown(),
             'caseStatusDistribution' => $this->getCaseStatusDistribution(),
+            'referralTypeDistribution' => $this->getReferralTypeDistribution(null, null, $from, $to),
+            'caseIssueDistribution' => $this->getCaseIssueDistribution(null, null, $from, $to),
         ];
     }
 
@@ -206,6 +209,35 @@ class ReportsService
                 (int) ($types['NEXT_OF_KIN'] ?? 0),
             ],
             'colors' => ['#6366f1', '#a5b4fc'],
+        ];
+    }
+
+    public function getReferralTypeDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
+    {
+        $query = Referral::query();
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
+        }
+        if ($fromDate) {
+            $query->whereDate('created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->whereDate('created_at', '<=', $toDate);
+        }
+
+        $types = (clone $query)
+            ->select('type', DB::raw('count(*) as total'))
+            ->whereNotNull('type')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        return [
+            'labels' => ['Standard', 'Intervention'],
+            'data' => [
+                (int) ($types['standard'] ?? 0),
+                (int) ($types['intervention'] ?? 0),
+            ],
+            'colors' => ['#0b5a8c', '#f59e0b'],
         ];
     }
 
@@ -652,6 +684,38 @@ class ReportsService
             'color' => $item->color,
             'count' => (int) $item->total,
             'percentage' => $total > 0 ? round(($item->total / $total) * 100, 2) : 0,
+        ])->toArray();
+    }
+
+    public function getCaseIssueDistribution(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+    ): array {
+        $query = $this->caseQuery($userId, $role);
+        if ($fromDate) {
+            $query->whereDate('created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->whereDate('created_at', '<=', $toDate);
+        }
+
+        $issues = (clone $query)
+            ->join('case_issues', 'cases.case_issue_id', '=', 'case_issues.id')
+            ->where('case_issues.is_deleted', false)
+            ->select('case_issues.name', DB::raw('count(*) as total'))
+            ->groupBy('case_issues.name', 'case_issues.sort_order')
+            ->orderBy('case_issues.sort_order')
+            ->orderByDesc('total')
+            ->get();
+
+        $chartColors = ['#0b5a8c', '#0b7a75', '#6366f1', '#f59e0b', '#ef4444', '#22c55e', '#8b5cf6', '#ec4899'];
+
+        return $issues->map(fn ($item, $i) => [
+            'name' => $item->name,
+            'count' => (int) $item->total,
+            'color' => $chartColors[$i % count($chartColors)],
         ])->toArray();
     }
 

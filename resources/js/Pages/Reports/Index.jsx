@@ -6,7 +6,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { exportToCsv } from '@/utils/export/exportCsv';
-import { pageHeadingStyles } from '@/Components/Reports/pageHeadingStyles';
+import { pageHeadingStyles, COLORS } from '@/Components/Reports/pageHeadingStyles';
 import MetricCard from '@/Components/Reports/MetricCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import SvgPieChart from '@/Components/Reports/SvgPieChart';
@@ -21,8 +21,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const statusHexMap = {
-  PENDING: '#f59e0b', PROCESSING: '#3b82f6', FOR_COMPLIANCE: '#f97316',
-  COMPLETED: '#10b981', REJECTED: '#f43f5e', OPEN: '#1e3a8a', CLOSED: '#10b981',
+  PENDING: COLORS.warning, PROCESSING: '#3b82f6', FOR_COMPLIANCE: '#f97316',
+  COMPLETED: COLORS.success, REJECTED: COLORS.danger, OPEN: '#1e3a8a', CLOSED: COLORS.success,
 };
 const statusColorMap = {
   PENDING: 'bg-amber-500', PROCESSING: 'bg-blue-500', FOR_COMPLIANCE: 'bg-orange-500',
@@ -32,7 +32,7 @@ const statusColorMap = {
 function toPieFormat(distribution) {
   if (!distribution || !distribution.labels) return [];
   const total = distribution.data.reduce((s, v) => s + v, 0) || 1;
-  const colors = distribution.colors || ['#1e3a8a', '#0f766e', '#ea580c', '#6d28d9', '#be123c', '#4338ca'];
+  const colors = distribution.colors || COLORS.chartPalette;
   return distribution.labels.map((label, i) => ({
     label,
     count: distribution.data[i] || 0,
@@ -74,7 +74,7 @@ const barOptions = {
 function SectionAccordion({ title, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-[#cbd5e1] bg-white shadow-sm">
+    <div className="border bg-white shadow-sm" style={{ borderColor: COLORS.border }}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -96,6 +96,7 @@ function CaseManagerReports({
   categoryDistribution,
   employmentDistribution, employmentPositionBreakdown,
   caseStatusDistribution,
+  caseIssueDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -140,7 +141,7 @@ function CaseManagerReports({
       datasets: [{
         label: 'Referrals',
         data: cycleTimeDistribution.data,
-        backgroundColor: cycleTimeDistribution.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        backgroundColor: cycleTimeDistribution.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
         borderRadius: 3,
         barThickness: 18,
       }],
@@ -154,7 +155,7 @@ function CaseManagerReports({
       datasets: [{
         label: 'Referrals',
         data: referralAging.data,
-        backgroundColor: referralAging.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        backgroundColor: referralAging.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
         borderRadius: 3,
         barThickness: 18,
       }],
@@ -168,7 +169,7 @@ function CaseManagerReports({
       datasets: [{
         label: 'Cases',
         data: geographicDistribution.data,
-        backgroundColor: '#0b5a8c',
+        backgroundColor: COLORS.primary,
         borderRadius: 3,
         barThickness: 18,
       }],
@@ -189,6 +190,20 @@ function CaseManagerReports({
     };
   }, [categoryDistribution]);
 
+  const caseIssueChartData = useMemo(() => {
+    if (!caseIssueDistribution?.length) return null;
+    return {
+      labels: caseIssueDistribution.map(c => c.name),
+      datasets: [{
+        label: 'Cases',
+        data: caseIssueDistribution.map(c => c.count),
+        backgroundColor: caseIssueDistribution.map(c => c.color),
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [caseIssueDistribution]);
+
   const agencyChartData = useMemo(() => {
     if (!referralAgencyDistribution?.labels) return null;
     return {
@@ -204,7 +219,7 @@ function CaseManagerReports({
   }, [referralAgencyDistribution]);
 
   const referralColumns = useMemo(() => [
-    { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold text-[#0b5a8c]">{row.case_file?.case_number || 'N/A'}</span> },
+    { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold" style={{ color: COLORS.primary }}>{row.case_file?.case_number || 'N/A'}</span> },
     { key: 'client', title: 'CLIENT', render: (row) => <span className="text-[12px] font-semibold text-slate-700">{row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A'}</span> },
     { key: 'agency', title: 'AGENCY', render: (row) => <span className="text-[12px] text-slate-700">{row.agency?.name || row.agcy_id || 'N/A'}</span> },
     { key: 'required_services', title: 'SERVICE', render: (row) => <span className="text-[12px] text-slate-700">{row.required_services || 'N/A'}</span> },
@@ -212,7 +227,7 @@ function CaseManagerReports({
       <StatusBadge status={row.status} showIcon={false} />
     )},
     { key: 'created_at', title: 'CREATED', render: (row) => <span className="text-[12px] text-slate-600">{formatDisplayDate(row.created_at?.slice(0, 10))}</span> },
-    { key: 'id', title: '', render: (row) => <Link href={route('referrals.show', row.id)} className="text-[11px] font-bold text-[#0b5a8c] hover:underline">View</Link> },
+    { key: 'id', title: '', render: (row) => <Link href={route('referrals.show', row.id)} className="text-[11px] font-bold" style={{ color: COLORS.primary }}>View</Link> },
   ], []);
 
   function paginatorProps(paginator) {
@@ -319,7 +334,7 @@ function CaseManagerReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
           <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
           {cycleTimeChartData ? (
@@ -330,7 +345,7 @@ function CaseManagerReports({
             <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
           )}
         </article>
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Aging</h3>
           <p className="mb-3 text-[11px] text-slate-500">How long active referrals have been waiting</p>
           {agingChartData ? (
@@ -344,13 +359,13 @@ function CaseManagerReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
           {agencyScorecard?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="border-b border-[#cbd5e1] text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">
+                  <tr className="border-b text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500" style={{ borderColor: COLORS.border }}>
                     <th className="pb-2 pr-3">Agency</th>
                     <th className="pb-2 pr-3 text-right">Total</th>
                     <th className="pb-2 pr-3 text-right">Completed</th>
@@ -399,7 +414,7 @@ function CaseManagerReports({
         />
       </SectionAccordion>
 
-      <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
         <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
         {categoryChartData ? (
           <div className="h-56">
@@ -410,10 +425,21 @@ function CaseManagerReports({
         )}
       </article>
 
+      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
+        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Case Issue Distribution</h3>
+        {caseIssueChartData ? (
+          <div className="h-56">
+            <Bar data={caseIssueChartData} options={barOptions} />
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[13px] text-slate-400">No issue data available.</p>
+        )}
+      </article>
+
       <section>
         <h2 className={`mb-3 ${pageHeadingStyles.sectionTitle}`}>Client Demographics</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+          <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
             <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Gender</h3>
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 shrink-0">
@@ -431,7 +457,7 @@ function CaseManagerReports({
             </div>
           </article>
 
-          <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+          <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
             <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Client Type</h3>
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 shrink-0">
@@ -449,7 +475,7 @@ function CaseManagerReports({
             </div>
           </article>
 
-          <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+          <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
             <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Age Group</h3>
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 shrink-0">
@@ -469,8 +495,8 @@ function CaseManagerReports({
         </div>
       </section>
 
-      <section className="border border-[#cbd5e1] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#cbd5e1] px-4 py-3">
+      <section className="border bg-white shadow-sm" style={{ borderColor: COLORS.border }}>
+        <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: COLORS.border }}>
           <h3 className={pageHeadingStyles.sectionTitle}>Referral Detail</h3>
           <button
             type="button"
@@ -562,7 +588,7 @@ function AgencyReports({
       datasets: [{
         label: 'Referrals',
         data: cycleTimeDistribution.data,
-        backgroundColor: cycleTimeDistribution.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        backgroundColor: cycleTimeDistribution.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
         borderRadius: 3,
         barThickness: 18,
       }],
@@ -584,12 +610,12 @@ function AgencyReports({
   }, [categoryDistribution]);
 
   const referralColumns = useMemo(() => [
-    { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold text-[#0b5a8c]">{row.case_file?.case_number || 'N/A'}</span> },
+    { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold" style={{ color: COLORS.primary }}>{row.case_file?.case_number || 'N/A'}</span> },
     { key: 'client', title: 'CLIENT', render: (row) => <span className="text-[12px] font-semibold text-slate-700">{row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A'}</span> },
     { key: 'required_services', title: 'SERVICE', render: (row) => <span className="text-[12px] text-slate-700">{row.required_services || 'N/A'}</span> },
     { key: 'status', title: 'STATUS', render: (row) => <StatusBadge status={row.status} /> },
     { key: 'created_at', title: 'CREATED', render: (row) => <span className="text-[12px] text-slate-600">{formatDisplayDate(row.created_at?.slice(0, 10))}</span> },
-    { key: 'id', title: '', render: (row) => <Link href={route('referrals.show', row.id)} className="text-[11px] font-bold text-[#0b5a8c] hover:underline">View</Link> },
+    { key: 'id', title: '', render: (row) => <Link href={route('referrals.show', row.id)} className="text-[11px] font-bold" style={{ color: COLORS.primary }}>View</Link> },
   ], []);
 
   return (
@@ -650,7 +676,7 @@ function AgencyReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_1fr]">
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Status</h3>
           <div className="flex items-center gap-6">
             <div className="h-28 w-28 shrink-0">
@@ -681,7 +707,7 @@ function AgencyReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
           <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
           {agencyCycleTimeData ? (
@@ -692,13 +718,13 @@ function AgencyReports({
             <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
           )}
         </article>
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
           {agencyScorecard?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="border-b border-[#cbd5e1] text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">
+                  <tr className="border-b text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500" style={{ borderColor: COLORS.border }}>
                     <th className="pb-2 pr-3">Agency</th>
                     <th className="pb-2 pr-3 text-right">Total</th>
                     <th className="pb-2 pr-3 text-right">Completed</th>
@@ -727,7 +753,7 @@ function AgencyReports({
         </article>
       </section>
 
-      <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
         <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
         {agencyCategoryData ? (
           <div className="h-56">
@@ -738,8 +764,8 @@ function AgencyReports({
         )}
       </article>
 
-      <section className="border border-[#cbd5e1] bg-white">
-        <div className="flex items-center justify-between border-b border-[#cbd5e1] px-4 py-3">
+      <section className="border bg-white" style={{ borderColor: COLORS.border }}>
+        <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: COLORS.border }}>
           <h3 className={pageHeadingStyles.sectionTitle}>Referred Cases</h3>
         </div>
         <UnifiedTable
@@ -769,6 +795,8 @@ function AdminReports({
   categoryDistribution,
   employmentDistribution, employmentPositionBreakdown,
   caseStatusDistribution,
+  referralTypeDistribution,
+  caseIssueDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -803,6 +831,7 @@ function AdminReports({
 
   const referralStatusPie = useMemo(() => toPieFormat(referralStatusDistribution), [referralStatusDistribution]);
   const clientTypePie = useMemo(() => toPieFormat(clientTypeDistribution), [clientTypeDistribution]);
+  const referralTypePie = useMemo(() => toPieFormat(referralTypeDistribution), [referralTypeDistribution]);
 
   const adminCycleTimeData = useMemo(() => {
     if (!cycleTimeDistribution?.labels) return null;
@@ -811,7 +840,7 @@ function AdminReports({
       datasets: [{
         label: 'Referrals',
         data: cycleTimeDistribution.data,
-        backgroundColor: cycleTimeDistribution.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        backgroundColor: cycleTimeDistribution.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
         borderRadius: 3,
         barThickness: 18,
       }],
@@ -825,7 +854,7 @@ function AdminReports({
       datasets: [{
         label: 'Referrals',
         data: referralAging.data,
-        backgroundColor: referralAging.colors || ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
+        backgroundColor: referralAging.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
         borderRadius: 3,
         barThickness: 18,
       }],
@@ -839,7 +868,7 @@ function AdminReports({
       datasets: [{
         label: 'Cases',
         data: geographicDistribution.data,
-        backgroundColor: '#0b5a8c',
+        backgroundColor: COLORS.primary,
         borderRadius: 3,
         barThickness: 18,
       }],
@@ -867,8 +896,8 @@ function AdminReports({
       datasets: [{
         label: 'Cases',
         data: caseTrends.data,
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderColor: COLORS.accent,
+        backgroundColor: `${COLORS.accent}1A`,
         fill: true,
         tension: 0.3,
       }],
@@ -888,6 +917,20 @@ function AdminReports({
       }],
     };
   }, [categoryDistribution]);
+
+  const adminCaseIssueData = useMemo(() => {
+    if (!caseIssueDistribution?.length) return null;
+    return {
+      labels: caseIssueDistribution.map(c => c.name),
+      datasets: [{
+        label: 'Cases',
+        data: caseIssueDistribution.map(c => c.count),
+        backgroundColor: caseIssueDistribution.map(c => c.color),
+        borderRadius: 3,
+        barThickness: 18,
+      }],
+    };
+  }, [caseIssueDistribution]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-4">
@@ -940,7 +983,7 @@ function AdminReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Status</h3>
           <div className="flex items-center gap-6">
             <div className="h-28 w-28 shrink-0">
@@ -963,7 +1006,30 @@ function AdminReports({
           </div>
         </article>
 
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
+          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Type</h3>
+          <div className="flex items-center gap-6">
+            <div className="h-28 w-28 shrink-0">
+              <Doughnut data={{
+                labels: referralTypePie.map((s) => s.label),
+                datasets: [{ data: referralTypePie.map((s) => s.count), backgroundColor: referralTypePie.map((s) => s.hex), borderWidth: 0 }],
+              }} options={doughnutOptions} />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              {referralTypePie.map((s) => (
+                <div key={s.label} className="flex items-center justify-between text-[11px]">
+                  <span className="inline-flex items-center gap-1.5 text-slate-600">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.hex }} />
+                    <span className="font-medium">{s.label}</span>
+                  </span>
+                  <span className="font-bold text-slate-700">{s.count} ({s.percent}%)</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </article>
+
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Client Type</h3>
           <div className="flex items-center gap-6">
             <div className="h-28 w-28 shrink-0">
@@ -990,7 +1056,7 @@ function AdminReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Workload</h3>
           {workloadChartData ? (
             <div className="h-64">
@@ -1013,7 +1079,7 @@ function AdminReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
           <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
           {adminCycleTimeData ? (
@@ -1024,7 +1090,7 @@ function AdminReports({
             <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
           )}
         </article>
-        <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
           <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Aging</h3>
           <p className="mb-3 text-[11px] text-slate-500">How long active referrals have been waiting</p>
           {adminAgingData ? (
@@ -1044,7 +1110,7 @@ function AdminReports({
         />
       </SectionAccordion>
 
-      <article className="border border-[#cbd5e1] bg-white p-4 shadow-sm">
+      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
         <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
         {adminCategoryData ? (
           <div className="h-56">
@@ -1052,6 +1118,17 @@ function AdminReports({
           </div>
         ) : (
           <p className="py-8 text-center text-[13px] text-slate-400">No category data available.</p>
+        )}
+      </article>
+
+      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
+        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Case Issue Distribution</h3>
+        {adminCaseIssueData ? (
+          <div className="h-56">
+            <Bar data={adminCaseIssueData} options={barOptions} />
+          </div>
+        ) : (
+          <p className="py-8 text-center text-[13px] text-slate-400">No issue data available.</p>
         )}
       </article>
 
@@ -1073,6 +1150,8 @@ export default function ReportsIndex(props) {
     managedReferrals, categoryDistribution,
     employmentDistribution, employmentPositionBreakdown,
     caseStatusDistribution,
+    referralTypeDistribution,
+    caseIssueDistribution,
   } = props;
 
   const from = (new URLSearchParams(window.location.search)).get('from') || undefined;
@@ -1117,6 +1196,7 @@ export default function ReportsIndex(props) {
           employmentDistribution={employmentDistribution}
           employmentPositionBreakdown={employmentPositionBreakdown}
           caseStatusDistribution={caseStatusDistribution}
+          caseIssueDistribution={caseIssueDistribution}
           from={from}
           to={to}
         />
@@ -1144,10 +1224,12 @@ export default function ReportsIndex(props) {
         categoryDistribution={categoryDistribution}
         employmentDistribution={employmentDistribution}
         employmentPositionBreakdown={employmentPositionBreakdown}
-        caseStatusDistribution={caseStatusDistribution}
-        from={from}
-        to={to}
-      />
+          caseStatusDistribution={caseStatusDistribution}
+          referralTypeDistribution={referralTypeDistribution}
+          caseIssueDistribution={caseIssueDistribution}
+          from={from}
+          to={to}
+        />
     </AppLayout>
   );
 }
