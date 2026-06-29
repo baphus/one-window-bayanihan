@@ -24,7 +24,6 @@ use App\Http\Controllers\AgencyServqualConfigController;
 use App\Http\Controllers\AnonymizedAnalyticsController;
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ClientSelectController;
-use App\Http\Controllers\Api\InsightsApiController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseCommentController;
 use App\Http\Controllers\CaseController;
@@ -33,8 +32,6 @@ use App\Http\Controllers\CaseIssueController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\FeedbackController;
-use App\Http\Controllers\InsightsController;
-use App\Http\Controllers\InsightsExportController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
@@ -91,7 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/mfa/recovery-codes', [MfaController::class, 'getRecoveryCodes'])->name('profile.mfa.recovery-codes');
     Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate');
 
-    // All-roles routes: referrals, analytics, reports, insights, notifications
+    // All-roles routes: referrals, analytics, reports, notifications
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
@@ -113,10 +110,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight')->middleware('throttle:10,1');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
-
-    Route::get('/insights', [InsightsController::class, 'index'])->name('insights.index');
-    Route::post('/insights/export/csv', [InsightsExportController::class, 'exportCsv'])->name('insights.export.csv');
-    Route::post('/insights/export/pdf', [InsightsExportController::class, 'exportPdf'])->name('insights.export.pdf');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
@@ -342,35 +335,6 @@ Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->g
     Route::post('/alerts/{id}/dismiss', [AlertController::class, 'dismiss']);
     Route::post('/alerts/{id}/read', [AlertController::class, 'read']);
     Route::post('/alerts/mark-all-read', [AlertController::class, 'markAllAsRead']);
-
-    // Insights API
-    Route::get('/insights/trends', [InsightsApiController::class, 'trends']);
-    Route::get('/insights/kpi-cards', [InsightsApiController::class, 'kpiCards']);
-    Route::get('/insights/case-trends', [InsightsApiController::class, 'caseTrends']);
-    Route::get('/insights/referral-volume', [InsightsApiController::class, 'referralVolume']);
-    Route::get('/insights/sla-compliance', [InsightsApiController::class, 'slaCompliance']);
-    Route::get('/insights/status-distribution', [InsightsApiController::class, 'statusDistribution']);
-    Route::get('/insights/category-distribution', [InsightsApiController::class, 'categoryDistribution']);
-    Route::get('/insights/service-distribution', [InsightsApiController::class, 'serviceDistribution']);
-    Route::get('/insights/geographic-distribution', [InsightsApiController::class, 'geographicDistribution']);
-    Route::get('/insights/client-type-split', [InsightsApiController::class, 'clientTypeSplit']);
-    Route::get('/insights/aging-cases', [InsightsApiController::class, 'agingCases']);
-    Route::get('/insights/stalled-referrals', [InsightsApiController::class, 'stalledReferrals']);
-    Route::get('/insights/overloaded-agencies', [InsightsApiController::class, 'overloadedAgencies']);
-    Route::get('/insights/bottleneck-analysis', [InsightsApiController::class, 'bottleneckAnalysis']);
-    Route::get('/insights/rejection-analysis', [InsightsApiController::class, 'rejectionAnalysis']);
-    Route::get('/insights/case-manager-scorecard', [InsightsApiController::class, 'caseManagerScorecard']);
-    Route::get('/insights/agency-scorecard', [InsightsApiController::class, 'agencyScorecard']);
-    Route::get('/insights/service-completion-rate', [InsightsApiController::class, 'serviceCompletionRate']);
-    Route::get('/insights/first-response-time', [InsightsApiController::class, 'firstResponseTime']);
-    Route::get('/insights/satisfaction-trend', [InsightsApiController::class, 'satisfactionTrend']);
-    Route::get('/insights/servqual-scores', [InsightsApiController::class, 'servqualScores']);
-    Route::get('/insights/agency-satisfaction-ranking', [InsightsApiController::class, 'agencySatisfactionRanking']);
-    Route::get('/insights/feedback-volume', [InsightsApiController::class, 'feedbackVolume']);
-    Route::get('/insights/case-volume-forecast', [InsightsApiController::class, 'caseVolumeForecast']);
-    Route::get('/insights/breach-probability', [InsightsApiController::class, 'breachProbability']);
-    Route::get('/insights/peak-periods', [InsightsApiController::class, 'peakPeriods']);
-    Route::get('/insights/capacity-forecast', [InsightsApiController::class, 'capacityForecast']);
 });
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
