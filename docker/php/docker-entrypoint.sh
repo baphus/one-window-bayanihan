@@ -12,7 +12,7 @@ fi
 
 # ── Storage & cache: set permissions ──
 # Ensure framework directories are writable (Supabase Storage handles file storage).
-chmod -R 755 storage bootstrap/cache
+chmod -R 755 storage bootstrap/cache 2>/dev/null || true
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 
 # ── Cache: bootstrap Laravel once ──
@@ -21,14 +21,15 @@ if [ "${APP_ENV}" != "local" ] && [ "${APP_ENV}" != "testing" ]; then
     php artisan route:cache --no-interaction || true
     php artisan view:cache --no-interaction || true
     php artisan event:cache --no-interaction || true
-    echo "[ENTRYPOINT] Configuration cached for ${APP_ENV}"
+    echo "[ENTRYPOINT] Configuration cached for production"
 fi
 
-# ── Migrations ──
-# NOTE: Auto-migration at container start has been removed.
-# Migrations are now handled by a dedicated docker compose profile service.
-# Run manually: docker compose exec app php artisan migrate --force
+# ── Run migrations if enabled ──
+if [ "${RUN_MIGRATIONS}" = "true" ]; then
+    echo "[ENTRYPOINT] Running migrations..."
+    php artisan migrate --force --no-interaction || true
+fi
 
-# ── Execute the main command (php-fpm, queue:listen, schedule:work, etc.) ──
+# ── Execute the main command (supervisord, queue:listen, schedule:work, etc.) ──
 echo "[ENTRYPOINT] Starting: $@"
 exec "$@"
