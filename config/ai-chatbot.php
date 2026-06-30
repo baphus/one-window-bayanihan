@@ -7,4 +7,5 @@ return [
     'model' => env('AI_CHATBOT_MODEL', 'gpt-4o-mini'),
     'temperature' => (float) env('AI_CHATBOT_TEMPERATURE', 0.7),
     'max_tokens' => (int) env('AI_CHATBOT_MAX_TOKENS', 500),
+    'system_prompt' => env('AI_CHATBOT_SYSTEM_PROMPT', ''),
 ];
