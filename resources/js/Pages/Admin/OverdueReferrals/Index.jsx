@@ -65,13 +65,13 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
             onPageChange: (page) => {
                 const url = new URL(window.location);
                 url.searchParams.set('page', page);
-                router.get(url.toString());
+                router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['overdueReferrals'] });
             },
             onRowsPerPageChange: (n) => {
                 const url = new URL(window.location);
                 url.searchParams.set('per_page', n);
                 url.searchParams.delete('page');
-                router.get(url.toString());
+                router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['overdueReferrals'] });
             },
         };
     }

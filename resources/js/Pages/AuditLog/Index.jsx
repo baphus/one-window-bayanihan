@@ -13,13 +13,13 @@ export default function AuditLogIndex({ logs, availableActions, availableModules
         url.searchParams.set(key, value);
       }
     });
-    router.get(url.toString());
+    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['logs', 'filterValues'] });
   }, []);
 
   const handlePageChange = useCallback((page) => {
     const url = new URL(window.location);
     url.searchParams.set('page', page);
-    router.get(url.toString());
+    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['logs'] });
   }, []);
 
   const pagination = {
