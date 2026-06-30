@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Ai\AiService;
 use App\Services\Export\DataExportService;
 use App\Services\ReportsService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -10,11 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
+use function Laravel\Ai\agent;
+
 class ReportsController extends Controller
 {
     public function __construct(
         private readonly ReportsService $reportsService,
-        private readonly AiService $aiService,
     ) {}
 
     public function index(Request $request)
@@ -100,22 +100,22 @@ class ReportsController extends Controller
             'top_agencies' => $topAgencies,
         ];
 
-        $prompt = 'Here is the report data: '.json_encode($summary)."\n\nProvide a concise business insight summary (max 3 paragraphs) highlighting key metrics, trends, and actionable recommendations.";
-
-        $provider = $this->aiService->getProvider();
-
-        if (! $provider || ! $provider->isConfigured()) {
+        if (! config('ai-chatbot.enabled', false)) {
             return response()->json(['insight' => null, 'error' => 'AI service is not configured. Configure it in System Settings.']);
         }
 
         try {
-            $insight = $provider->sendMessage($prompt, [
-                'system_prompt' => 'You are a senior business intelligence analyst for the Department of Migrant Workers (DMW) Region VII. Analyze the report data and provide actionable insights. Be specific with numbers, identify trends, and suggest improvements. Keep responses to 3 paragraphs maximum.',
-                'temperature' => 0.3,
-                'max_tokens' => 1000,
-            ]);
+            $response = agent(
+                instructions: 'You are a senior business intelligence analyst for the Department of Migrant Workers (DMW) Region VII. Analyze the report data and provide actionable insights. Be specific with numbers, identify trends, and suggest improvements. Keep responses to 3 paragraphs maximum.',
+                temperature: 0.3,
+                maxTokens: 1000,
+            )->prompt(
+                prompt: 'Here is the report data: '.json_encode($summary)."\n\nProvide a concise business insight summary (max 3 paragraphs) highlighting key metrics, trends, and actionable recommendations.",
+                provider: config('ai-chatbot.provider', 'openai'),
+                model: config('ai-chatbot.model', 'gpt-4o-mini'),
+            );
 
-            return response()->json(['insight' => $insight]);
+            return response()->json(['insight' => $response->text]);
         } catch (\Exception $e) {
             Log::error('Reports AI analysis failed', ['message' => $e->getMessage(), 'exception' => $e]);
 

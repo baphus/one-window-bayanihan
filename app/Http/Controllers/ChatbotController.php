@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Ai\AiService;
-use App\Services\Chatbot\ChatbotCaseService;
-use App\Services\Chatbot\ChatbotDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+
+use function Laravel\Ai\agent;
 
 class ChatbotController extends Controller
 {
@@ -27,12 +26,6 @@ class ChatbotController extends Controller
         'default' => "I'm not sure I understand your question. I can help you with:\n\n- **Agency info** — Details about OWWA, DMW, TESDA, DSWD, DOLE\n- **Services** — What services are available and their requirements\n- **Case tracking** — How to track your case status\n- **OFW support** — Repatriation, legal assistance, skills training\n- **Referrals** — How the inter-agency referral process works\n- **Documents** — Required documents for OFW assistance\n\nType \"help\" to see all options, or ask me a specific question!",
     ];
 
-    public function __construct(
-        private readonly AiService $aiService,
-        private readonly ChatbotDataService $chatbotData,
-        private readonly ChatbotCaseService $chatbotCase,
-    ) {}
-
     public function message(Request $request)
     {
         $request->validate([
@@ -41,21 +34,34 @@ class ChatbotController extends Controller
 
         $userMessage = $request->input('message');
 
-        // Try AI-first (backward-compatible flow via AiService::sendMessage)
-        try {
-            $aiReply = $this->aiService->sendMessage($userMessage);
-            if (! empty($aiReply)) {
-                return response()->json([
-                    'reply' => $aiReply,
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::warning('Chatbot AI service sendMessage failed', [
-                'error' => $e->getMessage(),
-                'provider' => config('ai-chatbot.provider', 'unknown'),
-            ]);
+        // Try AI-first via agent() helper
+        if (config('ai-chatbot.enabled', false)) {
+            try {
+                $guidePath = resource_path('guides/ofw-case-tracking.md');
+                $guide = file_exists($guidePath) ? file_get_contents($guidePath) : '';
 
-            return response()->json(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.'], 503);
+                $instructions = 'You are Bayani, a helpful assistant for the Bayanihan One Window system. Answer questions helpfully and accurately using the reference guide when relevant.';
+                if ($guide) {
+                    $instructions .= "\n\nHere is a reference guide you can use to answer questions:\n\n".$guide;
+                }
+
+                $response = agent(
+                    instructions: $instructions,
+                )->prompt(
+                    prompt: $request->input('message'),
+                    provider: config('ai-chatbot.provider', 'openai'),
+                    model: config('ai-chatbot.model', ''),
+                );
+
+                return response()->json(['reply' => $response->text]);
+            } catch (\Throwable $e) {
+                Log::warning('Chatbot AI agent failed', [
+                    'error' => $e->getMessage(),
+                    'provider' => config('ai-chatbot.provider', 'unknown'),
+                ]);
+
+                return response()->json(['reply' => null, 'error' => 'AI service is currently unavailable. Please try again later.'], 503);
+            }
         }
 
         // Fallback: keyword matching
@@ -65,52 +71,6 @@ class ChatbotController extends Controller
         return response()->json([
             'reply' => $response,
         ]);
-    }
-
-    /**
-     * Handle the getCaseStatuses tool call.
-     */
-    private function handleGetCaseStatuses(): string
-    {
-        return json_encode($this->chatbotData->getCaseStatuses());
-    }
-
-    // ──────────────────────────────────────────────
-    //  OFW OTP verification tools
-    // ──────────────────────────────────────────────
-
-    private function handleInitiateCaseOTP(array $args): string
-    {
-        $trackerNumber = $args['trackerNumber'] ?? '';
-
-        if (empty($trackerNumber)) {
-            return json_encode(['success' => false, 'message' => 'Tracker number is required.']);
-        }
-
-        return json_encode($this->chatbotCase->initiateCaseOTP($trackerNumber));
-    }
-
-    private function handleVerifyCaseOTP(array $args): string
-    {
-        $trackerNumber = $args['trackerNumber'] ?? '';
-        $otp = $args['otp'] ?? '';
-
-        if (empty($trackerNumber) || empty($otp)) {
-            return json_encode(['success' => false, 'message' => 'Both tracker number and verification code are required.']);
-        }
-
-        return json_encode($this->chatbotCase->verifyCaseOTP($trackerNumber, $otp));
-    }
-
-    private function handleGetVerifiedCaseInfo(array $args): string
-    {
-        $trackerNumber = $args['trackerNumber'] ?? '';
-
-        if (empty($trackerNumber)) {
-            return json_encode(['success' => false, 'message' => 'Tracker number is required.']);
-        }
-
-        return json_encode($this->chatbotCase->getVerifiedCaseInfo($trackerNumber));
     }
 
     // ──────────────────────────────────────────────
