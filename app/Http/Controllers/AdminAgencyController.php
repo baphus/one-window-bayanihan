@@ -40,13 +40,13 @@ class AdminAgencyController extends Controller
         return Inertia::render('Admin/Agency/Index', [
             'agencies' => $agencies,
             'filters' => $filters,
-            'stats' => [
+            'stats' => Inertia::lazy(fn () => [
                 'total' => Agency::count(),
                 'active' => Agency::where('is_active', true)->count(),
                 'inactive' => Agency::where('is_active', false)->count(),
                 'default' => Agency::where('is_default', true)->count(),
                 'total_users' => User::count(),
-            ],
+            ]),
         ]);
     }
 

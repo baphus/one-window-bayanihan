@@ -46,12 +46,13 @@ class ContentSecurityPolicy
     private function getDevPolicy(): string
     {
         $viteOrigin = env('VITE_DEV_SERVER_URL', 'http://127.0.0.1:5173');
+        $appOrigin = config('app.url');
 
         return "default-src 'self'; "
             ."script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteOrigin} https://challenges.cloudflare.com; "
             ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
             ."img-src 'self' data: https://res.cloudinary.com; "
-            ."connect-src 'self' wss: {$viteOrigin} ws://127.0.0.1:5173 https://challenges.cloudflare.com; "
+            ."connect-src 'self' {$appOrigin} http://localhost:8000 http://127.0.0.1:8000 wss: {$viteOrigin} ws://127.0.0.1:5173 https://challenges.cloudflare.com; "
             ."frame-src 'self' https://challenges.cloudflare.com; "
             ."form-action 'self'; "
             ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";

@@ -128,9 +128,9 @@ class AuditLogController extends Controller
 
         return Inertia::render('AuditLog/Index', [
             'logs' => $logs,
-            'availableActions' => $availableActions,
-            'availableModules' => $availableModules,
-            'availableModulesLabels' => $availableModulesLabels,
+            'availableActions' => Inertia::lazy(fn () => $availableActions),
+            'availableModules' => Inertia::lazy(fn () => $availableModules),
+            'availableModulesLabels' => Inertia::lazy(fn () => $availableModulesLabels),
             'filterValues' => $request->only(['action', 'module', 'user_id', 'date_from', 'date_to', 'search', 'per_page']),
         ]);
     }

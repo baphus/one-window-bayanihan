@@ -49,10 +49,10 @@ class HandleInertiaRequests extends Middleware
                     'profile_completed_at',
                 ]),
             ],
-            'alert_count' => $request->user()
+            'alert_count' => fn () => $request->user()
                 ? app(AlertService::class)->getActiveAlerts($request->user())['unread_count']
                 : 0,
-            'notifications' => [
+            'notifications' => fn () => [
                 'unread_count' => $request->user()
                     ? $request->user()->unreadNotifications()->count()
                     : 0,
