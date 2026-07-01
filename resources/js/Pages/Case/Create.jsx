@@ -91,7 +91,7 @@ function Select({ value, onChange, options, placeholder, required }) {
 }
 
 export default function CaseCreate() {
-    const { client, existingClients = [], categories = [], existingDraft, auth, caseIssues = [] } = usePage().props;
+    const { client, categories = [], existingDraft, auth, caseIssues = [] } = usePage().props;
 
     const { data, setData, post, put, processing, errors, setError, clearErrors } = useForm({
         client_type: 'OFW',
@@ -147,6 +147,8 @@ export default function CaseCreate() {
     const searchDebounceRef = useRef(null);
     const draftIdRef = useRef(existingDraft?.id || null);
     const restoredRef = useRef(false);
+    const [searchResults, setSearchResults] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
     const [showAddIssue, setShowAddIssue] = useState(false);
     const [newIssueName, setNewIssueName] = useState('');
     const [addingIssue, setAddingIssue] = useState(false);
@@ -273,14 +275,33 @@ export default function CaseCreate() {
         if (autoSaveDraftId) draftIdRef.current = autoSaveDraftId;
     }, [autoSaveDraftId]);
 
-    const filteredClients = useMemo(() => {
-        const q = debouncedSearch.trim().toLowerCase();
-        if (!q) return existingClients.slice(0, 200);
-        return existingClients.filter((c) => {
-            const searchStr = [c.first_name, c.middle_name, c.last_name].filter(Boolean).join(' ').toLowerCase();
-            return searchStr.includes(q);
-        }).slice(0, 200);
-    }, [existingClients, debouncedSearch]);
+    // Fetch clients from API when debounced search changes
+    useEffect(() => {
+        const q = debouncedSearch.trim();
+        if (!q) {
+            setSearchResults([]);
+            return;
+        }
+        let cancelled = false;
+        setSearchLoading(true);
+        window.axios.get('/api/clients', { params: { q } })
+            .then((res) => {
+                if (!cancelled) {
+                    const mapped = (res.data.data || []).map((c) => ({
+                        ...c,
+                        full_name: [c.first_name, c.middle_name, c.last_name, c.suffix].filter(Boolean).join(' '),
+                        has_case: !!c.case_file,
+                        case_count: c.case_file ? 1 : 0,
+                    }));
+                    setSearchResults(mapped);
+                    setSearchLoading(false);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) setSearchLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [debouncedSearch]);
 
     useEffect(() => {
         if (client) {
@@ -646,77 +667,21 @@ export default function CaseCreate() {
         }
     }
 
-    function handleClientDropdownChange(e) {
-        const clientId = e.target.value;
-        setData('selected_client_id', clientId);
-
-        if (!clientId) {
-            setClientSource('new');
-            setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
-            setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
-            setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
-            setData('next_of_kin', []);
-            return;
-        }
-
-        setClientSource('existing');
-        const c = existingClients.find((x) => x.id === clientId);
-        if (!c) return;
-
-        setData('client', {
-            ...data.client,
-            first_name: c.first_name || '',
-            last_name: c.last_name || '',
-            middle_name: c.middle_name || '',
-            suffix: c.suffix || '',
-            date_of_birth: c.date_of_birth || '',
-            sex: c.sex || '',
-            email: c.email || '',
-            contact_number: c.contact_number || '',
-        });
-
-        if (c.addresses?.[0]) {
-            setData('address', {
-                ...data.address,
-                region: c.addresses[0].region || '',
-                province: c.addresses[0].province || '',
-                city_municipality: c.addresses[0].city_municipality || '',
-                barangay: c.addresses[0].barangay || '',
-                street: c.addresses[0].street || '',
-            });
-        }
-
-        if (c.employments?.[0]) {
-            setData('employment', {
-                ...data.employment,
-                employer_name: c.employments[0].employer_name || '',
-                position: c.employments[0].position || '',
-                country: c.employments[0].country || '',
-                last_country: c.employments[0].last_country || '',
-                last_position: c.employments[0].last_position || '',
-                date_of_arrival: c.employments[0].date_of_arrival || '',
-            });
-        }
-
-        if (c.nextOfKin?.length) {
-            setData('next_of_kin', c.nextOfKin.map(nok => ({
-                id: nok.id,
-                first_name: nok.first_name || '',
-                middle_initial: nok.middle_initial || '',
-                last_name: nok.last_name || '',
-                is_primary: nok.is_primary || false,
-                relationship: nok.relationship || '',
-                phone_number: nok.phone_number || '',
-                email: nok.email || '',
-                full_address: nok.full_address || '',
-                nok_address: {
-                    region: nok.region || '',
-                    province: nok.province || '',
-                    city_municipality: nok.city_municipality || '',
-                    barangay: nok.barangay || '',
-                    street: nok.street || '',
-                },
-            })));
+    async function handleClientSelect(client) {
+        if (!client?.id) return;
+        setSelectedClient(null);
+        try {
+            const res = await window.axios.get(`/api/clients/${client.id}`);
+            const data = res.data.data;
+            const mapped = {
+                ...data,
+                full_name: [data.first_name, data.middle_name, data.last_name, data.suffix].filter(Boolean).join(' '),
+                has_case: !!data.case_file,
+                case_count: data.case_file ? 1 : 0,
+            };
+            setSelectedClient(mapped);
+        } catch {
+            toast.error('Failed to load client details.');
         }
     }
 
@@ -1178,11 +1143,6 @@ function handleConfirmClient(client) {
                     <strong>Pre-filled</strong> from existing client record: {[client.first_name, client.last_name].filter(Boolean).join(' ')}
                 </div>
             )}
-            {data.selected_client_id && existingClients.find((c) => c.id === data.selected_client_id) && (
-                <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
-                    <strong>Pre-filled</strong> from existing client record: {existingClients.find((c) => c.id === data.selected_client_id).full_name}
-                </div>
-            )}
 
             <div className="mb-6">
                 <div className="flex items-center justify-between">
@@ -1323,7 +1283,9 @@ function handleConfirmClient(client) {
                                                         </div>
 
                                                         <div className="mb-4 flex items-center justify-between">
-                                                            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">{filteredClients.length} client(s) found</span>
+                                                            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                                                                {debouncedSearch.trim() ? `${searchLoading ? 'Searching' : `${searchResults.length} client(s) found`}` : 'Type to search clients'}
+                                                            </span>
                                                             <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
                                                                 <button
                                                                     type="button"
@@ -1342,19 +1304,30 @@ function handleConfirmClient(client) {
                                                             </div>
                                                         </div>
 
-                                                        {filteredClients.length === 0 ? (
+                                                        {searchLoading && debouncedSearch.trim() && searchResults.length === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                                                <span className="material-symbols-outlined text-[40px] mb-3 animate-pulse">search</span>
+                                                                <p className="text-[14px] font-medium text-slate-500">Searching...</p>
+                                                            </div>
+                                                        ) : searchResults.length === 0 && debouncedSearch.trim() ? (
                                                             <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                                                                 <span className="material-symbols-outlined text-[40px] mb-3">person_search</span>
                                                                 <p className="text-[14px] font-medium text-slate-500">No clients found</p>
                                                                 <p className="text-[12px] text-slate-400 mt-1">Try a different search term or create a new client.</p>
                                                             </div>
+                                                        ) : searchResults.length === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                                                <span className="material-symbols-outlined text-[40px] mb-3">search</span>
+                                                                <p className="text-[14px] font-medium text-slate-500">Start typing to search</p>
+                                                                <p className="text-[12px] text-slate-400 mt-1">Search for existing clients by name.</p>
+                                                            </div>
                                                         ) : viewMode === 'grid' ? (
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                {filteredClients.map((c) => (
+                                                                {searchResults.map((c) => (
                                                                     <button
                                                                         key={c.id}
                                                                         type="button"
-                                                                        onClick={() => setSelectedClient(c)}
+                                                                        onClick={() => handleClientSelect(c)}
                                                                         className="flex w-full items-start gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                                                     >
                                                                         <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-indigo-100">
@@ -1375,7 +1348,7 @@ function handleConfirmClient(client) {
                                                             </div>
                                                         ) : (
                                                             <UnifiedTable
-                                                                data={filteredClients}
+                                                                data={searchResults}
                                                                 columns={[
                                                                     { key: 'name', title: 'Name', render: (row) => row.full_name },
                                                                     { key: 'sex', title: 'Sex' },
@@ -1386,11 +1359,11 @@ function handleConfirmClient(client) {
                                                                 keyExtractor={(row) => row.id}
                                                                 hideControlBar
                                                                 hidePagination
-                                                                onRowClick={(row) => setSelectedClient(row)}
+                                                                onRowClick={(row) => handleClientSelect(row)}
                                                             />
                                                         )}
 
-                                                        <p className="mt-3 text-[11px] text-slate-400 text-center">Showing up to 200 clients. Refine search to find specific clients.</p>
+                                                        <p className="mt-3 text-[11px] text-slate-400 text-center">Type to search existing clients. Showing up to 20 matching results.</p>
                                                     </div>
                                                 )}
                                             </Subsection>

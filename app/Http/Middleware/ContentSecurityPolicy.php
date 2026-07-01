@@ -32,10 +32,17 @@ class ContentSecurityPolicy
 
     /**
      * Return the Content-Security-Policy directive string.
+     *
+     * If a VITE_DEV_SERVER_URL is explicitly configured (non-empty), we assume
+     * a Vite dev server may be running and use the relaxed dev policy regardless
+     * of APP_ENV. This prevents CSP violations when developing locally with
+     * APP_ENV=staging or APP_ENV=production for testing.
      */
     private function getPolicy(): string
     {
-        return app()->environment('local')
+        $viteOrigin = env('VITE_DEV_SERVER_URL');
+
+        return $viteOrigin || app()->environment('local')
             ? $this->getDevPolicy()
             : $this->getProdPolicy();
     }

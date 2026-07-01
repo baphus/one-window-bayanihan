@@ -56,21 +56,11 @@ class CaseController extends Controller
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
         }
 
-        $existingClients = $this->mapExistingClients(
-            Client::with(['addresses', 'employments', 'nextOfKin'])
-                ->withCount('caseFiles')
-                ->where('is_deleted', false)
-                ->orderBy('last_name')
-                ->limit(200)
-                ->get()
-        );
-
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
         $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Case/Create', [
             'client' => $client,
-            'existingClients' => $existingClients,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
         ]);
@@ -105,15 +95,6 @@ class CaseController extends Controller
         abort_unless($case->status === 'DRAFT', 404);
         abort_unless($case->user_id === $request->user()->id, 403);
 
-        $existingClients = $this->mapExistingClients(
-            Client::with(['addresses', 'employments', 'nextOfKin'])
-                ->withCount('caseFiles')
-                ->where('is_deleted', false)
-                ->orderBy('last_name')
-                ->limit(200)
-                ->get()
-        );
-
         $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
         $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
@@ -131,7 +112,6 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Create', [
             'existingDraft' => $case,
-            'existingClients' => $existingClients,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
             'draftResolvedAddress' => $draftResolvedAddress,
@@ -264,61 +244,6 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.drafts')
             ->with('success', 'Draft deleted successfully.');
-    }
-
-    private function mapExistingClients($clients): array
-    {
-        $addresses = collect();
-        foreach ($clients as $c) {
-            foreach ($c->addresses as $a) {
-                $addresses->push($a);
-            }
-        }
-
-        $resolved = $addresses->map(fn ($a) => [
-            'id' => $a->id,
-            'codes' => $this->addressService->resolveAddressToCodes([
-                'region' => $a->region,
-                'province' => $a->province,
-                'city_municipality' => $a->city_municipality,
-                'barangay' => $a->barangay,
-            ]),
-            'names' => [
-                'region' => $a->region,
-                'province' => $a->province,
-                'city_municipality' => $a->city_municipality,
-                'barangay' => $a->barangay,
-            ],
-        ])->keyBy('id');
-
-        return $clients->map(fn ($c) => [
-            'id' => $c->id,
-            'full_name' => trim("{$c->first_name} {$c->middle_name} {$c->last_name} {$c->suffix}"),
-            'first_name' => $c->first_name,
-            'last_name' => $c->last_name,
-            'middle_name' => $c->middle_name,
-            'suffix' => $c->suffix,
-            'sex' => $c->sex,
-            'date_of_birth' => $c->date_of_birth?->format('Y-m-d'),
-            'email' => $c->email,
-            'contact_number' => $c->contact_number,
-            'addresses' => $c->addresses->map(fn ($a) => [
-                'id' => $a->id,
-                'region' => $resolved[$a->id]['codes']['region'] ?? $a->region,
-                'province' => $resolved[$a->id]['codes']['province'] ?? $a->province,
-                'city_municipality' => $resolved[$a->id]['codes']['city_municipality'] ?? $a->city_municipality,
-                'barangay' => $resolved[$a->id]['codes']['barangay'] ?? $a->barangay,
-                'street' => $a->street,
-                'region_name' => $resolved[$a->id]['names']['region'] ?? null,
-                'province_name' => $resolved[$a->id]['names']['province'] ?? null,
-                'city_municipality_name' => $resolved[$a->id]['names']['city_municipality'] ?? null,
-                'barangay_name' => $resolved[$a->id]['names']['barangay'] ?? null,
-            ]),
-            'employments' => $c->employments,
-            'nextOfKin' => $c->nextOfKin,
-            'has_case' => $c->case_files_count > 0,
-            'case_count' => $c->case_files_count,
-        ])->toArray();
     }
 
     public function exportExcel()
