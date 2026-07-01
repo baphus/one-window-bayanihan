@@ -14,6 +14,8 @@ import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
 import TourPrototype from './__TourPrototype';
 import DashboardBanner from '@/Components/DashboardBanner';
+import { useLazyProp } from '@/Hooks/useLazyProp';
+import { CardSkeleton, ChartSkeleton, TableSkeleton, ActivitySkeleton } from '@/Components/Skeletons';
 
 ChartJS.register(
     CategoryScale, LinearScale, BarElement,
@@ -22,7 +24,11 @@ ChartJS.register(
 
 const pieOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } } }, cutout: '55%' };
 
-function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNotifications }) {
+function AgencyDashboard({ stats }) {
+    const [recentReferrals, refsLoading] = useLazyProp('recentReferrals');
+    const [recentActivity, actLoading] = useLazyProp('recentActivity');
+    const [dashboardNotifications, notifLoading] = useLazyProp('dashboardNotifications');
+
     return (
         <div className="max-w-7xl mx-auto pb-6">
             <DashboardBanner />
@@ -46,20 +52,24 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
                 <div data-tour="dashboard-agency-referrals" className="lg:col-span-8">
-                    <RecentTable
-                        title="Recent Referrals"
-                        data={recentReferrals ?? []}
-                        columns={[
-                            { key: 'case_number', title: 'Case #', render: (row) => row.case_file?.case_number ?? 'N/A' },
-                            { key: 'client', title: 'Client', render: (row) => row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A' },
-                            { key: 'service', title: 'Service', render: (row) => row.required_services },
-                            { key: 'status', title: 'Status', render: (row) => (
-                                <StatusBadge status={row.status} />
-                            )},
-                        ]}
-                        keyExtractor={(row) => row.id}
-                        onViewAll={() => router.visit(route('referrals.index'))}
-                    />
+                    {refsLoading ? (
+                        <TableSkeleton rows={5} />
+                    ) : (
+                        <RecentTable
+                            title="Recent Referrals"
+                            data={recentReferrals ?? []}
+                            columns={[
+                                { key: 'case_number', title: 'Case #', render: (row) => row.case_file?.case_number ?? 'N/A' },
+                                { key: 'client', title: 'Client', render: (row) => row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A' },
+                                { key: 'service', title: 'Service', render: (row) => row.required_services },
+                                { key: 'status', title: 'Status', render: (row) => (
+                                    <StatusBadge status={row.status} />
+                                )},
+                            ]}
+                            keyExtractor={(row) => row.id}
+                            onViewAll={() => router.visit(route('referrals.index'))}
+                        />
+                    )}
                 </div>
 
                 <div className="lg:col-span-4 space-y-3">
@@ -110,31 +120,37 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
                             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Activity</h3>
                         </div>
                         <div className="p-4">
-                            <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
-                                {(recentActivity ?? []).length === 0 ? (
-                                    <p className="text-xs text-slate-400 py-2">No recent activity.</p>
-                                ) : (
-                                    (recentActivity ?? []).slice(0, 5).map((activity) => (
-                                        <ActivityItem
-                                            key={activity.id}
-                                            title={activity.title}
-                                            desc={activity.desc}
-                                            time={activity.time?.toUpperCase() ?? ''}
-                                            logoSrc={activity.logoSrc ?? '/logo.png'}
-                                            actionType={activity.actionType}
-                                            actor={activity.actor}
-                                            message={activity.message}
-                                            detail={activity.detail}
-                                        />
-                                    ))
-                                )}
-                            </div>
-                            <button
-                                onClick={() => router.visit(route('audit-logs.index'))}
-                                className="w-full mt-3 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors text-center"
-                            >
-                                VIEW ALL ACTIVITY
-                            </button>
+                            {actLoading ? (
+                                <ActivitySkeleton />
+                            ) : (
+                                <>
+                                    <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
+                                        {(recentActivity ?? []).length === 0 ? (
+                                            <p className="text-xs text-slate-400 py-2">No recent activity.</p>
+                                        ) : (
+                                            (recentActivity ?? []).slice(0, 5).map((activity) => (
+                                                <ActivityItem
+                                                    key={activity.id}
+                                                    title={activity.title}
+                                                    desc={activity.desc}
+                                                    time={activity.time?.toUpperCase() ?? ''}
+                                                    logoSrc={activity.logoSrc ?? '/logo.png'}
+                                                    actionType={activity.actionType}
+                                                    actor={activity.actor}
+                                                    message={activity.message}
+                                                    detail={activity.detail}
+                                                />
+                                            ))
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => router.visit(route('audit-logs.index'))}
+                                        className="w-full mt-3 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors text-center"
+                                    >
+                                        VIEW ALL ACTIVITY
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -143,7 +159,11 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
     );
 }
 
-function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
+function AdminDashboard({ stats }) {
+    const [recentCases, casesLoading] = useLazyProp('recentCases');
+    const [recentLogs, logsLoading] = useLazyProp('recentLogs');
+    const [systemHealth, healthLoading] = useLazyProp('systemHealth');
+
     return (
         <>
             <DashboardBanner />
@@ -162,7 +182,11 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
             </div>
 
             {/* System Health Overview */}
-            {systemHealth && (
+            {healthLoading ? (
+                <div className="mb-6">
+                    <ChartSkeleton />
+                </div>
+            ) : systemHealth && (
                 <div data-tour="dashboard-admin-system" className="mb-6">
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-base font-semibold text-slate-900">System Health</h3>
@@ -203,19 +227,23 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div data-tour="admin-recent-cases">
-                <RecentTable
-                    title="Recent Cases"
-                    data={recentCases ?? []}
-                    columns={[
-                        { key: 'case_number', title: 'Case #', render: (row) => row.case_number },
-                        { key: 'status', title: 'Status', render: (row) => (
-                            <StatusBadge status={row.status} />
-                        )},
-                        { key: 'created', title: 'Created', render: (row) => formatDisplayDate(row.created_at) },
-                    ]}
-                    keyExtractor={(row) => row.id}
-                    onViewAll={() => router.visit(route('cases.index'))}
-                />
+                {casesLoading ? (
+                    <TableSkeleton rows={5} />
+                ) : (
+                    <RecentTable
+                        title="Recent Cases"
+                        data={recentCases ?? []}
+                        columns={[
+                            { key: 'case_number', title: 'Case #', render: (row) => row.case_number },
+                            { key: 'status', title: 'Status', render: (row) => (
+                                <StatusBadge status={row.status} />
+                            )},
+                            { key: 'created', title: 'Created', render: (row) => formatDisplayDate(row.created_at) },
+                        ]}
+                        keyExtractor={(row) => row.id}
+                        onViewAll={() => router.visit(route('cases.index'))}
+                    />
+                )}
                 </div>
 
                 <div data-tour="admin-recent-activity" className="rounded-lg bg-white shadow-sm border border-slate-200">
@@ -223,33 +251,39 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
                         <h3 className="text-base font-semibold text-slate-900">Recent Activity</h3>
                         <Link href={route('audit-logs.index')} className="text-sm text-indigo-600 hover:text-indigo-900">View All</Link>
                     </div>
-                    <div className="divide-y divide-slate-200">
-                        {recentLogs?.length === 0 ? (
-                            <p className="px-6 py-4 text-sm text-slate-500">No recent activity.</p>
-                        ) : (
-                            recentLogs?.map((log) => {
-                                const cfg = actionConfig[log.action] || { icon: Eye, bg: 'bg-slate-50', text: 'text-slate-500', ring: 'ring-slate-200', label: '' }
-                                return (
-                                <div key={log.id} className="px-6 py-3 flex items-start gap-3">
-                                    <span className={`shrink-0 flex items-center justify-center w-7 h-7 rounded-full ring-2 ring-white ${cfg.bg} shadow-sm mt-0.5`}>
-                                        <cfg.icon className={`w-3.5 h-3.5 ${cfg.text}`} />
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm text-slate-900 font-medium leading-snug">
-                                            {log.actor ? <span className="text-slate-500 font-normal">{log.actor} </span> : null}{log.message ?? log.description}
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.text} ${cfg.bg}`}>
-                                                {cfg.label || log.action}
-                                            </span>
-                                            <p className="text-xs text-slate-500">{formatDisplayDateTime(log.timestamp)}</p>
+                    {logsLoading ? (
+                        <div className="p-6">
+                            <ActivitySkeleton />
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-slate-200">
+                            {recentLogs?.length === 0 ? (
+                                <p className="px-6 py-4 text-sm text-slate-500">No recent activity.</p>
+                            ) : (
+                                recentLogs?.map((log) => {
+                                    const cfg = actionConfig[log.action] || { icon: Eye, bg: 'bg-slate-50', text: 'text-slate-500', ring: 'ring-slate-200', label: '' }
+                                    return (
+                                    <div key={log.id} className="px-6 py-3 flex items-start gap-3">
+                                        <span className={`shrink-0 flex items-center justify-center w-7 h-7 rounded-full ring-2 ring-white ${cfg.bg} shadow-sm mt-0.5`}>
+                                            <cfg.icon className={`w-3.5 h-3.5 ${cfg.text}`} />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm text-slate-900 font-medium leading-snug">
+                                                {log.actor ? <span className="text-slate-500 font-normal">{log.actor} </span> : null}{log.message ?? log.description}
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.text} ${cfg.bg}`}>
+                                                    {cfg.label || log.action}
+                                                </span>
+                                                <p className="text-xs text-slate-500">{formatDisplayDateTime(log.timestamp)}</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                )
-                            })
-                        )}
-                    </div>
+                                    )
+                                })
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </>
@@ -331,25 +365,24 @@ function getCaseAgeInDays(timestamp) {
   return Math.floor(Math.max(0, Date.now() - parsed.getTime()) / (24 * 60 * 60 * 1000))
 }
 
-function CaseManagerDashboard({
-  stats,
-  allCases = [],
-  allReferrals = [],
-  casesByProvince = [],
-  agencyBreakdown = [],
-  casesByCategory = [],
-  casesOverTime = [],
-  recentActivity = [],
-  dashboardNotifications = [],
-}) {
+function CaseManagerDashboard({ stats }) {
+  const [allCases, casesLoading] = useLazyProp('allCases');
+  const [allReferrals, refsLoading] = useLazyProp('allReferrals');
+  const [casesByProvince, provLoading] = useLazyProp('casesByProvince');
+  const [agencyBreakdown, agencyLoading] = useLazyProp('agencyBreakdown');
+  const [casesByCategory, catLoading] = useLazyProp('casesByCategory');
+  const [casesOverTime, timeLoading] = useLazyProp('casesOverTime');
+  const [recentActivity, actLoading] = useLazyProp('recentActivity');
+  const [dashboardNotifications, notifLoading] = useLazyProp('dashboardNotifications');
+
   const sortedCases = useMemo(
-    () => [...allCases].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    () => [...(allCases ?? [])].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [allCases],
   )
 
   const latestReferralByCaseId = useMemo(() => {
     const acc = {}
-    allReferrals.forEach((ref) => {
+    ;(allReferrals ?? []).forEach((ref) => {
       const existing = acc[ref.caseId]
       if (!existing || new Date(ref.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
         acc[ref.caseId] = ref
@@ -358,19 +391,19 @@ function CaseManagerDashboard({
     return acc
   }, [allReferrals])
 
-  const openCount = allCases.filter((c) => c.status === 'OPEN').length
-  const closedCount = allCases.filter((c) => c.status === 'CLOSED').length
-  const totalReferrals = allReferrals.length
-  const completedReferralsCount = allReferrals.filter((r) => r.status === 'COMPLETED').length
-  const pendingCount = allReferrals.filter((r) => r.status === 'PENDING').length
-  const processingCount = allReferrals.filter((r) => r.status === 'PROCESSING').length
-  const rejectedCount = allReferrals.filter((r) => r.status === 'REJECTED').length
+  const openCount = (allCases ?? []).filter((c) => c.status === 'OPEN').length
+  const closedCount = (allCases ?? []).filter((c) => c.status === 'CLOSED').length
+  const totalReferrals = (allReferrals ?? []).length
+  const completedReferralsCount = (allReferrals ?? []).filter((r) => r.status === 'COMPLETED').length
+  const pendingCount = (allReferrals ?? []).filter((r) => r.status === 'PENDING').length
+  const processingCount = (allReferrals ?? []).filter((r) => r.status === 'PROCESSING').length
+  const rejectedCount = (allReferrals ?? []).filter((r) => r.status === 'REJECTED').length
   const averageReferralCompletionRate = totalReferrals > 0 ? Math.round((completedReferralsCount / totalReferrals) * 100) : 0
 
   const attentionItems = useMemo(() => {
     const items = []
 
-    allReferrals.forEach((ref) => {
+    ;(allReferrals ?? []).forEach((ref) => {
       const daysOld = getCaseAgeInDays(ref.createdAt)
       if (ref.status === 'PENDING' && daysOld >= 5) {
         items.push({
@@ -392,8 +425,8 @@ function CaseManagerDashboard({
       }
     })
 
-    allCases.forEach((c) => {
-      const caseReferrals = allReferrals.filter((r) => r.caseId === c.id)
+    ;(allCases ?? []).forEach((c) => {
+      const caseReferrals = (allReferrals ?? []).filter((r) => r.caseId === c.id)
       const daysOpen = getCaseAgeInDays(c.createdAt)
       if (c.status === 'OPEN' && caseReferrals.length === 0 && daysOpen >= 7) {
         items.push({
@@ -429,15 +462,17 @@ function CaseManagerDashboard({
   })
 
   const referralStatusStats = useMemo(() => {
-    const total = totalReferrals || 1
+    const refs = allReferrals ?? []
+    const total = refs.length || 1
     const statuses = ['PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED']
     const colors = ['#f59e0b', '#3b82f6', '#10b981', '#f43f5e']
-    const counts = statuses.map((s) => allReferrals.filter((r) => r.status === s).length)
+    const counts = statuses.map((s) => refs.filter((r) => r.status === s).length)
     return statuses.map((s, i) => ({ label: s, count: counts[i], hex: colors[i], percent: Math.round((counts[i] / total) * 100) })).filter((s) => s.count > 0)
-  }, [allReferrals, totalReferrals])
+  }, [allReferrals])
 
   const casesStatusStats = useMemo(() => {
-    const total = allCases.length || 1
+    const cases = allCases ?? []
+    const total = cases.length || 1
     return [
       { label: 'Open', count: openCount, hex: '#1e3a8a', percent: Math.round((openCount / total) * 100) },
       { label: 'Closed', count: closedCount, hex: '#cbd5e1', percent: Math.round((closedCount / total) * 100) },
@@ -445,10 +480,10 @@ function CaseManagerDashboard({
   }, [allCases, openCount, closedCount])
 
   const agencyChartData = useMemo(() => ({
-    labels: agencyBreakdown.map((a) => a.agencyName),
+    labels: (agencyBreakdown ?? []).map((a) => a.agencyName),
     datasets: [{
       label: 'Referrals',
-      data: agencyBreakdown.map((a) => a.count),
+      data: (agencyBreakdown ?? []).map((a) => a.count),
       backgroundColor: ['#1e3a8a', '#0f766e', '#ea580c', '#6d28d9', '#be123c'],
       borderRadius: 3,
       barThickness: 20,
@@ -456,7 +491,7 @@ function CaseManagerDashboard({
   }), [agencyBreakdown])
 
   const provinceChartData = useMemo(() => {
-    const sorted = [...casesByProvince].sort((a, b) => b.count - a.count)
+    const sorted = [...(casesByProvince ?? [])].sort((a, b) => b.count - a.count)
     return {
       labels: sorted.map((p) => p.province),
       datasets: [{
@@ -470,7 +505,7 @@ function CaseManagerDashboard({
   }, [casesByProvince])
 
   const categoryChartData = useMemo(() => {
-    if (casesByCategory.length === 0) return null
+    if ((casesByCategory ?? []).length === 0) return null
     return {
       labels: casesByCategory.map((c) => c.name),
       datasets: [{
@@ -484,10 +519,10 @@ function CaseManagerDashboard({
   }, [casesByCategory])
 
   const casesOverTimeChart = useMemo(() => ({
-    labels: casesOverTime.map((m) => m.label),
+    labels: (casesOverTime ?? []).map((m) => m.label),
     datasets: [{
       label: 'Cases',
-      data: casesOverTime.map((m) => m.count),
+      data: (casesOverTime ?? []).map((m) => m.count),
       backgroundColor: '#1e3a8acc',
       borderColor: '#1e3a8a',
       borderWidth: 1,
@@ -677,13 +712,17 @@ function CaseManagerDashboard({
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 lg:col-span-8 space-y-4">
           <div data-tour="dashboard-recent">
-            <RecentTable
-              title="Active Cases"
-              data={recentCaseRows}
-              columns={activeCasesColumns}
-              keyExtractor={(row) => row.rowId}
-              onViewAll={() => router.visit('/cases')}
-            />
+            {casesLoading ? (
+              <TableSkeleton rows={5} />
+            ) : (
+              <RecentTable
+                title="Active Cases"
+                data={recentCaseRows}
+                columns={activeCasesColumns}
+                keyExtractor={(row) => row.rowId}
+                onViewAll={() => router.visit('/cases')}
+              />
+            )}
           </div>
 
           {stats?.myRecentDrafts?.length > 0 && (
@@ -707,80 +746,104 @@ function CaseManagerDashboard({
           )}
 
           <div data-tour="dashboard-chart" className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Status</h3>
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 shrink-0">
-                  <Doughnut data={casesStatusPieChart} options={doughnutOptions} />
-                </div>
-                <div className="space-y-2 flex-1">
-                  {casesStatusStats.filter((s) => s.count > 0).map((stat) => (
-                    <div key={stat.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${stat.label === 'Open' ? 'bg-blue-900' : 'bg-slate-300'}`} />
-                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+            {casesLoading ? (
+              <ChartSkeleton />
+            ) : (
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Status</h3>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 shrink-0">
+                    <Doughnut data={casesStatusPieChart} options={doughnutOptions} />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    {casesStatusStats.filter((s) => s.count > 0).map((stat) => (
+                      <div key={stat.label} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${stat.label === 'Open' ? 'bg-blue-900' : 'bg-slate-300'}`} />
+                          <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Referral Status</h3>
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 shrink-0">
-                  <Doughnut data={referralPieChart} options={doughnutOptions} />
-                </div>
-                <div className="space-y-2 flex-1">
-                  {referralStatusStats.map((stat) => (
-                    <div key={stat.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+            {refsLoading ? (
+              <ChartSkeleton />
+            ) : (
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Referral Status</h3>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 shrink-0">
+                    <Doughnut data={referralPieChart} options={doughnutOptions} />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    {referralStatusStats.map((stat) => (
+                      <div key={stat.label} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
+                          <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Province</h3>
-              <div className="h-44">
-                <Bar data={provinceChartData} options={barOptionsHorizontal} />
+            {provLoading ? (
+              <ChartSkeleton />
+            ) : (
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Province</h3>
+                <div className="h-44">
+                  <Bar data={provinceChartData} options={barOptionsHorizontal} />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Agency Referral Load</h3>
-              <div className="h-44">
-                <Bar data={agencyChartData} options={barOptionsHorizontal} />
+            {agencyLoading ? (
+              <ChartSkeleton />
+            ) : (
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Agency Referral Load</h3>
+                <div className="h-44">
+                  <Bar data={agencyChartData} options={barOptionsHorizontal} />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Category</h3>
-              <div className="h-44">
-                {categoryChartData ? (
-                  <Bar data={categoryChartData} options={barOptionsHorizontal} />
-                ) : (
-                  <p className="text-xs text-slate-400 py-4 text-center">No cases across any category yet.</p>
-                )}
+            {catLoading ? (
+              <ChartSkeleton />
+            ) : (
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Category</h3>
+                <div className="h-44">
+                  {categoryChartData ? (
+                    <Bar data={categoryChartData} options={barOptionsHorizontal} />
+                  ) : (
+                    <p className="text-xs text-slate-400 py-4 text-center">No cases across any category yet.</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Case Creation Trend</h3>
-            <div className="h-32">
-              <Bar data={casesOverTimeChart} options={barOptions} />
-            </div>
-          </section>
+          {timeLoading ? (
+            <ChartSkeleton />
+          ) : (
+            <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Case Creation Trend</h3>
+              <div className="h-32">
+                <Bar data={casesOverTimeChart} options={barOptions} />
+              </div>
+            </section>
+          )}
         </div>
 
         <div className="col-span-12 lg:col-span-4 space-y-3">
@@ -859,63 +922,54 @@ function CaseManagerDashboard({
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100">
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Activity</h3>
-            </div>
-            <div className="p-4">
-              <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
-                {recentActivity.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-2">No recent activity.</p>
-                ) : (
-                  recentActivity.slice(0, 5).map((activity) => (
-                    <ActivityItem
-                      key={activity.id}
-                      title={activity.title}
-                      desc={activity.desc}
-                      time={activity.time?.toUpperCase() ?? ''}
-                      logoSrc={activity.logoSrc ?? '/logo.png'}
-                      actionType={activity.actionType}
-                      actor={activity.actor}
-                      message={activity.message}
-                      detail={activity.detail}
-                    />
-                  ))
-                )}
+          {actLoading ? (
+            <ActivitySkeleton />
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Activity</h3>
               </div>
-              <button
-                onClick={() => router.visit('/audit-logs')}
-                className="w-full mt-3 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors text-center"
-              >
-                VIEW ALL ACTIVITY
-              </button>
+              <div className="p-4">
+                <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
+                  {(recentActivity ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2">No recent activity.</p>
+                  ) : (
+                    (recentActivity ?? []).slice(0, 5).map((activity) => (
+                      <ActivityItem
+                        key={activity.id}
+                        title={activity.title}
+                        desc={activity.desc}
+                        time={activity.time?.toUpperCase() ?? ''}
+                        logoSrc={activity.logoSrc ?? '/logo.png'}
+                        actionType={activity.actionType}
+                        actor={activity.actor}
+                        message={activity.message}
+                        detail={activity.detail}
+                      />
+                    ))
+                  )}
+                </div>
+                <button
+                  onClick={() => router.visit('/audit-logs')}
+                  className="w-full mt-3 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors text-center"
+                >
+                  VIEW ALL ACTIVITY
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-export default function Dashboard(props) {
-    const {
-        role, recentCases, recentReferrals, recentLogs,
-        allCases, allReferrals, casesByProvince, agencyBreakdown,
-        casesByCategory, casesOverTime, recentActivity, dashboardNotifications,
-        systemHealth,
-        ...stats
-    } = props;
-
+export default function Dashboard({ role, ...stats }) {
     if (role === 'AGENCY') {
         return (
             <AppLayout title="Dashboard">
                 <Head title="Dashboard" />
-                <AgencyDashboard
-                    stats={stats}
-                    recentReferrals={recentReferrals}
-                    recentActivity={recentActivity}
-                    dashboardNotifications={dashboardNotifications}
-                />
+                <AgencyDashboard stats={stats} />
             </AppLayout>
         );
     }
@@ -924,7 +978,7 @@ export default function Dashboard(props) {
         return (
             <AppLayout title="Dashboard">
                 <Head title="Dashboard" />
-                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} systemHealth={systemHealth} />
+                <AdminDashboard stats={stats} />
             </AppLayout>
         );
     }
@@ -932,17 +986,7 @@ export default function Dashboard(props) {
     return (
         <AppLayout title="Dashboard">
             <Head title="Dashboard" />
-            <CaseManagerDashboard
-                stats={stats}
-                allCases={allCases ?? []}
-                allReferrals={allReferrals ?? []}
-                casesByProvince={casesByProvince ?? []}
-                agencyBreakdown={agencyBreakdown ?? []}
-                casesByCategory={casesByCategory ?? []}
-                casesOverTime={casesOverTime ?? []}
-                recentActivity={recentActivity ?? []}
-                dashboardNotifications={dashboardNotifications ?? []}
-            />
+            <CaseManagerDashboard stats={stats} />
         </AppLayout>
     );
 }

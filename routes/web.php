@@ -64,15 +64,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $reportsService = app(ReportsService::class);
         $user = request()->user();
 
-        $data = match ($user->role) {
+        $raw = match ($user->role) {
             'AGENCY' => $service->getAgencyData($user),
             'ADMIN' => $service->getAdminData(),
             default => $service->getCaseManagerData($user),
         };
 
+        $lazyKeys = match ($user->role) {
+            'AGENCY' => ['recentReferrals', 'recentActivity', 'dashboardNotifications', 'casesByCategory'],
+            'ADMIN' => ['recentCases', 'recentLogs', 'systemHealth', 'casesByCategory'],
+            default => ['recentCases', 'allCases', 'allReferrals', 'casesByProvince', 'agencyBreakdown', 'casesByCategory', 'casesOverTime', 'recentActivity', 'dashboardNotifications'],
+        };
+
+        $data = [];
+        foreach ($raw as $key => $value) {
+            $data[$key] = in_array($key, $lazyKeys)
+                ? Inertia::lazy(fn () => $value)
+                : $value;
+        }
+
         $data['role'] = $user->role;
-        $data['caseTrends'] = $reportsService->getCaseTrends();
-        $data['referralStatusDistribution'] = $reportsService->getReferralStatusDistribution();
+        $data['caseTrends'] = Inertia::lazy(fn () => $reportsService->getCaseTrends());
+        $data['referralStatusDistribution'] = Inertia::lazy(fn () => $reportsService->getReferralStatusDistribution());
 
         return Inertia::render('Dashboard', $data);
     })->name('dashboard');
