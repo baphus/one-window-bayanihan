@@ -447,10 +447,17 @@ class CaseService
         });
     }
 
-    public function getCases(array $filters = [])
+    public function getCases(array $filters = [], string $sort = 'created_at', string $direction = 'desc', int $perPage = 15)
     {
-        $query = CaseFile::with(['client', 'user', 'category', 'caseIssue', 'referrals.agency', 'referrals.milestones'])
-            ->orderBy('created_at', 'desc');
+        $sortMap = [
+            'tracker_number' => 'tracker_number',
+            'client_type' => 'client_type',
+            'status' => 'status',
+            'created_at' => 'created_at',
+        ];
+        $sortColumn = $sortMap[$sort] ?? 'created_at';
+
+        $query = CaseFile::with(['client', 'user', 'category', 'caseIssue', 'referrals.agency', 'referrals.milestones']);
 
         $query->where('status', '!=', 'DRAFT');
 
@@ -518,7 +525,10 @@ class CaseService
             });
         }
 
-        return $query->paginate(15);
+        $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'desc';
+        $query->orderBy($sortColumn, $direction)->orderBy('id', $direction);
+
+        return $query->paginate(min(max($perPage, 10), 100));
     }
 
     public function getCase(string $id): CaseFile

@@ -29,14 +29,14 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
-        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id'];
+        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'sort', 'direction', 'per_page'];
 
         $cases = $this->caseService->getCases(
-            $request->only($filterKeys)
+            $request->only($filterKeys),
+            $request->input('sort', 'created_at'),
+            $request->input('direction', 'desc'),
+            (int) $request->input('per_page', 15)
         );
-
-        $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
-        $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
@@ -44,8 +44,8 @@ class CaseController extends Controller
             'stats' => Inertia::lazy(fn () => $this->caseService->getCaseStats()),
             'users' => Inertia::lazy(fn () => User::select('id', 'name')->orderBy('name')->get()),
             'agencies' => Inertia::lazy(fn () => Agency::select('id', 'name')->orderBy('name')->get()),
-            'categories' => Inertia::lazy(fn () => $categories),
-            'caseIssues' => Inertia::lazy(fn () => $caseIssues),
+            'categories' => Inertia::lazy(fn () => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name'])),
+            'caseIssues' => Inertia::lazy(fn () => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name'])),
         ]);
     }
 
