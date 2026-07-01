@@ -5,6 +5,8 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock, FileDown } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { useLazyProp } from '@/Hooks/useLazyProp';
+import { CardSkeleton, TableSkeleton } from '@/Components/Skeletons';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -71,7 +73,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function CaseIndex({ cases, filters, stats, users = [], agencies = [], categories = [] }) {
+export default function CaseIndex({ cases, filters }) {
   const { auth } = usePage().props;
   const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
 
@@ -97,6 +99,12 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     return () => clearTimeout(searchTimeout.current);
   }, []);
 
+  const [stats, statsLoading] = useLazyProp('stats');
+  const [users, usersLoading] = useLazyProp('users');
+  const [agencies, agenciesLoading] = useLazyProp('agencies');
+  const [categories, categoriesLoading] = useLazyProp('categories');
+  const [caseIssues, issuesLoading] = useLazyProp('caseIssues');
+
   const navigateWith = (params) => {
     const url = new URL(window.location);
     Object.entries(params).forEach(([k, v]) => {
@@ -121,15 +129,15 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     if (typeFilter) chips.push({ key: 'client_type', label: 'Client Type', value: typeFilter === 'OFW' ? 'OFW' : 'NOK' });
     if (vulnFilter) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: vulnFilter });
     if (authorFilter) {
-      const author = users.find(u => u.id === authorFilter);
+      const author = (users ?? []).find(u => u.id === authorFilter);
       chips.push({ key: 'user_id', label: 'Author', value: author?.name || authorFilter });
     }
     if (agencyFilter) {
-      const agency = agencies.find(a => a.id === agencyFilter);
+      const agency = (agencies ?? []).find(a => a.id === agencyFilter);
       chips.push({ key: 'agcy_id', label: 'Referred To', value: agency?.name || agencyFilter });
     }
     if (categoryFilter) {
-      const cat = categories?.find(c => c.id === categoryFilter);
+      const cat = (categories ?? []).find(c => c.id === categoryFilter);
       chips.push({ key: 'category_id', label: 'Category', value: cat?.name || categoryFilter });
     }
     return chips;
@@ -450,7 +458,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
           <option value="">All Authors</option>
-          {users.map((u) => (
+          {(users ?? []).map((u) => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
@@ -468,7 +476,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
           <option value="">All Agencies</option>
-          {agencies.map((a) => (
+          {(agencies ?? []).map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
         </select>
@@ -523,6 +531,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       </header>
 
       <div data-tour="cases-filter">
+        {statsLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {[1,2,3,4].map(i => <CardSkeleton key={i} />)}
+          </div>
+        ) : (
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-start justify-between mb-2">
@@ -534,7 +547,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
             <TrendingUp className="w-3 h-3 text-emerald-500" />
             <span className="text-[11px] font-bold text-emerald-600">
               {stats?.open_cases ?? 0} open &middot; {stats?.closed_cases ?? 0} closed
-              {stats?.archived_cases > 0 && <> &middot; {stats.archived_cases} archived</>}
+              {stats?.archived_cases > 0 && <> &middot; {stats?.archived_cases ?? 0} archived</>}
             </span>
           </div>
         </div>
@@ -548,7 +561,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="text-[11px] font-medium text-slate-500">
               {stats?.total_cases > 0
-                ? `${((stats.open_cases / stats.total_cases) * 100).toFixed(0)}% of total`
+                ? `${((stats?.open_cases ?? 0) / (stats?.total_cases ?? 1)) * 100}% of total`
                 : 'No cases'}
             </span>
           </div>
@@ -578,6 +591,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
           <p className="text-[10px] text-slate-400 mt-0.5">Across all cases</p>
         </div>
       </section>
+        )}
       </div>
 
       <div data-tour="cases-table">
@@ -625,7 +639,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
               className="h-[40px] px-4 border border-gray-300 text-[14px] font-bold text-gray-700 rounded-[3px] bg-gray-50 flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap shrink-0"
             >
               <span className="material-symbols-outlined text-[18px]">archive</span>
-              {filters?.status === 'ARCHIVED' ? 'Active Cases' : `Archived${stats?.archived_cases > 0 ? ` (${stats.archived_cases})` : ''}`}
+              {filters?.status === 'ARCHIVED' ? 'Active Cases' : `Archived${(stats?.archived_cases ?? 0) > 0 ? ` (${stats?.archived_cases ?? 0})` : ''}`}
             </button>
           </>
         }
