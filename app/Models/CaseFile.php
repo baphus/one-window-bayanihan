@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\CaseIssue;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -73,10 +72,5 @@ class CaseFile extends Model
     public function documents()
     {
         return $this->hasMany(CaseDocument::class, 'case_id');
-    }
-
-    public function comments()
-    {
-        return $this->hasMany(CaseComment::class, 'case_id');
     }
 }
