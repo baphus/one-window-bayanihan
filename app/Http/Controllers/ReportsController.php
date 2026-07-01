@@ -23,21 +23,71 @@ class ReportsController extends Controller
         $fromDate = $request->query('from');
         $toDate = $request->query('to');
 
-        $data = $this->reportsService->getAll(
-            userId: $user->id,
-            role: $user->role,
-            fromDate: $fromDate,
-            toDate: $toDate,
-        );
+        // Default date range matching ReportsService internal behavior
+        $from = $fromDate ?: now()->subYear()->toDateString();
+        $to = $toDate ?: now()->toDateString();
 
-        $data['managedReferrals'] = $this->reportsService->getManagedReferrals(
-            userId: $user->id,
-            role: $user->role,
-            fromDate: $fromDate,
-            toDate: $toDate,
-        );
+        $data = match ($user->role) {
+            'AGENCY' => [
+                'role' => $user->role,
+                'from' => $fromDate,
+                'to' => $toDate,
+                'kpis' => $this->reportsService->getReferralKpis(null, 'AGENCY'),
+                'avgReferralCompletion' => $this->reportsService->getAvgReferralCompletionDays(),
+                'managedReferrals' => $this->reportsService->getManagedReferrals($user->id, 'AGENCY', $fromDate, $toDate),
+                'referralStatusDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralStatusDistribution(null, 'AGENCY')),
+                'referralTrends' => Inertia::lazy(fn () => $this->reportsService->getReferralTrends()),
+                'cycleTimeDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralCycleTimeDistribution(null, 'AGENCY')),
+                'agencyScorecard' => Inertia::lazy(fn () => $this->reportsService->getAgencyScorecard(null, 'AGENCY')),
+                'categoryDistribution' => Inertia::lazy(fn () => $this->reportsService->categoryDistribution()),
+                'caseStatusDistribution' => Inertia::lazy(fn () => $this->reportsService->getCaseStatusDistribution()),
+            ],
+            'ADMIN' => [
+                'role' => $user->role,
+                'from' => $fromDate,
+                'to' => $toDate,
+                'overview' => $this->reportsService->getOverview($from, $to),
+                'managedReferrals' => $this->reportsService->getManagedReferrals($user->id, 'ADMIN', $fromDate, $toDate),
+                'caseTrends' => Inertia::lazy(fn () => $this->reportsService->getCaseTrends()),
+                'referralStatusDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralStatusDistribution(null, null, $from, $to)),
+                'agencyWorkload' => Inertia::lazy(fn () => $this->reportsService->getAgencyWorkload($from, $to)),
+                'clientTypeDistribution' => Inertia::lazy(fn () => $this->reportsService->getClientTypeDistribution()),
+                'cycleTimeDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralCycleTimeDistribution(null, null, $from, $to)),
+                'referralAging' => Inertia::lazy(fn () => $this->reportsService->getReferralAging(null, null, $from, $to)),
+                'geographicDistribution' => Inertia::lazy(fn () => $this->reportsService->getGeographicDistribution(null, null, $from, $to)),
+                'agencyScorecard' => Inertia::lazy(fn () => $this->reportsService->getAgencyScorecard(null, null, $from, $to)),
+                'categoryDistribution' => Inertia::lazy(fn () => $this->reportsService->categoryDistribution()),
+                'employmentDistribution' => Inertia::lazy(fn () => $this->reportsService->getLastEmploymentDistribution()),
+                'employmentPositionBreakdown' => Inertia::lazy(fn () => $this->reportsService->getEmploymentPositionBreakdown()),
+                'caseStatusDistribution' => Inertia::lazy(fn () => $this->reportsService->getCaseStatusDistribution()),
+                'referralTypeDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralTypeDistribution(null, null, $from, $to)),
+                'caseIssueDistribution' => Inertia::lazy(fn () => $this->reportsService->getCaseIssueDistribution(null, null, $from, $to)),
+            ],
+            default => [
+                'role' => $user->role,
+                'from' => $fromDate,
+                'to' => $toDate,
+                'kpis' => $this->reportsService->getReferralKpis($user->id, 'CASE_MANAGER', $from, $to),
+                'managedReferrals' => $this->reportsService->getManagedReferrals($user->id, 'CASE_MANAGER', $fromDate, $toDate),
+                'referralStatusDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralStatusDistribution($user->id, 'CASE_MANAGER', $from, $to)),
+                'referralAgencyDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralAgencyDistribution($user->id, 'CASE_MANAGER', $from, $to)),
+                'casesOverTime' => Inertia::lazy(fn () => $this->reportsService->getCasesOverTime($user->id, 'CASE_MANAGER', $from, $to)),
+                'genderDistribution' => Inertia::lazy(fn () => $this->reportsService->getGenderDistribution()),
+                'clientTypeDistribution' => Inertia::lazy(fn () => $this->reportsService->getClientTypeDistribution($user->id, 'CASE_MANAGER')),
+                'ageGroupDistribution' => Inertia::lazy(fn () => $this->reportsService->getAgeGroupDistribution()),
+                'cycleTimeDistribution' => Inertia::lazy(fn () => $this->reportsService->getReferralCycleTimeDistribution($user->id, 'CASE_MANAGER', $from, $to)),
+                'referralAging' => Inertia::lazy(fn () => $this->reportsService->getReferralAging($user->id, 'CASE_MANAGER', $from, $to)),
+                'agencyScorecard' => Inertia::lazy(fn () => $this->reportsService->getAgencyScorecard($user->id, 'CASE_MANAGER', $from, $to)),
+                'geographicDistribution' => Inertia::lazy(fn () => $this->reportsService->getGeographicDistribution($user->id, 'CASE_MANAGER', $from, $to)),
+                'categoryDistribution' => Inertia::lazy(fn () => $this->reportsService->categoryDistribution($user->id, 'CASE_MANAGER')),
+                'employmentDistribution' => Inertia::lazy(fn () => $this->reportsService->getLastEmploymentDistribution($user->id, 'CASE_MANAGER')),
+                'employmentPositionBreakdown' => Inertia::lazy(fn () => $this->reportsService->getEmploymentPositionBreakdown($user->id, 'CASE_MANAGER')),
+                'caseStatusDistribution' => Inertia::lazy(fn () => $this->reportsService->getCaseStatusDistribution($user->id, 'CASE_MANAGER')),
+                'caseIssueDistribution' => Inertia::lazy(fn () => $this->reportsService->getCaseIssueDistribution($user->id, 'CASE_MANAGER', $from, $to)),
+            ],
+        };
 
-        return Inertia::render('Reports/Index', $data);
+        return Inertia::render('Reports/Index', array_filter($data));
     }
 
     public function aiInsight(Request $request)
