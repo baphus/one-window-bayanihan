@@ -22,7 +22,6 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
 use App\Http\Controllers\AgencyServqualConfigController;
 use App\Http\Controllers\AnonymizedAnalyticsController;
-use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseCommentController;
@@ -70,16 +69,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             default => $service->getCaseManagerData($user),
         };
 
-        $lazyKeys = match ($user->role) {
-            'AGENCY' => ['recentReferrals', 'recentActivity', 'dashboardNotifications', 'casesByCategory'],
-            'ADMIN' => ['recentCases', 'recentLogs', 'systemHealth', 'casesByCategory'],
-            default => ['recentCases', 'allCases', 'allReferrals', 'casesByProvince', 'agencyBreakdown', 'casesByCategory', 'casesOverTime', 'recentActivity', 'dashboardNotifications'],
-        };
-
+        // Values that are Closures (= heavy queries) get wrapped in Inertia::lazy()
+        // so the database query only runs when the client requests the prop.
+        // Eager values (simple COUNT queries) pass through immediately.
         $data = [];
         foreach ($raw as $key => $value) {
-            $data[$key] = in_array($key, $lazyKeys)
-                ? Inertia::lazy(fn () => $value)
+            $data[$key] = $value instanceof Closure
+                ? Inertia::lazy($value)
                 : $value;
         }
 
@@ -343,11 +339,6 @@ Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->g
     Route::get('/clients', [ClientSelectController::class, 'search']);
     Route::get('/clients/{client}', [ClientSelectController::class, 'show']);
 
-    // Alerts
-    Route::get('/alerts', [AlertController::class, 'index']);
-    Route::post('/alerts/{id}/dismiss', [AlertController::class, 'dismiss']);
-    Route::post('/alerts/{id}/read', [AlertController::class, 'read']);
-    Route::post('/alerts/mark-all-read', [AlertController::class, 'markAllAsRead']);
 });
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])

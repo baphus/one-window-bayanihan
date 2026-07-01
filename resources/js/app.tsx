@@ -10,7 +10,15 @@ import ToastProvider from '@/Components/ToastProvider';
 import OnboardingProvider from '@/Onboarding/OnboardingProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const reactRoots = new WeakMap<HTMLElement, ReturnType<typeof createRoot>>();
+// Stored on window to survive Vite HMR — otherwise each HMR cycle creates
+// a fresh WeakMap and createRoot() is called again on an already-rooted element.
+const reactRoots: WeakMap<HTMLElement, ReturnType<typeof createRoot>> =
+    (window as unknown as Record<string, unknown>).__reactRoots as WeakMap<HTMLElement, ReturnType<typeof createRoot>>
+    ?? (() => {
+        const m = new WeakMap<HTMLElement, ReturnType<typeof createRoot>>();
+        (window as unknown as Record<string, unknown>).__reactRoots = m;
+        return m;
+    })();
 
 const queryClient = new QueryClient({
     defaultOptions: {

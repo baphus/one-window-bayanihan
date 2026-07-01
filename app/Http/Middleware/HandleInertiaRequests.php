@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\AlertService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -49,9 +48,6 @@ class HandleInertiaRequests extends Middleware
                     'profile_completed_at',
                 ]),
             ],
-            'alert_count' => fn () => $request->user()
-                ? app(AlertService::class)->getActiveAlerts($request->user())['unread_count']
-                : 0,
             'notifications' => fn () => [
                 'unread_count' => $request->user()
                     ? $request->user()->unreadNotifications()->count()

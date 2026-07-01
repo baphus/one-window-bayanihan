@@ -14,7 +14,25 @@ class DashboardService
 {
     public function getCaseManagerData(?User $user = null): array
     {
-        $formatter = app(AuditLogFormatter::class);
+        // ── EAGER: lightweight COUNT queries only ──────────────────────
+        $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
+        $openCases = CaseFile::where('status', 'OPEN')->count();
+        $closedCases = CaseFile::where('status', 'CLOSED')->count();
+        $activeAgencies = Agency::where('is_active', true)->count();
+
+        $totalReferrals = Referral::count();
+        $pendingReferrals = Referral::where('status', 'PENDING')->count();
+        $processingReferrals = Referral::where('status', 'PROCESSING')->count();
+        $completedReferrals = Referral::where('status', 'COMPLETED')->count();
+        $rejectedReferrals = Referral::where('status', 'REJECTED')->count();
+
+        $ofwCount = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
+        $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
+
+        $uniqueClientCount = Referral::join('case_files', 'referrals.case_id', '=', 'case_files.id')
+            ->where('case_files.status', '!=', 'DRAFT')
+            ->distinct('case_files.client_id')
+            ->count('case_files.client_id');
 
         $myDraftCount = $user ? CaseFile::where('status', 'DRAFT')->where('user_id', $user->id)->count() : 0;
 
@@ -34,100 +52,19 @@ class DashboardService
                 ->toArray()
             : [];
 
-        $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
-        $openCases = CaseFile::where('status', 'OPEN')->count();
-        $closedCases = CaseFile::where('status', 'CLOSED')->count();
-        $pendingReferrals = Referral::where('status', 'PENDING')->count();
-        $activeAgencies = Agency::where('is_active', true)->count();
-
-        $allReferrals = Referral::with(['caseFile.client', 'agency'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $totalReferrals = $allReferrals->count();
-        $processingReferrals = $allReferrals->where('status', 'PROCESSING')->count();
-        $completedReferrals = $allReferrals->where('status', 'COMPLETED')->count();
-        $rejectedReferrals = $allReferrals->where('status', 'REJECTED')->count();
-
-        $uniqueClientCount = $allReferrals->pluck('caseFile.client.first_name')
-            ->zip($allReferrals->pluck('caseFile.client.last_name'))
-            ->map(fn ($pair) => implode(' ', array_filter($pair->toArray())))
-            ->unique()
-            ->count();
-
-        $ofwCount = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
-        $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
-
-        $casesByProvince = CaseFile::select('ca.province', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
-            ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
-            ->groupBy('ca.province')
-            ->orderByDesc('total')
+        $closedCaseDays = CaseFile::where('status', 'CLOSED')
+            ->selectRaw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days')
             ->get()
-            ->map(fn ($row) => ['province' => $row->province ?? 'Unknown', 'count' => (int) $row->total])
+            ->pluck('days')
+            ->filter()
             ->toArray();
 
-        $agencyBreakdown = Agency::withCount('referrals')
-            ->orderByDesc('referrals_count')
-            ->get()
-            ->map(fn ($a) => [
-                'agencyName' => $a->name,
-                'count' => (int) $a->referrals_count,
-                'logoUrl' => $a->logo_url ?? '/logo.png',
-            ])
-            ->toArray();
+        $averageCaseDaysToClose = count($closedCaseDays) > 0
+            ? round(array_sum($closedCaseDays) / count($closedCaseDays), 1)
+            : 0;
 
-        $casesOverTime = CaseFile::select(
-            DB::raw("to_char(created_at, 'YYYY-MM') as month"),
-            DB::raw('count(*) as total')
-        )
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->where('created_at', '>=', now()->subMonths(6))
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->map(fn ($row) => ['key' => $row->month, 'label' => $row->month, 'count' => (int) $row->total])
-            ->toArray();
-
-        $recentActivity = AuditLog::with('user')
-            ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
-            ->orderBy('timestamp', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function ($log) use ($formatter) {
-                try {
-                    $display = $formatter->formatForDisplay($log);
-                } catch (\Throwable $e) {
-                    $display = [
-                        'message' => $log->action.' '.$log->module,
-                        'detail' => '',
-                        'action' => $log->action,
-                        'module' => $log->module,
-                        'actor' => 'System',
-                        'timestamp' => $log->timestamp?->toISOString(),
-                        'hasChanges' => false,
-                    ];
-                }
-
-                return [
-                    'id' => $log->id,
-                    'title' => $display['message'],
-                    'desc' => $display['detail'],
-                    'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
-                    'logoSrc' => '/logo.png',
-                    // enriched structured data for modern UI
-                    'message' => $display['message'],
-                    'detail' => $display['detail'],
-                    'actionType' => $display['action'],
-                    'module' => $display['module'],
-                    'actor' => $display['actor'],
-                    'timestamp' => $display['timestamp'],
-                ];
-            })
-            ->toArray();
-
-        $recentCases = CaseFile::with(['client', 'user'])
+        // ── LAZY: heavy queries as closures; route wraps in Inertia::lazy() ──
+        $recentCases = fn () => CaseFile::with(['client', 'user'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
             ->take(5)
@@ -143,7 +80,7 @@ class DashboardService
             ->values()
             ->toArray();
 
-        $allCases = CaseFile::with(['client', 'user'])
+        $allCases = fn () => CaseFile::with(['client', 'user'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
             ->get()
@@ -161,20 +98,65 @@ class DashboardService
             ->values()
             ->toArray();
 
-        $referralsData = $allReferrals->map(fn ($r) => [
-            'id' => $r->id,
-            'caseId' => $r->case_id,
-            'caseNo' => $r->caseFile?->case_number ?? 'N/A',
-            'clientName' => $r->caseFile?->client ? trim(($r->caseFile->client->first_name ?? '').' '.($r->caseFile->client->last_name ?? '')) : 'N/A',
-            'service' => $r->required_services,
-            'agencyId' => $r->agcy_id,
-            'agencyName' => $r->agency?->name ?? 'N/A',
-            'status' => $r->status,
-            'createdAt' => $r->created_at?->toISOString() ?? now()->toISOString(),
-            'updatedAt' => $r->updated_at?->toISOString() ?? now()->toISOString(),
-        ])->values()->toArray();
+        $allReferrals = fn () => Referral::with(['caseFile.client', 'agency'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'caseId' => $r->case_id,
+                'caseNo' => $r->caseFile?->case_number ?? 'N/A',
+                'clientName' => $r->caseFile?->client ? trim(($r->caseFile->client->first_name ?? '').' '.($r->caseFile->client->last_name ?? '')) : 'N/A',
+                'service' => $r->required_services,
+                'agencyId' => $r->agcy_id,
+                'agencyName' => $r->agency?->name ?? 'N/A',
+                'status' => $r->status,
+                'createdAt' => $r->created_at?->toISOString() ?? now()->toISOString(),
+                'updatedAt' => $r->updated_at?->toISOString() ?? now()->toISOString(),
+            ])
+            ->values()
+            ->toArray();
 
-        $recentNotifications = $user
+        $casesByProvince = fn () => CaseFile::select('ca.province', DB::raw('count(*) as total'))
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
+            ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
+            ->groupBy('ca.province')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => ['province' => $row->province ?? 'Unknown', 'count' => (int) $row->total])
+            ->toArray();
+
+        $agencyBreakdown = fn () => Agency::withCount('referrals')
+            ->orderByDesc('referrals_count')
+            ->get()
+            ->map(fn ($a) => [
+                'agencyName' => $a->name,
+                'count' => (int) $a->referrals_count,
+                'logoUrl' => $a->logo_url ?? '/logo.png',
+            ])
+            ->toArray();
+
+        $casesOverTime = fn () => CaseFile::select(
+            DB::raw("to_char(created_at, 'YYYY-MM') as month"),
+            DB::raw('count(*) as total')
+        )
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where('created_at', '>=', now()->subMonths(6))
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->map(fn ($row) => ['key' => $row->month, 'label' => $row->month, 'count' => (int) $row->total])
+            ->toArray();
+
+        $recentActivity = fn () => AuditLog::with('user')
+            ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
+            ->orderBy('timestamp', 'desc')
+            ->take(10)
+            ->get()
+            ->map(fn ($log) => $this->formatActivityLog($log))
+            ->toArray();
+
+        $dashboardNotifications = fn () => $user
             ? $user->notifications()->latest()->take(3)->get()->map(fn ($n) => [
                 'id' => $n->id,
                 'title' => $n->data['message'] ?? 'Notification',
@@ -182,21 +164,10 @@ class DashboardService
                 'time' => $n->created_at->diffForHumans(),
                 'read' => $n->read_at !== null,
                 'type' => $n->data['type'] ?? 'info',
-            ])
-            : collect();
+            ])->toArray()
+            : [];
 
-        $closedCaseDays = CaseFile::where('status', 'CLOSED')
-            ->selectRaw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days')
-            ->get()
-            ->pluck('days')
-            ->filter()
-            ->toArray();
-
-        $averageCaseDaysToClose = count($closedCaseDays) > 0
-            ? round(array_sum($closedCaseDays) / count($closedCaseDays), 1)
-            : 0;
-
-        $casesByCategory = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+        $casesByCategory = fn () => CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
             ->groupBy('case_categories.name', 'case_categories.color')
@@ -210,53 +181,55 @@ class DashboardService
             ->toArray();
 
         return [
+            // Eager — available immediately
             'totalCases' => $totalCases,
             'openCases' => $openCases,
             'closedCases' => $closedCases,
+            'totalReferrals' => $totalReferrals,
             'pendingReferrals' => $pendingReferrals,
             'processingReferrals' => $processingReferrals,
             'completedReferrals' => $completedReferrals,
             'rejectedReferrals' => $rejectedReferrals,
-            'totalReferrals' => $totalReferrals,
             'activeAgencies' => $activeAgencies,
             'uniqueClientCount' => $uniqueClientCount,
             'ofwCount' => $ofwCount,
             'nokCount' => $nokCount,
+            'averageCaseDaysToClose' => $averageCaseDaysToClose,
+            'myDraftCount' => $myDraftCount,
+            'myRecentDrafts' => $myRecentDrafts,
+            // Lazy — Closures, executed on first client request
             'recentCases' => $recentCases,
             'allCases' => $allCases,
-            'allReferrals' => $referralsData,
+            'allReferrals' => $allReferrals,
             'casesByProvince' => $casesByProvince,
             'casesByCategory' => $casesByCategory,
             'agencyBreakdown' => $agencyBreakdown,
             'casesOverTime' => $casesOverTime,
             'recentActivity' => $recentActivity,
-            'dashboardNotifications' => $recentNotifications->toArray(),
-            'averageCaseDaysToClose' => $averageCaseDaysToClose,
-            'myDraftCount' => $myDraftCount,
-            'myRecentDrafts' => $myRecentDrafts,
+            'dashboardNotifications' => $dashboardNotifications,
         ];
     }
 
     public function getAgencyData(?User $user = null): array
     {
-        $formatter = app(AuditLogFormatter::class);
-
         $agencyId = $user?->agcy_id;
 
+        // EAGER — lightweight COUNT queries
         $totalReferrals = Referral::where('agcy_id', $agencyId)->count();
         $pendingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PENDING')->count();
         $processingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PROCESSING')->count();
         $completedReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'COMPLETED')->count();
         $rejectedReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'REJECTED')->count();
 
-        $recentReferrals = Referral::with(['caseFile.client', 'agency'])
+        // LAZY — closures
+        $recentReferrals = fn () => Referral::with(['caseFile.client', 'agency'])
             ->where('agcy_id', $agencyId)
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()
             ->toArray();
 
-        $pendingNotifications = $user
+        $dashboardNotifications = fn () => $user
             ? $user->notifications()->latest()->take(3)->get()->map(fn ($n) => [
                 'id' => $n->id,
                 'title' => $n->data['message'] ?? 'Notification',
@@ -264,12 +237,10 @@ class DashboardService
                 'time' => $n->created_at->diffForHumans(),
                 'read' => $n->read_at !== null,
                 'type' => $n->data['type'] ?? 'info',
-            ])
-                ->toArray()
+            ])->toArray()
             : [];
 
-        $referralIds = Referral::where('agcy_id', $agencyId)->pluck('id');
-        $casesByCategory = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+        $casesByCategory = fn () => CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
             ->join('referrals', 'referrals.case_id', '=', 'cases.id')
@@ -284,65 +255,49 @@ class DashboardService
             ])
             ->toArray();
 
-        $recentActivity = AuditLog::whereIn('entity_id', $referralIds)
+        $recentActivity = fn () => AuditLog::whereIn('entity_id', function ($q) use ($agencyId) {
+            $q->select('id')->from('referrals')->where('agcy_id', $agencyId);
+        })
             ->whereIn('module', ['referral', 'referrals'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
-            ->map(function ($log) use ($formatter) {
-                try {
-                    $display = $formatter->formatForDisplay($log);
-                } catch (\Throwable $e) {
-                    $display = [
-                        'message' => $log->action.' '.$log->module,
-                        'detail' => '',
-                        'action' => $log->action,
-                        'module' => $log->module,
-                        'actor' => 'System',
-                        'timestamp' => $log->timestamp?->toISOString(),
-                        'hasChanges' => false,
-                    ];
-                }
-
-                return [
-                    'id' => $log->id,
-                    'title' => $display['message'],
-                    'desc' => $display['detail'],
-                    'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
-                    'logoSrc' => '/logo.png',
-                    'message' => $display['message'],
-                    'detail' => $display['detail'],
-                    'actionType' => $display['action'],
-                    'module' => $display['module'],
-                    'actor' => $display['actor'],
-                    'timestamp' => $display['timestamp'],
-                ];
-            })
+            ->map(fn ($log) => $this->formatActivityLog($log))
             ->toArray();
 
         return [
+            // Eager
             'totalReferrals' => $totalReferrals,
             'pendingReferrals' => $pendingReferrals,
             'processingReferrals' => $processingReferrals,
             'completedReferrals' => $completedReferrals,
             'rejectedReferrals' => $rejectedReferrals,
+            // Lazy
             'recentReferrals' => $recentReferrals,
             'recentActivity' => $recentActivity,
-            'dashboardNotifications' => $pendingNotifications,
+            'dashboardNotifications' => $dashboardNotifications,
             'casesByCategory' => $casesByCategory,
         ];
     }
 
     public function getAdminData(): array
     {
-        $formatter = app(AuditLogFormatter::class);
-
+        // EAGER — COUNT queries
         $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $totalReferrals = Referral::count();
         $totalUsers = User::count();
         $totalAgencies = Agency::count();
 
-        // System health data
+        // System health — simple settings lookups
+        $alertCount = DB::table('system_alert_logs')
+            ->where('is_deleted', false)
+            ->whereNull('read_at')
+            ->count();
+
+        $lastHealthCheck = SystemSetting::getValue('last_health_check_at', 'Never');
+        $overallStatus = SystemSetting::getValue('last_health_check_status', 'unknown');
+
+        // System health — subquery (moderate cost, but fine eager since admin is low-traffic)
         $healthStatus = DB::table('health_check_logs')
             ->select('check_type', 'status', 'metric_value', 'checked_at')
             ->fromSub(function ($q) {
@@ -355,27 +310,21 @@ class DashboardService
             ->get()
             ->toArray();
 
-        $alertCount = DB::table('system_alert_logs')
-            ->where('is_deleted', false)
-            ->whereNull('read_at')
-            ->count();
-
-        $lastHealthCheck = SystemSetting::getValue('last_health_check_at', 'Never');
-        $overallStatus = SystemSetting::getValue('last_health_check_status', 'unknown');
-
-        $recentCases = CaseFile::with(['client', 'user'])
+        // LAZY — closures
+        $recentCases = fn () => CaseFile::with(['client', 'user'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()
             ->toArray();
 
-        $recentLogs = AuditLog::with('user')
+        $recentLogs = fn () => AuditLog::with('user')
             ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
             ->get()
-            ->map(function ($log) use ($formatter) {
+            ->map(function ($log) {
+                $formatter = app(AuditLogFormatter::class);
                 try {
                     $display = $formatter->formatForDisplay($log);
                 } catch (\Throwable $e) {
@@ -397,7 +346,6 @@ class DashboardService
                     'description' => $display['message'],
                     'user' => $log->user ? ['name' => $log->user->name] : null,
                     'timestamp' => $log->timestamp,
-                    // enriched structured data
                     'message' => $display['message'],
                     'detail' => $display['detail'],
                     'actor' => $display['actor'],
@@ -406,7 +354,7 @@ class DashboardService
             })
             ->toArray();
 
-        $casesByCategory = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+        $casesByCategory = fn () => CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
             ->groupBy('case_categories.name', 'case_categories.color')
@@ -424,15 +372,51 @@ class DashboardService
             'totalReferrals' => $totalReferrals,
             'totalUsers' => $totalUsers,
             'totalAgencies' => $totalAgencies,
-            'recentCases' => $recentCases,
-            'recentLogs' => $recentLogs,
             'systemHealth' => [
                 'checks' => $healthStatus,
                 'alertCount' => $alertCount,
                 'lastCheckAt' => $lastHealthCheck,
                 'overallStatus' => $overallStatus,
             ],
+            // Lazy
+            'recentCases' => $recentCases,
+            'recentLogs' => $recentLogs,
             'casesByCategory' => $casesByCategory,
+        ];
+    }
+
+    /**
+     * Shared audit-log formatting for dashboard activity streams.
+     */
+    private function formatActivityLog($log): array
+    {
+        $formatter = app(AuditLogFormatter::class);
+        try {
+            $display = $formatter->formatForDisplay($log);
+        } catch (\Throwable $e) {
+            $display = [
+                'message' => $log->action.' '.$log->module,
+                'detail' => '',
+                'action' => $log->action,
+                'module' => $log->module,
+                'actor' => 'System',
+                'timestamp' => $log->timestamp?->toISOString(),
+                'hasChanges' => false,
+            ];
+        }
+
+        return [
+            'id' => $log->id,
+            'title' => $display['message'],
+            'desc' => $display['detail'],
+            'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
+            'logoSrc' => '/logo.png',
+            'message' => $display['message'],
+            'detail' => $display['detail'],
+            'actionType' => $display['action'],
+            'module' => $display['module'],
+            'actor' => $display['actor'],
+            'timestamp' => $display['timestamp'],
         ];
     }
 }

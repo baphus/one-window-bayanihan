@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { FileDown, ChevronDown, ChevronRight } from 'lucide-react';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -279,12 +279,42 @@ function AdminReports({
   );
 }
 
+const LAZY_KEYS_BY_ROLE = {
+  CASE_MANAGER: [
+    'referralStatusDistribution', 'referralAgencyDistribution', 'casesOverTime',
+    'genderDistribution', 'clientTypeDistribution', 'ageGroupDistribution',
+    'cycleTimeDistribution', 'referralAging', 'agencyScorecard', 'geographicDistribution',
+    'categoryDistribution', 'employmentDistribution', 'employmentPositionBreakdown',
+    'caseStatusDistribution', 'caseIssueDistribution',
+  ],
+  ADMIN: [
+    'caseTrends', 'referralStatusDistribution', 'agencyWorkload', 'clientTypeDistribution',
+    'cycleTimeDistribution', 'referralAging', 'geographicDistribution', 'agencyScorecard',
+    'categoryDistribution', 'employmentDistribution', 'employmentPositionBreakdown',
+    'caseStatusDistribution', 'referralTypeDistribution', 'caseIssueDistribution',
+  ],
+  AGENCY: [
+    'referralStatusDistribution', 'referralTrends', 'cycleTimeDistribution',
+    'agencyScorecard', 'categoryDistribution', 'caseStatusDistribution',
+  ],
+};
+
 export default function ReportsIndex(props) {
   const { role, from: f, to: t, ...rest } = props;
   const from = f || (new URLSearchParams(window.location.search)).get('from') || undefined;
   const to = t || (new URLSearchParams(window.location.search)).get('to') || undefined;
   const allProps = { ...rest, from, to, avgReferralCompletion: rest.avgReferralCompletion || 0 };
   const Comp = role === 'AGENCY' ? AgencyReports : role === 'ADMIN' ? AdminReports : CaseManagerReports;
+
+  // Batch-fetch all Inertia::lazy() props on mount in a single request
+  const fetchedRef = useRef(false);
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    const keys = LAZY_KEYS_BY_ROLE[role] || LAZY_KEYS_BY_ROLE.CASE_MANAGER;
+    router.reload({ only: keys, preserveState: true, preserveScroll: true });
+  }, []);
+
   return (
     <AppLayout title="Reports"><Head title="Reports" />
       <Comp {...allProps} />

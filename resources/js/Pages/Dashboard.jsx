@@ -391,13 +391,15 @@ function CaseManagerDashboard({ stats }) {
     return acc
   }, [allReferrals])
 
-  const openCount = (allCases ?? []).filter((c) => c.status === 'OPEN').length
-  const closedCount = (allCases ?? []).filter((c) => c.status === 'CLOSED').length
-  const totalReferrals = (allReferrals ?? []).length
-  const completedReferralsCount = (allReferrals ?? []).filter((r) => r.status === 'COMPLETED').length
-  const pendingCount = (allReferrals ?? []).filter((r) => r.status === 'PENDING').length
-  const processingCount = (allReferrals ?? []).filter((r) => r.status === 'PROCESSING').length
-  const rejectedCount = (allReferrals ?? []).filter((r) => r.status === 'REJECTED').length
+  // KPI values come from eager stats (backend COUNT queries) so they show
+  // immediately without waiting for lazy-loaded allCases / allReferrals.
+  const openCount = stats.openCases ?? 0
+  const closedCount = stats.closedCases ?? 0
+  const pendingCount = stats.pendingReferrals ?? 0
+  const processingCount = stats.processingReferrals ?? 0
+  const rejectedCount = stats.rejectedReferrals ?? 0
+  const totalReferrals = stats.totalReferrals ?? 0
+  const completedReferralsCount = stats.completedReferrals ?? 0
   const averageReferralCompletionRate = totalReferrals > 0 ? Math.round((completedReferralsCount / totalReferrals) * 100) : 0
 
   const attentionItems = useMemo(() => {
