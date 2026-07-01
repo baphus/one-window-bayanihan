@@ -86,72 +86,83 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
-  const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
-  const [typeFilter, setTypeFilter] = useState(filters?.client_type ?? '');
-  const [vulnFilter, setVulnFilter] = useState(filters?.vulnerability_indicator ?? '');
-  const [authorFilter, setAuthorFilter] = useState(filters?.user_id ?? '');
-  const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
-  const [categoryFilter, setCategoryFilter] = useState(filters?.category_id ?? '');
+  const [tableLoading, setTableLoading] = useState(false);
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
   }, []);
 
-  const navigateWith = (params) => {
-    const url = new URL(window.location);
-    Object.entries(params).forEach(([k, v]) => {
-      if (v) url.searchParams.set(k, v);
-      else url.searchParams.delete(k);
+  const updateTable = (params) => {
+    const clean = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+    );
+    router.get(route('cases.index'), clean, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      only: ['cases', 'filters'],
+      showProgress: false,
     });
-    url.searchParams.delete('page');
-    router.get(url.toString(), {}, { preserveState: true, replace: true });
   };
+
+  useEffect(() => {
+    const onStart = () => setTableLoading(true);
+    const onFinish = () => setTableLoading(false);
+    const removeStart = router.on('start', onStart);
+    const removeFinish = router.on('finish', onFinish);
+    return () => {
+      if (typeof removeStart === 'function') removeStart();
+      if (typeof removeFinish === 'function') removeFinish();
+    };
+  }, []);
 
   const handleSearchChange = (value) => {
     setSearchValue(value);
     clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      navigateWith({ search: value || undefined });
+      updateTable({ ...filters, search: value || undefined, page: undefined });
     }, 400);
   };
 
   const activeFilters = useMemo(() => {
     const chips = [];
-    if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter });
-    if (typeFilter) chips.push({ key: 'client_type', label: 'Client Type', value: typeFilter === 'OFW' ? 'OFW' : 'NOK' });
-    if (vulnFilter) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: vulnFilter });
-    if (authorFilter) {
-      const author = users.find(u => u.id === authorFilter);
-      chips.push({ key: 'user_id', label: 'Author', value: author?.name || authorFilter });
+    if (filters?.status) chips.push({ key: 'status', label: 'Status', value: filters.status });
+    if (filters?.client_type) chips.push({ key: 'client_type', label: 'Client Type', value: filters.client_type === 'OFW' ? 'OFW' : 'NOK' });
+    if (filters?.vulnerability_indicator) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: filters.vulnerability_indicator });
+    if (filters?.user_id) {
+      const author = users.find(u => u.id === filters.user_id);
+      chips.push({ key: 'user_id', label: 'Author', value: author?.name || filters.user_id });
     }
-    if (agencyFilter) {
-      const agency = agencies.find(a => a.id === agencyFilter);
-      chips.push({ key: 'agcy_id', label: 'Referred To', value: agency?.name || agencyFilter });
+    if (filters?.agcy_id) {
+      const agency = agencies.find(a => a.id === filters.agcy_id);
+      chips.push({ key: 'agcy_id', label: 'Referred To', value: agency?.name || filters.agcy_id });
     }
-    if (categoryFilter) {
-      const cat = categories?.find(c => c.id === categoryFilter);
-      chips.push({ key: 'category_id', label: 'Category', value: cat?.name || categoryFilter });
+    if (filters?.category_id) {
+      const cat = categories?.find(c => c.id === filters.category_id);
+      chips.push({ key: 'category_id', label: 'Category', value: cat?.name || filters.category_id });
     }
     return chips;
-  }, [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
+  }, [filters, users, agencies, categories]);
 
   const handleRemoveFilter = (filter) => {
-    if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
-    if (filter.key === 'client_type') { setTypeFilter(''); navigateWith({ client_type: undefined }); }
-    if (filter.key === 'vulnerability_indicator') { setVulnFilter(''); navigateWith({ vulnerability_indicator: undefined }); }
-    if (filter.key === 'user_id') { setAuthorFilter(''); navigateWith({ user_id: undefined }); }
-    if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
-    if (filter.key === 'category_id') { setCategoryFilter(''); navigateWith({ category_id: undefined }); }
+    updateTable({ ...filters, [filter.key]: undefined, page: undefined });
   };
 
   const handleClearFilters = () => {
-    setStatusFilter('');
-    setTypeFilter('');
-    setVulnFilter('');
-    setAuthorFilter('');
-    setAgencyFilter('');
-    setCategoryFilter('');
-    navigateWith({ status: undefined, client_type: undefined, vulnerability_indicator: undefined, user_id: undefined, agcy_id: undefined, category_id: undefined });
+    updateTable({
+      status: undefined,
+      client_type: undefined,
+      vulnerability_indicator: undefined,
+      user_id: undefined,
+      agcy_id: undefined,
+      category_id: undefined,
+      search: undefined,
+      page: undefined,
+    });
+  };
+
+  const handleSortChange = (sortKey, sortDirection) => {
+    updateTable({ ...filters, sort: sortKey, direction: sortDirection, page: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -162,17 +173,8 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       currentPage: paginator.current_page,
       totalPages: paginator.last_page,
       rowsPerPage: paginator.per_page,
-      onPageChange: (page) => {
-        const url = new URL(window.location);
-        url.searchParams.set('page', page);
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['cases'] });
-      },
-      onRowsPerPageChange: (n) => {
-        const url = new URL(window.location);
-        url.searchParams.set('per_page', n);
-        url.searchParams.delete('page');
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['cases'] });
-      },
+      onPageChange: (page) => updateTable({ ...filters, page }),
+      onRowsPerPageChange: (n) => updateTable({ ...filters, per_page: n, page: undefined }),
     };
   }
 
@@ -366,12 +368,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
         <select
-          value={statusFilter}
+          value={filters?.status ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setStatusFilter(val);
             setFilterOpen(false);
-            navigateWith({ status: val || undefined });
+            updateTable({ ...filters, status: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
@@ -384,12 +385,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Client Type</label>
         <select
-          value={typeFilter}
+          value={filters?.client_type ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setTypeFilter(val);
             setFilterOpen(false);
-            navigateWith({ client_type: val || undefined });
+            updateTable({ ...filters, client_type: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
@@ -401,12 +401,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Vulnerability</label>
         <select
-          value={vulnFilter}
+          value={filters?.vulnerability_indicator ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setVulnFilter(val);
             setFilterOpen(false);
-            navigateWith({ vulnerability_indicator: val || undefined });
+            updateTable({ ...filters, vulnerability_indicator: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
@@ -422,12 +421,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
         <select
-          value={categoryFilter}
+          value={filters?.category_id ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setCategoryFilter(val);
             setFilterOpen(false);
-            navigateWith({ category_id: val || undefined });
+            updateTable({ ...filters, category_id: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
@@ -440,12 +438,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Author</label>
         <select
-          value={authorFilter}
+          value={filters?.user_id ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setAuthorFilter(val);
             setFilterOpen(false);
-            navigateWith({ user_id: val || undefined });
+            updateTable({ ...filters, user_id: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
@@ -458,12 +455,11 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Referred To</label>
         <select
-          value={agencyFilter}
+          value={filters?.agcy_id ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setAgencyFilter(val);
             setFilterOpen(false);
-            navigateWith({ agcy_id: val || undefined });
+            updateTable({ ...filters, agcy_id: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
         >
@@ -474,7 +470,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
         </select>
       </div>
     </div>
-  ), [statusFilter, typeFilter, vulnFilter, authorFilter, agencyFilter, categoryFilter, users, agencies, categories]);
+  ), [filters, users, agencies, categories]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -586,6 +582,10 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
         data={cases.data}
         keyExtractor={(row) => row.id}
         {...paginatorProps(cases)}
+        isLoading={tableLoading}
+        sortKey={filters?.sort ?? 'created_at'}
+        sortDirection={filters?.direction ?? 'desc'}
+        onSortChange={handleSortChange}
         searchValue={searchValue}
         searchPlaceholder="Search by tracking ID, client name, or client type..."
         onSearchChange={handleSearchChange}
@@ -620,7 +620,7 @@ export default function CaseIndex({ cases, filters, stats, users = [], agencies 
                   url.searchParams.set('status', 'ARCHIVED');
                 }
                 url.searchParams.delete('page');
-                router.get(url.toString(), {}, { preserveState: true, replace: true });
+                router.get(url.toString(), {}, { preserveState: true, replace: true, showProgress: false, only: ['cases', 'filters'] });
               }}
               className="h-[40px] px-4 border border-gray-300 text-[14px] font-bold text-gray-700 rounded-[3px] bg-gray-50 flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap shrink-0"
             >

@@ -53,6 +53,8 @@ export function UnifiedTable({
   selectable = false,
   selectedKeys = [],
   onSelectionChange,
+
+  isLoading = false,
 }) {
   const isColumnSortable = (col) =>
     col.sortable ?? (col.key.toLowerCase() !== "actions" && col.title.toUpperCase() !== "ACTIONS");
@@ -148,6 +150,7 @@ export function UnifiedTable({
   };
 
   const sortedData = useMemo(() => {
+    if (onSortChange) return data; // server-side sort is active
     if (!effectiveSortKey) {
       return data;
     }
@@ -171,7 +174,7 @@ export function UnifiedTable({
 
       return String(valueA).localeCompare(String(valueB), undefined, { numeric: true, sensitivity: "base" }) * directionMultiplier;
     });
-  }, [columns, data, effectiveSortDirection, effectiveSortKey]);
+  }, [columns, data, effectiveSortDirection, effectiveSortKey, onSortChange]);
 
   const handleSortToggle = (columnKey) => {
     const nextDirection =
@@ -305,7 +308,7 @@ export function UnifiedTable({
         </div>
       )}
 
-      <div className={variant === "embedded" ? "bg-white overflow-hidden w-full" : "bg-white border border-[#cbd5e1] overflow-hidden w-full rounded-md shadow-sm"}>
+      <div className={variant === "embedded" ? "bg-white overflow-hidden w-full" : "bg-white border border-[#cbd5e1] overflow-hidden w-full rounded-md shadow-sm"} aria-busy={isLoading}>
         
         {!hideControlBar && (
         <div className="p-4 bg-[#f8fafc] flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-[#cbd5e1] min-h-[72px]">
@@ -426,8 +429,8 @@ export function UnifiedTable({
         )}
 
         {viewMode === 'list' ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto relative">
+            <table className={`w-full text-left border-collapse ${isLoading ? 'opacity-30 pointer-events-none' : ''}`}>
               <thead>
                 <tr className="bg-[#f8fafc] border-b border-[#cbd5e1]">
                   {selectable && (
@@ -485,12 +488,30 @@ export function UnifiedTable({
                 ))}
               </tbody>
             </table>
-            {sortedData.length === 0 && (
+            {sortedData.length === 0 && !isLoading && (
                <div className="flex flex-col items-center justify-center p-12 text-center">
                  <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
                  <p className="text-[14px] font-bold text-slate-700">No records found</p>
                  <p className="mt-1 max-w-sm text-xs text-slate-500">We couldn't find any records matching your current criteria. Try adjusting your filters or search term.</p>
                </div>
+            )}
+            {isLoading && (
+              <div className="absolute inset-0 bg-white/80 z-10 flex flex-col gap-3 p-5">
+                {[0, 1, 2, 3, 4].map((row) => (
+                  <div key={row} className="flex items-center gap-5 animate-pulse py-[18px] border-b border-slate-100 last:border-b-0">
+                    {selectable && (
+                      <div className="h-4 w-4 bg-slate-200 rounded shrink-0" />
+                    )}
+                    {columns.map((col, ci) => {
+                      const widths = ['110px', '150px', '90px', '130px', '70px', '170px', '100px'];
+                      const w = col.key === 'actions' || col.title.toUpperCase() === 'ACTIONS' ? '50px' : widths[ci % widths.length];
+                      return (
+                        <div key={col.key} className="h-4 bg-slate-200 rounded shrink-0" style={{ width: w }} />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         ) : (
