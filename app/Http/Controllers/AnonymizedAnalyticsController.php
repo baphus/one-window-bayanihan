@@ -14,10 +14,9 @@ class AnonymizedAnalyticsController extends Controller
 
     public function index()
     {
-        $summary = $this->analyticsService->summary();
-
         return Inertia::render('AnonymizedAnalytics/Index', [
-            'analytics' => $summary,
+            'pageTitle' => 'Anonymized Analytics',
+            'description' => 'All data is anonymized and aggregated. No personally identifiable information is displayed.',
         ]);
     }
 
