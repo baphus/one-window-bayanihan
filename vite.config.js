@@ -15,6 +15,11 @@ export default defineConfig({
              * on any property access with "Module "" has been externalized".
              */
             util: path.resolve(__dirname, 'resources/js/vendor-stubs/util-stub.js'),
+            /**
+             * `@/` path alias matching tsconfig.json paths.
+             * Must be absolute for rolldown (Vite 8) to resolve correctly.
+             */
+            '@': path.resolve(__dirname, 'resources/js'),
         },
     },
     server: {

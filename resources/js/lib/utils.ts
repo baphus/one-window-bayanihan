@@ -190,6 +190,31 @@ export function parsePersonName(name: string): ParsedPersonName {
     };
 }
 
+export function getCaseAgeInDays(timestamp: string): number {
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return 0;
+
+    return Math.floor(Math.max(0, Date.now() - parsed.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+export function formatCaseAge(timestamp: string): string {
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return 'N/A';
+
+    const ageInMs = Math.max(0, Date.now() - parsed.getTime());
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    const ageInDays = Math.floor(ageInMs / oneDayInMs);
+
+    if (ageInDays > 0) return `${ageInDays} day${ageInDays === 1 ? '' : 's'}`;
+
+    const ageInHours = Math.floor(ageInMs / (60 * 60 * 1000));
+    if (ageInHours > 0) return `${ageInHours} hr${ageInHours === 1 ? '' : 's'}`;
+
+    const ageInMinutes = Math.floor(ageInMs / (60 * 1000));
+
+    return `${Math.max(1, ageInMinutes)} min`;
+}
+
 export function formatPersonName(name: string): string {
     if (!name.trim()) {
         return '';
