@@ -27,7 +27,11 @@ trait HasAvatar
             $path = substr($path, 8);
         }
 
-        return Storage::disk('private')->temporaryUrl($path, now()->addMinutes(5));
+        try {
+            return Storage::disk('private')->temporaryUrl($path, now()->addMinutes(5));
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -51,6 +55,10 @@ trait HasAvatar
             $path = substr($path, 8);
         }
 
-        return Storage::disk('private')->temporaryUrl($path, now()->addMinutes(5));
+        try {
+            return Storage::disk('private')->temporaryUrl($path, now()->addMinutes(5));
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

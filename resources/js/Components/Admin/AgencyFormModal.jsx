@@ -9,7 +9,7 @@ import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const isEdit = !!agency;
-  const { data, setData, post, patch, processing, errors, clearErrors } = useForm({
+  const { data, setData, post, patch, transform, processing, errors, setError, clearErrors } = useForm({
     name: agency?.name ?? '',
     short: agency?.short ?? '',
     description: agency?.description ?? '',
@@ -46,7 +46,12 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     clearErrors();
     if (!validate()) return;
     if (isEdit) {
-      patch(route('admin.agencies.update', agency.id), { onSuccess: onClose });
+      if (data.logo_url instanceof File) {
+        transform((formData) => ({ ...formData, _method: 'patch' }));
+        post(route('admin.agencies.update', agency.id), { onSuccess: onClose, forceFormData: true });
+      } else {
+        patch(route('admin.agencies.update', agency.id), { onSuccess: onClose });
+      }
     } else {
       post(route('admin.agencies.store'), { onSuccess: onClose });
     }
@@ -84,6 +89,7 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             currentLogoUrl={data.logo_url}
             onChange={(file) => setData('logo_url', file)}
           />
+          <InputError message={errors.logo_url} className="mt-1" />
           <div>
             <label className="block text-sm font-medium text-slate-700">Google Maps Location Link</label>
             <input
@@ -109,11 +115,16 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             </div>
             <InputError message={errors.map_link} className="mt-1" />
           </div>
-          {isEdit && (
+          {isEdit && !agency.is_default && (
             <div className="flex items-center gap-2">
               <input type="checkbox" id="is_active" checked={data.is_active} onChange={(e) => setData('is_active', e.target.checked)} className="rounded border-slate-300" />
               <label htmlFor="is_active" className="text-sm text-slate-700">Active</label>
             </div>
+          )}
+          {isEdit && agency.is_default && (
+            <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              Default agencies must stay active.
+            </p>
           )}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>

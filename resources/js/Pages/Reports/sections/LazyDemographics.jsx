@@ -48,13 +48,13 @@ export default function LazyDemographics() {
   const [clientTypeData, clientTypeLoading] = useLazyProp('clientTypeDistribution');
   const [ageData, ageLoading] = useLazyProp('ageGroupDistribution');
 
-  if (genderLoading || clientTypeLoading || ageLoading) {
-    return <ChartSkeleton />;
-  }
-
   const genderPie = useMemo(() => toPieFormat(genderData), [genderData]);
   const clientTypePie = useMemo(() => toPieFormat(clientTypeData), [clientTypeData]);
   const agePie = useMemo(() => toPieFormat(ageData), [ageData]);
+
+  if (genderLoading || clientTypeLoading || ageLoading) {
+    return <ChartSkeleton />;
+  }
 
   return (
     <section>

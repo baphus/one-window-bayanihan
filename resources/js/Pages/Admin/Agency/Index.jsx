@@ -213,7 +213,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                   >
                     Edit
                   </button>
-                  {isAdmin && row.is_active && (
+                  {isAdmin && row.is_active && !row.is_default && (
                     <button
                       onClick={() => {
                         if (confirm('Deactivate this agency? It will no longer be available for referrals.')) {

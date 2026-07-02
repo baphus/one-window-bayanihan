@@ -7,11 +7,11 @@ use App\Models\AuditLog;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
+use App\Services\CloudinaryAvatarService;
 use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class ClientController extends Controller
@@ -114,10 +114,13 @@ class ClientController extends Controller
         $this->authorizeClientAccess($client, $request->user());
 
         $file = $request->file('profile_picture');
-        $filename = 'client-'.$client->id.'-'.time().'-'.str_pad(mt_rand(0, 9999), 4, '0', STR_PAD_LEFT).'.'.$file->guessExtension();
-        $path = $file->storeAs('profile-pictures', $filename, 'private');
+        app(CloudinaryAvatarService::class)->deleteByUrl($client->getRawOriginal('avatar_url'));
 
-        $client->avatar_url = $path;
+        $client->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+            $file,
+            'client-profile-pictures',
+            'client-'.$client->id,
+        );
         $client->save();
 
         return redirect()->back()->with('success', 'Profile picture updated successfully.');
@@ -129,7 +132,7 @@ class ClientController extends Controller
         $this->authorizeClientAccess($client, $request->user());
 
         if ($client->avatar_url) {
-            Storage::disk('private')->delete($client->avatar_url);
+            app(CloudinaryAvatarService::class)->deleteByUrl($client->getRawOriginal('avatar_url'));
         }
 
         $client->avatar_url = null;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\CloudinaryAvatarService;
 use App\Services\DefaultAgencyService;
 use App\Services\OnboardingService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -47,8 +48,12 @@ class ProfileController extends Controller
 
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
-            $path = $file->storeAs('avatars', 'user-'.$user->id.'-'.time().'.'.$file->guessExtension(), 'private');
-            $user->avatar_url = $path;
+            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
+            $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+                $file,
+                'avatars',
+                'user-'.$user->id,
+            );
         }
 
         if ($user->isDirty('email')) {
