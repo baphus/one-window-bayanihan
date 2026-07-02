@@ -15,6 +15,7 @@
     "@playwright/test": "^1.61.0",
     "@tailwindcss/forms": "^0.5.3",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -25,14 +26,14 @@
     "concurrently": "^9.0.1",
     "jsdom": "^29.1.1",
     "laravel-vite-plugin": "^3.1",
+    "oh-my-openagent": "^4.13.0",
+    "playwright": "^1.60.0",
     "postcss": "^8.4.31",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwindcss": "^3.2.1",
     "vite": "^8.0.0",
-    "vitest": "^4.1.9",
-    "oh-my-openagent": "^4.13.0",
-    "playwright": "^1.60.0"
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",

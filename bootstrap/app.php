@@ -116,6 +116,13 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             if (config('app.debug')) {
+                if ($request->header('X-Inertia')) {
+                    // For Inertia XHR requests, trigger a full page reload so
+                    // Laravel's debug error page (Whoops) renders properly instead
+                    // of returning unparseable HTML that triggers the React ErrorBoundary.
+                    return response('', 409)->header('X-Inertia-Location', $request->fullUrl());
+                }
+
                 return null;
             }
 

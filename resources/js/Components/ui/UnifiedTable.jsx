@@ -98,12 +98,10 @@ export function UnifiedTable({
     };
   }, [columns, defaultSortDirection, defaultSortKey]);
 
-  const [internalSortKey, setInternalSortKey] = useState(
-    sortKey ?? inferredDefault.key,
-  );
-  const [internalSortDirection, setInternalSortDirection] = useState(
-    sortDirection ?? inferredDefault.direction,
-  );
+  const initialSortKey = sortKey ?? inferredDefault?.key;
+  const initialSortDir = sortDirection ?? inferredDefault?.direction;
+  const [internalSortKey, setInternalSortKey] = useState(initialSortKey);
+  const [internalSortDirection, setInternalSortDirection] = useState(initialSortDir);
 
   useEffect(() => {
     if (sortKey !== undefined) {
