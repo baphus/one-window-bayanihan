@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 export function UnifiedTable({
-  data,
-  columns,
+  data = [],
+  columns = [],
   keyExtractor,
 
   title,
@@ -56,8 +56,10 @@ export function UnifiedTable({
 
   isLoading = false,
 }) {
-  const isColumnSortable = (col) =>
-    col.sortable ?? (col.key.toLowerCase() !== "actions" && col.title.toUpperCase() !== "ACTIONS");
+  const isColumnSortable = (col) => {
+    if (!col || typeof col !== 'object') return false;
+    return col.sortable ?? (col.key?.toLowerCase() !== "actions" && col.title?.toUpperCase() !== "ACTIONS");
+  }
 
   const inferDirectionForColumn = (col) => {
     const signature = `${col.key} ${col.title}`.toLowerCase();

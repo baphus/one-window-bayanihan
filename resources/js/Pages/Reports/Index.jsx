@@ -3,100 +3,29 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Building2, TrendingUp, Download, BarChart3, CheckCircle2, Clock, Loader2, XCircle, FileDown, GitFork, CalendarDays, Target, FolderOpen, FolderKanban } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
-import { Doughnut, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { exportToCsv } from '@/utils/export/exportCsv';
 import { pageHeadingStyles, COLORS } from '@/Components/Reports/pageHeadingStyles';
 import MetricCard from '@/Components/Reports/MetricCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import SvgPieChart from '@/Components/Reports/SvgPieChart';
-import TrendChart from '@/Components/Reports/TrendChart';
 import TrendIndicator from '@/Components/Reports/TrendIndicator';
 import DateRangePicker, { formatDisplayDate, getQuickRangeDates } from '@/Components/Reports/DateRangePicker';
-import EmploymentAnalytics from '@/Components/Reports/EmploymentAnalytics';
 import CaseStatusPieChart from '@/Components/Reports/CaseStatusPieChart';
 import AiInsightPanel from '@/Components/Reports/AiInsightPanel';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import AgencyScorecardSection from '@/Pages/Reports/sections/AgencyScorecardSection';
+import StatusDistributionSection from '@/Pages/Reports/sections/StatusDistributionSection';
+import CycleTimeSection from '@/Pages/Reports/sections/CycleTimeSection';
+import GeographicSection from '@/Pages/Reports/sections/GeographicSection';
+import CategorySection from '@/Pages/Reports/sections/CategorySection';
+import EmploymentSection from '@/Pages/Reports/sections/EmploymentSection';
+import LazyTrendChart from '@/Pages/Reports/sections/LazyTrendChart';
+import LazyChartArticle from '@/Pages/Reports/sections/LazyChartArticle';
+import LazyDemographics from '@/Pages/Reports/sections/LazyDemographics';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
-const statusHexMap = {
-  PENDING: COLORS.warning, PROCESSING: '#3b82f6', FOR_COMPLIANCE: '#f97316',
-  COMPLETED: COLORS.success, REJECTED: COLORS.danger, OPEN: '#1e3a8a', CLOSED: COLORS.success,
-};
-const statusColorMap = {
-  PENDING: 'bg-amber-500', PROCESSING: 'bg-blue-500', FOR_COMPLIANCE: 'bg-orange-500',
-  COMPLETED: 'bg-emerald-500', REJECTED: 'bg-rose-500', OPEN: 'bg-blue-900', CLOSED: 'bg-emerald-500',
-};
-
-function toPieFormat(distribution) {
-  if (!distribution || !distribution.labels) return [];
-  const total = distribution.data.reduce((s, v) => s + v, 0) || 1;
-  const colors = distribution.colors || COLORS.chartPalette;
-  return distribution.labels.map((label, i) => ({
-    label,
-    count: distribution.data[i] || 0,
-    hex: colors[i % colors.length],
-    color: '',
-    percent: Math.round(((distribution.data[i] || 0) / total) * 100),
-  }));
-}
-
-function StatusIcon({ status }) {
-  const icons = {
-    PENDING: <Loader2 className="h-3 w-3 text-amber-500" />,
-    PROCESSING: <Clock className="h-3 w-3 text-blue-500" />,
-    COMPLETED: <CheckCircle2 className="h-3 w-3 text-emerald-500" />,
-    REJECTED: <XCircle className="h-3 w-3 text-rose-500" />,
-    FOR_COMPLIANCE: <Clock className="h-3 w-3 text-orange-500" />,
-  };
-  return icons[status] || null;
-}
-
-const doughnutOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  cutout: '55%',
-};
-
-const barOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  indexAxis: 'y',
-  plugins: { legend: { display: false } },
-  scales: {
-    x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
-    y: { ticks: { font: { size: 10 } }, grid: { display: false } },
-  },
-};
-
-function SectionAccordion({ title, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="border bg-white shadow-sm" style={{ borderColor: COLORS.border }}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50"
-      >
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{title}</h3>
-        {open ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
-      </button>
-      {open && <div className="border-t border-[#e2e8f0] p-4">{children}</div>}
-    </div>
-  );
-}
-
 function CaseManagerReports({
-  kpis, referralStatusDistribution, referralAgencyDistribution,
-  casesOverTime, genderDistribution, clientTypeDistribution,
-  ageGroupDistribution, mostRequestedService, managedReferrals,
-  cycleTimeDistribution, referralAging, agencyScorecard, geographicDistribution,
-  categoryDistribution,
-  employmentDistribution, employmentPositionBreakdown,
-  caseStatusDistribution,
-  caseIssueDistribution,
+  kpis, managedReferrals, caseStatusDistribution,
   from: initialFrom, to: initialTo,
 }) {
   const [fromDateISO, setFromDateISO] = useState(initialFrom || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10));
@@ -128,95 +57,6 @@ function CaseManagerReports({
     setToDateISO(range.toISO);
     setQuickRange('1_YEAR');
   }, []);
-
-  const referralStatusPie = useMemo(() => toPieFormat(referralStatusDistribution), [referralStatusDistribution]);
-  const genderPie = useMemo(() => toPieFormat(genderDistribution), [genderDistribution]);
-  const clientTypePie = useMemo(() => toPieFormat(clientTypeDistribution), [clientTypeDistribution]);
-  const agePie = useMemo(() => toPieFormat(ageGroupDistribution), [ageGroupDistribution]);
-
-  const cycleTimeChartData = useMemo(() => {
-    if (!cycleTimeDistribution?.labels) return null;
-    return {
-      labels: cycleTimeDistribution.labels,
-      datasets: [{
-        label: 'Referrals',
-        data: cycleTimeDistribution.data,
-        backgroundColor: cycleTimeDistribution.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [cycleTimeDistribution]);
-
-  const agingChartData = useMemo(() => {
-    if (!referralAging?.labels) return null;
-    return {
-      labels: referralAging.labels,
-      datasets: [{
-        label: 'Referrals',
-        data: referralAging.data,
-        backgroundColor: referralAging.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [referralAging]);
-
-  const geoChartData = useMemo(() => {
-    if (!geographicDistribution?.labels) return null;
-    return {
-      labels: geographicDistribution.labels,
-      datasets: [{
-        label: 'Cases',
-        data: geographicDistribution.data,
-        backgroundColor: COLORS.primary,
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [geographicDistribution]);
-
-  const categoryChartData = useMemo(() => {
-    if (!categoryDistribution?.length) return null;
-    return {
-      labels: categoryDistribution.map(c => c.name),
-      datasets: [{
-        label: 'Cases',
-        data: categoryDistribution.map(c => c.count),
-        backgroundColor: categoryDistribution.map(c => c.color),
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [categoryDistribution]);
-
-  const caseIssueChartData = useMemo(() => {
-    if (!caseIssueDistribution?.length) return null;
-    return {
-      labels: caseIssueDistribution.map(c => c.name),
-      datasets: [{
-        label: 'Cases',
-        data: caseIssueDistribution.map(c => c.count),
-        backgroundColor: caseIssueDistribution.map(c => c.color),
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [caseIssueDistribution]);
-
-  const agencyChartData = useMemo(() => {
-    if (!referralAgencyDistribution?.labels) return null;
-    return {
-      labels: referralAgencyDistribution.labels,
-      datasets: [{
-        label: 'Referrals',
-        data: referralAgencyDistribution.data,
-        backgroundColor: (referralAgencyDistribution.colors || ['#1e3a8a']).map((c) => c),
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [referralAgencyDistribution]);
 
   const referralColumns = useMemo(() => [
     { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold" style={{ color: COLORS.primary }}>{row.case_file?.case_number || 'N/A'}</span> },
@@ -298,202 +138,32 @@ function CaseManagerReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_1fr]">
-        <SectionAccordion title="Referral Status" defaultOpen>
-          <div className="flex items-center gap-6">
-            <div className="h-28 w-28 shrink-0">
-              <Doughnut data={{
-                labels: referralStatusPie.map((s) => s.label),
-                datasets: [{ data: referralStatusPie.map((s) => s.count), backgroundColor: referralStatusPie.map((s) => s.hex), borderWidth: 0 }],
-              }} options={doughnutOptions} />
-            </div>
-            <div className="flex-1 space-y-1.5">
-              {referralStatusPie.map((s) => (
-                <div key={s.label} className="flex items-center justify-between text-[11px]">
-                  <span className="inline-flex items-center gap-1.5 text-slate-600">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.hex }} />
-                    <span className="font-medium">{s.label}</span>
-                  </span>
-                  <span className="font-bold text-slate-700">{s.count} ({s.percent}%)</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </SectionAccordion>
-
+        <StatusDistributionSection />
         <CaseStatusPieChart data={caseStatusDistribution} />
-
-        <SectionAccordion title="Agency Workload" defaultOpen>
-          {agencyChartData ? (
-            <div className="h-56">
-              <Bar data={agencyChartData} options={barOptions} />
-            </div>
-          ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">No agency workload data available.</p>
-          )}
-        </SectionAccordion>
+        <LazyChartArticle lazyKey="referralAgencyDistribution" title="Agency Workload" emptyText="No agency workload data available." />
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
-          <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
-          {cycleTimeChartData ? (
-            <div className="h-56">
-              <Bar data={cycleTimeChartData} options={barOptions} />
-            </div>
-          ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
-          )}
-        </article>
-        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Aging</h3>
-          <p className="mb-3 text-[11px] text-slate-500">How long active referrals have been waiting</p>
-          {agingChartData ? (
-            <div className="h-56">
-              <Bar data={agingChartData} options={barOptions} />
-            </div>
-          ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">No active referrals pending.</p>
-          )}
-        </article>
+        <CycleTimeSection />
+        <LazyChartArticle lazyKey="referralAging" title="Referral Aging" desc="How long active referrals have been waiting" emptyText="No active referrals pending." />
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
-        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
-          {agencyScorecard?.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500" style={{ borderColor: COLORS.border }}>
-                    <th className="pb-2 pr-3">Agency</th>
-                    <th className="pb-2 pr-3 text-right">Total</th>
-                    <th className="pb-2 pr-3 text-right">Completed</th>
-                    <th className="pb-2 pr-3 text-right">Rate</th>
-                    <th className="pb-2 pr-3 text-right">Avg Days</th>
-                    <th className="pb-2 text-right">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agencyScorecard.map((a) => (
-                    <tr key={a.agency} className="border-b border-[#e2e8f0] last:border-0">
-                      <td className="py-2 pr-3 font-semibold text-slate-700">{a.agency}</td>
-                      <td className="py-2 pr-3 text-right text-slate-700">{a.total}</td>
-                      <td className="py-2 pr-3 text-right text-emerald-700">{a.completed}</td>
-                      <td className="py-2 pr-3 text-right font-bold text-slate-700">{a.completionRate}%</td>
-                      <td className={`py-2 pr-3 text-right ${a.avgDays <= 7 ? 'text-emerald-700' : a.avgDays <= 14 ? 'text-amber-700' : 'text-rose-700'}`}>{a.avgDays}d</td>
-                      <td className="py-2 text-right text-amber-700">{a.pending}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">No agency data available.</p>
-          )}
-        </article>
+        <AgencyScorecardSection />
         <section>
-          <TrendChart title="Cases Over Time" data={casesOverTime} />
+          <LazyTrendChart lazyKey="casesOverTime" title="Cases Over Time" />
         </section>
       </section>
 
-      <SectionAccordion title="Geographic Distribution" defaultOpen>
-        {geoChartData ? (
-          <div className="h-56">
-            <Bar data={geoChartData} options={barOptions} />
-          </div>
-        ) : (
-          <p className="py-8 text-center text-[13px] text-slate-400">No geographic data available.</p>
-        )}
-      </SectionAccordion>
+      <GeographicSection />
 
-      <SectionAccordion title="Employment Analytics" defaultOpen>
-        <EmploymentAnalytics
-          employmentDistribution={employmentDistribution}
-          employmentPositionBreakdown={employmentPositionBreakdown}
-        />
-      </SectionAccordion>
+      <EmploymentSection />
 
-      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
-        {categoryChartData ? (
-          <div className="h-56">
-            <Bar data={categoryChartData} options={barOptions} />
-          </div>
-        ) : (
-          <p className="py-8 text-center text-[13px] text-slate-400">No category data available.</p>
-        )}
-      </article>
+      <CategorySection />
 
-      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Case Issue Distribution</h3>
-        {caseIssueChartData ? (
-          <div className="h-56">
-            <Bar data={caseIssueChartData} options={barOptions} />
-          </div>
-        ) : (
-          <p className="py-8 text-center text-[13px] text-slate-400">No issue data available.</p>
-        )}
-      </article>
+      <LazyChartArticle lazyKey="caseIssueDistribution" title="Case Issue Distribution" emptyText="No issue data available." />
 
-      <section>
-        <h2 className={`mb-3 ${pageHeadingStyles.sectionTitle}`}>Client Demographics</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-            <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Gender</h3>
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 shrink-0">
-                <SvgPieChart data={genderPie} className="w-16 h-16" />
-              </div>
-              <div className="space-y-1">
-                {genderPie.map((g) => (
-                  <div key={g.label} className="flex items-center gap-2 text-[11px]">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.hex }} />
-                    <span className="text-slate-600">{g.label}</span>
-                    <span className="font-bold text-slate-800">{g.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </article>
-
-          <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-            <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Client Type</h3>
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 shrink-0">
-                <SvgPieChart data={clientTypePie} className="w-16 h-16" />
-              </div>
-              <div className="space-y-1">
-                {clientTypePie.map((t) => (
-                  <div key={t.label} className="flex items-center gap-2 text-[11px]">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.hex }} />
-                    <span className="text-slate-600">{t.label}</span>
-                    <span className="font-bold text-slate-800">{t.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </article>
-
-          <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-            <h3 className="mb-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Age Group</h3>
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 shrink-0">
-                <SvgPieChart data={agePie} className="w-16 h-16" />
-              </div>
-              <div className="space-y-1">
-                {agePie.slice(0, 3).map((a) => (
-                  <div key={a.label} className="flex items-center gap-2 text-[11px]">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: a.hex }} />
-                    <span className="text-slate-600">{a.label}</span>
-                    <span className="font-bold text-slate-800">{a.percent}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
+      <LazyDemographics />
 
       <section className="border bg-white shadow-sm" style={{ borderColor: COLORS.border }}>
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: COLORS.border }}>
@@ -542,10 +212,7 @@ function CaseManagerReports({
 }
 
 function AgencyReports({
-  kpis, referralStatusDistribution, referralTrends,
-  avgReferralCompletion, managedReferrals,
-  cycleTimeDistribution, agencyScorecard,
-  categoryDistribution,
+  kpis, avgReferralCompletion, managedReferrals,
   caseStatusDistribution,
   from: initialFrom, to: initialTo,
 }) {
@@ -578,36 +245,6 @@ function AgencyReports({
     setToDateISO(range.toISO);
     setQuickRange('1_YEAR');
   }, []);
-
-  const referralStatusPie = useMemo(() => toPieFormat(referralStatusDistribution), [referralStatusDistribution]);
-
-  const agencyCycleTimeData = useMemo(() => {
-    if (!cycleTimeDistribution?.labels) return null;
-    return {
-      labels: cycleTimeDistribution.labels,
-      datasets: [{
-        label: 'Referrals',
-        data: cycleTimeDistribution.data,
-        backgroundColor: cycleTimeDistribution.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [cycleTimeDistribution]);
-
-  const agencyCategoryData = useMemo(() => {
-    if (!categoryDistribution?.length) return null;
-    return {
-      labels: categoryDistribution.map(c => c.name),
-      datasets: [{
-        label: 'Cases',
-        data: categoryDistribution.map(c => c.count),
-        backgroundColor: categoryDistribution.map(c => c.color),
-        borderRadius: 3,
-        barThickness: 18,
-      }],
-    };
-  }, [categoryDistribution]);
 
   const referralColumns = useMemo(() => [
     { key: 'case_file', title: 'TRACKING ID', render: (row) => <span className="text-[12px] font-bold" style={{ color: COLORS.primary }}>{row.case_file?.case_number || 'N/A'}</span> },
@@ -676,93 +313,19 @@ function AgencyReports({
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr_1fr]">
-        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Referral Status</h3>
-          <div className="flex items-center gap-6">
-            <div className="h-28 w-28 shrink-0">
-              <Doughnut data={{
-                labels: referralStatusPie.map((s) => s.label),
-                datasets: [{ data: referralStatusPie.map((s) => s.count), backgroundColor: referralStatusPie.map((s) => s.hex), borderWidth: 0 }],
-              }} options={doughnutOptions} />
-            </div>
-            <div className="flex-1 space-y-1.5">
-              {referralStatusPie.map((s) => (
-                <div key={s.label} className="flex items-center justify-between text-[11px]">
-                  <span className="inline-flex items-center gap-1.5 text-slate-600">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: s.hex }} />
-                    <span className="font-medium">{s.label}</span>
-                  </span>
-                  <span className="font-bold text-slate-700">{s.count} ({s.percent}%)</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </article>
-
+        <StatusDistributionSection />
         <CaseStatusPieChart data={caseStatusDistribution} />
-
         <div className="flex flex-col gap-3">
-          <TrendChart title="Referral Trends" data={referralTrends} />
+          <LazyTrendChart lazyKey="referralTrends" title="Referral Trends" />
         </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Cycle Time Distribution</h3>
-          <p className="mb-3 text-[11px] text-slate-500">Time from referral creation to completion</p>
-          {agencyCycleTimeData ? (
-            <div className="h-56">
-              <Bar data={agencyCycleTimeData} options={barOptions} />
-            </div>
-          ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">No completed referrals yet.</p>
-          )}
-        </article>
-        <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-          <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Agency Scorecard</h3>
-          {agencyScorecard?.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500" style={{ borderColor: COLORS.border }}>
-                    <th className="pb-2 pr-3">Agency</th>
-                    <th className="pb-2 pr-3 text-right">Total</th>
-                    <th className="pb-2 pr-3 text-right">Completed</th>
-                    <th className="pb-2 pr-3 text-right">Rate</th>
-                    <th className="pb-2 pr-3 text-right">Avg Days</th>
-                    <th className="pb-2 text-right">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agencyScorecard.map((a) => (
-                    <tr key={a.agency} className="border-b border-[#e2e8f0] last:border-0">
-                      <td className="py-2 pr-3 font-semibold text-slate-700">{a.agency}</td>
-                      <td className="py-2 pr-3 text-right text-slate-700">{a.total}</td>
-                      <td className="py-2 pr-3 text-right text-emerald-700">{a.completed}</td>
-                      <td className="py-2 pr-3 text-right font-bold text-slate-700">{a.completionRate}%</td>
-                      <td className={`py-2 pr-3 text-right ${a.avgDays <= 7 ? 'text-emerald-700' : a.avgDays <= 14 ? 'text-amber-700' : 'text-rose-700'}`}>{a.avgDays}d</td>
-                      <td className="py-2 text-right text-amber-700">{a.pending}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">No agency data available.</p>
-          )}
-        </article>
+        <CycleTimeSection />
+        <AgencyScorecardSection />
       </section>
 
-      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-        <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>Category Distribution</h3>
-        {agencyCategoryData ? (
-          <div className="h-56">
-            <Bar data={agencyCategoryData} options={barOptions} />
-          </div>
-        ) : (
-          <p className="py-8 text-center text-[13px] text-slate-400">No category data available.</p>
-        )}
-      </article>
+      <CategorySection />
 
       <section className="border bg-white" style={{ borderColor: COLORS.border }}>
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: COLORS.border }}>

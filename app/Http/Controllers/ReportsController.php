@@ -30,14 +30,45 @@ class ReportsController extends Controller
             toDate: $toDate,
         );
 
-        $data['managedReferrals'] = $this->reportsService->getManagedReferrals(
+        $managedReferrals = $this->reportsService->getManagedReferrals(
             userId: $user->id,
             role: $user->role,
             fromDate: $fromDate,
             toDate: $toDate,
         );
 
-        return Inertia::render('Reports/Index', $data);
+        return Inertia::render('Reports/Index', [
+            // Eager props (included in initial response)
+            'role' => $user->role,
+            'kpis' => $data['kpis'],
+            'managedReferrals' => $managedReferrals,
+            'from' => $fromDate,
+            'to' => $toDate,
+
+            // Deferred props (loaded on-demand by section components via partial reload)
+            'referralStatusDistribution' => Inertia::defer(fn () => $data['referralStatusDistribution'] ?? null, 'referralStatusDistribution'),
+            'referralAgencyDistribution' => Inertia::defer(fn () => $data['referralAgencyDistribution'] ?? null, 'referralAgencyDistribution'),
+            'casesOverTime' => Inertia::defer(fn () => $data['casesOverTime'] ?? null, 'casesOverTime'),
+            'genderDistribution' => Inertia::defer(fn () => $data['genderDistribution'] ?? null, 'genderDistribution'),
+            'clientTypeDistribution' => Inertia::defer(fn () => $data['clientTypeDistribution'] ?? null, 'clientTypeDistribution'),
+            'ageGroupDistribution' => Inertia::defer(fn () => $data['ageGroupDistribution'] ?? null, 'ageGroupDistribution'),
+            'cycleTimeDistribution' => Inertia::defer(fn () => $data['cycleTimeDistribution'] ?? null, 'cycleTimeDistribution'),
+            'referralAging' => Inertia::defer(fn () => $data['referralAging'] ?? null, 'referralAging'),
+            'agencyScorecard' => Inertia::defer(fn () => $data['agencyScorecard'] ?? null, 'agencyScorecard'),
+            'geographicDistribution' => Inertia::defer(fn () => $data['geographicDistribution'] ?? null, 'geographicDistribution'),
+            'categoryDistribution' => Inertia::defer(fn () => $data['categoryDistribution'] ?? null, 'categoryDistribution'),
+            'employmentDistribution' => Inertia::defer(fn () => $data['employmentDistribution'] ?? null, 'employmentDistribution'),
+            'employmentPositionBreakdown' => Inertia::defer(fn () => $data['employmentPositionBreakdown'] ?? null, 'employmentPositionBreakdown'),
+            'caseStatusDistribution' => Inertia::defer(fn () => $data['caseStatusDistribution'] ?? null, 'caseStatusDistribution'),
+            'referralTypeDistribution' => Inertia::defer(fn () => $data['referralTypeDistribution'] ?? null, 'referralTypeDistribution'),
+            'caseIssueDistribution' => Inertia::defer(fn () => $data['caseIssueDistribution'] ?? null, 'caseIssueDistribution'),
+            'overview' => Inertia::defer(fn () => $data['overview'] ?? null, 'overview'),
+            'caseTrends' => Inertia::defer(fn () => $data['caseTrends'] ?? null, 'caseTrends'),
+            'agencyWorkload' => Inertia::defer(fn () => $data['agencyWorkload'] ?? null, 'agencyWorkload'),
+            'referralTrends' => Inertia::defer(fn () => $data['referralTrends'] ?? null, 'referralTrends'),
+            'avgReferralCompletion' => Inertia::defer(fn () => $data['avgReferralCompletion'] ?? null, 'avgReferralCompletion'),
+            'mostRequestedService' => Inertia::defer(fn () => $data['mostRequestedService'] ?? null, 'mostRequestedService'),
+        ]);
     }
 
     public function aiInsight(Request $request)
