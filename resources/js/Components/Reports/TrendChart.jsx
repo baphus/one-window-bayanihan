@@ -33,7 +33,7 @@ export default function TrendChart({
 
   if (!data || !data.labels || data.labels.length === 0) {
     return (
-      <article className="border border-[#cbd5e1] bg-white p-4">
+      <article className="border border-slate-300 bg-white p-4">
         <h3 className={pageHeadingStyles.sectionTitle}>{title || 'Cases Over Time'}</h3>
         <p className="py-8 text-center text-[13px] text-slate-400">No trend data available.</p>
       </article>
@@ -47,10 +47,10 @@ export default function TrendChart({
   };
 
   return (
-    <article className="border border-[#cbd5e1] bg-white p-4">
+    <article className="border border-slate-300 bg-white p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className={pageHeadingStyles.sectionTitle}>{title || 'Trend'}</h3>
-        <div className="inline-flex overflow-hidden rounded-[2px] border border-[#cbd5e1] bg-white">
+        <div className="inline-flex overflow-hidden rounded-[2px] border border-slate-300 bg-white">
           <button
             type="button"
             onClick={() => setChartView('line')}

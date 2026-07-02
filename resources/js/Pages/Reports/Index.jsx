@@ -129,8 +129,8 @@ function CaseManagerReports({
         <MetricCard label="Completion Rate" value={`${kpis.completionRate}%`} accent="border-l-[#0b7a75]"
           icon={<Target className="h-3.5 w-3.5 text-[#0b7a75]" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.completionRate} />} />
-        <MetricCard label="Avg Completion Days" value={`${kpis.avgCompletionDays}d`} accent="border-l-[#1e3a8a]" description="From referral creation to completion"
-          icon={<CalendarDays className="h-3.5 w-3.5 text-[#1e3a8a]" />}
+        <MetricCard label="Avg Completion Days" value={`${kpis.avgCompletionDays}d`} accent="border-l-blue-900" description="From referral creation to completion"
+          icon={<CalendarDays className="h-3.5 w-3.5 text-blue-900" />}
           trailing={<TrendIndicator change={kpis.kpiChanges?.avgCompletionDays} inverse />} />
         <MetricCard label="Pending" value={`${kpis.pendingReferrals}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]"
           icon={<Clock className="h-3.5 w-3.5 text-[#9a5b1a]" />}
@@ -535,8 +535,8 @@ function AdminReports({
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total Cases" value={`${overview?.totalCases || 0}`} accent="border-l-[#1e3a8a]"
-          icon={<FolderOpen className="h-3.5 w-3.5 text-[#1e3a8a]" />} />
+        <MetricCard label="Total Cases" value={`${overview?.totalCases || 0}`} accent="border-l-blue-900"
+          icon={<FolderOpen className="h-3.5 w-3.5 text-blue-900" />} />
         <MetricCard label="Open Cases" value={`${overview?.openCases || 0}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a]"
           icon={<FolderKanban className="h-3.5 w-3.5 text-[#9a5b1a]" />} />
         <MetricCard label="Total Referrals" value={`${overview?.totalReferrals || 0}`} accent="border-l-[#0b7a75]"

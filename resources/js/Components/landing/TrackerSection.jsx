@@ -20,7 +20,7 @@ export default function TrackerSection() {
 
   return (
     <section id="tracker" className="relative mx-auto max-w-6xl px-4 py-24 md:px-8">
-      <div className="relative flex min-h-[400px] flex-col bg-[#005288] md:flex-row shadow-2xl">
+      <div className="relative flex min-h-[400px] flex-col bg-primary md:flex-row shadow-2xl">
         <div className="flex flex-1 flex-col justify-center p-12 md:p-16 lg:p-20">
           <h2 className="mb-4 font-headline text-4xl font-extrabold text-white md:text-[44px] md:leading-tight">
             Ready to check your<br />status?
@@ -30,7 +30,7 @@ export default function TrackerSection() {
           </p>
         </div>
 
-        <div className="relative flex flex-1 flex-col justify-center bg-[#003a63] p-12 md:p-16 lg:p-20">
+        <div className="relative flex flex-1 flex-col justify-center bg-primary-container p-12 md:p-16 lg:p-20">
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="relative">
               <input type="text" value={trackerNumber}

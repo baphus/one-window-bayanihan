@@ -26,7 +26,7 @@ export default function WelcomeModal({
                     collaborate with agencies &mdash; all in one place.
                 </p>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-[#e2e8f0] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
                 <button
                     onClick={onRemindLater}
                     className="h-9 px-2 text-[12px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
@@ -35,7 +35,7 @@ export default function WelcomeModal({
                 </button>
                 <button
                     onClick={onSkipTour}
-                    className="h-9 rounded-[3px] border border-[#cbd5e1] px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                     Skip Tour
                 </button>

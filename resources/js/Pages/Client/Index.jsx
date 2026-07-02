@@ -138,7 +138,7 @@ export default function ClientIndex({ clients, filters }) {
               sortable: false,
               title: 'Actions',
               render: (row) => (
-                <button onClick={() => router.visit(route('clients.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">
+                <button onClick={() => router.visit(route('clients.show', row.id))} className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors border border-blue-900">
                   View Details
                 </button>
               ),
@@ -161,7 +161,7 @@ export default function ClientIndex({ clients, filters }) {
             setFilterOpen(false);
             navigateWith({ client_type: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Types</option>
           <option value="OFW">OFW</option>
@@ -178,7 +178,7 @@ export default function ClientIndex({ clients, filters }) {
             setFilterOpen(false);
             navigateWith({ sex: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All</option>
           <option value="MALE">Male</option>
@@ -205,7 +205,7 @@ export default function ClientIndex({ clients, filters }) {
                   : [...prev, col.key],
               );
             }}
-            className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] focus:ring-offset-0"
+            className="rounded border-slate-300 text-blue-900 focus:ring-blue-900 focus:ring-offset-0"
           />
           {col.label}
         </label>

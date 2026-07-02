@@ -33,7 +33,7 @@ export default function DataExportIndex({ tables }) {
                 </div>
                 <button
                     onClick={() => window.open(route('admin.data-export.export'))}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors"
                 >
                     <FileDown className="w-4 h-4" />
                     Export All Data as Excel

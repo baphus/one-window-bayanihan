@@ -89,7 +89,7 @@ export default function LogoUpload({ currentLogoUrl, onChange }) {
                     type="file"
                     accept="image/png,image/jpeg,image/svg+xml"
                     onChange={handleFileChange}
-                    className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[#0b5384] file:text-white hover:file:bg-[#09416a] file:cursor-pointer"
+                    className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-900 file:text-white hover:file:bg-blue-800 file:cursor-pointer"
                 />
             </div>
 

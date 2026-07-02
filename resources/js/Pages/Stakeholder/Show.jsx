@@ -28,7 +28,7 @@ function AgencyLogo({ agency }) {
 
 function InfoItem({ label, value }) {
     return (
-        <div className="rounded-[3px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{label}</p>
             <p className="mt-1 text-[12px] font-semibold text-slate-700">{value}</p>
         </div>
@@ -52,7 +52,7 @@ export default function StakeholderShow({ stakeholder, stats }) {
                 <h1 className="text-2xl font-bold text-slate-900">Stakeholder Details</h1>
                 <Link
                     href={route('stakeholders.index')}
-                    className="inline-flex items-center gap-1 rounded-md border border-[#cbd5e1] bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
                 >
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                     Back
@@ -61,9 +61,9 @@ export default function StakeholderShow({ stakeholder, stats }) {
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                 <main className="xl:col-span-7 space-y-6">
-                    <section className="rounded-lg border border-[#d8dee8] bg-white p-6 shadow-sm">
+                    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                         <div className="flex items-start gap-4">
-                            <div className="h-14 w-14 overflow-hidden rounded-full border border-[#d8dee8] bg-white shrink-0">
+                            <div className="h-14 w-14 overflow-hidden rounded-full border border-slate-200 bg-white shrink-0">
                                 <AgencyLogo agency={stakeholder} />
                             </div>
                             <div>
@@ -81,12 +81,12 @@ export default function StakeholderShow({ stakeholder, stats }) {
                         </div>
                     </section>
 
-                    <section className="rounded-lg border border-[#d8dee8] bg-white p-6 shadow-sm">
+                    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                         <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-3">Services ({services.length})</h3>
                         {services.length ? (
                             <div className="space-y-3">
                                 {services.map((service) => (
-                                    <div key={service.id} className="rounded-[3px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+                                    <div key={service.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
                                         <p className="text-[13px] font-bold text-slate-800">{service.name}</p>
                                         {service.description && (
                                             <p className="mt-1 text-[12px] leading-5 text-slate-600">{service.description}</p>
@@ -110,7 +110,7 @@ export default function StakeholderShow({ stakeholder, stats }) {
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-[3px] border border-dashed border-[#cbd5e1] p-4 text-[12px] text-slate-500">
+                            <div className="rounded-md border border-dashed border-slate-200 p-4 text-[12px] text-slate-500">
                                 No configured services for this stakeholder.
                             </div>
                         )}
@@ -118,7 +118,7 @@ export default function StakeholderShow({ stakeholder, stats }) {
                 </main>
 
                 <aside className="xl:col-span-5 space-y-6">
-                    <section className="rounded-lg border border-[#d8dee8] bg-white p-6 shadow-sm">
+                    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                         <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-3">Google Maps Location</h3>
                         <AgencyMapView
                             mapLink={stakeholder.map_link}
@@ -131,7 +131,7 @@ export default function StakeholderShow({ stakeholder, stats }) {
                     </section>
 
                     {stakeholder.description && (
-                        <section className="rounded-lg border border-[#d8dee8] bg-white p-6 shadow-sm">
+                        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-3">About</h3>
                             <p className="text-[12px] leading-6 text-slate-600">{stakeholder.description}</p>
                         </section>

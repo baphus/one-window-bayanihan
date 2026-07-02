@@ -51,7 +51,7 @@ function Field({ label, required, children, className }) {
 function Subsection({ title, children }) {
     return (
         <div className="space-y-2.5">
-            <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#334155]">{title}</h4>
+            <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">{title}</h4>
             {children}
         </div>
     );
@@ -69,7 +69,7 @@ function Input({ value, onChange, placeholder, type = 'text', maxLength, minLeng
             minLength={minLength}
             readOnly={readOnly}
             required={required}
-            className={`h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${readOnly ? 'bg-slate-50' : ''} ${className}`}
+            className={`h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${readOnly ? 'bg-slate-50' : ''} ${className}`}
         />
     );
 }
@@ -80,7 +80,7 @@ function Select({ value, onChange, options, placeholder, required }) {
             value={value}
             onChange={onChange}
             required={required}
-            className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         >
             {placeholder && <option value="">{placeholder}</option>}
             {options.map((opt) => (
@@ -1161,8 +1161,8 @@ function handleConfirmClient(client) {
                     e.preventDefault();
                 }
             }}>
-                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-[#cbd5e1] bg-white shadow-sm">
-                    <div data-tour="case-create-steps" className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-[#cbd5e1] bg-slate-50/60 p-8">
+                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-slate-300 bg-white shadow-sm">
+                    <div data-tour="case-create-steps" className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-slate-300 bg-slate-50/60 p-8">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Step Guide</h3>
                             <p className="mt-2 text-[14px] font-bold text-slate-800">Step {currentStep} of {STEPS.length}</p>
@@ -1278,7 +1278,7 @@ function handleConfirmClient(client) {
                                                                     }, 300);
                                                                 }}
                                                                 placeholder="Search clients by name..."
-                                                                className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             />
                                                         </div>
 
@@ -1444,7 +1444,7 @@ function handleConfirmClient(client) {
                                                 {data.next_of_kin.map((nok, idx) => (
                                                     <div key={idx} className="mb-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                                         <div className="mb-4 flex items-center justify-between">
-                                                            <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#334155]">
+                                                            <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
                                                                 Next of Kin #{idx + 1}
                                                             </h4>
                                                             <div className="flex items-center gap-3">
@@ -1574,7 +1574,7 @@ function handleConfirmClient(client) {
                                                     <select
                                                         value={data.client_type}
                                                         onChange={(e) => setData('client_type', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         required
                                                     >
                                                         <option value="OFW">Overseas Filipino Worker</option>
@@ -1585,7 +1585,7 @@ function handleConfirmClient(client) {
                                                     <select
                                                         value={data.category_id}
                                                         onChange={(e) => setData('category_id', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         required
                                                     >
                                                         <option value="">Select category</option>
@@ -1612,7 +1612,7 @@ function handleConfirmClient(client) {
                                                             <select
                                                                 value={data.selected_nok_index}
                                                                 onChange={(e) => setData('selected_nok_index', e.target.value)}
-                                                                className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                                 required
                                                             >
                                                                 <option value="">Select next of kin...</option>
@@ -1642,7 +1642,7 @@ function handleConfirmClient(client) {
                                                     <select
                                                         value={data.vulnerability_indicator}
                                                         onChange={(e) => setData('vulnerability_indicator', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                     >
                                                         <option value="">Select vulnerability...</option>
                                                         <option value="PWD">PWD</option>
@@ -1657,7 +1657,7 @@ function handleConfirmClient(client) {
                                                         <select
                                                             value={data.nok_vulnerability_indicator}
                                                             onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
-                                                            className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         >
                                                             <option value="">Select vulnerability...</option>
                                                             <option value="PWD">PWD</option>
@@ -1685,7 +1685,7 @@ function handleConfirmClient(client) {
                                                         value={data.summary}
                                                         onChange={(e) => setData('summary', e.target.value)}
                                                         placeholder="Describe the client situation and reason for opening the case..."
-                                                        className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="w-full rounded-[3px] border border-slate-300 px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                     />
                                                 </Field>
                                             </div>
@@ -1702,7 +1702,7 @@ function handleConfirmClient(client) {
                                                         <select
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
-                                                            className="h-10 flex-1 rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         >
                                                             <option value="">Select issue/concern...</option>
                                                             {localIssues.map((issue) => (
@@ -1729,7 +1729,7 @@ function handleConfirmClient(client) {
                                                             onChange={(e) => setNewIssueName(e.target.value)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                                                             placeholder="Enter new issue name..."
-                                                            className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             autoFocus
                                                         />
                                                     </Field>
@@ -1759,19 +1759,19 @@ function handleConfirmClient(client) {
                                             <p className="mt-2 text-[13px] text-slate-500">Review the core case details before you finalize creation.</p>
                                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <Field label="Case No.">
-                                                    <div className="h-10 w-full rounded-[3px] border border-[#cbd5e1] bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{caseId}</div>
+                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{caseId}</div>
                                                 </Field>
                                                 <Field label="Tracking ID">
-                                                    <div className="h-10 w-full rounded-[3px] border border-[#cbd5e1] bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{trackingId}</div>
+                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{trackingId}</div>
                                                 </Field>
                                                 <Field label="Client Type">
-                                                    <div className="h-10 w-full rounded-[3px] border border-[#cbd5e1] bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{data.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'}</div>
+                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{data.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'}</div>
                                                 </Field>
                                                 <Field label="Client Name">
-                                                    <div className="h-10 w-full rounded-[3px] border border-[#cbd5e1] bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{[data.client.first_name, data.client.last_name].filter(Boolean).join(' ')}</div>
+                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{[data.client.first_name, data.client.last_name].filter(Boolean).join(' ')}</div>
                                                 </Field>
                                                 <Field label="Next of Kin" className="md:col-span-2">
-                                                    <div className="min-h-10 w-full rounded-[3px] border border-[#cbd5e1] bg-slate-50 px-3 py-2 text-[13px] text-slate-700">{nokSummary}</div>
+                                                    <div className="min-h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 py-2 text-[13px] text-slate-700">{nokSummary}</div>
                                                 </Field>
                                             </div>
                                         </div>
@@ -1783,7 +1783,7 @@ function handleConfirmClient(client) {
                         <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={handleBack} disabled={currentStep === 1}
-                                    className="inline-flex items-center gap-2 rounded-md border border-[#cbd5e1] bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
                                 </button>
                                 <div className="flex items-center gap-2">

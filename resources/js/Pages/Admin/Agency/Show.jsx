@@ -83,7 +83,7 @@ export default function AdminAgencyShow({ agency }) {
     setEditData((prev) => ({ ...prev, [field]: value }));
   }
 
-  const inputClass = 'w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]';
+  const inputClass = 'w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900';
   const errorClass = 'mt-1.5 text-xs text-red-600 font-medium';
 
   // ── Service / User modal handlers ──
@@ -128,13 +128,13 @@ export default function AdminAgencyShow({ agency }) {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           {isAdmin && (
-            <Link href={route('admin.agencies.index')} className="text-sm text-[#0b5384] hover:underline mb-1 inline-block">&larr; Back to Agencies</Link>
+            <Link href={route('admin.agencies.index')} className="text-sm text-blue-900 hover:underline mb-1 inline-block">&larr; Back to Agencies</Link>
           )}
           <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">{agency.name}</h1>
           <p className="text-sm text-slate-400 font-body mt-0.5">Agency details, services, and focal persons.</p>
         </div>
         {isAdmin && !isEditing && (
-          <button onClick={startEditing} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] shrink-0 transition-colors">
+          <button onClick={startEditing} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 shrink-0 transition-colors">
             Edit Agency
           </button>
         )}
@@ -212,7 +212,7 @@ export default function AdminAgencyShow({ agency }) {
                   id="is_active"
                   checked={editData.is_active}
                   onChange={(e) => setField('is_active', e.target.checked)}
-                  className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] h-4 w-4"
+                  className="rounded border-slate-200 text-blue-900 focus:ring-blue-900 h-4 w-4"
                 />
                 <label htmlFor="is_active" className="text-[13px] text-slate-700 select-none font-medium">Active</label>
               </div>
@@ -285,7 +285,7 @@ export default function AdminAgencyShow({ agency }) {
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] disabled:opacity-50 transition-colors"
+              className="px-6 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 disabled:opacity-50 transition-colors"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -293,7 +293,7 @@ export default function AdminAgencyShow({ agency }) {
               type="button"
               onClick={cancelEditing}
               disabled={saving}
-              className="px-6 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-[3px] hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              className="px-6 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 transition-colors"
             >
               Cancel
             </button>
@@ -310,7 +310,7 @@ export default function AdminAgencyShow({ agency }) {
               onClick={() => setActiveTab(tab)}
               className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab
-                  ? 'border-[#0b5384] text-[#0b5384]'
+                  ? 'border-blue-900 text-blue-900'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -354,7 +354,7 @@ export default function AdminAgencyShow({ agency }) {
                       </td>
                       <td className="px-4 py-3 text-slate-600">{formatDate(ref.created_at)}</td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={route('referrals.show', ref.id)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300 inline-flex items-center">
+                        <Link href={route('referrals.show', ref.id)} className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300 inline-flex items-center">
                           View
                         </Link>
                       </td>
@@ -373,7 +373,7 @@ export default function AdminAgencyShow({ agency }) {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Services offered by this agency.</p>
             {isAdmin && (
-              <button onClick={openAddService} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] transition-colors">
+              <button onClick={openAddService} className="px-3 py-1.5 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors">
                 + Add Service
               </button>
             )}
@@ -402,8 +402,8 @@ export default function AdminAgencyShow({ agency }) {
                       {isAdmin && (
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button onClick={() => openEditService(service)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
-                            <button onClick={() => handleDeleteService(service)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Delete</button>
+                            <button onClick={() => openEditService(service)} className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300">Edit</button>
+                            <button onClick={() => handleDeleteService(service)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200">Delete</button>
                           </div>
                         </td>
                       )}
@@ -422,7 +422,7 @@ export default function AdminAgencyShow({ agency }) {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Agency focal persons for this agency.</p>
             {isAdmin && (
-              <button onClick={openAddUser} className="px-3 py-1.5 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] transition-colors">
+              <button onClick={openAddUser} className="px-3 py-1.5 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors">
                 + Add Focal Person
               </button>
             )}
@@ -455,8 +455,8 @@ export default function AdminAgencyShow({ agency }) {
                       {isAdmin && (
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button onClick={() => openEditUser(user)} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
-                            <button onClick={() => handleDeleteUser(user)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Deactivate</button>
+                            <button onClick={() => openEditUser(user)} className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300">Edit</button>
+                            <button onClick={() => handleDeleteUser(user)} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200">Deactivate</button>
                           </div>
                         </td>
                       )}
