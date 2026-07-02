@@ -37,10 +37,10 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
 
             <section data-tour="dashboard-stats" className="mb-8">
                 <div data-tour="dashboard-agency-metrics" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                    <KpiCard title="Total Referrals" value={stats.totalReferrals} accent="border-l-blue-900" icon="send" />
-                    <KpiCard title="Pending" value={stats.pendingReferrals} accent="border-l-yellow-500" icon="hourglass" />
-                    <KpiCard title="Processing" value={stats.processingReferrals} accent="border-l-blue-500" icon="sync" />
-                    <KpiCard title="Completed" value={stats.completedReferrals} accent="border-l-green-500" icon="check_circle" />
+                    <KpiCard title="Total Referrals" value={stats.totalReferrals} icon="send" iconBg="bg-amber-50" iconColor="text-amber-600" />
+                    <KpiCard title="Pending" value={stats.pendingReferrals} icon="hourglass" iconBg="bg-yellow-50" iconColor="text-yellow-600" />
+                    <KpiCard title="Processing" value={stats.processingReferrals} icon="sync" iconBg="bg-blue-50" iconColor="text-blue-600" />
+                    <KpiCard title="Completed" value={stats.completedReferrals} icon="check_circle" iconBg="bg-emerald-50" iconColor="text-emerald-600" />
                 </div>
             </section>
 
@@ -155,10 +155,10 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
             </header>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                <KpiCard title="Total Cases" value={stats.totalCases} accent="border-l-indigo-500" icon="folder" />
-                <KpiCard title="Total Referrals" value={stats.totalReferrals} accent="border-l-orange-500" icon="send" />
-                <KpiCard title="Users" value={stats.totalUsers} accent="border-l-blue-500" icon="people" />
-                <KpiCard title="Agencies" value={stats.totalAgencies} accent="border-l-green-500" icon="account_balance" />
+                <KpiCard title="Total Cases" value={stats.totalCases} icon="folder" iconBg="bg-indigo-50" iconColor="text-indigo-600" />
+                <KpiCard title="Total Referrals" value={stats.totalReferrals} icon="send" iconBg="bg-orange-50" iconColor="text-orange-600" />
+                <KpiCard title="Users" value={stats.totalUsers} icon="people" iconBg="bg-blue-50" iconColor="text-blue-600" />
+                <KpiCard title="Agencies" value={stats.totalAgencies} icon="account_balance" iconBg="bg-green-50" iconColor="text-green-600" />
             </div>
 
             {/* System Health Overview */}

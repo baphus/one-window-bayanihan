@@ -13,7 +13,7 @@ export default function ArticleCard({
     return (
       <Link
         href={`/helpdesk/${article.slug}`}
-        className="group block border-b border-outline-variant py-3 last:border-0"
+        className="group block border-b border-slate-200 py-3 last:border-0"
       >
         <h4 className="font-headline text-sm font-semibold text-slate-800 transition-colors group-hover:text-primary">
           {article.title}
@@ -29,7 +29,7 @@ export default function ArticleCard({
     <Link
       href={`/helpdesk/${article.slug}`}
       className={clsx(
-        'group block rounded-none border border-outline-variant bg-white p-5 transition-all hover:border-primary hover:bg-surface-container-low',
+        'group block rounded-lg border border-slate-200 bg-white p-5 transition-all hover:border-primary hover:bg-surface-container-low',
         variant === 'featured' && 'border-l-4 border-l-primary'
       )}
     >
@@ -49,7 +49,7 @@ export default function ArticleCard({
           {badges.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{badges}</div>}
           <div className="mt-3 flex items-center gap-3 text-[10px] text-slate-500">
             {categoryName && (
-              <span className="rounded-none border border-outline-variant bg-surface-container-low px-2 py-0.5 font-label font-semibold uppercase tracking-[0.12em] text-slate-600">
+              <span className="rounded-none border border-slate-200 bg-surface-container-low px-2 py-0.5 font-label font-semibold uppercase tracking-[0.12em] text-slate-600">
                 {categoryName}
               </span>
             )}

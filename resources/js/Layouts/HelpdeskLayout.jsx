@@ -28,10 +28,10 @@ function SearchBar({ query, onSearch, large }) {
   };
 
   return (
-    <div className={`w-full ${large ? 'max-w-3xl' : 'max-w-xl'}`}>
+    <div className={`w-full relative ${large ? 'max-w-3xl' : 'max-w-xl'}`}>
       <form onSubmit={handleSubmit}>
-        <div className={`flex w-full overflow-hidden border border-outline-variant bg-white ${large ? 'min-h-14' : 'min-h-11'}`}>
-          <div className={`flex items-center justify-center border-r border-outline-variant px-4 text-primary ${large ? 'bg-primary/5' : 'bg-slate-50'}`}>
+        <div className={`flex w-full border border-slate-200 bg-white ${large ? 'min-h-14' : 'min-h-11'}`}>
+          <div className={`flex items-center justify-center border-r border-slate-200 px-4 text-primary ${large ? 'bg-primary/5' : 'bg-slate-50'}`}>
             <span className="material-symbols-outlined text-xl">search</span>
           </div>
           <input
@@ -45,7 +45,7 @@ function SearchBar({ query, onSearch, large }) {
           />
           <button
             type="submit"
-            className={`border-l border-outline-variant bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] ${large ? 'px-6' : ''}`}
+            className={`border-l border-slate-200 bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] ${large ? 'px-6' : ''}`}
           >
             Search
           </button>
@@ -53,13 +53,13 @@ function SearchBar({ query, onSearch, large }) {
       </form>
 
       {large && suggestions.length > 0 && (
-        <div className="mt-3 border border-outline-variant bg-white shadow-sm">
-          <div className="border-b border-outline-variant px-4 py-2">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-b-lg border border-t-0 border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-200 px-4 py-2">
             <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
               Quick matches
             </p>
           </div>
-          <div className="divide-y divide-outline-variant/70">
+          <div className="divide-y divide-slate-100">
             {suggestions.map((article) => {
               const category = categoryData.find((c) => c.id === article.categoryId);
 
@@ -67,7 +67,7 @@ function SearchBar({ query, onSearch, large }) {
                 <Link
                   key={article.id}
                   href={`/helpdesk/${article.slug}`}
-                  className="block px-4 py-3 transition-colors hover:bg-surface-container-low"
+                  className="block px-4 py-3 transition-colors hover:bg-slate-50"
                 >
                   <div className="flex items-start gap-3">
                     <span className="material-symbols-outlined mt-0.5 text-sm text-primary">article</span>
@@ -85,7 +85,7 @@ function SearchBar({ query, onSearch, large }) {
               );
             })}
           </div>
-          <div className="border-t border-outline-variant px-4 py-2">
+          <div className="border-t border-slate-200 px-4 py-2">
             <Link
               href={route('helpdesk.search') + '?q=' + encodeURIComponent(value.trim())}
               className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary hover:underline"
@@ -140,7 +140,7 @@ function CategoryNav({ categories, activeSlug }) {
         const isExpanded = expanded[cat.id] ?? false;
 
         return (
-          <div key={cat.id} className="border-b border-outline-variant last:border-b-0">
+          <div key={cat.id} className="border-b border-slate-200 last:border-b-0">
             <div className="group flex items-stretch gap-0">
               <Link
                 href={`/helpdesk?category=${cat.slug}`}
@@ -160,7 +160,7 @@ function CategoryNav({ categories, activeSlug }) {
               {hasChildren && (
                 <button
                   onClick={() => toggle(cat.id)}
-                  className={`flex items-center justify-center border-l border-outline-variant px-2.5 text-sm transition-colors ${
+                  className={`flex items-center justify-center border-l border-slate-200 px-2.5 text-sm transition-colors ${
                     isParentActive
                       ? 'bg-primary/10 text-primary'
                       : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
@@ -174,7 +174,7 @@ function CategoryNav({ categories, activeSlug }) {
               )}
             </div>
             {hasChildren && isExpanded && (
-              <div className="ml-4 border-l border-outline-variant py-1 pl-3">
+              <div className="ml-4 border-l border-slate-200 py-1 pl-3">
                 {cat.children.map((child) => {
                   const isChildActive = activeSlug === child.slug;
                   return (
@@ -234,8 +234,8 @@ export default function HelpdeskLayout({ title, children, activeSlug, query, sho
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex gap-8">
           <aside className="hidden w-72 flex-shrink-0 lg:block">
-            <div className="sticky top-24 border border-outline-variant bg-white shadow-sm">
-              <div className="border-b border-outline-variant bg-surface-container-low px-4 py-3">
+            <div className="sticky top-24 rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 bg-surface-container-low px-4 py-3">
                 <h2 className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
                   Browse topics
                 </h2>
@@ -251,7 +251,7 @@ export default function HelpdeskLayout({ title, children, activeSlug, query, sho
         </div>
       </div>
 
-      <footer className="border-t border-outline-variant bg-white">
+      <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between">
             <div>
@@ -267,7 +267,7 @@ export default function HelpdeskLayout({ title, children, activeSlug, query, sho
               Contact Support
             </Link>
           </div>
-          <div className="mt-6 border-t border-outline-variant pt-4 text-center text-xs text-slate-400">
+          <div className="mt-6 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
             &copy; {new Date().getFullYear()} DMW Region VII — One Window Bayanihan
           </div>
         </div>

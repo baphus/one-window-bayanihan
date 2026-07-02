@@ -51,7 +51,7 @@ export default function Show() {
   if (!article) {
     return (
       <HelpdeskLayout title="Article Not Found">
-        <div className="border border-dashed border-outline-variant bg-white py-16 text-center">
+        <div className="rounded-lg border border-dashed border-slate-200 bg-white py-16 text-center">
           <span className="material-symbols-outlined mb-4 text-4xl text-primary/30">
             search_off
           </span>
@@ -134,7 +134,7 @@ export default function Show() {
         )}
 
         {/* Markdown content */}
-        <div className="mb-10 border border-outline-variant bg-white p-6 shadow-sm">
+        <div className="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <MarkdownRenderer content={content} />
         </div>
       </article>
@@ -146,7 +146,7 @@ export default function Show() {
         </div>
       )}
 
-      <div className="mt-6 border border-outline-variant bg-white p-5 shadow-sm">
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-headline text-base font-bold text-slate-900">Need more help?</h2>

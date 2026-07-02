@@ -73,7 +73,7 @@ export default function Search() {
       query={query}
       showSearchHero={false}
     >
-      <div className="mb-6 border border-outline-variant bg-white p-6 shadow-sm">
+      <div className="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
@@ -96,7 +96,7 @@ export default function Search() {
         </div>
       </div>
 
-      <div className="mb-6 border border-outline-variant bg-white p-4 shadow-sm">
+      <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary">search</span>
           <input
@@ -104,13 +104,13 @@ export default function Search() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search articles, topics, and keywords..."
-            className="w-full border border-outline-variant py-3 pl-10 pr-4 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full border border-slate-200 py-3 pl-10 pr-4 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-        <span className="rounded-none border border-outline-variant bg-surface-container-low px-3 py-1 font-label font-semibold uppercase tracking-[0.14em] text-slate-700">
+        <span className="rounded-none border border-slate-200 bg-surface-container-low px-3 py-1 font-label font-semibold uppercase tracking-[0.14em] text-slate-700">
           {hasSearched ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'Ready to search'}
         </span>
         <span>Search covers content, categories, and tags.</span>
@@ -143,13 +143,13 @@ export default function Search() {
               </Link>
               <Link
                 href={route('helpdesk.search') + '?q=' + encodeURIComponent(query)}
-                className="rounded-none border border-outline-variant bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
               >
                 Retry search
               </Link>
               <Link
                 href={route('contact')}
-                className="rounded-none border border-outline-variant bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
               >
                 Contact support
               </Link>
@@ -172,7 +172,7 @@ export default function Search() {
                 </Link>
                 <Link
                   href={route('contact')}
-                  className="rounded-none border border-outline-variant bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                  className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
                 >
                   Contact support
                 </Link>
@@ -191,7 +191,7 @@ export default function Search() {
                   <Link
                     key={category.id}
                     href={`/helpdesk?category=${category.slug}`}
-                    className="inline-flex items-center gap-2 rounded-none border border-outline-variant bg-white px-3 py-1.5 font-label text-xs font-medium text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
+                    className="inline-flex items-center gap-2 rounded-none border border-slate-200 bg-white px-3 py-1.5 font-label text-xs font-medium text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
                   >
                     {category.icon && (
                       <span className="material-symbols-outlined text-sm text-slate-400">

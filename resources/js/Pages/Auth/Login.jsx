@@ -227,7 +227,7 @@ export default function Login({ status, canResetPassword }) {
             <main className="min-h-dvh pt-[72px] flex flex-col">
                 <div className="flex-1 flex items-center justify-center p-8">
                     <div className="w-full max-w-5xl">
-                        <div className="flex flex-col lg:flex-row shadow-2xl bg-surface border border-outline-variant/30 overflow-hidden">
+                        <div className="flex flex-col lg:flex-row rounded-lg shadow-2xl bg-surface border border-slate-200 border-l-0 overflow-hidden">
 
                         {/* Left: Branding */}
                         <div className="lg:w-1/2 relative min-h-[500px] flex flex-col justify-center text-white overflow-hidden">
@@ -260,11 +260,21 @@ export default function Login({ status, canResetPassword }) {
 
                         {/* Right: Form */}
                         <div className="lg:w-1/2 p-10 lg:p-14 bg-surface">
+                            <div className="mx-auto flex h-[560px] max-w-md flex-col justify-center">
                             {step === 'login' && (
-                                <div className="max-w-md mx-auto">
-                                    <div className="mb-8 flex items-center gap-3 border-b border-outline-variant pb-4">
-                                        <span className="material-symbols-outlined text-primary text-2xl">lock_open</span>
-                                        <h2 className="font-headline text-xl font-bold">Sign In</h2>
+                                <div>
+                                    <div className="mb-8">
+                                        <span className="material-symbols-outlined mb-4 block text-primary text-[32px]">
+                                            lock
+                                        </span>
+
+                                        <h2 className="font-headline text-2xl font-bold text-slate-900">
+                                            Sign In
+                                        </h2>
+
+                                        <p className="mt-2 text-sm text-slate-500">
+                                            Sign in using your government account credentials.
+                                        </p>
                                     </div>
 
                                     <form onSubmit={handleLoginSubmit} className="space-y-6">
@@ -332,10 +342,12 @@ export default function Login({ status, canResetPassword }) {
                             {step === 'otp' && (
                                 <div className="max-w-md mx-auto text-center">
                                     <div className="mb-10 flex flex-col items-center gap-4">
-                                        <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/15 bg-primary/10 text-primary">
                                             <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>verified_user</span>
                                         </div>
-                                        <h2 className="font-headline text-2xl font-black uppercase text-primary">OTP SENT</h2>
+                                        <h2 className="font-headline text-2xl font-bold text-slate-900">
+                                            Verify Your Identity
+                                        </h2>
                                         <p className="text-sm text-on-surface-variant leading-relaxed">
                                             For security, enter the 6-digit verification code sent to <span className="font-bold text-on-surface">{hint}</span>
                                         </p>
@@ -524,6 +536,7 @@ export default function Login({ status, canResetPassword }) {
                                 </div>
                             )}
 
+                            </div>
                         </div>
                     </div>
                 </div>

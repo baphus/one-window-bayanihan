@@ -37,7 +37,7 @@ export default function DashboardBanner({ onSkip, onDismiss }) {
     }
 
     return (
-        <div className="mb-6 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50 p-4 shadow-sm">
+        <div className="mb-6 rounded-md border border-indigo-200 bg-indigo-50 p-4">
             <div className="flex items-start gap-4">
                 <div className="shrink-0 rounded-full bg-indigo-100 p-2">
                     <UserCircle className="h-6 w-6 text-indigo-600" />

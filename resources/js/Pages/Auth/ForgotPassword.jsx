@@ -41,7 +41,7 @@ export default function ForgotPassword({ status }) {
                 </div>
 
                 <div className="relative z-10 mx-auto -mt-32 mb-24 w-full max-w-6xl px-4 lg:px-8">
-                    <div className="flex flex-col lg:flex-row shadow-2xl bg-surface border border-outline-variant/30 overflow-hidden">
+                    <div className="flex flex-col lg:flex-row rounded-lg shadow-2xl bg-surface border border-slate-200 overflow-hidden">
 
                         {/* Left: Branding */}
                         <div className="lg:w-2/5 relative min-h-[500px] flex flex-col justify-center text-white overflow-hidden">
@@ -75,7 +75,7 @@ export default function ForgotPassword({ status }) {
                         {/* Right: Form */}
                         <div className="lg:w-3/5 p-10 lg:p-14 bg-surface">
                             <div className="max-w-md mx-auto">
-                                <div className="mb-8 flex items-center gap-3 border-b border-outline-variant pb-4">
+                                <div className="mb-8 flex items-center gap-3 border-b border-slate-200 pb-4">
                                     <span className="material-symbols-outlined text-primary text-2xl">lock_reset</span>
                                     <h2 className="font-headline text-xl font-bold">Reset Password</h2>
                                 </div>

@@ -4,7 +4,7 @@ export default function Breadcrumbs({ items }) {
   if (!items?.length) return null;
 
   return (
-    <nav className="mb-6 flex items-center gap-1.5 border-b border-outline-variant pb-3 text-xs text-slate-500">
+    <nav className="mb-6 flex items-center gap-1.5 border-b border-slate-200 pb-3 text-xs text-slate-500">
       <Link href={route('helpdesk.index')} className="font-label uppercase tracking-[0.14em] transition-colors hover:text-primary">
         Home
       </Link>

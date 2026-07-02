@@ -8,7 +8,7 @@ export default function TagBadge({ tag, tagName, href, active }) {
     'inline-flex rounded-none px-2.5 py-0.5 font-label text-[11px] font-medium uppercase tracking-[0.12em] transition-colors',
     active
       ? 'bg-primary text-white'
-      : 'border border-outline-variant bg-surface-container-low text-slate-600 hover:border-primary/30 hover:text-primary'
+      : 'border border-slate-200 bg-surface-container-low text-slate-600 hover:border-primary/30 hover:text-primary'
   );
 
   if (href) {
