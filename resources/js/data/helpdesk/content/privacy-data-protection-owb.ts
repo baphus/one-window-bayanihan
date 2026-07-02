@@ -98,5 +98,4 @@ If you believe your privacy has been violated:
 
 > **The protection of your personal data is our priority. We are committed to handling your information with the utmost care and in full compliance with the law.**
 `;
-
 export default content;

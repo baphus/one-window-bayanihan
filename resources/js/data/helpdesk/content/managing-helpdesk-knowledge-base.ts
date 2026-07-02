@@ -91,5 +91,4 @@ Users can rate articles as helpful or not helpful:
 - Monitor feedback to identify gaps in coverage
 - Cross-link related articles for easy navigation
 `;
-
 export default content;

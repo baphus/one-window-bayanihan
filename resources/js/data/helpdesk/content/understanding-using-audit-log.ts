@@ -101,5 +101,4 @@ If a case record is modified unexpectedly:
 - Use audit data for **training** — identify common errors
 - Retain logs according to **data privacy requirements**
 `;
-
 export default content;

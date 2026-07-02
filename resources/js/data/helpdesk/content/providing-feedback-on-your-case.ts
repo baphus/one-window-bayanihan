@@ -56,5 +56,4 @@ Your feedback is kept confidential. It is used for statistical and quality impro
 
 > **Thank you:** By taking a few minutes to provide feedback, you are helping improve services for all OFWs and their families.
 `;
-
 export default content;

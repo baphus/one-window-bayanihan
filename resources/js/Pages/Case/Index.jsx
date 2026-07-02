@@ -71,9 +71,10 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function CaseIndex({ cases, filters, stats, users = [], agencies = [], categories = [] }) {
+export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [] }) {
   const { auth } = usePage().props;
   const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
+  const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [viewMode, setViewMode] = useState('list');

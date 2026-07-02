@@ -1,4 +1,26 @@
 import type { HelpdeskArticle } from "./types";
+import gettingStartedCaseManagers from "./content/getting-started-case-managers";
+import gettingStartedAgencyFocal from "./content/getting-started-agency-focal";
+import gettingStartedSystemAdmin from "./content/getting-started-system-admin";
+import usingPublicTrackingPortal from "./content/using-public-tracking-portal";
+import providingFeedbackOnYourCase from "./content/providing-feedback-on-your-case";
+import understandingCaseStatusesTrackerNumbers from "./content/understanding-case-statuses-tracker-numbers";
+import ofwAssistanceServicesAvailable from "./content/ofw-assistance-services-available";
+import caseDocumentationBestPractices from "./content/case-documentation-best-practices";
+import usingDashboardDailyMonitoring from "./content/using-dashboard-daily-monitoring";
+import caseClosureChecklistProcedures from "./content/case-closure-checklist-procedures";
+import managingOverdueReferrals from "./content/managing-overdue-referrals";
+import managingYourAgencyServicesProfile from "./content/managing-your-agency-services-profile";
+import addingMilestonesReferralsCompleteGuide from "./content/adding-milestones-referrals-complete-guide";
+import bestPracticesTimelyReferralProcessing from "./content/best-practices-timely-referral-processing";
+import communicationGuidelinesInterAgency from "./content/communication-guidelines-inter-agency";
+import managingHelpdeskKnowledgeBase from "./content/managing-helpdesk-knowledge-base";
+import understandingUsingAuditLog from "./content/understanding-using-audit-log";
+import configuringSystemSettingsAiChatbot from "./content/configuring-system-settings-ai-chatbot";
+import monitoringQueueJobsSystemHealth from "./content/monitoring-queue-jobs-system-health";
+import privacyDataProtectionOwb from "./content/privacy-data-protection-owb";
+import glossaryOfTerms from "./content/glossary-of-terms";
+import troubleshootingCommonIssues from "./content/troubleshooting-common-issues";
 
 // ---------------------------------------------------------------------------
 // Category slug → ID mapping (from categories.ts)
@@ -53,7 +75,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "getting-started-case-managers",
     excerpt:
       "A comprehensive onboarding guide for Case Managers covering login, dashboard navigation, case creation, referral management, and daily workflow routines.",
-    content: "",
+    content: gettingStartedCaseManagers,
     categoryId: CATEGORY["cm-workflow"],
     tagIds: [TAG["onboarding"], TAG["training"], TAG["cases"]],
     featured: true,
@@ -65,7 +87,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "getting-started-agency-focal",
     excerpt:
       "Step-by-step onboarding guide for Agency Focal Persons on dashboard navigation, referral acceptance, milestone tracking, and inter-agency communication.",
-    content: "",
+    content: gettingStartedAgencyFocal,
     categoryId: CATEGORY["referral-processing"],
     tagIds: [TAG["onboarding"], TAG["training"], TAG["referrals"]],
     featured: true,
@@ -77,7 +99,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "getting-started-system-admin",
     excerpt:
       "Administrator onboarding guide covering user management, agency registration, service configuration, system settings, helpdesk CMS, and audit log basics.",
-    content: "",
+    content: gettingStartedSystemAdmin,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["onboarding"], TAG["training"], TAG["troubleshooting"]],
     featured: true,
@@ -92,7 +114,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "using-public-tracking-portal",
     excerpt:
       "Guide for OFWs on how to use the public tracking portal to monitor case status using a tracker number and OTP verification.",
-    content: "",
+    content: usingPublicTrackingPortal,
     categoryId: CATEGORY["case-submission"],
     tagIds: [TAG["tracking"], TAG["cases"]],
     featured: false,
@@ -104,7 +126,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "providing-feedback-on-your-case",
     excerpt:
       "Learn how to provide feedback and rate the service you received after your case is closed, including the SERVQUAL evaluation dimensions.",
-    content: "",
+    content: providingFeedbackOnYourCase,
     categoryId: CATEGORY["ofw-rights"],
     tagIds: [TAG["cases"], TAG["documents"]],
     featured: false,
@@ -116,7 +138,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "understanding-case-statuses-tracker-numbers",
     excerpt:
       "Learn the difference between internal case numbers and public tracker numbers, and understand what each case and referral status means.",
-    content: "",
+    content: understandingCaseStatusesTrackerNumbers,
     categoryId: CATEGORY["case-submission"],
     tagIds: [TAG["tracking"], TAG["cases"]],
     featured: false,
@@ -128,7 +150,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "ofw-assistance-services-available",
     excerpt:
       "Overview of the full range of assistance services available through DMW Region VII and its partner agencies including OWWA, DOLE, TESDA, DSWD, and DOH.",
-    content: "",
+    content: ofwAssistanceServicesAvailable,
     categoryId: CATEGORY["ofw-assistance"],
     tagIds: [TAG["repatriation"], TAG["documents"], TAG["cases"]],
     featured: false,
@@ -143,7 +165,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "case-documentation-best-practices",
     excerpt:
       "Best practices for writing effective case summaries, organizing uploaded documents, maintaining a complete audit trail, and avoiding common documentation pitfalls.",
-    content: "",
+    content: caseDocumentationBestPractices,
     categoryId: CATEGORY["cm-workflow"],
     tagIds: [TAG["cases"], TAG["documents"], TAG["compliance"]],
     featured: false,
@@ -155,7 +177,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "using-dashboard-daily-monitoring",
     excerpt:
       "Learn how to use the dashboard KPIs, recent cases list, pending referrals, and case trends chart for effective daily monitoring and workflow management.",
-    content: "",
+    content: usingDashboardDailyMonitoring,
     categoryId: CATEGORY["cm-workflow"],
     tagIds: [TAG["cases"], TAG["tracking"], TAG["compliance"]],
     featured: false,
@@ -167,7 +189,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "case-closure-checklist-procedures",
     excerpt:
       "Complete checklist for closing cases including pre-closure verification, required documentation, the closure process, and post-closure client feedback procedures.",
-    content: "",
+    content: caseClosureChecklistProcedures,
     categoryId: CATEGORY["referrals-escalations"],
     tagIds: [TAG["cases"], TAG["compliance"], TAG["escalation"]],
     featured: false,
@@ -179,7 +201,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "managing-overdue-referrals",
     excerpt:
       "Guide for Case Managers on monitoring overdue referrals, sending reminders, escalating chronic delays, and using SLA tracking to improve agency performance.",
-    content: "",
+    content: managingOverdueReferrals,
     categoryId: CATEGORY["referrals-escalations"],
     tagIds: [TAG["referrals"], TAG["escalation"], TAG["tracking"]],
     featured: false,
@@ -194,7 +216,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "managing-your-agency-services-profile",
     excerpt:
       "Guide for agency focal persons on managing service offerings, setting realistic SLA processing days, and keeping service listings accurate for better referral matching.",
-    content: "",
+    content: managingYourAgencyServicesProfile,
     categoryId: CATEGORY["referral-processing"],
     tagIds: [TAG["referrals"], TAG["onboarding"], TAG["compliance"]],
     featured: false,
@@ -206,7 +228,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "adding-milestones-referrals-complete-guide",
     excerpt:
       "Complete guide on adding milestones to referrals including when to add them, how to write effective entries, frequency best practices, and example timelines.",
-    content: "",
+    content: addingMilestonesReferralsCompleteGuide,
     categoryId: CATEGORY["referral-processing"],
     tagIds: [TAG["referrals"], TAG["tracking"], TAG["compliance"]],
     featured: false,
@@ -218,7 +240,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "best-practices-timely-referral-processing",
     excerpt:
       "Daily checklist and best practices for agency focal persons to ensure timely referral processing, including prioritization, proactive communication, and caseload management.",
-    content: "",
+    content: bestPracticesTimelyReferralProcessing,
     categoryId: CATEGORY["coordination-communication"],
     tagIds: [TAG["referrals"], TAG["compliance"], TAG["training"]],
     featured: false,
@@ -230,7 +252,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "communication-guidelines-inter-agency",
     excerpt:
       "Professional communication standards for inter-agency coordination including referral comments, escalation protocols, and conflict resolution procedures.",
-    content: "",
+    content: communicationGuidelinesInterAgency,
     categoryId: CATEGORY["coordination-communication"],
     tagIds: [TAG["referrals"], TAG["escalation"], TAG["compliance"]],
     featured: false,
@@ -245,7 +267,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "managing-helpdesk-knowledge-base",
     excerpt:
       "Guide for administrators on managing the helpdesk knowledge base including creating articles with markdown, organizing by categories and tags, and managing revisions.",
-    content: "",
+    content: managingHelpdeskKnowledgeBase,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["training"], TAG["troubleshooting"], TAG["onboarding"]],
     featured: false,
@@ -257,7 +279,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "understanding-using-audit-log",
     excerpt:
       "Guide to the system audit log covering what events are recorded, how to filter and search logs, and how to use audit data for security monitoring and compliance.",
-    content: "",
+    content: understandingUsingAuditLog,
     categoryId: CATEGORY["user-account-management"],
     tagIds: [TAG["troubleshooting"], TAG["compliance"]],
     featured: false,
@@ -269,7 +291,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "configuring-system-settings-ai-chatbot",
     excerpt:
       "Guide for administrators on configuring system settings including OTP debug mode, session timeout, file upload limits, and the AI chatbot provider setup.",
-    content: "",
+    content: configuringSystemSettingsAiChatbot,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["troubleshooting"], TAG["onboarding"]],
     featured: false,
@@ -281,7 +303,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "monitoring-queue-jobs-system-health",
     excerpt:
       "Guide for administrators on monitoring queue health, managing failed jobs, checking system health metrics, and maintaining optimal system performance.",
-    content: "",
+    content: monitoringQueueJobsSystemHealth,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["troubleshooting"], TAG["onboarding"], TAG["compliance"]],
     featured: false,
@@ -296,7 +318,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "privacy-data-protection-owb",
     excerpt:
       "Overview of data privacy and protection practices in the system under RA 10173, including data collected, encryption standards, access controls, and user rights.",
-    content: "",
+    content: privacyDataProtectionOwb,
     categoryId: CATEGORY["faq"],
     tagIds: [TAG["compliance"], TAG["documents"]],
     featured: false,
@@ -308,7 +330,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "glossary-of-terms",
     excerpt:
       "Comprehensive glossary of terms, acronyms, and definitions used throughout the One Window Bayanihan system.",
-    content: "",
+    content: glossaryOfTerms,
     categoryId: CATEGORY["faq"],
     tagIds: [TAG["training"], TAG["onboarding"]],
     featured: false,
@@ -320,7 +342,7 @@ export const articles: HelpdeskArticle[] = [
     slug: "troubleshooting-common-issues",
     excerpt:
       "Solutions for common issues including login problems, OTP delivery failures, document upload errors, dashboard loading issues, and notification troubleshooting.",
-    content: "",
+    content: troubleshootingCommonIssues,
     categoryId: CATEGORY["faq"],
     tagIds: [TAG["troubleshooting"], TAG["onboarding"]],
     featured: false,

@@ -92,5 +92,4 @@ Keep your agency profile accurate:
 - Communicate **delays proactively** — do not wait for the Case Manager to ask
 - Keep your service listings **accurate and up to date**
 `;
-
 export default content;

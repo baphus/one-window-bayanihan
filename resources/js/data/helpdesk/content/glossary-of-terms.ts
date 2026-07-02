@@ -110,5 +110,4 @@ This glossary provides definitions for terms, acronyms, and abbreviations used t
 
 **UUID.** A Universally Unique Identifier used as the primary key for most database records in the system.
 `;
-
 export default content;

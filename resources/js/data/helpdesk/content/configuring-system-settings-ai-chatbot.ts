@@ -103,5 +103,4 @@ After making configuration changes:
 - Review all settings during quarterly system audits
 - Keep API keys secure and rotate them periodically
 `;
-
 export default content;

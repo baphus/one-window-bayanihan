@@ -33,7 +33,7 @@ class ReferralController extends Controller
 
         return Inertia::render('Referral/Index', [
             'referrals' => $referrals,
-            'filters' => $request->only(['status', 'search', 'case_id', 'agcy_id']),
+            'filters' => (object) $request->only(['status', 'search', 'case_id', 'agcy_id']),
         ]);
     }
 

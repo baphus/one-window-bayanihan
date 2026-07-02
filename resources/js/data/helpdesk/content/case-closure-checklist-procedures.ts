@@ -95,5 +95,4 @@ Closed cases contribute to monthly performance metrics:
 - Forgetting to **notify the client** — inform them of the outcome
 - Skipping **document verification** — ensure all files are uploaded
 `;
-
 export default content;

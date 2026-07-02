@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import ArticleCard from '@/Components/Helpdesk/ArticleCard';
@@ -9,18 +10,35 @@ import { categories as allCategories } from '@/data/helpdesk/categories';
 import { tags as allTags } from '@/data/helpdesk/tags';
 
 export default function Index() {
-  const { auth } = usePage().props;
+  const { auth, category: categorySlug } = usePage().props;
   const user = auth?.user;
 
-  // ── Resolve category name/icon for each article ────────────────────────────
-  const articlesWithCategory = allArticles.map((article) => {
-    const category = allCategories.find((c) => c.id === article.categoryId);
-    return {
-      ...article,
-      updated_at: article.publishedAt,
-      category: category ? { name: category.name, icon: category.icon } : undefined,
-    };
-  });
+  // ── Resolve category name/icon for each article, with optional category filter ─
+  const articlesWithCategory = useMemo(() => {
+    let filtered = allArticles;
+
+    if (categorySlug) {
+      const cat = allCategories.find((c) => c.slug === categorySlug);
+      if (cat) {
+        const descendantIds = [
+          cat.id,
+          ...allCategories.filter((c) => c.parentId === cat.id).map((c) => c.id),
+        ];
+        filtered = allArticles.filter((a) => descendantIds.includes(a.categoryId));
+      } else {
+        filtered = [];
+      }
+    }
+
+    return filtered.map((article) => {
+      const category = allCategories.find((c) => c.id === article.categoryId);
+      return {
+        ...article,
+        updated_at: article.publishedAt,
+        category: category ? { name: category.name, icon: category.icon } : undefined,
+      };
+    });
+  }, [categorySlug, allArticles, allCategories]);
 
   // ── Featured articles (3 with featured: true) ──────────────────────────────
   const featuredArticles = articlesWithCategory.filter((a) => a.featured);
@@ -30,7 +48,6 @@ export default function Index() {
   const recentArticles = [...nonFeatured].sort(
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
-  const popularArticles = nonFeatured;
 
   // ── Build hierarchical categories with article counts ──────────────────────
   const parentCategories = allCategories.filter((c) => c.parentId === null);
@@ -86,6 +103,35 @@ export default function Index() {
           </div>
         )}
       </div>
+
+      {categorySlug && (() => {
+          const cat = allCategories.find((c) => c.slug === categorySlug);
+          if (!cat) {
+            return (
+              <div className="mb-8 rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
+                <span className="material-symbols-outlined text-3xl text-slate-300 mb-2">folder_off</span>
+                <h2 className="text-lg font-semibold text-slate-900">Category not found</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  The category you are looking for does not exist.
+                </p>
+                <a href="/helpdesk" className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+                  Browse all articles
+                </a>
+              </div>
+            );
+          }
+          return (
+            <div className="mb-8">
+              <div className="mb-1 flex items-center gap-2">
+                {cat.icon && (
+                  <span className="material-symbols-outlined text-xl text-slate-500">{cat.icon}</span>
+                )}
+                <h1 className="text-xl font-bold text-slate-900">{cat.name}</h1>
+              </div>
+              {cat.description && <p className="text-sm text-slate-500">{cat.description}</p>}
+            </div>
+          );
+        })()}
 
       {featuredArticles.length > 0 && (
         <section className="mb-10">
@@ -149,18 +195,7 @@ export default function Index() {
           </section>
         )}
 
-        {popularArticles.length > 0 && (
-          <section>
-            <h2 className="mb-3 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
-              Most Popular
-            </h2>
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              {popularArticles.map((article) => (
-                <ArticleCard key={article.id} article={article} variant="compact" />
-              ))}
-            </div>
-          </section>
-        )}
+
       </div>
 
       {allTags.length > 0 && (

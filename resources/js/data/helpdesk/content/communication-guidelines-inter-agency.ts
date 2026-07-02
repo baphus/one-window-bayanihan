@@ -99,5 +99,4 @@ At each step, document:
 - What was agreed or decided
 - Any outstanding issues
 `;
-
 export default content;

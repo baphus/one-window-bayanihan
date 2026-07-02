@@ -40,7 +40,7 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => $request->only($filterKeys),
+            'filters' => (object) $request->only($filterKeys),
             'stats' => Inertia::lazy(fn () => $this->caseService->getCaseStats()),
             'users' => Inertia::lazy(fn () => User::select('id', 'name')->orderBy('name')->get()),
             'agencies' => Inertia::lazy(fn () => Agency::select('id', 'name')->orderBy('name')->get()),

@@ -154,7 +154,6 @@ For proactive monitoring:
 | Jobs not processing | Queue worker not running | Run queue:listen |
 | Jobs repeatedly failing | Code error or dependency issue | Check failed_jobs table |
 | Slow processing | High job volume or resource contention | Check server resources |
-| Memory errors | Job memory leak | Increase memory limit or fix job
+| Memory errors | Job memory leak | Increase memory limit or fix job |
 `;
-
 export default content;

@@ -72,5 +72,4 @@ Through the One Window Bayanihan system, OFWs can access:
 
 > **Note:** You do not need to visit multiple offices. The system handles inter-agency coordination on your behalf.
 `;
-
 export default content;

@@ -66,5 +66,4 @@ When services are accurate, Case Managers can:
 
 Accurate service listings benefit everyone: Case Managers work more efficiently, agencies receive relevant referrals, and clients get faster service.
 `;
-
 export default content;

@@ -105,5 +105,4 @@ Day 7 — Referral Completed
 - **Audit trail** — provides evidence of proper processing
 - **Performance tracking** — helps identify bottlenecks in workflows
 `;
-
 export default content;

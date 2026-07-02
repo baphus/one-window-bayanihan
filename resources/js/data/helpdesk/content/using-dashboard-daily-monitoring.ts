@@ -82,5 +82,4 @@ Some dashboard elements can be customized:
 - **Sort order** — change how recent cases are sorted
 - **Filters** — filter by case type, urgency, or agency
 `;
-
 export default content;

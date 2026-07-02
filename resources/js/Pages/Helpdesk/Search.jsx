@@ -54,7 +54,6 @@ export default function Search() {
   return (
     <HelpdeskLayout
       title={query ? `Search: ${query}` : 'Search Results'}
-      categories={categories}
       query={query}
       showSearchHero={false}
     >

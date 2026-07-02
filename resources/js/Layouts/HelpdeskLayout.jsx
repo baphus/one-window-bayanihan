@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 
 import ChatBot from '@/Components/ChatBot';
@@ -136,7 +136,7 @@ function CategoryNav({ categories, activeSlug }) {
   );
 }
 
-export default function HelpdeskLayout({ title, children, categories: _categories, activeSlug, query, showSearchHero }) {
+export default function HelpdeskLayout({ title, children, activeSlug, query, showSearchHero }) {
   // Always compute sidebar from the flat data module, not from the prop
   // (pages may pass a pre-computed parent-only tree which lacks child info)
   const { parentCategories } = useMemo(() => {
@@ -165,7 +165,7 @@ export default function HelpdeskLayout({ title, children, categories: _categorie
   }, [articles]);
 
   const handleSearch = (q) => {
-    window.location.href = '/helpdesk/search?q=' + encodeURIComponent(q);
+    router.visit('/helpdesk/search?q=' + encodeURIComponent(q));
   };
 
   return (

@@ -56,5 +56,4 @@ Every status change and significant action creates a **timeline entry**. This pr
 - **CLOSED** means your case is resolved — look for the feedback invitation
 - Each status change gives you visibility into how your case is progressing
 `;
-
 export default content;

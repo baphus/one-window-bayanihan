@@ -89,5 +89,4 @@ Group similar activities together: make all client calls in one block, process a
 ### Communicate Capacity
 If your caseload is too high, discuss with your supervisor. It is better to flag capacity issues than to let referrals accumulate unattended.
 `;
-
 export default content;

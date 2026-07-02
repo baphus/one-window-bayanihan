@@ -94,5 +94,4 @@ Use the **Audit Log** page to review activity. Filter by action type, module, us
 - Monitor the \`failed_jobs\` table for queue errors
 - Ensure \`php artisan storage:link\` has been run for file uploads
 `;
-
 export default content;

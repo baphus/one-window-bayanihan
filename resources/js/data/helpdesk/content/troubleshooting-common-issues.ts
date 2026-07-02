@@ -126,5 +126,4 @@ If none of these solutions resolve your issue:
 3. Mention what browser and operating system you are using
 4. Note the time the issue occurred — this helps with audit log investigation
 `;
-
 export default content;

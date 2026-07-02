@@ -10,7 +10,11 @@ import ToastProvider from '@/Components/ToastProvider';
 import OnboardingProvider from '@/Onboarding/OnboardingProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const reactRoots = new WeakMap<HTMLElement, ReturnType<typeof createRoot>>();
+const globalWithReactRoots = globalThis as typeof globalThis & {
+    __oneWindowReactRoots?: WeakMap<HTMLElement, ReturnType<typeof createRoot>>;
+};
+
+const reactRoots = globalWithReactRoots.__oneWindowReactRoots ??= new WeakMap<HTMLElement, ReturnType<typeof createRoot>>();
 
 const queryClient = new QueryClient({
     defaultOptions: {

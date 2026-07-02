@@ -84,5 +84,4 @@ Each case milestone should reference supporting documents:
 
 This creates a clear chain of evidence that supports every action taken on the case.
 `;
-
 export default content;

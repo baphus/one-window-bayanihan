@@ -51,7 +51,7 @@ class ClientController extends Controller
 
         return Inertia::render('Client/Index', [
             'clients' => $clients->paginate(15),
-            'filters' => $request->only(['search']),
+            'filters' => (object) $request->only(['search']),
         ]);
     }
 

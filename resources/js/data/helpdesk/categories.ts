@@ -1,4 +1,4 @@
-import type { HelpdeskCategory } from "./types";
+import type { HelpdeskArticle, HelpdeskCategory } from "./types";
 
 /**
  * All helpdesk categories extracted from HelpdeskSeeder.
@@ -140,3 +140,41 @@ export const categories: HelpdeskCategory[] = [
     sortOrder: 1,
   },
 ];
+
+export interface CategoryWithTree extends HelpdeskCategory {
+  children: (HelpdeskCategory & { articleCount: number })[];
+  articleCount: number;
+}
+
+/**
+ * Build a hierarchical category tree with article counts.
+ * Single source of truth for the helpdesk sidebar.
+ * Replaces duplicate logic previously in Index.jsx, Show.jsx, and HelpdeskLayout.jsx.
+ */
+export function buildCategoryTree(
+  catList: HelpdeskCategory[],
+  articles: HelpdeskArticle[],
+): CategoryWithTree[] {
+  const counts: Record<string, number> = {};
+  articles.forEach((a) => {
+    counts[a.categoryId] = (counts[a.categoryId] || 0) + 1;
+  });
+
+  const children = catList.filter((c) => c.parentId !== null);
+  const topLevel = catList.filter((c) => c.parentId === null);
+
+  return topLevel.map((parent) => ({
+    ...parent,
+    children: children
+      .filter((c) => c.parentId === parent.id)
+      .map((child) => ({
+        ...child,
+        articleCount: counts[child.id] || 0,
+      })),
+    articleCount:
+      (counts[parent.id] || 0) +
+      children
+        .filter((c) => c.parentId === parent.id)
+        .reduce((sum, child) => sum + (counts[child.id] || 0), 0),
+  }));
+}

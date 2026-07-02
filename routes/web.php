@@ -45,6 +45,7 @@ use App\Models\Agency;
 use App\Services\DashboardService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -317,9 +318,15 @@ Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
 Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
 
 Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
-    Route::get('/', fn () => inertia('Helpdesk/Index'))->name('index');
+    Route::get('/', function (Request $request) {
+        return inertia('Helpdesk/Index', [
+            'category' => $request->query('category'),
+        ]);
+    })->name('index');
     Route::get('/search', fn () => inertia('Helpdesk/Search'))->name('search');
-    Route::get('/{slug}', fn ($slug) => inertia('Helpdesk/Show', ['slug' => $slug]))->name('show');
+    Route::get('/{slug}', fn ($slug) => inertia('Helpdesk/Show', [
+        'slug' => $slug,
+    ]))->name('show');
 });
 
 Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware(['auth', 'verified', 'throttle:api-global'])->name('api.analytics');

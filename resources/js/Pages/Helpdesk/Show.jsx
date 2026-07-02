@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { usePage } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import MarkdownRenderer from '@/Components/Helpdesk/MarkdownRenderer';
 import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
@@ -8,23 +8,6 @@ import { formatDisplayDate } from '@/lib/utils';
 import { articles } from '@/data/helpdesk/articles';
 import { categories } from '@/data/helpdesk/categories';
 import { tags } from '@/data/helpdesk/tags';
-
-// ---------------------------------------------------------------------------
-// Build hierarchical category tree for HelpdeskLayout sidebar
-// ---------------------------------------------------------------------------
-const hierarchicalCategories = (() => {
-  const parents = categories.filter((c) => c.parentId === null);
-  return parents.map((parent) => {
-    const children = categories
-      .filter((c) => c.parentId === parent.id)
-      .map((child) => ({
-        ...child,
-        published_articles_count: articles.filter((a) => a.categoryId === child.id).length,
-      }));
-    const totalArticles = children.reduce((sum, c) => sum + c.published_articles_count, 0);
-    return { ...parent, children, total_articles: totalArticles };
-  });
-})();
 
 // ---------------------------------------------------------------------------
 // Build breadcrumb trail by walking the category's parentId chain
@@ -55,37 +38,19 @@ function computeRelated(article) {
 }
 
 export default function Show() {
-  // ── Derive slug from the URL path ──────────────────────────────────────────
-  const slug = window.location.pathname.replace('/helpdesk/', '').split('/')[0] || '';
+  // ── Read slug from Inertia page props ──────────────────────────────────────
+  const { slug } = usePage().props;
 
   // ── Look up article by slug ────────────────────────────────────────────────
   const article = articles.find((a) => a.slug === slug);
 
-  // ── Lazy-load markdown content via dynamic import ──────────────────────────
-  const [content, setContent] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!article) return;
-
-    setLoading(true);
-    setContent(null);
-
-    import(/* @vite-ignore */ `@/data/helpdesk/content/${slug}.ts`)
-      .then((mod) => {
-        setContent(mod.default);
-        setLoading(false);
-      })
-      .catch(() => {
-        setContent(null);
-        setLoading(false);
-      });
-  }, [slug, article]);
+  // ── Article content ────────────────────────────────────────────────────────
+  const content = article?.content || null;
 
   // ── 404: article not found ─────────────────────────────────────────────────
   if (!article) {
     return (
-      <HelpdeskLayout title="Article Not Found" categories={hierarchicalCategories}>
+      <HelpdeskLayout title="Article Not Found">
         <div className="flex flex-col items-center justify-center py-16">
           <span className="material-symbols-outlined text-4xl text-slate-300 mb-4">
             search_off
@@ -122,7 +87,6 @@ export default function Show() {
   return (
     <HelpdeskLayout
       title={article.title}
-      categories={hierarchicalCategories}
       activeSlug={category?.slug}
     >
       <Breadcrumbs items={breadcrumbItems} />
@@ -150,7 +114,7 @@ export default function Show() {
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
             <span>Published {formatDisplayDate(article.publishedAt)}</span>
-            {!loading && content && <span>{readTime} min read</span>}
+            {content && <span>{readTime} min read</span>}
           </div>
 
           {article.excerpt && (
@@ -169,18 +133,9 @@ export default function Show() {
           </div>
         )}
 
-        {/* Lazy-loaded markdown content */}
+        {/* Markdown content */}
         <div className="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-primary" />
-              <span className="ml-3 text-sm text-slate-400">
-                Loading content...
-              </span>
-            </div>
-          ) : (
-            <MarkdownRenderer content={content} />
-          )}
+          <MarkdownRenderer content={content} />
         </div>
       </article>
 

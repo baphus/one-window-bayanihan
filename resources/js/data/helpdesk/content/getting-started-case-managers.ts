@@ -87,5 +87,4 @@ A productive daily routine looks like this:
 - Use **referral milestone updates** to track agency progress
 - Flag cases needing attention using the **priority indicators**
 `;
-
 export default content;

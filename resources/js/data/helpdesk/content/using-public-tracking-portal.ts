@@ -68,5 +68,4 @@ Some internal notes are not visible to the public. Only milestone events and sta
 
 If you have trouble with the tracking portal, contact the DMW Region VII hotline or visit the office in person.
 `;
-
 export default content;
