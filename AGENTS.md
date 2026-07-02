@@ -19,25 +19,43 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 | `npm test` | Vitest (watch mode) — JS unit tests in jsdom |
 | `npm run test:run` | Vitest single run |
 | `npm run test:e2e` | Playwright E2E tests (starts `php artisan serve` automatically) |
+| `npm run addresses:sync` | Sync Philippine address data (PSGC) |
 
 ## Entrypoints & Layouts
 
 - **App entry (Vite):** `resources/js/app.tsx`
 - **Auth routes:** `routes/auth.php` — custom OTP 2FA login (`LoginOtpController`), not default Breeze
 - **App routes:** `routes/web.php` — all authenticated pages. Includes inline `api/*` routes (session-authenticated, not Laravel API routes)
+- **Public API routes:** `routes/api.php` — public Philippine address lookups (PSGC), no auth required, throttled 60/min
 - **Main app layout:** `resources/js/Layouts/AppLayout.jsx` (sidebar). Also `AuthenticatedLayout.jsx` (top nav) and `GuestLayout.jsx` (auth pages)
+- **Helpdesk layout:** `resources/js/Layouts/HelpdeskLayout.jsx` (public-facing helpdesk)
+- **Error pages:** Inertia components at `resources/js/Pages/Errors/` — NotFound, Forbidden, ServerError, TooManyRequests
 - **Path alias:** `@/` → `resources/js/` (tsconfig.json + vite.config.js)
 
 ## Backend Architecture
 
 - **Controllers** → **Services** (`app/Services/*`) → **Models** (UUID PKs, `UsesUuid` trait, `SoftDeleteFlag` flag-based soft deletes)
+- Audit logging in Service layer: `AuditLog::log(module, action, model, userId)`. Models declare `$auditExclude` and `getAuditModuleName()` to control what gets logged.
 - Validation via Form Request classes (`app/Http/Requests/`)
-- RBAC via `CheckRole` middleware — reads `users.role` column. Usage: `role:ADMIN` or `role:CASE_MANAGER,ADMIN` (comma-separated for multi-role)
+- RBAC via `CheckRole` middleware — alias `role`, reads `users.role` column. Usage: `->middleware('role:ADMIN')` or `->middleware('role:CASE_MANAGER,ADMIN')`
 - Roles: `CASE_MANAGER`, `AGENCY`, `ADMIN`
 - Admin routes additionally gated by `ip.whitelist` middleware
+- Middleware configured in `bootstrap/app.php` (Laravel 11+), not `app/Http/Kernel.php`
+- Middleware aliases: `role` (CheckRole), `ip.whitelist` (IpWhitelist), `turnstile` (VerifyTurnstile)
+- Global middleware: `SetPostgresSession`, `LogContext`, `SecurityHeaders`. Web: `ContentSecurityPolicy`, `HandleInertiaRequests`.
 - Model traits in `app/Models/Concerns/`: `UsesUuid`, `SoftDeleteFlag`, `HasAvatar`
 - `route()` helper (Ziggy) available in JS — path alias `ziggy-js` in tsconfig.json
-- App is wrapped in `<ErrorBoundary>` + `<QueryClientProvider>` (TanStack React Query) + `<OnboardingProvider>` (driver.js)
+- App is wrapped in `<ErrorBoundary>` + `<QueryClientProvider>` (TanStack React Query, 5min stale time) + `<OnboardingProvider>` (driver.js)
+
+## UI Conventions
+
+- **Icons:** Material Symbols (`<span className="material-symbols-outlined">icon_name</span>`) is the primary icon system. `lucide-react` is in deps but rarely used.
+- **Styling:** Tailwind utility classes only — no CSS modules or styled-components. Design token colors in `tailwind.config.js` (primary: #005288, full Material 3 palette).
+- **Components:** Default exports, PascalCase filenames, `.jsx` extension (not `.tsx`).
+- **Forms:** Inertia `useForm()` for all mutations. `Link` / `router` for navigation.
+- **Font:** Public Sans (Google Fonts), loaded in `resources/views/app.blade.php`.
+- **Flash/Toast:** Any `->with('success', '...')` from backend auto-shows as toast. DO NOT add `seenRef` tracking — each navigation gives a new `props.flash` object. Files: `ToastProvider.jsx`, `useToast.jsx`, `HandleInertiaRequests.php`.
+- **Unsaved Changes:** All form pages use `useUnsavedChanges(dirty)` + `<UnsavedChangesModal>`. **Critical:** `router.on('before', handler)` receives a `CustomEvent` — access `event.detail.visit`, NOT the event directly.
 
 ## Test Suite
 
@@ -47,7 +65,7 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 | JS unit | Vitest 4 | `vitest.config.ts` | jsdom, setup: `resources/js/test-setup.ts` |
 | E2E | Playwright | `playwright.config.ts` | `testDir: resources/js/test/e2e`, auto-starts serve on port 8000 |
 
-**PHPUnit gotchas:** `phpunit.xml` overrides env for testing: `BROADCAST_CONNECTION=null`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`. Services using PostgreSQL functions (`to_char`, `EXTRACT`, `age` in `ReportsService`, `AnalyticsService`) require test data to exist in the test DB.
+**PHPUnit gotchas:** `phpunit.xml` overrides env for testing: `BROADCAST_CONNECTION=null`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`, `SUPABASE_S3_DRIVER=local` (fakes S3). Services using PostgreSQL functions (`to_char`, `EXTRACT`, `age` in `ReportsService`, `AnonymizedAnalyticsService`, `DashboardService`) require test data to exist in the test DB.
 
 ## Core Gotchas
 
@@ -68,9 +86,16 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 | **Unsaved Changes** | All form pages must use `useUnsavedChanges(dirty)` hook + `<UnsavedChangesModal>`. Hook in `resources/js/Hooks/useUnsavedChanges.jsx`, modal in `resources/js/Components/UnsavedChangesModal.jsx`. **CRITICAL: `router.on('before', handler)` receives a `CustomEvent` — access `event.detail.visit`, NOT the event directly. The callback must call `router.visit(visit.url, ...)` where `visit` comes from `event.detail.visit`.** |
 | **Middleware stack** | Auth routes use `turnstile` (Cloudflare Turnstile) + named throttle: `login`, `otp`, `totp-challenge`, `recovery-code`, `api-global`, `tracking`. Chatbot uses `throttle:30,1` |
 
+## Environment Quirks
+
+- **`.npmrc` has `ignore-scripts=true`** — `npm install` silently skips postinstall scripts. `composer run setup` passes `--ignore-scripts` explicitly.
+- **`package-lock.json` is canonical.** `bun.lock` exists but is stale — use npm, not bun.
+- **Bootstrap config:** Middleware, exceptions, and routing are configured in `bootstrap/app.php` (Laravel 11+ pattern), not `app/Http/Kernel.php`.
+- **Supabase S3 driver** uses `SUPABASE_S3_DRIVER` env var (default `s3`). In testing it's overridden to `local` to avoid network calls.
+
 ## Architecture Reference
 
-Detailed docs in `ARCHITECTURE.md` (633 lines with Mermaid diagrams) and `docs/` directory (13 files covering data model, API contracts, testing strategy, deployment, security, UI patterns).
+Detailed docs in `ARCHITECTURE.md` (633 lines with Mermaid diagrams) and `docs/` directory (13 files covering data model, API contracts, testing strategy, deployment, security, UI patterns). `instructions.md` is a stale GitHub Copilot reference — ignore it; the actual architecture follows patterns already documented here and in `docs/`.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

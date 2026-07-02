@@ -14,6 +14,7 @@ use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -26,6 +27,27 @@ class CaseService
     ) {}
 
     public function createCase(array $data, string $userId): CaseFile
+    {
+        $maxAttempts = 3;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return $this->createCaseInternal($data, $userId);
+            } catch (QueryException $e) {
+                // Retry on unique constraint violation (case_number or tracker_number collision)
+                if ($e->getCode() === '23505' && $attempt < $maxAttempts) {
+                    continue;
+                }
+
+                throw $e;
+            }
+        }
+
+        // Should never reach here
+        throw new \RuntimeException('Failed to create case after '.$maxAttempts.' attempts.');
+    }
+
+    private function createCaseInternal(array $data, string $userId): CaseFile
     {
         return DB::transaction(function () use ($data, $userId) {
             $createData = [
@@ -379,7 +401,7 @@ class CaseService
                     'middle_name' => $draftData['middle_name'] ?? null,
                     'suffix' => $draftData['suffix'] ?? null,
                     'date_of_birth' => $draftData['date_of_birth'] ?? null,
-                    'sex' => ! empty($draftData['sex']) ? $draftData['sex'] : null,
+                    'sex' => ! empty($draftData['sex']) ? strtoupper($draftData['sex']) : null,
                     'email' => $draftData['email'] ?? null,
                     'contact_number' => $draftData['contact_number'] ?? null,
                 ]);
@@ -502,6 +524,10 @@ class CaseService
 
         if (! empty($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);
+        }
+
+        if (! empty($filters['case_issue_id'])) {
+            $query->where('case_issue_id', $filters['case_issue_id']);
         }
 
         if (! empty($filters['agcy_id'])) {
@@ -884,9 +910,23 @@ class CaseService
     private function generateCaseNumber(): string
     {
         $date = now()->format('Ymd');
-        $count = CaseFile::whereDate('created_at', today())->count();
+        $prefix = "CASE-{$date}-";
 
-        return "CASE-{$date}-".str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        // Use PostgreSQL advisory lock to serialize case number generation for today
+        // This prevents duplicate case numbers under concurrent requests
+        $lockKey = crc32("case_number_{$date}");
+        DB::statement('SELECT pg_advisory_xact_lock(?)', [$lockKey]);
+
+        $maxCaseNumber = CaseFile::where('case_number', 'like', "{$prefix}%")
+            ->max('case_number');
+
+        if ($maxCaseNumber) {
+            $lastNumber = (int) substr($maxCaseNumber, -4);
+
+            return $prefix.str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        }
+
+        return "{$prefix}0001";
     }
 
     private function generateTrackerNumber(): string

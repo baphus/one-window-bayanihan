@@ -28,6 +28,10 @@ export function UnifiedTable({
   activeFilters = [],
   onRemoveFilter,
   onClearFilters,
+  quickFilters,
+  activeFilterCount = 0,
+  onSearchClear,
+  emptyStateMessage,
 
   currentPage = 1,
   totalPages = 1,
@@ -321,8 +325,17 @@ export function UnifiedTable({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="w-full h-full pl-10 pr-4 bg-white border border-[#cbd5e1] rounded-[2px] text-[14px] text-slate-600 placeholder-slate-400 outline-none focus:ring-1 focus:ring-[#0b5384] transition"
+              className="w-full h-full pl-10 pr-10 bg-white border border-[#cbd5e1] rounded-[2px] text-[14px] text-slate-600 placeholder-slate-400 outline-none focus:ring-1 focus:ring-[#0b5384] transition"
             />
+            {searchValue && onSearchClear && (
+              <button
+                type="button"
+                onClick={onSearchClear}
+                className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            )}
           </div>
           
           <div className="flex w-full flex-wrap items-center gap-3 pb-2 lg:w-auto lg:flex-nowrap lg:pb-0">
@@ -332,7 +345,11 @@ export function UnifiedTable({
                   onClick={onAdvancedFilters}
                   className="h-[40px] px-4 border border-[#cbd5e1] text-[14px] font-bold text-slate-600 rounded-[2px] bg-white flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors whitespace-nowrap relative"
                 >
-                  <span className="material-symbols-outlined text-[18px]">tune</span> Filters
+                  <span className="material-symbols-outlined text-[18px]">tune</span> Filters{activeFilterCount > 0 && (
+                    <span className="ml-1.5 bg-[#0b5384] text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full inline-flex items-center justify-center leading-none">
+                      {activeFilterCount}
+                    </span>
+                  )}
                 </button>
 
                 {isAdvancedFiltersOpen && advancedFiltersContent ? (
@@ -425,6 +442,12 @@ export function UnifiedTable({
                 Clear All
               </button>
             )}
+          </div>
+        )}
+
+        {quickFilters && (
+          <div className="px-5 py-3 border-b border-[#cbd5e1] bg-white flex items-center gap-2 flex-wrap">
+            {quickFilters}
           </div>
         )}
 

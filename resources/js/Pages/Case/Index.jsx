@@ -71,7 +71,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [] }) {
+export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
   const { auth } = usePage().props;
   const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
@@ -93,6 +93,15 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     return () => clearTimeout(searchTimeout.current);
   }, []);
 
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [filterOpen]);
+
   const updateTable = (params) => {
     const clean = Object.fromEntries(
       Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
@@ -101,7 +110,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       preserveState: true,
       preserveScroll: true,
       replace: true,
-      only: ['cases', 'filters'],
+      only: ['cases', 'filters', 'stats', 'users', 'agencies', 'categories', 'caseIssues'],
       showProgress: false,
     });
   };
@@ -142,8 +151,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       const cat = categories?.find(c => c.id === filters.category_id);
       chips.push({ key: 'category_id', label: 'Category', value: cat?.name || filters.category_id });
     }
+    if (filters?.case_issue_id) {
+      const issue = caseIssues?.find(c => c.id === filters.case_issue_id);
+      chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: issue?.name || filters.case_issue_id });
+    }
     return chips;
-  }, [filters, users, agencies, categories]);
+  }, [filters, users, agencies, categories, caseIssues]);
 
   const handleRemoveFilter = (filter) => {
     updateTable({ ...filters, [filter.key]: undefined, page: undefined });
@@ -157,6 +170,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       user_id: undefined,
       agcy_id: undefined,
       category_id: undefined,
+      case_issue_id: undefined,
       search: undefined,
       page: undefined,
     });
@@ -364,6 +378,16 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       }),
   [visibleColumns]);
 
+  const handleSearchClear = () => {
+    setSearchValue('');
+    clearTimeout(searchTimeout.current);
+    updateTable({ ...filters, search: undefined, page: undefined });
+  };
+
+  const handleStatusQuickFilter = (status) => {
+    updateTable({ ...filters, status: status || undefined, page: undefined });
+  };
+
   const advancedFilterContent = useMemo(() => (
     <div className="space-y-4">
       <div>
@@ -372,7 +396,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           value={filters?.status ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setFilterOpen(false);
             updateTable({ ...filters, status: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
@@ -389,7 +412,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           value={filters?.client_type ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setFilterOpen(false);
             updateTable({ ...filters, client_type: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
@@ -405,7 +427,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           value={filters?.vulnerability_indicator ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setFilterOpen(false);
             updateTable({ ...filters, vulnerability_indicator: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
@@ -425,7 +446,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           value={filters?.category_id ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setFilterOpen(false);
             updateTable({ ...filters, category_id: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
@@ -437,12 +457,27 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         </select>
       </div>
       <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Issue/Concern</label>
+        <select
+          value={filters?.case_issue_id ?? ''}
+          onChange={(e) => {
+            const val = e.target.value;
+            updateTable({ ...filters, case_issue_id: val || undefined, page: undefined });
+          }}
+          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+        >
+          <option value="">All Issues</option>
+          {caseIssues?.map((issue) => (
+            <option key={issue.id} value={issue.id}>{issue.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Author</label>
         <select
           value={filters?.user_id ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setFilterOpen(false);
             updateTable({ ...filters, user_id: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
@@ -459,7 +494,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           value={filters?.agcy_id ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            setFilterOpen(false);
             updateTable({ ...filters, agcy_id: val || undefined, page: undefined });
           }}
           className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
@@ -470,8 +504,50 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           ))}
         </select>
       </div>
+      <div className="border-t border-slate-200 pt-4 mt-4">
+        <button
+          type="button"
+          onClick={() => setFilterOpen(false)}
+          className="w-full h-[36px] bg-[#0b5384] text-white text-[13px] font-bold rounded-[2px] hover:bg-[#09416a] transition-colors"
+        >
+          Done
+        </button>
+      </div>
     </div>
-  ), [filters, users, agencies, categories]);
+  ), [filters, users, agencies, categories, caseIssues]);
+
+  const quickFilterPills = useMemo(() => {
+    const statuses = [
+      { label: 'All', value: '' },
+      { label: 'Open', value: 'OPEN' },
+      { label: 'Closed', value: 'CLOSED' },
+      { label: 'Archived', value: 'ARCHIVED' },
+    ];
+    const currentStatus = filters?.status ?? '';
+
+    return (
+      <div className="flex items-center gap-1.5" role="group" aria-label="Quick status filters">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
+        {statuses.map((s) => {
+          const isActive = currentStatus === s.value || (!currentStatus && s.value === '');
+          return (
+            <button
+              key={s.label}
+              onClick={() => handleStatusQuickFilter(s.value || undefined)}
+              className={`px-3 py-1.5 text-[12px] font-bold rounded-[3px] transition-colors border ${
+                isActive
+                  ? 'bg-[#0b5384] text-white border-[#0b5384] shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+            >
+              {s.label}
+              {s.label === 'Archived' && stats?.archived_cases > 0 && ` (${stats.archived_cases})`}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }, [filters?.status, stats?.archived_cases]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -590,6 +666,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         searchValue={searchValue}
         searchPlaceholder="Search by tracking ID, client name, or client type..."
         onSearchChange={handleSearchChange}
+        onSearchClear={handleSearchClear}
         onAdvancedFilters={() => setFilterOpen((v) => { setColumnsOpen(false); return !v; })}
         isAdvancedFiltersOpen={filterOpen}
         advancedFiltersContent={advancedFilterContent}
@@ -601,34 +678,18 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         onNewRecord={canCreate ? () => router.visit(route('cases.create')) : undefined}
         newRecordLabel="Create Case"
         activeFilters={activeFilters}
+        activeFilterCount={activeFilters.length}
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
+        quickFilters={quickFilterPills}
         extraActions={
-          <>
-            <button
-              onClick={() => router.visit(route('cases.drafts'))}
-              className="h-[40px] px-4 border border-amber-300 text-[14px] font-bold text-amber-700 rounded-[3px] bg-amber-50 flex items-center gap-2 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0"
-            >
-              <span className="material-symbols-outlined text-[18px]">edit_note</span>
-              View Drafts
-            </button>
-            <button
-              onClick={() => {
-                const url = new URL(window.location);
-                if (filters?.status === 'ARCHIVED') {
-                  url.searchParams.delete('status');
-                } else {
-                  url.searchParams.set('status', 'ARCHIVED');
-                }
-                url.searchParams.delete('page');
-                router.get(url.toString(), {}, { preserveState: true, replace: true, showProgress: false, only: ['cases', 'filters'] });
-              }}
-              className="h-[40px] px-4 border border-gray-300 text-[14px] font-bold text-gray-700 rounded-[3px] bg-gray-50 flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap shrink-0"
-            >
-              <span className="material-symbols-outlined text-[18px]">archive</span>
-              {filters?.status === 'ARCHIVED' ? 'Active Cases' : `Archived${stats?.archived_cases > 0 ? ` (${stats.archived_cases})` : ''}`}
-            </button>
-          </>
+          <button
+            onClick={() => router.visit(route('cases.drafts'))}
+            className="h-[40px] px-4 border border-amber-300 text-[14px] font-bold text-amber-700 rounded-[3px] bg-amber-50 flex items-center gap-2 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0"
+          >
+            <span className="material-symbols-outlined text-[18px]">edit_note</span>
+            View Drafts
+          </button>
         }
       />
       </div>

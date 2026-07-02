@@ -29,7 +29,7 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
-        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'sort', 'direction', 'per_page'];
+        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'sort', 'direction', 'per_page'];
 
         $cases = $this->caseService->getCases(
             $request->only($filterKeys),
@@ -41,11 +41,11 @@ class CaseController extends Controller
         return Inertia::render('Case/Index', [
             'cases' => $cases,
             'filters' => (object) $request->only($filterKeys),
-            'stats' => Inertia::lazy(fn () => $this->caseService->getCaseStats()),
-            'users' => Inertia::lazy(fn () => User::select('id', 'name')->orderBy('name')->get()),
-            'agencies' => Inertia::lazy(fn () => Agency::select('id', 'name')->orderBy('name')->get()),
-            'categories' => Inertia::lazy(fn () => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name'])),
-            'caseIssues' => Inertia::lazy(fn () => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name'])),
+            'stats' => $this->caseService->getCaseStats(),
+            'users' => User::select('id', 'name')->orderBy('name')->get(),
+            'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
+            'categories' => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'caseIssues' => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
         ]);
     }
 
