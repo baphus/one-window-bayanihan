@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { useOnboarding } from './OnboardingProvider';
 import { useToast } from '@/Hooks/useToast';
 import { completeOnboarding } from './api';
 
 export default function TourManager() {
-    const { phase, tourConfig, endTour, currentPageIndex, advancePage } = useOnboarding();
+    const { phase, tourConfig, endTour, currentPageIndex, setCurrentPageIndex } = useOnboarding();
     const driverRef = useRef<ReturnType<typeof driver> | null>(null);
     const toast = useToast();
     const cleaningUpRef = useRef(false);
@@ -22,19 +22,39 @@ export default function TourManager() {
             return;
         }
 
-        const page = tourConfig.pages[currentPageIndex];
-        if (!page) {
-            endTour();
-            return;
-        }
-
-        const expectedPath = route(page.route);
+        // Find which page in the tour config matches the current URL.
+        // The tour follows the user as they navigate — no forced navigation.
         const currentPath = url.split('?')[0];
-        if (currentPath !== new URL(expectedPath, window.location.origin).pathname) {
-            router.visit(expectedPath, { preserveState: false });
+        const matchedIndex = tourConfig.pages.findIndex((p) => {
+            try {
+                const pageUrl = route(p.route);
+                const pagePath = pageUrl.startsWith('http')
+                    ? new URL(pageUrl).pathname
+                    : pageUrl;
+                return currentPath === pagePath;
+            } catch {
+                return false;
+            }
+        });
+
+        // If the current page isn't in the tour config, don't show any overlay.
+        // The tour stays active and will pick up when the user navigates to a tour page.
+        if (matchedIndex < 0) {
+            if (driverRef.current) {
+                driverRef.current.destroy();
+                driverRef.current = null;
+            }
             return;
         }
 
+        // Sync the context index with the URL-matched index if needed.
+        // This triggers a re-render so the effect re-runs with the correct index.
+        if (matchedIndex !== currentPageIndex) {
+            setCurrentPageIndex(matchedIndex);
+            return;
+        }
+
+        const page = tourConfig.pages[matchedIndex];
         const steps = page.steps.map((step) => ({
             element: step.element,
             popover: {
@@ -45,24 +65,7 @@ export default function TourManager() {
             },
         }));
 
-        if (steps.length === 0) {
-            if (currentPageIndex < tourConfig.pages.length - 1) {
-                const nextPage = tourConfig.pages[currentPageIndex + 1];
-                router.visit(route(nextPage.route), {
-                    preserveState: false,
-                    onFinish: () => {
-                        requestAnimationFrame(() => {
-                            advancePage();
-                        });
-                    },
-                });
-            } else {
-                endTour();
-            }
-            return;
-        }
-
-        const isLastPage = currentPageIndex === tourConfig.pages.length - 1;
+        const isLastPage = matchedIndex === tourConfig.pages.length - 1;
         let userCompleted = false;
 
         const driverObj = driver({
@@ -105,18 +108,10 @@ export default function TourManager() {
                             .catch(() => {
                                 endTour();
                             });
-                    } else {
-                        const nextPage = tourConfig.pages[currentPageIndex + 1];
-                        const removeListener = router.on('success', () => {
-                            if (typeof removeListener === 'function') removeListener();
-                            requestAnimationFrame(() => {
-                                advancePage();
-                            });
-                        });
-                        router.visit(route(nextPage.route), {
-                            preserveState: false,
-                        });
                     }
+                    // Not last page: user completed this page's steps.
+                    // No auto-navigation — the tour stays active and will
+                    // re-match when the user navigates naturally.
                 } else {
                     endTour();
                 }
@@ -155,7 +150,7 @@ export default function TourManager() {
 
             cleaningUpRef.current = false;
         };
-    }, [phase, tourConfig, endTour, toast, currentPageIndex, advancePage, url]);
+    }, [phase, tourConfig, endTour, toast, currentPageIndex, setCurrentPageIndex, url]);
 
     return null;
 }
