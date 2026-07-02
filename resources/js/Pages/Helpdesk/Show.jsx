@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import MarkdownRenderer from '@/Components/Helpdesk/MarkdownRenderer';
 import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
@@ -51,20 +51,20 @@ export default function Show() {
   if (!article) {
     return (
       <HelpdeskLayout title="Article Not Found">
-        <div className="flex flex-col items-center justify-center py-16">
-          <span className="material-symbols-outlined text-4xl text-slate-300 mb-4">
+        <div className="border border-dashed border-outline-variant bg-white py-16 text-center">
+          <span className="material-symbols-outlined mb-4 text-4xl text-primary/30">
             search_off
           </span>
-          <h2 className="text-lg font-semibold text-slate-900">Article not found</h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <h2 className="font-headline text-lg font-semibold text-slate-900">Article not found</h2>
+          <p className="mt-1 text-sm text-slate-500">
             The article you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
-          <a
+          <Link
             href="/helpdesk"
-            className="mt-4 text-sm font-medium text-primary hover:underline"
+            className="mt-4 inline-flex rounded-none border border-primary bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white"
           >
             Back to Help Center
-          </a>
+          </Link>
         </div>
       </HelpdeskLayout>
     );
@@ -92,12 +92,12 @@ export default function Show() {
       <Breadcrumbs items={breadcrumbItems} />
 
       <article>
-        <header className="mb-8">
+        <header className="mb-8 border-l-4 border-primary bg-white p-6 shadow-sm">
           {/* Category badge */}
           {category && (
-            <a
+            <Link
               href={`/helpdesk?category=${category.slug}`}
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors mb-3"
+              className="mb-3 inline-flex items-center gap-1 rounded-none bg-primary/10 px-3 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:bg-primary/20"
             >
               {category.icon && (
                 <span className="material-symbols-outlined text-sm">
@@ -105,20 +105,20 @@ export default function Show() {
                 </span>
               )}
               {category.name}
-            </a>
+            </Link>
           )}
 
-          <h1 className="text-2xl font-bold text-slate-900 leading-tight">
+          <h1 className="font-headline text-3xl font-bold leading-tight text-slate-900">
             {article.title}
           </h1>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <div className="mt-3 flex flex-wrap items-center gap-3 font-label text-[11px] uppercase tracking-[0.14em] text-slate-500">
             <span>Published {formatDisplayDate(article.publishedAt)}</span>
             {content && <span>{readTime} min read</span>}
           </div>
 
           {article.excerpt && (
-            <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600">
               {article.excerpt}
             </p>
           )}
@@ -134,7 +134,7 @@ export default function Show() {
         )}
 
         {/* Markdown content */}
-        <div className="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-10 border border-outline-variant bg-white p-6 shadow-sm">
           <MarkdownRenderer content={content} />
         </div>
       </article>
@@ -145,6 +145,23 @@ export default function Show() {
           <RelatedArticles currentArticle={article} allArticles={articles} />
         </div>
       )}
+
+      <div className="mt-6 border border-outline-variant bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-headline text-base font-bold text-slate-900">Need more help?</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Contact support if this article does not answer your question.
+            </p>
+          </div>
+          <Link
+            href={route('contact')}
+            className="inline-flex items-center justify-center rounded-none border border-primary bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f]"
+          >
+            Contact support
+          </Link>
+        </div>
+      </div>
     </HelpdeskLayout>
   );
 }

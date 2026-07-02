@@ -87,7 +87,7 @@ export default function TrackingVerify({ tracker_number, email, hint, debug_otp 
       <Head title="Verify OTP" />
       <AppHeader />
 
-      <main className="flex flex-1 items-center justify-center px-4 py-16">
+      <main className="flex flex-1 items-center justify-center px-4 pb-16 pt-36">
         <section className="w-full max-w-md rounded-2xl border border-outline-variant bg-surface p-6 sm:p-10 text-center shadow-lg">
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary-fixed">
             <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>verified_user</span>

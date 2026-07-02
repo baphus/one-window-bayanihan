@@ -32,7 +32,7 @@ export default function PublicAgencies({ agencies }) {
       <Head title="Partner Agencies" />
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
 
-      <main className="flex-1">
+      <main className="flex-1 pt-20">
         <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-[#0b5c92]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0b5c92] via-[#0b5c92]/90 to-blue-800/30"></div>
           <div className="relative z-10 mx-auto w-full max-w-7xl px-4 text-center md:px-8">

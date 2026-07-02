@@ -120,7 +120,7 @@ class ClientController extends Controller
         $client->avatar_url = $path;
         $client->save();
 
-        return redirect()->route('clients.show', $client)->with('success', 'Profile picture updated successfully.');
+        return redirect()->back()->with('success', 'Profile picture updated successfully.');
     }
 
     public function destroyAvatar(string $id, Request $request)
@@ -135,7 +135,7 @@ class ClientController extends Controller
         $client->avatar_url = null;
         $client->save();
 
-        return redirect()->route('clients.show', $client)->with('success', 'Profile picture removed successfully.');
+        return redirect()->back()->with('success', 'Profile picture removed successfully.');
     }
 
     public function exportExcel()

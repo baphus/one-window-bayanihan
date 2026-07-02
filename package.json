@@ -5,6 +5,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "addresses:sync": "node scripts/sync-philippine-addresses.cjs",
     "test": "vitest",
     "test:run": "vitest run",
     "test:e2e": "playwright test"

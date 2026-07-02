@@ -84,7 +84,6 @@ const navByRole = {
       { name: 'Database Backups', href: '/admin/system/backups', icon: 'backup' },
       { name: 'System Logs', href: '/admin/system/logs', icon: 'list_alt' },
       { name: 'Email Logs', href: '/admin/system/email-logs', icon: 'mail' },
-      { name: 'Philippine Addresses', href: '/admin/system/addresses', icon: 'map' },
     ]},
     { label: 'Administration', items: [
       { name: 'Scheduled Tasks', href: '/admin/system/scheduled-tasks', icon: 'schedule' },

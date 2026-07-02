@@ -51,7 +51,7 @@ export default function TrackingPortal() {
       <Head title="Track Your Case" />
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
 
-      <main className="flex-1">
+      <main className="flex-1 pt-20">
         <section className="relative flex min-h-[400px] w-full items-center justify-center overflow-hidden py-12 md:py-20 bg-primary">
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary-container/30"></div>

@@ -11,7 +11,6 @@ use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\LogViewerController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
-use App\Http\Controllers\Admin\PhilippineAddressesController;
 use App\Http\Controllers\Admin\ScheduledTaskController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\Admin\SupabaseDashboardController;
@@ -25,7 +24,6 @@ use App\Http\Controllers\AnonymizedAnalyticsController;
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\CaseCommentController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\CaseDocumentController;
 use App\Http\Controllers\CaseIssueController;
@@ -147,9 +145,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
         Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
         Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
-
-        Route::post('/cases/{case}/comments', [CaseCommentController::class, 'store'])->name('cases.comments.store');
-        Route::post('/cases/{case}/comments/{comment}/reply', [CaseCommentController::class, 'reply'])->name('cases.comments.reply');
 
         Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
         Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
@@ -276,8 +271,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
             Route::post('/email-logs/{emailLog}/resend', [EmailLogController::class, 'resend'])->name('email-logs.resend');
 
-            Route::get('/addresses', [PhilippineAddressesController::class, 'index'])->name('addresses');
-            Route::post('/addresses/sync', [PhilippineAddressesController::class, 'sync'])->name('addresses.sync');
         });
     });
 });
@@ -323,7 +316,11 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
             'category' => $request->query('category'),
         ]);
     })->name('index');
-    Route::get('/search', fn () => inertia('Helpdesk/Search'))->name('search');
+    Route::get('/search', function (Request $request) {
+        return inertia('Helpdesk/Search', [
+            'query' => $request->query('q', ''),
+        ]);
+    })->name('search');
     Route::get('/{slug}', fn ($slug) => inertia('Helpdesk/Show', [
         'slug' => $slug,
     ]))->name('show');

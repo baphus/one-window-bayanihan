@@ -9,6 +9,8 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import FileUpload from '@/Components/FileUpload';
 import { CardSection, MetaTile } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
+import { getInitials, getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
 const vulnConfig = {
@@ -90,6 +92,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const primaryEmployment = client?.employments?.[0] || null;
   const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
 
+  const canUploadAvatar = auth.user?.role === 'ADMIN' || auth.user?.role === 'CASE_MANAGER';
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
   const referralRows = useMemo(() => {
@@ -639,13 +642,33 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           {/* Client Profile — compact all-in-one card */}
           <CardSection title="Client Profile" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
             <div className="space-y-4">
-              {/* Name */}
-              <div>
-                <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Full Name</p>
-                <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">
-                  {client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : 'N/A'}
-                </p>
-              </div>
+              {/* Avatar + Name */}
+              {client ? (
+                <div className="flex items-start gap-3 pb-3 border-b border-[#e2e8f0]">
+                  {canUploadAvatar ? (
+                    <ProfilePictureUpload
+                      currentUrl={client.avatar_url}
+                      name={[client.first_name, client.last_name].filter(Boolean).join(' ')}
+                      size="md"
+                      clientId={client.id}
+                    />
+                  ) : client.avatar_url ? (
+                    <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-[#e2e8f0] flex-shrink-0" />
+                  ) : (
+                    <span className={`h-12 w-12 inline-flex items-center justify-center rounded-full text-white text-[15px] font-bold flex-shrink-0 ${getAvatarColor([client.first_name, client.last_name].filter(Boolean).join(' '))}`}>
+                      {getInitials([client.first_name, client.last_name].filter(Boolean).join(' '))}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1 self-center">
+                    <p className="text-[14px] font-bold text-slate-800 break-words">
+                      {[client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ')}
+                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{clientTypeLabel}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[12px] font-semibold text-slate-700">N/A</p>
+              )}
 
               {/* DOB · Age · Sex */}
               <div className="grid grid-cols-3 gap-2">

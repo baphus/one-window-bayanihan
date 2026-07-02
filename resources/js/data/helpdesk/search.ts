@@ -35,7 +35,7 @@ function buildSearchableArticles(): SearchableArticle[] {
  */
 export function buildSearchIndex(): Fuse<SearchableArticle> {
   _index = new Fuse(buildSearchableArticles(), {
-    keys: ["title", "excerpt", "categoryName", "tagNames"],
+    keys: ["title", "excerpt", "content", "categoryName", "tagNames"],
     threshold: 0.4,
     distance: 100,
   });
@@ -50,7 +50,7 @@ function ensureIndex(): Fuse<SearchableArticle> {
 }
 
 /**
- * Search helpdesk articles by title, excerpt, category name, and tag names.
+ * Search helpdesk articles by title, excerpt, content, category name, and tag names.
  *
  * @param query  Search string (whitespace-trimmed). Empty string returns all articles.
  * @param limit  Maximum number of results (default: 20).

@@ -161,12 +161,13 @@ export function buildCategoryTree(
   });
 
   const children = catList.filter((c) => c.parentId !== null);
-  const topLevel = catList.filter((c) => c.parentId === null);
+  const topLevel = [...catList.filter((c) => c.parentId === null)].sort(sortCategories);
 
   return topLevel.map((parent) => ({
     ...parent,
     children: children
       .filter((c) => c.parentId === parent.id)
+      .sort(sortCategories)
       .map((child) => ({
         ...child,
         articleCount: counts[child.id] || 0,
@@ -177,4 +178,24 @@ export function buildCategoryTree(
         .filter((c) => c.parentId === parent.id)
         .reduce((sum, child) => sum + (counts[child.id] || 0), 0),
   }));
+}
+
+function sortCategories(a: HelpdeskCategory, b: HelpdeskCategory) {
+  const orderA = a.sortOrder ?? 0;
+  const orderB = b.sortOrder ?? 0;
+
+  if (orderA !== orderB) {
+    return orderA - orderB;
+  }
+
+  return a.name.localeCompare(b.name);
+}
+
+export function getDescendantCategoryIds(
+  catList: HelpdeskCategory[],
+  categoryId: string,
+): string[] {
+  const children = catList.filter((c) => c.parentId === categoryId);
+
+  return children.flatMap((child) => [child.id, ...getDescendantCategoryIds(catList, child.id)]);
 }

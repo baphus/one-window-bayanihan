@@ -100,10 +100,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
     const comments = referral.comments ?? [];
     const topLevelComments = comments.filter((c) => !c.parent_id);
-    const caseFile = referral.case_file;
-    const caseComments = caseFile?.comments ?? [];
-    const topLevelCaseComments = caseComments.filter((c) => !c.parent_id);
-
     const [peerProfileUser, setPeerProfileUser] = useState(null);
     const [showOverdueInfo, setShowOverdueInfo] = useState(false);
 
@@ -116,9 +112,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     const [commentDraft, setCommentDraft] = useState('');
     const [replyToCommentId, setReplyToCommentId] = useState(null);
     const [postingComment, setPostingComment] = useState(false);
-    const [caseCommentDraft, setCaseCommentDraft] = useState('');
-    const [caseReplyToCommentId, setCaseReplyToCommentId] = useState(null);
-    const [casePostingComment, setCasePostingComment] = useState(false);
     const [activeVersionGroupId, setActiveVersionGroupId] = useState(null);
 
     const [showMilestoneModal, setShowMilestoneModal] = useState(false);
@@ -183,38 +176,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
     function cancelReply() {
         setReplyToCommentId(null);
-    }
-
-    function handlePostCaseComment() {
-        const trimmed = caseCommentDraft.trim();
-        if (!trimmed || casePostingComment) return;
-        const caseId = referral.case_id;
-        if (!caseId) return;
-        setCasePostingComment(true);
-        const replyingTo = caseReplyToCommentId
-            ? caseComments.find((c) => c.id === caseReplyToCommentId) ?? null
-            : null;
-        const routeName = replyingTo
-            ? 'cases.comments.reply'
-            : 'cases.comments.store';
-        const routeParams = replyingTo
-            ? [caseId, caseReplyToCommentId]
-            : [caseId];
-        router.post(route(routeName, routeParams), {
-            content: trimmed,
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setCaseCommentDraft('');
-                setCaseReplyToCommentId(null);
-                setCasePostingComment(false);
-            },
-            onError: () => setCasePostingComment(false),
-        });
-    }
-
-    function cancelCaseReply() {
-        setCaseReplyToCommentId(null);
     }
 
     return (
@@ -670,106 +631,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                             className="h-[26px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a] disabled:opacity-60 transition-colors"
                                         >
                                             {postingComment ? 'Posting...' : 'Post'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardSection>
-
-                    <CardSection title="Case Comments" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
-                        <div className="max-h-[340px] overflow-y-auto space-y-3">
-                            {topLevelCaseComments.length > 0 ? (
-                                topLevelCaseComments.map((comment) => {
-                                    const replies = comment.replies ?? [];
-                                    return (
-                                        <div key={comment.id} className="rounded-[3px] border border-[#e2e8f0] bg-white shadow-sm">
-                                            <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
-                                                <UserAvatar user={comment.user} size="sm" onClick={() => setPeerProfileUser(comment.user)} />
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-baseline gap-2">
-                                                        <span className="text-[11px] font-bold text-slate-800">{comment.user?.name ?? 'Unknown'}</span>
-                                                        <span className="text-[9px] text-slate-400">{formatDisplayDateTime(comment.created_at)}</span>
-                                                        {comment.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
-                                                    </div>
-                                                    <p className="mt-0.5 text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setReplyToCommentId(comment.id);
-                                                            setCommentDraft('');
-                                                        }}
-                                                        className="mt-1 text-[9px] font-bold text-[#0b5384] hover:text-[#09416a] transition-colors"
-                                                    >
-                                                        Reply
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {replies.length > 0 && (
-                                                <div className="ml-8 mr-3 pb-2.5 space-y-2">
-                                                    {replies.map((reply) => (
-                                                        <div key={reply.id} className="flex items-start gap-2 rounded-[2px] bg-[#f8fafc] px-2.5 py-2">
-                                                            <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-baseline gap-2">
-                                                                    <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
-                                                                    <span className="text-[9px] text-slate-400">{formatDisplayDateTime(reply.created_at)}</span>
-                                                                    {reply.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
-                                                                </div>
-                                                                <p className="text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{reply.content}</p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f5f9] border border-[#e2e8f0]">
-                                        <span className="material-symbols-outlined text-[18px] text-slate-400">chat_bubble_outline</span>
-                                    </div>
-                                    <p className="mt-2 text-[11px] font-semibold text-slate-500">No case comments yet</p>
-                                    <p className="text-[10px] text-slate-400">Write a comment about this case.</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="mt-3 pt-3 border-t border-[#e2e8f0]">
-                            {caseReplyToCommentId && (
-                                <div className="mb-2 flex items-center justify-between rounded-[3px] bg-[#f0f7ff] border border-[#bfdbfe] px-2.5 py-1.5">
-                                    <p className="text-[10px] text-[#0b5384] font-semibold truncate">
-                                        Replying to <span className="font-bold">{caseComments.find(c => c.id === caseReplyToCommentId)?.user?.name ?? 'comment'}</span>
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={cancelCaseReply}
-                                        className="text-[10px] font-bold text-[#0b5384] hover:underline shrink-0 ml-2"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            )}
-                            <div className="flex items-start gap-2">
-                                <UserAvatar user={auth.user} size="sm" />
-                                <div className="flex-1 min-w-0">
-                                    <textarea
-                                        value={caseCommentDraft}
-                                        onChange={(e) => setCaseCommentDraft(e.target.value)}
-                                        rows={2}
-                                        className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-[#0b5384] focus:ring-1 focus:ring-[#0b5384]/20 resize-none transition-colors"
-                                        placeholder={caseReplyToCommentId ? 'Write a reply...' : 'Write a comment about this case...'}
-                                    />
-                                    <div className="mt-1.5 flex items-center justify-between">
-                                        <span className="text-[9px] text-slate-400">{caseReplyToCommentId ? 'Your reply will be posted immediately' : 'Your comment will be posted immediately'}</span>
-                                        <button
-                                            type="button"
-                                            onClick={handlePostCaseComment}
-                                            disabled={casePostingComment || !caseCommentDraft.trim()}
-                                            className="h-[26px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a] disabled:opacity-60 transition-colors"
-                                        >
-                                            {casePostingComment ? 'Posting...' : 'Post'}
                                         </button>
                                     </div>
                                 </div>

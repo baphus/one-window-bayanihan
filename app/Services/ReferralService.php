@@ -134,8 +134,6 @@ class ReferralService
         return Referral::with([
             'caseFile.client',
             'caseFile.user',
-            'caseFile.comments.user',
-            'caseFile.comments.replies.user',
             'agency',
             'milestones.user',
             'attachments.user',

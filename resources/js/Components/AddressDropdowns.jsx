@@ -1,5 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import InputError from '@/Components/InputError';
+import {
+    getBarangaysByCity,
+    getCitiesByProvince,
+    getCitiesByRegion,
+    getProvincesByRegion,
+    getRegions,
+} from '@/data/philippine-addresses';
 
 function Field({ label, required, children, className }) {
     return (
@@ -41,94 +48,16 @@ function Input({ value, onChange, placeholder }) {
 }
 
 export default function AddressDropdowns({ values, onChange, errors }) {
-    const [regions, setRegions] = useState([]);
-    const [provinces, setProvinces] = useState([]);
-    const [cities, setCities] = useState([]);
-    const [barangays, setBarangays] = useState([]);
+    const regions = getRegions();
+    const provinces = getProvincesByRegion(values.region);
+    const regionHasProvinces = provinces.length > 0;
+    const cities = values.province
+        ? getCitiesByProvince(values.province)
+        : regionHasProvinces
+            ? []
+            : getCitiesByRegion(values.region);
+    const barangays = getBarangaysByCity(values.city_municipality);
 
-    const [loadingRegions, setLoadingRegions] = useState(false);
-    const [loadingProvinces, setLoadingProvinces] = useState(false);
-    const [loadingCities, setLoadingCities] = useState(false);
-    const [loadingBarangays, setLoadingBarangays] = useState(false);
-
-    const [apiFailed, setApiFailed] = useState(false);
-
-    // Fetch regions on mount
-    useEffect(() => {
-        setLoadingRegions(true);
-        setApiFailed(false);
-        fetch('/api/address/regions')
-            .then((res) => res.json())
-            .then((data) => {
-                if (Array.isArray(data)) {
-                    setRegions(data);
-                } else {
-                    setRegions([]);
-                }
-            })
-            .catch(() => {
-                setApiFailed(true);
-                setRegions([]);
-            })
-            .finally(() => setLoadingRegions(false));
-    }, []);
-
-    // Fetch provinces on mount if region is already set
-    useEffect(() => {
-        if (values.region) {
-            setLoadingProvinces(true);
-            fetch(`/api/address/provinces?region=${encodeURIComponent(values.region)}`)
-                .then((res) => res.json())
-                .then((data) => {
-                    setProvinces(Array.isArray(data) ? data : []);
-                })
-                .catch(() => {
-                    setApiFailed(true);
-                    setProvinces([]);
-                })
-                .finally(() => setLoadingProvinces(false));
-        }
-        // Only run on mount — region changes are handled by handleRegionChange
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Fetch cities on mount if province is already set
-    useEffect(() => {
-        if (values.province) {
-            setLoadingCities(true);
-            fetch(`/api/address/cities?province=${encodeURIComponent(values.province)}`)
-                .then((res) => res.json())
-                .then((data) => {
-                    setCities(Array.isArray(data) ? data : []);
-                })
-                .catch(() => {
-                    setApiFailed(true);
-                    setCities([]);
-                })
-                .finally(() => setLoadingCities(false));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Fetch barangays on mount if city is already set
-    useEffect(() => {
-        if (values.city_municipality) {
-            setLoadingBarangays(true);
-            fetch(`/api/address/barangays?city=${encodeURIComponent(values.city_municipality)}`)
-                .then((res) => res.json())
-                .then((data) => {
-                    setBarangays(Array.isArray(data) ? data : []);
-                })
-                .catch(() => {
-                    setApiFailed(true);
-                    setBarangays([]);
-                })
-                .finally(() => setLoadingBarangays(false));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // When region changes, fetch provinces
     const handleRegionChange = useCallback((value) => {
         // Single atomic update — React 18 batches separate setData calls, causing
         // each to read stale closure state and the last call to wipe out region.
@@ -138,108 +67,26 @@ export default function AddressDropdowns({ values, onChange, errors }) {
             city_municipality: '',
             barangay: '',
         });
-        setProvinces([]);
-        setCities([]);
-        setBarangays([]);
-
-        if (!value) return;
-
-        setLoadingProvinces(true);
-        fetch(`/api/address/provinces?region=${encodeURIComponent(value)}`)
-            .then((res) => res.json())
-            .then((data) => {
-                setProvinces(Array.isArray(data) ? data : []);
-            })
-            .catch(() => {
-                setApiFailed(true);
-                setProvinces([]);
-            })
-            .finally(() => setLoadingProvinces(false));
     }, [onChange]);
 
-    // When province changes, fetch cities
     const handleProvinceChange = useCallback((value) => {
         onChange({
             province: value,
             city_municipality: '',
             barangay: '',
         });
-        setCities([]);
-        setBarangays([]);
-
-        if (!value) return;
-
-        setLoadingCities(true);
-        fetch(`/api/address/cities?province=${encodeURIComponent(value)}`)
-            .then((res) => res.json())
-            .then((data) => {
-                setCities(Array.isArray(data) ? data : []);
-            })
-            .catch(() => {
-                setApiFailed(true);
-                setCities([]);
-            })
-            .finally(() => setLoadingCities(false));
     }, [onChange]);
 
-    // When city changes, fetch barangays
     const handleCityChange = useCallback((value) => {
         onChange({
             city_municipality: value,
             barangay: '',
         });
-        setBarangays([]);
-
-        if (!value) return;
-
-        setLoadingBarangays(true);
-        fetch(`/api/address/barangays?city=${encodeURIComponent(value)}`)
-            .then((res) => res.json())
-            .then((data) => {
-                setBarangays(Array.isArray(data) ? data : []);
-            })
-            .catch(() => {
-                setApiFailed(true);
-                setBarangays([]);
-            })
-            .finally(() => setLoadingBarangays(false));
     }, [onChange]);
 
     const handleBarangayChange = useCallback((value) => {
         onChange('barangay', value);
     }, [onChange]);
-
-    // If API failed, fall back to text inputs
-    if (apiFailed) {
-        return (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="mb-3 text-[12px] font-semibold text-amber-800">Address lookup unavailable — please type your address manually.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Field label="Region">
-                        <Input value={values.region} onChange={(v) => onChange('region', v)} placeholder="e.g. Central Visayas" />
-                        <InputError message={errors?.region} className="mt-1" />
-                    </Field>
-                    <Field label="Province">
-                        <Input value={values.province} onChange={(v) => onChange('province', v)} placeholder="e.g. Cebu" />
-                        <InputError message={errors?.province} className="mt-1" />
-                    </Field>
-                    <Field label="City/Municipality">
-                        <Input value={values.city_municipality} onChange={(v) => onChange('city_municipality', v)} placeholder="e.g. Cebu City" />
-                        <InputError message={errors?.city_municipality} className="mt-1" />
-                    </Field>
-                    <Field label="Barangay">
-                        <Input value={values.barangay} onChange={(v) => onChange('barangay', v)} placeholder="e.g. Poblacion" />
-                        <InputError message={errors?.barangay} className="mt-1" />
-                    </Field>
-                    <div className="md:col-span-2">
-                        <Field label="Street">
-                            <Input value={values.street} onChange={(v) => onChange('street', v)} placeholder="House/Block/Lot No." />
-                        </Field>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -248,7 +95,7 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     value={values.region}
                     onChange={handleRegionChange}
                     options={regions}
-                    placeholder={loadingRegions ? 'Loading regions...' : 'Select region...'}
+                    placeholder="Select region..."
                 />
                 <InputError message={errors?.region} className="mt-1" />
             </Field>
@@ -257,8 +104,8 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     value={values.province}
                     onChange={handleProvinceChange}
                     options={provinces}
-                    placeholder={!values.region ? 'Select region first' : loadingProvinces ? 'Loading provinces...' : 'Select province...'}
-                    disabled={!values.region}
+                    placeholder={!values.region ? 'Select region first' : regionHasProvinces ? 'Select province...' : 'No province needed'}
+                    disabled={!values.region || !regionHasProvinces}
                 />
                 <InputError message={errors?.province} className="mt-1" />
             </Field>
@@ -267,8 +114,8 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     value={values.city_municipality}
                     onChange={handleCityChange}
                     options={cities}
-                    placeholder={!values.province ? 'Select province first' : loadingCities ? 'Loading cities...' : 'Select city/municipality...'}
-                    disabled={!values.province}
+                    placeholder={!values.region ? 'Select region first' : regionHasProvinces && !values.province ? 'Select province first' : 'Select city/municipality...'}
+                    disabled={!values.region || (regionHasProvinces && !values.province)}
                 />
                 <InputError message={errors?.city_municipality} className="mt-1" />
             </Field>
@@ -277,7 +124,7 @@ export default function AddressDropdowns({ values, onChange, errors }) {
                     value={values.barangay}
                     onChange={handleBarangayChange}
                     options={barangays}
-                    placeholder={!values.city_municipality ? 'Select city first' : loadingBarangays ? 'Loading barangays...' : 'Select barangay...'}
+                    placeholder={!values.city_municipality ? 'Select city first' : 'Select barangay...'}
                     disabled={!values.city_municipality}
                 />
                 <InputError message={errors?.barangay} className="mt-1" />
