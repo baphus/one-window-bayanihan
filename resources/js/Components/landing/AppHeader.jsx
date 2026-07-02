@@ -48,7 +48,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white">
+          <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-full bg-white">
             <img
               src="/logo.png"
               alt="Bayanihan Logo"
@@ -89,7 +89,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               })}
             </div>
 
-            <div className="hidden items-center gap-4 md:flex">
+            <div className="hidden items-center gap-6 md:flex">
               {onTrackCaseClick ? (
                 <AppButton
                   variant="primary"
@@ -108,24 +108,31 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
 
               {user ? (
                 <div className="flex items-center gap-3">
-                  <Link href={route('dashboard')}>
-                    <AppButton variant="primary">
+                  <Link
+                      href={route('dashboard')}
+                      className="text-sm font-semibold text-slate-700 hover:text-[#005288]"
+                    >
                       Dashboard
-                    </AppButton>
-                  </Link>
+                    </Link>
 
-                  <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#005288] text-xs font-bold text-white">
+                  <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#005288] text-sm font-semibold text-white">
                       {getInitials(user.name)}
                     </span>
 
-                    <span className="hidden text-sm font-medium text-slate-700 md:inline">
-                      {user.name}
-                    </span>
+                    <div className="hidden flex-col md:flex">
+                      <span className="text-sm font-semibold text-slate-800">
+                        {user.name}
+                      </span>
+
+                      <span className="text-xs text-slate-500">
+                        Administrator
+                      </span>
+                    </div>
 
                     <button
                       onClick={() => router.post(route('logout'))}
-                      className="ml-1 text-xs font-medium text-slate-400 transition-colors hover:text-red-500"
+                      className="text-slate-400 transition hover:text-red-500"
                       title="Logout"
                     >
                       <span className="material-symbols-outlined text-[18px]">
@@ -135,10 +142,11 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                   </div>
                 </div>
               ) : (
-                <Link href={route('login')}>
-                  <AppButton variant="outline">
-                    Login
-                  </AppButton>
+                <Link
+                  href={route('login')}
+                  className="text-sm font-semibold text-slate-700 transition-colors hover:text-[#005288]"
+                >
+                  Login
                 </Link>
               )}
             </div>

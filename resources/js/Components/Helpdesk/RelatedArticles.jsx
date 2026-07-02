@@ -16,7 +16,7 @@ export default function RelatedArticles({ currentArticle, allArticles = [] }) {
   if (!related.length) return null;
 
   return (
-    <div className="border border-outline-variant bg-white p-4">
+    <div className="border border-slate-200 bg-white p-4">
       <h3 className="mb-3 font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
         Related Articles
       </h3>
@@ -25,7 +25,7 @@ export default function RelatedArticles({ currentArticle, allArticles = [] }) {
           <Link
             key={article.id}
             href={`/helpdesk/${article.slug}`}
-            className="group block border-b border-outline-variant py-2.5 last:border-0"
+            className="group block border-b border-slate-200 py-2.5 last:border-0"
           >
             <h4 className="font-headline text-sm font-medium text-slate-700 transition-colors group-hover:text-primary">
               {article.title}

@@ -1,13 +1,11 @@
-import { ChevronRight } from 'lucide-react'
-
 export default function RecentTable({ title, data, columns, keyExtractor, onViewAll }) {
   return (
-    <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+    <section className="bg-white rounded-md border border-slate-200 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-        <h3 className="text-[13px] font-bold font-headline text-blue-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {onViewAll && (
-          <button onClick={onViewAll} className="text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors flex items-center gap-1">
-            View All <ChevronRight className="w-3 h-3" />
+          <button onClick={onViewAll} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+            View All
           </button>
         )}
       </div>

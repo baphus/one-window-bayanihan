@@ -23,10 +23,10 @@ export default function AgencyDashboard({ dashboard }) {
 
             <section data-tour="dashboard-stats" className="mb-8">
                 <div data-tour="dashboard-agency-metrics" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                    <KpiCard title="Total Referrals" value={stats.totalReferrals} accent="border-l-blue-900" icon="send" />
-                    <KpiCard title="Pending" value={stats.pendingReferrals} accent="border-l-yellow-500" icon="hourglass" />
-                    <KpiCard title="Processing" value={stats.processingReferrals} accent="border-l-blue-500" icon="sync" />
-                    <KpiCard title="Completed" value={stats.completedReferrals} accent="border-l-green-500" icon="check_circle" />
+                    <KpiCard title="Total Referrals" value={stats.totalReferrals} icon="send" iconBg="bg-amber-50" iconColor="text-amber-600" />
+                    <KpiCard title="Pending" value={stats.pendingReferrals} icon="hourglass" iconBg="bg-yellow-50" iconColor="text-yellow-600" />
+                    <KpiCard title="Processing" value={stats.processingReferrals} icon="sync" iconBg="bg-blue-50" iconColor="text-blue-600" />
+                    <KpiCard title="Completed" value={stats.completedReferrals} icon="check_circle" iconBg="bg-emerald-50" iconColor="text-emerald-600" />
                 </div>
             </section>
 

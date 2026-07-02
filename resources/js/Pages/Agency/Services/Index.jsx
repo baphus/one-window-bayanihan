@@ -183,18 +183,18 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 </p>
             </div>
 
-            <section data-tour="services-actions" className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-6">
-                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total Services</p>
-                    <p className="mt-2 text-3xl font-black text-slate-800">{stats.total}</p>
+            <section data-tour="services-actions" className="grid grid-cols-1 gap-3 md:grid-cols-3 mb-6">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Services</p>
+                    <p className="text-2xl font-black text-slate-900">{stats.total}</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Active Services</p>
-                    <p className="mt-2 text-3xl font-black text-emerald-700">{stats.active}</p>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Services</p>
+                    <p className="text-2xl font-black text-slate-900">{stats.active}</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total Requirements</p>
-                    <p className="mt-2 text-3xl font-black text-slate-800">{stats.totalRequirements}</p>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Requirements</p>
+                    <p className="text-2xl font-black text-slate-900">{stats.totalRequirements}</p>
                 </div>
             </section>
 
