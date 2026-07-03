@@ -9,6 +9,8 @@ const doughnutOptions = {
   cutout: '55%',
 };
 
+const cardClass = 'border border-slate-200 bg-white p-4 shadow-sm';
+
 export default function CaseStatusPieChart({ data, loading }) {
   const chartData = useMemo(() => {
     if (!data?.labels?.length) return null;
@@ -31,7 +33,7 @@ export default function CaseStatusPieChart({ data, loading }) {
 
   if (!chartData) {
     return (
-      <article className="border border-slate-300 bg-white p-4">
+      <article className={cardClass}>
         <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
           Cases by Status
         </h3>
@@ -43,13 +45,25 @@ export default function CaseStatusPieChart({ data, loading }) {
   }
 
   return (
-    <article className="border border-slate-300 bg-white p-4">
-      <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-        Cases by Status
-      </h3>
+    <article className={cardClass}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+            Cases by Status
+          </h3>
+          <p className="mt-1 text-[12px] text-slate-500">Open and closed case distribution.</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+          {total} total
+        </span>
+      </div>
       <div className="flex items-center gap-6">
-        <div className="h-28 w-28 shrink-0">
+        <div className="relative h-28 w-28 shrink-0 rounded-full bg-slate-50 p-2" aria-label={`Cases by status chart, ${total} total cases`}>
           <Doughnut data={chartData} options={doughnutOptions} />
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span className="text-lg font-extrabold leading-none text-slate-900">{total}</span>
+            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">Cases</span>
+          </div>
         </div>
         <div className="flex-1 space-y-1.5">
           {data.labels.map((label, i) => {

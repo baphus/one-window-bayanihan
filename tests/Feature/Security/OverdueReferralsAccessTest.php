@@ -17,13 +17,13 @@ class OverdueReferralsAccessTest extends TestCase
     }
 
     #[Test]
-    public function case_manager_cannot_access_overdue_referrals(): void
+    public function case_manager_can_access_overdue_referrals(): void
     {
         $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($cm)->get(route('overdue-referrals.index'));
 
-        $response->assertForbidden();
+        $response->assertOk();
     }
 
     #[Test]

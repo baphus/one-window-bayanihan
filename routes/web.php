@@ -274,7 +274,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-Route::middleware(['auth', 'verified', 'role:ADMIN'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:ADMIN,CASE_MANAGER'])->group(function () {
     Route::get('/overdue-referrals', [OverdueReferralController::class, 'index'])->name('overdue-referrals.index');
     Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])->name('overdue-referrals.send-reminders');
 });

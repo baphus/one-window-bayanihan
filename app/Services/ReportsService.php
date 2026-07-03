@@ -97,6 +97,7 @@ class ReportsService
         $to = $toDate ?: now()->toDateString();
 
         return [
+            'kpis' => $this->getReferralKpis(null, null, $from, $to, $dateScope, $province, $city),
             'overview' => $this->getOverview($from, $to),
             'caseTrends' => $this->getCaseTrends(),
             'referralStatusDistribution' => $this->getReferralStatusDistribution(null, null, $from, $to, $dateScope, $province, $city),
@@ -312,7 +313,13 @@ class ReportsService
         $referrals = $this->referralQuery($userId, $role, $from->toDateString(), $to->toDateString(), $dateScope);
         $this->applyGeoFilter($referrals, $province, $city);
 
+        $cases = $this->caseQuery($userId, $role, $dateScope)
+            ->whereDate('cases.created_at', '>=', $from->toDateString())
+            ->whereDate('cases.created_at', '<=', $to->toDateString());
+        $this->applyGeoFilter($cases, $province, $city, 'cases');
+
         $total = (clone $referrals)->count();
+        $totalCases = (clone $cases)->distinct('cases.id')->count('cases.id');
         $completed = (clone $referrals)->where('status', 'COMPLETED')->count();
         $pending = (clone $referrals)->where('status', 'PENDING')->count();
         $processing = (clone $referrals)->where('status', 'PROCESSING')->count();
@@ -342,6 +349,7 @@ class ReportsService
 
         return [
             'totalReferrals' => (int) $total,
+            'totalCases' => (int) $totalCases,
             'completedReferrals' => (int) $completed,
             'pendingReferrals' => (int) $pending,
             'processingReferrals' => (int) $processing,
