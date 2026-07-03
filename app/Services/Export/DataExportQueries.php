@@ -3,12 +3,18 @@
 namespace App\Services\Export;
 
 use App\Models\User;
+use App\Services\AddressNameResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class DataExportQueries
 {
+    private function addresses(): AddressNameResolver
+    {
+        return app(AddressNameResolver::class);
+    }
+
     private function isAdmin(?User $user): bool
     {
         return $user === null || $user->role === 'ADMIN';
@@ -43,7 +49,15 @@ class DataExportQueries
             $query->where('user_id', $user->id);
         }
 
-        return $query->get();
+        $addressResolver = $this->addresses();
+
+        return $query->get()->map(function ($row) use ($addressResolver) {
+            foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
+                $row->{$field} = $addressResolver->resolve($row->{$field} ?? null);
+            }
+
+            return $row;
+        });
     }
 
     /**
@@ -199,6 +213,12 @@ class DataExportQueries
                 $row->nok_last_name,
                 $row->nok_middle_initial,
             );
+
+            $addressResolver = $this->addresses();
+            $row->barangay = $addressResolver->resolve($row->barangay ?? null);
+            $row->municipality = $addressResolver->resolve($row->municipality ?? null);
+            $row->province = $addressResolver->resolve($row->province ?? null);
+            $row->region = $addressResolver->resolve($row->region ?? null);
 
             return $row;
         });
@@ -379,14 +399,14 @@ class DataExportQueries
             }
 
             // --- Full Address ---
-            $parts = array_filter([
-                $row->street ?? '',
-                $row->barangay ?? '',
-                $row->municipality ?? '',
-                $row->province ?? '',
-                $row->region ?? '',
-            ]);
-            $row->full_address = implode(', ', $parts);
+            $addressResolver = $this->addresses();
+            $row->full_address = $addressResolver->format(
+                $row->street ?? null,
+                $row->barangay ?? null,
+                $row->municipality ?? null,
+                $row->province ?? null,
+                $row->region ?? null,
+            );
 
             // --- NOK Full Name: "Last, First M." ---
             $nokFirstName = $row->nok_first_name ?? '';
@@ -566,14 +586,14 @@ class DataExportQueries
             $row->client_type = $row->client_type === 'NOK' ? 'Next of Kin' : 'OFW';
 
             // --- Client Full Address ---
-            $parts = array_filter([
-                $row->street ?? '',
-                $row->barangay ?? '',
-                $row->municipality ?? '',
-                $row->province ?? '',
-                $row->region ?? '',
-            ]);
-            $row->client_full_address = implode(', ', $parts);
+            $addressResolver = $this->addresses();
+            $row->client_full_address = $addressResolver->format(
+                $row->street ?? null,
+                $row->barangay ?? null,
+                $row->municipality ?? null,
+                $row->province ?? null,
+                $row->region ?? null,
+            );
 
             // --- NOK Full Name: "Last, First M." ---
             $nokFirstName = $row->nok_first_name ?? '';
@@ -598,6 +618,11 @@ class DataExportQueries
                 $row->nok_last_name,
                 $row->nok_middle_initial,
             );
+
+            $row->barangay = $addressResolver->resolve($row->barangay ?? null);
+            $row->municipality = $addressResolver->resolve($row->municipality ?? null);
+            $row->province = $addressResolver->resolve($row->province ?? null);
+            $row->region = $addressResolver->resolve($row->region ?? null);
 
             return $row;
         });
@@ -744,7 +769,23 @@ class DataExportQueries
             });
         }
 
-        return $query->get();
+        $addressResolver = $this->addresses();
+
+        return $query->get()->map(function ($row) use ($addressResolver) {
+            foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
+                $row->{$field} = $addressResolver->resolve($row->{$field} ?? null);
+            }
+
+            $row->full_address = $addressResolver->format(
+                $row->street ?? null,
+                $row->barangay ?? null,
+                $row->city_municipality ?? null,
+                $row->province ?? null,
+                $row->region ?? null,
+            ) ?: ($row->full_address ?? '');
+
+            return $row;
+        });
     }
 
     /**
@@ -898,7 +939,15 @@ class DataExportQueries
             });
         }
 
-        return $query->get();
+        $addressResolver = $this->addresses();
+
+        return $query->get()->map(function ($row) use ($addressResolver) {
+            foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
+                $row->{$field} = $addressResolver->resolve($row->{$field} ?? null);
+            }
+
+            return $row;
+        });
     }
 
     /**

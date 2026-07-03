@@ -13,6 +13,7 @@ class TrackingService
     public function __construct(
         private readonly OtpService $otpService,
         private readonly AuditLogFormatter $auditFormatter,
+        private readonly AddressNameResolver $addressResolver,
     ) {}
 
     /**
@@ -79,7 +80,13 @@ class TrackingService
                 'dateOfBirth' => $client->date_of_birth?->toDateString() ?? '',
                 'gender' => $client->sex ?? '',
                 'homeAddress' => $client->addresses->first()
-                    ? trim("{$client->addresses->first()->street}, {$client->addresses->first()->city_municipality}")
+                    ? $this->addressResolver->format(
+                        $client->addresses->first()->street,
+                        $client->addresses->first()->barangay,
+                        $client->addresses->first()->city_municipality,
+                        $client->addresses->first()->province,
+                        $client->addresses->first()->region,
+                    )
                     : '',
                 'homeAddressParts' => $this->formatAddressParts($client->addresses->first()),
                 'specialCategories' => [],
@@ -481,13 +488,13 @@ class TrackingService
 
         return [
             'regionCode' => '',
-            'regionName' => $address->region ?? '',
+            'regionName' => $this->addressResolver->resolve($address->region ?? null),
             'provinceCode' => '',
-            'provinceName' => $address->province ?? '',
+            'provinceName' => $this->addressResolver->resolve($address->province ?? null),
             'municipalityCode' => '',
-            'municipalityName' => $address->city_municipality ?? '',
+            'municipalityName' => $this->addressResolver->resolve($address->city_municipality ?? null),
             'barangayCode' => '',
-            'barangayName' => $address->barangay ?? '',
+            'barangayName' => $this->addressResolver->resolve($address->barangay ?? null),
             'streetAddress' => $address->street ?? '',
         ];
     }

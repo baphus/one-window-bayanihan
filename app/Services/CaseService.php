@@ -569,7 +569,7 @@ class CaseService
 
     public function getCase(string $id): CaseFile
     {
-        $case = CaseFile::with([
+        return CaseFile::with([
             'client.addresses',
             'client.employments',
             'client.nextOfKin',
@@ -581,48 +581,6 @@ class CaseService
             'caseIssue',
             'documents' => fn ($q) => $q->where('is_deleted', false),
         ])->findOrFail($id);
-
-        $this->resolveLoadedAddressNames($case);
-
-        return $case;
-    }
-
-    private function resolveLoadedAddressNames(CaseFile $case): void
-    {
-        $client = $case->client;
-        if (! $client) {
-            return;
-        }
-
-        $addressFields = ['region', 'province', 'city_municipality', 'barangay'];
-        $codes = collect($client->addresses ?? [])
-            ->flatMap(fn ($address) => collect($addressFields)->map(fn ($field) => $address->{$field}))
-            ->merge(
-                collect($client->nextOfKin ?? [])
-                    ->flatMap(fn ($nextOfKin) => collect($addressFields)->map(fn ($field) => $nextOfKin->{$field}))
-            )
-            ->filter(fn ($value) => is_string($value) && preg_match('/^\d{10}$/', $value))
-            ->unique()
-            ->values()
-            ->all();
-
-        if (empty($codes)) {
-            return;
-        }
-
-        $names = $this->addressService->resolveNames($codes);
-
-        foreach ($client->addresses ?? [] as $address) {
-            foreach ($addressFields as $field) {
-                $address->{$field} = $names[$address->{$field}] ?? $address->{$field};
-            }
-        }
-
-        foreach ($client->nextOfKin ?? [] as $nextOfKin) {
-            foreach ($addressFields as $field) {
-                $nextOfKin->{$field} = $names[$nextOfKin->{$field}] ?? $nextOfKin->{$field};
-            }
-        }
     }
 
     public function updateCase(string $id, array $data, string $userId): CaseFile

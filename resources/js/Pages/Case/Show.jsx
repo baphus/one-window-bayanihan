@@ -12,6 +12,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
 import { getInitials, getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatResolvedAddress } from '@/lib/addressResolver';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -41,20 +42,11 @@ function getClientAge(dob) {
 }
 
 function formatAddress(addr) {
-  if (!addr) return '';
-  const parts = [];
-  if (addr.street) parts.push(addr.street);
-  if (addr.barangay) parts.push(addr.barangay);
-  if (addr.city_municipality) parts.push(addr.city_municipality);
-  if (addr.province) parts.push(addr.province);
-  if (addr.region) parts.push(addr.region);
-  return parts.join(', ');
+  return formatResolvedAddress(addr, '');
 }
 
 function formatNokAddress(nok) {
-  if (!nok) return 'N/A';
-  const parts = [nok.street, nok.barangay, nok.city_municipality, nok.province, nok.region].filter(Boolean);
-  return parts.length > 0 ? parts.join(', ') : (nok.full_address || 'N/A');
+  return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
 export default function CaseShow({ case: caseFile, overdueDays = 7 }) {

@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { useToast } from '@/Hooks/useToast';
+import { formatResolvedAddress } from '@/lib/addressResolver';
 
 const COLUMN_DEFS = [
     { key: 'referral_id', label: 'Referral #', default: true },
@@ -24,8 +25,7 @@ function formatClientName(client) {
 }
 
 function formatAddress(address) {
-    if (!address) return null;
-    return [address.street, address.barangay, address.city_municipality, address.province, address.region].filter(Boolean).join(', ') || null;
+    return formatResolvedAddress(address, null);
 }
 
 export default function ReferralIndex({ referrals, filters }) {

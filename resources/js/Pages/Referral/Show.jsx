@@ -11,6 +11,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import { formatDisplayDateTime } from '@/lib/utils';
+import { formatResolvedAddress } from '@/lib/addressResolver';
 
 function displayStatus(status) {
     return String(status ?? '').replace(/_/g, ' ');
@@ -22,8 +23,7 @@ function formatFullName(person) {
 }
 
 function formatAddress(address) {
-    if (!address) return 'N/A';
-    return [address.street, address.barangay, address.city_municipality, address.province, address.region].filter(Boolean).join(', ') || 'N/A';
+    return formatResolvedAddress(address, 'N/A');
 }
 
 export default function ReferralShow({ referral, overdueDays = 7 }) {
