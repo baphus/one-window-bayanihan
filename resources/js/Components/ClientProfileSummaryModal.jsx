@@ -73,10 +73,10 @@ export default function ClientProfileSummaryModal({
                     </h3>
                     {address ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <MetaTile label="Region" value={address.region_name || resolveAddressValue(address.region) || 'N/A'} />
-                            <MetaTile label="Province" value={address.province_name || resolveAddressValue(address.province) || 'N/A'} />
-                            <MetaTile label="City/Municipality" value={address.city_municipality_name || resolveAddressValue(address.city_municipality) || 'N/A'} />
-                            <MetaTile label="Barangay" value={address.barangay_name || resolveAddressValue(address.barangay) || 'N/A'} />
+                            <MetaTile label="Region" value={resolveAddressValue(address.region_name || address.region) || 'N/A'} />
+                            <MetaTile label="Province" value={resolveAddressValue(address.province_name || address.province) || 'N/A'} />
+                            <MetaTile label="City/Municipality" value={resolveAddressValue(address.city_municipality_name || address.city_municipality) || 'N/A'} />
+                            <MetaTile label="Barangay" value={resolveAddressValue(address.barangay_name || address.barangay) || 'N/A'} />
                             <MetaTile label="Street" value={address.street || 'N/A'} />
                         </div>
                     ) : (

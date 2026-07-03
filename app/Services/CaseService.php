@@ -17,6 +17,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CaseService
 {
@@ -74,6 +75,8 @@ class CaseService
                 'contact_number' => $data['client']['contact_number'] ?? null,
                 'client_type' => $data['client_type'] ?? null,
                 'selected_client_id' => $data['selected_client_id'] ?? null,
+                'selected_nok_index' => $data['selected_nok_index'] ?? null,
+                'selected_nok_id' => $this->selectedNokIdFromData($data),
                 'address' => $data['address'] ?? null,
                 'employment' => $data['employment'] ?? null,
                 'next_of_kin' => $data['next_of_kin'] ?? null,
@@ -217,6 +220,7 @@ class CaseService
                 $updateData = [
                     'client_type' => $data['client_type'] ?? $case->client_type,
                     'vulnerability_indicator' => $data['vulnerability_indicator'] ?? $case->vulnerability_indicator,
+                    'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? $case->nok_vulnerability_indicator,
                     'summary' => $data['summary'] ?? $case->summary,
                     'category_id' => $data['category_id'] ?? $case->category_id,
                     'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
@@ -237,6 +241,16 @@ class CaseService
                         'sex' => $data['client']['sex'] ?? $current['sex'] ?? null,
                         'date_of_birth' => $data['client']['date_of_birth'] ?? $current['date_of_birth'] ?? null,
                     ]);
+                }
+
+                if (! empty($data['selected_client_id'])) {
+                    $updateData['client_id'] = $data['selected_client_id'];
+                    $draftClientData['selected_client_id'] = $data['selected_client_id'];
+                }
+
+                if (array_key_exists('selected_nok_index', $data)) {
+                    $draftClientData['selected_nok_index'] = $data['selected_nok_index'];
+                    $draftClientData['selected_nok_id'] = $this->selectedNokIdFromData($data);
                 }
 
                 // Store address/employment/next_of_kin in draft_client_data for new-client drafts
@@ -391,6 +405,9 @@ class CaseService
                 throw new AuthorizationException('You do not own this draft.');
             }
 
+            $case->loadMissing(['client.addresses', 'client.nextOfKin']);
+            $this->assertDraftCompleteForPublishing($case);
+
             // Capture the draft state before publishing (for audit diff)
             $old = $case->toArray();
 
@@ -477,6 +494,133 @@ class CaseService
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
         });
+    }
+
+    private function assertDraftCompleteForPublishing(CaseFile $case): void
+    {
+        $missing = [];
+        $draftData = $case->draft_client_data ?? [];
+        $client = $case->client;
+        $address = $client?->addresses->first();
+
+        $clientType = $case->client_type ?: ($draftData['client_type'] ?? null);
+        if (! in_array($clientType, ['OFW', 'NEXT_OF_KIN'], true)) {
+            $missing[] = 'Client type';
+        }
+
+        if (empty($case->category_id)) {
+            $missing[] = 'Category';
+        }
+
+        $clientFields = [
+            'First name' => $client?->first_name ?? $draftData['first_name'] ?? null,
+            'Last name' => $client?->last_name ?? $draftData['last_name'] ?? null,
+            'Date of birth' => $client?->date_of_birth ?? $draftData['date_of_birth'] ?? null,
+            'Sex' => $client?->sex ?? $draftData['sex'] ?? null,
+            'Contact number' => $client?->contact_number ?? $draftData['contact_number'] ?? null,
+        ];
+
+        foreach ($clientFields as $label => $value) {
+            if ($this->isBlank($value)) {
+                $missing[] = $label;
+            }
+        }
+
+        if ($clientType === 'OFW' && $this->isBlank($this->resolveClientNotificationEmail($case))) {
+            $missing[] = 'OFW email address';
+        }
+
+        if ($clientType === 'NEXT_OF_KIN') {
+            $selectedNokEmail = $this->resolveClientNotificationEmail($case);
+            if ($this->isBlank($selectedNokEmail)) {
+                $missing[] = 'Selected next of kin email address';
+            }
+        }
+
+        if (empty($case->client_id) && empty($draftData['consent'])) {
+            $missing[] = 'Data privacy consent';
+        }
+
+        $draftAddress = $draftData['address'] ?? [];
+        $addressFields = [
+            'Region' => $address?->region ?? $draftAddress['region'] ?? null,
+            'Province' => $address?->province ?? $draftAddress['province'] ?? null,
+            'City/Municipality' => $address?->city_municipality ?? $draftAddress['city_municipality'] ?? null,
+            'Barangay' => $address?->barangay ?? $draftAddress['barangay'] ?? null,
+        ];
+
+        foreach ($addressFields as $label => $value) {
+            if ($this->isBlank($value)) {
+                $missing[] = $label;
+            }
+        }
+
+        if ($clientType === 'NEXT_OF_KIN' && $this->isBlank($draftData['selected_nok_index'] ?? null)) {
+            $missing[] = 'Selected next of kin';
+        }
+
+        if (! empty($missing)) {
+            throw ValidationException::withMessages([
+                'draft' => 'Complete the draft before publishing. Missing: '.implode(', ', array_unique($missing)).'.',
+            ]);
+        }
+    }
+
+    private function isBlank(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return false;
+        }
+
+        return trim((string) $value) === '';
+    }
+
+    private function resolveClientNotificationEmail(CaseFile $case): ?string
+    {
+        $draftData = $case->draft_client_data ?? [];
+
+        if ($case->client_type === 'NEXT_OF_KIN') {
+            $selectedIndex = $draftData['selected_nok_index'] ?? null;
+            $nokRecords = $draftData['next_of_kin'] ?? [];
+
+            if ($selectedIndex !== null && isset($nokRecords[(int) $selectedIndex]['email'])) {
+                return $nokRecords[(int) $selectedIndex]['email'];
+            }
+
+            if (! empty($draftData['selected_nok_id'])) {
+                return $case->client?->nextOfKin
+                    ?->firstWhere('id', $draftData['selected_nok_id'])
+                    ?->email;
+            }
+
+            if ($selectedIndex !== null && $case->client?->relationLoaded('nextOfKin')) {
+                return $case->client->nextOfKin->values()->get((int) $selectedIndex)?->email;
+            }
+
+            return null;
+        }
+
+        return $case->client?->email ?? $draftData['email'] ?? null;
+    }
+
+    private function selectedNokIdFromData(array $data): ?string
+    {
+        if (! array_key_exists('selected_nok_index', $data)) {
+            return null;
+        }
+
+        $index = $data['selected_nok_index'];
+        if ($index === null || $index === '') {
+            return null;
+        }
+
+        $nokList = $data['next_of_kin'] ?? [];
+
+        return $nokList[(int) $index]['id'] ?? null;
     }
 
     public function getCases(array $filters = [], string $sort = 'created_at', string $direction = 'desc', int $perPage = 15)
@@ -793,7 +937,7 @@ class CaseService
     {
         $user = User::find($userId);
         $updatedBy = $user?->name ?? 'Unknown';
-        $case->loadMissing('client');
+        $case->loadMissing('client.nextOfKin');
 
         $changes = [];
         $meaningfulFields = ['client_type', 'vulnerability_indicator', 'nok_vulnerability_indicator', 'summary'];
@@ -814,7 +958,7 @@ class CaseService
         $caseManager = User::find($case->user_id);
         $notifyUsers = $caseManager ? [$caseManager] : [];
 
-        $clientEmail = $case->client?->email ?? '';
+        $clientEmail = $this->resolveClientNotificationEmail($case) ?? '';
 
         $this->notificationService->notifyAll(
             $case,
@@ -833,12 +977,12 @@ class CaseService
     {
         $user = User::find($userId);
         $updatedBy = $user?->name ?? 'Unknown';
-        $case->loadMissing('client');
+        $case->loadMissing('client.nextOfKin');
 
         $caseManager = User::find($case->user_id);
         $notifyUsers = $caseManager ? [$caseManager] : [];
 
-        $clientEmail = $case->client?->email ?? '';
+        $clientEmail = $this->resolveClientNotificationEmail($case) ?? '';
 
         $this->notificationService->notifyAll(
             $case,

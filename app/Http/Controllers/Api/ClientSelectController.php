@@ -16,7 +16,7 @@ class ClientSelectController extends Controller
 
     public function search(Request $request)
     {
-        $query = Client::with('caseFile')
+        $query = Client::withCount('caseFiles')
             ->where('is_deleted', false);
 
         if ($search = $request->query('q')) {
@@ -38,7 +38,10 @@ class ClientSelectController extends Controller
                 'suffix' => $client->suffix,
                 'sex' => $client->sex,
                 'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),
+                'email' => $client->email,
+                'contact_number' => $client->contact_number,
                 'avatar_url' => $client->avatar_url,
+                'case_files_count' => (int) $client->case_files_count,
                 'case_file' => $client->caseFile ? [
                     'case_number' => $client->caseFile->case_number,
                 ] : null,

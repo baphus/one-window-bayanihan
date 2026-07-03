@@ -8,7 +8,6 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 import PhoneInput from '@/Components/PhoneInput';
-import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
@@ -93,11 +92,19 @@ function Select({ value, onChange, options, placeholder, required }) {
 export default function CaseCreate() {
     const { client, categories = [], existingDraft, auth, caseIssues = [] } = usePage().props;
 
+    function normalizeSex(value) {
+        if (!value) return '';
+        const upper = value.toUpperCase();
+        if (upper === 'MALE') return 'Male';
+        if (upper === 'FEMALE') return 'Female';
+        return value;
+    }
+
     const { data, setData, post, put, processing, errors, setError, clearErrors } = useForm({
         client_type: 'OFW',
         category_id: '',
-        vulnerability_indicator: '',
-        nok_vulnerability_indicator: '',
+        vulnerability_indicator: 'None',
+        nok_vulnerability_indicator: 'None',
         summary: '',
         client: {
             first_name: '',
@@ -159,8 +166,8 @@ export default function CaseCreate() {
         formData: {
             client_type: 'OFW',
             category_id: '',
-            vulnerability_indicator: '',
-            nok_vulnerability_indicator: '',
+            vulnerability_indicator: 'None',
+            nok_vulnerability_indicator: 'None',
             summary: '',
             client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
             address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
@@ -259,8 +266,8 @@ export default function CaseCreate() {
         setData('client_type', backupData.client_type || 'OFW');
         setData('category_id', backupData.category_id || '');
         setData('selected_nok_index', backupData.selected_nok_index ?? '');
-        setData('vulnerability_indicator', backupData.vulnerability_indicator || '');
-        setData('nok_vulnerability_indicator', backupData.nok_vulnerability_indicator || '');
+        setData('vulnerability_indicator', backupData.vulnerability_indicator || 'None');
+        setData('nok_vulnerability_indicator', backupData.nok_vulnerability_indicator || 'None');
         setData('summary', backupData.summary || '');
         setData('consent', backupData.consent ?? false);
         if (backupData.case_issue_id !== undefined) setData('case_issue_id', backupData.case_issue_id);
@@ -275,23 +282,21 @@ export default function CaseCreate() {
         if (autoSaveDraftId) draftIdRef.current = autoSaveDraftId;
     }, [autoSaveDraftId]);
 
-    // Fetch clients from API when debounced search changes
+    // Fetch clients from API — loads recent clients on mount and filters on search
     useEffect(() => {
-        const q = debouncedSearch.trim();
-        if (!q) {
-            setSearchResults([]);
-            return;
-        }
         let cancelled = false;
         setSearchLoading(true);
-        window.axios.get('/api/clients', { params: { q } })
+        const params = {};
+        const q = debouncedSearch.trim();
+        if (q) params.q = q;
+        window.axios.get('/api/clients', { params })
             .then((res) => {
                 if (!cancelled) {
                     const mapped = (res.data.data || []).map((c) => ({
                         ...c,
                         full_name: [c.first_name, c.middle_initial, c.last_name, c.suffix].filter(Boolean).join(' '),
-                        has_case: !!c.case_file,
-                        case_count: c.case_file ? 1 : 0,
+                        has_case: c.case_files_count > 0,
+                        case_count: c.case_files_count || 0,
                     }));
                     setSearchResults(mapped);
                     setSearchLoading(false);
@@ -314,7 +319,7 @@ export default function CaseCreate() {
                 middle_initial: client.middle_initial || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
-                sex: client.sex || 'Male',
+                sex: normalizeSex(client.sex) || 'Male',
                 email: client.email || '',
                 contact_number: client.contact_number || '',
             });
@@ -365,19 +370,19 @@ export default function CaseCreate() {
 
             // Update initial ref so dirty tracking starts from pre-filled state
             initialFormRef.current = {
-                formData: {
-                    client_type: 'OFW',
-                    category_id: '',
-                    vulnerability_indicator: '',
-                    nok_vulnerability_indicator: '',
-                    summary: '',
+        formData: {
+            client_type: 'OFW',
+            category_id: '',
+            vulnerability_indicator: 'None',
+            nok_vulnerability_indicator: 'None',
+            summary: '',
                     client: {
                         first_name: client.first_name || '',
                         last_name: client.last_name || '',
                         middle_initial: client.middle_initial || '',
                         suffix: client.suffix || '',
                         date_of_birth: client.date_of_birth || '',
-                        sex: client.sex || '',
+                        sex: normalizeSex(client.sex) || '',
                         email: client.email || '',
                         contact_number: client.contact_number || '',
                     },
@@ -438,7 +443,7 @@ export default function CaseCreate() {
         setData('client_type', existingDraft.client_type || 'OFW');
         setData('category_id', existingDraft.category_id || '');
         setData('selected_nok_index', existingDraft.selected_nok_index ?? '');
-        setData('vulnerability_indicator', existingDraft.vulnerability_indicator || '');
+        setData('vulnerability_indicator', existingDraft.vulnerability_indicator || 'None');
         setData('summary', existingDraft.summary || '');
         setData('is_draft', true);
         if (existingDraft.case_issue_id) setData('case_issue_id', existingDraft.case_issue_id);
@@ -461,7 +466,7 @@ export default function CaseCreate() {
                 middle_initial: existingDraft.client.middle_initial || '',
                 suffix: existingDraft.client.suffix || '',
                 date_of_birth: existingDraft.client.date_of_birth || '',
-                sex: existingDraft.client.sex || '',
+                sex: normalizeSex(existingDraft.client.sex) || '',
                 email: existingDraft.client.email || '',
                 contact_number: existingDraft.client.contact_number || '',
             });
@@ -510,7 +515,8 @@ export default function CaseCreate() {
                 })));
             }
         } else if (existingDraft.draft_client_data) {
-            // JSON blob from new-client drafts
+            // JSON blob from drafts. Older existing-client drafts may have
+            // selected_client_id here even when case.client_id was not persisted.
             try {
                 clientData = typeof existingDraft.draft_client_data === 'string'
                     ? JSON.parse(existingDraft.draft_client_data)
@@ -520,6 +526,11 @@ export default function CaseCreate() {
             }
 
             if (clientData) {
+                if (clientData.selected_client_id) {
+                    src = 'existing';
+                    selId = clientData.selected_client_id;
+                }
+
                 setData('client', {
                     ...data.client,
                     first_name: clientData.first_name || '',
@@ -527,7 +538,7 @@ export default function CaseCreate() {
                     middle_initial: clientData.middle_initial || '',
                     suffix: clientData.suffix || '',
                     date_of_birth: clientData.date_of_birth || '',
-                    sex: clientData.sex || '',
+                    sex: normalizeSex(clientData.sex) || '',
                     email: clientData.email || '',
                     contact_number: clientData.contact_number || '',
                 });
@@ -588,8 +599,15 @@ export default function CaseCreate() {
         setClientSource(src);
         setData('selected_client_id', selId);
         setData('consent', false);
+        setSelectedClient(null);
 
-        // 4. Generated IDs — override with existing draft's real IDs
+        // 4. When editing a draft with a linked client, skip the client selection
+        //    search screen and go directly to case setup (step 2).
+        if (src === 'existing' && selId) {
+            setCurrentStep(2);
+        }
+
+        // 5. Generated IDs — override with existing draft's real IDs
         setCaseId(existingDraft.case_number);
         setTrackingId(existingDraft.tracker_number);
 
@@ -598,8 +616,8 @@ export default function CaseCreate() {
             formData: {
                 client_type: existingDraft.client_type || 'OFW',
                 category_id: existingDraft.category_id || '',
-                vulnerability_indicator: existingDraft.vulnerability_indicator || '',
-                nok_vulnerability_indicator: '',
+                vulnerability_indicator: existingDraft.vulnerability_indicator || 'None',
+                nok_vulnerability_indicator: existingDraft.nok_vulnerability_indicator || 'None',
                 summary: existingDraft.summary || '',
                 client: {
                     first_name: c.first_name || '',
@@ -607,7 +625,7 @@ export default function CaseCreate() {
                     middle_initial: c.middle_initial || '',
                     suffix: c.suffix || '',
                     date_of_birth: c.date_of_birth || '',
-                    sex: c.sex || '',
+                    sex: normalizeSex(c.sex) || '',
                     email: c.email || '',
                     contact_number: c.contact_number || '',
                 },
@@ -782,11 +800,10 @@ export default function CaseCreate() {
                 && data.address.barangay.length > 0;
         }
         if (currentStep === 2) {
-            const hasEmail = clientSource === 'existing' || data.client.email.trim().length > 0;
             if (data.client_type === 'NEXT_OF_KIN') {
-                return hasEmail && data.selected_nok_index !== '';
+                return data.selected_nok_index !== '' && !!selectedNok?.email?.trim();
             }
-            return hasEmail;
+            return data.client.email.trim().length > 0;
         }
         return true;
     }
@@ -807,7 +824,12 @@ export default function CaseCreate() {
         }
         if (currentStep === 2) {
             const missing = [];
-            if (clientSource !== 'existing' && !data.client.email.trim()) missing.push('Email');
+            if (data.client_type === 'NEXT_OF_KIN') {
+                if (data.selected_nok_index === '') missing.push('Selected Next of Kin');
+                if (!selectedNok?.email?.trim()) missing.push('Selected Next of Kin Email');
+            } else if (!data.client.email.trim()) {
+                missing.push('OFW Email');
+            }
             return missing;
         }
         return [];
@@ -880,10 +902,30 @@ export default function CaseCreate() {
                 isValid = false;
                 toast.error('Please select a case category.');
             }
-            if (data.client.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client.email.trim())) {
+            if (data.client_type === 'NEXT_OF_KIN') {
+                if (data.selected_nok_index === '') {
+                    setError('selected_nok_index', 'Please select the next of kin receiving case notifications.');
+                    isValid = false;
+                    toast.error('Please select a next of kin.');
+                }
+
+                if (!selectedNok?.email?.trim()) {
+                    setError('next_of_kin.email', 'The selected next of kin email is required.');
+                    isValid = false;
+                    toast.error('Please provide the selected next of kin email address.');
+                } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(selectedNok.email.trim())) {
+                    setError('next_of_kin.email', 'Please provide a valid next of kin email address.');
+                    isValid = false;
+                    toast.error('Please provide a valid next of kin email address.');
+                }
+            } else if (!data.client.email.trim()) {
+                setError('client.email', 'The OFW email address is required.');
+                isValid = false;
+                toast.error('Please provide the OFW email address.');
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client.email.trim())) {
                 setError('client.email', 'Please provide a valid email address.');
                 isValid = false;
-                toast.error('Please provide a valid email address.');
+                toast.error('Please provide a valid OFW email address.');
             }
         }
 
@@ -893,7 +935,8 @@ export default function CaseCreate() {
     function canSubmit() {
         return data.client.first_name.trim().length > 0
             && data.client.last_name.trim().length > 0
-            && (clientSource === 'existing' || (data.client.email.trim().length > 0 && data.consent));
+            && notificationEmail.trim().length > 0
+            && (clientSource === 'existing' || data.consent);
     }
 
     function handleSaveDraft(e) {
@@ -977,12 +1020,12 @@ export default function CaseCreate() {
         setSearchQuery('');
         setDebouncedSearch('');
         initialFormRef.current = {
-            formData: {
-                client_type: 'OFW',
-                category_id: '',
-                vulnerability_indicator: '',
-                nok_vulnerability_indicator: '',
-                summary: '',
+                formData: {
+                    client_type: 'OFW',
+                    category_id: '',
+                    vulnerability_indicator: 'None',
+                    nok_vulnerability_indicator: 'None',
+                    summary: '',
                 client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
@@ -1013,7 +1056,7 @@ function handleConfirmClient(client) {
         middle_initial: client.middle_initial || '',
         suffix: client.suffix || '',
         date_of_birth: client.date_of_birth || '',
-        sex: client.sex || '',
+        sex: normalizeSex(client.sex) || '',
         email: client.email || '',
         contact_number: client.contact_number || '',
     });
@@ -1065,20 +1108,20 @@ function handleConfirmClient(client) {
     }
 
     // CRITICAL: Update initialFormRef so dirty tracking starts from pre-filled state
-    initialFormRef.current = {
-        formData: {
-            client_type: 'OFW',
-            category_id: '',
-            vulnerability_indicator: '',
-            nok_vulnerability_indicator: '',
-            summary: '',
+        initialFormRef.current = {
+            formData: {
+                client_type: 'OFW',
+                category_id: '',
+                vulnerability_indicator: 'None',
+                nok_vulnerability_indicator: 'None',
+                summary: '',
             client: {
                 first_name: client.first_name || '',
                 last_name: client.last_name || '',
                 middle_initial: client.middle_initial || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
-                sex: client.sex || '',
+                sex: normalizeSex(client.sex) || '',
                 email: client.email || '',
                 contact_number: client.contact_number || '',
             },
@@ -1129,6 +1172,12 @@ function handleConfirmClient(client) {
 
     setSelectedClient(null);
 }
+
+    const selectedNokIndex = data.selected_nok_index !== '' ? Number(data.selected_nok_index) : null;
+    const selectedNok = selectedNokIndex !== null ? data.next_of_kin[selectedNokIndex] : null;
+    const notificationEmail = data.client_type === 'NEXT_OF_KIN'
+        ? (selectedNok?.email || '')
+        : data.client.email;
 
     const nokSummary = data.next_of_kin.length > 0
         ? data.next_of_kin.map(n => [n.first_name, n.last_name].filter(Boolean).join(' ')).filter(Boolean).join(', ') || 'Not yet provided'
@@ -1284,7 +1333,11 @@ function handleConfirmClient(client) {
 
                                                         <div className="mb-4 flex items-center justify-between">
                                                             <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
-                                                                {debouncedSearch.trim() ? `${searchLoading ? 'Searching' : `${searchResults.length} client(s) found`}` : 'Type to search clients'}
+                                                                {debouncedSearch.trim()
+                                                                    ? `${searchLoading ? 'Searching...' : `${searchResults.length} client(s) found`}`
+                                                                    : searchResults.length > 0
+                                                                        ? `Recent clients (${searchResults.length})`
+                                                                        : 'Type to search clients'}
                                                             </span>
                                                             <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
                                                                 <button
@@ -1304,10 +1357,10 @@ function handleConfirmClient(client) {
                                                             </div>
                                                         </div>
 
-                                                        {searchLoading && debouncedSearch.trim() && searchResults.length === 0 ? (
+                                                        {searchLoading && searchResults.length === 0 ? (
                                                             <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                                                                 <span className="material-symbols-outlined text-[40px] mb-3 animate-pulse">search</span>
-                                                                <p className="text-[14px] font-medium text-slate-500">Searching...</p>
+                                                                <p className="text-[14px] font-medium text-slate-500">Loading clients...</p>
                                                             </div>
                                                         ) : searchResults.length === 0 && debouncedSearch.trim() ? (
                                                             <div className="flex flex-col items-center justify-center py-12 text-slate-400">
@@ -1318,8 +1371,52 @@ function handleConfirmClient(client) {
                                                         ) : searchResults.length === 0 ? (
                                                             <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                                                                 <span className="material-symbols-outlined text-[40px] mb-3">search</span>
-                                                                <p className="text-[14px] font-medium text-slate-500">Start typing to search</p>
-                                                                <p className="text-[12px] text-slate-400 mt-1">Search for existing clients by name.</p>
+                                                                <p className="text-[14px] font-medium text-slate-500">No clients available</p>
+                                                                <p className="text-[12px] text-slate-400 mt-1">Create a new client to get started.</p>
+                                                            </div>
+                                                        ) : viewMode === 'list' ? (
+                                                            <div className="space-y-1">
+                                                                {searchResults.map((c) => (
+                                                                    <button
+                                                                        key={c.id}
+                                                                        type="button"
+                                                                        onClick={() => handleClientSelect(c)}
+                                                                        className="flex w-full items-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                    >
+                                                                        <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-indigo-100">
+                                                                            <span className="text-sm font-semibold text-indigo-700 select-none">
+                                                                                {getInitial(c.first_name)}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="min-w-0 flex-1 grid grid-cols-5 gap-2 text-[13px]">
+                                                                            <div className="col-span-2">
+                                                                                <p className="font-bold text-slate-900 truncate">{c.full_name}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-slate-400 text-[11px]">Sex:</span>{' '}
+                                                                                <span className="text-slate-700">{c.sex || '-'}</span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-slate-400 text-[11px]">DOB:</span>{' '}
+                                                                                <span className="text-slate-700">{c.date_of_birth || '-'}</span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-slate-400 text-[11px]">Contact:</span>{' '}
+                                                                                <span className="text-slate-700">{c.contact_number || '-'}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="shrink-0 text-right text-[12px]">
+                                                                            {c.case_count > 0 ? (
+                                                                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-0.5 text-amber-700 font-medium">
+                                                                                    <span className="material-symbols-outlined text-[14px]">description</span>
+                                                                                    {c.case_count} {c.case_count === 1 ? 'case' : 'cases'}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-slate-400">No cases</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
                                                             </div>
                                                         ) : viewMode === 'grid' ? (
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1337,8 +1434,15 @@ function handleConfirmClient(client) {
                                                                         </div>
                                                                         <div className="min-w-0 flex-1">
                                                                             <p className="text-[14px] font-bold text-slate-900 truncate">{c.full_name}</p>
-                                                                            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-slate-500">
-                                                                                {c.has_case && <span className="font-medium text-amber-600">Has existing case</span>}
+                                                                            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-slate-500">
+                                                                                {c.case_count > 0 ? (
+                                                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700 font-medium text-[11px]">
+                                                                                        <span className="material-symbols-outlined text-[13px]">description</span>
+                                                                                        {c.case_count} {c.case_count === 1 ? 'case' : 'cases'}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="text-slate-400">No cases</span>
+                                                                                )}
                                                                                 {c.sex && <span>Sex: <span className="font-medium text-slate-700">{c.sex}</span></span>}
                                                                                 {c.date_of_birth && <span>DOB: <span className="font-medium text-slate-700">{c.date_of_birth}</span></span>}
                                                                             </div>
@@ -1346,22 +1450,7 @@ function handleConfirmClient(client) {
                                                                     </button>
                                                                 ))}
                                                             </div>
-                                                        ) : (
-                                                            <UnifiedTable
-                                                                data={searchResults}
-                                                                columns={[
-                                                                    { key: 'name', title: 'Name', render: (row) => row.full_name },
-                                                                    { key: 'sex', title: 'Sex' },
-                                                                    { key: 'dob', title: 'Date of Birth', render: (row) => row.date_of_birth || '-' },
-                                                                    { key: 'contact', title: 'Contact', render: (row) => row.contact_number || '-' },
-                                                                    { key: 'case', title: 'Case Status', render: (row) => row.has_case ? <span className="font-medium text-amber-600">Has existing case</span> : '-' },
-                                                                ]}
-                                                                keyExtractor={(row) => row.id}
-                                                                hideControlBar
-                                                                hidePagination
-                                                                onRowClick={(row) => handleClientSelect(row)}
-                                                            />
-                                                        )}
+                                                        ) : null}
 
                                                         <p className="mt-3 text-[11px] text-slate-400 text-center">Type to search existing clients. Showing up to 20 matching results.</p>
                                                     </div>
@@ -1394,6 +1483,26 @@ function handleConfirmClient(client) {
                                                     </Field>
                                                     <Field label="Contact Number" required>
                                                         <PhoneInput value={data.client.contact_number} onChange={(val) => handleClientChange('contact_number', val)} />
+                                                    </Field>
+                                                    <Field label="OFW Email Address" required>
+                                                        <Input
+                                                            type="email"
+                                                            value={data.client.email}
+                                                            onChange={(e) => handleClientChange('email', e.target.value)}
+                                                            onBlur={() => {
+                                                                const val = data.client.email.trim();
+                                                                if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                                                                    setError('client.email', 'Please provide a valid OFW email address.');
+                                                                    toast.error('Please provide a valid OFW email address.');
+                                                                } else {
+                                                                    clearErrors('client.email');
+                                                                }
+                                                            }}
+                                                            placeholder="ofw@email.com"
+                                                            required
+                                                            maxLength={255}
+                                                        />
+                                                        <InputError message={errors['client.email']} className="mt-1" />
                                                     </Field>
                                                 </div>
                                             </Subsection>
@@ -1595,23 +1704,16 @@ function handleConfirmClient(client) {
                                                     </select>
                                                 </Field>
                                             </div>
-                                            <div className="mt-5 pt-5 border-t border-slate-200">
-                                                <Field label="Notification Email" required>
-                                                    <Input type="email" value={data.client.email} onChange={(e) => handleClientChange('email', e.target.value)} onBlur={() => { const val = data.client.email.trim(); if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) { setError('client.email', 'Please provide a valid email address.'); toast.error('Please provide a valid email address.'); } else { clearErrors('client.email'); } }} placeholder="client@email.com" required maxLength={255} />
-                                                    <InputError message={errors['client.email']} className="mt-1" />
-                                                </Field>
-                                                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700">
-                                                    <span className="material-symbols-outlined text-[14px]">info</span>
-                                                    This email will be used to send case updates and notifications to the client.
-                                                </p>
-                                            </div>
                                             {data.client_type === 'NEXT_OF_KIN' && (
                                                 <div className="mt-4 pt-4 border-t border-slate-200">
                                                     {data.next_of_kin.length > 0 ? (
                                                         <Field label="Select Next of Kin" required>
                                                             <select
                                                                 value={data.selected_nok_index}
-                                                                onChange={(e) => setData('selected_nok_index', e.target.value)}
+                                                                onChange={(e) => {
+                                                                    setData('selected_nok_index', e.target.value);
+                                                                    clearErrors('selected_nok_index', 'next_of_kin.email');
+                                                                }}
                                                                 className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                                 required
                                                             >
@@ -1622,6 +1724,7 @@ function handleConfirmClient(client) {
                                                                     </option>
                                                                 ))}
                                                             </select>
+                                                            <InputError message={errors.selected_nok_index} className="mt-1" />
                                                         </Field>
                                                     ) : (
                                                         <p className="text-[13px] text-amber-600 bg-amber-50 rounded-md px-4 py-3 border border-amber-200">
@@ -1630,6 +1733,29 @@ function handleConfirmClient(client) {
                                                     )}
                                                 </div>
                                             )}
+                                            <div className="mt-5 pt-5 border-t border-slate-200">
+                                                {data.client_type === 'NEXT_OF_KIN' ? (
+                                                    <Field label="Selected Next of Kin Email Address" required>
+                                                        <div className="flex h-10 w-full items-center rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700">
+                                                            {selectedNok?.email || 'Select a next of kin with an email address'}
+                                                        </div>
+                                                        <InputError message={errors['next_of_kin.email']} className="mt-1" />
+                                                    </Field>
+                                                ) : (
+                                                    <Field label="OFW Email Address" required>
+                                                        <div className="flex h-10 w-full items-center rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700">
+                                                            {data.client.email || 'No OFW email address provided'}
+                                                        </div>
+                                                        <InputError message={errors['client.email']} className="mt-1" />
+                                                    </Field>
+                                                )}
+                                                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700">
+                                                    <span className="material-symbols-outlined text-[14px]">info</span>
+                                                    {data.client_type === 'NEXT_OF_KIN'
+                                                        ? 'Case updates will be sent to the selected next of kin because this case is filed for them.'
+                                                        : 'Case updates will be sent to the OFW email address.'}
+                                                </p>
+                                            </div>
                                         </div>
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

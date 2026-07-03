@@ -81,6 +81,7 @@ class StoreCaseRequest extends FormRequest
             'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
 
             'selected_client_id' => ['nullable', 'string', 'exists:clients,id'],
+            'selected_nok_index' => ['nullable', 'integer', 'min:0'],
 
             'consent' => ['nullable', 'boolean'],
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
@@ -15,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class CaseServiceTest extends TestCase
@@ -212,9 +214,27 @@ class CaseServiceTest extends TestCase
     public function test_user_can_publish_own_draft(): void
     {
         $user = User::factory()->create();
+        $category = CaseCategory::factory()->create();
         $case = CaseFile::factory()->create([
             'status' => 'DRAFT',
             'user_id' => $user->id,
+            'category_id' => $category->id,
+            'client_type' => 'OFW',
+            'draft_client_data' => [
+                'first_name' => 'Juan',
+                'last_name' => 'Dela Cruz',
+                'date_of_birth' => '1990-01-01',
+                'sex' => 'Male',
+                'email' => 'juan@example.test',
+                'contact_number' => '+639171234567',
+                'address' => [
+                    'region' => 'Region VII',
+                    'province' => 'Cebu',
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Lahug',
+                ],
+                'consent' => true,
+            ],
         ]);
 
         $service = app(CaseService::class);
@@ -229,6 +249,102 @@ class CaseServiceTest extends TestCase
             'entity_id' => $case->id,
             'action' => 'PUBLISH',
             'module' => 'CASE',
+        ]);
+    }
+
+    public function test_incomplete_draft_cannot_be_published(): void
+    {
+        $user = User::factory()->create();
+        $case = CaseFile::factory()->create([
+            'status' => 'DRAFT',
+            'user_id' => $user->id,
+            'category_id' => null,
+            'draft_client_data' => [
+                'first_name' => 'Juan',
+            ],
+        ]);
+
+        $service = app(CaseService::class);
+
+        $this->expectException(ValidationException::class);
+        $service->publishDraft($case->id, $user->id);
+    }
+
+    public function test_ofw_draft_requires_ofw_email_before_publish(): void
+    {
+        $user = User::factory()->create();
+        $category = CaseCategory::factory()->create();
+        $case = CaseFile::factory()->create([
+            'status' => 'DRAFT',
+            'user_id' => $user->id,
+            'category_id' => $category->id,
+            'client_type' => 'OFW',
+            'draft_client_data' => [
+                'first_name' => 'Juan',
+                'last_name' => 'Dela Cruz',
+                'date_of_birth' => '1990-01-01',
+                'sex' => 'Male',
+                'contact_number' => '+639171234567',
+                'address' => [
+                    'region' => 'Region VII',
+                    'province' => 'Cebu',
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Lahug',
+                ],
+                'consent' => true,
+            ],
+        ]);
+
+        $service = app(CaseService::class);
+
+        $this->expectException(ValidationException::class);
+        $service->publishDraft($case->id, $user->id);
+    }
+
+    public function test_next_of_kin_draft_uses_selected_nok_email_before_publish(): void
+    {
+        $user = User::factory()->create();
+        $category = CaseCategory::factory()->create();
+        $case = CaseFile::factory()->create([
+            'status' => 'DRAFT',
+            'user_id' => $user->id,
+            'category_id' => $category->id,
+            'client_type' => 'NEXT_OF_KIN',
+            'draft_client_data' => [
+                'first_name' => 'Juan',
+                'last_name' => 'Dela Cruz',
+                'date_of_birth' => '1990-01-01',
+                'sex' => 'Male',
+                'email' => null,
+                'contact_number' => '+639171234567',
+                'address' => [
+                    'region' => 'Region VII',
+                    'province' => 'Cebu',
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Lahug',
+                ],
+                'next_of_kin' => [[
+                    'first_name' => 'Maria',
+                    'last_name' => 'Dela Cruz',
+                    'relationship' => 'Spouse',
+                    'email' => 'maria@example.test',
+                ]],
+                'selected_nok_index' => 0,
+                'consent' => true,
+            ],
+        ]);
+
+        $service = app(CaseService::class);
+        $result = $service->publishDraft($case->id, $user->id);
+
+        $this->assertEquals('OPEN', $result->status);
+        $this->assertDatabaseHas('clients', [
+            'id' => $result->client_id,
+            'email' => null,
+        ]);
+        $this->assertDatabaseHas('next_of_kin', [
+            'client_id' => $result->client_id,
+            'email' => 'maria@example.test',
         ]);
     }
 

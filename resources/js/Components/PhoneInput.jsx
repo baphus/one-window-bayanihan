@@ -138,7 +138,7 @@ export default function PhoneInput({
                 <select
                     value={countryCode}
                     onChange={handleCountryChange}
-                    className="h-10 w-[140px] shrink-0 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="h-10 w-[96px] shrink-0 rounded-[3px] border border-slate-300 px-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 >
                     {countries.map((c) => (
                         <option key={c.code} value={c.code}>
