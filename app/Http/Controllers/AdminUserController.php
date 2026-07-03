@@ -59,13 +59,13 @@ class AdminUserController extends Controller
             'users' => $users,
             'filters' => $filters,
             'agencies' => Inertia::lazy(fn () => $agencies),
-            'stats' => Inertia::lazy(fn () => [
+            'stats' => [
                 'total' => User::count(),
                 'active' => User::where('is_active', true)->count(),
                 'case_managers' => User::where('role', 'CASE_MANAGER')->count(),
                 'agency_focals' => User::where('role', 'AGENCY')->count(),
                 'admins' => User::where('role', 'ADMIN')->count(),
-            ]),
+            ],
         ]);
     }
 

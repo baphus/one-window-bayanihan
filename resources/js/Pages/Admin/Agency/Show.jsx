@@ -11,7 +11,7 @@ import AgencyMapView from '@/Components/AgencyMapView';
 
 const TABS = ['Referrals', 'Services', 'Focal Persons'];
 
-export default function AdminAgencyShow({ agency }) {
+export default function AdminAgencyShow({ agency, referrals }) {
   const { auth } = usePage().props;
   const isAdmin = auth?.user?.role === 'ADMIN';
 
@@ -103,6 +103,14 @@ export default function AdminAgencyShow({ agency }) {
   function openAddUser()       { setEditingUser({ role: 'AGENCY', agcy_id: agency.id }); setShowForm(true); }
   function openEditUser(u)     { setEditingUser(u); setShowForm(true); }
   function closeForm()         { setShowForm(false); setEditingService(null); setEditingUser(null); }
+
+  // ── Referral Pagination ──
+
+  function handleReferralPage(page) {
+    const url = new URL(window.location);
+    url.searchParams.set('page', page);
+    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
+  }
 
   // ── Helpers ──
 
@@ -339,12 +347,12 @@ export default function AdminAgencyShow({ agency }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {agency.referrals.length === 0 ? (
+                {referrals.data.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-slate-400">No referrals assigned to this agency.</td>
                   </tr>
                 ) : (
-                  agency.referrals.map((ref) => (
+                  referrals.data.map((ref) => (
                     <tr key={ref.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-900">{ref.caseFile?.case_number || '\u2014'}</td>
                       <td className="px-4 py-3 text-slate-600">{ref.caseFile?.client ? `${ref.caseFile.client.first_name} ${ref.caseFile.client.last_name}` : '\u2014'}</td>
@@ -364,6 +372,46 @@ export default function AdminAgencyShow({ agency }) {
               </tbody>
             </table>
           </div>
+
+          {/* ── Referral Pagination ── */}
+          {referrals.data.length > 0 && referrals.last_page > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
+              <div className="text-sm text-slate-500">
+                Showing {referrals.from}–{referrals.to} of {referrals.total}
+              </div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => handleReferralPage(referrals.current_page - 1)}
+                  disabled={referrals.current_page === 1}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 disabled:opacity-50 focus:z-20 focus:outline-offset-0"
+                >
+                  <span className="sr-only">Previous</span>
+                  <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                </button>
+                {Array.from({ length: referrals.last_page }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => handleReferralPage(p)}
+                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
+                      p === referrals.current_page
+                        ? 'z-10 bg-blue-900 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-900'
+                        : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => handleReferralPage(referrals.current_page + 1)}
+                  disabled={referrals.current_page === referrals.last_page}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 disabled:opacity-50 focus:z-20 focus:outline-offset-0"
+                >
+                  <span className="sr-only">Next</span>
+                  <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                </button>
+              </nav>
+            </div>
+          )}
         </div>
       )}
 

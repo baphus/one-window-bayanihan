@@ -225,6 +225,21 @@ class TrackingService
             ];
         })->toArray();
 
+        // Calculate overall completion percentage from referral statuses
+        $totalWeight = 0;
+        $maxWeight = 0;
+        foreach ($referrals as $ref) {
+            $maxWeight += 100;
+            $totalWeight += match ($ref->status) {
+                'COMPLETED', 'REJECTED' => 100,
+                'PROCESSING' => 66,
+                'FOR_COMPLIANCE' => 33,
+                'PENDING' => 10,
+                default => 0,
+            };
+        }
+        $completionPercentage = $maxWeight > 0 ? (int) round(($totalWeight / $maxWeight) * 100) : 0;
+
         $unreadCount = 0;
         $caseNotifications = [];
 
@@ -270,6 +285,7 @@ class TrackingService
             'caseOverview' => $caseOverview,
             'caseTimeline' => $timeline,
             'milestoneTimeline' => $this->buildMilestoneTimeline($case),
+            'completionPercentage' => $completionPercentage,
             'trackingAgencies' => $agencyCards,
             'caseNotifications' => [
                 'unread_count' => $unreadCount,

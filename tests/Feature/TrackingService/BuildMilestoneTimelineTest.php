@@ -271,6 +271,54 @@ class BuildMilestoneTimelineTest extends TestCase
         $this->assertEquals('milestone', $timeline[2]['type']);
     }
 
+    public function test_same_timestamp_sent_before_status_in_ascending_order(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+
+        // Create a referral with PROCESSING status so both referral_sent and
+        // referral_status events are emitted with the same timestamp (no
+        // UPDATE audit log exists for the status change at creation time).
+        $timestamp = now();
+        $referral = Referral::factory()->processing()->create([
+            'case_id' => $case->id,
+            'created_at' => $timestamp,
+        ]);
+
+        $this->loadRelations($case);
+        $data = $service->buildTrackingData($case);
+        $timeline = $data['milestoneTimeline'];
+
+        // Locate the two events by type
+        $sentIndex = null;
+        $statusIndex = null;
+        foreach ($timeline as $i => $item) {
+            if ($item['type'] === 'referral_sent') {
+                $sentIndex = $i;
+            }
+            if ($item['type'] === 'referral_status') {
+                $statusIndex = $i;
+            }
+        }
+
+        $this->assertNotNull($sentIndex, 'Must have a referral_sent event');
+        $this->assertNotNull($statusIndex, 'Must have a referral_status event');
+
+        // Both share the same date (no audit log, no post-creation update),
+        // so _sort_index is the tiebreaker. sort_index for sent < status,
+        // therefore sent sorts before status in ascending chronological order.
+        $this->assertLessThan(
+            $statusIndex,
+            $sentIndex,
+            'referral_sent must appear before referral_status in ascending timeline '.
+            '(sort_index tiebreaker ensures correct order; after frontend .reverse(), '.
+            'referral_status will appear above referral_sent in display)'
+        );
+
+        // Also verify both have the exact same date string
+        $this->assertSame($timeline[$sentIndex]['date'], $timeline[$statusIndex]['date']);
+    }
+
     public function test_referral_status_uses_audit_log_timestamp(): void
     {
         $service = app(TrackingService::class);

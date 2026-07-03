@@ -231,9 +231,19 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
               ...base,
               sortable: false,
               render: (row) => (
-                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${row.email_verified_at ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                  {row.email_verified_at ? 'Verified' : 'Unverified'}
-                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!row.email_verified_at}
+                  title={row.email_verified_at ? 'Verified' : 'Unverified'}
+                  onClick={() => {
+                    if (row.email_verified_at && !confirm('Unverifying this user will lock them out until an admin re-verifies them. Continue?')) return;
+                    router.patch(route('admin.users.verify', row.id), {}, { preserveScroll: true });
+                  }}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${row.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${row.email_verified_at ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
               ),
             };
           case 'mfa_status':

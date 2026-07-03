@@ -216,18 +216,24 @@ class AdminAgencyController extends Controller
         }
     }
 
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
         $agency = Agency::withCount('referrals')->findOrFail($id);
         $agency->load([
             'services',
             'services.requirements',
             'users',
-            'referrals' => fn ($q) => $q->with(['caseFile.client'])->latest(),
         ]);
+
+        $perPage = min((int) ($request->per_page ?? 15), 100);
+        $referrals = $agency->referrals()
+            ->with(['caseFile.client'])
+            ->latest()
+            ->paginate($perPage);
 
         return Inertia::render('Admin/Agency/Show', [
             'agency' => $agency,
+            'referrals' => $referrals,
         ]);
     }
 
