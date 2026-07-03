@@ -10,7 +10,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
           alt="Bayanihan One Window System in action"
           className="h-full w-full object-cover object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-[#003a63]/90"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-primary-container/90"></div>
       </div>
 
       <div className="relative z-10 flex flex-1 items-center justify-center px-4 pt-24 md:px-8 md:pt-32">
@@ -26,7 +26,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
             <div className="flex flex-wrap items-center justify-center gap-4">
               <button
                 onClick={onTrackAction}
-                className="inline-flex items-center justify-center gap-2 bg-white px-8 py-4 text-base font-bold text-[#005288] shadow-xl transition-all hover:bg-slate-100 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 bg-white px-8 py-4 text-base font-bold text-primary shadow-xl transition-all hover:bg-slate-100 active:scale-95"
               >
                 <span className="material-symbols-outlined text-[22px]">travel_explore</span>
                 Track Your Case
@@ -39,7 +39,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
         </div>
       </div>
 
-      <div className="relative z-10 bg-gradient-to-b from-transparent via-[#003a63]/60 to-[#003a63] pt-20 pb-16">
+      <div className="relative z-10 bg-gradient-to-b from-transparent via-primary-container/60 to-primary-container pt-20 pb-16">
         <h3
           className="animate-fade-in-up mb-5 px-8 text-center font-headline text-sm font-bold uppercase tracking-widest text-white/50"
           style={{ animationDelay: '0.2s', animationFillMode: 'both' }}

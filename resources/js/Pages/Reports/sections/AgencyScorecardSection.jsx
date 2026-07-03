@@ -41,7 +41,7 @@ export default function AgencyScorecardSection({ pageHeadingStyles }) {
                   {data.map((a) => (
                     <tr
                       key={a.agency}
-                      className="border-b border-[#e2e8f0] last:border-0"
+                      className="border-b border-slate-200 last:border-0"
                     >
                       <td className="py-2 pr-3 font-semibold text-slate-700">
                         {a.agency}

@@ -169,7 +169,7 @@ export default function Index({ settings }) {
         </Section>
 
         <div className="flex justify-end">
-          <button type="submit" disabled={processing} className="rounded-md bg-[#0b5384] px-4 py-2 text-sm font-medium text-white hover:bg-[#09416a] disabled:opacity-50">Save Changes</button>
+          <button type="submit" disabled={processing} className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50">Save Changes</button>
         </div>
       </form>
 

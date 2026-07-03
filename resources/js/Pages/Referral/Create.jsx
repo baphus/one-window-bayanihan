@@ -307,8 +307,8 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                     e.preventDefault();
                 }
             }}>
-                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-[#cbd5e1] bg-white shadow-sm">
-                    <div className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-[#cbd5e1] bg-slate-50/60 p-8">
+                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-slate-200 bg-slate-50/60 p-8">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Step Guide</h3>
                             <p className="mt-2 text-[14px] font-bold text-slate-800">Step {createStep} of {STEPS.length}</p>
@@ -327,7 +327,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                         const isCurrent = createStep === step.id;
                                         return (
                                             <div key={step.id} className="flex gap-4 group">
-                                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-bold transition-colors ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'bg-white border-indigo-600 text-indigo-600' : 'bg-white border-[#cbd5e1] text-slate-400 group-hover:border-slate-400'}`}>
+                                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-[12px] font-bold transition-colors ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'bg-white border-indigo-600 text-indigo-600' : 'bg-white border-slate-200 text-slate-400 group-hover:border-slate-400'}`}>
                                                     {isCompleted ? (
                                                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                                                             <polyline points="20 6 9 17 4 12" />
@@ -417,7 +417,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                     }, 300);
                                                                 }}
                                                                 placeholder="Search by case number or client name..."
-                                                                className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             />
 
                                                             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -521,7 +521,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                             setData('agcy_id', nextAgencyId);
                                                             setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
                                                         }}
-                                                        className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         required
                                                     >
                                                         <option value="">Select an agency...</option>
@@ -573,7 +573,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Services</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Select one or more services offered by {selectedAgency?.name || 'the agency'}.</p>
-                                            <div className="mt-4 rounded-lg border border-[#cbd5e1] bg-white px-4 py-3">
+                                            <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
                                                 {availableServices.length ? (
                                                     <div className="space-y-2">
                                                         {availableServices.map((service) => (
@@ -582,7 +582,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                     type="checkbox"
                                                                     checked={data.services.includes(service)}
                                                                     onChange={() => toggleServiceSelection(service)}
-                                                                    className="h-4 w-4 rounded border-[#cbd5e1] text-indigo-600 focus:ring-indigo-500"
+                                                                    className="h-4 w-4 rounded border-slate-200 text-indigo-600 focus:ring-indigo-500"
                                                                 />
                                                                 <span>{service}</span>
                                                             </label>
@@ -710,7 +710,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                     value={notesValue}
                                                     onChange={(e) => setNotesValue(e.target.value)}
                                                     placeholder="Optional context for the receiving agency..."
-                                                    className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    className="w-full rounded-md border border-slate-200 px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                 />
                                             </div>
                                             <InputError message={errors.notes} className="mt-1" />
@@ -723,7 +723,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                         <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={goToPreviousStep} disabled={createStep === 1}
-                                    className="inline-flex items-center gap-2 rounded-md border border-[#cbd5e1] bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                    className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
                                 </button>
                             </div>

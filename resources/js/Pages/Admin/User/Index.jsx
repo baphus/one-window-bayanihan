@@ -10,6 +10,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import PeerProfileModal from '@/Components/PeerProfileModal';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 
 const roleBadgeStyles = {
   ADMIN: 'bg-purple-100 text-purple-800 border-purple-300',
@@ -48,7 +49,13 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
+  const [contextMenu, setContextMenu] = useState(null);
   const [viewMode, setViewMode] = useState('list');
+
+  const handleRowContextMenu = (e, row) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row });
+  };
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
 
@@ -266,13 +273,13 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
                 <div className="flex items-center gap-1.5">
                   <a
                     href={route('admin.users.show', row.id)}
-                    className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384] inline-flex items-center"
+                    className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-md transition-colors border border-blue-900 inline-flex items-center"
                   >
                     View
                   </a>
                   <button
                     onClick={() => { setEditingUser(row); setShowForm(true); }}
-                    className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+                    className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
                   >
                     Edit
                   </button>
@@ -283,7 +290,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
                           router.delete(route('admin.users.destroy', row.id), { preserveScroll: true });
                         }
                       }}
-                      className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200"
+                      className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
                     >
                       Deactivate
                     </button>
@@ -309,7 +316,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
             setFilterOpen(false);
             navigateWith({ role: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Roles</option>
           <option value="CASE_MANAGER">Case Manager</option>
@@ -327,7 +334,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
             setFilterOpen(false);
             navigateWith({ agcy_id: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Agencies</option>
           {agencies.map((a) => (
@@ -345,7 +352,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
             setFilterOpen(false);
             navigateWith({ status: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Statuses</option>
           <option value="active">Active</option>
@@ -362,7 +369,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
             setFilterOpen(false);
             navigateWith({ mfa_status: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All</option>
           <option value="enabled">Enabled</option>
@@ -389,7 +396,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
                   : [...prev, col.key],
               );
             }}
-            className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] focus:ring-offset-0"
+            className="rounded border-slate-200 text-blue-900 focus:ring-blue-900 focus:ring-offset-0"
           />
           {col.label}
         </label>
@@ -488,11 +495,32 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
+        onRowContextMenu={handleRowContextMenu}
       />
       </div>
 
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
       <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
+      {contextMenu && (
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <RowContextMenuItem icon="visibility" label="View Profile" onClick={() => {
+            setPeerProfileUser(contextMenu.row);
+            setContextMenu(null);
+          }} />
+          <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
+            setEditingUser(contextMenu.row);
+            setContextMenu(null);
+          }} />
+          {contextMenu.row.status !== 'INACTIVE' && (
+            <RowContextMenuItem icon="block" label="Deactivate" variant="danger" onClick={() => {
+              if (confirm(`Deactivate user ${contextMenu.row.name}?`)) {
+                router.post(route('admin.users.toggle-status', contextMenu.row.id), {}, { preserveScroll: true });
+              }
+              setContextMenu(null);
+            }} />
+          )}
+        </RowContextMenu>
+      )}
     </AppLayout>
   );
 }

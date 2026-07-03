@@ -68,7 +68,7 @@ export default function EmploymentAnalytics({
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-slate-300 bg-white p-4">
           <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
             Last Country of Employment
           </h3>
@@ -83,7 +83,7 @@ export default function EmploymentAnalytics({
           )}
         </article>
 
-        <article className="border border-[#cbd5e1] bg-white p-4">
+        <article className="border border-slate-300 bg-white p-4">
           <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
             Position Breakdown
           </h3>
@@ -91,14 +91,14 @@ export default function EmploymentAnalytics({
             <div className="max-h-64 overflow-y-auto">
               <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="border-b border-[#cbd5e1] text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">
+                  <tr className="border-b border-slate-300 text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">
                     <th className="pb-2 pr-3">Position</th>
                     <th className="pb-2 text-right">Clients</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employmentPositionBreakdown.labels.map((label, i) => (
-                    <tr key={label} className="border-b border-[#e2e8f0] last:border-0">
+                    <tr key={label} className="border-b border-slate-200 last:border-0">
                       <td className="py-1.5 pr-3 font-medium capitalize text-slate-700">
                         {label.replace(/_/g, ' ').toLowerCase()}
                       </td>

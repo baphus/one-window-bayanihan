@@ -108,9 +108,9 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
     return (
         <div className="space-y-3">
             {entries.map((entry) => (
-                <div key={entry.id} className="rounded-[3px] border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                <div key={entry.id} className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
                     {/* Activity type — uppercase blue badge */}
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#0b5384]">
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-blue-900">
                         {entry.type}
                     </p>
 

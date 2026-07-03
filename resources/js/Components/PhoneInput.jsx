@@ -138,7 +138,7 @@ export default function PhoneInput({
                 <select
                     value={countryCode}
                     onChange={handleCountryChange}
-                    className="h-10 w-[140px] shrink-0 rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="h-10 w-[140px] shrink-0 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 >
                     {countries.map((c) => (
                         <option key={c.code} value={c.code}>
@@ -152,7 +152,7 @@ export default function PhoneInput({
                     onChange={handleInputChange}
                     onBlur={handleBlur}
                     placeholder={placeholder}
-                    className="h-10 flex-1 rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
             </div>
             {displayError && (

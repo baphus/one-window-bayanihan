@@ -13,7 +13,7 @@ function SectionAccordion({ title, defaultOpen = false, children }) {
         <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{title}</h3>
         {open ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
       </button>
-      {open && <div className="border-t border-[#e2e8f0] p-4">{children}</div>}
+      {open && <div className="border-t border-slate-200 p-4">{children}</div>}
     </div>
   );
 }

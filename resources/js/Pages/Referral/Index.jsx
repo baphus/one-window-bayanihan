@@ -175,15 +175,15 @@ export default function ReferralIndex({ referrals, filters }) {
                             title: 'Actions',
                             render: (row) => (
                                 <div className="flex items-center gap-1.5">
-                                    <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">
+                                    <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-md transition-colors border border-blue-900">
                                         View
                                     </button>
                                     {isAgency && row.status === 'PENDING' && (
                                         <>
-                                            <button onClick={() => setPendingDecision({ id: row.id, action: 'ACCEPT' })} className="min-h-[28px] px-2.5 bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-bold rounded-[3px] transition-colors border border-emerald-600">
+                                            <button onClick={() => setPendingDecision({ id: row.id, action: 'ACCEPT' })} className="min-h-[28px] px-2.5 bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-bold rounded-md transition-colors border border-emerald-600">
                                                 Accept
                                             </button>
-                                            <button onClick={() => setPendingDecision({ id: row.id, action: 'REJECT' })} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">
+                                            <button onClick={() => setPendingDecision({ id: row.id, action: 'REJECT' })} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200">
                                                 Reject
                                             </button>
                                         </>
@@ -209,7 +209,7 @@ export default function ReferralIndex({ referrals, filters }) {
                         setFilterOpen(false);
                         navigateWith({ status: val || undefined });
                     }}
-                    className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                     <option value="">All Statuses</option>
                     <option value="PENDING">Pending</option>
@@ -219,6 +219,7 @@ export default function ReferralIndex({ referrals, filters }) {
                     <option value="REJECTED">Rejected</option>
                 </select>
             </div>
+
         </div>
     ), [statusFilter]);
 
@@ -239,7 +240,7 @@ export default function ReferralIndex({ referrals, filters }) {
                                     : [...prev, col.key],
                             );
                         }}
-                        className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] focus:ring-offset-0"
+                        className="rounded border-slate-200 text-blue-900 focus:ring-blue-900 focus:ring-offset-0"
                     />
                     {col.label}
                 </label>

@@ -79,8 +79,8 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                     href={link.href}
                     className={`rounded px-4 py-2 text-[14px] font-label font-medium transition-colors duration-200 ${
                       active
-                        ? 'bg-[#005288]/10 font-bold text-[#005288]'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-[#005288]'
+                        ? 'bg-primary/10 font-bold text-primary'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-primary'
                     }`}
                   >
                     {link.name}
@@ -110,13 +110,13 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                 <div className="flex items-center gap-3">
                   <Link
                       href={route('dashboard')}
-                      className="text-sm font-semibold text-slate-700 hover:text-[#005288]"
+                      className="text-sm font-semibold text-slate-700 hover:text-primary"
                     >
                       Dashboard
                     </Link>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#005288] text-sm font-semibold text-white">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
                       {getInitials(user.name)}
                     </span>
 
@@ -144,7 +144,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               ) : (
                 <Link
                   href={route('login')}
-                  className="text-sm font-semibold text-slate-700 transition-colors hover:text-[#005288]"
+                  className="text-sm font-semibold text-slate-700 transition-colors hover:text-primary"
                 >
                   Login
                 </Link>
@@ -153,7 +153,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
 
             <button
               type="button"
-              className="inline-flex items-center justify-center rounded-md border border-gray-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-[#005288] md:hidden"
+              className="inline-flex items-center justify-center rounded-md border border-gray-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-primary md:hidden"
               aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={isMobileMenuOpen}
               aria-controls="landing-mobile-navigation"
@@ -241,7 +241,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               <button
                 type="button"
                 aria-label="Close menu"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-[#005288]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <svg
@@ -278,8 +278,8 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={`rounded-md px-4 py-3 text-sm font-medium transition-colors ${
                         active
-                          ? 'bg-[#005288]/10 font-bold text-[#005288]'
-                          : 'text-slate-700 hover:bg-slate-50 hover:text-[#005288]'
+                          ? 'bg-primary/10 font-bold text-primary'
+                          : 'text-slate-700 hover:bg-slate-50 hover:text-primary'
                       }`}
                     >
                       {link.name}

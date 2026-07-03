@@ -19,7 +19,7 @@ export default function TableSkeleton({ rowCount = 5 }) {
         </thead>
         <tbody>
           {rows.map((i) => (
-            <tr key={i} className="border-b border-[#e2e8f0] last:border-0">
+            <tr key={i} className="border-b border-slate-200 last:border-0">
               <td className="py-2 pr-3">
                 <div className="h-3 rounded-md bg-slate-200" style={{ width: `${90 + (i % 3) * 25}px` }} />
               </td>

@@ -65,8 +65,8 @@ export default function AdminServiceIndex({ services, allAgencies }) {
       sortable: false,
       render: (row) => (
         <div className="flex items-center gap-1.5">
-          <button onClick={() => { setEditingService(row); setShowForm(true); }} className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300">Edit</button>
-          <button onClick={() => { if (confirm(`Delete service "${row.name}"?`)) router.delete(route('admin.services.destroy', row.id), { preserveScroll: true }); }} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200">Delete</button>
+          <button onClick={() => { setEditingService(row); setShowForm(true); }} className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300">Edit</button>
+          <button onClick={() => { if (confirm(`Delete service "${row.name}"?`)) router.delete(route('admin.services.destroy', row.id), { preserveScroll: true }); }} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200">Delete</button>
         </div>
       ),
     },
@@ -81,7 +81,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
           <h1 className="text-2xl font-bold text-slate-900">Services</h1>
           <p className="text-sm text-slate-500 mt-1">Manage all services offered through the system.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a]">
+        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Service
         </button>
       </div>

@@ -21,10 +21,10 @@ export default function UnsavedChangesModal({
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-3 border-t border-[#e2e8f0] px-6 py-4">
+        <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
           <button
             onClick={onCancel}
-            className="h-9 rounded-[3px] border border-[#cbd5e1] px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+            className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
           >
             Continue Editing
           </button>
