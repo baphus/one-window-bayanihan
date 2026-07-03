@@ -110,7 +110,6 @@ class ReportsService
             'employmentDistribution' => $this->getLastEmploymentDistribution(),
             'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown(),
             'caseStatusDistribution' => $this->getCaseStatusDistribution(),
-            'referralTypeDistribution' => $this->getReferralTypeDistribution(null, null, $from, $to),
             'caseIssueDistribution' => $this->getCaseIssueDistribution(null, null, $from, $to, $dateScope, $province, $city),
         ];
     }
@@ -223,35 +222,6 @@ class ReportsService
                 (int) ($types['NEXT_OF_KIN'] ?? 0),
             ],
             'colors' => ['#6366f1', '#a5b4fc'],
-        ];
-    }
-
-    public function getReferralTypeDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
-    {
-        $query = Referral::query();
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
-        }
-        if ($fromDate) {
-            $query->whereDate('created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $query->whereDate('created_at', '<=', $toDate);
-        }
-
-        $types = (clone $query)
-            ->select('type', DB::raw('count(*) as total'))
-            ->whereNotNull('type')
-            ->groupBy('type')
-            ->pluck('total', 'type');
-
-        return [
-            'labels' => ['Standard', 'Intervention'],
-            'data' => [
-                (int) ($types['standard'] ?? 0),
-                (int) ($types['intervention'] ?? 0),
-            ],
-            'colors' => ['#0b5a8c', '#f59e0b'],
         ];
     }
 

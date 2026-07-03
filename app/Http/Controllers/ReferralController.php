@@ -106,10 +106,6 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        if (auth()->user()->role === 'CASE_MANAGER' && ! $referral->isIntervention()) {
-            abort(403, 'Case managers can only update status on intervention referrals.');
-        }
-
         $referral = $this->referralService->updateStatus(
             $id,
             $request->input('status'),
@@ -317,7 +313,7 @@ class ReferralController extends Controller
         $queries = new DataExportQueries;
 
         $filters = $request->only([
-            'status', 'search', 'type',
+            'status', 'search',
         ]);
 
         $referrals = $queries->getReferralsExport($user, array_filter($filters));

@@ -59,9 +59,8 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
-    const isIntervention = referral.type === 'intervention';
-    const canAddMilestone = isAgency || (isCaseManager && isIntervention);
-    const canUpdateStatus = isAgency || (isCaseManager && isIntervention);
+    const canAddMilestone = isAgency || isCaseManager;
+    const canUpdateStatus = isAgency || isCaseManager;
 
     const documents = referral.attachments?.filter((a) => !a.is_archived) ?? [];
     const allDocuments = referral.attachments ?? [];
@@ -251,16 +250,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-[#d8dee8]">
                             <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
-                            <InfoCell label="Status" value={
-                                <span className="inline-flex items-center gap-1.5">
-                                    <StatusBadge status={referral.status} />
-                                    {isIntervention && (
-                                        <span className="inline-flex items-center rounded-full bg-[#7c3aed] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
-                                            DMW Intervention
-                                        </span>
-                                    )}
-                                </span>
-                            } />
+                            <InfoCell label="Status" value={<StatusBadge status={referral.status} />} />
                             <InfoCell label="Associated Case No." value={
                                 <Link href={route('cases.show', referral.case_id)} className="text-[#0b5384] hover:underline">
                                     {referral.case_file?.case_number ?? 'N/A'}

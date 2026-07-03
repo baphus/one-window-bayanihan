@@ -18,9 +18,9 @@ class InterventionAccessTest extends TestCase
 
     private CaseFile $case;
 
-    private Referral $interventionReferral;
+    private User $caseManager;
 
-    private Referral $standardReferral;
+    private Referral $referral;
 
     protected function setUp(): void
     {
@@ -32,42 +32,30 @@ class InterventionAccessTest extends TestCase
             'is_default' => true,
         ]);
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $this->case = CaseFile::factory()->create([
-            'user_id' => $caseManager->id,
+            'user_id' => $this->caseManager->id,
             'status' => 'OPEN',
         ]);
 
-        $this->interventionReferral = Referral::create([
+        $this->referral = Referral::create([
             'id' => fake()->uuid(),
-            'required_services' => 'Intervention Service',
+            'required_services' => 'Test Service',
             'status' => 'PROCESSING',
             'case_id' => $this->case->id,
             'agcy_id' => $this->dmw->id,
-            'type' => 'intervention',
-        ]);
-
-        $this->standardReferral = Referral::create([
-            'id' => fake()->uuid(),
-            'required_services' => 'Standard Service',
-            'status' => 'PENDING',
-            'case_id' => $this->case->id,
-            'agcy_id' => $this->dmw->id,
-            'type' => 'standard',
         ]);
     }
 
     #[Test]
-    public function cm_can_add_milestone_to_intervention(): void
+    public function cm_can_add_milestone_to_own_referral(): void
     {
-        $cmUser = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $response = $this->actingAs($cmUser)->post(
-            route('referrals.milestones.store', $this->interventionReferral),
+        $response = $this->actingAs($this->caseManager)->post(
+            route('referrals.milestones.store', $this->referral),
             [
-                'title' => 'CM Milestone on Intervention',
-                'description' => 'Case manager added milestone to intervention referral.',
+                'title' => 'CM Milestone',
+                'description' => 'Case manager added milestone to referral.',
             ],
         );
 
@@ -75,20 +63,18 @@ class InterventionAccessTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('milestones', [
-            'title' => 'CM Milestone on Intervention',
-            'description' => 'Case manager added milestone to intervention referral.',
-            'refr_id' => $this->interventionReferral->id,
-            'user_id' => $cmUser->id,
+            'title' => 'CM Milestone',
+            'description' => 'Case manager added milestone to referral.',
+            'refr_id' => $this->referral->id,
+            'user_id' => $this->caseManager->id,
         ]);
     }
 
     #[Test]
-    public function cm_can_update_status_on_intervention(): void
+    public function cm_can_update_status_on_own_referral(): void
     {
-        $cmUser = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $response = $this->actingAs($cmUser)->patch(
-            route('referrals.update-status', $this->interventionReferral),
+        $response = $this->actingAs($this->caseManager)->patch(
+            route('referrals.update-status', $this->referral),
             [
                 'status' => 'COMPLETED',
             ],
@@ -98,28 +84,13 @@ class InterventionAccessTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('referrals', [
-            'id' => $this->interventionReferral->id,
+            'id' => $this->referral->id,
             'status' => 'COMPLETED',
         ]);
     }
 
     #[Test]
-    public function cm_cannot_update_status_on_standard(): void
-    {
-        $cmUser = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $response = $this->actingAs($cmUser)->patch(
-            route('referrals.update-status', $this->standardReferral),
-            [
-                'status' => 'COMPLETED',
-            ],
-        );
-
-        $response->assertForbidden();
-    }
-
-    #[Test]
-    public function agency_can_add_milestone_to_intervention(): void
+    public function agency_can_add_milestone_to_their_referral(): void
     {
         $agencyUser = User::factory()->create([
             'role' => 'AGENCY',
@@ -128,10 +99,10 @@ class InterventionAccessTest extends TestCase
         ]);
 
         $response = $this->actingAs($agencyUser)->post(
-            route('referrals.milestones.store', $this->interventionReferral),
+            route('referrals.milestones.store', $this->referral),
             [
-                'title' => 'Agency Milestone on Intervention',
-                'description' => 'Agency added milestone to intervention referral.',
+                'title' => 'Agency Milestone',
+                'description' => 'Agency added milestone to referral.',
             ],
         );
 
@@ -139,15 +110,15 @@ class InterventionAccessTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('milestones', [
-            'title' => 'Agency Milestone on Intervention',
-            'description' => 'Agency added milestone to intervention referral.',
-            'refr_id' => $this->interventionReferral->id,
+            'title' => 'Agency Milestone',
+            'description' => 'Agency added milestone to referral.',
+            'refr_id' => $this->referral->id,
             'user_id' => $agencyUser->id,
         ]);
     }
 
     #[Test]
-    public function agency_can_update_status_on_intervention(): void
+    public function agency_can_update_status_on_their_referral(): void
     {
         $agencyUser = User::factory()->create([
             'role' => 'AGENCY',
@@ -156,7 +127,7 @@ class InterventionAccessTest extends TestCase
         ]);
 
         $response = $this->actingAs($agencyUser)->patch(
-            route('referrals.update-status', $this->interventionReferral),
+            route('referrals.update-status', $this->referral),
             [
                 'status' => 'COMPLETED',
             ],
@@ -166,7 +137,7 @@ class InterventionAccessTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('referrals', [
-            'id' => $this->interventionReferral->id,
+            'id' => $this->referral->id,
             'status' => 'COMPLETED',
         ]);
     }

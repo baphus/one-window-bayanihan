@@ -391,6 +391,9 @@ class CaseService
                 throw new AuthorizationException('You do not own this draft.');
             }
 
+            // Capture the draft state before publishing (for audit diff)
+            $old = $case->toArray();
+
             // Create client from draft_client_data if no client_id exists (new-client draft)
             if (empty($case->client_id) && ! empty($case->draft_client_data)) {
                 $draftData = $case->draft_client_data;
@@ -457,10 +460,17 @@ class CaseService
                 'status' => 'OPEN',
             ]);
 
+            $description = 'Case '.$case->case_number.' published';
+            if (! empty($case->summary)) {
+                $description .= ' — '.$case->summary;
+            }
+
             AuditLog::create([
                 'action' => 'PUBLISH',
                 'module' => 'CASE',
                 'entity_id' => $case->id,
+                'description' => $description,
+                'old_value' => $old,
                 'new_value' => $case->toArray(),
                 'user_id' => $userId,
             ]);

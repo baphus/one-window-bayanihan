@@ -356,7 +356,7 @@ class AuditLogFormatterTest extends TestCase
             ['assigned_to', 'assigned to'],
             ['avatar_url', 'avatar url'],
             ['case_id', 'case id'],
-            ['category_id', 'category id'],
+            ['category_id', 'category'],
             ['client_id', 'client id'],
             ['closed_at', 'closed at'],
             ['contact_number', 'contact number'],

@@ -24,6 +24,7 @@ class AuditLogFormatter
             'CREATE' => $this->formatCreate($userName, $log, $module),
             'UPDATE' => $this->formatUpdate($log, $module),
             'DELETE' => $this->formatDelete($userName, $log, $module),
+            'PUBLISH' => $this->formatPublish($userName, $log, $module),
             default => sprintf('%s %s %s', $userName, $this->formatAction($action), $module),
         };
     }
@@ -36,6 +37,9 @@ class AuditLogFormatter
             'DELETE' => 'deleted',
             'LOGIN' => 'signed in',
             'LOGOUT' => 'signed out',
+            'PUBLISH' => 'published',
+            'ARCHIVE' => 'archived',
+            'UNARCHIVE' => 'unarchived',
             default => strtolower($action),
         };
     }
@@ -112,6 +116,12 @@ class AuditLogFormatter
             'vulnerability_indicator' => 'vulnerability level',
             'nok_vulnerability_indicator' => 'NOK vulnerability level',
             'consent_given_at' => 'consent date',
+            'sla_target_days' => 'SLA target days',
+            'sla_met' => 'SLA met',
+            'escalated_at' => 'escalated at',
+            'escalation_reason' => 'escalation reason',
+            'case_issue_id' => 'case issue',
+            'category_id' => 'category',
             default => str_replace('_', ' ', $field),
         };
     }
@@ -378,6 +388,40 @@ class AuditLogFormatter
         }
 
         return sprintf('%s removed a %s', $userName, strtolower($module));
+    }
+
+    private function formatPublish(string $userName, AuditLog $log, string $module): string
+    {
+        $newValues = $log->new_value ?? [];
+        $moduleRaw = (string) $log->module;
+
+        if (in_array($moduleRaw, ['CASE', 'case_files', 'case'])) {
+            $caseNumber = $newValues['case_number'] ?? null;
+            $trackerNumber = $newValues['tracker_number'] ?? null;
+            $summary = $newValues['summary'] ?? null;
+
+            if ($caseNumber) {
+                $base = sprintf('%s published Case %s', $userName, $caseNumber);
+            } elseif ($trackerNumber) {
+                $base = sprintf('%s published Case %s', $userName, $trackerNumber);
+            } else {
+                $base = sprintf('%s published a case', $userName);
+            }
+
+            if (! empty($summary) && $summary !== 'not set') {
+                $base .= sprintf(' — %s', $summary);
+            }
+
+            return $base;
+        }
+
+        // Generic publish
+        $identifier = $this->extractEntityDetail($newValues, $moduleRaw);
+        if ($identifier) {
+            return sprintf('%s published %s', $userName, $identifier);
+        }
+
+        return sprintf('%s published %s', $userName, strtolower($module));
     }
 
     private function resolveUserName(AuditLog $log): string

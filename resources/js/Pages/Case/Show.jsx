@@ -442,11 +442,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#64748b]">Agency Referrals</h4>
-                {caseFile.referrals?.some(ref => ref.type === 'intervention') && (
-                  <span className="inline-flex items-center rounded-full bg-[#7c3aed] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
-                    DMW Intervention
-                  </span>
-                )}
+
                 {hasOverdueReferrals && (
                   <div className="relative">
                     <button

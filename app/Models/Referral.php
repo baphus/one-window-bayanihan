@@ -26,33 +26,11 @@ class Referral extends Model
         'decision_comment',
         'case_id',
         'agcy_id',
-        'type',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
-        'type' => 'string',
     ];
-
-    public function scopeStandard($query): void
-    {
-        $query->where('type', 'standard');
-    }
-
-    public function scopeIntervention($query): void
-    {
-        $query->where('type', 'intervention');
-    }
-
-    public function isIntervention(): bool
-    {
-        return $this->type === 'intervention';
-    }
-
-    public function isStandard(): bool
-    {
-        return $this->type === 'standard';
-    }
 
     public function caseFile()
     {

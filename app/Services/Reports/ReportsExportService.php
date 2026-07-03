@@ -141,7 +141,7 @@ class ReportsExportService
     private function referralRows($base)
     {
         return (clone $base)->leftJoin('agencies', 'agencies.id', '=', 'referrals.agcy_id')
-            ->selectRaw("referrals.id as referral_id, referrals.case_id, cases.case_number, agencies.name as agency, referrals.required_services, referrals.type, referrals.status, referrals.created_at, CASE WHEN referrals.status = 'COMPLETED' THEN referrals.updated_at ELSE NULL END as completed_at, CASE WHEN referrals.status = 'COMPLETED' THEN DATE_PART('day', referrals.updated_at - referrals.created_at)::int ELSE NULL END as completion_days, DATE_PART('day', NOW() - referrals.created_at)::int as age_days")
+            ->selectRaw("referrals.id as referral_id, referrals.case_id, cases.case_number, agencies.name as agency, referrals.required_services, referrals.status, referrals.created_at, CASE WHEN referrals.status = 'COMPLETED' THEN referrals.updated_at ELSE NULL END as completed_at, CASE WHEN referrals.status = 'COMPLETED' THEN DATE_PART('day', referrals.updated_at - referrals.created_at)::int ELSE NULL END as completion_days, DATE_PART('day', NOW() - referrals.created_at)::int as age_days")
             ->orderByDesc('referrals.created_at')->orderBy('referrals.id');
     }
 
@@ -215,7 +215,7 @@ class ReportsExportService
         $kv = [['key' => 'metric', 'label' => 'Metric', 'type' => 'string'], ['key' => 'value', 'label' => 'Value', 'type' => 'string']];
         $dist = [['key' => 'label', 'label' => 'Label', 'type' => 'string'], ['key' => 'count', 'label' => 'Count', 'type' => 'string']];
         $distRows = fn ($d) => collect($d['labels'] ?? [])->map(fn ($l, $i) => ['label' => $l, 'count' => $d['data'][$i] ?? 0]);
-        $refCols = collect(['referral_id', 'case_id', 'case_number', 'agency', 'required_services', 'type', 'status', 'created_at', 'completed_at', 'completion_days', 'age_days'])->map(fn ($k) => ['key' => $k, 'label' => ucwords(str_replace('_', ' ', $k)), 'type' => 'string'])->all();
+        $refCols = collect(['referral_id', 'case_id', 'case_number', 'agency', 'required_services', 'status', 'created_at', 'completed_at', 'completion_days', 'age_days'])->map(fn ($k) => ['key' => $k, 'label' => ucwords(str_replace('_', ' ', $k)), 'type' => 'string'])->all();
         $caseCols = collect(['case_id', 'case_number', 'client_type', 'category', 'issue', 'status', 'created_at', 'updated_at', 'closed_at', 'age_days'])->map(fn ($k) => ['key' => $k, 'label' => ucwords(str_replace('_', ' ', $k)), 'type' => 'string'])->all();
 
         return [

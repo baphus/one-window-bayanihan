@@ -37,7 +37,6 @@ function toBarFormat(data, defaultColor, label = 'Count') {
 export default function useAdminChartData({
   referralStatusDistribution,
   clientTypeDistribution,
-  referralTypeDistribution,
   cycleTimeDistribution,
   referralAging,
   geographicDistribution,
@@ -50,7 +49,6 @@ export default function useAdminChartData({
     () => ({
       referralStatusPie: toPieFormat(referralStatusDistribution),
       clientTypePie: toPieFormat(clientTypeDistribution),
-      referralTypePie: toPieFormat(referralTypeDistribution),
       adminCycleTimeData: toBarFormat(cycleTimeDistribution, [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger]),
       adminAgingData: toBarFormat(referralAging, [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger]),
       adminGeoData: toBarFormat(geographicDistribution, COLORS.primary),
@@ -76,7 +74,6 @@ export default function useAdminChartData({
     [
       referralStatusDistribution,
       clientTypeDistribution,
-      referralTypeDistribution,
       cycleTimeDistribution,
       referralAging,
       geographicDistribution,

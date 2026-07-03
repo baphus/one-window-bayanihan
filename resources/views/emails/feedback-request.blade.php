@@ -6,7 +6,7 @@ Dear {{ $caseFile->client->first_name }} {{ $caseFile->client->last_name }},
 Your referral to **{{ $agency->name }}** has been completed. We value your feedback on the service you received.
 
 **Referral Details:**
-- **Service:** {{ ucfirst($referral->type) }}
+- **Service:** Referral Services
 - **Agency:** {{ $agency->name }}
 - **Completed:** {{ $referral->updated_at->format('F j, Y') }}
 

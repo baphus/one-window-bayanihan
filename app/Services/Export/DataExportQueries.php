@@ -428,7 +428,6 @@ class DataExportQueries
                 'decision_comment',
                 'case_id',
                 'agcy_id',
-                'type',
                 'created_at',
                 'updated_at',
             ])
@@ -519,9 +518,6 @@ class DataExportQueries
         // --- Apply optional filters ---
         if (! empty($filters['status'])) {
             $query->where('r.status', $filters['status']);
-        }
-        if (! empty($filters['type'])) {
-            $query->where('r.type', $filters['type']);
         }
         if (! empty($filters['search'])) {
             $search = $filters['search'];
