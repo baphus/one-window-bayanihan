@@ -140,7 +140,7 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                         value={query}
                         onChange={handleSearchChange}
                         placeholder="Search by client name..."
-                        className="h-11 w-full rounded-lg border border-[#cbd5e1] pl-10 pr-4 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        className="h-11 w-full rounded-lg border border-slate-300 pl-10 pr-4 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                 </div>
 

@@ -31,7 +31,7 @@ export default function CaseStatusPieChart({ data, loading }) {
 
   if (!chartData) {
     return (
-      <article className="border border-[#cbd5e1] bg-white p-4">
+      <article className="border border-slate-300 bg-white p-4">
         <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
           Cases by Status
         </h3>
@@ -43,7 +43,7 @@ export default function CaseStatusPieChart({ data, loading }) {
   }
 
   return (
-    <article className="border border-[#cbd5e1] bg-white p-4">
+    <article className="border border-slate-300 bg-white p-4">
       <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
         Cases by Status
       </h3>

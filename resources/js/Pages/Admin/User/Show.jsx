@@ -26,7 +26,7 @@ function InitialsAvatar({ name }) {
 function ToggleBadge({ enabled }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide ${
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide ${
         enabled
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
           : 'border-slate-200 bg-slate-100 text-slate-500'
@@ -40,7 +40,7 @@ function ToggleBadge({ enabled }) {
 function StatusPill({ label, enabled }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide ${
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide ${
         enabled
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
           : 'border-slate-200 bg-slate-100 text-slate-500'
@@ -69,7 +69,7 @@ export default function AdminUserShow({ user }) {
 
       {/* Breadcrumb */}
       <div className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-500">
-        <Link href={route('admin.users.index')} className="transition hover:text-[#0b5384]">
+        <Link href={route('admin.users.index')} className="transition hover:text-blue-900">
           Users
         </Link>
         <span className="mx-2">/</span>
@@ -84,7 +84,7 @@ export default function AdminUserShow({ user }) {
         </div>
         <Link
           href={route('admin.users.index')}
-          className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-[3px] hover:bg-[#09416a] transition-colors shrink-0"
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0"
         >
           &larr; Back to Users
         </Link>
@@ -108,7 +108,7 @@ export default function AdminUserShow({ user }) {
               <p className="text-base font-bold text-slate-900">{user.name}</p>
               <p className="text-sm text-slate-500">{user.email}</p>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center rounded-[3px] border border-blue-200 bg-blue-50 px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide text-blue-700">
+                <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide text-blue-700">
                   {roleLabels[user.role] || user.role}
                 </span>
                 <StatusBadge status={user.is_active ? 'ACTIVE' : 'INACTIVE'} />
@@ -144,7 +144,7 @@ export default function AdminUserShow({ user }) {
                     {agency.services.map((s) => (
                       <span
                         key={s.id}
-                        className="inline-flex items-center rounded-[3px] border border-indigo-200 bg-indigo-50 px-2 py-[3px] text-[10px] font-semibold text-indigo-700"
+                        className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-[3px] text-[10px] font-semibold text-indigo-700"
                       >
                         {s.name}
                       </span>
@@ -246,7 +246,7 @@ export default function AdminUserShow({ user }) {
                       if (user.email_verified_at && !confirm('Unverifying this user will lock them out of the system until an admin re-verifies them. Continue?')) return;
                       router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
                     }}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-[3px] border transition-colors inline-flex items-center min-h-[26px] hover:opacity-80 ${
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md border transition-colors inline-flex items-center min-h-[26px] hover:opacity-80 ${
                       user.email_verified_at
                         ? 'bg-red-50 text-red-600 border-red-200'
                         : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -268,7 +268,7 @@ export default function AdminUserShow({ user }) {
               {Object.entries(notifications).map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex items-center justify-between rounded-[3px] border border-slate-200 bg-white px-3 py-2"
+                  className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
                 >
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                     {formatNotificationLabel(key)}

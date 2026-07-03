@@ -6,6 +6,7 @@ import { useToast } from '@/Hooks/useToast';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -90,6 +91,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const [tableLoading, setTableLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
   const toast = useToast();
 
   const handleExport = useCallback(() => {
@@ -120,6 +122,11 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     // Reset after a reasonable timeout
     setTimeout(() => setIsExporting(false), 5000);
   }, [filters, toast]);
+
+  const handleRowContextMenu = (e, row) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row });
+  };
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -271,7 +278,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                         className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
                       />
                     ) : (
-                      <span className="w-7 h-7 rounded-full bg-[#0b5384] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <span className="w-7 h-7 rounded-full bg-blue-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                         {initials}
                       </span>
                     )}
@@ -383,13 +390,13 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => router.visit(route('cases.show', row.id))}
-                    className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]"
+                    className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors border border-blue-900"
                   >
                     View
                   </button>
                   <button
                     onClick={() => router.visit(route('cases.show', row.id))}
-                    className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+                    className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
                   >
                     Edit
                   </button>
@@ -430,7 +437,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             const val = e.target.value;
             updateTable({ ...filters, status: val || undefined, page: undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Statuses</option>
           <option value="OPEN">Open</option>
@@ -446,7 +453,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             const val = e.target.value;
             updateTable({ ...filters, client_type: val || undefined, page: undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Types</option>
           <option value="OFW">OFW</option>
@@ -461,7 +468,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             const val = e.target.value;
             updateTable({ ...filters, vulnerability_indicator: val || undefined, page: undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All</option>
           <option value="PWD">PWD</option>
@@ -480,7 +487,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             const val = e.target.value;
             updateTable({ ...filters, category_id: val || undefined, page: undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Categories</option>
           {categories?.map((cat) => (
@@ -496,7 +503,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             const val = e.target.value;
             updateTable({ ...filters, case_issue_id: val || undefined, page: undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Issues</option>
           {caseIssues?.map((issue) => (
@@ -512,7 +519,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             const val = e.target.value;
             updateTable({ ...filters, user_id: val || undefined, page: undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Authors</option>
           {users.map((u) => (
@@ -528,7 +535,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             const val = e.target.value;
             updateTable({ ...filters, agcy_id: val || undefined, page: undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Agencies</option>
           {agencies.map((a) => (
@@ -540,7 +547,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         <button
           type="button"
           onClick={() => setFilterOpen(false)}
-          className="w-full h-[36px] bg-[#0b5384] text-white text-[13px] font-bold rounded-[2px] hover:bg-[#09416a] transition-colors"
+          className="w-full h-[36px] bg-blue-900 text-white text-[13px] font-bold rounded-[2px] hover:bg-blue-800 transition-colors"
         >
           Done
         </button>
@@ -566,9 +573,9 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             <button
               key={s.label}
               onClick={() => handleStatusQuickFilter(s.value || undefined)}
-              className={`px-3 py-1.5 text-[12px] font-bold rounded-[3px] transition-colors border ${
+              className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
                 isActive
-                  ? 'bg-[#0b5384] text-white border-[#0b5384] shadow-sm'
+                  ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
                   : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
               }`}
             >
@@ -598,7 +605,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                   : [...prev, col.key],
               );
             }}
-            className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] focus:ring-offset-0"
+            className="rounded border-slate-300 text-blue-900 focus:ring-blue-900 focus:ring-offset-0"
           />
           {col.label}
         </label>
@@ -710,6 +717,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         viewMode={viewMode}
         onNewRecord={canCreate ? () => router.visit(route('cases.create')) : undefined}
         newRecordLabel="Create Case"
+        onRowContextMenu={handleRowContextMenu}
         activeFilters={activeFilters}
         activeFilterCount={activeFilters.length}
         onRemoveFilter={handleRemoveFilter}
@@ -726,6 +734,25 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         }
       />
       </div>
+
+      {contextMenu && (
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <RowContextMenuItem icon="visibility" label="View" onClick={() => {
+            router.visit(route('cases.show', contextMenu.row.id));
+            setContextMenu(null);
+          }} />
+          <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
+            router.visit(route('cases.show', contextMenu.row.id));
+            setContextMenu(null);
+          }} />
+          {contextMenu.row.status === 'CLOSED' && (
+            <RowContextMenuItem icon="archive" label="Archive" onClick={() => {
+              router.post(route('cases.archive', contextMenu.row.id), {}, { preserveScroll: true });
+              setContextMenu(null);
+            }} />
+          )}
+        </RowContextMenu>
+      )}
     </AppLayout>
   );
 }

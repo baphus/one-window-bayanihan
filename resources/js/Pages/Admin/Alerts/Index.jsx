@@ -72,7 +72,7 @@ function ConfigCard({ config, onSave }) {
             email_recipients: emailRecipients.split(',').map((item) => item.trim()).filter(Boolean),
             notify_in_app: notifyInApp,
           })}
-          className="rounded-md bg-[#0b5384] px-4 py-2 text-sm font-medium text-white hover:bg-[#09416a]"
+          className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
         >
           Save
         </button>

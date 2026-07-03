@@ -8,6 +8,7 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import AgencyFormModal from '@/Components/Admin/AgencyFormModal';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 
 const COLUMN_DEFS = [
   { key: 'name', label: 'Name', default: true },
@@ -30,7 +31,13 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
+  const [contextMenu, setContextMenu] = useState(null);
   const [viewMode, setViewMode] = useState('list');
+
+  const handleRowContextMenu = (e, row) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row });
+  };
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
 
@@ -203,13 +210,13 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                 <div className="flex items-center gap-1.5">
                   <a
                     href={route('admin.agencies.show', row.id)}
-                    className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384] inline-flex items-center"
+                    className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-md transition-colors border border-blue-900 inline-flex items-center"
                   >
                     View
                   </a>
                   <button
                     onClick={() => { setEditingAgency(row); setShowForm(true); }}
-                    className="min-h-[28px] px-2.5 bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+                    className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
                   >
                     Edit
                   </button>
@@ -220,7 +227,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                           router.delete(route('admin.agencies.destroy', row.id), { preserveScroll: true });
                         }
                       }}
-                      className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-[3px] transition-colors border border-red-200"
+                      className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
                     >
                       Deactivate
                     </button>
@@ -246,7 +253,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
             setFilterOpen(false);
             navigateWith({ status: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All</option>
           <option value="1">Active</option>
@@ -263,7 +270,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
             setFilterOpen(false);
             navigateWith({ is_default: val || undefined });
           }}
-          className="w-full border border-[#cbd5e1] rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All</option>
           <option value="1">Default Only</option>
@@ -290,7 +297,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                   : [...prev, col.key],
               );
             }}
-            className="rounded border-[#cbd5e1] text-[#0b5384] focus:ring-[#0b5384] focus:ring-offset-0"
+            className="rounded border-slate-200 text-blue-900 focus:ring-blue-900 focus:ring-offset-0"
           />
           {col.label}
         </label>
@@ -385,10 +392,23 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
+        onRowContextMenu={handleRowContextMenu}
       />
       </div>
 
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {contextMenu && (
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <RowContextMenuItem icon="visibility" label="View" onClick={() => {
+            router.visit(route('admin.agencies.show', contextMenu.row.id));
+            setContextMenu(null);
+          }} />
+          <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
+            setEditingAgency(contextMenu.row);
+            setContextMenu(null);
+          }} />
+        </RowContextMenu>
+      )}
     </AppLayout>
   );
 }

@@ -182,7 +182,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
             <Head title="Referral Detail" />
 
             <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-5">
-                <Link href={route('referrals.index')} className="transition hover:text-[#0b5384]">Referrals</Link>
+                <Link href={route('referrals.index')} className="transition hover:text-blue-900">Referrals</Link>
                 <span className="mx-2">&gt;</span>
                 <span>{referral.case_file?.case_number ?? referral.id}</span>
             </div>
@@ -194,13 +194,13 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         <>
                             <button
                                 onClick={() => setPendingDecision({ id: referral.id, mode: 'ACCEPT', status: 'PROCESSING' })}
-                                className="h-[34px] px-3 bg-emerald-600 text-white text-[11px] font-bold rounded-[3px] border border-emerald-600 hover:bg-emerald-700"
+                                className="h-[34px] px-3 bg-emerald-600 text-white text-[11px] font-bold rounded-md border border-emerald-600 hover:bg-emerald-700"
                             >
                                 Accept
                             </button>
                             <button
                                 onClick={() => setPendingDecision({ id: referral.id, mode: 'REJECT', status: 'REJECTED' })}
-                                className="h-[34px] px-3 bg-red-50 text-red-700 text-[11px] font-bold rounded-[3px] border border-red-200 hover:bg-red-100"
+                                className="h-[34px] px-3 bg-red-50 text-red-700 text-[11px] font-bold rounded-md border border-red-200 hover:bg-red-100"
                             >
                                 Reject
                             </button>
@@ -209,14 +209,14 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                     {canUpdateStatus && !['PENDING', 'COMPLETED', 'REJECTED'].includes(referral.status) && (
                         <button
                             onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); }}
-                            className="h-[34px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] inline-flex items-center hover:bg-slate-50"
+                            className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md inline-flex items-center hover:bg-slate-50"
                         >
                             Update Status
                         </button>
                     )}
                     <Link
                         href={route('referrals.index')}
-                        className="h-[34px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] inline-flex items-center hover:bg-slate-50"
+                        className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md inline-flex items-center hover:bg-slate-50"
                     >
                         Back
                     </Link>
@@ -225,9 +225,9 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                 <main className="xl:col-span-8 space-y-4">
-                    <CardSection title="Referral Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                    <CardSection title="Referral Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {isOverdue && (
-                            <div className="mb-3 rounded-[3px] border border-red-200 bg-red-50">
+                            <div className="mb-3 rounded-md border border-red-200 bg-red-50">
                                 <div className="flex items-center gap-2 px-3 py-2">
                                     <span className="material-symbols-outlined text-[18px] text-red-600">warning</span>
                                     <p className="flex-1 text-[12px] font-bold text-red-700">This referral is overdue by {referralAge} day{referralAge > 1 ? 's' : ''}</p>
@@ -248,11 +248,11 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                 )}
                             </div>
                         )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-[#d8dee8]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
                             <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
                             <InfoCell label="Status" value={<StatusBadge status={referral.status} />} />
                             <InfoCell label="Associated Case No." value={
-                                <Link href={route('cases.show', referral.case_id)} className="text-[#0b5384] hover:underline">
+                                <Link href={route('cases.show', referral.case_id)} className="text-blue-900 hover:underline">
                                     {referral.case_file?.case_number ?? 'N/A'}
                                 </Link>
                             } />
@@ -261,19 +261,19 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                             <InfoCell label="Last Updated" value={formatDisplayDateTime(referral.updated_at)} />
                         </div>
                         {referral.required_services && (
-                            <div className="px-3 py-2 border-b border-[#d8dee8]">
+                            <div className="px-3 py-2 border-b border-slate-200">
                                 <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
                                 <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.required_services}</p>
                             </div>
                         )}
                         {referral.notes && (
-                            <div className="px-3 py-2 border-b border-[#d8dee8]">
+                            <div className="px-3 py-2 border-b border-slate-200">
                                 <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Notes</p>
                                 <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.notes}</p>
                             </div>
                         )}
                         {referral.decision && (
-                            <div className="px-3 py-2 border-b border-[#d8dee8]">
+                            <div className="px-3 py-2 border-b border-slate-200">
                                 <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision</p>
                                 <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision}</p>
                             </div>
@@ -286,7 +286,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         )}
                     </CardSection>
 
-                    <CardSection title="Attached Documents" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                    <CardSection title="Attached Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {!isAgency && (
                             <div className="mb-3">
                                 <FileUpload
@@ -311,9 +311,9 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                 {groupedRequirements.groups.map((group) => {
                                     const attachedCount = group.matches.filter((m) => Boolean(m.document)).length;
                                     return (
-                                        <div key={group.serviceTitle} className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] p-3 space-y-2">
+                                        <div key={group.serviceTitle} className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h4 className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#334155]">{group.serviceTitle}</h4>
+                                                <h4 className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-700">{group.serviceTitle}</h4>
                                                 <span className="text-[10px] font-bold text-slate-500">
                                                     Requirements Attached: {attachedCount}/{group.requiredDocuments.length}
                                                 </span>
@@ -323,27 +323,27 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                     {group.matches.map(({ requirement, document }) => {
                                                         const isAttached = Boolean(document);
                                                         return (
-                                                            <div key={`${group.serviceTitle}-${requirement}`} className="rounded-[2px] border border-[#e2e8f0] bg-white px-2.5 py-2">
+                                                            <div key={`${group.serviceTitle}-${requirement}`} className="rounded-md border border-slate-200 bg-white px-2.5 py-2">
                                                                 <div className="flex flex-wrap items-start justify-between gap-2">
                                                                     <p className="text-[11px] text-slate-700">{requirement}</p>
-                                                                    <span className={`inline-flex items-center rounded-[2px] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.08em] ${
+                                                                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.08em] ${
                                                                         isAttached
-                                                                            ? 'bg-[#ecfdf5] text-[#166534] border border-[#86efac]'
+                                                                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                                                                             : 'bg-amber-50 text-amber-700 border border-amber-200'
                                                                     }`}>
                                                                         {isAttached ? 'Attached' : 'Missing'}
                                                                     </span>
                                                                 </div>
                                                                 {document && (
-                                                                    <div className="mt-1.5 flex items-center justify-between gap-3 rounded-[2px] border border-[#dbeafe] bg-[#eff6ff] px-2 py-1.5">
+                                                                    <div className="mt-1.5 flex items-center justify-between gap-3 rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5">
                                                                         <div className="min-w-0">
-                                                                            <p className="text-[10px] font-bold text-[#0b5384] truncate">{document.file_name}</p>
+                                                                            <p className="text-[10px] font-bold text-blue-900 truncate">{document.file_name}</p>
                                                                             <p className="text-[9px] text-slate-500 truncate">
                                                                                 {document.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(document.created_at)}
                                                                             </p>
                                                                         </div>
                                                                          <div className="flex items-center gap-2 shrink-0">
-                                                                             <a href={route('referrals.attachments.download', { referral: document.referral_id ?? referral.id, attachment: document.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
+                                                                             <a href={route('referrals.attachments.download', { referral: document.referral_id ?? referral.id, attachment: document.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-900 font-bold hover:underline">View</a>
                                                                              {document.version_group_id && (
                                                                                  <button
                                                                                      type="button"
@@ -384,10 +384,10 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                 })}
 
                                 {groupedRequirements.unassignedDocuments.length > 0 && (
-                                    <div className="rounded-[3px] border border-[#d8dee8] bg-[#f8fafc] p-3 space-y-2">
+                                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
                                         <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Other Attached Files</h4>
                                         {groupedRequirements.unassignedDocuments.map((doc) => (
-                                            <div key={doc.id} className="bg-white border border-[#e2e8f0] p-2.5 flex items-center justify-between gap-3">
+                                            <div key={doc.id} className="bg-white border border-slate-200 p-2.5 flex items-center justify-between gap-3">
                                                 <div className="min-w-0">
                                                     <p className="text-[11px] font-bold text-slate-700 truncate">{doc.file_name}</p>
                                                     <p className="text-[9px] text-slate-400 truncate">
@@ -395,7 +395,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline">View</a>
+                                                    <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-900 font-bold hover:underline">View</a>
                                                     {doc.version_group_id && (
                                                         <button
                                                             type="button"
@@ -428,23 +428,23 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                 )}
                             </div>
                         ) : (
-                            <div className="border border-dashed border-[#cbd5e1] rounded-[3px] p-4 text-center">
+                            <div className="border border-dashed border-slate-200 rounded-md p-4 text-center">
                                 <p className="text-[11px] text-slate-500">No documents attached to this referral.</p>
                             </div>
                         )}
                     </CardSection>
 
                     {referral.compliance_requirements?.length > 0 && (
-                        <CardSection title="For Compliance" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                        <CardSection title="For Compliance" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                             <div className="space-y-3">
                                 {referral.compliance_requirements.map((cr) => (
-                                    <div key={cr.id} className="rounded-[3px] border border-slate-200 bg-white px-4 py-3">
+                                    <div key={cr.id} className="rounded-md border border-slate-200 bg-white px-4 py-3">
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="min-w-0">
                                                 <p className="text-[11px] text-slate-500">{cr.service_name}</p>
                                                 <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{cr.requirement_name}</p>
                                             </div>
-                                            <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-[2px] ${
+                                            <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md ${
                                                 cr.status === 'COMPLIED'
                                                     ? 'border border-green-200 bg-green-50 text-green-700'
                                                     : 'border border-orange-200 bg-orange-50 text-orange-700'
@@ -483,14 +483,14 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                 </main>
 
                 <aside className="xl:col-span-4 space-y-4">
-                    <CardSection title="Referral Timeline" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                    <CardSection title="Referral Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {orderedTimeline.length > 0 ? (
                             <div className="mt-1 relative pl-4">
-                                <div className="absolute left-[4px] top-1 bottom-1 w-px bg-[#cbd5e1]" />
+                                <div className="absolute left-[4px] top-1 bottom-1 w-px bg-slate-200" />
                                 <div className="flex flex-col-reverse gap-4">
                                     {orderedTimeline.map((item) => (
                                         <div key={item.id} className="relative flex items-start gap-3">
-                                            <div className="mt-0.5 -ml-[18px] h-5 w-5 overflow-hidden rounded-full border border-white bg-[#0b5384] shadow-sm z-10 flex items-center justify-center">
+                                            <div className="mt-0.5 -ml-[18px] h-5 w-5 overflow-hidden rounded-full border border-white bg-blue-900 shadow-sm z-10 flex items-center justify-center">
                                                 <span className="material-symbols-outlined text-[12px] text-white">flag</span>
                                             </div>
                                             <div>
@@ -513,14 +513,14 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                             <button
                                 type="button"
                                 onClick={() => setShowMilestoneModal(true)}
-                                className="mt-3 h-[28px] w-full px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a] transition-colors"
+                                className="mt-3 h-[28px] w-full px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors"
                             >
                                 + Add Milestone
                             </button>
                         )}
                     </CardSection>
 
-                    <CardSection title="Case Narrative" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                    <CardSection title="Case Narrative" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {referral.case_file?.summary ? (
                             <p className="text-[12px] leading-5 text-slate-600 whitespace-pre-wrap">{referral.case_file.summary}</p>
                         ) : (
@@ -528,13 +528,13 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         )}
                     </CardSection>
 
-                    <CardSection title="Referral Comments" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+                    <CardSection title="Referral Comments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         <div className="max-h-[340px] overflow-y-auto space-y-3">
                             {topLevelComments.length > 0 ? (
                                 topLevelComments.map((comment) => {
                                     const replies = comment.replies ?? [];
                                     return (
-                                        <div key={comment.id} className="rounded-[3px] border border-[#e2e8f0] bg-white shadow-sm">
+                                        <div key={comment.id} className="rounded-md border border-slate-200 bg-white shadow-sm">
                                             <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
                                                 <UserAvatar user={comment.user} size="sm" />
                                                 <div className="min-w-0 flex-1">
@@ -550,7 +550,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                             setReplyToCommentId(comment.id);
                                                             setCommentDraft('');
                                                         }}
-                                                        className="mt-1 text-[9px] font-bold text-[#0b5384] hover:text-[#09416a] transition-colors"
+                                                        className="mt-1 text-[9px] font-bold text-blue-900 hover:text-blue-800 transition-colors"
                                                     >
                                                         Reply
                                                     </button>
@@ -559,7 +559,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                             {replies.length > 0 && (
                                                 <div className="ml-8 mr-3 pb-2.5 space-y-2">
                                                     {replies.map((reply) => (
-                                                        <div key={reply.id} className="flex items-start gap-2 rounded-[2px] bg-[#f8fafc] px-2.5 py-2">
+                                                        <div key={reply.id} className="flex items-start gap-2 rounded-md bg-slate-50 px-2.5 py-2">
                                                             <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
                                                             <div className="min-w-0 flex-1">
                                                                 <div className="flex items-baseline gap-2">
@@ -578,7 +578,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                 })
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f5f9] border border-[#e2e8f0]">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 border border-slate-200">
                                         <span className="material-symbols-outlined text-[18px] text-slate-400">chat_bubble_outline</span>
                                     </div>
                                     <p className="mt-2 text-[11px] font-semibold text-slate-500">No comments yet</p>
@@ -587,16 +587,16 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                             )}
                         </div>
 
-                        <div className="mt-3 pt-3 border-t border-[#e2e8f0]">
+                        <div className="mt-3 pt-3 border-t border-slate-200">
                             {replyToComment && (
-                                <div className="mb-2 flex items-center justify-between rounded-[3px] bg-[#f0f7ff] border border-[#bfdbfe] px-2.5 py-1.5">
-                                    <p className="text-[10px] text-[#0b5384] font-semibold truncate">
+                                <div className="mb-2 flex items-center justify-between rounded-md bg-sky-50 border border-sky-200 px-2.5 py-1.5">
+                                    <p className="text-[10px] text-blue-900 font-semibold truncate">
                                         Replying to <span className="font-bold">{replyToComment.user?.name ?? 'comment'}</span>
                                     </p>
                                     <button
                                         type="button"
                                         onClick={cancelReply}
-                                        className="text-[10px] font-bold text-[#0b5384] hover:underline shrink-0 ml-2"
+                                        className="text-[10px] font-bold text-blue-900 hover:underline shrink-0 ml-2"
                                     >
                                         Cancel
                                     </button>
@@ -609,7 +609,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                         value={commentDraft}
                                         onChange={(e) => setCommentDraft(e.target.value)}
                                         rows={2}
-                                        className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-[#0b5384] focus:ring-1 focus:ring-[#0b5384]/20 resize-none transition-colors"
+                                        className="w-full rounded-md border border-slate-200 px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 resize-none transition-colors"
                                         placeholder={replyToComment ? 'Write a reply...' : 'Write a comment...'}
                                     />
                                     <div className="mt-1.5 flex items-center justify-between">
@@ -618,7 +618,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                             type="button"
                                             onClick={handlePostComment}
                                             disabled={postingComment || !commentDraft.trim()}
-                                            className="h-[26px] px-3 bg-[#0b5384] text-white text-[10px] font-bold rounded-[3px] border border-[#0b5384] hover:bg-[#09416a] disabled:opacity-60 transition-colors"
+                                            className="h-[26px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-60 transition-colors"
                                         >
                                             {postingComment ? 'Posting...' : 'Post'}
                                         </button>
@@ -632,28 +632,28 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
             {activeVersionGroupId && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setActiveVersionGroupId(null)}>
-                    <div className="w-full max-w-xl rounded-[3px] border border-[#d8dee8] bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="w-full max-w-xl rounded-md border border-slate-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between gap-2">
                             <h3 className="text-[14px] font-extrabold text-slate-800">Document Versions</h3>
                             <button
                                 type="button"
                                 onClick={() => setActiveVersionGroupId(null)}
-                                className="h-[28px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[10px] font-bold rounded-[3px] hover:bg-slate-50"
+                                className="h-[28px] px-3 border border-slate-200 bg-white text-slate-700 text-[10px] font-bold rounded-md hover:bg-slate-50"
                             >
                                 Close
                             </button>
                         </div>
-                        <div className="mt-3 max-h-[300px] space-y-2 overflow-y-auto border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                        <div className="mt-3 max-h-[300px] space-y-2 overflow-y-auto border border-slate-200 bg-slate-50 p-3">
                             {documentVersionRows.length > 0 ? (
                                 documentVersionRows.map((doc) => (
-                                    <div key={doc.id} className="flex items-center justify-between gap-2 border border-[#d8dee8] bg-white p-2">
+                                    <div key={doc.id} className="flex items-center justify-between gap-2 border border-slate-200 bg-white p-2">
                                         <div className="min-w-0">
                                             <p className="truncate text-[11px] font-bold text-slate-700">{doc.file_name}</p>
                                             <p className="text-[10px] text-slate-500">
                                                 {formatDisplayDateTime(doc.created_at)} &middot; {doc.user?.name ?? 'Unknown'} &middot; {doc.is_archived ? 'Archived' : 'Current'}
                                             </p>
                                         </div>
-                                        <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#0b5384] font-bold hover:underline shrink-0">View</a>
+                                        <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-900 font-bold hover:underline shrink-0">View</a>
                                     </div>
                                 ))
                             ) : (
@@ -666,7 +666,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
             {pendingDecision && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg">
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">
                                 {pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'} Referral
@@ -727,7 +727,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
             {showUpdateStatus && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg">
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">Update Status</h2>
                             <p className="mt-1 text-xs text-slate-500">Update the referral status and provide a remark.</p>
@@ -780,8 +780,8 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
 
             {showMilestoneModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => { setShowMilestoneModal(false); milestoneForm.reset(); }}>
-                    <div className="w-full max-w-lg rounded-[3px] border border-[#d8dee8] bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="border-b border-[#e2e8f0] px-5 py-4">
+                    <div className="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+                        <div className="border-b border-slate-200 px-5 py-4">
                             <h3 className="text-[16px] font-extrabold text-slate-900">Add Milestone</h3>
                             <p className="mt-1 text-[12px] text-slate-500">Record a new milestone for this referral.</p>
                         </div>
@@ -802,7 +802,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                     <InputLabel htmlFor="milestone_description" value="Description" />
                                     <textarea
                                         id="milestone_description"
-                                        className="mt-1 block w-full rounded-[3px] border border-[#cbd5e1] px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384] resize-none"
+                                        className="mt-1 block w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900 resize-none"
                                         rows={3}
                                         value={milestoneForm.data.description}
                                         onChange={(e) => milestoneForm.setData('description', e.target.value)}
@@ -810,11 +810,11 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                     <InputError message={milestoneForm.errors.description} className="mt-2" />
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2 border-t border-[#e2e8f0] px-5 py-3">
+                            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
                                 <button
                                     type="button"
                                     onClick={() => { setShowMilestoneModal(false); milestoneForm.reset(); }}
-                                    className="h-[34px] px-3 border border-[#cbd5e1] bg-white text-slate-700 text-[11px] font-bold rounded-[3px] hover:bg-slate-50"
+                                    className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md hover:bg-slate-50"
                                 >
                                     Cancel
                                 </button>

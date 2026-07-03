@@ -4,10 +4,17 @@ import { useState } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate } from '@/lib/utils';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 
 export default function OverdueReferralsIndex({ overdueReferrals, overdueDays }) {
     const [selectedIds, setSelectedIds] = useState([]);
     const [sending, setSending] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null);
+
+    const handleRowContextMenu = (e, row) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, row });
+    };
 
     const overdueColumns = [
         { key: 'case_number', title: 'Case #', render: (row) => (
@@ -37,8 +44,8 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
         )},
         { key: 'actions', title: 'Actions', render: (row) => (
             <div className="flex items-center gap-2">
-                <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]">View</button>
-                <button onClick={() => sendReminders([row.id])} disabled={sending} className="min-h-[28px] px-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 text-[11px] font-bold rounded-[3px] transition-colors border border-amber-200 disabled:opacity-50">Remind</button>
+                <button onClick={() => router.visit(route('referrals.show', row.id))} className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-md transition-colors border border-blue-900">View</button>
+                <button onClick={() => sendReminders([row.id])} disabled={sending} className="min-h-[28px] px-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 text-[11px] font-bold rounded-md transition-colors border border-amber-200 disabled:opacity-50">Remind</button>
             </div>
         )},
     ];
@@ -104,7 +111,7 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
                             <button
                                 onClick={() => sendReminders([])}
                                 disabled={sending}
-                                className="px-4 py-2 text-sm font-medium text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] disabled:opacity-50 flex items-center gap-2"
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 disabled:opacity-50 flex items-center gap-2"
                             >
                                 <span className="material-symbols-outlined text-[16px]">notifications_active</span>
                                 Send All Reminders
@@ -122,7 +129,16 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
                 selectedKeys={selectedIds}
                 onSelectionChange={setSelectedIds}
                 {...paginatorProps(overdueReferrals)}
+                onRowContextMenu={handleRowContextMenu}
             />
+            {contextMenu && (
+                <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+                    <RowContextMenuItem icon="visibility" label="View Referral" onClick={() => {
+                        router.visit(route('referrals.show', contextMenu.row.id));
+                        setContextMenu(null);
+                    }} />
+                </RowContextMenu>
+            )}
         </AppLayout>
     );
 }

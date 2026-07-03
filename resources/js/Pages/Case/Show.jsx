@@ -236,7 +236,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
       render: (row) => (
         <Link
           href={route('referrals.show', row.id)}
-          className="inline-flex px-2 min-h-[28px] items-center bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+          className="inline-flex px-2 min-h-[28px] items-center bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
         >
           View
         </Link>
@@ -293,13 +293,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
       <Head title="Case Details" />
 
       <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-5">
-        <Link href={route('cases.index')} className="transition hover:text-[#0b5384]">Cases</Link>
+        <Link href={route('cases.index')} className="transition hover:text-blue-900">Cases</Link>
         <span className="mx-2">&gt;</span>
         <span>{caseFile.case_number}</span>
       </div>
 
       {showReferralPrompt && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-[3px] border border-indigo-200 bg-indigo-50 px-3 py-2.5">
+        <div className="mb-5 flex items-start gap-2.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2.5">
           <span className="material-symbols-outlined text-[16px] text-indigo-600 shrink-0 mt-px">check_circle</span>
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-bold text-indigo-900">Case Published Successfully</p>
@@ -309,14 +309,14 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             <button
               type="button"
               onClick={() => router.visit(route('referrals.create', { case_id: caseFile.id }))}
-              className="px-3 min-h-[30px] inline-flex items-center bg-[#0b5384] text-white hover:bg-[#09416a] text-[11px] font-bold rounded-[3px] transition-colors border border-[#0b5384]"
+              className="px-3 min-h-[30px] inline-flex items-center bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-md transition-colors border border-blue-900"
             >
               Refer to Agency
             </button>
             <button
               type="button"
               onClick={() => setShowReferralPrompt(false)}
-              className="px-3 min-h-[30px] inline-flex items-center bg-white text-slate-600 hover:bg-slate-50 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+              className="px-3 min-h-[30px] inline-flex items-center bg-white text-slate-600 hover:bg-slate-50 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
             >
               Skip
             </button>
@@ -332,8 +332,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
         <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
           <StatusBadge status={caseFile.status} size="md" />
           {caseFile.user && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-[3px]">
-              <span className="w-5 h-5 rounded-full bg-[#0b5384] text-white text-[8px] font-bold flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md">
+              <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
                 {caseFile.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
               </span>
               <span className="text-[11px] font-medium text-slate-600">
@@ -350,7 +350,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               setFormSummary(caseFile.summary || '');
               setIsEditOpen(true);
             }}
-            className="px-3 min-h-[32px] bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-[3px] transition-colors border border-slate-300"
+            className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300"
           >
             Edit Details
           </button>
@@ -359,10 +359,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             onClick={handleToggleStatus}
             disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
             title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
-            className={`px-3 min-h-[32px] text-[12px] font-bold rounded-[3px] transition-colors border ${
+            className={`px-3 min-h-[32px] text-[12px] font-bold rounded-md transition-colors border ${
               caseFile.status === 'OPEN' && hasActiveReferrals
                 ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
-                : 'bg-[#0b5384] text-white hover:bg-[#09416a] border-[#0b5384]'
+                : 'bg-blue-900 text-white hover:bg-blue-800 border-blue-900'
             }`}
           >
             {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
@@ -371,7 +371,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             <button
               type="button"
               onClick={handleUnarchive}
-              className="px-3 min-h-[32px] bg-gray-200 text-gray-700 hover:bg-gray-300 text-[12px] font-bold rounded-[3px] transition-colors border border-gray-300"
+              className="px-3 min-h-[32px] bg-gray-200 text-gray-700 hover:bg-gray-300 text-[12px] font-bold rounded-md transition-colors border border-gray-300"
             >
               Restore from Archive
             </button>
@@ -379,7 +379,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             <button
               type="button"
               onClick={handleArchive}
-              className="px-3 min-h-[32px] bg-gray-100 text-gray-600 hover:bg-gray-200 text-[12px] font-bold rounded-[3px] transition-colors border border-gray-300"
+              className="px-3 min-h-[32px] bg-gray-100 text-gray-600 hover:bg-gray-200 text-[12px] font-bold rounded-md transition-colors border border-gray-300"
             >
               Archive Case
             </button>
@@ -390,7 +390,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <main className="xl:col-span-8 space-y-4">
           {/* Key Stats Ribbon */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-[3px] border border-[#d8dee8] bg-white px-4 py-2.5 shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-md border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
             <StatusBadge status={caseFile.status} size="sm" />
             <span className="text-[11px] text-slate-300 select-none">|</span>
             <span className="text-[11px] text-slate-600">
@@ -429,7 +429,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           </div>
 
           {/* Case Narrative — moved to top of main column */}
-          <CardSection title="Case Narrative" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+          <CardSection title="Case Narrative" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             {caseFile.summary ? (
               <p className="text-[13px] leading-6 text-slate-700 whitespace-pre-wrap">{caseFile.summary}</p>
             ) : (
@@ -438,11 +438,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           </CardSection>
 
           {/* Referrals table — unchanged */}
-          <CardSection title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+          <CardSection title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#64748b]">Agency Referrals</h4>
-
+                <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Agency Referrals</h4>
                 {hasOverdueReferrals && (
                   <div className="relative">
                     <button
@@ -453,7 +452,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                       <span className="material-symbols-outlined text-[14px]">info</span>
                     </button>
                     {showOverdueInfo && (
-                      <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-[3px] border border-red-200 bg-red-50 px-3 py-2 shadow-md">
+                      <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-md border border-red-200 bg-red-50 px-3 py-2 shadow-md">
                         <p className="text-[10px] leading-5 text-red-800">
                           A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
                         </p>
@@ -464,13 +463,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               </div>
               <Link
                 href={route('referrals.create', { case_id: caseFile.id })}
-                className="px-3 min-h-[30px] inline-flex items-center bg-[#f1f5f9] text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
+                className="px-3 min-h-[30px] inline-flex items-center bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
               >
                 + Refer to Agency
               </Link>
             </div>
             {caseFile.status === 'OPEN' && hasActiveReferrals && (
-              <div className="mb-3 flex items-start gap-2.5 rounded-[3px] border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <div className="mb-3 flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
                 <span className="material-symbols-outlined text-[16px] text-amber-600 shrink-0 mt-px">warning</span>
                 <p className="text-[11px] leading-5 text-amber-800">
                   This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
@@ -489,10 +488,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
           {/* Timeline — moved from sidebar, full width */}
           <div data-tour="case-timeline">
-          <CardSection title="Case Timeline" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+          <CardSection title="Case Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#64748b]">Chronological Events</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Chronological Events</span>
                 {filteredTimeline.length > 0 && (
                   <span className="text-[10px] text-slate-400">({filteredTimeline.length} event{filteredTimeline.length !== 1 ? 's' : ''})</span>
                 )}
@@ -500,7 +499,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               <select
                 value={timelineFilter}
                 onChange={(e) => setTimelineFilter(e.target.value)}
-                className="h-[30px] w-[170px] max-w-full shrink-0 rounded-[3px] border border-[#cbd5e1] bg-white px-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600"
+                className="h-[30px] w-[170px] max-w-full shrink-0 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600"
               >
                 <option value="ALL">All agencies</option>
                 {timelineAgencies.map((agency) => (
@@ -510,11 +509,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             </div>
             {filteredTimeline.length > 0 ? (
               <div className="relative mt-4">
-                <div className="absolute left-[10px] top-1 bottom-1 w-px bg-[#cbd5e1]" />
+                <div className="absolute left-[10px] top-1 bottom-1 w-px bg-slate-300" />
                 <div className="flex flex-col-reverse gap-4">
                   {filteredTimeline.map((item) => (
                     <div key={item.id} className="relative grid grid-cols-[22px_1fr] items-start gap-3">
-                      <div className={`z-10 mt-0.5 flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full border border-white bg-white shadow-sm ${item.type === 'system' ? 'text-[#0b5384]' : 'text-slate-500'}`}>
+                      <div className={`z-10 mt-0.5 flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full border border-white bg-white shadow-sm ${item.type === 'system' ? 'text-blue-900' : 'text-slate-500'}`}>
                         <span className="material-symbols-outlined text-[13px]">
                           {item.type === 'system' ? 'account_balance' : 'business'}
                         </span>
@@ -540,14 +539,14 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
           {/* Documents + Attachments — side by side, unchanged */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <CardSection title="Case Documents" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <CardSection title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
               <div className="space-y-4">
                 {caseFile.documents?.length > 0 ? (
                   <div className="space-y-2">
                     {caseFile.documents.map((doc) => {
                       const canDelete = auth.user?.id === caseFile.user_id || auth.user?.role === 'ADMIN';
                       return (
-                        <div key={doc.id} className="flex items-center justify-between rounded-[3px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+                        <div key={doc.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                           <div className="min-w-0">
                             <p className="text-[12px] font-semibold text-slate-700 truncate">{doc.file_name}</p>
                             <p className="text-[10px] text-slate-500">
@@ -560,7 +559,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                               href={route('cases.documents.download', { case: caseFile.id, document: doc.id })}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-slate-500 hover:text-[#0b5384]"
+                              className="text-slate-500 hover:text-blue-900"
                             >
                               <Eye className="h-4 w-4" />
                             </a>
@@ -604,11 +603,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               </div>
             </CardSection>
 
-            <CardSection title="Referral Attachments" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+            <CardSection title="Referral Attachments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
               {allAttachments.length > 0 ? (
                 <div className="space-y-2">
                   {allAttachments.map((att) => (
-                    <div key={att.id} className="flex items-center justify-between rounded-[3px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+                    <div key={att.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                       <div className="min-w-0">
                         <p className="text-[12px] font-semibold text-slate-700 truncate">{att.file_name}</p>
                         <p className="text-[10px] text-slate-500">
@@ -620,7 +619,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                         href={route('referrals.attachments.download', { referral: att.referral_id, attachment: att.id })}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-slate-500 hover:text-[#0b5384] shrink-0 ml-2"
+                        className="text-slate-500 hover:text-blue-900 shrink-0 ml-2"
                       >
                         <Eye className="h-4 w-4" />
                       </a>
@@ -636,11 +635,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
         <aside className="xl:col-span-4 space-y-4">
           {/* Client Profile — compact all-in-one card */}
-          <CardSection title="Client Profile" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+          <CardSection title="Client Profile" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="space-y-4">
               {/* Avatar + Name */}
               {client ? (
-                <div className="flex items-start gap-3 pb-3 border-b border-[#e2e8f0]">
+                <div className="flex items-start gap-3 pb-3 border-b border-slate-200">
                   {canUploadAvatar ? (
                     <ProfilePictureUpload
                       currentUrl={client.avatar_url}
@@ -649,7 +648,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                       clientId={client.id}
                     />
                   ) : client.avatar_url ? (
-                    <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-[#e2e8f0] flex-shrink-0" />
+                    <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-slate-200 flex-shrink-0" />
                   ) : (
                     <span className={`h-12 w-12 inline-flex items-center justify-center rounded-full text-white text-[15px] font-bold flex-shrink-0 ${getAvatarColor([client.first_name, client.last_name].filter(Boolean).join(' '))}`}>
                       {getInitials([client.first_name, client.last_name].filter(Boolean).join(' '))}
@@ -703,7 +702,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               {/* Work History — compact inline */}
               {primaryEmployment && (
                 <>
-                  <hr className="border-[#e2e8f0]" />
+                  <hr className="border-slate-200" />
                   <div>
                     <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Work History</p>
                     <div className="mt-2 space-y-2">
@@ -723,7 +722,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               {/* Next of Kin — compact */}
               {client?.nextOfKin?.length > 0 && (
                 <>
-                  <hr className="border-[#e2e8f0]" />
+                  <hr className="border-slate-200" />
                   <div>
                     <div className="flex items-center justify-between">
                       <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Next of Kin</p>
@@ -731,11 +730,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                     </div>
                     <div className="mt-2 space-y-2">
                       {client.nextOfKin.map((nok, idx) => (
-                        <div key={nok.id} className={`text-[12px] text-slate-700 ${idx > 0 ? 'pt-2 border-t border-[#e2e8f0]' : ''}`}>
+                        <div key={nok.id} className={`text-[12px] text-slate-700 ${idx > 0 ? 'pt-2 border-t border-slate-200' : ''}`}>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold">{[nok.first_name, nok.last_name].filter(Boolean).join(' ')}</span>
                             {nok.is_primary && (
-                              <span className="inline-flex items-center rounded-full bg-[#6366f1] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white">Primary</span>
+                              <span className="inline-flex items-center rounded-full bg-indigo-600 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white">Primary</span>
                             )}
                           </div>
                           <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
@@ -753,18 +752,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               {/* Vulnerability — compact badges */}
               {((caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None') || (caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None')) && (
                 <>
-                  <hr className="border-[#e2e8f0]" />
+                  <hr className="border-slate-200" />
                   <div>
                     <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Vulnerability</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None' && (
-                        <span className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                           <span className="material-symbols-outlined text-[13px]">{vulnConfig[caseFile.vulnerability_indicator]?.icon || 'warning'}</span>
                           OFW: {caseFile.vulnerability_indicator}
                         </span>
                       )}
                       {caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None' && (
-                        <span className={`inline-flex items-center gap-1 rounded-[3px] border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.nok_vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.nok_vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                           <span className="material-symbols-outlined text-[13px]">{vulnConfig[caseFile.nok_vulnerability_indicator]?.icon || 'warning'}</span>
                           NOK: {caseFile.nok_vulnerability_indicator}
                         </span>
@@ -777,7 +776,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           </CardSection>
 
           {/* Case Information — single column to prevent overflow */}
-          <CardSection title="Case Information" className="[&>h3]:text-[#1f2937] [&>h3]:tracking-[0.14em]">
+          <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="space-y-2">
               <MetaTile label="Case No." value={caseFile.case_number} />
               <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
@@ -803,8 +802,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
       {isEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={() => setIsEditOpen(false)}>
-          <div className="w-full max-w-2xl rounded-[3px] border border-[#cbd5e1] bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="border-b border-[#e2e8f0] px-5 py-4">
+          <div className="w-full max-w-2xl rounded-md border border-slate-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-[16px] font-extrabold text-slate-900">Edit Case Details</h2>
               <p className="mt-1 text-[12px] text-slate-500">Update visible case details for this record.</p>
             </div>
@@ -815,7 +814,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 <select
                   value={formClientType}
                   onChange={(e) => setFormClientType(e.target.value)}
-                  className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                   <option value="OFW">Overseas Filipino Worker</option>
                   <option value="NEXT_OF_KIN">Next of Kin</option>
@@ -827,7 +826,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 <select
                   value={formVulnerability}
                   onChange={(e) => setFormVulnerability(e.target.value)}
-                  className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                   <option value="">None</option>
                   <option value="PWD">PWD</option>
@@ -842,7 +841,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 <select
                   value={nokVulnerability}
                   onChange={(e) => setNokVulnerability(e.target.value)}
-                  className="h-10 w-full rounded-[3px] border border-[#cbd5e1] px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                   <option value="">None</option>
                   <option value="PWD">PWD</option>
@@ -858,16 +857,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                   rows={5}
                   value={formSummary}
                   onChange={(e) => setFormSummary(e.target.value)}
-                  className="w-full rounded-[3px] border border-[#cbd5e1] px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-[#0b5384]"
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-[#e2e8f0] px-5 py-3">
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
               <button
                 type="button"
                 onClick={() => setIsEditOpen(false)}
-                className="h-9 rounded-[3px] border border-[#cbd5e1] px-3 text-[12px] font-bold text-slate-700"
+                className="h-9 rounded-md border border-slate-200 px-3 text-[12px] font-bold text-slate-700"
               >
                 Cancel
               </button>
@@ -875,7 +874,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 type="button"
                 onClick={handleSaveDetails}
                 disabled={saving}
-                className="h-9 rounded-[3px] bg-[#0b5384] px-3 text-[12px] font-bold text-white disabled:opacity-60"
+                className="h-9 rounded-md bg-blue-900 px-3 text-[12px] font-bold text-white disabled:opacity-60"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>

@@ -97,8 +97,8 @@ function ReportsDashboard({
         <MetricCard label="Total Referrals" value={`${suppressCount(kpis?.totalReferrals || 0)}`} accent="border-l-[#0b5a8c]"
           icon={<GitFork className="h-3.5 w-3.5 text-[#0b5a8c]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />} />
-        <MetricCard label="Total Cases" value={`${suppressCount(overview?.totalCases ?? 0)}`} accent="border-l-[#1e3a8a]"
-          icon={<FolderOpen className="h-3.5 w-3.5 text-[#1e3a8a]" />} />
+        <MetricCard label="Total Cases" value={`${suppressCount(overview?.totalCases ?? 0)}`} accent="border-l-[#0b5a8c]"
+          icon={<FolderOpen className="h-3.5 w-3.5 text-[#0b5a8c]" />} />
         <MetricCard label="Completion Rate" value={`${kpis?.completionRate || 0}%`} accent="border-l-[#0b7a75]"
           icon={<Target className="h-3.5 w-3.5 text-[#0b7a75]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.completionRate} />} />

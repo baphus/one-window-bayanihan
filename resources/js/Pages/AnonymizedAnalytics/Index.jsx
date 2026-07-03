@@ -62,15 +62,15 @@ export default function AnonymizedAnalytics({ analytics }) {
 
                 {/* Summary Header Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <div className="border border-[#cbd5e1] bg-white p-4">
+                    <div className="border border-slate-300 bg-white p-4">
                         <p className="text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">Total Cases</p>
                         <p className="mt-1 text-2xl font-bold text-slate-800">{totalCases}</p>
                     </div>
-                    <div className="border border-[#cbd5e1] bg-white p-4">
+                    <div className="border border-slate-300 bg-white p-4">
                         <p className="text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">Total Referrals</p>
                         <p className="mt-1 text-2xl font-bold text-slate-800">{data.referral_stats?.total || 0}</p>
                     </div>
-                    <div className="border border-[#cbd5e1] bg-white p-4">
+                    <div className="border border-slate-300 bg-white p-4">
                         <p className="text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">Total Clients</p>
                         <p className="mt-1 text-2xl font-bold text-slate-800">{data.total_clients || 0}</p>
                     </div>
@@ -79,7 +79,7 @@ export default function AnonymizedAnalytics({ analytics }) {
                 {/* Tables Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     {/* Cases by Status Table */}
-                    <div className="border border-[#cbd5e1] bg-white p-4">
+                    <div className="border border-slate-300 bg-white p-4">
                         <h2 className="mb-3 text-sm font-bold text-slate-800">Cases by Status</h2>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse text-left">
@@ -112,7 +112,7 @@ export default function AnonymizedAnalytics({ analytics }) {
                     </div>
 
                     {/* Cases by Service Table */}
-                    <div className="border border-[#cbd5e1] bg-white p-4">
+                    <div className="border border-slate-300 bg-white p-4">
                         <h2 className="mb-3 text-sm font-bold text-slate-800">Cases by Service</h2>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse text-left">
@@ -146,7 +146,7 @@ export default function AnonymizedAnalytics({ analytics }) {
                 {/* Over Time and Resolution Time Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     {/* Cases Over Time Table */}
-                    <div className="border border-[#cbd5e1] bg-white p-4">
+                    <div className="border border-slate-300 bg-white p-4">
                         <h2 className="mb-3 text-sm font-bold text-slate-800">Cases Over Time</h2>
                         <div className="overflow-y-auto max-h-64 pr-2">
                             <table className="w-full border-collapse text-left">
@@ -178,7 +178,7 @@ export default function AnonymizedAnalytics({ analytics }) {
 
                     {/* Resolution & Referral Stats */}
                     <div className="flex flex-col space-y-5">
-                        <div className="border border-[#cbd5e1] bg-white p-4 flex-1">
+                        <div className="border border-slate-300 bg-white p-4 flex-1">
                             <h2 className="mb-3 text-sm font-bold text-slate-800">Average Resolution Time</h2>
                             <div className="mt-4">
                                 <p className="text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">Average Days to Resolve</p>
@@ -196,7 +196,7 @@ export default function AnonymizedAnalytics({ analytics }) {
                             </div>
                         </div>
 
-                        <div className="border border-[#cbd5e1] bg-white p-4 flex-1">
+                        <div className="border border-slate-300 bg-white p-4 flex-1">
                             <h2 className="mb-3 text-sm font-bold text-slate-800">Referral Stats</h2>
                             <div className="grid grid-cols-2 gap-4 mt-2">
                                 <div>
@@ -217,7 +217,7 @@ export default function AnonymizedAnalytics({ analytics }) {
                 </div>
 
                 {/* Cases by Category Chart */}
-                <div className="border border-[#cbd5e1] bg-white p-4">
+                <div className="border border-slate-300 bg-white p-4">
                     <h2 className="mb-3 text-sm font-bold text-slate-800">Cases by Category</h2>
                     {data.cases_by_category?.length > 0 ? (
                         <div className="h-56">
