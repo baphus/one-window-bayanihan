@@ -123,7 +123,7 @@ class ReferralService
                     ->orWhereHas('caseFile.client', function ($q) use ($search) {
                         $q->where('first_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('middle_name', 'like', "%{$search}%");
+                            ->orWhere('middle_initial', 'like', "%{$search}%");
                     });
             });
         }

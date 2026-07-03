@@ -21,7 +21,7 @@ export default function ClientProfileSummaryModal({
 }) {
     if (!client) return null;
 
-    const fullName = [client.first_name, client.middle_name, client.last_name, client.suffix]
+    const fullName = [client.first_name, client.middle_initial, client.last_name, client.suffix]
         .filter(Boolean)
         .join(' ');
 

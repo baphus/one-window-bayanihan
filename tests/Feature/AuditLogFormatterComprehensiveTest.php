@@ -494,7 +494,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             // Client fields
             'first_name' => ['first_name', 'first name'],
             'last_name' => ['last_name', 'last name'],
-            'middle_name' => ['middle_name', 'middle name'],
+            'middle_initial' => ['middle_initial', 'middle initial'],
             'email' => ['email', 'email address'],
             'sex' => ['sex', 'gender'],
             'date_of_birth' => ['date_of_birth', 'birth date'],

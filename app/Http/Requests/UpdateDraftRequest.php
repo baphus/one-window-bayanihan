@@ -58,7 +58,7 @@ class UpdateDraftRequest extends FormRequest
 
             'client.first_name' => ['nullable', 'string', 'max:255'],
             'client.last_name' => ['nullable', 'string', 'max:255'],
-            'client.middle_name' => ['nullable', 'string', 'max:255'],
+            'client.middle_initial' => ['nullable', 'string', 'max:1'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
             'client.date_of_birth' => ['nullable', 'date'],
             'client.sex' => ['nullable', 'string', 'max:50'],
@@ -67,7 +67,7 @@ class UpdateDraftRequest extends FormRequest
 
             'next_of_kin' => ['nullable', 'array'],
             'next_of_kin.*.first_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.middle_initial' => ['nullable', 'string', 'max:10'],
+            'next_of_kin.*.middle_initial' => ['nullable', 'string', 'max:1'],
             'next_of_kin.*.last_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.is_primary' => ['nullable', 'boolean'],
             'next_of_kin.*.relationship' => ['nullable', 'string', 'max:255'],

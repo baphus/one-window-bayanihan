@@ -128,7 +128,7 @@ export default function ClientIndex({ clients, filters }) {
             return {
               ...base,
               render: (row) =>
-                [row.first_name, row.middle_name, row.last_name, row.suffix].filter(Boolean).join(' '),
+                [row.first_name, row.middle_initial, row.last_name, row.suffix].filter(Boolean).join(' '),
               sortAccessor: (row) => `${row.last_name}, ${row.first_name}`,
             };
           case 'sex':

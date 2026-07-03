@@ -112,7 +112,7 @@ All routes use Inertia.js — responses are server-rendered page visits, not JSO
 |---|---|
 | `first_name` | required, string, max:255 |
 | `last_name` | required, string, max:255 |
-| `middle_name` | nullable, string |
+| `middle_initial` | nullable, string |
 | `suffix` | nullable, string |
 | `date_of_birth` | nullable, date |
 | `sex` | nullable, in:MALE,FEMALE |

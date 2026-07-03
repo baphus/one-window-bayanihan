@@ -14,7 +14,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('first_name');
             $table->string('last_name');
-            $table->string('middle_name')->nullable();
+            $table->string('middle_initial', 1)->nullable();
             $table->string('suffix')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('sex', 10)->nullable();
@@ -112,7 +112,7 @@ return new class extends Migration
             $table->uuid('client_id');
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
-            $table->string('middle_initial', 10)->nullable();
+            $table->string('middle_initial', 1)->nullable();
             $table->string('relationship')->nullable();
             $table->boolean('is_primary')->default(false);
             $table->string('phone_number', 50)->nullable();

@@ -44,7 +44,7 @@ The database consists of **39 tables** organized across 10 functional domains. A
 | `id` | uuid | PK | |
 | `first_name` | varchar(255) | NOT NULL | |
 | `last_name` | varchar(255) | NOT NULL | |
-| `middle_name` | varchar(255) | nullable | |
+| `middle_initial` | varchar(1) | nullable | |
 | `suffix` | varchar(255) | nullable | e.g., Jr., III |
 | `date_of_birth` | date | nullable | |
 | `sex` | varchar(255) | CHECK (MALE/FEMALE), nullable | |

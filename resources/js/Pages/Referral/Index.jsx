@@ -21,7 +21,7 @@ const COLUMN_DEFS = [
 
 function formatClientName(client) {
     if (!client) return 'N/A';
-    return [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') || 'N/A';
+    return [client.first_name, client.middle_initial, client.last_name, client.suffix].filter(Boolean).join(' ') || 'N/A';
 }
 
 function formatAddress(address) {

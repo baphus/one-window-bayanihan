@@ -253,7 +253,7 @@ class TestingSeeder extends Seeder
                 'id' => $id,
                 'first_name' => $firstName,
                 'last_name' => $lastName,
-                'middle_name' => $hasMiddle ? $middleInitials[array_rand($middleInitials)] : null,
+                'middle_initial' => $hasMiddle ? $middleInitials[array_rand($middleInitials)] : null,
                 'suffix' => $hasSuffix ? $suffixes[array_rand($suffixes)] : null,
                 'date_of_birth' => sprintf('%d-%02d-%02d', $dobYear, $dobMonth, $dobDay),
                 'sex' => $sex,

@@ -19,7 +19,7 @@ function displayStatus(status) {
 
 function formatFullName(person) {
     if (!person) return 'N/A';
-    return [person.first_name, person.middle_name, person.last_name, person.suffix].filter(Boolean).join(' ') || person.name || 'N/A';
+    return [person.first_name, person.middle_initial, person.last_name, person.suffix].filter(Boolean).join(' ') || person.name || 'N/A';
 }
 
 function formatAddress(address) {

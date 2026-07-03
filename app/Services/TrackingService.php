@@ -76,7 +76,7 @@ class TrackingService
         $caseOverview = [
             'narrative' => $case->summary ?? '',
             'ofw' => $client ? [
-                'fullName' => trim("{$client->first_name} {$client->middle_name} {$client->last_name} {$client->suffix}"),
+                'fullName' => trim("{$client->first_name} {$client->middle_initial} {$client->last_name} {$client->suffix}"),
                 'dateOfBirth' => $client->date_of_birth?->toDateString() ?? '',
                 'gender' => $client->sex ?? '',
                 'homeAddress' => $client->addresses->first()

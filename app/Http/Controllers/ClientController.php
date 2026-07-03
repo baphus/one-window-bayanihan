@@ -41,7 +41,7 @@ class ClientController extends Controller
             $clients->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere('middle_initial', 'like', "%{$search}%")
                     ->orWhereHas('caseFile', function ($q) use ($search) {
                         $q->where('case_number', 'like', "%{$search}%");
                     });

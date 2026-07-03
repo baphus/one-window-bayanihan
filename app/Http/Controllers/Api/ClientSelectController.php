@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Services\PhilippineAddressService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class ClientSelectController extends Controller
 {
@@ -20,9 +21,9 @@ class ClientSelectController extends Controller
 
         if ($search = $request->query('q')) {
             $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('middle_name', 'like', "%{$search}%");
+                $q->where('first_name', 'ilike', "%{$search}%")
+                    ->orWhere('last_name', 'ilike', "%{$search}%")
+                    ->orWhere('middle_initial', 'ilike', "%{$search}%");
             });
         }
 
@@ -33,7 +34,7 @@ class ClientSelectController extends Controller
                 'id' => $client->id,
                 'first_name' => $client->first_name,
                 'last_name' => $client->last_name,
-                'middle_name' => $client->middle_name,
+                'middle_initial' => $client->middle_initial,
                 'suffix' => $client->suffix,
                 'sex' => $client->sex,
                 'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),
@@ -48,6 +49,8 @@ class ClientSelectController extends Controller
 
     public function show(string $id)
     {
+        abort_unless(Str::isUuid($id), 404);
+
         $client = Client::with([
             'addresses',
             'employments',
@@ -59,7 +62,7 @@ class ClientSelectController extends Controller
             'id' => $client->id,
             'first_name' => $client->first_name,
             'last_name' => $client->last_name,
-            'middle_name' => $client->middle_name,
+            'middle_initial' => $client->middle_initial,
             'suffix' => $client->suffix,
             'sex' => $client->sex,
             'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),

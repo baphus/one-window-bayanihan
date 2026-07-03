@@ -39,7 +39,7 @@ export interface ClientSummary {
   id: string;
   first_name: string;
   last_name: string;
-  middle_name: string | null;
+  middle_initial: string | null;
   suffix: string | null;
   sex: string | null;
   date_of_birth: string | null;

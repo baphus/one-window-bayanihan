@@ -27,7 +27,7 @@ class ColumnMaps
             ['key' => 'id',             'label' => 'ID',             'type' => 'uuid'],
             ['key' => 'first_name',     'label' => 'First Name',     'type' => 'string'],
             ['key' => 'last_name',      'label' => 'Last Name',      'type' => 'string'],
-            ['key' => 'middle_name',    'label' => 'Middle Name',    'type' => 'string'],
+            ['key' => 'middle_initial',    'label' => 'Middle Initial',    'type' => 'string'],
             ['key' => 'suffix',         'label' => 'Suffix',         'type' => 'string'],
             ['key' => 'date_of_birth',  'label' => 'Date of Birth',  'type' => 'date'],
             ['key' => 'sex',            'label' => 'Sex',            'type' => 'string'],

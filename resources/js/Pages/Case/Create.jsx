@@ -102,7 +102,7 @@ export default function CaseCreate() {
         client: {
             first_name: '',
             last_name: '',
-            middle_name: '',
+            middle_initial: '',
             suffix: '',
             date_of_birth: '',
             sex: 'Male',
@@ -162,7 +162,7 @@ export default function CaseCreate() {
             vulnerability_indicator: '',
             nok_vulnerability_indicator: '',
             summary: '',
-            client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
+            client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
             address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
             next_of_kin: [],
@@ -182,7 +182,7 @@ export default function CaseCreate() {
             && a.summary === b.summary
             && a.client.first_name === b.client.first_name
             && a.client.last_name === b.client.last_name
-            && a.client.middle_name === b.client.middle_name
+            && a.client.middle_initial === b.client.middle_initial
             && a.client.suffix === b.client.suffix
             && a.client.date_of_birth === b.client.date_of_birth
             && a.client.sex === b.client.sex
@@ -289,7 +289,7 @@ export default function CaseCreate() {
                 if (!cancelled) {
                     const mapped = (res.data.data || []).map((c) => ({
                         ...c,
-                        full_name: [c.first_name, c.middle_name, c.last_name, c.suffix].filter(Boolean).join(' '),
+                        full_name: [c.first_name, c.middle_initial, c.last_name, c.suffix].filter(Boolean).join(' '),
                         has_case: !!c.case_file,
                         case_count: c.case_file ? 1 : 0,
                     }));
@@ -311,7 +311,7 @@ export default function CaseCreate() {
                 ...data.client,
                 first_name: client.first_name || '',
                 last_name: client.last_name || '',
-                middle_name: client.middle_name || '',
+                middle_initial: client.middle_initial || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
                 sex: client.sex || 'Male',
@@ -374,7 +374,7 @@ export default function CaseCreate() {
                     client: {
                         first_name: client.first_name || '',
                         last_name: client.last_name || '',
-                        middle_name: client.middle_name || '',
+                        middle_initial: client.middle_initial || '',
                         suffix: client.suffix || '',
                         date_of_birth: client.date_of_birth || '',
                         sex: client.sex || '',
@@ -458,7 +458,7 @@ export default function CaseCreate() {
                 ...data.client,
                 first_name: existingDraft.client.first_name || '',
                 last_name: existingDraft.client.last_name || '',
-                middle_name: existingDraft.client.middle_name || '',
+                middle_initial: existingDraft.client.middle_initial || '',
                 suffix: existingDraft.client.suffix || '',
                 date_of_birth: existingDraft.client.date_of_birth || '',
                 sex: existingDraft.client.sex || '',
@@ -524,7 +524,7 @@ export default function CaseCreate() {
                     ...data.client,
                     first_name: clientData.first_name || '',
                     last_name: clientData.last_name || '',
-                    middle_name: clientData.middle_name || '',
+                    middle_initial: clientData.middle_initial || '',
                     suffix: clientData.suffix || '',
                     date_of_birth: clientData.date_of_birth || '',
                     sex: clientData.sex || '',
@@ -604,7 +604,7 @@ export default function CaseCreate() {
                 client: {
                     first_name: c.first_name || '',
                     last_name: c.last_name || '',
-                    middle_name: c.middle_name || '',
+                    middle_initial: c.middle_initial || '',
                     suffix: c.suffix || '',
                     date_of_birth: c.date_of_birth || '',
                     sex: c.sex || '',
@@ -675,7 +675,7 @@ export default function CaseCreate() {
             const data = res.data.data;
             const mapped = {
                 ...data,
-                full_name: [data.first_name, data.middle_name, data.last_name, data.suffix].filter(Boolean).join(' '),
+                full_name: [data.first_name, data.middle_initial, data.last_name, data.suffix].filter(Boolean).join(' '),
                 has_case: !!data.case_file,
                 case_count: data.case_file ? 1 : 0,
             };
@@ -968,7 +968,7 @@ export default function CaseCreate() {
     function handleSwitchToNew() {
         setClientSource('new');
         setData('selected_client_id', '');
-        setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
+        setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
         setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
         setData('next_of_kin', []);
@@ -983,7 +983,7 @@ export default function CaseCreate() {
                 vulnerability_indicator: '',
                 nok_vulnerability_indicator: '',
                 summary: '',
-                client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
+                client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
                 next_of_kin: [],
@@ -1010,7 +1010,7 @@ function handleConfirmClient(client) {
         ...data.client,
         first_name: client.first_name || '',
         last_name: client.last_name || '',
-        middle_name: client.middle_name || '',
+        middle_initial: client.middle_initial || '',
         suffix: client.suffix || '',
         date_of_birth: client.date_of_birth || '',
         sex: client.sex || '',
@@ -1075,7 +1075,7 @@ function handleConfirmClient(client) {
             client: {
                 first_name: client.first_name || '',
                 last_name: client.last_name || '',
-                middle_name: client.middle_name || '',
+                middle_initial: client.middle_initial || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
                 sex: client.sex || '',
@@ -1377,8 +1377,8 @@ function handleConfirmClient(client) {
                                                     <Field label="First Name" required>
                                                         <Input value={data.client.first_name} onChange={(e) => handleClientChange('first_name', e.target.value)} required maxLength={255} />
                                                     </Field>
-                                                    <Field label="Middle Name">
-                                                        <Input value={data.client.middle_name} onChange={(e) => handleClientChange('middle_name', e.target.value)} maxLength={255} />
+                                                    <Field label="Middle Initial">
+                                                        <Input value={data.client.middle_initial} onChange={(e) => handleClientChange('middle_initial', e.target.value)} maxLength={1} />
                                                     </Field>
                                                     <Field label="Last Name" required>
                                                         <Input value={data.client.last_name} onChange={(e) => handleClientChange('last_name', e.target.value)} required maxLength={255} />
@@ -1482,7 +1482,7 @@ function handleConfirmClient(client) {
                                                                 <Input value={nok.first_name} onChange={(e) => updateNokField(idx, 'first_name', e.target.value)} />
                                                             </Field>
                                                             <Field label="Middle Initial">
-                                                                <Input value={nok.middle_initial} onChange={(e) => updateNokField(idx, 'middle_initial', e.target.value)} maxLength={10} />
+                                                                <Input value={nok.middle_initial} onChange={(e) => updateNokField(idx, 'middle_initial', e.target.value)} maxLength={1} />
                                                             </Field>
                                                             <Field label="Last Name">
                                                                 <Input value={nok.last_name} onChange={(e) => updateNokField(idx, 'last_name', e.target.value)} />

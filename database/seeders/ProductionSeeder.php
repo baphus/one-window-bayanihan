@@ -96,7 +96,7 @@ class ProductionSeeder extends Seeder
                 'client' => [
                     'first_name' => 'Ricardo',
                     'last_name' => 'Mariano',
-                    'middle_name' => 'Javier',
+                    'middle_initial' => 'J',
                     'date_of_birth' => '1985-03-15',
                     'sex' => 'MALE',
                 ],
@@ -133,7 +133,7 @@ class ProductionSeeder extends Seeder
                 'client' => [
                     'first_name' => 'Elena',
                     'last_name' => 'Dela Cruz',
-                    'middle_name' => 'Santos',
+                    'middle_initial' => 'S',
                     'date_of_birth' => '1990-07-22',
                     'sex' => 'FEMALE',
                 ],
@@ -170,7 +170,7 @@ class ProductionSeeder extends Seeder
                 'client' => [
                     'first_name' => 'Arturo',
                     'last_name' => 'Panganiban',
-                    'middle_name' => 'Garcia',
+                    'middle_initial' => 'G',
                     'date_of_birth' => '1978-11-08',
                     'sex' => 'MALE',
                 ],
