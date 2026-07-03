@@ -6,20 +6,29 @@ import TrackingNotFoundState from '@/Components/TrackingNotFoundState';
 import ChatBot from '@/Components/ChatBot';
 
 const STATUS_CONFIG = {
-  IN_PROGRESS:    { label: 'Your case is being processed',  icon: 'pending_actions', bg: 'bg-primary-fixed',   border: 'border-primary-fixed-dim',  text: 'text-primary-container',  topBorder: 'border-t-primary'  },
-  RESOLVED:       { label: 'Your case has been resolved',   icon: 'check_circle',    bg: 'bg-secondary-fixed',  border: 'border-secondary-fixed-dim', text: 'text-on-secondary-container', topBorder: 'border-t-secondary' },
-  BEING_PREPARED: { label: 'Your case is being prepared',   icon: 'hourglass_empty', bg: 'bg-tertiary-fixed',  border: 'border-tertiary-fixed-dim', text: 'text-tertiary-container', topBorder: 'border-t-tertiary' },
-  ARCHIVED:       { label: 'This case has been archived',   icon: 'archive',         bg: 'bg-surface-container-low',  border: 'border-outline-variant', text: 'text-on-surface-variant', topBorder: 'border-t-outline-variant' },
-  UNKNOWN:        { label: 'Case status unavailable',       icon: 'help_outline',    bg: 'bg-surface-container-low',  border: 'border-outline-variant', text: 'text-on-surface-variant', topBorder: 'border-t-outline-variant' },
+  IN_PROGRESS:    { label: 'In Progress',       icon: 'radio_button_checked', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
+  RESOLVED:       { label: 'Resolved',          icon: 'check_circle',    bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  BEING_PREPARED: { label: 'Under Preparation',  icon: 'layers',          bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  ARCHIVED:       { label: 'Archived',          icon: 'archive',         bg: 'bg-slate-100 text-slate-600 border-slate-200' },
+  UNKNOWN:        { label: 'Status Unavailable', icon: 'help_outline',    bg: 'bg-slate-100 text-slate-600 border-slate-200' },
 };
 
 const EVENT_CONFIG = {
-  case_opened:     { dot: 'bg-primary',   icon: 'folder_open',  iconColor: 'text-on-primary' },
-  referral_sent:   { dot: 'bg-secondary', icon: 'send',         iconColor: 'text-on-secondary' },
-  referral_status: { dot: 'bg-tertiary',  icon: 'sync_alt',     iconColor: 'text-on-tertiary' },
-  milestone:       { dot: 'bg-secondary', icon: 'flag',         iconColor: 'text-on-secondary' },
-  case_closed:     { dot: 'bg-outline',   icon: 'check_circle', iconColor: 'text-on-surface' },
+  case_opened:     { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
+  referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
+  referral_status: { dot: 'bg-amber-50 border-amber-200 text-amber-600',       icon: 'sync_alt' },
+  milestone:       { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
+  case_closed:     { dot: 'bg-slate-100 border-slate-200 text-slate-600',     icon: 'lock' },
 };
+
+const EVENT_TYPE_OPTIONS = [
+  { value: 'ALL',          label: 'All Events' },
+  { value: 'case_opened',  label: 'Case Opened' },
+  { value: 'referral_sent', label: 'Referrals' },
+  { value: 'referral_status', label: 'Status Updates' },
+  { value: 'milestone',    label: 'Milestones' },
+  { value: 'case_closed',  label: 'Case Closed' },
+];
 
 function formatEventDate(dateStr) {
   const date = new Date(dateStr);
@@ -28,91 +37,121 @@ function formatEventDate(dateStr) {
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function AgencyCard({ name, note, status, statusTone, borderTone, textTone, lineTone, steps, latestMilestoneLabel, compliance_requirements }) {
+function AgencyCard({ name, note, status, steps = [], latestMilestoneLabel, compliance_requirements }) {
   const completedCount = steps.filter(s => s.state === 'complete').length;
+  const activeIndex = steps.findIndex(s => s.state === 'active');
   const isRejected = status === 'REJECTED';
 
+  const progressPercent = useMemo(() => {
+    if (steps.length <= 1) return 0;
+    if (activeIndex !== -1) {
+      return (activeIndex / (steps.length - 1)) * 100;
+    }
+    return (completedCount / steps.length) * 100;
+  }, [steps, completedCount, activeIndex]);
+
+  const statusColor = {
+    PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
+    PROCESSING: 'bg-blue-50 text-blue-700 border-blue-200',
+    FOR_COMPLIANCE: 'bg-orange-50 text-orange-700 border-orange-200',
+    COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    REJECTED: 'bg-red-50 text-red-700 border-red-100',
+  }[status] || 'bg-slate-100 text-slate-700 border-slate-200';
+
   return (
-    <article className={`rounded-xl border border-outline-variant bg-white shadow-sm overflow-hidden border-t-4 ${borderTone}`}>
-      <div className="px-5 py-4 sm:px-6 flex items-start justify-between gap-3 border-b border-outline-variant">
-        <div className="min-w-0">
-          <h3 className="text-base font-bold text-on-surface leading-tight truncate">{name}</h3>
-          {note && <p className="text-xs text-on-surface-variant mt-1 leading-snug">{note}</p>}
+    <article className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 flex items-center justify-between gap-4 bg-slate-50/70 border-b border-slate-200">
+        <div className="min-w-0 flex items-center gap-3">
+          <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${
+            status === 'COMPLETED' ? 'bg-emerald-500' :
+            status === 'REJECTED' ? 'bg-red-500' :
+            status === 'PROCESSING' ? 'bg-blue-500' :
+            status === 'FOR_COMPLIANCE' ? 'bg-orange-500' :
+            'bg-slate-400'
+          }`} />
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 leading-none">{name}</h3>
+            {note && <p className="text-xs text-slate-500 mt-1 leading-normal max-w-md">{note}</p>}
+          </div>
         </div>
-        <span className={`shrink-0 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-[2px] ${statusTone}`}>
-          {isRejected ? 'Not Accepted' : status.replace('_', ' ')}
+        <span className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-full border ${statusColor}`}>
+          {isRejected ? 'Not Accepted' : status.replace(/_/g, ' ')}
         </span>
       </div>
 
-      <div className="px-5 py-5 sm:px-6">
+      <div className="p-5">
         {isRejected ? (
-          <div className="rounded-lg bg-error-container border border-error px-4 py-3 text-sm text-on-error-container">
-            <span className="material-symbols-outlined text-[16px] align-middle mr-1" style={{ fontVariationSettings: "'FILL' 1" }}>cancel</span>
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-xs text-red-700 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
             This agency was unable to process your case.
           </div>
         ) : (
           <>
-            <div className="relative px-2">
-              <div className="absolute left-[20px] right-[20px] top-[14px] h-[3px] rounded-full bg-surface-container-high" />
+            <div className="relative px-1 mt-2 mb-4">
+              <div className="absolute left-0 right-0 top-[10px] h-[2px] bg-slate-100 rounded-full" />
               <div
-                className={`absolute left-[20px] top-[14px] h-[3px] rounded-full transition-all duration-500 ${lineTone}`}
-                style={{ width: `${completedCount > 0 && steps.length > 1 ? ((completedCount - 1) / (steps.length - 1)) * 100 : 0}%` }}
+                className="absolute left-0 top-[10px] h-[2px] bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progressPercent}%` }}
               />
+
               <div
                 className="relative z-10 grid"
-                style={{
-                  gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
-                  gap: steps.length > 4 ? '2px' : '0.25rem',
-                }}
+                style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
               >
-                {steps.map((step) => (
-                  <div key={step.label} className="flex flex-col items-center text-center">
-                    <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full ${
-                      step.state === 'complete' ? 'bg-white ring-2 ring-primary shadow-sm' :
-                      step.state === 'active'   ? 'bg-white ring-2 ring-blue-400 shadow-sm' :
-                      'bg-surface-container-high'
-                    }`}>
-                      {step.state === 'complete' ? (
-                        <span className="material-symbols-outlined text-[14px] text-primary" style={{ fontVariationSettings: "'FILL' 1, 'wght' 700" }}>check</span>
-                      ) : step.state === 'active' ? (
-                        <span className="material-symbols-outlined text-[13px] text-blue-500 animate-spin" style={{ fontVariationSettings: "'FILL' 1" }}>sync</span>
-                      ) : (
-                        <span className="material-symbols-outlined text-[11px] text-on-surface-variant">radio_button_unchecked</span>
-                      )}
+                {steps.map((step, idx) => {
+                  const isComplete = step.state === 'complete';
+                  const isActive = step.state === 'active';
+
+                  return (
+                    <div key={step.label} className="flex flex-col items-center">
+                      <div className={`flex h-5 w-5 items-center justify-center rounded-full transition-all duration-300 ${
+                        isComplete ? 'bg-blue-600 text-white ring-4 ring-white shadow-sm' :
+                        isActive   ? 'bg-white border-2 border-blue-600 ring-4 ring-white shadow-sm' :
+                        'bg-slate-100 text-slate-400 ring-4 ring-white'
+                      }`}>
+                        {isComplete && (
+                          <span className="material-symbols-outlined text-[12px] font-bold">check</span>
+                        )}
+                        {isActive && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
+                        )}
+                      </div>
+                      <span className={`mt-2 text-[10px] font-semibold text-center tracking-tight px-1 max-w-[85px] truncate ${
+                        isActive ? 'text-blue-600' : isComplete ? 'text-slate-800' : 'text-slate-400'
+                      }`}>
+                        {step.label}
+                      </span>
                     </div>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${
-                      step.state === 'active'   ? textTone :
-                      step.state === 'complete' ? 'text-on-surface' :
-                      'text-on-surface-variant'
-                    }`}>{step.label}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
+
             {latestMilestoneLabel && (
-              <p className="mt-4 text-xs text-on-surface-variant text-center">
-                <span className="material-symbols-outlined text-[12px] align-middle mr-1 text-green-500">flag</span>
-                Latest: <span className="font-semibold text-on-surface">{latestMilestoneLabel}</span>
-              </p>
+              <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-center gap-1.5 text-xs text-slate-500">
+                <span className="material-symbols-outlined text-[14px] text-emerald-600">flag</span>
+                <span>Latest Update: <span className="font-semibold text-slate-800">{latestMilestoneLabel}</span></span>
+              </div>
             )}
+
             {compliance_requirements?.length > 0 && (
-              <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50/40 px-4 py-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="material-symbols-outlined text-[14px] text-orange-600">clipboard_list</span>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-700">For Compliance</span>
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <span className="material-symbols-outlined text-[15px] text-amber-700">assignment_late</span>
+                  <span className="text-[11px] font-bold tracking-wide uppercase text-amber-800">Action Required</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {compliance_requirements.map((cr) => (
-                    <div key={cr.id} className="flex items-start justify-between gap-2">
+                    <div key={cr.id} className="flex items-start justify-between gap-3 pt-2.5 border-t border-amber-100/60 first:border-t-0 first:pt-0">
                       <div className="min-w-0">
-                        <p className="text-[10px] text-orange-600/70">{cr.service_name}</p>
-                        <p className="text-[11px] font-medium text-orange-800">{cr.requirement_name}</p>
+                        <p className="text-[10px] text-amber-700/80 font-semibold">{cr.service_name}</p>
+                        <p className="text-xs font-bold text-amber-900 mt-0.5">{cr.requirement_name}</p>
                       </div>
-                      <span className="shrink-0 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-[2px] border border-orange-300 bg-orange-100 text-orange-700">
-                        Needed
+                      <span className="shrink-0 px-2 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-200/60">
+                        Pending Submission
                       </span>
                     </div>
                   ))}
@@ -126,45 +165,79 @@ function AgencyCard({ name, note, status, statusTone, borderTone, textTone, line
   );
 }
 
-export default function TrackingShow({ trackingId, trackedCase, caseOverview, caseTimeline, milestoneTimeline, trackingAgencies, caseNotifications }) {
+function StatCard({ icon, label, value, iconBg }) {
+  return (
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-start justify-between mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+        <span className={`p-1.5 rounded-lg ${iconBg}`}>
+          <span className="material-symbols-outlined text-[18px]">{icon}</span>
+        </span>
+      </div>
+      <p className="text-lg font-bold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+export default function TrackingShow({ trackingId, trackedCase, caseOverview, caseTimeline, milestoneTimeline, trackingAgencies, caseNotifications, completionPercentage }) {
   const [timelineAgencyFilter, setTimelineAgencyFilter] = useState('ALL');
+  const [timelineTypeFilter, setTimelineTypeFilter] = useState('ALL');
 
   const involvedAgencyCount = trackingAgencies.length;
   const config = STATUS_CONFIG[trackedCase?.status] ?? STATUS_CONFIG.UNKNOWN;
 
-  const caseAgeText = useMemo(() => {
-    const created = new Date(trackedCase.createdAt);
-    const days = Math.max(1, Math.round((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24)));
-    if (trackedCase.status === 'RESOLVED') {
-      return `Resolved after ${days} day${days !== 1 ? 's' : ''}`;
-    }
-    return `Opened ${days} day${days !== 1 ? 's' : ''} ago`;
+  const clientFirstName = useMemo(() => {
+    if (!trackedCase?.clientName) return '';
+    return trackedCase.clientName.split(' ')[0];
   }, [trackedCase]);
 
-  const agencyCountText = involvedAgencyCount === 0
-    ? 'No agencies assigned yet'
-    : involvedAgencyCount === 1
-    ? 'Handled by 1 agency'
-    : `Handled by ${involvedAgencyCount} agencies`;
+  const caseAgeInDays = useMemo(() => {
+    if (!trackedCase?.createdAt) return 0;
+    const created = new Date(trackedCase.createdAt);
+    return Math.max(1, Math.round((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24)));
+  }, [trackedCase]);
+
+  const caseAgeText = useMemo(() => {
+    if (!trackedCase?.createdAt) return '';
+    return trackedCase.status === 'RESOLVED'
+      ? `Resolved in ${caseAgeInDays} day${caseAgeInDays !== 1 ? 's' : ''}`
+      : `Opened ${caseAgeInDays} day${caseAgeInDays !== 1 ? 's' : ''} ago`;
+  }, [trackedCase, caseAgeInDays]);
 
   const timelineAgencyNames = useMemo(() => {
     const names = milestoneTimeline
-      .map(i => i.agency)
-      .filter((a, i, arr) => a && a !== null && arr.indexOf(a) === i);
+      ? milestoneTimeline.map(i => i.agency).filter((a, i, arr) => a && arr.indexOf(a) === i)
+      : [];
     return names.sort((a, b) => a.localeCompare(b));
   }, [milestoneTimeline]);
 
+  const timelineEventCount = milestoneTimeline?.length ?? 0;
+
   const filteredTimeline = useMemo(() => {
-    if (timelineAgencyFilter === 'ALL') return [...milestoneTimeline].reverse();
-    return [...milestoneTimeline].filter(i => i.agency === timelineAgencyFilter || i.agency === null).reverse();
-  }, [milestoneTimeline, timelineAgencyFilter]);
+    if (!milestoneTimeline) return [];
+    let items = [...milestoneTimeline];
+    if (timelineAgencyFilter !== 'ALL') {
+      items = items.filter(i => i.agency === timelineAgencyFilter || i.agency === null);
+    }
+    if (timelineTypeFilter !== 'ALL') {
+      items = items.filter(i => i.type === timelineTypeFilter);
+    }
+    return items.reverse();
+  }, [milestoneTimeline, timelineAgencyFilter, timelineTypeFilter]);
+
+  const hasActiveFilters = timelineAgencyFilter !== 'ALL' || timelineTypeFilter !== 'ALL';
+
+  const clearFilters = () => {
+    setTimelineAgencyFilter('ALL');
+    setTimelineTypeFilter('ALL');
+  };
 
   if (!trackedCase) {
     return (
-      <div className="bg-surface min-h-screen font-body">
+      <div className="min-h-screen bg-surface font-body text-on-surface">
         <Head title="Tracking ID Not Found" />
         <AppHeader />
-        <main className="mx-auto w-full max-w-[640px] px-4 pt-[88px] pb-6 sm:px-6">
+        <main className="mx-auto w-full max-w-xl px-4 pt-24 pb-12 sm:px-6">
           <TrackingNotFoundState description="We could not find a case matching this tracking ID. Please verify your ID and try again." />
         </main>
         <AppFooter />
@@ -174,48 +247,79 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
   }
 
   return (
-    <div className="bg-surface min-h-screen font-body text-on-surface">
+    <div className="min-h-screen bg-surface font-body text-on-surface">
       <Head title={`Tracking — ${trackingId}`} />
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-[640px] px-4 pt-[88px] pb-6 sm:px-6 sm:pt-[104px] sm:pb-10 space-y-6">
+      <main className="mx-auto w-full max-w-5xl px-4 pt-24 pb-12 sm:px-6 lg:px-8 space-y-8">
 
-        {/* Status Banner */}
-        <div className={`rounded-xl border ${config.border} bg-white shadow-sm overflow-hidden border-t-4 ${config.topBorder}`}>
-          <div className="p-5 sm:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-1">Case Tracking</p>
-            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-on-surface mb-3">{trackingId}</h1>
-            <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${config.bg} ${config.border}`}>
-              <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>{config.icon}</span>
-              <span className={`text-[11px] font-bold uppercase tracking-wider ${config.text}`}>{config.label}</span>
+        {/* Greeting */}
+        {clientFirstName && (
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-3xl text-blue-600">waving_hand</span>
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 font-headline tracking-tight">
+                Hello, {clientFirstName}!
+              </h1>
+              <p className="text-sm text-slate-500">Here&apos;s the latest on your case.</p>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">Ref: {trackingId}</p>
             </div>
-            <div className="mt-3 flex flex-wrap gap-3 text-xs text-on-surface-variant">
-              <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-[13px]">groups</span>
-                {agencyCountText}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-[13px]">schedule</span>
-                {caseAgeText}
+            <div className="ml-auto">
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold shadow-sm ${config.bg}`}>
+                <span className="material-symbols-outlined text-[16px]">{config.icon}</span>
+                {config.label}
               </span>
             </div>
           </div>
+        )}
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            icon="calendar_today"
+            label="Case Age"
+            value={caseAgeText || '—'}
+            iconBg="bg-blue-50 text-blue-900"
+          />
+          <StatCard
+            icon="business"
+            label="Agencies"
+            value={`${involvedAgencyCount}`}
+            iconBg="bg-purple-50 text-purple-600"
+          />
+          <StatCard
+            icon="timeline"
+            label="Events"
+            value={`${timelineEventCount}`}
+            iconBg="bg-emerald-50 text-emerald-600"
+          />
+          <StatCard
+            icon={completionPercentage === 100 ? 'check_circle' : 'donut_large'}
+            label="Progress"
+            value={`${completionPercentage}% Complete`}
+            iconBg={completionPercentage === 100 ? 'bg-emerald-50 text-emerald-600' : completionPercentage >= 50 ? 'bg-blue-50 text-blue-900' : 'bg-amber-50 text-amber-700'}
+          />
         </div>
 
         {/* Case Narrative */}
         {caseOverview?.narrative && (
-          <section>
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-3">About This Case</h2>
-            <article className="rounded-xl border border-outline-variant bg-white p-5 sm:p-6 shadow-sm">
-              <p className="text-sm leading-relaxed text-on-surface whitespace-pre-wrap">{caseOverview.narrative}</p>
+          <section className="space-y-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px] text-blue-600">description</span>
+              Overview Narrative
+            </h2>
+            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+              <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{caseOverview.narrative}</p>
             </article>
           </section>
         )}
 
-        {/* Agencies */}
-        <section>
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-3">
-            Agencies Handling Your Case
+        {/* Agency Workflows */}
+        <section className="space-y-3">
+          <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px] text-purple-600">account_tree</span>
+            Involved Workflows
+            <span className="ml-1.5 text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{trackingAgencies.length}</span>
           </h2>
           {trackingAgencies.length > 0 ? (
             <div className="space-y-4">
@@ -224,57 +328,99 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
               ))}
             </div>
           ) : (
-            <article className="rounded-xl border border-outline-variant bg-white p-8 text-center shadow-sm">
-              <span className="material-symbols-outlined text-4xl text-outline-variant block mb-3">hourglass_empty</span>
-              <h3 className="text-sm font-bold text-on-surface">No agencies assigned yet</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">Your case manager will refer your case to the appropriate agencies.</p>
+            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">hourglass_empty</span>
+              <h3 className="text-sm font-bold text-slate-900">No agencies assigned yet</h3>
+              <p className="mt-1 text-sm text-slate-500 max-w-xs mx-auto">Your case manager is processing the initial assessments.</p>
             </article>
           )}
         </section>
 
-        {/* Timeline */}
-        <section>
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">history</span>
-              Case Timeline
+        {/* Activity Timeline */}
+        <section className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px] text-emerald-600">history</span>
+              Activity Timeline
             </h2>
-            {timelineAgencyNames.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Agency filter */}
+              {timelineAgencyNames.length > 0 && (
+                <select
+                  value={timelineAgencyFilter}
+                  onChange={e => setTimelineAgencyFilter(e.target.value)}
+                  className="text-xs font-semibold text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
+                >
+                  <option value="ALL">All Agencies</option>
+                  {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              )}
+              {/* Type filter */}
               <select
-                value={timelineAgencyFilter}
-                onChange={e => setTimelineAgencyFilter(e.target.value)}
-                className="text-xs font-semibold text-on-surface border border-outline-variant rounded-lg px-2 py-1.5 bg-white outline-none focus:border-primary"
+                value={timelineTypeFilter}
+                onChange={e => setTimelineTypeFilter(e.target.value)}
+                className="text-xs font-semibold text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
               >
-                <option value="ALL">All agencies</option>
-                {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
+                {EVENT_TYPE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
-            )}
+              {/* Clear filters */}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 px-2 py-1.5 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Filter results count */}
+          {milestoneTimeline && milestoneTimeline.length > 0 && (
+            <p className="text-[11px] text-slate-400 font-medium px-0.5">
+              Showing {filteredTimeline.length} of {milestoneTimeline.length} events
+            </p>
+          )}
+
           {filteredTimeline.length === 0 ? (
-            <article className="rounded-xl border border-outline-variant bg-white p-8 text-center shadow-sm">
-              <span className="material-symbols-outlined text-4xl text-outline-variant block mb-3">history</span>
-              <p className="text-sm text-on-surface-variant">No activity recorded yet. Your case manager will update you as things progress.</p>
+            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">history</span>
+              <p className="text-sm text-slate-500">No activity matches your filters.</p>
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
+                  Clear filters
+                </button>
+              )}
             </article>
           ) : (
-            <article className="rounded-xl border border-outline-variant bg-white p-5 sm:p-6 shadow-sm">
+            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="relative">
-                <div className="absolute left-[13px] top-2 bottom-2 w-0.5 bg-surface-container-high" />
+                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
                 <div className="space-y-6">
                   {filteredTimeline.map((item, index) => {
                     const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone;
                     return (
-                      <div key={`${item.date}-${index}`} className="relative grid grid-cols-[28px_1fr] gap-3 items-start">
-                        <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full ${cfg.dot} shadow-sm shrink-0`}>
-                          <span className={`material-symbols-outlined text-[13px] ${cfg.iconColor}`} style={{ fontVariationSettings: "'FILL' 1, 'wght' 600" }}>{cfg.icon}</span>
+                      <div key={`${item.date}-${index}`} className="relative flex gap-4 items-start group">
+                        <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white ${cfg.dot} shadow-sm shrink-0`}>
+                          <span className="material-symbols-outlined text-[14px]">{cfg.icon}</span>
                         </div>
-                        <div className="min-w-0 pt-0.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant mb-0.5">
-                            {formatEventDate(item.date)}
-                            {item.agency && <span className="ml-2 text-on-surface-variant">· {item.agency}</span>}
-                          </p>
-                          <h3 className="text-sm font-semibold text-on-surface leading-snug">{item.title}</h3>
-                          {item.description && <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">{item.description}</p>}
+                        <div className="min-w-0 pt-0.5 flex-1">
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                              {formatEventDate(item.date)}
+                            </span>
+                            {item.agency && (
+                              <span className="text-[11px] font-semibold text-slate-400 border-l border-slate-200 pl-2">
+                                {item.agency}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900 mt-1 leading-snug">{item.title}</h4>
+                          {item.description && (
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-prose">{item.description}</p>
+                          )}
                         </div>
                       </div>
                     );
@@ -285,7 +431,7 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
           )}
         </section>
 
-        {/* Feedback CTA — COMPLETED referrals with a feedback_request notification */}
+        {/* Feedback Request */}
         {(() => {
           const isCompleted = trackingAgencies.some(a => a.status === 'COMPLETED');
           const feedbackNtfn = caseNotifications?.items?.find(n => n.type === 'feedback_request');
@@ -301,26 +447,27 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
           }).toString();
 
           return (
-            <section>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant mb-3">Feedback</h2>
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 sm:p-6 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
-                    <span className="material-symbols-outlined text-indigo-600 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>feedback</span>
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-base font-bold text-indigo-900">Your feedback matters</h3>
-                    <p className="text-sm text-indigo-700 mt-1 leading-relaxed">
-                      Help us improve our services by sharing your experience.
-                    </p>
-                    <Link
-                      href={`/feedbacks/submit-page?${params}`}
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
-                    >
-                      Give Feedback
-                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                    </Link>
-                  </div>
+            <section className="space-y-3">
+              <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-blue-600">rate_review</span>
+                Feedback
+              </h2>
+              <div className="bg-white rounded-xl border border-blue-200 shadow-sm p-5 flex items-start gap-4">
+                <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
+                  <span className="material-symbols-outlined text-lg">rate_review</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold text-slate-900">Share your feedback</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Your input helps us improve our services.
+                  </p>
+                  <Link
+                    href={`/feedbacks/submit-page?${params}`}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-blue-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-800 transition-colors"
+                  >
+                    Provide Feedback
+                    <span className="material-symbols-outlined text-[14px] text-blue-300">arrow_right_alt</span>
+                  </Link>
                 </div>
               </div>
             </section>

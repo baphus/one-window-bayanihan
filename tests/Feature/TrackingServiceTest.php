@@ -251,4 +251,69 @@ class TrackingServiceTest extends TestCase
             $this->assertArrayNotHasKey('latestMilestonePath', $agencyCard);
         }
     }
+
+    public function test_completion_percentage_key_exists(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case);
+
+        $this->assertTrue(array_key_exists('completionPercentage', $data));
+    }
+
+    public function test_completion_percentage_zero_when_no_referrals(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create(['client_id' => null, 'status' => 'OPEN']);
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case);
+
+        $this->assertEquals(0, $data['completionPercentage']);
+    }
+
+    public function test_completion_percentage_all_pending_low(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        Referral::factory()->count(3)->create(['case_id' => $case->id, 'status' => 'PENDING']);
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case);
+
+        // PENDING = 10 each, 3 referrals = 30/300 = 10%
+        $this->assertEquals(10, $data['completionPercentage']);
+    }
+
+    public function test_completion_percentage_mixed_statuses(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        Referral::factory()->create(['case_id' => $case->id, 'status' => 'PENDING']);      // 10
+        Referral::factory()->create(['case_id' => $case->id, 'status' => 'FOR_COMPLIANCE']); // 33
+        Referral::factory()->create(['case_id' => $case->id, 'status' => 'PROCESSING']);    // 66
+        Referral::factory()->create(['case_id' => $case->id, 'status' => 'COMPLETED']);     // 100
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case);
+
+        // (10 + 33 + 66 + 100) / 400 = 209/400 = 52%
+        $this->assertEquals(52, $data['completionPercentage']);
+    }
+
+    public function test_completion_percentage_all_completed(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        Referral::factory()->count(2)->create(['case_id' => $case->id, 'status' => 'COMPLETED']);
+        Referral::factory()->create(['case_id' => $case->id, 'status' => 'REJECTED']);
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case);
+
+        // 3 referrals × 100 each = 300/300 = 100%
+        $this->assertEquals(100, $data['completionPercentage']);
+    }
 }

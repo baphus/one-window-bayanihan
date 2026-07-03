@@ -73,9 +73,7 @@ class TrackController extends Controller
             return back()->withErrors(['tracker_number' => 'Case not found.']);
         }
 
-        $data = $this->trackingService->buildTrackingData($case);
-
-        return Inertia::render('Tracking/Show', $data);
+        return redirect()->route('track.show', ['tracker_number' => $case->tracker_number]);
     }
 
     public function show(Request $request)

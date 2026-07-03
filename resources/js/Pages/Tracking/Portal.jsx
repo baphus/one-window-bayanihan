@@ -73,10 +73,10 @@ export default function TrackingPortal() {
 
         <section className="relative -mt-12 md:-mt-16 pb-24 px-4">
           <div className="mx-auto max-w-3xl">
-            <div className="bg-surface-container-low p-5 md:p-8 shadow-lg md:shadow-2xl border border-outline-variant/30">
-              <div className="mb-6 flex items-center gap-3 border-b border-outline-variant pb-4">
-                <span className="material-symbols-outlined text-primary text-2xl">confirmation_number</span>
-                <h2 className="font-headline text-lg font-bold text-on-surface">Tracking ID Details</h2>
+            <div className="bg-white p-5 md:p-8 shadow-lg md:shadow-2xl border border-slate-200 rounded-xl">
+              <div className="mb-6 flex items-center gap-3 border-b border-slate-200 pb-4">
+                <span className="material-symbols-outlined text-blue-900 text-2xl">confirmation_number</span>
+                <h2 className="font-headline text-lg font-bold text-slate-900">Tracking ID Details</h2>
               </div>
 
               <form
@@ -84,47 +84,46 @@ export default function TrackingPortal() {
                 onSubmit={(e) => { e.preventDefault(); handleTrackSubmit(); }}
               >
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">confirmation_number</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-[20px] material-symbols-outlined">confirmation_number</span>
                   <input
                     type="text"
                     value={data.tracker_number}
                     onChange={(e) => handleTrackerChange(e.target.value)}
                     placeholder="Enter Tracking Number"
-                    className="w-full border border-outline bg-surface-container px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:pl-14"
+                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900 md:px-6 md:pl-14 rounded-lg"
                     aria-label="Tracker Number"
                     required
                   />
                   <InputError message={errors.tracker_number} className="mt-1" />
                 </div>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-[20px] material-symbols-outlined">alternate_email</span>
                   <input
                     type="email"
                     value={data.email}
                     onChange={(e) => setData('email', e.target.value)}
                     placeholder="Enter your email address"
-                    className="w-full border border-outline bg-surface-container px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:pl-14"
+                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900 md:px-6 md:pl-14 rounded-lg"
                     aria-label="Email Address"
                     required
                   />
                   <InputError message={errors.email} className="mt-1" />
                 </div>
-                <AppButton
+                <button
                   type="submit"
                   disabled={processing}
-                  variant="mint"
-                  icon="search"
-                  className="md:py-4 w-full"
+                  className="w-full bg-blue-900 text-white rounded-lg px-8 py-4 text-sm font-bold shadow-md hover:bg-blue-800 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                 >
+                  <span className="material-symbols-outlined text-[18px]">search</span>
                   {processing ? 'Sending OTP...' : 'Go to Tracking'}
-                </AppButton>
+                </button>
               </form>
 
-              <div className="mt-8 bg-surface-container-high/50 p-4 rounded">
+              <div className="mt-8 bg-blue-50/50 border border-blue-100 rounded-lg p-4">
                 <div className="flex gap-3">
-                  <span className="material-symbols-outlined text-primary text-[20px]">info</span>
-                  <div className="text-sm text-on-surface-variant leading-relaxed">
-                    <p className="font-semibold text-primary mb-1">Where can I find my Tracking ID?</p>
+                  <span className="material-symbols-outlined text-blue-900 text-[20px] shrink-0">info</span>
+                  <div className="text-sm text-slate-600 leading-relaxed">
+                    <p className="font-bold text-slate-900 mb-1">Where can I find my Tracking ID?</p>
                     <p>Tracking IDs (e.g., OWBAP-A7K2M9Q) are typically found on your acknowledgment receipt or sent via SMS/Email after your initial case intake.</p>
                   </div>
                 </div>

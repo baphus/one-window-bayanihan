@@ -73,15 +73,17 @@ class VerifyOtpTest extends TestCase
 
         $otp = $this->sendOtp($case->tracker_number);
 
-        // ACT
+        // ACT — verifyOtp now redirects to track.show
         $response = $this->post(route('track.verify-otp'), [
             'tracker_number' => $case->tracker_number,
             'email' => $this->email,
             'otp' => $otp,
         ]);
 
-        // ASSERT
-        $response->assertInertia(fn ($page) => $page
+        // ASSERT — follow redirect
+        $response->assertRedirect(route('track.show', ['tracker_number' => $case->tracker_number]));
+        $followUp = $this->get($response->headers->get('Location'));
+        $followUp->assertInertia(fn ($page) => $page
             ->component('Tracking/Show')
             ->has('trackingId')
             ->has('trackedCase')
@@ -192,8 +194,8 @@ class VerifyOtpTest extends TestCase
             'otp' => $otp,
         ]);
 
-        // ASSERT — request succeeds (not throttled)
-        $response->assertInertia(fn ($page) => $page->component('Tracking/Show'));
+        // ASSERT — request succeeds with redirect (not throttled)
+        $response->assertRedirect(route('track.show', ['tracker_number' => $case->tracker_number]));
     }
 
     // ---------------------------------------------------------------
@@ -208,15 +210,17 @@ class VerifyOtpTest extends TestCase
 
         $otp = $this->sendOtp($case->tracker_number);
 
-        // ACT
+        // ACT — verifyOtp now redirects to track.show
         $response = $this->post(route('track.verify-otp'), [
             'tracker_number' => $case->tracker_number,
             'email' => $this->email,
             'otp' => $otp,
         ]);
 
-        // ASSERT — top-level keys
-        $response->assertInertia(fn ($page) => $page
+        // ASSERT — follow redirect to get Inertia page
+        $response->assertRedirect(route('track.show', ['tracker_number' => $case->tracker_number]));
+        $followUp = $this->get($response->headers->get('Location'));
+        $followUp->assertInertia(fn ($page) => $page
             ->component('Tracking/Show')
             ->has('trackingId')
             ->has('trackedCase')
@@ -245,18 +249,20 @@ class VerifyOtpTest extends TestCase
 
         $otp = $this->sendOtp($case->tracker_number);
 
-        // ACT
+        // ACT — verifyOtp now redirects to track.show
         $response = $this->post(route('track.verify-otp'), [
             'tracker_number' => $case->tracker_number,
             'email' => $this->email,
             'otp' => $otp,
         ]);
 
-        // ASSERT — component assertion first
-        $response->assertInertia(fn ($page) => $page->component('Tracking/Show'));
+        // ASSERT — follow redirect to get Inertia page
+        $response->assertRedirect(route('track.show', ['tracker_number' => $case->tracker_number]));
+        $followUp = $this->get($response->headers->get('Location'));
+        $followUp->assertInertia(fn ($page) => $page->component('Tracking/Show'));
 
         // Deep-scan entire props tree for confidential field patterns
-        $content = json_decode($response->getContent(), true);
+        $content = json_decode($followUp->getContent(), true);
         $props = $content['props'] ?? [];
         $this->assertNoConfidentialData($props);
     }
