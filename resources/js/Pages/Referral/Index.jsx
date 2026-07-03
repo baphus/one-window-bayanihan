@@ -9,11 +9,24 @@ const COLUMN_DEFS = [
     { key: 'referral_id', label: 'Referral #', default: true },
     { key: 'case_number', label: 'Case #', default: true },
     { key: 'client', label: 'Client', default: true },
+    { key: 'client_contact', label: 'Client Contact', default: true },
+    { key: 'case_summary', label: 'Case Summary', default: true },
+    { key: 'case_issue', label: 'Issue / Concern', default: false },
     { key: 'agency', label: 'Agency', default: true },
     { key: 'required_services', label: 'Service', default: true },
     { key: 'status', label: 'Status', default: true },
     { key: 'id', label: 'Actions', default: true },
 ];
+
+function formatClientName(client) {
+    if (!client) return 'N/A';
+    return [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') || 'N/A';
+}
+
+function formatAddress(address) {
+    if (!address) return null;
+    return [address.street, address.barangay, address.city_municipality, address.province, address.region].filter(Boolean).join(', ') || null;
+}
 
 export default function ReferralIndex({ referrals, filters }) {
     const { auth } = usePage().props;
@@ -143,12 +156,41 @@ export default function ReferralIndex({ referrals, filters }) {
                     case 'client':
                         return {
                             ...base,
-                            render: (row) => row.case_file?.client
-                                ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}`
-                                : 'N/A',
+                            render: (row) => formatClientName(row.case_file?.client),
                             sortAccessor: (row) => row.case_file?.client
                                 ? `${row.case_file.client.last_name}, ${row.case_file.client.first_name}`
                                 : '',
+                        };
+                    case 'client_contact':
+                        return {
+                            ...base,
+                            sortable: false,
+                            render: (row) => {
+                                const client = row.case_file?.client;
+                                const address = client?.addresses?.[0] ?? null;
+                                return (
+                                    <div className="max-w-xs space-y-0.5 text-[11px] text-slate-600">
+                                        <div>{client?.contact_number ?? 'No contact number'}</div>
+                                        {client?.email && <div className="truncate">{client.email}</div>}
+                                        {formatAddress(address) && <div className="truncate text-slate-400">{formatAddress(address)}</div>}
+                                    </div>
+                                );
+                            },
+                        };
+                    case 'case_summary':
+                        return {
+                            ...base,
+                            sortable: false,
+                            render: (row) => (
+                                <span className="line-clamp-2 block max-w-sm text-[11px] leading-5 text-slate-600">
+                                    {row.case_file?.summary ?? 'N/A'}
+                                </span>
+                            ),
+                        };
+                    case 'case_issue':
+                        return {
+                            ...base,
+                            render: (row) => row.case_file?.case_issue?.name ?? row.case_file?.case_issue?.title ?? 'N/A',
                         };
                     case 'agency':
                         return {

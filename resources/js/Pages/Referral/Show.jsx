@@ -1,74 +1,45 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState, useRef, useMemo } from 'react';
+import { useState } from 'react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import FileUpload from '@/Components/FileUpload';
-import { CardSection, MetaTile, InfoCell } from '@/Components/ui/CardSection';
+import { CardSection, InfoCell } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
-import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
-
-function parseReferredServices(serviceValue) {
-    if (!serviceValue) return [];
-    const normalized = serviceValue
-        .split(/[,;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-    return normalized.length ? normalized : [serviceValue.trim()].filter(Boolean);
-}
-
-function normalizeDocumentName(value) {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-}
+import { formatDisplayDateTime } from '@/lib/utils';
 
 function displayStatus(status) {
     return String(status ?? '').replace(/_/g, ' ');
 }
 
-function getRequirementMatchScore(requirement, documentName) {
-    const normalizedRequirement = normalizeDocumentName(requirement);
-    const normalizedDocumentName = normalizeDocumentName(documentName);
-    if (!normalizedRequirement || !normalizedDocumentName) return 0;
-    if (normalizedDocumentName.includes(normalizedRequirement)) return 100;
-    const requirementKeywords = normalizedRequirement.split(' ').filter((t) => t.length >= 4);
-    if (!requirementKeywords.length) return normalizedDocumentName.includes(normalizedRequirement) ? 1 : 0;
-    return requirementKeywords.reduce((score, keyword) => {
-        return normalizedDocumentName.includes(keyword) ? score + 1 : score;
-    }, 0);
+function formatFullName(person) {
+    if (!person) return 'N/A';
+    return [person.first_name, person.middle_name, person.last_name, person.suffix].filter(Boolean).join(' ') || person.name || 'N/A';
 }
 
-function matchRequirementsToDocuments(requirements, documents) {
-    const remaining = [...documents];
-    const matches = requirements.map((requirement) => {
-        let bestIndex = -1;
-        let bestScore = 0;
-        remaining.forEach((doc, index) => {
-            const score = getRequirementMatchScore(requirement, doc.file_name);
-            if (score > bestScore) {
-                bestScore = score;
-                bestIndex = index;
-            }
-        });
-        const matchedDocument = bestIndex >= 0 ? remaining.splice(bestIndex, 1)[0] : null;
-        return { requirement, document: matchedDocument };
-    });
-    return { matches, unassignedDocuments: remaining };
+function formatAddress(address) {
+    if (!address) return 'N/A';
+    return [address.street, address.barangay, address.city_municipality, address.province, address.region].filter(Boolean).join(', ') || 'N/A';
 }
 
-export default function ReferralShow({ referral, serviceRequirements, overdueDays = 7 }) {
+export default function ReferralShow({ referral, overdueDays = 7 }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
-    const canAddMilestone = isAgency || isCaseManager;
+    const isAdmin = auth.user.role === 'ADMIN';
+    const canAddMilestone = isAgency || isCaseManager || isAdmin;
     const canUpdateStatus = isAgency || isCaseManager;
 
-    const documents = referral.attachments?.filter((a) => !a.is_archived) ?? [];
-    const allDocuments = referral.attachments ?? [];
-    const referredServices = parseReferredServices(referral.required_services);
+    const caseFile = referral.case_file;
+    const client = caseFile?.client;
+    const clientAddress = client?.addresses?.[0] ?? client?.address ?? null;
+    const receivingAgencyName = referral.agency?.name ?? 'the receiving agency';
+    const isReceivingAgency = isAgency && auth.user.agcy_id && auth.user.agcy_id === referral.agcy_id;
+    const showMilestoneAgencyWarning = canAddMilestone && !isReceivingAgency;
     const refMilestones = referral.milestones || [];
     const latestMilestone = refMilestones.length > 0
       ? refMilestones.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b)
@@ -80,26 +51,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
         : new Date(referral.updated_at);
     const referralAge = Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
     const isOverdue = !['COMPLETED', 'REJECTED'].includes(referral.status) && referralAge > overdueDays;
-
-    const serviceRequirementGroups = referredServices.map((serviceTitle) => {
-        const matched = (serviceRequirements ?? []).find(
-            (s) => s.title.toLowerCase() === serviceTitle.toLowerCase()
-        );
-        return {
-            serviceTitle,
-            requiredDocuments: matched?.requiredDocuments ?? [],
-        };
-    });
-
-    const groupedRequirements = useMemo(() => {
-        const initial = { groups: [], unassignedDocuments: [...documents] };
-        return serviceRequirementGroups.reduce((acc, group) => {
-            const { matches, unassignedDocuments } = matchRequirementsToDocuments(
-                group.requiredDocuments, acc.unassignedDocuments
-            );
-            return { groups: [...acc.groups, { ...group, matches }], unassignedDocuments };
-        }, initial);
-    }, [documents, serviceRequirementGroups]);
 
     const comments = referral.comments ?? [];
     const topLevelComments = comments.filter((c) => !c.parent_id);
@@ -115,13 +66,8 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     const [commentDraft, setCommentDraft] = useState('');
     const [replyToCommentId, setReplyToCommentId] = useState(null);
     const [postingComment, setPostingComment] = useState(false);
-    const [activeVersionGroupId, setActiveVersionGroupId] = useState(null);
-
     const [showMilestoneModal, setShowMilestoneModal] = useState(false);
     const milestoneForm = useForm({ title: '', description: '' });
-
-
-    const commentsEndRef = useRef(null);
 
     const replyToComment = replyToCommentId
         ? comments.find((c) => c.id === replyToCommentId) ?? null
@@ -136,12 +82,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
     }));
 
     const orderedTimeline = [...timelineItems].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    const documentVersionRows = activeVersionGroupId
-        ? allDocuments
-            .filter((doc) => (doc.version_group_id ?? doc.id) === activeVersionGroupId)
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        : [];
 
     function handleMilestoneModalSubmit(e) {
         e.preventDefault();
@@ -290,154 +230,28 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         )}
                     </CardSection>
 
-                    <CardSection title="Attached Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        {!isAgency && (
-                            <div className="mb-3">
-                                <FileUpload
-                                    multiple
-                                    label="Attach additional files for this referral"
-                                    onFilesSelected={(files) => {
-                                        files.forEach((file) => {
-                                            const formData = new FormData();
-                                            formData.append('file', file);
-                                            router.post(route('referrals.attachments.store', referral.id), formData, {
-                                                preserveScroll: true,
-                                                headers: { 'Content-Type': 'multipart/form-data' },
-                                            });
-                                        });
-                                    }}
-                                />
-                            </div>
-                        )}
-
-                        {documents.length > 0 ? (
-                            <div className="space-y-3">
-                                {groupedRequirements.groups.map((group) => {
-                                    const attachedCount = group.matches.filter((m) => Boolean(m.document)).length;
-                                    return (
-                                        <div key={group.serviceTitle} className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h4 className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-700">{group.serviceTitle}</h4>
-                                                <span className="text-[10px] font-bold text-slate-500">
-                                                    Requirements Attached: {attachedCount}/{group.requiredDocuments.length}
-                                                </span>
-                                            </div>
-                                            {group.requiredDocuments.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {group.matches.map(({ requirement, document }) => {
-                                                        const isAttached = Boolean(document);
-                                                        return (
-                                                            <div key={`${group.serviceTitle}-${requirement}`} className="rounded-md border border-slate-200 bg-white px-2.5 py-2">
-                                                                <div className="flex flex-wrap items-start justify-between gap-2">
-                                                                    <p className="text-[11px] text-slate-700">{requirement}</p>
-                                                                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.08em] ${
-                                                                        isAttached
-                                                                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                                                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                                                                    }`}>
-                                                                        {isAttached ? 'Attached' : 'Missing'}
-                                                                    </span>
-                                                                </div>
-                                                                {document && (
-                                                                    <div className="mt-1.5 flex items-center justify-between gap-3 rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5">
-                                                                        <div className="min-w-0">
-                                                                            <p className="text-[10px] font-bold text-blue-900 truncate">{document.file_name}</p>
-                                                                            <p className="text-[9px] text-slate-500 truncate">
-                                                                                {document.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(document.created_at)}
-                                                                            </p>
-                                                                        </div>
-                                                                         <div className="flex items-center gap-2 shrink-0">
-                                                                             <a href={route('referrals.attachments.download', { referral: document.referral_id ?? referral.id, attachment: document.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-900 font-bold hover:underline">View</a>
-                                                                             {document.version_group_id && (
-                                                                                 <button
-                                                                                     type="button"
-                                                                                     onClick={() => setActiveVersionGroupId(document.version_group_id)}
-                                                                                     className="text-[10px] text-slate-600 font-bold hover:underline"
-                                                                                 >
-                                                                                     Versions
-                                                                                 </button>
-                                                                             )}
-                                                                         </div>
-                                                                     </div>
-                                                                 )}
-                                                                 {!isAgency && document && (
-                                                                     <div className="mt-2">
-                                                                         <FileUpload
-                                                                             label="Replace file"
-                                                                             onFilesSelected={(file) => {
-                                                                                 if (!file) return;
-                                                                                 const formData = new FormData();
-                                                                                 formData.append('file', file);
-                                                                                 router.post(route('referrals.attachments.replace', [referral.id, document.id]), formData, {
-                                                                                     preserveScroll: true,
-                                                                                     headers: { 'Content-Type': 'multipart/form-data' },
-                                                                                 });
-                                                                             }}
-                                                                         />
-                                                                     </div>
-                                                                 )}
-                                                             </div>
-                                                         );
-                                                     })}
-                                                 </div>
-                                             ) : (
-                                                 <p className="text-[11px] text-slate-500">No required documents configured for this referred service.</p>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-
-                                {groupedRequirements.unassignedDocuments.length > 0 && (
-                                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
-                                        <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Other Attached Files</h4>
-                                        {groupedRequirements.unassignedDocuments.map((doc) => (
-                                            <div key={doc.id} className="bg-white border border-slate-200 p-2.5 flex items-center justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <p className="text-[11px] font-bold text-slate-700 truncate">{doc.file_name}</p>
-                                                    <p className="text-[9px] text-slate-400 truncate">
-                                                        {doc.user?.name ?? 'Unknown'} &middot; {formatDisplayDateTime(doc.created_at)}
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-900 font-bold hover:underline">View</a>
-                                                    {doc.version_group_id && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setActiveVersionGroupId(doc.version_group_id)}
-                                                            className="text-[10px] text-slate-600 font-bold hover:underline"
-                                                        >
-                                                            Versions
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {!isAgency && (
-                                                    <div className="mt-2">
-                                                        <FileUpload
-                                                            label="Replace file"
-                                                            onFilesSelected={(file) => {
-                                                                if (!file) return;
-                                                                const formData = new FormData();
-                                                                formData.append('file', file);
-                                                                router.post(route('referrals.attachments.replace', [referral.id, doc.id]), formData, {
-                                                                    preserveScroll: true,
-                                                                    headers: { 'Content-Type': 'multipart/form-data' },
-                                                                });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="border border-dashed border-slate-200 rounded-md p-4 text-center">
-                                <p className="text-[11px] text-slate-500">No documents attached to this referral.</p>
-                            </div>
-                        )}
+                    <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
+                            <InfoCell label="Case Status" value={caseFile?.status ? <StatusBadge status={caseFile.status} /> : 'N/A'} />
+                            <InfoCell label="Tracker Number" value={caseFile?.tracker_number ?? 'N/A'} />
+                            <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
+                            <InfoCell label="Issue / Concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
+                        </div>
+                        <div className="px-3 py-2 border-x border-b border-slate-200">
+                            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Case Summary</p>
+                            <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{caseFile?.summary ?? 'N/A'}</p>
+                        </div>
                     </CardSection>
 
+                    <CardSection title="Client Details" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
+                            <InfoCell label="Client Name" value={formatFullName(client)} />
+                            <InfoCell label="Client Type" value={caseFile?.client_type ?? 'N/A'} />
+                            <InfoCell label="Phone / Contact" value={client?.contact_number ?? 'N/A'} />
+                            <InfoCell label="Email" value={client?.email ?? 'N/A'} />
+                            <InfoCell label="Address" value={formatAddress(clientAddress)} />
+                        </div>
+                    </CardSection>
                     {referral.compliance_requirements?.length > 0 && (
                         <CardSection title="For Compliance" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                             <div className="space-y-3">
@@ -634,40 +448,6 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                 </aside>
             </div>
 
-            {activeVersionGroupId && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setActiveVersionGroupId(null)}>
-                    <div className="w-full max-w-xl rounded-md border border-slate-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between gap-2">
-                            <h3 className="text-[14px] font-extrabold text-slate-800">Document Versions</h3>
-                            <button
-                                type="button"
-                                onClick={() => setActiveVersionGroupId(null)}
-                                className="h-[28px] px-3 border border-slate-200 bg-white text-slate-700 text-[10px] font-bold rounded-md hover:bg-slate-50"
-                            >
-                                Close
-                            </button>
-                        </div>
-                        <div className="mt-3 max-h-[300px] space-y-2 overflow-y-auto border border-slate-200 bg-slate-50 p-3">
-                            {documentVersionRows.length > 0 ? (
-                                documentVersionRows.map((doc) => (
-                                    <div key={doc.id} className="flex items-center justify-between gap-2 border border-slate-200 bg-white p-2">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-[11px] font-bold text-slate-700">{doc.file_name}</p>
-                                            <p className="text-[10px] text-slate-500">
-                                                {formatDisplayDateTime(doc.created_at)} &middot; {doc.user?.name ?? 'Unknown'} &middot; {doc.is_archived ? 'Archived' : 'Current'}
-                                            </p>
-                                        </div>
-                                        <a href={route('referrals.attachments.download', { referral: doc.referral_id ?? referral.id, attachment: doc.id })} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-900 font-bold hover:underline shrink-0">View</a>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-[11px] text-slate-500 text-center">No versions found.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {pendingDecision && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg">
@@ -791,6 +571,14 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                         </div>
                         <form onSubmit={handleMilestoneModalSubmit}>
                             <div className="px-5 py-4 space-y-4">
+                                {showMilestoneAgencyWarning && (
+                                    <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                                        <span className="material-symbols-outlined text-[18px] text-amber-600">warning</span>
+                                        <p className="text-[12px] font-semibold leading-5 text-amber-800">
+                                            You are adding this milestone on behalf of {receivingAgencyName}. Continue only if this update was coordinated with the agency.
+                                        </p>
+                                    </div>
+                                )}
                                 <div>
                                     <InputLabel htmlFor="milestone_title" value="Title *" />
                                     <TextInput

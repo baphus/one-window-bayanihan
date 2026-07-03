@@ -86,7 +86,9 @@ class ReferralService
     public function getReferrals(array $filters = [], ?string $userAgencyId = null, ?string $userRole = null)
     {
         $query = Referral::with([
-            'caseFile.client',
+            'caseFile.client.addresses',
+            'caseFile.category',
+            'caseFile.caseIssue',
             'agency',
             'milestones' => fn ($q) => $q->latest(),
         ])->orderBy('created_at', 'desc');
@@ -132,8 +134,10 @@ class ReferralService
     public function getReferral(string $id): Referral
     {
         return Referral::with([
-            'caseFile.client',
+            'caseFile.client.addresses',
             'caseFile.user',
+            'caseFile.category',
+            'caseFile.caseIssue',
             'agency',
             'milestones.user',
             'attachments.user',

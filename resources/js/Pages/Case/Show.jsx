@@ -227,15 +227,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     );
   }, [timelineItems, timelineFilter]);
 
-  const allAttachments = useMemo(() => {
-    return (caseFile.referrals || []).flatMap((ref) =>
-      (ref.attachments || []).map((att) => ({
-        ...att,
-        agencyName: ref.agency?.name || '',
-      }))
-    );
-  }, [caseFile.referrals]);
-
   const referralColumns = [
     {
       key: 'agency',
@@ -455,6 +446,28 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             )}
           </div>
 
+          <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <MetaTile label="Case No." value={caseFile.case_number} />
+              <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
+              <MetaTile label="Client Type" value={clientTypeLabel} />
+              <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
+              {caseFile.category && (
+                <MetaTile label="Category" value={
+                  <span className="inline-flex items-center gap-1.5">
+                    {caseFile.category.color && (
+                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: caseFile.category.color }} />
+                    )}
+                    {caseFile.category.name}
+                  </span>
+                } />
+              )}
+              {caseFile.case_issue && (
+                <MetaTile label="Issue/Concern" value={caseFile.case_issue.name} />
+              )}
+            </div>
+          </CardSection>
+
           {/* Case Narrative — moved to top of main column */}
           <CardSection title="Case Narrative" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             {caseFile.summary ? (
@@ -564,100 +577,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           </CardSection>
           </div>
 
-          {/* Documents + Attachments — side by side, unchanged */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <CardSection title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-              <div className="space-y-4">
-                {caseFile.documents?.length > 0 ? (
-                  <div className="space-y-2">
-                    {caseFile.documents.map((doc) => {
-                      const canDelete = auth.user?.id === caseFile.user_id || auth.user?.role === 'ADMIN';
-                      return (
-                        <div key={doc.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="text-[12px] font-semibold text-slate-700 truncate">{doc.file_name}</p>
-                            <p className="text-[10px] text-slate-500">
-                              {doc.user?.name || 'Unknown'} &middot; {doc.created_at ? formatDisplayDateTime(doc.created_at) : ''}
-                              {doc.size ? ` \u00b7 ${(doc.size / 1024).toFixed(1)} KB` : ''}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <a
-                              href={route('cases.documents.download', { case: caseFile.id, document: doc.id })}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-slate-500 hover:text-blue-900"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </a>
-                            {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => handleDocumentDelete(doc.id)}
-                                className="text-slate-400 hover:text-red-500 transition-colors"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
-                )}
-                
-                <FileUpload
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
-                  maxSize={10 * 1024 * 1024}
-                  label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
-                  disabled={uploadingDoc}
-                  onFilesSelected={(file) => {
-                    if (!file) return;
-                    setUploadingDoc(true);
-                    router.post(
-                      route('cases.documents.store', caseFile.id),
-                      { file },
-                      {
-                        preserveScroll: true,
-                        onSuccess: () => setUploadingDoc(false),
-                        onError: () => setUploadingDoc(false),
-                      },
-                    );
-                  }}
-                />
-              </div>
-            </CardSection>
-
-            <CardSection title="Referral Attachments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-              {allAttachments.length > 0 ? (
-                <div className="space-y-2">
-                  {allAttachments.map((att) => (
-                    <div key={att.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-semibold text-slate-700 truncate">{att.file_name}</p>
-                        <p className="text-[10px] text-slate-500">
-                          {att.agencyName || att.user?.name || 'Unknown'} &middot; {att.created_at ? formatDisplayDateTime(att.created_at) : ''}
-                          {att.size ? ` \u00b7 ${(att.size / 1024).toFixed(1)} KB` : ''}
-                        </p>
-                      </div>
-                      <a
-                        href={route('referrals.attachments.download', { referral: att.referral_id, attachment: att.id })}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-slate-500 hover:text-blue-900 shrink-0 ml-2"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[12px] text-slate-500 py-2">No documents attached from referrals.</p>
-              )}
-            </CardSection>
-          </section>
         </main>
 
         <aside className="xl:col-span-4 space-y-4">
@@ -802,26 +721,67 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             </div>
           </CardSection>
 
-          {/* Case Information — single column to prevent overflow */}
-          <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            <div className="space-y-2">
-              <MetaTile label="Case No." value={caseFile.case_number} />
-              <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
-              <MetaTile label="Client Type" value={clientTypeLabel} />
-              <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
-              {caseFile.category && (
-                <MetaTile label="Category" value={
-                  <span className="inline-flex items-center gap-1.5">
-                    {caseFile.category.color && (
-                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: caseFile.category.color }} />
-                    )}
-                    {caseFile.category.name}
-                  </span>
-                } />
+          <CardSection title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+            <div className="space-y-4">
+              {caseFile.documents?.length > 0 ? (
+                <div className="space-y-2">
+                  {caseFile.documents.map((doc) => {
+                    const canDelete = auth.user?.id === caseFile.user_id || auth.user?.role === 'ADMIN';
+                    return (
+                      <div key={doc.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-semibold text-slate-700 truncate">{doc.file_name}</p>
+                          <p className="text-[10px] text-slate-500">
+                            {doc.user?.name || 'Unknown'} &middot; {doc.created_at ? formatDisplayDateTime(doc.created_at) : ''}
+                            {doc.size ? ` \u00b7 ${(doc.size / 1024).toFixed(1)} KB` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <a
+                            href={route('cases.documents.download', { case: caseFile.id, document: doc.id })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-slate-500 hover:text-blue-900"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </a>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDocumentDelete(doc.id)}
+                              className="text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
               )}
-              {caseFile.case_issue && (
-                <MetaTile label="Issue/Concern" value={caseFile.case_issue.name} />
-              )}
+
+              <FileUpload
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                maxSize={10 * 1024 * 1024}
+                label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                disabled={uploadingDoc}
+                onFilesSelected={(file) => {
+                  if (!file) return;
+                  setUploadingDoc(true);
+                  router.post(
+                    route('cases.documents.store', caseFile.id),
+                    { file },
+                    {
+                      preserveScroll: true,
+                      onSuccess: () => setUploadingDoc(false),
+                      onError: () => setUploadingDoc(false),
+                    },
+                  );
+                }}
+              />
             </div>
           </CardSection>
         </aside>
