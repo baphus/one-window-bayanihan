@@ -63,9 +63,11 @@ export const agencyFormSchema = z.object({
     .max(50, 'Short name must not exceed 50 characters.'),
   description: z.string().optional(),
   contact_info: z.string().optional(),
-  logo_url: z.string().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  logo_url: z.any().nullable().optional(),
+  location_query: z.string().nullable().optional(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
+  is_active: z.boolean().optional(),
   map_link: z.string().url('Must be a valid URL').optional().or(z.literal('')),
 });
 
@@ -102,4 +104,3 @@ export const caseIssueSchema = z.object({
     .max(255, 'Name must not exceed 255 characters.'),
   sort_order: z.number().optional(),
 });
-

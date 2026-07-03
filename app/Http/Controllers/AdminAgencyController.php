@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Agency;
 use App\Models\User;
+use App\Services\CloudinaryAvatarService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -40,13 +41,13 @@ class AdminAgencyController extends Controller
         return Inertia::render('Admin/Agency/Index', [
             'agencies' => $agencies,
             'filters' => $filters,
-            'stats' => Inertia::lazy(fn () => [
+            'stats' => [
                 'total' => Agency::count(),
                 'active' => Agency::where('is_active', true)->count(),
                 'inactive' => Agency::where('is_active', false)->count(),
                 'default' => Agency::where('is_default', true)->count(),
                 'total_users' => User::count(),
-            ]),
+            ],
         ]);
     }
 
@@ -67,15 +68,21 @@ class AdminAgencyController extends Controller
         $validated['slug'] = Str::slug($validated['short']);
         $validated['is_active'] = true;
 
-        // Handle logo upload
-        if ($request->hasFile('logo_url')) {
-            $path = $request->file('logo_url')->store('logos', 'private');
-            $validated['logo_url'] = $path;
-        }
+        $logoFile = $request->file('logo_url');
+        unset($validated['logo_url']);
 
         $this->parseAndSetMapLink($validated);
 
-        Agency::create($validated);
+        $agency = Agency::create($validated);
+
+        if ($logoFile) {
+            $agency->logo_url = app(CloudinaryAvatarService::class)->uploadImage(
+                $logoFile,
+                'agency-logos',
+                'agency-'.$agency->id,
+            );
+            $agency->save();
+        }
 
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency created successfully.');
@@ -104,13 +111,26 @@ class AdminAgencyController extends Controller
             'map_link' => 'nullable|string|max:2048',
         ]);
 
+        if ($agency->is_default && array_key_exists('is_active', $validated) && $validated['is_active'] === false) {
+            abort(422, 'Default agencies cannot be deactivated.');
+        }
+
+        $logoFile = $request->file('logo_url');
+
         // Handle logo upload
         if ($request->hasFile('logo_url')) {
-            $path = $request->file('logo_url')->store('logos', 'private');
-            $validated['logo_url'] = $path;
+            app(CloudinaryAvatarService::class)->deleteByUrl($agency->getRawOriginal('logo_url'));
+            $validated['logo_url'] = app(CloudinaryAvatarService::class)->uploadImage(
+                $logoFile,
+                'agency-logos',
+                'agency-'.$agency->id,
+            );
         } elseif ($request->has('logo_url') && $request->input('logo_url') === null) {
             // Explicitly set to null — clear existing logo
+            app(CloudinaryAvatarService::class)->deleteByUrl($agency->getRawOriginal('logo_url'));
             $validated['logo_url'] = null;
+        } else {
+            unset($validated['logo_url']);
         }
         // If logo_url not in request, keep existing value (not in validated)
 
@@ -216,7 +236,7 @@ class AdminAgencyController extends Controller
         $agency = Agency::findOrFail($id);
 
         if ($agency->is_default) {
-            abort(422, 'Cannot delete the default agency.');
+            abort(422, 'Default agencies cannot be deactivated.');
         }
 
         $agency->is_active = false;

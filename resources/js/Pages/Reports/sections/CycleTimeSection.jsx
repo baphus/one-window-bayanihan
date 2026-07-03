@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import ReportLazySection from '@/Components/Reports/ReportLazySection';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
@@ -19,19 +18,16 @@ export default function CycleTimeSection({ pageHeadingStyles }) {
   return (
     <ReportLazySection lazyKey="cycleTimeDistribution" skeleton={<ChartSkeleton />}>
       {(data) => {
-        const chartData = useMemo(() => {
-          if (!data?.labels) return null;
-          return {
-            labels: data.labels,
-            datasets: [{
-              label: 'Referrals',
-              data: data.data,
-              backgroundColor: data.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
-              borderRadius: 3,
-              barThickness: 18,
-            }],
-          };
-        }, [data]);
+        const chartData = data?.labels ? {
+          labels: data.labels,
+          datasets: [{
+            label: 'Referrals',
+            data: data.data,
+            backgroundColor: data.colors || [COLORS.success, '#84cc16', COLORS.warning, COLORS.danger],
+            borderRadius: 3,
+            barThickness: 18,
+          }],
+        } : null;
 
         return (
           <article

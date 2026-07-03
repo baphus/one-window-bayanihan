@@ -14,11 +14,47 @@ const barOptions = {
   },
 };
 
+function toBarChartData(data) {
+  if (data?.labels?.length) {
+    return {
+      labels: data.labels,
+      datasets: [
+        {
+          data: data.data,
+          backgroundColor: data.colors || COLORS.chartPalette,
+          borderColor: data.colors || COLORS.chartPalette,
+          borderWidth: 1,
+        },
+      ],
+    };
+  }
+
+  if (Array.isArray(data) && data.length > 0) {
+    const colors = data.map((item, index) => item.color || COLORS.chartPalette[index % COLORS.chartPalette.length]);
+
+    return {
+      labels: data.map((item) => item.name || item.label || 'Unknown'),
+      datasets: [
+        {
+          data: data.map((item) => item.count ?? item.total ?? 0),
+          backgroundColor: colors,
+          borderColor: colors,
+          borderWidth: 1,
+        },
+      ],
+    };
+  }
+
+  return null;
+}
+
 export default function LazyChartArticle({ lazyKey, title, desc, emptyText }) {
   return (
     <ReportLazySection lazyKey={lazyKey} skeleton={<ChartSkeleton />} emptyMessage={emptyText}>
       {(data) => {
-        if (!data?.labels?.length) {
+        const chartData = toBarChartData(data);
+
+        if (!chartData) {
           return (
             <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
               <h3 className={`mb-4 ${pageHeadingStyles.sectionTitle}`}>{title}</h3>
@@ -27,18 +63,6 @@ export default function LazyChartArticle({ lazyKey, title, desc, emptyText }) {
             </article>
           );
         }
-
-        const chartData = {
-          labels: data.labels,
-          datasets: [
-            {
-              data: data.data,
-              backgroundColor: data.colors || COLORS.chartPalette,
-              borderColor: data.colors || COLORS.chartPalette,
-              borderWidth: 1,
-            },
-          ],
-        };
 
         return (
           <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>

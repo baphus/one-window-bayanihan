@@ -192,9 +192,9 @@ class ReportsService
 
     public function getClientTypeDistribution(?string $userId = null, ?string $role = null): array
     {
-        $query = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
         if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('user_id', $userId);
+            $query->where('cases.user_id', $userId);
         }
 
         $types = (clone $query)
@@ -243,9 +243,9 @@ class ReportsService
 
     private function caseQuery(?string $userId = null, ?string $role = null)
     {
-        $query = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
         if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('user_id', $userId);
+            $query->where('cases.user_id', $userId);
         }
 
         return $query;
@@ -695,10 +695,10 @@ class ReportsService
     ): array {
         $query = $this->caseQuery($userId, $role);
         if ($fromDate) {
-            $query->whereDate('created_at', '>=', $fromDate);
+            $query->whereDate('cases.created_at', '>=', $fromDate);
         }
         if ($toDate) {
-            $query->whereDate('created_at', '<=', $toDate);
+            $query->whereDate('cases.created_at', '<=', $toDate);
         }
 
         $issues = (clone $query)

@@ -45,4 +45,8 @@ return [
         'api_base' => env('PSGC_API_BASE', 'https://psgc.cloud/api'),
     ],
 
+    'cloudinary' => [
+        'url' => env('CLOUDINARY_URL'),
+    ],
+
 ];
