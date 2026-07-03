@@ -395,7 +395,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                     View
                   </button>
                   <button
-                    onClick={() => router.visit(route('cases.show', row.id))}
+                    onClick={() => router.visit(`${route('cases.show', row.id)}?edit=1`)}
                     className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
                   >
                     Edit
@@ -742,7 +742,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             setContextMenu(null);
           }} />
           <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
-            router.visit(route('cases.show', contextMenu.row.id));
+            router.visit(`${route('cases.show', contextMenu.row.id)}?edit=1`);
             setContextMenu(null);
           }} />
           {contextMenu.row.status === 'CLOSED' && (

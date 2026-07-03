@@ -588,15 +588,35 @@ class CaseService
         return DB::transaction(function () use ($id, $data, $userId) {
             $case = CaseFile::findOrFail($id);
             $old = $case->toArray();
+            $oldStatus = $case->status;
+            $newStatus = $data['status'] ?? $case->status;
 
-            $case->update([
+            if ($newStatus !== $case->status && in_array($newStatus, ['CLOSED', 'ARCHIVED'], true)) {
+                $canClose = $this->canClose($id);
+                if (! $canClose['can_close']) {
+                    abort(422, $canClose['reason']);
+                }
+            }
+
+            $updateData = [
+                'status' => $newStatus,
                 'client_type' => $data['client_type'],
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
                 'category_id' => $data['category_id'] ?? $case->category_id,
                 'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
-            ]);
+            ];
+
+            if ($newStatus === 'CLOSED' && $case->status !== 'CLOSED') {
+                $updateData['closed_at'] = now();
+            } elseif ($newStatus === 'ARCHIVED' && $case->status !== 'CLOSED') {
+                $updateData['closed_at'] = $case->closed_at ?? now();
+            } elseif ($newStatus === 'OPEN' && $case->status === 'CLOSED') {
+                $updateData['closed_at'] = null;
+            }
+
+            $case->update($updateData);
 
             AuditLog::create([
                 'action' => 'UPDATE',
@@ -606,6 +626,10 @@ class CaseService
                 'new_value' => $case->toArray(),
                 'user_id' => $userId,
             ]);
+
+            if ($case->wasChanged('status')) {
+                $this->dispatchStatusChangeNotification($case, $oldStatus ?? 'UNKNOWN', $case->status, $userId);
+            }
 
             // Dispatch notifications
             $this->dispatchCaseUpdateNotification($case, $old, $userId);

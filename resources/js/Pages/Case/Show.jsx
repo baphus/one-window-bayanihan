@@ -58,12 +58,14 @@ function formatNokAddress(nok) {
 }
 
 export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
-  const { auth } = usePage().props;
+  const page = usePage();
+  const { auth } = page.props;
   const client = caseFile.client;
   const toast = useToast();
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [showReferralPrompt, setShowReferralPrompt] = useState(!!usePage().props.just_published);
+  const [showReferralPrompt, setShowReferralPrompt] = useState(!!page.props.just_published);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
+  const [formStatus, setFormStatus] = useState(caseFile.status);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
   const [nokVulnerability, setNokVulnerability] = useState(caseFile.nok_vulnerability_indicator || '');
@@ -79,14 +81,44 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     }
   }
 
-  const initialEditRef = useRef({ clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
+  const initialEditRef = useRef({ status: caseFile.status, clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
+  const editIntentHandledRef = useRef(false);
   const hasEditDirty = useMemo(() => (
-    formClientType !== initialEditRef.current.clientType
+    formStatus !== initialEditRef.current.status
+    || formClientType !== initialEditRef.current.clientType
     || formVulnerability !== initialEditRef.current.vulnerability
     || nokVulnerability !== initialEditRef.current.nokVulnerability
     || formSummary !== initialEditRef.current.summary
-  ), [formClientType, formVulnerability, nokVulnerability, formSummary]);
+  ), [formStatus, formClientType, formVulnerability, nokVulnerability, formSummary]);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
+
+  function openEditDetails() {
+    const initial = {
+      status: caseFile.status,
+      clientType: caseFile.client_type,
+      vulnerability: caseFile.vulnerability_indicator || '',
+      nokVulnerability: caseFile.nok_vulnerability_indicator || '',
+      summary: caseFile.summary || '',
+    };
+
+    initialEditRef.current = initial;
+    setFormStatus(initial.status);
+    setFormClientType(initial.clientType);
+    setFormVulnerability(initial.vulnerability);
+    setNokVulnerability(initial.nokVulnerability);
+    setFormSummary(initial.summary);
+    setIsEditOpen(true);
+  }
+
+  useEffect(() => {
+    const query = page.url?.split('?')[1] || '';
+    const shouldOpenEdit = new URLSearchParams(query).get('edit') === '1';
+
+    if (shouldOpenEdit && !editIntentHandledRef.current) {
+      editIntentHandledRef.current = true;
+      openEditDetails();
+    }
+  }, [page.url]);
 
   const primaryAddress = client?.addresses?.[0] || null;
   const primaryEmployment = client?.employments?.[0] || null;
@@ -248,6 +280,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     setSaving(true);
     bypassNext();
     router.patch(route('cases.update', caseFile.id), {
+      status: formStatus,
       client_type: formClientType,
       vulnerability_indicator: formVulnerability,
       nok_vulnerability_indicator: nokVulnerability,
@@ -343,13 +376,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           )}
           <button
             type="button"
-            onClick={() => {
-              setFormClientType(caseFile.client_type);
-              setFormVulnerability(caseFile.vulnerability_indicator || '');
-              setNokVulnerability(caseFile.nok_vulnerability_indicator || '');
-              setFormSummary(caseFile.summary || '');
-              setIsEditOpen(true);
-            }}
+            onClick={openEditDetails}
             className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300"
           >
             Edit Details
@@ -810,6 +837,19 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
 
             <div className="grid grid-cols-1 gap-4 px-5 py-4 md:grid-cols-2">
               <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Case Status</label>
+                <select
+                  value={formStatus}
+                  onChange={(e) => setFormStatus(e.target.value)}
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                >
+                  <option value="OPEN">Open</option>
+                  <option value="CLOSED">Closed</option>
+                  <option value="ARCHIVED">Archived</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Client Type</label>
                 <select
                   value={formClientType}
@@ -836,7 +876,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 </select>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">NOK Vulnerability</label>
                 <select
                   value={nokVulnerability}

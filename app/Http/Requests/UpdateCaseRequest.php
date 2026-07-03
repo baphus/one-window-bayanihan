@@ -15,6 +15,7 @@ class UpdateCaseRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'status' => ['nullable', Rule::in(['OPEN', 'CLOSED', 'ARCHIVED'])],
             'client_type' => ['required', Rule::in(['OFW', 'NEXT_OF_KIN'])],
             'vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'nok_vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],

@@ -25,6 +25,10 @@ function normalizeDocumentName(value) {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function displayStatus(status) {
+    return String(status ?? '').replace(/_/g, ' ');
+}
+
 function getRequirementMatchScore(requirement, documentName) {
     const normalizedRequirement = normalizeDocumentName(requirement);
     const normalizedDocumentName = normalizeDocumentName(documentName);
@@ -449,7 +453,7 @@ export default function ReferralShow({ referral, serviceRequirements, overdueDay
                                                     ? 'border border-green-200 bg-green-50 text-green-700'
                                                     : 'border border-orange-200 bg-orange-50 text-orange-700'
                                             }`}>
-                                                {cr.status}
+                                                {displayStatus(cr.status)}
                                             </span>
                                         </div>
 
