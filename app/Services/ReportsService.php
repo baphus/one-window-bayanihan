@@ -812,17 +812,6 @@ class ReportsService
         return round((float) ($avg ?? 0), 1);
     }
 
-    public function getManagedReferrals(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null)
-    {
-        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
-        $this->applyGeoFilter($query, $province, $city);
-
-        return $query
-            ->with(['caseFile.client', 'agency'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
-    }
-
     public function getOverdueReferrals(?string $userId = null, ?string $role = null, ?string $province = null, ?string $city = null): array
     {
         $query = Referral::whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])

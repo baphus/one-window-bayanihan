@@ -38,16 +38,6 @@ class ReportsController extends Controller
             city: $city,
         );
 
-        $managedReferrals = $this->reportsService->getManagedReferrals(
-            userId: $user->id,
-            role: $user->role,
-            fromDate: $fromDate,
-            toDate: $toDate,
-            dateScope: $dateScope,
-            province: $province,
-            city: $city,
-        );
-
         // Gather filter options
         $provinceOptions = $this->reportsService->getProvinceOptions(
             userId: $user->id,
@@ -66,7 +56,6 @@ class ReportsController extends Controller
             // Eager props (included in initial response)
             'role' => $user->role,
             'kpis' => $data['kpis'],
-            'managedReferrals' => $managedReferrals,
             'from' => $fromDate,
             'to' => $toDate,
             'dateScope' => $dateScope,

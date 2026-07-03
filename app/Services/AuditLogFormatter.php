@@ -46,7 +46,9 @@ class AuditLogFormatter
 
     public function formatModule(string $module): string
     {
-        return match ($module) {
+        $normalized = strtolower($module);
+
+        return match ($normalized) {
             'case_files' => 'Case',
             'cases' => 'Case',
             'case' => 'Case',
@@ -70,7 +72,7 @@ class AuditLogFormatter
             'service' => 'Service',
             'helpdesk_articles' => 'Helpdesk Article',
             'helpdesk_article' => 'Helpdesk Article',
-            default => ucfirst(str_replace('_', ' ', $module)),
+            default => ucfirst(str_replace('_', ' ', $normalized)),
         };
     }
 
@@ -289,7 +291,7 @@ class AuditLogFormatter
     private function formatCreate(string $userName, AuditLog $log, string $module): string
     {
         $newValues = $log->new_value ?? [];
-        $moduleRaw = (string) $log->module;
+        $moduleRaw = strtolower((string) $log->module);
 
         // Specific template: User creation
         if (in_array($moduleRaw, ['users', 'user'])) {
@@ -377,7 +379,7 @@ class AuditLogFormatter
     private function formatDelete(string $userName, AuditLog $log, string $module): string
     {
         $oldValues = $log->old_value ?? [];
-        $identifier = $this->extractEntityDetail($oldValues, (string) $log->module);
+        $identifier = $this->extractEntityDetail($oldValues, strtolower((string) $log->module));
 
         if ($identifier) {
             return sprintf('%s was removed from the system', $identifier);
@@ -447,6 +449,16 @@ class AuditLogFormatter
             return '';
         }
 
+        // Combine first_name + last_name as a single identifier
+        if (array_key_exists('first_name', $values) || array_key_exists('last_name', $values)) {
+            $first = $values['first_name'] ?? '';
+            $last = $values['last_name'] ?? '';
+            $fullName = trim("$first $last");
+            if ($fullName !== '') {
+                return $fullName;
+            }
+        }
+
         $identifierFields = [
             'case_number',
             'tracker_number',
@@ -454,6 +466,8 @@ class AuditLogFormatter
             'name',
             'summary',
             'description',
+            'content',
+            'file_name',
         ];
 
         foreach ($identifierFields as $field) {

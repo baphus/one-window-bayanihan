@@ -898,13 +898,20 @@ function CaseManagerDashboard({
 }
 
 export default function Dashboard(props) {
+    const deferredDashboard = props.dashboard ?? {};
+    const dashboardProps = {
+        ...props,
+        ...deferredDashboard,
+        role: props.role ?? deferredDashboard.role,
+    };
+
     const {
         role, recentCases, recentReferrals, recentLogs,
         allCases, allReferrals, casesByProvince, agencyBreakdown,
         casesByCategory, casesOverTime, recentActivity, dashboardNotifications,
         systemHealth,
         ...stats
-    } = props;
+    } = dashboardProps;
 
     if (role === 'AGENCY') {
         return (
