@@ -2,6 +2,12 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import AppButton from './AppButton';
 
+const roleLabels = {
+  CASE_MANAGER: 'Case Manager',
+  AGENCY: 'Agency Focal',
+  ADMIN: 'System Admin',
+};
+
 const navLinks = [
   { name: 'Home', href: '/', exact: true },
   { name: 'Help Center', href: '/helpdesk', exact: false },
@@ -126,7 +132,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                       </span>
 
                       <span className="text-xs text-slate-500">
-                        Administrator
+                        {roleLabels[user?.role] || user?.role || 'User'}
                       </span>
                     </div>
 

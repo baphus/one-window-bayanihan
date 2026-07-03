@@ -63,10 +63,9 @@ export default function ForgotEmail() {
 
                                 <Link
                                     href={route('login')}
-                                    className="mt-8 flex items-center justify-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary mx-auto transition-colors"
+                                    className="mt-8 flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors mx-auto w-fit"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                                    Back to Sign In
+                                    &larr; Back to Sign In
                                 </Link>
                             </div>
                         </div>

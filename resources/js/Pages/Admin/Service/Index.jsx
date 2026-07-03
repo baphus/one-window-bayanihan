@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
@@ -9,7 +10,13 @@ import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 export default function AdminServiceIndex({ services, allAgencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+
+  function handleRowContextMenu(e, row) {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row });
+  }
 
   function paginatorProps(paginator) {
     return {
@@ -91,8 +98,24 @@ export default function AdminServiceIndex({ services, allAgencies }) {
         data={services.data}
         keyExtractor={(row) => row.id}
         {...paginatorProps(services)}
+        onRowContextMenu={handleRowContextMenu}
       />
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {contextMenu && (
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
+            setEditingService(contextMenu.row);
+            setShowForm(true);
+            setContextMenu(null);
+          }} />
+          <RowContextMenuItem icon="delete" label="Delete" variant="danger" onClick={() => {
+            if (confirm(`Delete service "${contextMenu.row.name}"?`)) {
+              router.delete(route('admin.services.destroy', contextMenu.row.id), { preserveScroll: true });
+            }
+            setContextMenu(null);
+          }} />
+        </RowContextMenu>
+      )}
     </AppLayout>
   );
 }

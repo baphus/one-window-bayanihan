@@ -27,7 +27,7 @@ const navByRole = {
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
-      { name: 'Help Center', href: '/helpdesk', icon: 'help' },
+      { name: 'Help Center', href: '/helpdesk', icon: 'help', external: true },
     ]},
   ],
   AGENCY: [
@@ -51,7 +51,7 @@ const navByRole = {
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
-      { name: 'Help Center', href: '/helpdesk', icon: 'help' },
+      { name: 'Help Center', href: '/helpdesk', icon: 'help', external: true },
     ]},
   ],
   ADMIN: [
@@ -158,21 +158,42 @@ export default function AppSidebar() {
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const active = isActive(item.href);
+                  const linkClass = `flex items-center gap-4 px-8 py-3.5 text-[14px] font-label transition-colors border-l-4 ${
+                    active
+                      ? 'bg-slate-100/60 text-blue-900 font-bold border-blue-900'
+                      : 'text-slate-600 font-medium hover:bg-slate-100/40 hover:text-slate-900 border-transparent'
+                  }`;
+
+                  const content = (
+                    <>
+                      <span className={`material-symbols-outlined text-[22px] ${active ? 'text-blue-900' : 'text-slate-600'}`} style={{ fontVariationSettings: `'FILL' ${active ? '1' : '0'}, 'wght' ${active ? '700' : '400'}` }}>
+                        {item.icon}
+                      </span>
+                      {item.name}
+                    </>
+                  );
+
+                  if (item.external) {
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={linkClass}
+                      >
+                        {content}
+                      </a>
+                    );
+                  }
 
                   return (
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center gap-4 px-8 py-3.5 text-[14px] font-label transition-colors border-l-4 ${
-                        active
-                          ? 'bg-slate-100/60 text-blue-900 font-bold border-blue-900'
-                          : 'text-slate-600 font-medium hover:bg-slate-100/40 hover:text-slate-900 border-transparent'
-                      }`}
+                      className={linkClass}
                     >
-                      <span className={`material-symbols-outlined text-[22px] ${active ? 'text-blue-900' : 'text-slate-600'}`} style={{ fontVariationSettings: `'FILL' ${active ? '1' : '0'}, 'wght' ${active ? '700' : '400'}` }}>
-                        {item.icon}
-                      </span>
-                      {item.name}
+                      {content}
                     </Link>
                   );
                 })}

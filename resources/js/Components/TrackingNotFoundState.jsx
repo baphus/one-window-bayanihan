@@ -7,10 +7,9 @@ export default function TrackingNotFoundState({ description }) {
       <p className="mt-[8px] text-[11px] font-[500] text-on-surface-variant">{description}</p>
       <Link
         href={route('track.index')}
-        className="mt-4 inline-flex items-center gap-2 bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-white"
+        className="mt-4 inline-flex px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors"
       >
-        <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-        Back to Tracking Search
+        &larr; Back to Tracking Search
       </Link>
     </section>
   );

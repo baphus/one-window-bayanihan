@@ -6,6 +6,7 @@ import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import { useToast } from '@/Hooks/useToast';
 import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import FileUpload from '@/Components/FileUpload';
 import { CardSection, MetaTile } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
@@ -211,6 +212,12 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   }, [timelineItems]);
 
   const [timelineFilter, setTimelineFilter] = useState('ALL');
+  const [contextMenu, setContextMenu] = useState(null);
+
+  function handleRowContextMenu(e, row) {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row });
+  }
 
   const filteredTimeline = useMemo(() => {
     if (timelineFilter === 'ALL') return timelineItems;
@@ -394,6 +401,12 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               Archive Case
             </button>
           ) : null}
+          <Link
+            href={route('cases.index')}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0"
+          >
+            &larr; Back to Cases
+          </Link>
         </div>
       </div>
 
