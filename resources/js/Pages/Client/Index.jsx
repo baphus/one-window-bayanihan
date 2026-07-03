@@ -1,8 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
-import { FileDown } from 'lucide-react';
+import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDate } from '@/lib/utils';
 
 const COLUMN_DEFS = [
@@ -28,6 +28,33 @@ export default function ClientIndex({ clients, filters }) {
 
   const [typeFilter, setTypeFilter] = useState('');
   const [sexFilter, setSexFilter] = useState('');
+
+  const toast = useToast();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = useCallback(() => {
+    const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
+    if (sexFilter) params.set('sex', sexFilter);
+    if (typeFilter) params.set('client_type', typeFilter);
+
+    const qs = params.toString();
+    const url = route('clients.export-excel') + (qs ? '?' + qs : '');
+
+    setIsExporting(true);
+    toast.info('Preparing your export…');
+
+    // Trigger download without opening a new tab
+    const link = document.createElement('a');
+    link.href = url;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Reset after a reasonable timeout
+    setTimeout(() => setIsExporting(false), 5000);
+  }, [filters, sexFilter, typeFilter, toast]);
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -223,11 +250,12 @@ export default function ClientIndex({ clients, filters }) {
         </div>
         <button
           type="button"
-          onClick={() => window.open(route('clients.export-excel'))}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 transition-colors"
+          onClick={handleExport}
+          disabled={isExporting}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <FileDown className="w-3.5 h-3.5" />
-          Export Excel
+          <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
+          {isExporting ? 'Exporting…' : 'Export Excel'}
         </button>
       </div>
 

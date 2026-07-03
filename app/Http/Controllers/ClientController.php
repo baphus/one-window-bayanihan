@@ -8,7 +8,6 @@ use App\Models\Client;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
 use App\Services\CloudinaryAvatarService;
-use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use Illuminate\Http\Request;
@@ -141,15 +140,60 @@ class ClientController extends Controller
         return redirect()->back()->with('success', 'Profile picture removed successfully.');
     }
 
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
         $user = auth()->user();
         $queries = new DataExportQueries;
-        $clients = $queries->getClients($user);
-        $columnMap = ColumnMaps::getMap('clients');
+
+        $filters = $request->only([
+            'search', 'sex', 'client_type',
+        ]);
+
+        $clients = $queries->getClientsExport($user, array_filter($filters));
+
+        $columnMap = self::clientsExportColumnMap();
+
+        // Tag each row with the export timestamp for provenance
+        $now = now()->format('Y-m-d H:i:s');
+        $clients = $clients->map(function ($row) use ($now) {
+            $row->exported_at = $now;
+
+            return $row;
+        });
+
         $filename = 'clients-export-'.now()->format('Ymd-His').'.xlsx';
 
         return (new DataExportService)->generateSingleSheet('Clients', $columnMap, $clients, $filename);
+    }
+
+    /**
+     * Business-export column map — no IDs or system fields.
+     */
+    public static function clientsExportColumnMap(): array
+    {
+        return [
+            ['key' => 'full_name',          'label' => 'Full Name',           'type' => 'string'],
+            ['key' => 'sex',                'label' => 'Sex/Gender',          'type' => 'string'],
+            ['key' => 'date_of_birth',      'label' => 'Date of Birth',       'type' => 'date'],
+            ['key' => 'age',                'label' => 'Age',                 'type' => 'string'],
+            ['key' => 'contact_number',     'label' => 'Contact Number',      'type' => 'string'],
+            ['key' => 'email',              'label' => 'Email Address',       'type' => 'string'],
+            ['key' => 'full_address',       'label' => 'Full Address',        'type' => 'string'],
+            ['key' => 'case_number',        'label' => 'Case Number',         'type' => 'string'],
+            ['key' => 'case_status',        'label' => 'Case Status',         'type' => 'status'],
+            ['key' => 'tracker_number',     'label' => 'Case Tracking ID',    'type' => 'string'],
+            ['key' => 'client_type',        'label' => 'Client Type',         'type' => 'string'],
+            ['key' => 'vulnerability',      'label' => 'Vulnerability',       'type' => 'string'],
+            ['key' => 'issue_concern',      'label' => 'Issues/Concern',      'type' => 'string'],
+            ['key' => 'receiving_parties',  'label' => 'Receiving Party/s',   'type' => 'string'],
+            ['key' => 'date_of_arrival',    'label' => 'Date of Arrival in PH', 'type' => 'date'],
+            ['key' => 'previous_country',   'label' => 'Previous Country',    'type' => 'string'],
+            ['key' => 'work_position',      'label' => 'Work Position',       'type' => 'string'],
+            ['key' => 'nok_full_name',      'label' => 'NOK Full Name',       'type' => 'string'],
+            ['key' => 'nok_contact_number', 'label' => 'NOK Contact No.',     'type' => 'string'],
+            ['key' => 'nok_email',          'label' => 'NOK Email',           'type' => 'string'],
+            ['key' => 'exported_at',        'label' => 'Exported At',         'type' => 'string'],
+        ];
     }
 
     /**

@@ -17,11 +17,14 @@ class ReportsService
         ?string $role = null,
         ?string $fromDate = null,
         ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
     ): array {
         $data = match ($role) {
-            'AGENCY' => $this->getAgencyPayload($userId),
-            'ADMIN' => $this->getAdminPayload($fromDate, $toDate),
-            default => $this->getCaseManagerPayload($userId, $fromDate, $toDate),
+            'AGENCY' => $this->getAgencyPayload($userId, $fromDate, $toDate, $dateScope, $province, $city),
+            'ADMIN' => $this->getAdminPayload($fromDate, $toDate, $dateScope, $province, $city),
+            default => $this->getCaseManagerPayload($userId, $fromDate, $toDate, $dateScope, $province, $city),
         };
 
         $data['role'] = $role;
@@ -33,51 +36,62 @@ class ReportsService
         ?string $userId,
         ?string $fromDate,
         ?string $toDate,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
     ): array {
         $from = $fromDate ?: now()->subYear()->toDateString();
         $to = $toDate ?: now()->toDateString();
 
         return [
-            'kpis' => $this->getReferralKpis($userId, 'CASE_MANAGER', $from, $to),
-            'referralStatusDistribution' => $this->getReferralStatusDistribution($userId, 'CASE_MANAGER', $from, $to),
-            'referralAgencyDistribution' => $this->getReferralAgencyDistribution($userId, 'CASE_MANAGER', $from, $to),
-            'casesOverTime' => $this->getCasesOverTime($userId, 'CASE_MANAGER', $from, $to),
+            'kpis' => $this->getReferralKpis($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'referralStatusDistribution' => $this->getReferralStatusDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'referralAgencyDistribution' => $this->getReferralAgencyDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'casesOverTime' => $this->getCasesOverTime($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'genderDistribution' => $this->getGenderDistribution(),
             'clientTypeDistribution' => $this->getClientTypeDistribution($userId, 'CASE_MANAGER'),
             'ageGroupDistribution' => $this->getAgeGroupDistribution(),
-            'mostRequestedService' => $this->getMostRequestedService($userId, 'CASE_MANAGER', $from, $to),
-            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution($userId, 'CASE_MANAGER', $from, $to),
-            'referralAging' => $this->getReferralAging($userId, 'CASE_MANAGER', $from, $to),
-            'agencyScorecard' => $this->getAgencyScorecard($userId, 'CASE_MANAGER', $from, $to),
-            'geographicDistribution' => $this->getGeographicDistribution($userId, 'CASE_MANAGER', $from, $to),
+            'mostRequestedService' => $this->getMostRequestedService($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'referralAging' => $this->getReferralAging($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'agencyScorecard' => $this->getAgencyScorecard($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'geographicDistribution' => $this->getGeographicDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'categoryDistribution' => $this->categoryDistribution($userId, 'CASE_MANAGER'),
             'employmentDistribution' => $this->getLastEmploymentDistribution($userId, 'CASE_MANAGER'),
             'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown($userId, 'CASE_MANAGER'),
             'caseStatusDistribution' => $this->getCaseStatusDistribution($userId, 'CASE_MANAGER'),
-            'caseIssueDistribution' => $this->getCaseIssueDistribution($userId, 'CASE_MANAGER', $from, $to),
+            'caseIssueDistribution' => $this->getCaseIssueDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'overdueReferrals' => $this->getOverdueReferrals($userId, 'CASE_MANAGER', $province, $city),
+            'cityDistribution' => $this->getCityDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
         ];
     }
 
-    private function getAgencyPayload(?string $userId): array
-    {
+    private function getAgencyPayload(
+        ?string $userId,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
+    ): array {
         $agency = User::find($userId)?->agency;
         $agcyId = $agency?->id;
 
         return [
-            'kpis' => $this->getReferralKpis(null, 'AGENCY'),
-            'referralStatusDistribution' => $this->getReferralStatusDistribution(null, 'AGENCY'),
+            'kpis' => $this->getReferralKpis(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
+            'referralStatusDistribution' => $this->getReferralStatusDistribution(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
             'referralTrends' => $this->getReferralTrends(),
             'avgReferralCompletion' => $this->getAvgReferralCompletionDays(),
-            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, 'AGENCY'),
+            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
             'agencyScorecard' => $agcyId
-                ? $this->getAgencyScorecard(null, 'AGENCY')
+                ? $this->getAgencyScorecard(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city)
                 : [],
             'categoryDistribution' => $this->categoryDistribution(),
             'caseStatusDistribution' => $this->getCaseStatusDistribution(),
         ];
     }
 
-    private function getAdminPayload(?string $fromDate, ?string $toDate): array
+    private function getAdminPayload(?string $fromDate, ?string $toDate, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
         $from = $fromDate ?: now()->subYear()->toDateString();
         $to = $toDate ?: now()->toDateString();
@@ -85,19 +99,19 @@ class ReportsService
         return [
             'overview' => $this->getOverview($from, $to),
             'caseTrends' => $this->getCaseTrends(),
-            'referralStatusDistribution' => $this->getReferralStatusDistribution(null, null, $from, $to),
+            'referralStatusDistribution' => $this->getReferralStatusDistribution(null, null, $from, $to, $dateScope, $province, $city),
             'agencyWorkload' => $this->getAgencyWorkload($from, $to),
             'clientTypeDistribution' => $this->getClientTypeDistribution(),
-            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, null, $from, $to),
-            'referralAging' => $this->getReferralAging(null, null, $from, $to),
-            'geographicDistribution' => $this->getGeographicDistribution(null, null, $from, $to),
-            'agencyScorecard' => $this->getAgencyScorecard(null, null, $from, $to),
+            'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, null, $from, $to, $dateScope, $province, $city),
+            'referralAging' => $this->getReferralAging(null, null, $from, $to, $dateScope, $province, $city),
+            'geographicDistribution' => $this->getGeographicDistribution(null, null, $from, $to, $dateScope, $province, $city),
+            'agencyScorecard' => $this->getAgencyScorecard(null, null, $from, $to, $dateScope, $province, $city),
             'categoryDistribution' => $this->categoryDistribution(),
             'employmentDistribution' => $this->getLastEmploymentDistribution(),
             'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown(),
             'caseStatusDistribution' => $this->getCaseStatusDistribution(),
             'referralTypeDistribution' => $this->getReferralTypeDistribution(null, null, $from, $to),
-            'caseIssueDistribution' => $this->getCaseIssueDistribution(null, null, $from, $to),
+            'caseIssueDistribution' => $this->getCaseIssueDistribution(null, null, $from, $to, $dateScope, $province, $city),
         ];
     }
 
@@ -241,7 +255,7 @@ class ReportsService
         ];
     }
 
-    private function caseQuery(?string $userId = null, ?string $role = null)
+    private function caseQuery(?string $userId = null, ?string $role = null, string $dateScope = 'case_created_at')
     {
         $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
         if ($role === 'CASE_MANAGER' && $userId) {
@@ -251,28 +265,83 @@ class ReportsService
         return $query;
     }
 
-    private function referralQuery(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null)
+    private function referralQuery(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at')
     {
         $query = Referral::query();
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
-        }
-        if ($fromDate) {
-            $query->whereDate('created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $query->whereDate('created_at', '<=', $toDate);
+
+        if ($dateScope === 'case_created_at') {
+            // Subquery avoids JOIN — prevents ambiguous column errors
+            $query->whereIn('referrals.case_id', function ($q) use ($userId, $role, $fromDate, $toDate) {
+                $q->select('cases.id')->from('cases')
+                    ->whereNull('cases.deleted_at');
+                if ($role === 'CASE_MANAGER' && $userId) {
+                    $q->where('cases.user_id', $userId);
+                }
+                if ($fromDate) {
+                    $q->whereDate('cases.created_at', '>=', $fromDate);
+                }
+                if ($toDate) {
+                    $q->whereDate('cases.created_at', '<=', $toDate);
+                }
+            });
+        } else {
+            if ($role === 'CASE_MANAGER' && $userId) {
+                $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
+            }
+            if ($fromDate) {
+                $query->whereDate($dateScope === 'referral_created_at' ? 'referrals.created_at' : 'referrals.updated_at', '>=', $fromDate);
+            }
+            if ($toDate) {
+                $query->whereDate($dateScope === 'referral_created_at' ? 'referrals.created_at' : 'referrals.updated_at', '<=', $toDate);
+            }
         }
 
         return $query;
     }
 
-    public function getReferralKpis(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
+    /**
+     * Apply geographic filter (province/city) to a query builder.
+     * For referral-based queries, uses a subquery on cases->clients->client_addresses.
+     * For case-based queries, joins directly.
+     */
+    private function applyGeoFilter($query, ?string $province, ?string $city, string $baseTable = 'referrals'): void
+    {
+        if (! $province && ! $city) {
+            return;
+        }
+
+        if ($baseTable === 'referrals') {
+            $query->select('referrals.*')->whereIn('referrals.case_id', function ($q) use ($province, $city) {
+                $q->select('cases.id')->from('cases')
+                    ->join('clients', 'clients.id', '=', 'cases.client_id')
+                    ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
+                if ($province) {
+                    $q->where('client_addresses.province', $province);
+                }
+                if ($city) {
+                    $q->where('client_addresses.city_municipality', $city);
+                }
+            });
+        } else {
+            $query->join('clients', 'clients.id', '=', 'cases.client_id')
+                ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
+            if ($province) {
+                $query->where('client_addresses.province', $province);
+            }
+            if ($city) {
+                $query->where('client_addresses.city_municipality', $city);
+            }
+        }
+    }
+
+    public function getReferralKpis(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
         $from = Carbon::parse($fromDate ?: now()->subYear());
         $to = Carbon::parse($toDate ?: now());
 
-        $referrals = $this->referralQuery($userId, $role, $from->toDateString(), $to->toDateString());
+        $referrals = $this->referralQuery($userId, $role, $from->toDateString(), $to->toDateString(), $dateScope);
+        $this->applyGeoFilter($referrals, $province, $city);
+
         $total = (clone $referrals)->count();
         $completed = (clone $referrals)->where('status', 'COMPLETED')->count();
         $pending = (clone $referrals)->where('status', 'PENDING')->count();
@@ -288,7 +357,9 @@ class ReportsService
         $prevFrom = $from->copy()->subDays($duration);
         $prevTo = $from->copy()->subDay();
 
-        $prev = $this->referralQuery($userId, $role, $prevFrom->toDateString(), $prevTo->toDateString());
+        $prev = $this->referralQuery($userId, $role, $prevFrom->toDateString(), $prevTo->toDateString(), $dateScope);
+        $this->applyGeoFilter($prev, $province, $city);
+
         $prevTotal = (clone $prev)->count();
         $prevCompleted = (clone $prev)->where('status', 'COMPLETED')->count();
         $prevPending = (clone $prev)->where('status', 'PENDING')->count();
@@ -320,25 +391,28 @@ class ReportsService
         ];
     }
 
-    public function getCasesOverTime(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
+    public function getCasesOverTime(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
-        $cases = $this->caseQuery($userId, $role)
+        $cases = $this->caseQuery($userId, $role, $dateScope);
+        $this->applyGeoFilter($cases, $province, $city, 'cases');
+
+        $result = $cases
             ->select(
-                DB::raw("to_char(created_at, 'YYYY-MM') as month"),
+                DB::raw("to_char(cases.created_at, 'YYYY-MM') as month"),
                 DB::raw('count(*) as total')
             )
-            ->where('created_at', '>=', $fromDate ?: now()->subMonths(12))
-            ->where('created_at', '<=', $toDate ?: now())
+            ->where('cases.created_at', '>=', $fromDate ?: now()->subMonths(12))
+            ->where('cases.created_at', '<=', $toDate ?: now())
             ->groupBy('month')
             ->orderBy('month')
             ->get();
 
         return [
-            'labels' => $cases->pluck('month')->toArray(),
+            'labels' => $result->pluck('month')->toArray(),
             'datasets' => [
                 [
                     'label' => 'Cases Created',
-                    'data' => $cases->pluck('total')->toArray(),
+                    'data' => $result->pluck('total')->toArray(),
                     'borderColor' => '#6366f1',
                     'backgroundColor' => 'rgba(99, 102, 241, 0.1)',
                 ],
@@ -391,11 +465,14 @@ class ReportsService
         ];
     }
 
-    public function getReferralStatusDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
+    public function getReferralStatusDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
-        $statuses = $this->referralQuery($userId, $role, $fromDate, $toDate)
-            ->select('status', DB::raw('count(*) as total'))
-            ->groupBy('status')
+        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $statuses = (clone $query)
+            ->select('referrals.status', DB::raw('count(*) as total'))
+            ->groupBy('referrals.status')
             ->pluck('total', 'status');
 
         $allStatuses = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'];
@@ -414,9 +491,12 @@ class ReportsService
         ];
     }
 
-    public function getReferralAgencyDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
+    public function getReferralAgencyDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
-        $agencies = $this->referralQuery($userId, $role, $fromDate, $toDate)
+        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $agencies = (clone $query)
             ->select('agcy_id', DB::raw('count(*) as total'))
             ->groupBy('agcy_id')
             ->orderByDesc('total')
@@ -433,9 +513,12 @@ class ReportsService
         ];
     }
 
-    public function getMostRequestedService(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null): array
+    public function getMostRequestedService(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
-        $top = $this->referralQuery($userId, $role, $fromDate, $toDate)
+        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $top = (clone $query)
             ->select('required_services', DB::raw('count(*) as total'))
             ->whereNotNull('required_services')
             ->groupBy('required_services')
@@ -453,8 +536,14 @@ class ReportsService
         ?string $role = null,
         ?string $fromDate = null,
         ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
     ): array {
-        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate)
+        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $referrals = (clone $query)
             ->where('status', 'COMPLETED')
             ->select(DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
             ->get()
@@ -485,8 +574,14 @@ class ReportsService
         ?string $role = null,
         ?string $fromDate = null,
         ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
     ): array {
-        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate)
+        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $referrals = (clone $query)
             ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
             ->select(DB::raw('EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400 as days'))
             ->get()
@@ -517,8 +612,14 @@ class ReportsService
         ?string $role = null,
         ?string $fromDate = null,
         ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
     ): array {
-        $referrals = $this->referralQuery($userId, $role, $fromDate, $toDate)
+        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $referrals = (clone $query)
             ->select('agcy_id', 'status', DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
             ->get()
             ->groupBy('agcy_id');
@@ -557,6 +658,9 @@ class ReportsService
         ?string $role = null,
         ?string $fromDate = null,
         ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
     ): array {
         $query = CaseFile::select(DB::raw('COALESCE(pa.name, ca.province) as province'), DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
@@ -577,6 +681,12 @@ class ReportsService
         }
         if ($toDate) {
             $query->whereDate('cases.created_at', '<=', $toDate);
+        }
+        if ($province) {
+            $query->where('ca.province', $province);
+        }
+        if ($city) {
+            $query->where('ca.city_municipality', $city);
         }
 
         $result = $query->groupBy(DB::raw('COALESCE(pa.name, ca.province)'))
@@ -692,14 +802,18 @@ class ReportsService
         ?string $role = null,
         ?string $fromDate = null,
         ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
     ): array {
-        $query = $this->caseQuery($userId, $role);
+        $query = $this->caseQuery($userId, $role, $dateScope);
         if ($fromDate) {
             $query->whereDate('cases.created_at', '>=', $fromDate);
         }
         if ($toDate) {
             $query->whereDate('cases.created_at', '<=', $toDate);
         }
+        $this->applyGeoFilter($query, $province, $city, 'cases');
 
         $issues = (clone $query)
             ->join('case_issues', 'cases.case_issue_id', '=', 'case_issues.id')
@@ -728,11 +842,134 @@ class ReportsService
         return round((float) ($avg ?? 0), 1);
     }
 
-    public function getManagedReferrals(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null)
+    public function getManagedReferrals(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null)
     {
-        return $this->referralQuery($userId, $role, $fromDate, $toDate)
+        $query = $this->referralQuery($userId, $role, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        return $query
             ->with(['caseFile.client', 'agency'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
+    }
+
+    public function getOverdueReferrals(?string $userId = null, ?string $role = null, ?string $province = null, ?string $city = null): array
+    {
+        $query = Referral::whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
+            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400 > 14');
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
+        }
+
+        if ($province || $city) {
+            $query->whereIn('case_id', function ($q) use ($province, $city) {
+                $q->select('cases.id')->from('cases')
+                    ->join('clients', 'clients.id', '=', 'cases.client_id')
+                    ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
+                if ($province) {
+                    $q->where('client_addresses.province', $province);
+                }
+                if ($city) {
+                    $q->where('client_addresses.city_municipality', $city);
+                }
+            });
+        }
+
+        $count = (clone $query)->count();
+
+        $referrals = $query->with(['caseFile.client', 'agency'])
+            ->orderBy('created_at', 'asc')
+            ->paginate(10);
+
+        return [
+            'count' => $count,
+            'referrals' => $referrals,
+        ];
+    }
+
+    public function getCityDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
+    {
+        $query = CaseFile::select(DB::raw('COALESCE(pa.name, ca.city_municipality) as city'), DB::raw('count(*) as total'))
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
+            ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
+            ->leftJoin('philippine_addresses as pa', function ($join) {
+                $join->on('pa.name', '=', 'ca.city_municipality')
+                    ->where('pa.type', '=', 'city');
+            })
+            ->whereNotNull('ca.city_municipality')
+            ->where('ca.city_municipality', '!=', '');
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->where('cases.user_id', $userId);
+        }
+        if ($fromDate) {
+            $query->whereDate('cases.created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->whereDate('cases.created_at', '<=', $toDate);
+        }
+        if ($province) {
+            $query->where('ca.province', $province);
+        }
+        if ($city) {
+            $query->where('ca.city_municipality', $city);
+        }
+
+        $result = $query->groupBy(DB::raw('COALESCE(pa.name, ca.city_municipality)'))
+            ->orderByDesc('total')
+            ->get();
+
+        return [
+            'labels' => $result->pluck('city')->toArray(),
+            'data' => $result->pluck('total')->toArray(),
+        ];
+    }
+
+    public function getProvinceOptions(?string $userId = null, ?string $role = null): array
+    {
+        $query = DB::table('client_addresses')
+            ->select('province')
+            ->whereNotNull('province')
+            ->where('province', '!=', '')
+            ->where('is_deleted', false)
+            ->distinct()
+            ->orderBy('province');
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->whereIn('client_id', function ($q) use ($userId) {
+                $q->select('client_id')->from('cases')
+                    ->where('user_id', $userId)
+                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+            });
+        }
+
+        return $query->pluck('province')->map(fn ($p) => ['value' => $p, 'label' => $p])->values()->toArray();
+    }
+
+    public function getCityOptions(?string $province = null, ?string $userId = null, ?string $role = null): array
+    {
+        $query = DB::table('client_addresses')
+            ->select('city_municipality')
+            ->whereNotNull('city_municipality')
+            ->where('city_municipality', '!=', '')
+            ->where('is_deleted', false)
+            ->distinct()
+            ->orderBy('city_municipality');
+
+        if ($province) {
+            $query->where('province', $province);
+        }
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->whereIn('client_id', function ($q) use ($userId) {
+                $q->select('client_id')->from('cases')
+                    ->where('user_id', $userId)
+                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+            });
+        }
+
+        return $query->pluck('city_municipality')->map(fn ($c) => ['value' => $c, 'label' => $c])->values()->toArray();
     }
 }

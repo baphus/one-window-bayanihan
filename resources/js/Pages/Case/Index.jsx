@@ -1,9 +1,10 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { useToast } from '@/Hooks/useToast';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock, FileDown } from 'lucide-react';
+import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 
 const vulnStyles = {
@@ -88,6 +89,37 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   );
 
   const [tableLoading, setTableLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const toast = useToast();
+
+  const handleExport = useCallback(() => {
+    const params = new URLSearchParams();
+    if (filters.status) params.set('status', filters.status);
+    if (filters.search) params.set('search', filters.search);
+    if (filters.client_type) params.set('client_type', filters.client_type);
+    if (filters.vulnerability_indicator) params.set('vulnerability_indicator', filters.vulnerability_indicator);
+    if (filters.user_id) params.set('user_id', filters.user_id);
+    if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
+    if (filters.category_id) params.set('category_id', filters.category_id);
+    if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
+
+    const qs = params.toString();
+    const url = route('cases.export-excel') + (qs ? '?' + qs : '');
+
+    setIsExporting(true);
+    toast.info('Preparing your export…');
+
+    // Trigger download without opening a new tab
+    const link = document.createElement('a');
+    link.href = url;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Reset after a reasonable timeout
+    setTimeout(() => setIsExporting(false), 5000);
+  }, [filters, toast]);
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -587,11 +619,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         </div>
         <button
           type="button"
-          onClick={() => window.open(route('cases.export-excel'))}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 transition-colors"
+          onClick={handleExport}
+          disabled={isExporting}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b5384] text-white hover:bg-[#09416a] text-[12px] font-bold rounded-md transition-colors border border-[#0b5384] disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <FileDown className="w-3.5 h-3.5" />
-          Export Excel
+          <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
+          {isExporting ? 'Exporting…' : 'Export Excel'}
         </button>
       </header>
 

@@ -135,7 +135,7 @@ class DataExportService
         // Write header row
         foreach ($columnMap as $colIndex => $colDef) {
             $colLetter = Coordinate::stringFromColumnIndex($colIndex + 1);
-            $sheet->setCellValue($colLetter.'1', $colDef['label'] ?? '');
+            $this->writeSafeCell($sheet, $colLetter.'1', $colDef['label'] ?? '');
         }
 
         // Style header row
@@ -182,21 +182,15 @@ class DataExportService
             switch ($type) {
                 case 'uuid':
                     // Force string to prevent Excel converting to scientific notation
-                    $sheet->getCell($cellRef)->setValueExplicit(
-                        (string) ($value ?? ''),
-                        DataType::TYPE_STRING
-                    );
+                    $this->writeSafeCell($sheet, $cellRef, (string) ($value ?? ''));
                     break;
 
                 case 'date':
-                    $sheet->getCell($cellRef)->setValueExplicit(
-                        $this->formatDateValue($value),
-                        DataType::TYPE_STRING
-                    );
+                    $this->writeSafeCell($sheet, $cellRef, $this->formatDateValue($value));
                     break;
 
                 default:
-                    $sheet->setCellValue($cellRef, $value ?? '');
+                    $this->writeSafeCell($sheet, $cellRef, $value ?? '');
                     break;
             }
 
@@ -252,6 +246,18 @@ class DataExportService
         }
 
         return $str;
+    }
+
+    private function writeSafeCell(Worksheet $sheet, string $cellRef, mixed $value): void
+    {
+        if (is_string($value)) {
+            $safeValue = preg_match('/^\s*[=+\-@]/', $value) ? "'".$value : $value;
+            $sheet->getCell($cellRef)->setValueExplicit($safeValue, DataType::TYPE_STRING);
+
+            return;
+        }
+
+        $sheet->setCellValue($cellRef, $value);
     }
 
     private function streamResponse(Spreadsheet $spreadsheet, string $filename): StreamedResponse

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Doughnut } from 'react-chartjs-2';
+import ChartSkeleton from './ChartSkeleton';
 
 const doughnutOptions = {
   responsive: true,
@@ -8,7 +9,7 @@ const doughnutOptions = {
   cutout: '55%',
 };
 
-export default function CaseStatusPieChart({ data }) {
+export default function CaseStatusPieChart({ data, loading }) {
   const chartData = useMemo(() => {
     if (!data?.labels?.length) return null;
     return {
@@ -25,6 +26,8 @@ export default function CaseStatusPieChart({ data }) {
     if (!data?.data) return 0;
     return data.data.reduce((s, v) => s + v, 0);
   }, [data]);
+
+  if (loading) return <ChartSkeleton />;
 
   if (!chartData) {
     return (

@@ -13,7 +13,6 @@ use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\CaseService;
-use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\PhilippineAddressService;
@@ -246,15 +245,65 @@ class CaseController extends Controller
             ->with('success', 'Draft deleted successfully.');
     }
 
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
         $user = auth()->user();
         $queries = new DataExportQueries;
-        $cases = $queries->getCases($user);
-        $columnMap = ColumnMaps::getMap('cases');
+
+        $filters = $request->only([
+            'status', 'search', 'client_type', 'vulnerability_indicator',
+            'user_id', 'agcy_id', 'category_id', 'case_issue_id',
+        ]);
+
+        $cases = $queries->getCasesExport($user, array_filter($filters));
+
+        $columnMap = self::casesExportColumnMap();
+
+        // Tag each row with the export timestamp for provenance
+        $now = now()->format('Y-m-d H:i:s');
+        $cases = $cases->map(function ($row) use ($now) {
+            $row->exported_at = $now;
+
+            return $row;
+        });
+
         $filename = 'cases-export-'.now()->format('Ymd-His').'.xlsx';
 
         return (new DataExportService)->generateSingleSheet('Cases', $columnMap, $cases, $filename);
+    }
+
+    /**
+     * Business-export column map — no IDs or system fields.
+     */
+    public static function casesExportColumnMap(): array
+    {
+        return [
+            ['key' => 'case_number',       'label' => 'Case Number',          'type' => 'string'],
+            ['key' => 'status',             'label' => 'Case Status',          'type' => 'status'],
+            ['key' => 'tracker_number',     'label' => 'Case Tracking ID',     'type' => 'string'],
+            ['key' => 'client_type',        'label' => 'Client Type',          'type' => 'string'],
+            ['key' => 'ofw_full_name',      'label' => 'OFW Full Name',        'type' => 'string'],
+            ['key' => 'ofw_sex',            'label' => 'OFW Sex/Gender',       'type' => 'string'],
+            ['key' => 'ofw_date_of_birth',  'label' => 'OFW Date of Birth',    'type' => 'date'],
+            ['key' => 'ofw_contact_number', 'label' => 'OFW Contact No.',      'type' => 'string'],
+            ['key' => 'ofw_email',          'label' => 'OFW Email Address',    'type' => 'string'],
+            ['key' => 'ofw_age',            'label' => 'OFW Age',              'type' => 'string'],
+            ['key' => 'barangay',           'label' => 'Barangay',             'type' => 'string'],
+            ['key' => 'municipality',       'label' => 'Municipality',         'type' => 'string'],
+            ['key' => 'province',           'label' => 'Province',             'type' => 'string'],
+            ['key' => 'region',             'label' => 'Region',               'type' => 'string'],
+            ['key' => 'vulnerability',      'label' => 'Vulnerability',        'type' => 'string'],
+            ['key' => 'date_of_arrival',    'label' => 'Date of Arrival in PH', 'type' => 'date'],
+            ['key' => 'previous_country',   'label' => 'Previous Country',     'type' => 'string'],
+            ['key' => 'work_position',      'label' => 'Work Position',        'type' => 'string'],
+            ['key' => 'issue_concern',      'label' => 'Issues/Concern',       'type' => 'string'],
+            ['key' => 'case_summary',       'label' => 'Case Summary',         'type' => 'string'],
+            ['key' => 'receiving_parties',  'label' => 'Receiving Party/s',    'type' => 'string'],
+            ['key' => 'nok_full_name',      'label' => 'NOK Full Name',        'type' => 'string'],
+            ['key' => 'nok_contact_number', 'label' => 'NOK Contact No.',      'type' => 'string'],
+            ['key' => 'nok_email',          'label' => 'NOK Email',            'type' => 'string'],
+            ['key' => 'exported_at',        'label' => 'Exported At',          'type' => 'string'],
+        ];
     }
 
     private function authorizeCaseAccess($case, $user)

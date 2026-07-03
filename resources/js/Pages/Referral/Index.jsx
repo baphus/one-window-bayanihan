@@ -1,10 +1,10 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import TypeBadge from '@/Components/ui/TypeBadge';
-import { FileDown } from 'lucide-react';
+import { useToast } from '@/Hooks/useToast';
 
 const COLUMN_DEFS = [
     { key: 'referral_id', label: 'Referral #', default: true },
@@ -38,6 +38,33 @@ export default function ReferralIndex({ referrals, filters }) {
 
     const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
     const [typeFilter, setTypeFilter] = useState(filters?.type ?? '');
+
+    const toast = useToast();
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExport = useCallback(() => {
+        const params = new URLSearchParams();
+        if (filters.status) params.set('status', filters.status);
+        if (filters.search) params.set('search', filters.search);
+        if (filters.type) params.set('type', filters.type);
+
+        const qs = params.toString();
+        const url = route('referrals.export-excel') + (qs ? '?' + qs : '');
+
+        setIsExporting(true);
+        toast.info('Preparing your export…');
+
+        // Trigger download without opening a new tab
+        const link = document.createElement('a');
+        link.href = url;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Reset after a reasonable timeout
+        setTimeout(() => setIsExporting(false), 5000);
+    }, [filters, toast]);
 
     useEffect(() => {
         return () => clearTimeout(searchTimeout.current);
@@ -283,11 +310,12 @@ export default function ReferralIndex({ referrals, filters }) {
                     </div>
                     <button
                         type="button"
-                        onClick={() => window.open(route('referrals.export-excel'))}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:text-slate-800 transition-colors"
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                        <FileDown className="w-3.5 h-3.5" />
-                        Export Excel
+                        <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
+                        {isExporting ? 'Exporting…' : 'Export Excel'}
                     </button>
                 </div>
             </div>

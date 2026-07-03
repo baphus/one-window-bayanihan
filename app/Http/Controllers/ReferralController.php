@@ -8,7 +8,6 @@ use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\CaseFile;
 use App\Models\ReferralAttachment;
 use App\Models\SystemSetting;
-use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferralService;
@@ -312,15 +311,76 @@ class ReferralController extends Controller
         return response()->json($versions);
     }
 
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
         $user = auth()->user();
         $queries = new DataExportQueries;
-        $referrals = $queries->getReferrals($user);
-        $columnMap = ColumnMaps::getMap('referrals');
+
+        $filters = $request->only([
+            'status', 'search', 'type',
+        ]);
+
+        $referrals = $queries->getReferralsExport($user, array_filter($filters));
+
+        $columnMap = self::referralsExportColumnMap();
+
+        // Tag each row with the export timestamp for provenance
+        $now = now()->format('Y-m-d H:i:s');
+        $referrals = $referrals->map(function ($row) use ($now) {
+            $row->exported_at = $now;
+
+            return $row;
+        });
+
         $filename = 'referrals-export-'.now()->format('Ymd-His').'.xlsx';
 
         return (new DataExportService)->generateSingleSheet('Referrals', $columnMap, $referrals, $filename);
+    }
+
+    /**
+     * Merged business-export column map — case + referral data in one row per referral.
+     * No IDs or system fields. The referrals export is replaced by this richer view.
+     */
+    public static function referralsExportColumnMap(): array
+    {
+        return [
+            // Case info
+            ['key' => 'case_number',           'label' => 'Case No',               'type' => 'string'],
+            ['key' => 'case_status',            'label' => 'Case Status',           'type' => 'status'],
+            ['key' => 'tracker_number',         'label' => 'Case Tracking ID',      'type' => 'string'],
+            ['key' => 'client_type',            'label' => 'Client Type',           'type' => 'string'],
+            // Client demographics
+            ['key' => 'client_full_name',       'label' => 'Client Full Name',      'type' => 'string'],
+            ['key' => 'sex',                    'label' => 'Gender',                'type' => 'string'],
+            ['key' => 'client_date_of_birth',   'label' => 'Client Date of Birth',  'type' => 'date'],
+            ['key' => 'client_age',             'label' => 'Client Age',            'type' => 'string'],
+            ['key' => 'client_contact_number',  'label' => 'Client Contact No.',    'type' => 'string'],
+            ['key' => 'client_email',           'label' => 'Client Email Address',  'type' => 'string'],
+            // Address
+            ['key' => 'barangay',               'label' => 'Barangay',              'type' => 'string'],
+            ['key' => 'municipality',           'label' => 'Municipality',          'type' => 'string'],
+            ['key' => 'province',               'label' => 'Province',              'type' => 'string'],
+            ['key' => 'region',                 'label' => 'Region',                'type' => 'string'],
+            ['key' => 'client_full_address',    'label' => 'Client Full Address',   'type' => 'string'],
+            // Case details
+            ['key' => 'vulnerability',          'label' => 'Vulnerability',         'type' => 'string'],
+            ['key' => 'date_of_arrival',        'label' => 'Date of Arrival in PH', 'type' => 'date'],
+            ['key' => 'previous_country',       'label' => 'Previous Country',      'type' => 'string'],
+            ['key' => 'work_position',          'label' => 'Work Position',         'type' => 'string'],
+            ['key' => 'issue_concern',          'label' => 'Issues/Concern',        'type' => 'string'],
+            ['key' => 'case_summary',           'label' => 'Case Summary',          'type' => 'string'],
+            // NOK info
+            ['key' => 'nok_full_name',          'label' => 'NOK Full Name',         'type' => 'string'],
+            ['key' => 'nok_relationship',       'label' => 'NOK Relationship',      'type' => 'string'],
+            ['key' => 'nok_contact_number',     'label' => 'NOK Contact No.',       'type' => 'string'],
+            ['key' => 'nok_email',              'label' => 'NOK Email',             'type' => 'string'],
+            // Referral info
+            ['key' => 'referred_agency',        'label' => 'Referred Agency',       'type' => 'string'],
+            ['key' => 'referral_status',        'label' => 'Referral Status',       'type' => 'status'],
+            ['key' => 'date_referred',          'label' => 'Date Referred',         'type' => 'date'],
+            // Footer
+            ['key' => 'exported_at',            'label' => 'Exported At',           'type' => 'string'],
+        ];
     }
 
     private function authorizeReferralAccess($referral, $user)

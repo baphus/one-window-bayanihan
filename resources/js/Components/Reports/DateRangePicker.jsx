@@ -90,7 +90,7 @@ export default function DateRangePicker({
               onFromChange(next);
               if (next > toDateISO) onToChange(next);
             }}
-            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-[13px] text-slate-700 shadow-none"
+            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-center text-[13px] text-slate-700 shadow-none"
             style={{ border: `1px solid ${COLORS.border}` }}
           />
           <span className="px-0.5 text-slate-400">—</span>
@@ -102,7 +102,7 @@ export default function DateRangePicker({
               onToChange(next);
               if (next < fromDateISO) onFromChange(next);
             }}
-            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-[13px] text-slate-700 shadow-none"
+            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-center text-[13px] text-slate-700 shadow-none"
             style={{ border: `1px solid ${COLORS.border}` }}
           />
         </>
