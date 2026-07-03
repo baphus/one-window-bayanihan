@@ -1,7 +1,9 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
 import AuditLogTimeline from '@/Components/AuditLogTimeline';
 import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
@@ -9,9 +11,15 @@ import CaseManagerAvatar from '@/Components/CaseManagerAvatar';
 import { formatDisplayDate } from '@/lib/utils';
 
 export default function ClientShow({ client, auditLogs }) {
+    const [contextMenu, setContextMenu] = useState(null);
     const fullName = [client.first_name, client.middle_initial, client.last_name, client.suffix]
         .filter(Boolean)
         .join(' ');
+
+    function handleRowContextMenu(e, row) {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, row });
+    }
 
     return (
         <AppLayout title={fullName}>
@@ -25,7 +33,7 @@ export default function ClientShow({ client, auditLogs }) {
                     </div>
                     <Link
                         href={route('clients.index')}
-                        className="text-sm text-indigo-600 hover:text-indigo-900"
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0"
                     >
                         &larr; Back to Clients
                     </Link>

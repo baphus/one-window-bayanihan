@@ -61,9 +61,9 @@ export default function Show() {
           </p>
           <Link
             href="/helpdesk"
-            className="mt-4 inline-flex rounded-none border border-primary bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white"
+            className="mt-4 inline-flex px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors"
           >
-            Back to Help Center
+            &larr; Back to Help Center
           </Link>
         </div>
       </HelpdeskLayout>

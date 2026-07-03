@@ -1199,7 +1199,7 @@ function handleConfirmClient(client) {
                         <h1 className="text-2xl font-bold text-slate-900">{existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'}</h1>
                         <p className="text-sm text-slate-500 mt-1">{existingDraft ? 'Continue editing your draft case before submitting or publishing.' : 'A guided onboarding flow to register the case with confidence.'}</p>
                     </div>
-                    <Link href={existingDraft ? route('cases.drafts') : route('cases.index')} className="text-sm text-indigo-600 hover:text-indigo-900">&larr; {existingDraft ? 'Back to Drafts' : 'Back to Cases'}</Link>
+                    <Link href={existingDraft ? route('cases.drafts') : route('cases.index')} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0">&larr; {existingDraft ? 'Back to Drafts' : 'Back to Cases'}</Link>
                 </div>
             </div>
 

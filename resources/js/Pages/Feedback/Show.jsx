@@ -87,7 +87,7 @@ export default function FeedbackShow({ feedback }) {
         </div>
         <Link
           href={route('feedbacks.index')}
-          className="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-medium text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0"
         >
           &larr; Back to Feedbacks
         </Link>
@@ -201,12 +201,9 @@ export default function FeedbackShow({ feedback }) {
       <div className="pt-2">
         <Link
           href={route('feedbacks.index')}
-          className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0 inline-flex"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Feedbacks
+          &larr; Back to Feedbacks
         </Link>
       </div>
     </AppLayout>

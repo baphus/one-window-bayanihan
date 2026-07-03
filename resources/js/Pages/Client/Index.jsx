@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDate } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ export default function ClientIndex({ clients, filters }) {
   const [viewMode, setViewMode] = useState('list');
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
 
   const searchTimeout = useRef(null);
 
@@ -116,6 +118,11 @@ export default function ClientIndex({ clients, filters }) {
         router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['clients'] });
       },
     };
+  }
+
+  function handleRowContextMenu(e, row) {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row });
   }
 
   const columns = useMemo(() =>
@@ -279,8 +286,17 @@ export default function ClientIndex({ clients, filters }) {
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
+        onRowContextMenu={handleRowContextMenu}
       />
       </div>
+      {contextMenu && (
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <RowContextMenuItem icon="visibility" label="View Details" onClick={() => {
+            router.visit(route('clients.show', contextMenu.row.id));
+            setContextMenu(null);
+          }} />
+        </RowContextMenu>
+      )}
     </AppLayout>
   );
 }
