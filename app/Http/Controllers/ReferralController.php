@@ -98,6 +98,7 @@ class ReferralController extends Controller
             'referral' => $referral,
             'serviceRequirements' => $serviceRequirements,
             'overdueDays' => $overdueDays,
+            'timeline' => $this->referralService->getReferralTimeline($referral),
         ]);
     }
 

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
@@ -482,15 +481,7 @@ class CaseService
                 $description .= ' — '.$case->summary;
             }
 
-            AuditLog::create([
-                'action' => 'PUBLISH',
-                'module' => 'CASE',
-                'entity_id' => $case->id,
-                'description' => $description,
-                'old_value' => $old,
-                'new_value' => $case->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
         });
@@ -762,14 +753,7 @@ class CaseService
 
             $case->update($updateData);
 
-            AuditLog::create([
-                'action' => 'UPDATE',
-                'module' => 'CASE',
-                'entity_id' => $case->id,
-                'old_value' => $old,
-                'new_value' => $case->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             if ($case->wasChanged('status')) {
                 $this->dispatchStatusChangeNotification($case, $oldStatus ?? 'UNKNOWN', $case->status, $userId);
@@ -794,7 +778,7 @@ class CaseService
 
     public function archiveCase(string $id, string $userId): CaseFile
     {
-        return DB::transaction(function () use ($id, $userId) {
+        return DB::transaction(function () use ($id) {
             $case = CaseFile::findOrFail($id);
 
             abort_unless($case->status === 'CLOSED', 422, 'Only closed cases can be archived.');
@@ -808,14 +792,7 @@ class CaseService
                 'status' => 'ARCHIVED',
             ]);
 
-            AuditLog::create([
-                'action' => 'ARCHIVE',
-                'module' => 'CASE',
-                'entity_id' => $case->id,
-                'old_value' => $old,
-                'new_value' => $case->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             return $case->load([
                 'client.addresses',
@@ -833,7 +810,7 @@ class CaseService
 
     public function unarchiveCase(string $id, string $userId): CaseFile
     {
-        return DB::transaction(function () use ($id, $userId) {
+        return DB::transaction(function () use ($id) {
             $case = CaseFile::findOrFail($id);
             $old = $case->toArray();
 
@@ -841,14 +818,7 @@ class CaseService
                 'status' => 'OPEN',
             ]);
 
-            AuditLog::create([
-                'action' => 'UNARCHIVE',
-                'module' => 'CASE',
-                'entity_id' => $case->id,
-                'old_value' => $old,
-                'new_value' => $case->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             return $case->load([
                 'client.addresses',
@@ -906,14 +876,7 @@ class CaseService
                 $case->update(['closed_at' => now()]);
             }
 
-            AuditLog::create([
-                'action' => 'UPDATE',
-                'module' => 'CASE',
-                'entity_id' => $case->id,
-                'old_value' => $old,
-                'new_value' => $case->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             // Dispatch status change notification
             $this->dispatchStatusChangeNotification($case, $old['status'] ?? 'UNKNOWN', $case->status, $userId);

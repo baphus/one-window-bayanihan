@@ -20,11 +20,11 @@ export default defineConfig({
              * Must be absolute for rolldown (Vite 8) to resolve correctly.
              */
             '@': path.resolve(__dirname, 'resources/js'),
+            'ziggy-js': path.resolve(__dirname, 'vendor/tightenco/ziggy'),
         },
     },
     server: {
         host: '127.0.0.1',
-        allowedHosts: ['.lhr.life'],
         port: 5173,
         cors: {
             origin: true,

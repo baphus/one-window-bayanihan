@@ -11,7 +11,14 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import { formatDisplayDateTime } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/relativeTime';
 import { formatResolvedAddress } from '@/lib/addressResolver';
+
+const TIMELINE_EVENT_CONFIG = {
+  referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600', icon: 'forward_to_inbox' },
+  referral_status: { dot: 'bg-amber-50 border-amber-200 text-amber-600',   icon: 'sync_alt' },
+  milestone:       { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
+};
 
 function displayStatus(status) {
     return String(status ?? '').replace(/_/g, ' ');
@@ -26,7 +33,7 @@ function formatAddress(address) {
     return formatResolvedAddress(address, 'N/A');
 }
 
-export default function ReferralShow({ referral, overdueDays = 7 }) {
+export default function ReferralShow({ referral, overdueDays = 7, timeline = [] }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
@@ -73,15 +80,7 @@ export default function ReferralShow({ referral, overdueDays = 7 }) {
         ? comments.find((c) => c.id === replyToCommentId) ?? null
         : null;
 
-    const timelineItems = (referral.milestones || []).map((ms) => ({
-        id: ms.id,
-        title: ms.title,
-        description: ms.description,
-        timestamp: ms.created_at,
-        actor: ms.user?.name ?? 'System',
-    }));
 
-    const orderedTimeline = [...timelineItems].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     function handleMilestoneModalSubmit(e) {
         e.preventDefault();
@@ -302,26 +301,35 @@ export default function ReferralShow({ referral, overdueDays = 7 }) {
 
                 <aside className="xl:col-span-4 space-y-4">
                     <CardSection title="Referral Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        {orderedTimeline.length > 0 ? (
+                        {timeline.length > 0 ? (
                             <div className="mt-1 relative pl-4">
                                 <div className="absolute left-[4px] top-1 bottom-1 w-px bg-slate-200" />
                                 <div className="flex flex-col-reverse gap-4">
-                                    {orderedTimeline.map((item) => (
-                                        <div key={item.id} className="relative flex items-start gap-3">
-                                            <div className="mt-0.5 -ml-[18px] h-5 w-5 overflow-hidden rounded-full border border-white bg-blue-900 shadow-sm z-10 flex items-center justify-center">
-                                                <span className="material-symbols-outlined text-[12px] text-white">flag</span>
+                                    {[...timeline].reverse().map((item) => {
+                                        const cfg = TIMELINE_EVENT_CONFIG[item.type] ?? TIMELINE_EVENT_CONFIG.milestone;
+                                        return (
+                                            <div key={item.id} className="relative flex items-start gap-3">
+                                                <div className={`mt-0.5 -ml-[18px] h-5 w-5 overflow-hidden rounded-full border border-white shadow-sm z-10 flex items-center justify-center ${cfg.dot}`}>
+                                                    <span className="material-symbols-outlined text-[12px]">{cfg.icon}</span>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                                                            {formatRelativeTime(item.timestamp)}
+                                                        </span>
+                                                        <span className="text-[9px] text-slate-400">
+                                                            {formatDisplayDateTime(item.timestamp)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] leading-5 font-semibold text-slate-700 mt-0.5">{item.title}</p>
+                                                    {item.description && (
+                                                        <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
+                                                    )}
+                                                    <p className="mt-0.5 text-[10px] text-slate-400">{item.actor}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-[11px] leading-5 font-semibold text-slate-700">{item.title}</p>
-                                                {item.description && (
-                                                    <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
-                                                )}
-                                                <p className="mt-0.5 text-[10px] text-slate-400">
-                                                    {formatDisplayDateTime(item.timestamp)} &middot; {item.actor}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         ) : (

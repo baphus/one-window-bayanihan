@@ -247,8 +247,8 @@ class CaseServiceTest extends TestCase
         ]);
         $this->assertDatabaseHas('audit_logs', [
             'entity_id' => $case->id,
-            'action' => 'PUBLISH',
-            'module' => 'CASE',
+            'action' => 'UPDATE',
+            'module' => 'case',
         ]);
     }
 
