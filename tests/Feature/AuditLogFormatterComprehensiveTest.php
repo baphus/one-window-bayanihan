@@ -568,8 +568,8 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'boolean 1' => ['case_files', 'is_active', 1, 'Yes'],
             'boolean 0' => ['case_files', 'is_active', 0, 'No'],
 
-            // Arrays (serialized as JSON)
-            'array value' => ['case_files', 'notes', ['foo' => 'bar'], '{"foo":"bar"}'],
+            // Arrays (show field count instead of raw JSON)
+            'array value' => ['case_files', 'notes', ['foo' => 'bar'], '1 fields'],
 
             // NON-OFW (new client type from user's data)
             'client_type NON-OFW' => ['clients', 'client_type', 'NON-OFW', 'NON-OFW'],
@@ -627,8 +627,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 $lowerKey = strtolower($k);
                 if (str_contains($lowerKey, 'password') ||
                     str_contains($lowerKey, 'secret') ||
-                    str_contains($lowerKey, 'token') ||
-                    str_contains($lowerKey, 'key')) {
+                    str_contains($lowerKey, 'token')) {
                     $v = '[REDACTED]';
                 }
             });
@@ -660,7 +659,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
     public function test_sensitive_patterns_are_redacted_by_key_name_prefix(): void
     {
-        // Test that keys containing password/secret/token/key are redacted
+        // Test that keys containing password/secret/token (but NOT 'key' alone) are redacted
         $log = new AuditLog([
             'action' => 'UPDATE',
             'module' => 'user',
@@ -704,8 +703,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 $lowerKey = strtolower($k);
                 if (str_contains($lowerKey, 'password') ||
                     str_contains($lowerKey, 'secret') ||
-                    str_contains($lowerKey, 'token') ||
-                    str_contains($lowerKey, 'key')) {
+                    str_contains($lowerKey, 'token')) {
                     $v = '[REDACTED]';
                 }
             });
@@ -713,10 +711,11 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         }
 
         // Verify pattern-based redaction
-        $this->assertSame('[REDACTED]', $log->old_value['api_key']);        // contains 'key'
+        // api_key contains 'key' but NOT 'password'/'secret'/'token' — no longer redacted
+        $this->assertSame('sk-live-abc123', $log->old_value['api_key']);
         $this->assertSame('[REDACTED]', $log->old_value['access_token']);    // contains 'token'
         $this->assertSame('[REDACTED]', $log->old_value['some_secret_config']); // contains 'secret'
-        $this->assertSame('[REDACTED]', $log->new_value['api_key']);
+        $this->assertSame('sk-live-xyz789', $log->new_value['api_key']);
         $this->assertSame('[REDACTED]', $log->new_value['access_token']);
         $this->assertSame('[REDACTED]', $log->new_value['some_secret_config']);
 

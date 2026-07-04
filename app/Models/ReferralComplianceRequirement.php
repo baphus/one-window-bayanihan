@@ -11,13 +11,6 @@ class ReferralComplianceRequirement extends Model
 {
     use HasFactory, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'referral_id', 'fulfilled_by'];
-
-    public function getAuditModuleName(): string
-    {
-        return 'referral_compliance_requirement';
-    }
-
     protected $fillable = [
         'referral_id',
         'service_name',

@@ -382,7 +382,7 @@ class AuditLogFormatterTest extends TestCase
             ['users', 'role', 'AGENCY', 'Agency Focal'],
             ['users', 'role', 'ADMIN', 'System Admin'],
             ['case_files', 'status', null, 'not set'],
-            ['case_files', 'notes', ['foo' => 'bar'], '{"foo":"bar"}'],
+            ['case_files', 'notes', ['foo' => 'bar'], '1 fields'],
             ['clients', 'client_type', 'OFW', 'OFW'],
         ];
     }

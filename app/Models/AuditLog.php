@@ -56,12 +56,11 @@ class AuditLog extends Model
 
                         return;
                     }
-                    // Pattern match: any key containing password/secret/token/key
+                    // Pattern match: any key containing password/secret/token
                     $lowerKey = strtolower($k);
                     if (str_contains($lowerKey, 'password') ||
                         str_contains($lowerKey, 'secret') ||
-                        str_contains($lowerKey, 'token') ||
-                        str_contains($lowerKey, 'key')) {
+                        str_contains($lowerKey, 'token')) {
                         $v = '[REDACTED]';
                     }
                 });

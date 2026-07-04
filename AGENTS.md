@@ -65,7 +65,7 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 | JS unit | Vitest 4 | `vitest.config.ts` | jsdom, setup: `resources/js/test-setup.ts` |
 | E2E | Playwright | `playwright.config.ts` | `testDir: resources/js/test/e2e`, auto-starts serve on port 8000 |
 
-**PHPUnit gotchas:** `phpunit.xml` overrides env for testing: `BROADCAST_CONNECTION=null`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`, `SUPABASE_S3_DRIVER=local` (fakes S3). Services using PostgreSQL functions (`to_char`, `EXTRACT`, `age` in `ReportsService`, `AnonymizedAnalyticsService`, `DashboardService`) require test data to exist in the test DB.
+**PHPUnit gotchas:** `phpunit.xml` overrides env for testing: `BROADCAST_CONNECTION=null`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`, `SUPABASE_S3_DRIVER=local` (fakes S3). Services using PostgreSQL functions (`to_char`, `EXTRACT`, `age` in `ReportsService`, `DashboardService`) require test data to exist in the test DB.
 
 ## Core Gotchas
 

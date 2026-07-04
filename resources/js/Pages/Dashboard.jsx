@@ -143,7 +143,7 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
     );
 }
 
-function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
+function AdminDashboard({ stats, recentCases, recentLogs }) {
     return (
         <>
             <DashboardBanner />
@@ -160,46 +160,6 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
                 <KpiCard title="Users" value={stats.totalUsers} icon="people" iconBg="bg-blue-50" iconColor="text-blue-600" />
                 <KpiCard title="Agencies" value={stats.totalAgencies} icon="account_balance" iconBg="bg-green-50" iconColor="text-green-600" />
             </div>
-
-            {/* System Health Overview */}
-            {systemHealth && (
-                <div data-tour="dashboard-admin-system" className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-base font-semibold text-slate-900">System Health</h3>
-                        <Link href="/admin/system/health" className="text-sm text-indigo-600 hover:text-indigo-900">View Details</Link>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className={`rounded-xl border p-4 shadow-sm ${
-                            systemHealth.overallStatus === 'healthy' ? 'border-green-200 bg-green-50' :
-                            systemHealth.overallStatus === 'warning' ? 'border-yellow-200 bg-yellow-50' :
-                            systemHealth.overallStatus === 'critical' ? 'border-red-200 bg-red-50' :
-                            'border-slate-200 bg-white'
-                        }`}>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Overall Status</p>
-                            <p className={`text-lg font-bold mt-1 ${
-                                systemHealth.overallStatus === 'healthy' ? 'text-green-700' :
-                                systemHealth.overallStatus === 'warning' ? 'text-yellow-700' :
-                                systemHealth.overallStatus === 'critical' ? 'text-red-700' :
-                                'text-slate-700'
-                            }`}>{systemHealth.overallStatus || 'Unknown'}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Unread Alerts</p>
-                            <p className={`text-lg font-bold mt-1 ${systemHealth.alertCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {systemHealth.alertCount ?? 0}
-                            </p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Last Check</p>
-                            <p className="text-lg font-bold mt-1 text-slate-700">{systemHealth.lastCheckAt || 'Never'}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Checks</p>
-                            <p className="text-lg font-bold mt-1 text-slate-700">{systemHealth.checks?.length ?? 0}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div data-tour="admin-recent-cases">
@@ -909,7 +869,6 @@ export default function Dashboard(props) {
         role, recentCases, recentReferrals, recentLogs,
         allCases, allReferrals, casesByProvince, agencyBreakdown,
         casesByCategory, casesOverTime, recentActivity, dashboardNotifications,
-        systemHealth,
         ...stats
     } = dashboardProps;
 
@@ -931,7 +890,7 @@ export default function Dashboard(props) {
         return (
             <AppLayout title="Dashboard">
                 <Head title="Dashboard" />
-                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} systemHealth={systemHealth} />
+                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} />
             </AppLayout>
         );
     }

@@ -45,12 +45,6 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Referrals
                                 </NavLink>
-                                <NavLink
-                                    href={route('analytics.index')}
-                                    active={route().current('analytics.*')}
-                                >
-                                    Analytics
-                                </NavLink>
                                 <a
                                     href={route('helpdesk.index')}
                                     target="_blank"
@@ -174,12 +168,6 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('referrals.*')}
                         >
                             Referrals
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('analytics.index')}
-                            active={route().current('analytics.*')}
-                        >
-                            Analytics
                         </ResponsiveNavLink>
                         <a
                             href={route('helpdesk.index')}

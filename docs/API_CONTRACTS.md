@@ -161,29 +161,12 @@ All routes use Inertia.js — responses are server-rendered page visits, not JSO
 
 ---
 
-## 6. Analytics & Reports Routes
+## 6. Reports Routes
 
 | Method | URI | Name | Controller | Description |
 |---|---|---|---|---|
-| GET | `/analytics` | analytics.index | AnonymizedAnalyticsController@index | Show analytics dashboard |
 | GET | `/reports` | reports.index | ReportsController@index | Show reports page |
 | GET | `/reports/export-pdf` | reports.export-pdf | ReportsController@exportPdf | Export PDF report |
-| GET | `/api/analytics` | api.analytics | AnonymizedAnalyticsController@api | JSON analytics data |
-
-### Analytics Endpoints
-
-**GET `/analytics`** (Inertia)
-```php
-[
-    'casesByStatus' => [['status' => 'OPEN', 'count' => 42], ...],
-    'casesByService' => [['client_type' => 'OFW', 'count' => 30], ...],
-    'totalClients' => 150,
-    'referralStats' => [['status' => 'PENDING', 'count' => 15], ...],
-]
-```
-
-**GET `/api/analytics`** (JSON)
-Same data as above, returned as JSON for external consumption.
 
 **GET `/reports/export-pdf`**
 | Param | Type | Description |

@@ -139,7 +139,20 @@ class AuditLogFormatter
         }
 
         if (is_array($value)) {
-            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'not set';
+            $count = count($value);
+            if ($count === 0) {
+                return 'empty';
+            }
+            // Check if it's a flat list (sequential integer keys)
+            if (array_is_list($value)) {
+                $items = array_map(fn ($v) => is_scalar($v) ? (string) $v : '…', array_slice($value, 0, 3));
+                $suffix = $count > 3 ? sprintf(' (+%d more)', $count - 3) : '';
+
+                return implode(', ', $items).$suffix;
+            }
+
+            // Associative array — show key count
+            return sprintf('%d fields', $count);
         }
 
         $stringValue = (string) $value;

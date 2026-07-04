@@ -79,7 +79,6 @@ const navByRole = {
       { name: 'Users', href: '/admin/users', icon: 'manage_accounts' },
     ]},
     { label: 'System Health', items: [
-      { name: 'Health Dashboard', href: '/admin/system/health', icon: 'monitoring' },
       { name: 'Supabase', href: '/admin/system/supabase', icon: 'cloud' },
       { name: 'Database Backups', href: '/admin/system/backups', icon: 'backup' },
       { name: 'System Logs', href: '/admin/system/logs', icon: 'list_alt' },
@@ -97,7 +96,6 @@ const navByRole = {
     { label: 'Settings', items: [
       { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
       { name: 'Security & Auth', href: '/admin/system/security', icon: 'security' },
-      { name: 'Alert Notifications', href: '/admin/system/alerts', icon: 'notifications' },
     ]},
   ],
 };

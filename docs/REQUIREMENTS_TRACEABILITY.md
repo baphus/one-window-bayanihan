@@ -137,10 +137,9 @@
 |---|---|---|---|---|
 | FR-ANA-001 | Dashboard KPIs | `DashboardService` — stats, trends, status distribution | Manual QA | ✅ |
 | FR-ANA-002 | Agency performance metrics | `ReportsService` — agency-specific data | Manual QA | ✅ |
-| FR-ANA-003 | Filter by date/agency/service/status | Filter parameters on reports/analytics pages | Manual QA | ✅ |
+| FR-ANA-003 | Filter by date/agency/service/status | Filter parameters on reports pages | Manual QA | ✅ |
 | FR-ANA-004 | Export PDF/CSV | `ReportsController@exportPdf` for PDF; CSV not yet implemented | `PdfExportTest` (partial) | 🟡 Partial |
 | FR-ANA-005 | Restrict PII by permissions | Role-based data filtering | Manual QA | ✅ |
-| FR-ANA-006 | Anonymized analytics | `AnonymizedAnalyticsService` + `AnonymizedAnalyticsController` | `AnonymizedAnalyticsTest` | ✅ |
 | FR-ANA-007 | Reject invalid report params | Form Request validation | Test | ✅ |
 
 ### 1.10 Audit Log Management (SRS §4.10)
@@ -246,7 +245,6 @@
 | BR-010 | IP whitelist admin backend | `IpWhitelist` middleware | `IpWhitelistMiddlewareTest` | ✅ |
 | BR-011 | Privacy-safe public tracking | TrackController hides internal data | Manual QA | ✅ |
 | BR-012 | Duplicate flagging | Name + DOB matching needed | 🔴 Not Done |
-| BR-013 | Analytics for closed cases | `AnonymizedAnalyticsService` | Test | ✅ |
 
 ---
 
@@ -421,7 +419,6 @@
 |---|---|---|---|
 | DB-039 | Reporting access governed by authorization controls | Role-based report access | ✅ |
 | DB-040 | PII restricted based on operational necessity | Anonymized analytics for public data | ✅ |
-| DB-041 | Analytical access preserves privacy safeguards | AnonymizedAnalyticsService | ✅ |
 
 ---
 

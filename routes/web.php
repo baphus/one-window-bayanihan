@@ -4,7 +4,6 @@ use App\Http\Controllers\Admin\ActiveSessionsController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
-use App\Http\Controllers\Admin\AlertConfigController;
 use App\Http\Controllers\Admin\BackupStatusController;
 use App\Http\Controllers\Admin\DataExportController;
 use App\Http\Controllers\Admin\EmailLogController;
@@ -14,14 +13,11 @@ use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\ScheduledTaskController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\Admin\SupabaseDashboardController;
-use App\Http\Controllers\Admin\SystemHealthController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
 use App\Http\Controllers\AgencyServqualConfigController;
-use App\Http\Controllers\AnonymizedAnalyticsController;
-use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
@@ -96,7 +92,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/mfa/recovery-codes', [MfaController::class, 'getRecoveryCodes'])->name('profile.mfa.recovery-codes');
     Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate');
 
-    // All-roles routes: referrals, analytics, reports, notifications
+    // All-roles routes: referrals, reports, notifications
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
@@ -113,7 +109,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
     Route::post('/referrals/{referral}/compliance/{compliance}/fulfill', [ReferralController::class, 'fulfillCompliance'])->name('referrals.compliance.fulfill');
 
-    Route::get('/analytics', [AnonymizedAnalyticsController::class, 'index'])->name('analytics.index');
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
     Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight')->middleware('throttle:10,1');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
@@ -254,9 +249,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/data-export/export', [DataExportController::class, 'export'])->name('data-export.export');
 
         Route::prefix('system')->name('system.')->group(function () {
-            Route::get('/health', [SystemHealthController::class, 'index'])->name('health');
-            Route::post('/health/run-checks', [SystemHealthController::class, 'runChecks'])->name('health.run-checks');
-
             Route::get('/supabase', [SupabaseDashboardController::class, 'index'])->name('supabase');
 
             Route::get('/backups', [BackupStatusController::class, 'index'])->name('backups');
@@ -277,10 +269,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::get('/active-sessions', [ActiveSessionsController::class, 'index'])->name('active-sessions');
             Route::post('/active-sessions/{session}/terminate', [ActiveSessionsController::class, 'terminate'])->name('active-sessions.terminate');
-
-            Route::get('/alerts', [AlertConfigController::class, 'index'])->name('alerts');
-            Route::post('/alerts', [AlertConfigController::class, 'update'])->name('alerts.update');
-            Route::post('/alerts/test-email', [AlertConfigController::class, 'testEmail'])->name('alerts.test-email');
 
             Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
             Route::post('/email-logs/{emailLog}/resend', [EmailLogController::class, 'resend'])->name('email-logs.resend');
@@ -340,19 +328,12 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
     ]))->name('show');
 });
 
-Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware(['auth', 'verified', 'throttle:api-global'])->name('api.analytics');
-
 // API routes (authenticated via web session) — in web.php for session middleware support
 Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->group(function () {
     // Client selection for case creation form
     Route::get('/clients', [ClientSelectController::class, 'search']);
     Route::get('/clients/{client}', [ClientSelectController::class, 'show']);
 
-    // Alerts
-    Route::get('/alerts', [AlertController::class, 'index']);
-    Route::post('/alerts/{id}/dismiss', [AlertController::class, 'dismiss']);
-    Route::post('/alerts/{id}/read', [AlertController::class, 'read']);
-    Route::post('/alerts/mark-all-read', [AlertController::class, 'markAllAsRead']);
 });
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
