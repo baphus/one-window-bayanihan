@@ -37,6 +37,7 @@ class MfaController extends Controller
         $request->session()->put('mfa_pending_secret', $secret);
 
         return response()->json([
+            'secret' => $secret,
             'qr_code_url' => $qrCodeUrl,
         ]);
     }

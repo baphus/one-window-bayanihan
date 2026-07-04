@@ -77,7 +77,7 @@ class AuthorizationGapTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->getJson("/referrals/{$referral->id}/attachments/non-existent-group/versions");
+            ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         // No versions exist, but access is granted — should return empty array or 200
         $response->assertStatus(200);
@@ -95,7 +95,7 @@ class AuthorizationGapTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->getJson("/referrals/{$referral->id}/attachments/non-existent-group/versions");
+            ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         $response->assertStatus(403);
     }
@@ -111,7 +111,7 @@ class AuthorizationGapTest extends TestCase
         ]);
 
         $response = $this->actingAs($manager)
-            ->getJson("/referrals/{$referral->id}/attachments/non-existent-group/versions");
+            ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         $response->assertStatus(200);
     }
@@ -128,7 +128,7 @@ class AuthorizationGapTest extends TestCase
         ]);
 
         $response = $this->actingAs($managerA)
-            ->getJson("/referrals/{$referral->id}/attachments/non-existent-group/versions");
+            ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         $response->assertStatus(403);
     }
@@ -285,7 +285,7 @@ class AuthorizationGapTest extends TestCase
         $case = CaseFile::factory()->create(['user_id' => $manager->id]);
 
         AuditLog::create([
-            'action' => 'created',
+            'action' => 'CREATE',
             'module' => 'case_files',
             'entity_id' => $case->id,
             'user_id' => $manager->id,
@@ -306,7 +306,7 @@ class AuthorizationGapTest extends TestCase
         $otherCase = CaseFile::factory()->create(['user_id' => $otherManager->id]);
 
         AuditLog::create([
-            'action' => 'created',
+            'action' => 'CREATE',
             'module' => 'case_files',
             'entity_id' => $ownCase->id,
             'user_id' => $manager->id,
@@ -314,7 +314,7 @@ class AuthorizationGapTest extends TestCase
         ]);
 
         AuditLog::create([
-            'action' => 'created',
+            'action' => 'CREATE',
             'module' => 'case_files',
             'entity_id' => $otherCase->id,
             'user_id' => $otherManager->id,

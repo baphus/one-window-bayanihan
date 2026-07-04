@@ -537,7 +537,7 @@ class CaseService
             }
         }
 
-        if (empty($case->client_id) && empty($draftData['consent'])) {
+        if (empty($case->client_id) && empty($draftData['consent']) && empty($case->consent_given_at)) {
             $missing[] = 'Data privacy consent';
         }
 
@@ -869,7 +869,6 @@ class CaseService
         $case = CaseFile::findOrFail($id);
 
         $pendingReferrals = $case->referrals()
-            ->where('type', '!=', 'intervention')
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
             ->count();
 

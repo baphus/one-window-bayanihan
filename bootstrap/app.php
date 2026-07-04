@@ -83,7 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return Inertia::render('Errors/Forbidden')->toResponse($request)->setStatusCode(403);
         });
         $exceptions->render(function (AuthenticationException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
+            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
 

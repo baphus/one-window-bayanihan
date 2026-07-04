@@ -133,7 +133,7 @@ class NotificationServiceTest extends TestCase
 
     public function test_mark_as_read_returns_false_for_missing(): void
     {
-        $result = $this->service->markAsRead('non-existent-id', 'ofw');
+        $result = $this->service->markAsRead('00000000-0000-0000-0000-000000000000', 'ofw');
 
         $this->assertFalse($result);
     }

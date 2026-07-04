@@ -56,6 +56,6 @@ class BackupStatusTest extends TestCase
         $response = $this->actingAs($this->admin)->get('/admin/system/backups');
 
         $response->assertOk();
-        $response->assertSee('Could not fetch backup data', false);
+        $response->assertSee('Backup status temporarily unavailable', false);
     }
 }

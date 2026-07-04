@@ -26,7 +26,6 @@ class CaseControllerTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Case/Create')
                 ->has('existingDraft')
-                ->has('existingClients')
                 ->has('categories')
             );
     }

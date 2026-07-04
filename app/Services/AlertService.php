@@ -258,7 +258,7 @@ class AlertService
             ->where('is_deleted', false)
             ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR COMPLIANCE'])
             ->groupBy('agcy_id')
-            ->having('referral_count', '>', 10)
+            ->havingRaw('COUNT(*) > 10')
             ->get();
 
         $created = 0;
@@ -426,8 +426,8 @@ class AlertService
             ->where('is_deleted', false)
             ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR COMPLIANCE'])
             ->groupBy('agcy_id')
-            ->having('referral_count', '>', 7)
-            ->having('referral_count', '<=', 10)
+            ->havingRaw('COUNT(*) > 7')
+            ->havingRaw('COUNT(*) <= 10')
             ->get();
 
         $created = 0;

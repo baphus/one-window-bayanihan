@@ -54,7 +54,7 @@ class ClientAuditLogScopeTest extends TestCase
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'referrals',
-            'entity_id' => 'unrelated-id',
+            'entity_id' => '00000000-0000-0000-0000-000000000000',
             'description' => 'Some other update',
             'timestamp' => now(),
         ]);

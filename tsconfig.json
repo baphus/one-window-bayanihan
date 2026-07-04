@@ -9,7 +9,7 @@
         "target": "ES2022",
         "module": "ESNext",
         "moduleResolution": "bundler",
-        "types": ["vite/client"],
+        "types": ["vite/client", "node"],
         "allowImportingTsExtensions": true,
         "noEmit": true,
         "skipLibCheck": true

@@ -82,6 +82,16 @@ class CaseDraftTest extends TestCase
             'client' => [
                 'first_name' => 'Pedro',
                 'last_name' => 'Gomez',
+                'date_of_birth' => '1985-05-15',
+                'sex' => 'MALE',
+                'email' => 'pedro@test.com',
+                'contact_number' => '09181112222',
+            ],
+            'address' => [
+                'region' => 'Region VII',
+                'province' => 'Cebu',
+                'city_municipality' => 'Cebu City',
+                'barangay' => 'Barangay 1',
             ],
             'is_draft' => false,
             'consent' => true,
@@ -96,13 +106,23 @@ class CaseDraftTest extends TestCase
     {
         $case = CaseFile::factory()->create([
             'user_id' => $this->user->id,
+            'category_id' => $this->category->id,
             'status' => 'DRAFT',
             'client_type' => 'OFW',
             'draft_client_data' => [
                 'first_name' => 'Juan',
                 'last_name' => 'Dela Cruz',
                 'email' => 'juan@test.com',
-                'sex' => 'Male',
+                'sex' => 'MALE',
+                'date_of_birth' => '1990-01-01',
+                'contact_number' => '09171234567',
+                'consent' => true,
+                'address' => [
+                    'region' => 'Region VII',
+                    'province' => 'Cebu',
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Barangay 1',
+                ],
             ],
         ]);
 
@@ -122,10 +142,21 @@ class CaseDraftTest extends TestCase
 
     public function test_publish_without_draft_data_creates_open_case_without_client(): void
     {
+        $client = Client::factory()->create([
+            'sex' => 'MALE',
+        ]);
+        $client->addresses()->create([
+            'region' => 'Region VII',
+            'province' => 'Cebu',
+            'city_municipality' => 'Cebu City',
+            'barangay' => 'Barangay 1',
+        ]);
         $case = CaseFile::factory()->create([
             'user_id' => $this->user->id,
+            'category_id' => $this->category->id,
             'status' => 'DRAFT',
             'client_type' => 'OFW',
+            'client_id' => $client->id,
             'draft_client_data' => null,
         ]);
 
@@ -134,16 +165,18 @@ class CaseDraftTest extends TestCase
         $response->assertRedirect();
         $case->refresh();
 
-        // publishDraft skips client creation when draft_client_data is null,
-        // but still transitions the case to OPEN
+        // When case has an existing client and no draft_client_data,
+        // publishDraft keeps the existing client and transitions to OPEN
         $this->assertEquals('OPEN', $case->status);
-        $this->assertNull($case->client_id);
+        $this->assertNotNull($case->client_id);
+        $this->assertEquals($client->id, $case->client_id);
     }
 
     public function test_publish_creates_related_records(): void
     {
         $case = CaseFile::factory()->create([
             'user_id' => $this->user->id,
+            'category_id' => $this->category->id,
             'status' => 'DRAFT',
             'client_type' => 'OFW',
             'draft_client_data' => [
@@ -151,7 +184,10 @@ class CaseDraftTest extends TestCase
                 'last_name' => 'Cruz',
                 'email' => 'ana@test.com',
                 'sex' => 'Female',
-                'address' => ['region' => 'NCR', 'province' => 'Metro Manila', 'city_municipality' => 'Manila'],
+                'date_of_birth' => '1992-03-20',
+                'contact_number' => '09195556666',
+                'consent' => true,
+                'address' => ['region' => 'NCR', 'province' => 'Metro Manila', 'city_municipality' => 'Manila', 'barangay' => 'Barangay 1'],
                 'employment' => ['employer_name' => 'ACME Corp', 'position' => 'Engineer', 'country' => 'UAE'],
                 'next_of_kin' => ['first_name' => 'Ben', 'last_name' => 'Cruz', 'relationship' => 'Brother'],
             ],

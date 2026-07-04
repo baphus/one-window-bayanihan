@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -185,5 +186,17 @@ class ReportsController extends Controller
         $pdf = Pdf::loadView('pdf.report', $data);
 
         return $pdf->download('bayanihan-report-'.now()->format('Ymd-His').'.pdf');
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $sheets = $this->reportsExportService->buildExcelSheets($request);
+        if ($sheets instanceof RedirectResponse) {
+            return $sheets;
+        }
+
+        $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.xlsx';
+
+        return (new DataExportService)->generateMultiSheet($sheets, $filename);
     }
 }

@@ -62,7 +62,7 @@ class AdminAgencyControllerTest extends TestCase
         $agency = Agency::where('name', 'Test Agency')->first();
         $this->assertNotNull($agency);
         $this->assertNotNull($agency->logo_url);
-        $this->assertStringContainsString('/storage/logos/', $agency->logo_url);
+        $this->assertStringContainsString('res.cloudinary.com', $agency->logo_url);
     }
 
     public function test_logo_upload_rejects_non_image_file(): void

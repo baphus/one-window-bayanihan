@@ -30,8 +30,6 @@ class CaseDocument extends Model
     ];
 
     protected $hidden = [
-        'file_path',
-        'file_type',
         'is_deleted',
         'deleted_at',
         'deleted_by',

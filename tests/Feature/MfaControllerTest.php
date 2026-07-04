@@ -88,7 +88,7 @@ class MfaControllerTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson(route('profile.mfa.recovery-codes'))
+            ->getJson(route('profile.mfa.recovery-codes', ['password' => 'P@ssw0rd!']))
             ->assertOk()
             ->assertJsonStructure(['recovery_codes']);
     }
@@ -118,7 +118,7 @@ class MfaControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->postJson(route('profile.mfa.recovery-codes.regenerate'))
+            ->postJson(route('profile.mfa.recovery-codes.regenerate'), ['password' => 'P@ssw0rd!'])
             ->assertOk();
 
         $this->assertNotEquals(['old-code-1', 'old-code-2'], $response->json('recovery_codes'));

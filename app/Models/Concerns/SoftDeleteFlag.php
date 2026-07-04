@@ -15,7 +15,7 @@ trait SoftDeleteFlag
                 return;
             }
 
-            if (!$model->is_deleted) {
+            if (! $model->is_deleted) {
                 $model->is_deleted = true;
                 $model->saveQuietly();
             }

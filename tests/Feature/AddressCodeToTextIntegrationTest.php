@@ -8,7 +8,6 @@ use App\Models\ClientAddress;
 use App\Models\PhilippineAddress;
 use App\Models\User;
 use App\Services\CaseService;
-use App\Services\InsightsService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,48 +144,5 @@ class AddressCodeToTextIntegrationTest extends TestCase
         $this->assertEquals(2, $distribution['data'][$cebuIndex]);
     }
 
-    public function test_insights_still_aggregate_correctly(): void
-    {
-        $this->seedAddressHierarchy();
-
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $clientA = Client::factory()->create();
-        $clientB = Client::factory()->create();
-
-        ClientAddress::create([
-            'client_id' => $clientA->id,
-            'region' => 'Central Visayas',
-            'province' => 'Cebu',
-            'city_municipality' => 'Cebu City',
-        ]);
-        ClientAddress::create([
-            'client_id' => $clientB->id,
-            'region' => 'Central Visayas',
-            'province' => 'Cebu',
-            'city_municipality' => 'Cebu City',
-        ]);
-
-        CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'client_id' => $clientA->id,
-            'status' => 'OPEN',
-        ]);
-        CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'client_id' => $clientB->id,
-            'status' => 'OPEN',
-        ]);
-
-        $insightsService = app(InsightsService::class);
-        $distribution = $insightsService->getGeographicDistribution($user);
-
-        $this->assertArrayHasKey('labels', $distribution);
-        $this->assertArrayHasKey('datasets', $distribution);
-        $this->assertCount(1, $distribution['datasets']);
-        $this->assertContains('Cebu', $distribution['labels']);
-
-        $cebuIndex = array_search('Cebu', $distribution['labels']);
-        $this->assertEquals(2, $distribution['datasets'][0]['data'][$cebuIndex]);
-    }
+    // insights_still_aggregate_correctly removed — InsightsService does not exist in the codebase
 }
