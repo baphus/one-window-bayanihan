@@ -12,7 +12,10 @@ class Client extends Model
 {
     use HasAvatar, HasFactory, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
+    public static array $auditExclude = [
+        'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
+        'email', 'contact_number', 'date_of_birth', 'sex',
+    ];
 
     public function getAuditModuleName(): string
     {

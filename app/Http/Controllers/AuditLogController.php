@@ -7,6 +7,7 @@ use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Services\AuditLogFormatter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class AuditLogController extends Controller
@@ -65,7 +66,7 @@ class AuditLogController extends Controller
         $query->orderBy('timestamp', 'desc');
 
         $perPage = min((int) $request->input('per_page', 15), 100);
-        $logs = $query->paginate($perPage);
+        $logs = $query->cursorPaginate($perPage);
 
         $logs->getCollection()->transform(function ($log) use ($formatter) {
             if ($log->description === null) {
@@ -99,7 +100,11 @@ class AuditLogController extends Controller
             return $log;
         });
 
-        $availableActions = AuditLog::distinct()->pluck('action')->values()->toArray();
+        $availableActions = Cache::remember(
+            'audit_log_available_actions',
+            now()->addHours(24),
+            fn () => AuditLog::distinct()->pluck('action')->values()->toArray()
+        );
 
         $canonicalMap = [
             'case_files' => 'case', 'case' => 'case',
@@ -115,7 +120,11 @@ class AuditLogController extends Controller
             'helpdesk_articles' => 'helpdesk_article', 'helpdesk_article' => 'helpdesk_article',
         ];
 
-        $availableModulesRaw = AuditLog::distinct()->pluck('module')->values()->toArray();
+        $availableModulesRaw = Cache::remember(
+            'audit_log_available_modules',
+            now()->addHours(24),
+            fn () => AuditLog::distinct()->pluck('module')->values()->toArray()
+        );
         $availableModules = collect($availableModulesRaw)
             ->map(fn ($m) => $canonicalMap[$m] ?? $m)
             ->unique()

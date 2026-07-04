@@ -17,7 +17,11 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasAvatar, HasFactory, MustVerifyEmailTrait, Notifiable, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['password', 'remember_token', 'id', 'created_at', 'updated_at', 'email_verified_at', 'mfa_secret', 'mfa_recovery_codes', 'mfa_enabled_at'];
+    public static array $auditExclude = [
+        'password', 'remember_token', 'id', 'created_at', 'updated_at',
+        'email_verified_at', 'mfa_secret', 'mfa_recovery_codes', 'mfa_enabled_at',
+        'email', 'contact_number',
+    ];
 
     public function getAuditModuleName(): string
     {
