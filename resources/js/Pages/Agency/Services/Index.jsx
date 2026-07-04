@@ -1,13 +1,16 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef } from 'react';
+import KpiCard from '@/Components/ui/KpiCard';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 
 export default function AgencyServicesIndex({ services, allServices }) {
     const { auth } = usePage().props;
     const [searchValue, setSearchValue] = useState('');
     const [viewMode, setViewMode] = useState('list');
     const [filterOpen, setFilterOpen] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null);
 
     const [selectedServiceId, setSelectedServiceId] = useState(null);
     const [draftName, setDraftName] = useState('');
@@ -26,6 +29,11 @@ export default function AgencyServicesIndex({ services, allServices }) {
     const submitRef = useRef(null);
 
     const searchTimeout = useRef(null);
+
+    function handleRowContextMenu(e, service) {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, row: service });
+    }
 
     const selectedService = useMemo(
         () => allServices.find((s) => s.id === selectedServiceId) ?? null,
@@ -184,18 +192,9 @@ export default function AgencyServicesIndex({ services, allServices }) {
             </div>
 
             <section data-tour="services-actions" className="grid grid-cols-1 gap-3 md:grid-cols-3 mb-6">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Services</p>
-                    <p className="text-2xl font-black text-slate-900">{stats.total}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Services</p>
-                    <p className="text-2xl font-black text-slate-900">{stats.active}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Requirements</p>
-                    <p className="text-2xl font-black text-slate-900">{stats.totalRequirements}</p>
-                </div>
+                <KpiCard title="Total Services" value={stats.total} icon="medical_services" iconBg="bg-blue-50" iconColor="text-blue-900" />
+                <KpiCard title="Active Services" value={stats.active} icon="check_circle" iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+                <KpiCard title="Total Requirements" value={stats.totalRequirements} icon="checklist" iconBg="bg-violet-50" iconColor="text-violet-600" />
             </section>
 
             <div data-tour="services-list">
@@ -216,6 +215,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 startIndex={filteredServices.length > 0 ? 1 : 0}
                 endIndex={filteredServices.length}
                 hidePagination
+                onRowContextMenu={handleRowContextMenu}
             />
             </div>
 
@@ -350,6 +350,18 @@ export default function AgencyServicesIndex({ services, allServices }) {
                         </div>
                     </div>
                 </div>
+            )}
+            {contextMenu && (
+                <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+                    <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
+                        openEdit(contextMenu.row);
+                        setContextMenu(null);
+                    }} />
+                    <RowContextMenuItem icon="delete" label="Delete" variant="danger" onClick={() => {
+                        setDeleteTarget(contextMenu.row);
+                        setContextMenu(null);
+                    }} />
+                </RowContextMenu>
             )}
         </AppLayout>
     );

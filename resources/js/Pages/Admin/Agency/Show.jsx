@@ -133,19 +133,21 @@ export default function AdminAgencyShow({ agency, referrals }) {
       <Head title={agency.name} />
 
       {/* ── Header ── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+      <header className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
         <div>
-          {isAdmin && (
-            <Link href={route('admin.agencies.index')} className="text-sm text-blue-900 hover:underline mb-1 inline-block">&larr; Back to Agencies</Link>
-          )}
           <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">{agency.name}</h1>
           <p className="text-sm text-slate-400 font-body mt-0.5">Agency details, services, and focal persons.</p>
         </div>
-        {isAdmin && !isEditing && (
-          <button onClick={startEditing} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 shrink-0 transition-colors">
-            Edit Agency
-          </button>
-        )}
+        <div className="flex items-center gap-3 shrink-0">
+          {isAdmin && !isEditing && (
+            <button onClick={startEditing} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 shrink-0 transition-colors">
+              Edit Agency
+            </button>
+          )}
+          {isAdmin && (
+            <Link href={route('admin.agencies.index')} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0">&larr; Back to Agencies</Link>
+          )}
+        </div>
       </header>
 
       {/* ── Agency Editor / Info Cards ── */}

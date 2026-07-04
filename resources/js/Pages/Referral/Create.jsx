@@ -298,7 +298,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                         <h1 className="text-2xl font-bold text-slate-900">Refer to Agency</h1>
                         <p className="text-sm text-slate-500 mt-1">A guided flow to create a referral to an external agency.</p>
                     </div>
-                    <Link href={route('referrals.index')} className="text-sm text-indigo-600 hover:text-indigo-900">&larr; Back to Referrals</Link>
+                    <Link href={route('referrals.index')} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0">&larr; Back to Referrals</Link>
                 </div>
             </div>
 

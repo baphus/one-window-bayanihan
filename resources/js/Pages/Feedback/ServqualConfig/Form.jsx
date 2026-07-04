@@ -116,7 +116,7 @@ export default function ServqualConfigForm({ config, defaultQuestions }) {
         <div className="flex items-center gap-3 mb-1">
           <Link
             href={route('servqual-configs.index')}
-            className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0"
           >
             &larr; Back to Configurations
           </Link>

@@ -514,7 +514,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
       {contextMenu && (
         <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
           <RowContextMenuItem icon="visibility" label="View Profile" onClick={() => {
-            setPeerProfileUser(contextMenu.row);
+            router.visit(route('admin.users.show', contextMenu.row.id));
             setContextMenu(null);
           }} />
           <RowContextMenuItem icon="edit" label="Edit" onClick={() => {

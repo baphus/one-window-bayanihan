@@ -1,10 +1,11 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import { formatDisplayDate } from '@/lib/utils';
-import { NotepadText, Delete } from 'lucide-react';
+import { Delete } from 'lucide-react';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—';
@@ -43,6 +44,7 @@ function getDraftClientName(draft) {
 export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [publishing, setPublishing] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
   const [searchValue, setSearchValue] = useState(initialFilters?.search ?? '');
   const [dateFrom, setDateFrom] = useState(initialFilters?.date_from ?? '');
   const [dateTo, setDateTo] = useState(initialFilters?.date_to ?? '');
@@ -104,6 +106,11 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
     });
   }
 
+  function handleRowContextMenu(e, draft) {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row: draft });
+  }
+
   const activeFilterEntries = [
     { key: 'search', label: 'Search', value: initialFilters?.search },
     { key: 'date_from', label: 'From', value: initialFilters?.date_from },
@@ -114,16 +121,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
     <AppLayout title="My Drafts">
       <Head title="My Drafts" />
 
-      <div className="max-w-5xl mx-auto pb-6">
-        <Link
-          href={route('cases.index')}
-          className="text-xs text-slate-500 hover:text-gray-900 transition-colors flex items-center gap-1 mb-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-          </svg>
-          Back to Cases
-        </Link>
+      <div className="pb-6">
         <header className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">My Drafts</h1>
@@ -131,57 +129,49 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
               Draft cases saved but not yet submitted. Only visible to you.
             </p>
           </div>
-          <button
-            onClick={() => router.visit(route('cases.create'))}
-            className="px-4 py-2 bg-blue-900 text-white rounded-lg text-[13px] font-bold hover:bg-blue-800 transition-colors"
-          >
-            + New Case
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.visit(route('cases.create'))}
+              className="h-[40px] px-5 bg-blue-900 text-white text-[14px] font-bold rounded-[3px] flex items-center gap-2 hover:bg-blue-800 transition-colors shadow-sm"
+            >
+              + New Case
+            </button>
+          </div>
         </header>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
           {/* Filter bar */}
-          <div className="px-4 pt-4 pb-3 border-b border-slate-100 space-y-3">
+          <div className="p-4 bg-slate-50 border-b border-slate-300 space-y-3">
             <div className="flex flex-wrap items-end gap-3">
-              <div className="relative flex-1 min-w-[200px]">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-                <input
-                  type="text"
-                  value={searchValue}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Search by client name or case number..."
-                  className="w-full pl-9 pr-3 py-2 text-[13px] text-slate-700 placeholder-slate-400 border border-slate-200 rounded-lg outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 transition-all"
-                />
-              </div>
+                  <div className="relative flex-1 min-w-[200px]">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">
+                      search
+                    </span>
+                    <input
+                      type="text"
+                      value={searchValue}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      placeholder="Search by client name or case number..."
+                      className="w-full h-[40px] pl-10 pr-10 bg-white border border-slate-300 rounded-[2px] text-[14px] text-slate-600 placeholder-slate-400 outline-none focus:ring-1 focus:ring-blue-900 transition-all"
+                    />
+                  </div>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">From</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => handleDateChange('date_from', e.target.value)}
-                    className="w-[140px] px-2.5 py-2 text-[12px] text-slate-700 border border-slate-200 rounded-lg outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 transition-all"
-                  />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">To</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => handleDateChange('date_to', e.target.value)}
-                    className="w-[140px] px-2.5 py-2 text-[12px] text-slate-700 border border-slate-200 rounded-lg outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 transition-all"
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => handleDateChange('date_from', e.target.value)}
+                      className="w-[140px] h-[40px] px-2.5 text-[13px] text-slate-600 border border-slate-300 rounded-[2px] outline-none focus:ring-1 focus:ring-blue-900 transition-all"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">To</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => handleDateChange('date_to', e.target.value)}
+                      className="w-[140px] h-[40px] px-2.5 text-[13px] text-slate-600 border border-slate-300 rounded-[2px] outline-none focus:ring-1 focus:ring-blue-900 transition-all"
                   />
                 </div>
               </div>
@@ -189,18 +179,19 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
 
             {/* Active filter chips */}
             {activeFilterEntries.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-4 text-[12px]">
+                <span className="font-bold uppercase tracking-widest text-slate-400">Active Filters:</span>
                 {activeFilterEntries.map(({ key, label, value }) => (
                   <span
                     key={key}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-[11px] font-medium"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f7fc] text-blue-900 rounded-[2px] font-bold border border-[#d2e5f3]"
                   >
                     {label}: {key === 'search' ? `"${value}"` : value}
                     <button
                       onClick={() => removeFilter(key)}
-                      className="hover:text-indigo-900 leading-none"
+                      className="flex items-center justify-center hover:opacity-75 transition-opacity"
                     >
-                      &times;
+                      <span className="material-symbols-outlined text-[15px]">close</span>
                     </button>
                   </span>
                 ))}
@@ -209,17 +200,15 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
           </div>
 
           {drafts.data.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="mx-auto w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-                <NotepadText className="w-8 h-8 text-amber-400" />
-              </div>
-              <h3 className="text-base font-bold text-slate-700 mb-1">No Drafts Yet</h3>
-              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
+              <p className="text-[14px] font-bold text-slate-700">No Drafts Yet</p>
+              <p className="mt-1 max-w-sm text-xs text-slate-500">
                 When you start creating a case and save it as a draft, it will appear here. Only you can see your drafts.
               </p>
               <button
                 onClick={() => router.visit(route('cases.create'))}
-                className="mt-4 px-4 py-2 bg-blue-900 text-white rounded-lg text-[13px] font-bold hover:bg-blue-800 transition-colors"
+                className="mt-4 h-[40px] px-5 bg-blue-900 text-white text-[14px] font-bold rounded-[3px] hover:bg-blue-800 transition-colors shadow-sm"
               >
                 Create a Case
               </button>
@@ -228,19 +217,19 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
             <>
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/50">
-                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Case #</th>
-                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Client</th>
-                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Type</th>
-                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Created</th>
-                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Draft Age</th>
-                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 text-right">Actions</th>
+                  <tr className="bg-slate-50 border-b border-slate-300">
+                    <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Case #</th>
+                    <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Client</th>
+                    <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Type</th>
+                    <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Created</th>
+                    <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Draft Age</th>
+                    <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-300 bg-white">
                   {drafts.data.map((draft) => (
-                    <tr key={draft.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3">
+                    <tr key={draft.id} className="hover:bg-slate-100 transition-colors cursor-context-menu" onContextMenu={(e) => handleRowContextMenu(e, draft)}>
+                      <td className="px-5 py-4">
                         <button
                           onClick={() => router.visit(route('cases.show', draft.id))}
                           className="text-xs font-bold text-blue-900 hover:underline"
@@ -248,23 +237,23 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
                           {draft.case_number}
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-700">
+                      <td className="px-5 py-4 text-xs text-slate-700">
                         {getDraftClientName(draft)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4">
                         <StatusBadge status={draft.client_type === 'OFW' ? 'OFW' : 'NOK'} />
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-5 py-4 text-xs text-slate-500">
                         {draft.created_at ? formatDisplayDate(draft.created_at) : '—'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold leading-none ${ageColor(draft.updated_at)}`}
                         >
                           {timeAgo(draft.updated_at)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => router.visit(route('cases.edit-draft', draft.id))}
@@ -294,7 +283,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
 
               {/* Pagination */}
               {drafts.last_page > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50">
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-300 flex items-center justify-between">
                   <span className="text-xs text-slate-500">
                     Page {drafts.current_page} of {drafts.last_page}
                   </span>
@@ -302,14 +291,14 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
                     <button
                       onClick={() => goToPage(drafts.current_page - 1)}
                       disabled={drafts.current_page === 1}
-                      className="px-3 py-1.5 text-[11px] font-bold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-[11px] font-bold rounded-[2px] border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Prev
                     </button>
                     <button
                       onClick={() => goToPage(drafts.current_page + 1)}
                       disabled={drafts.current_page === drafts.last_page}
-                      className="px-3 py-1.5 text-[11px] font-bold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-[11px] font-bold rounded-[2px] border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Next
                     </button>
@@ -331,6 +320,23 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
         onConfirm={() => handleDelete(deleteTarget)}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {contextMenu && (
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
+            setContextMenu(null);
+            router.visit(route('cases.edit-draft', contextMenu.row.id));
+          }} />
+          <RowContextMenuItem icon="publish" label="Publish" onClick={() => {
+            setContextMenu(null);
+            handlePublish(contextMenu.row.id);
+          }} />
+          <RowContextMenuItem icon="delete" label="Delete" variant="danger" onClick={() => {
+            setContextMenu(null);
+            setDeleteTarget(contextMenu.row.id);
+          }} />
+        </RowContextMenu>
+      )}
     </AppLayout>
   );
 }

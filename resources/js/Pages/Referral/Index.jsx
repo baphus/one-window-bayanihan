@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
@@ -37,9 +38,7 @@ export default function ReferralIndex({ referrals, filters }) {
     const [viewMode, setViewMode] = useState('list');
     const [filterOpen, setFilterOpen] = useState(false);
     const [columnsOpen, setColumnsOpen] = useState(false);
-
-    const [pendingDecision, setPendingDecision] = useState(null);
-    const [decisionRemark, setDecisionRemark] = useState('');
+    const [contextMenu, setContextMenu] = useState(null);
 
     const searchTimeout = useRef(null);
 
@@ -132,6 +131,11 @@ export default function ReferralIndex({ referrals, filters }) {
                 router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
             },
         };
+    }
+
+    function handleRowContextMenu(e, row) {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, row });
     }
 
     const columns = useMemo(() =>
