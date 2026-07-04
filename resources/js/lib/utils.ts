@@ -27,6 +27,10 @@ export function formatDisplayDate(iso: string): string {
     }).format(new Date(iso));
 }
 
+export function formatStatusLabel(status: string | null | undefined): string {
+    return String(status ?? '').replace(/_/g, ' ');
+}
+
 export function formatAddressParts(address: AddressParts | null | undefined): string {
     if (!address) {
         return '-';

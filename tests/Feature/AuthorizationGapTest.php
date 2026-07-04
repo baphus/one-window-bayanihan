@@ -190,7 +190,7 @@ class AuthorizationGapTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_agency_cannot_view_feedback_middleware_blocks(): void
+    public function test_agency_can_view_feedback_for_their_agency(): void
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
@@ -205,11 +205,10 @@ class AuthorizationGapTest extends TestCase
 
         $response = $this->actingAs($agencyUser)->get("/feedbacks/{$feedback->id}");
 
-        // Route is gated by role:CASE_MANAGER,ADMIN middleware
-        $response->assertStatus(403);
+        $response->assertStatus(200);
     }
 
-    public function test_agency_cannot_view_feedback_with_active_referral(): void
+    public function test_agency_can_view_feedback_with_active_referral(): void
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
@@ -231,11 +230,10 @@ class AuthorizationGapTest extends TestCase
 
         $response = $this->actingAs($agencyUser)->get("/feedbacks/{$feedback->id}");
 
-        // Route is gated by role:CASE_MANAGER,ADMIN middleware
-        $response->assertStatus(403);
+        $response->assertStatus(200);
     }
 
-    public function test_agency_cannot_view_feedback_with_completed_referral(): void
+    public function test_agency_can_view_feedback_with_completed_referral(): void
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
@@ -257,8 +255,7 @@ class AuthorizationGapTest extends TestCase
 
         $response = $this->actingAs($agencyUser)->get("/feedbacks/{$feedback->id}");
 
-        // Route is gated by role:CASE_MANAGER,ADMIN middleware
-        $response->assertStatus(403);
+        $response->assertStatus(200);
     }
 
     public function test_admin_can_view_any_feedback(): void

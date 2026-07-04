@@ -14,10 +14,13 @@ class ServqualConfig extends Model
         'agency_id',
         'service_name',
         'questions',
+        'is_active',
+        'activated_at',
     ];
 
     protected $casts = [
         'questions' => 'array',
+        'activated_at' => 'datetime',
     ];
 
     public function agency()

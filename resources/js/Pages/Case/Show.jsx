@@ -117,6 +117,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
 
   const canUploadAvatar = auth.user?.role === 'ADMIN' || auth.user?.role === 'CASE_MANAGER';
+  const canManageCaseDocuments = auth.user?.role === 'CASE_MANAGER';
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
   const referralRows = useMemo(() => {
@@ -718,7 +719,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
               {caseFile.documents?.length > 0 ? (
                 <div className="space-y-2">
                   {caseFile.documents.map((doc) => {
-                    const canDelete = auth.user?.id === caseFile.user_id || auth.user?.role === 'ADMIN';
+                    const canDelete = canManageCaseDocuments;
                     return (
                       <div key={doc.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                         <div className="min-w-0">
@@ -755,25 +756,27 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
               )}
 
-              <FileUpload
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
-                maxSize={10 * 1024 * 1024}
-                label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
-                disabled={uploadingDoc}
-                onFilesSelected={(file) => {
-                  if (!file) return;
-                  setUploadingDoc(true);
-                  router.post(
-                    route('cases.documents.store', caseFile.id),
-                    { file },
-                    {
-                      preserveScroll: true,
-                      onSuccess: () => setUploadingDoc(false),
-                      onError: () => setUploadingDoc(false),
-                    },
-                  );
-                }}
-              />
+              {canManageCaseDocuments && (
+                <FileUpload
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                  maxSize={10 * 1024 * 1024}
+                  label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                  disabled={uploadingDoc}
+                  onFilesSelected={(file) => {
+                    if (!file) return;
+                    setUploadingDoc(true);
+                    router.post(
+                      route('cases.documents.store', caseFile.id),
+                      { file },
+                      {
+                        preserveScroll: true,
+                        onSuccess: () => setUploadingDoc(false),
+                        onError: () => setUploadingDoc(false),
+                      },
+                    );
+                  }}
+                />
+              )}
             </div>
           </CardSection>
         </aside>

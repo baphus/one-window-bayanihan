@@ -4,13 +4,12 @@ namespace App\Listeners;
 
 use App\Events\ReferralCompleted;
 use App\Mail\FeedbackRequestMail;
-use App\Models\CaseNotification;
 use App\Models\Feedback;
 use App\Models\SystemSetting;
+use App\Services\FeedbackInvitationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class SendFeedbackRequest implements ShouldQueue
 {
@@ -31,6 +30,8 @@ class SendFeedbackRequest implements ShouldQueue
         }
 
         $referral = $event->referral;
+        $caseFile = $event->caseFile;
+        $agency = $event->agency;
 
         // Prevent duplicate feedback requests — skip if feedback already exists
         if (Feedback::where('case_id', $referral->case_id)
@@ -39,9 +40,6 @@ class SendFeedbackRequest implements ShouldQueue
             ->exists()) {
             return;
         }
-        $caseFile = $event->caseFile;
-        $agency = $event->agency;
-        $trackingToken = Str::uuid()->toString();
 
         if (! $caseFile->client || ! $caseFile->client->email) {
             Log::warning('Feedback request skipped: missing client email', [
@@ -52,29 +50,27 @@ class SendFeedbackRequest implements ShouldQueue
             return;
         }
 
-        CaseNotification::create([
+        // Create invitation with a secure token
+        $result = app(FeedbackInvitationService::class)->createInvitation(
+            caseId: $referral->case_id,
+            agencyId: $referral->agcy_id,
+            referralId: $referral->id,
+            clientEmail: $caseFile->client->email,
+        );
+
+        $invitation = $result['invitation'];
+        $rawToken = $result['token'];
+
+        Log::info('Feedback invitation created', [
+            'invitation_id' => $invitation->id,
+            'referral_id' => $referral->id,
             'case_id' => $referral->case_id,
-            'client_email' => $caseFile->client->email,
-            'type' => 'feedback_request',
-            'title' => 'We Value Your Feedback',
-            'message' => sprintf(
-                'Your referral to %s (Ref: %s) has been completed. We value your experience and invite you to share your feedback.',
-                $agency->name,
-                $referral->id,
-            ),
-            'data' => [
-                'referral_id' => $referral->id,
-                'tracking_token' => $trackingToken,
-                'agency_id' => $referral->agcy_id,
-                'service_name' => $referral->required_services,
-            ],
+            'agency_id' => $referral->agcy_id,
         ]);
 
         Mail::to($caseFile->client->email)->queue(new FeedbackRequestMail(
-            referral: $referral,
-            agency: $agency,
-            caseFile: $caseFile,
-            trackingToken: $trackingToken,
+            invitation: $invitation,
+            token: $rawToken,
         ));
     }
 }

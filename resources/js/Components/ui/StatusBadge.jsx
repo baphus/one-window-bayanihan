@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { formatStatusLabel } from '@/lib/utils';
 import {
   AlertTriangle,
   Archive,
@@ -66,6 +67,7 @@ function StatusIcon({ icon: Icon, size }) {
 export default function StatusBadge({ status, size = 'sm', showIcon = true }) {
   const normalizedStatus = normalizeStatus(status);
   const Icon = icons[normalizedStatus];
+  const label = formatStatusLabel(status);
 
   const classes = clsx(
     'inline-flex items-center gap-1 rounded-[2px] border font-extrabold uppercase tracking-wide',
@@ -76,7 +78,7 @@ export default function StatusBadge({ status, size = 'sm', showIcon = true }) {
   return (
     <span className={classes}>
       {showIcon ? <StatusIcon icon={Icon} size={size} /> : null}
-      {status}
+      {label}
     </span>
   );
 }

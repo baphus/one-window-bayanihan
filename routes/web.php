@@ -34,6 +34,7 @@ use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicFeedbackController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\StakeholderController;
@@ -46,6 +47,14 @@ use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+// Public feedback submission — no auth required (token-based)
+Route::get('/feedback/{token}', [PublicFeedbackController::class, 'showForm'])
+    ->name('feedbacks.submit-page')
+    ->middleware('throttle:30,1');
+Route::post('/feedback/{token}', [PublicFeedbackController::class, 'submit'])
+    ->name('feedbacks.submit')
+    ->middleware('throttle:10,1');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -117,10 +126,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Notifications/Index');
     })->name('notifications.page');
 
-    // Feedback submission — all roles
-    Route::get('/feedbacks/submit-page', [FeedbackController::class, 'submitPage'])->name('feedbacks.submit-page');
-    Route::post('/feedbacks/submit', [FeedbackController::class, 'submit'])->name('feedbacks.submit');
-
     // Role-gated: CASE_MANAGER + ADMIN only
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
@@ -139,17 +144,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('/case-issues/quick', [CaseIssueController::class, 'quickStore'])->name('case-issues.quick');
 
-        Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
-        Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
-        Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
-        Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
-        Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
-
         Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
         Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+    });
 
+    // Feedback views: CASE_MANAGER, ADMIN, and AGENCY (controller scopes by agency_id)
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
         Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
         Route::get('/feedbacks/servqual-config', [FeedbackController::class, 'servqualConfig'])->name('feedbacks.servqual-config');
         Route::get('/feedbacks/export-excel', [FeedbackController::class, 'exportExcel'])->name('feedbacks.export-excel');
@@ -159,6 +161,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Case show: AGENCY can view cases with active referrals (authorized in controller)
     Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show')
         ->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
+        Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
+        Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
+        Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
+    });
+
+    Route::middleware('role:CASE_MANAGER')->group(function () {
+        Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
+        Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
+    });
 
     // Client routes: accessible to CASE_MANAGER, ADMIN, and AGENCY (controller handles per-role authorization)
     Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
@@ -182,6 +195,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/', [AgencyServqualConfigController::class, 'store'])->name('store');
         Route::get('/{config}/edit', [AgencyServqualConfigController::class, 'edit'])->name('edit');
         Route::patch('/{config}', [AgencyServqualConfigController::class, 'update'])->name('update');
+        Route::patch('/{config}/activate', [AgencyServqualConfigController::class, 'activate'])->name('activate');
         Route::delete('/{config}', [AgencyServqualConfigController::class, 'destroy'])->name('destroy');
     });
 
@@ -274,7 +288,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-Route::middleware(['auth', 'verified', 'role:ADMIN,CASE_MANAGER'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:ADMIN,CASE_MANAGER,AGENCY'])->group(function () {
     Route::get('/overdue-referrals', [OverdueReferralController::class, 'index'])->name('overdue-referrals.index');
     Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])->name('overdue-referrals.send-reminders');
 });

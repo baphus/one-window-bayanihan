@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Doughnut } from 'react-chartjs-2';
 import ChartSkeleton from './ChartSkeleton';
+import { formatStatusLabel } from '@/lib/utils';
 
 const doughnutOptions = {
   responsive: true,
@@ -15,7 +16,7 @@ export default function CaseStatusPieChart({ data, loading }) {
   const chartData = useMemo(() => {
     if (!data?.labels?.length) return null;
     return {
-      labels: data.labels,
+      labels: data.labels.map(formatStatusLabel),
       datasets: [{
         data: data.data,
         backgroundColor: data.colors || ['#1e3a8a', '#10b981'],
@@ -74,7 +75,7 @@ export default function CaseStatusPieChart({ data, loading }) {
               <div key={label} className="flex items-center justify-between text-[11px]">
                 <span className="inline-flex items-center gap-1.5 text-slate-600">
                   <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span className="font-medium">{label}</span>
+                  <span className="font-medium">{formatStatusLabel(label)}</span>
                 </span>
                 <span className="font-bold text-slate-700">
                   {count} ({percent}%)

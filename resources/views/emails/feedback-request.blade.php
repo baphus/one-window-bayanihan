@@ -1,23 +1,21 @@
 <x-mail::message>
 # We Value Your Feedback
 
-Dear {{ $caseFile->client->first_name }} {{ $caseFile->client->last_name }},
+Dear {{ $invitation->caseFile->client->first_name }} {{ $invitation->caseFile->client->last_name }},
 
-Your referral to **{{ $agency->name }}** has been completed. We value your feedback on the service you received.
+Your referral to **{{ $invitation->agency->name }}** has been completed. The Department of Migrant Workers (DMW) Region VII values your experience and invites you to share your feedback on the service you received.
 
 **Referral Details:**
-- **Service:** Referral Services
-- **Agency:** {{ $agency->name }}
-- **Completed:** {{ $referral->updated_at->format('F j, Y') }}
+- **Service:** {{ $invitation->service_name }}
+- **Agency:** {{ $invitation->agency->name }}
+- **Completed:** {{ $invitation->referral->updated_at->format('F j, Y') }}
 
-<x-mail::button :url="route('feedbacks.submit-page', ['tracking_token' => $trackingToken])">
+<x-mail::button :url="route('feedbacks.submit-page', ['token' => $token])">
 Share Your Feedback
 </x-mail::button>
 
-This feedback request will expire in 7 days.
+This feedback link will expire in 30 days.
 
-If you prefer, you can also provide feedback by logging into your tracking portal.
-
-Thanks,<br>
+Thank you for helping us improve our services.<br>
 {{ config('app.name') }} — DMW Region VII
 </x-mail::message>

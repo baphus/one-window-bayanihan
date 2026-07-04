@@ -63,8 +63,7 @@ class FeedbackControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->actingAs($this->user)->post(route('feedbacks.submit'), [
-            'tracking_token' => $token,
+        $response = $this->actingAs($this->user)->post(route('feedbacks.submit', ['token' => $token]), [
             'servqual_responses' => [
                 [
                     'dimension' => 'Tangibles',
@@ -94,8 +93,7 @@ class FeedbackControllerTest extends TestCase
     #[Test]
     public function submit_invalid_token_returns_400(): void
     {
-        $response = $this->actingAs($this->user)->postJson(route('feedbacks.submit'), [
-            'tracking_token' => 'non-existent-token',
+        $response = $this->actingAs($this->user)->postJson(route('feedbacks.submit', ['token' => 'non-existent-token']), [
             'servqual_responses' => [
                 [
                     'dimension' => 'Tangibles',
@@ -115,19 +113,21 @@ class FeedbackControllerTest extends TestCase
     #[Test]
     public function submit_missing_fields_returns_validation_errors(): void
     {
-        $response = $this->actingAs($this->user)->postJson(route('feedbacks.submit'), []);
+        $token = (string) Str::uuid();
+
+        $response = $this->actingAs($this->user)->postJson(route('feedbacks.submit', ['token' => $token]), []);
 
         $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['tracking_token', 'servqual_responses']);
+        $response->assertJsonValidationErrors(['servqual_responses']);
     }
 
     #[Test]
-    public function submit_unauthenticated_returns_302(): void
+    public function submit_unauthenticated_returns_validation_error(): void
     {
-        $response = $this->post(route('feedbacks.submit'), []);
+        $response = $this->postJson(route('feedbacks.submit', ['token' => 'test-token']), []);
 
-        $response->assertStatus(302);
-        $response->assertRedirectContains('login');
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['servqual_responses']);
     }
 
     #[Test]

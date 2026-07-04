@@ -2,13 +2,14 @@ import { Doughnut } from 'react-chartjs-2';
 import ReportLazySection from '@/Components/Reports/ReportLazySection';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
+import { formatStatusLabel } from '@/lib/utils';
 
 function toPieFormat(distribution) {
   if (!distribution || !distribution.labels) return [];
   const total = distribution.data.reduce((s, v) => s + v, 0) || 1;
   const colors = distribution.colors || COLORS.chartPalette;
   return distribution.labels.map((label, i) => ({
-    label,
+    label: formatStatusLabel(label),
     count: distribution.data[i] || 0,
     hex: colors[i % colors.length],
     color: '',

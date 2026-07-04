@@ -11,7 +11,7 @@ import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, Aler
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayDateTime, formatStatusLabel } from '@/lib/utils';
 import TourPrototype from './__TourPrototype';
 import DashboardBanner from '@/Components/DashboardBanner';
 
@@ -496,12 +496,12 @@ function CaseManagerDashboard({
   }), [casesOverTime])
 
   const referralPieChart = useMemo(() => ({
-    labels: referralStatusStats.map((s) => s.label),
+    labels: referralStatusStats.map((s) => formatStatusLabel(s.label)),
     datasets: [{ data: referralStatusStats.map((s) => s.count), backgroundColor: referralStatusStats.map((s) => s.hex), borderWidth: 0 }],
   }), [referralStatusStats])
 
   const casesStatusPieChart = useMemo(() => ({
-    labels: casesStatusStats.map((s) => s.label),
+    labels: casesStatusStats.map((s) => formatStatusLabel(s.label)),
     datasets: [{ data: casesStatusStats.map((s) => s.count), backgroundColor: casesStatusStats.map((s) => s.hex), borderWidth: 0 }],
   }), [casesStatusStats])
 
@@ -718,7 +718,7 @@ function CaseManagerDashboard({
                     <div key={stat.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${stat.label === 'Open' ? 'bg-blue-900' : 'bg-slate-300'}`} />
-                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                        <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
                       </div>
                       <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                     </div>
@@ -738,7 +738,7 @@ function CaseManagerDashboard({
                     <div key={stat.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                        <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
                       </div>
                       <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                     </div>

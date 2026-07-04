@@ -21,8 +21,11 @@ class AgencyServqualConfigController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $hasMultipleConfigs = $configs->count() > 1;
+
         return Inertia::render('Feedback/ServqualConfig/Index', [
             'configs' => $configs,
+            'hasMultipleConfigs' => $hasMultipleConfigs,
         ]);
     }
 
@@ -59,13 +62,24 @@ class AgencyServqualConfigController extends Controller
         $validated = $request->validated();
         $user = $request->user();
 
-        ServqualConfig::create([
+        $hasActive = ServqualConfig::where('agency_id', $user->agcy_id)
+            ->where('is_active', true)
+            ->exists();
+
+        $servqualConfig = ServqualConfig::create([
             'agency_id' => $user->agcy_id,
             'service_name' => $validated['service_name'],
             'questions' => $validated['questions'],
+            'is_active' => ! $hasActive,
+            'activated_at' => $hasActive ? null : now(),
         ]);
 
-        return redirect()->back()->with('success', 'SERVQUAL config created successfully.');
+        return redirect()->back()->with(
+            'success',
+            $hasActive
+                ? 'SERVQUAL config created successfully.'
+                : 'SERVQUAL config created and set as active default.'
+        );
     }
 
     public function update(ServqualConfigUpdateRequest $request, string $id): RedirectResponse
@@ -94,8 +108,50 @@ class AgencyServqualConfigController extends Controller
             abort(403, 'You can only delete your own agency configs.');
         }
 
+        if ($config->is_active) {
+            $otherCount = ServqualConfig::where('agency_id', $config->agency_id)
+                ->where('id', '!=', $config->id)
+                ->count();
+
+            if ($otherCount > 0) {
+                return redirect()->back()->with(
+                    'error',
+                    'Cannot delete the active default form. Please activate another form first.'
+                );
+            }
+        }
+
         $config->delete();
 
         return redirect()->back()->with('success', 'SERVQUAL config deleted successfully.');
+    }
+
+    public function activate(string $id, Request $request): RedirectResponse
+    {
+        $config = ServqualConfig::findOrFail($id);
+
+        if ($config->agency_id !== $request->user()->agcy_id) {
+            abort(403, 'You can only activate your own agency configs.');
+        }
+
+        if ($config->is_active) {
+            return redirect()->back()->with('info', 'This config is already the active default.');
+        }
+
+        // Deactivate any previously active config for this agency
+        ServqualConfig::where('agency_id', $config->agency_id)
+            ->where('is_active', true)
+            ->update([
+                'is_active' => false,
+                'activated_at' => null,
+            ]);
+
+        // Activate the selected config
+        $config->update([
+            'is_active' => true,
+            'activated_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'SERVQUAL config activated as default.');
     }
 }

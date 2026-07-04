@@ -18,24 +18,7 @@ class StoreCaseDocumentRequest extends FormRequest
 
         $user = $this->user();
 
-        if ($case->user_id === $user->id) {
-            return true;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        if ($user->isCaseManager()) {
-            return true;
-        }
-
-        $hasActiveReferral = $case->referrals()
-            ->where('agcy_id', $user->agcy_id)
-            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
-            ->exists();
-
-        return $hasActiveReferral;
+        return $user->isCaseManager();
     }
 
     public function rules(): array
