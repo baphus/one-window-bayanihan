@@ -151,3 +151,33 @@ In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the re
 
 If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
 <!-- CODEGRAPH_END -->
+
+<!-- OPENCODE_SKILLS_START -->
+## OpenCode Skills & Commands
+
+### Skill Rules (from global `~/.config/opencode/skills/`)
+
+Load these skills in the following situations:
+
+| Situation | Skill |
+|-----------|-------|
+| Any bug, test failure, or unexpected behavior | `systematic-debugging` — forces root-cause investigation before fixes |
+| About to claim work done | `verification-before-completion` — run verification first, claim after |
+| Requirements are vague or ambiguous | `ask-questions-if-underspecified` — clarify before implementing |
+| Multi-step feature with spec | `writing-plans` — produce bite-sized tasks with complete code |
+| New API/routes/migrations/cross-layer work | `implementation-strategy` — design decisions before edits |
+
+### Slash Commands (from `.opencode/commands/`)
+
+| Command | When to Use |
+|---------|-------------|
+| `/learn` | After any session with non-obvious discoveries | 
+| `/finish-work` | Before commit or PR handoff — runs test suite + cross-layer check |
+| `/careful-review` | Before claiming work done — fresh-eyes read of every changed file |
+| `/session-summary` | At end of work session — record actions, cost, improvements |
+
+### How to Use
+
+- **Skills:** Use the skill tool: `Load the systematic-debugging skill` or `Use the verification-before-completion skill`
+- **Commands:** Type `/learn`, `/finish-work`, `/careful-review`, or `/session-summary` in chat
+<!-- OPENCODE_SKILLS_END -->
