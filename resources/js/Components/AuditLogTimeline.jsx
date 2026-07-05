@@ -93,6 +93,7 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
                 ),
                 entityType: getEntityLabel(log.formattedModule || log.module),
                 details: log.formattedDescription || log.message || log.description || '',
+                changes: log.changes || [],
                 actorName: log.actor || log.user?.name || '',
                 timestamp,
                 caseNo: client?.caseFile?.case_number || null,
@@ -119,6 +120,9 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
                         <p className="mt-1 text-[12px] text-slate-700">{entry.details}</p>
                     )}
 
+                    {/* Changes table */}
+                    <ChangesTable changes={entry.changes} />
+
                     {/* Metadata line */}
                     <p className="mt-1 text-[10px] text-slate-500">
                         {entry.caseNo && <>Case {entry.caseNo} &bull; </>}
@@ -129,6 +133,44 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
                     </p>
                 </div>
             ))}
+        </div>
+    );
+}
+
+/**
+ * ChangesTable — compact inline table showing field-level changes.
+ * Shows up to 3 rows inline, then "+N more" if there are additional changes.
+ */
+function ChangesTable({ changes }) {
+    if (!changes || changes.length === 0) return null;
+
+    const visible = changes.slice(0, 3);
+    const remaining = changes.length - 3;
+
+    return (
+        <div className="mt-2 overflow-hidden rounded-[2px] border border-slate-200 bg-white/60">
+            <table className="w-full border-collapse text-[11px] leading-tight">
+                <tbody>
+                    {visible.map((change, idx) => (
+                        <tr key={idx} className={idx > 0 ? 'border-t border-slate-100' : ''}>
+                            <td className="min-w-[80px] max-w-[100px] truncate px-2 py-[3px] font-medium text-slate-500">
+                                {change.fieldLabel || change.field}
+                            </td>
+                            <td className="px-1 py-[3px] text-slate-400 line-through">
+                                {change.old ?? '—'}
+                            </td>
+                            <td className="px-1 py-[3px] text-slate-700">
+                                {change.new ?? '—'}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            {remaining > 0 && (
+                <p className="border-t border-slate-100 px-2 py-[3px] text-[10px] text-slate-400">
+                    +{remaining} more
+                </p>
+            )}
         </div>
     );
 }

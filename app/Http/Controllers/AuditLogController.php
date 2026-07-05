@@ -84,18 +84,7 @@ class AuditLogController extends Controller
             $log->actor = $display['actor'];
             $log->hasChanges = $display['hasChanges'];
             $log->formatted_module = $display['module'];
-
-            if ($log->old_value || $log->new_value) {
-                $fields = array_unique(array_merge(
-                    array_keys($log->old_value ?? []),
-                    array_keys($log->new_value ?? [])
-                ));
-                $log->formatted_fields = collect($fields)
-                    ->mapWithKeys(fn ($f) => [$f => $formatter->formatFieldName($f)])
-                    ->toArray();
-            } else {
-                $log->formatted_fields = [];
-            }
+            $log->changes = $display['changes'];
 
             return $log;
         });

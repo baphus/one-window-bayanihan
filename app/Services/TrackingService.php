@@ -159,6 +159,7 @@ class TrackingService
                 'agency' => $display['actor'] ?? 'System',
                 'title' => $display['message'],
                 'detail' => $display['detail'],
+                'changes' => $display['changes'] ?? [],
                 'icon' => match ($display['action']) {
                     'CREATE' => 'create',
                     'UPDATE' => 'update',

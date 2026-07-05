@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { formatRelativeTime, formatDateGroup, formatTimeAgo } from '@/lib/relativeTime';
 
@@ -109,16 +109,52 @@ const ACTION_STYLES = {
     LOGOUT: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'logout' },
 };
 
+function ChangesTable({ changes, compact }) {
+    if (!changes || changes.length === 0) return null;
+
+    if (compact && changes.length > 3) {
+        return (
+            <p className="text-xs text-slate-500">
+                {changes.slice(0, 3).map(c => `${c.field}: ${c.old} → ${c.new}`).join(', ')}
+                <span className="text-slate-400 ml-1">+{changes.length - 3} more</span>
+            </p>
+        );
+    }
+
+    return (
+        <div className="border border-slate-200 rounded-md overflow-hidden">
+            <table className="w-full text-xs text-slate-600">
+                <thead className="bg-slate-50 text-slate-700 uppercase text-[11px]">
+                    <tr>
+                        <th className="px-3 py-1.5 border-b border-slate-200 text-left">Field</th>
+                        <th className="px-3 py-1.5 border-b border-slate-200 text-left">Old Value</th>
+                        <th className="px-3 py-1.5 border-b border-slate-200 text-left">New Value</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {changes.map((c, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                            <td className="px-3 py-1.5 font-mono text-[11px] font-medium text-slate-700">{c.fieldLabel || c.field}</td>
+                            <td className="px-3 py-1.5 text-red-600 break-words max-w-[200px] bg-red-50/30">{c.old || '-'}</td>
+                            <td className="px-3 py-1.5 text-emerald-600 break-words max-w-[200px] bg-emerald-50/30">{c.new || '-'}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 function TimelineEntry({ log }) {
-    const [expanded, setExpanded] = useState(false);
     const style = ACTION_STYLES[log.action] || { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'info' };
 
     const actorName = log.actor || log.user?.name || '??';
     const initials = actorName.substring(0, 2).toUpperCase();
 
     const displayMessage = log.message ?? log.description;
-    const displayDetail = log.detail;
-    const showExpandable = log.hasChanges && log.action === 'UPDATE' && log.old_value && log.new_value;
+    const changes = log.changes || [];
+
+    const hasChanges = changes.length > 0 || (log.action === 'UPDATE' && log.old_value && log.new_value);
 
     return (
         <div className="relative pl-12 py-4">
@@ -150,69 +186,40 @@ function TimelineEntry({ log }) {
 
                 {/* Row 2 */}
                 <div className="text-xs text-slate-500 ml-11 space-y-0.5">
-                    {displayDetail ? (
-                        <p className="text-slate-400">{displayDetail}</p>
-                    ) : null}
                     <p>
                         {formatRelativeTime(log.timestamp)} <span className="mx-1">•</span> {log.formatted_module || log.module}
                         {actorName !== '??' ? <> <span className="mx-1">•</span> {actorName}</> : null}
                     </p>
                 </div>
 
-                {/* Row 3: Expandable diff panel */}
-                {showExpandable && (() => {
+                {/* Row 3: Always-visible changes table */}
+                {changes.length > 0 && (
+                    <div className="ml-11 mt-3">
+                        <ChangesTable changes={changes} />
+                    </div>
+                )}
+
+                {/* Fallback for logs without formatted changes (CREATE, LOGIN, etc.) */}
+                {changes.length === 0 && hasChanges && log.old_value && log.new_value && (() => {
                     let oldVals = {};
                     let newVals = {};
                     try {
                         oldVals = typeof log.old_value === 'string' ? JSON.parse(log.old_value) : log.old_value;
                         newVals = typeof log.new_value === 'string' ? JSON.parse(log.new_value) : log.new_value;
                     } catch(e) {
-                        console.warn('Failed to parse audit log diff:', e);
+                        return null;
                     }
                     const changedKeys = Array.from(new Set([...Object.keys(oldVals || {}), ...Object.keys(newVals || {})]));
                     if (changedKeys.length === 0) return null;
 
                     return (
                         <div className="ml-11 mt-3">
-                            <button 
-                                onClick={() => setExpanded(!expanded)}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors"
-                            >
-                                <span className="material-symbols-outlined text-[16px] transition-transform duration-200" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }}>
-                                    expand_more
-                                </span>
-                                {expanded ? 'Hide changes' : 'Show changes'}
-                            </button>
-                            
-                            <div 
-                                className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? 'max-h-[500px] mt-2 opacity-100' : 'max-h-0 opacity-0'}`}
-                            >
-                                <div className="border border-slate-200 rounded-md overflow-x-auto">
-                                    <table className="w-full text-left text-xs text-slate-600">
-                                        <thead className="bg-slate-50 text-slate-700 uppercase">
-                                            <tr>
-                                                <th className="px-3 py-2 border-b border-slate-200">Field</th>
-                                                <th className="px-3 py-2 border-b border-slate-200">Old Value</th>
-                                                <th className="px-3 py-2 border-b border-slate-200">New Value</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {changedKeys.map(key => {
-                                                const oldV = oldVals[key] !== undefined && oldVals[key] !== null ? String(oldVals[key]) : '-';
-                                                const newV = newVals[key] !== undefined && newVals[key] !== null ? String(newVals[key]) : '-';
-                                                if (oldV === newV) return null;
-                                                return (
-                                                    <tr key={key} className="hover:bg-slate-50">
-                                                        <td className="px-3 py-2 font-mono text-[11px] font-medium text-slate-700">{log.formatted_fields?.[key] || key}</td>
-                                                        <td className="px-3 py-2 text-red-600 break-words max-w-[200px] bg-red-50/30">{oldV}</td>
-                                                        <td className="px-3 py-2 text-emerald-600 break-words max-w-[200px] bg-emerald-50/30">{newV}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            <ChangesTable changes={changedKeys.map(key => ({
+                                field: log.formatted_fields?.[key] || key,
+                                fieldLabel: log.formatted_fields?.[key] || key,
+                                old: oldVals[key] !== undefined && oldVals[key] !== null ? String(oldVals[key]) : '-',
+                                new: newVals[key] !== undefined && newVals[key] !== null ? String(newVals[key]) : '-',
+                            })).filter(c => c.old !== c.new)} />
                         </div>
                     );
                 })()}

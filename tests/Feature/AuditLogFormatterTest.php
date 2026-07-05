@@ -44,7 +44,8 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString('changed to Completed', $result);
+        $this->assertStringContainsString('Case status changed to', $result);
+        $this->assertStringContainsString('Completed', $result);
     }
 
     public function test_it_generates_delete_description(): void
@@ -137,6 +138,8 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
+        $this->assertStringContainsString('Case status changed to', $result);
+        $this->assertStringContainsString('Completed', $result);
         $this->assertStringContainsString('(+1 more)', $result);
     }
 
@@ -172,20 +175,6 @@ class AuditLogFormatterTest extends TestCase
         $this->assertEquals($expected, $formatter->formatFieldValue($module, $field, $value));
     }
 
-    public function test_format_changes_old_null(): void
-    {
-        $formatter = new AuditLogFormatter;
-
-        $this->assertEquals('set status to Open', $formatter->formatChanges(null, ['status' => 'OPEN']));
-    }
-
-    public function test_format_changes_new_null(): void
-    {
-        $formatter = new AuditLogFormatter;
-
-        $this->assertEquals('cleared status', $formatter->formatChanges(['status' => 'OPEN'], null));
-    }
-
     public function test_it_generates_user_registration(): void
     {
         $log = new AuditLog([
@@ -216,12 +205,166 @@ class AuditLogFormatterTest extends TestCase
 
         $this->assertArrayHasKey('message', $display);
         $this->assertArrayHasKey('detail', $display);
+        $this->assertArrayHasKey('changes', $display);
         $this->assertArrayHasKey('action', $display);
         $this->assertArrayHasKey('module', $display);
         $this->assertArrayHasKey('actor', $display);
         $this->assertArrayHasKey('hasChanges', $display);
         $this->assertEquals('CREATE', $display['action']);
+        $this->assertSame('', $display['detail']);
+        $this->assertIsArray($display['changes']);
         $this->assertTrue($display['hasChanges']);
+    }
+
+    public function test_get_structured_changes_basic_field_change(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            ['status' => 'OPEN'],
+            ['status' => 'CLOSED'],
+        );
+
+        $this->assertCount(1, $changes);
+        $this->assertSame('status', $changes[0]['field']);
+        $this->assertSame('status', $changes[0]['fieldLabel']);
+        $this->assertSame('Open', $changes[0]['old']);
+        $this->assertSame('Closed', $changes[0]['new']);
+    }
+
+    public function test_get_structured_changes_multiple_fields(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            ['status' => 'PROCESSING', 'priority' => 'LOW'],
+            ['status' => 'COMPLETED', 'priority' => 'HIGH'],
+        );
+
+        $this->assertCount(2, $changes);
+        $this->assertSame('status', $changes[0]['field']);
+        $this->assertSame('Completed', $changes[0]['new']);
+        $this->assertSame('priority', $changes[1]['field']);
+        $this->assertSame('HIGH', $changes[1]['new']);
+    }
+
+    public function test_get_structured_changes_null_old(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            null,
+            ['status' => 'OPEN', 'client_type' => 'OFW'],
+        );
+
+        // When old is null, all non-noise fields appear (like CREATE)
+        $this->assertCount(2, $changes);
+        $this->assertSame('status', $changes[0]['field']);
+        $this->assertNull($changes[0]['old']);
+        $this->assertSame('Open', $changes[0]['new']);
+    }
+
+    public function test_get_structured_changes_null_new(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            ['status' => 'OPEN'],
+            null,
+        );
+
+        // When new is null, all non-noise fields appear (like DELETE)
+        $this->assertCount(1, $changes);
+        $this->assertSame('status', $changes[0]['field']);
+        $this->assertSame('Open', $changes[0]['old']);
+        $this->assertNull($changes[0]['new']);
+    }
+
+    public function test_get_structured_changes_create_noise_filtering(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            null,
+            [
+                'case_number' => 'CAS-001',
+                'tracker_number' => 'TRK-001',
+                'consent_given_at' => '2026-01-01',
+                'status' => 'OPEN',
+                'client_type' => 'OFW',
+            ],
+            'CREATE',
+        );
+
+        // case_number, tracker_number, consent_given_at, status filtered by CREATE noise
+        // Only client_type remains
+        $this->assertCount(1, $changes);
+        $this->assertSame('client_type', $changes[0]['field']);
+    }
+
+    public function test_get_structured_changes_draft_client_data(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            null,
+            [
+                'draft_client_data' => [
+                    'first_name' => 'Juan',
+                    'last_name' => 'Dela Cruz',
+                    'email' => 'juan@example.com',
+                    'client_type' => 'OFW',
+                ],
+            ],
+            'CREATE',
+        );
+
+        $this->assertCount(1, $changes);
+        $this->assertSame('draft_client_data', $changes[0]['field']);
+        $this->assertStringContainsString('Juan Dela Cruz', $changes[0]['new']);
+        $this->assertStringContainsString('OFW', $changes[0]['new']);
+        $this->assertStringContainsString('juan@example.com', $changes[0]['new']);
+    }
+
+    public function test_get_structured_changes_uuid_field_unresolved(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            null,
+            ['user_id' => '00000000-0000-0000-0000-000000000000'],
+            'CREATE',
+        );
+
+        // user_id is not in noise fields, so it should appear
+        $this->assertCount(1, $changes);
+        $this->assertSame('user_id', $changes[0]['field']);
+        $this->assertSame('assigned user', $changes[0]['fieldLabel']);
+        // No matching user exists, so raw value passes through
+        $this->assertSame('00000000-0000-0000-0000-000000000000', $changes[0]['new']);
+    }
+
+    public function test_get_structured_changes_both_null(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(null, null);
+
+        $this->assertSame([], $changes);
+    }
+
+    public function test_get_structured_changes_skips_noise_fields(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        $changes = $formatter->getStructuredChanges(
+            ['id' => 'old-uuid', 'name' => 'Old Name'],
+            ['id' => 'new-uuid', 'name' => 'New Name'],
+        );
+
+        // id should be skipped (noise), name should appear
+        $this->assertCount(1, $changes);
+        $this->assertSame('name', $changes[0]['field']);
     }
 
     public function test_it_uses_loaded_user_name_in_login_when_available(): void
@@ -270,6 +413,7 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
+        $this->assertStringContainsString('Case status changed to', $result);
         $this->assertStringContainsString('Completed', $result);
     }
 

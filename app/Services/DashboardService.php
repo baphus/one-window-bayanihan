@@ -101,6 +101,7 @@ class DashboardService
                     $display = [
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
+                        'changes' => [],
                         'action' => $log->action,
                         'module' => $log->module,
                         'actor' => 'System',
@@ -109,15 +110,18 @@ class DashboardService
                     ];
                 }
 
+                $changes = $display['changes'] ?? [];
+
                 return [
                     'id' => $log->id,
                     'title' => $display['message'],
-                    'desc' => $display['detail'],
+                    'desc' => $this->formatChangeSummary($changes),
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                     // enriched structured data for modern UI
                     'message' => $display['message'],
                     'detail' => $display['detail'],
+                    'changes' => $changes,
                     'actionType' => $display['action'],
                     'module' => $display['module'],
                     'actor' => $display['actor'],
@@ -295,6 +299,7 @@ class DashboardService
                     $display = [
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
+                        'changes' => [],
                         'action' => $log->action,
                         'module' => $log->module,
                         'actor' => 'System',
@@ -303,14 +308,17 @@ class DashboardService
                     ];
                 }
 
+                $changes = $display['changes'] ?? [];
+
                 return [
                     'id' => $log->id,
                     'title' => $display['message'],
-                    'desc' => $display['detail'],
+                    'desc' => $this->formatChangeSummary($changes),
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                     'message' => $display['message'],
                     'detail' => $display['detail'],
+                    'changes' => $changes,
                     'actionType' => $display['action'],
                     'module' => $display['module'],
                     'actor' => $display['actor'],
@@ -360,6 +368,7 @@ class DashboardService
                     $display = [
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
+                        'changes' => [],
                         'action' => $log->action,
                         'module' => $log->module,
                         'actor' => $log->user?->name ?? 'System',
@@ -367,6 +376,8 @@ class DashboardService
                         'hasChanges' => false,
                     ];
                 }
+
+                $changes = $display['changes'] ?? [];
 
                 return [
                     'id' => $log->id,
@@ -378,6 +389,7 @@ class DashboardService
                     // enriched structured data
                     'message' => $display['message'],
                     'detail' => $display['detail'],
+                    'changes' => $changes,
                     'actor' => $display['actor'],
                     'hasChanges' => $display['hasChanges'],
                 ];
@@ -406,5 +418,27 @@ class DashboardService
             'recentLogs' => $recentLogs,
             'casesByCategory' => $casesByCategory,
         ];
+    }
+
+    private function formatChangeSummary(array $changes): string
+    {
+        if (empty($changes)) {
+            return '';
+        }
+
+        $first = $changes[0];
+        $summary = $first['fieldLabel'].': ';
+
+        if ($first['old'] !== null && $first['old'] !== 'not set') {
+            $summary .= $first['old'].' → ';
+        }
+
+        $summary .= $first['new'] ?? '';
+
+        if (count($changes) > 1) {
+            $summary .= ' (+'.(count($changes) - 1).' more)';
+        }
+
+        return $summary;
     }
 }

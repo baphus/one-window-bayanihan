@@ -53,13 +53,16 @@ class LogSuccessfulLoginTest extends TestCase
         $event = new Login('web', $user, false);
         $listener = new LogSuccessfulLogin;
 
-        $listener->handle($event);
+        // Create a LOGIN entry with a timestamp older than the 5-second dedup window
+        AuditLog::create([
+            'action' => 'LOGIN',
+            'module' => 'auth',
+            'entity_id' => $user->getKey(),
+            'user_id' => $user->getKey(),
+            'timestamp' => now()->subSeconds(10),
+        ]);
 
-        // Manually age the LOGIN entry beyond the 5-second window
-        AuditLog::where('action', 'LOGIN')
-            ->where('user_id', $user->getKey())
-            ->update(['timestamp' => now()->subSeconds(10)]);
-
+        // Second login should create a new entry since no recent one exists
         $listener->handle($event);
 
         $this->assertSame(2, $this->countLoginEntries($user));
