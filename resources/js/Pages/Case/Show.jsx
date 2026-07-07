@@ -786,6 +786,12 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           </CardSection>
 
           <CardSection title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
+              <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
+              <p className="text-[11px] leading-5 text-blue-800">
+                Everything uploaded to this section will be viewable to all referred agencies.
+              </p>
+            </div>
             <div className="space-y-4">
               {caseFile.documents?.length > 0 ? (
                 <div className="space-y-2">

@@ -44,11 +44,11 @@ export default function CategorySection({ pageHeadingStyles }) {
 
         return (
           <article
-            className="border bg-white p-4 shadow-sm"
+            className="border bg-white dark:bg-slate-900 dark:border-slate-700 p-4 shadow-sm"
             style={{ borderColor: '#e2e8f0' }}
           >
             <h3
-              className={`mb-4 ${pageHeadingStyles?.sectionTitle || 'text-[11px] font-bold uppercase tracking-wider text-slate-500'}`}
+              className={`mb-4 ${pageHeadingStyles?.sectionTitle || 'text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'}`}
             >
               Category Distribution
             </h3>
@@ -57,7 +57,7 @@ export default function CategorySection({ pageHeadingStyles }) {
                 <Bar data={chartData} options={barOptions} />
               </div>
             ) : (
-              <p className="py-8 text-center text-[13px] text-slate-400">
+              <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">
                 No category data available.
               </p>
             )}

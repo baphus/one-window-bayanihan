@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfilePictureRequest;
+use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
+use App\Models\CaseIssue;
 use App\Models\Client;
+use App\Models\Referral;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
 use App\Services\CloudinaryAvatarService;
@@ -18,10 +22,16 @@ class ClientController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'sort', 'direction', 'per_page'];
 
-        $clients = Client::with(['caseFile' => function ($q) {
-            $q->with('referrals.agency');
-        }])->orderBy('created_at', 'desc');
+        $clients = Client::with([
+            'caseFile' => function ($q) {
+                $q->with(['referrals.agency', 'category', 'caseIssue']);
+            },
+            'addresses',
+            'employments',
+            'nextOfKin',
+        ]);
 
         // Role-based scoping
         if ($user && ! $user->isAdmin()) {
@@ -36,22 +46,138 @@ class ClientController extends Controller
             }
         }
 
+        // --- Search ---
         if (! empty($request->search)) {
             $search = $request->search;
             $clients->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
                     ->orWhere('middle_initial', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('contact_number', 'like', "%{$search}%")
                     ->orWhereHas('caseFile', function ($q) use ($search) {
-                        $q->where('case_number', 'like', "%{$search}%");
+                        $q->where('case_number', 'like', "%{$search}%")
+                            ->orWhere('tracker_number', 'like', "%{$search}%");
                     });
             });
         }
 
+        // --- Filters ---
+        if (! empty($request->sex)) {
+            $clients->where('sex', $request->sex);
+        }
+
+        if (! empty($request->client_type)) {
+            $clients->whereHas('caseFile', function ($q) use ($request) {
+                $q->where('client_type', $request->client_type);
+            });
+        }
+
+        if (! empty($request->vulnerability_indicator)) {
+            $clients->whereHas('caseFile', function ($q) use ($request) {
+                $q->where(function ($q2) use ($request) {
+                    $q2->where('vulnerability_indicator', $request->vulnerability_indicator)
+                        ->orWhere('nok_vulnerability_indicator', $request->vulnerability_indicator);
+                });
+            });
+        }
+
+        if (! empty($request->case_status)) {
+            $clients->whereHas('caseFile', function ($q) use ($request) {
+                $q->where('status', $request->case_status);
+            });
+        }
+
+        if (! empty($request->category_id)) {
+            $clients->whereHas('caseFile', function ($q) use ($request) {
+                $q->where('category_id', $request->category_id);
+            });
+        }
+
+        if (! empty($request->case_issue_id)) {
+            $clients->whereHas('caseFile', function ($q) use ($request) {
+                $q->where('case_issue_id', $request->case_issue_id);
+            });
+        }
+
+        if (! empty($request->agcy_id)) {
+            $clients->whereHas('caseFile.referrals', function ($q) use ($request) {
+                $q->where('agcy_id', $request->agcy_id);
+            });
+        }
+
+        // --- Sorting ---
+        $sort = $request->input('sort', 'created_at');
+        $sort = in_array($sort, ['created_at', 'first_name', 'last_name', 'date_of_birth', 'sex']) ? $sort : 'created_at';
+        $direction = $request->input('direction', 'desc');
+        $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'desc';
+
+        $perPage = min((int) $request->input('per_page', 15), 100);
+
+        $clients = $clients->orderBy($sort, $direction)->paginate($perPage);
+
         return Inertia::render('Client/Index', [
-            'clients' => $clients->paginate(15),
-            'filters' => (object) $request->only(['search']),
+            'clients' => $clients,
+            'filters' => (object) $request->only($filterKeys),
+            'stats' => $this->getClientStats($user),
+            'users' => User::select('id', 'name')->orderBy('name')->get(),
+            'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
+            'categories' => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']),
+            'caseIssues' => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
         ]);
+    }
+
+    private function getClientStats(?User $user): array
+    {
+        $baseQuery = Client::where('is_deleted', false);
+
+        // Apply same role scoping as index
+        if ($user && ! $user->isAdmin()) {
+            if ($user->isCaseManager()) {
+                $baseQuery->whereHas('caseFile', function ($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            } elseif ($user->isAgency() && $user->agcy_id) {
+                $baseQuery->whereHas('caseFile.referrals', function ($q) use ($user) {
+                    $q->where('agcy_id', $user->agcy_id);
+                });
+            }
+        }
+
+        $total = (clone $baseQuery)->count();
+        $ofw = (clone $baseQuery)->whereHas('caseFile', fn ($q) => $q->where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED']))->count();
+        $nok = (clone $baseQuery)->whereHas('caseFile', fn ($q) => $q->where('client_type', 'NOK')->whereNotIn('status', ['DRAFT', 'ARCHIVED']))->count();
+
+        $vulnLabels = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'];
+        $vulnCounts = [];
+        foreach ($vulnLabels as $v) {
+            $vulnCounts[$v] = (clone $baseQuery)->whereHas('caseFile', function ($q) use ($v) {
+                $q->where(function ($q2) use ($v) {
+                    $q2->where('vulnerability_indicator', $v)
+                        ->orWhere('nok_vulnerability_indicator', $v);
+                });
+            })->count();
+        }
+
+        $clientsWithOpenCases = (clone $baseQuery)->whereHas('caseFile', fn ($q) => $q->where('status', 'OPEN'))->count();
+
+        // Total referrals across all cases linked to scoped clients
+        $totalReferrals = 0;
+        $scopedIds = (clone $baseQuery)->pluck('id');
+        if ($scopedIds->isNotEmpty()) {
+            $totalReferrals = Referral::whereIn('case_id', function ($q) use ($scopedIds) {
+                $q->select('id')->from('cases')->whereIn('client_id', $scopedIds);
+            })->count();
+        }
+
+        return [
+            'total_clients' => $total,
+            'ofw_clients' => $ofw,
+            'nok_clients' => $nok,
+            'vulnerability_counts' => $vulnCounts,
+            'clients_with_open_cases' => $clientsWithOpenCases,
+            'total_referrals' => $totalReferrals,
+        ];
     }
 
     public function show(string $id, Request $request)
@@ -146,7 +272,7 @@ class ClientController extends Controller
         $queries = new DataExportQueries;
 
         $filters = $request->only([
-            'search', 'sex', 'client_type',
+            'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id',
         ]);
 
         $clients = $queries->getClientsExport($user, array_filter($filters));

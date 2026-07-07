@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Services\ReportsService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class ReportsExportService
 {
-    private const SCHEMA_VERSION = 'reports_export_v1';
+    private const SCHEMA_VERSION = 'reports_export_v2';
 
     private const TZ = 'Asia/Manila';
 
@@ -20,14 +21,13 @@ class ReportsExportService
 
     private const RISK = ['FOR_COMPLIANCE' => 40, 'PROCESSING' => 30, 'PENDING' => 20, 'OPEN' => 20];
 
+    private const DATE_SCOPES = ['case_created_at', 'referral_created_at', 'referral_updated_at'];
+
+    public function __construct(private readonly ReportsService $reports) {}
+
     public function buildPdfPayload(Request $request): array|RedirectResponse
     {
-        $payload = $this->buildPayload($request, false);
-        if ($payload instanceof RedirectResponse) {
-            return $payload;
-        }
-
-        return $payload;
+        return $this->buildPayload($request, false);
     }
 
     public function buildExcelSheets(Request $request): array|RedirectResponse
@@ -47,23 +47,41 @@ class ReportsExportService
             return $criteria;
         }
 
+        // Single source of truth: the exact same computed dataset as the
+        // on-screen report, honoring all five filters (date range, date scope,
+        // province, city, role). Summary/KPI/distribution sections are mapped
+        // from this so an export can never diverge from the screen.
+        $report = $this->reports->getAll(
+            userId: $criteria['user']->id,
+            role: $criteria['role'],
+            fromDate: $criteria['from']->toDateString(),
+            toDate: $criteria['to']->toDateString(),
+            dateScope: $criteria['dateScope'],
+            province: $criteria['province'],
+            city: $criteria['city'],
+        );
+
+        // Detail rows / risk tables use bases that mirror the same filter set.
         $refBase = $this->referralBase($criteria);
         $caseBase = $this->caseBase($criteria);
-        $refCount = (clone $refBase)->count();
-        $caseCount = (clone $caseBase)->count();
+        $refCount = (int) ($report['kpis']['totalReferrals'] ?? 0);
+        $caseCount = (int) ($report['kpis']['totalCases'] ?? 0);
+        $refDetailCount = (clone $refBase)->count();
+        $caseDetailCount = (clone $caseBase)->count();
+
         $refRows = $withDetails ? $this->referralRows($refBase)->limit(self::ROW_CAP)->get() : collect();
         $caseRows = $withDetails ? $this->caseRows($caseBase)->limit(self::ROW_CAP)->get() : collect();
 
         $warnings = [];
-        if ($withDetails && $refCount > self::ROW_CAP) {
-            $warnings[] = 'Referral Details capped at '.self::ROW_CAP.' of '.$refCount.' matching rows.';
+        if ($withDetails && $refDetailCount > self::ROW_CAP) {
+            $warnings[] = 'Referral Details capped at '.self::ROW_CAP.' of '.$refDetailCount.' matching rows.';
         }
-        if ($withDetails && $caseCount > self::ROW_CAP) {
-            $warnings[] = 'Case Details capped at '.self::ROW_CAP.' of '.$caseCount.' matching rows.';
+        if ($withDetails && $caseDetailCount > self::ROW_CAP) {
+            $warnings[] = 'Case Details capped at '.self::ROW_CAP.' of '.$caseDetailCount.' matching rows.';
         }
 
-        $summary = $this->summaries($criteria, $refBase, $caseBase, $refCount, $caseCount);
-        $metadata = $this->metadata($request, $criteria, $refCount, $caseCount, $warnings, $withDetails);
+        $summary = $this->summaryFromReport($report, $refBase, $caseBase);
+        $metadata = $this->metadata($request, $criteria, $refDetailCount, $caseDetailCount, $warnings, $withDetails);
 
         $payload = $summary + [
             'metadata' => $metadata,
@@ -106,15 +124,45 @@ class ReportsExportService
             return back()->with('error', 'Your account is not allowed to export reports.');
         }
 
-        return ['user' => $user, 'role' => $user->role, 'agency_id' => $user->agcy_id, 'from' => $from, 'to' => $to,
-            'fromInstant' => $from->startOfDay()->utc(), 'toInstant' => $to->endOfDay()->utc()];
+        $dateScope = $request->query('date_scope', 'case_created_at');
+        if (! in_array($dateScope, self::DATE_SCOPES, true)) {
+            $dateScope = 'case_created_at';
+        }
+
+        return [
+            'user' => $user,
+            'role' => $user->role,
+            'agency_id' => $user->agcy_id,
+            'from' => $from,
+            'to' => $to,
+            'fromInstant' => $from->startOfDay()->utc(),
+            'toInstant' => $to->endOfDay()->utc(),
+            'dateScope' => $dateScope,
+            'province' => $request->query('province') ?: null,
+            'city' => $request->query('city') ?: null,
+        ];
     }
 
+    /**
+     * Referral detail base — mirrors ReportsService::referralQuery semantics
+     * (date scope + role scope) plus the same geo filter and soft-delete rule
+     * the on-screen report uses.
+     */
     private function referralBase(array $c)
     {
-        $q = DB::table('referrals')->where('referrals.is_deleted', false)
-            ->whereBetween('referrals.created_at', [$c['fromInstant'], $c['toInstant']])
-            ->join('cases', 'cases.id', '=', 'referrals.case_id')->where('cases.is_deleted', false);
+        $q = DB::table('referrals')
+            ->whereNull('referrals.deleted_at')
+            ->join('cases', 'cases.id', '=', 'referrals.case_id')
+            ->whereNull('cases.deleted_at');
+
+        if ($c['dateScope'] === 'case_created_at') {
+            $q->whereBetween('cases.created_at', [$c['fromInstant'], $c['toInstant']]);
+        } elseif ($c['dateScope'] === 'referral_created_at') {
+            $q->whereBetween('referrals.created_at', [$c['fromInstant'], $c['toInstant']]);
+        } else {
+            $q->whereBetween('referrals.updated_at', [$c['fromInstant'], $c['toInstant']]);
+        }
+
         if ($c['role'] === 'CASE_MANAGER') {
             $q->where('cases.user_id', $c['user']->id);
         }
@@ -122,20 +170,57 @@ class ReportsExportService
             $c['agency_id'] ? $q->where('referrals.agcy_id', $c['agency_id']) : $q->whereRaw('1=0');
         }
 
+        $this->applyGeo($q, $c);
+
         return $q;
     }
 
+    /**
+     * Case detail base — mirrors ReportsService::caseQuery (excludes DRAFT and
+     * ARCHIVED, which the previous export wrongly included) plus geo + soft-delete.
+     */
     private function caseBase(array $c)
     {
-        $q = DB::table('cases')->where('cases.is_deleted', false)->whereBetween('cases.created_at', [$c['fromInstant'], $c['toInstant']]);
+        $q = DB::table('cases')
+            ->whereNull('cases.deleted_at')
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereBetween('cases.created_at', [$c['fromInstant'], $c['toInstant']]);
+
         if ($c['role'] === 'CASE_MANAGER') {
             $q->where('cases.user_id', $c['user']->id);
         }
         if ($c['role'] === 'AGENCY') {
-            $c['agency_id'] ? $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->where('referrals.is_deleted', false)->where('referrals.agcy_id', $c['agency_id'])) : $q->whereRaw('1=0');
+            $c['agency_id']
+                ? $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->whereNull('referrals.deleted_at')->where('referrals.agcy_id', $c['agency_id']))
+                : $q->whereRaw('1=0');
         }
 
+        $this->applyGeo($q, $c, 'cases');
+
         return $q;
+    }
+
+    /**
+     * Apply the province/city geo filter, matching ReportsService::applyGeoFilter.
+     */
+    private function applyGeo($query, array $c, string $base = 'referrals'): void
+    {
+        if (! $c['province'] && ! $c['city']) {
+            return;
+        }
+
+        $caseIdColumn = $base === 'cases' ? 'cases.id' : 'referrals.case_id';
+        $query->whereIn($caseIdColumn, function ($q) use ($c) {
+            $q->select('cases.id')->from('cases')
+                ->join('clients', 'clients.id', '=', 'cases.client_id')
+                ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
+            if ($c['province']) {
+                $q->where('client_addresses.province', $c['province']);
+            }
+            if ($c['city']) {
+                $q->where('client_addresses.city_municipality', $c['city']);
+            }
+        });
     }
 
     private function referralRows($base)
@@ -152,35 +237,60 @@ class ReportsExportService
             ->orderByDesc('cases.created_at')->orderBy('cases.id');
     }
 
-    private function summaries(array $c, $refBase, $caseBase, int $refCount, int $caseCount): array
+    /**
+     * Map the getAll() report payload into the shapes the PDF Blade and Excel
+     * sheets consume. Trends are computed from the (identically filtered) detail
+     * bases so both PDF and Excel always have month-by-month series regardless
+     * of the role-specific keys getAll() returns.
+     */
+    private function summaryFromReport(array $report, $refBase, $caseBase): array
     {
-        $status = (clone $refBase)->select('referrals.status', DB::raw('count(*) as count'))->groupBy('referrals.status')->orderBy('referrals.status')->get();
-        $caseStatus = (clone $caseBase)->select('cases.status', DB::raw('count(*) as count'))->groupBy('cases.status')->orderBy('cases.status')->get();
-        $agencies = (clone $refBase)->leftJoin('agencies', 'agencies.id', '=', 'referrals.agcy_id')->selectRaw("COALESCE(agencies.name, 'Unassigned') as agency, count(*) as total, sum(case when referrals.status='COMPLETED' then 1 else 0 end) as completed, sum(case when referrals.status='PENDING' then 1 else 0 end) as pending, round(avg(case when referrals.status='COMPLETED' then DATE_PART('day', referrals.updated_at - referrals.created_at) else null end)::numeric, 2) as avg_days")->groupBy('agency')->orderByDesc('total')->get();
-        $categories = (clone $caseBase)->leftJoin('case_categories', 'case_categories.id', '=', 'cases.category_id')->selectRaw("COALESCE(case_categories.name, 'Unspecified') as name, count(*) as count")->groupBy('name')->orderByDesc('count')->get();
-        $issues = (clone $caseBase)->leftJoin('case_issues', 'case_issues.id', '=', 'cases.case_issue_id')->selectRaw("COALESCE(case_issues.name, 'Unspecified') as name, count(*) as count")->groupBy('name')->orderByDesc('count')->get();
-        $refAging = (clone $refBase)->whereIn('referrals.status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])->selectRaw("CASE WHEN DATE_PART('day', NOW() - referrals.created_at) < 7 THEN '< 1 week' WHEN DATE_PART('day', NOW() - referrals.created_at) < 14 THEN '1-2 weeks' WHEN DATE_PART('day', NOW() - referrals.created_at) < 30 THEN '2-4 weeks' ELSE '> 1 month' END as label, count(*) as count")->groupBy('label')->get();
-        $cycle = (clone $refBase)->where('referrals.status', 'COMPLETED')->selectRaw("CASE WHEN DATE_PART('day', referrals.updated_at - referrals.created_at) < 7 THEN '< 1 week' WHEN DATE_PART('day', referrals.updated_at - referrals.created_at) < 14 THEN '1-2 weeks' WHEN DATE_PART('day', referrals.updated_at - referrals.created_at) < 30 THEN '2-4 weeks' ELSE '> 1 month' END as label, count(*) as count")->groupBy('label')->get();
-        $geo = (clone $caseBase)->leftJoin('client_addresses', 'client_addresses.client_id', '=', 'cases.client_id')->where('client_addresses.is_deleted', false)->whereNotNull('client_addresses.province')->where('client_addresses.province', '!=', '')->selectRaw('client_addresses.province as label, count(distinct cases.id) as count')->groupBy('client_addresses.province')->orderByDesc('count')->limit(20)->get();
-        $employment = (clone $caseBase)->leftJoin('client_employments', 'client_employments.client_id', '=', 'cases.client_id')->where('client_employments.is_deleted', false)->whereNotNull('client_employments.last_country')->where('client_employments.last_country', '!=', '')->selectRaw('client_employments.last_country as label, count(distinct cases.id) as count')->groupBy('client_employments.last_country')->orderByDesc('count')->limit(20)->get();
-        $caseTrends = (clone $caseBase)->selectRaw("to_char(cases.created_at, 'YYYY-MM') as label, count(*) as count")->groupBy('label')->orderBy('label')->get();
-        $refTrends = (clone $refBase)->selectRaw("to_char(referrals.created_at, 'YYYY-MM') as label, count(*) as count")->groupBy('label')->orderBy('label')->get();
-        $completed = (int) $status->firstWhere('status', 'COMPLETED')?->count;
+        $kpis = $report['kpis'] ?? [];
 
-        return ['kpis' => ['totalReferrals' => $refCount, 'totalCases' => $caseCount, 'completedReferrals' => $completed, 'pendingReferrals' => (int) $status->firstWhere('status', 'PENDING')?->count, 'processingReferrals' => (int) $status->firstWhere('status', 'PROCESSING')?->count, 'rejectedReferrals' => (int) $status->firstWhere('status', 'REJECTED')?->count, 'completionRate' => $refCount ? round($completed / $refCount * 100, 2) : 0], 'overview' => ['totalCases' => $caseCount, 'totalReferrals' => $refCount], 'referralStatusDistribution' => $this->dist($status, 'status'), 'caseStatusDistribution' => $this->dist($caseStatus, 'status'), 'agencyScorecard' => $agencies->map(fn ($r) => (array) $r)->all(), 'categoryDistribution' => $categories->map(fn ($r) => (array) $r)->all(), 'caseIssueDistribution' => $issues->map(fn ($r) => (array) $r)->all(), 'referralAging' => $this->orderedBucketDist($refAging), 'cycleTimeDistribution' => $this->orderedBucketDist($cycle), 'geographicDistribution' => $this->dist($geo), 'employmentDistribution' => $this->dist($employment), 'caseTrends' => $this->dist($caseTrends), 'referralTrends' => $this->dist($refTrends)];
+        // getAll agency scorecard uses `avgDays`; the Blade/Excel expect `avg_days`.
+        $scorecard = collect($report['agencyScorecard'] ?? [])->map(function ($row) {
+            $row = (array) $row;
+            $row['avg_days'] = $row['avgDays'] ?? ($row['avg_days'] ?? null);
+
+            return $row;
+        })->all();
+
+        return [
+            'kpis' => [
+                'totalReferrals' => (int) ($kpis['totalReferrals'] ?? 0),
+                'totalCases' => (int) ($kpis['totalCases'] ?? 0),
+                'openCases' => (int) ($kpis['openCases'] ?? 0),
+                'completedReferrals' => (int) ($kpis['completedReferrals'] ?? 0),
+                'pendingReferrals' => (int) ($kpis['pendingReferrals'] ?? 0),
+                'processingReferrals' => (int) ($kpis['processingReferrals'] ?? 0),
+                'forComplianceReferrals' => (int) ($kpis['forComplianceReferrals'] ?? 0),
+                'rejectedReferrals' => (int) ($kpis['rejectedReferrals'] ?? 0),
+                'completionRate' => $kpis['completionRate'] ?? 0,
+                'avgCompletionDays' => $kpis['avgCompletionDays'] ?? 0,
+                'avgResolutionDays' => $kpis['avgResolutionDays'] ?? 0,
+            ],
+            'overview' => ['totalCases' => (int) ($kpis['totalCases'] ?? 0), 'totalReferrals' => (int) ($kpis['totalReferrals'] ?? 0)],
+            'referralStatusDistribution' => $report['referralStatusDistribution'] ?? ['labels' => [], 'data' => []],
+            'caseStatusDistribution' => $report['caseStatusDistribution'] ?? ['labels' => [], 'data' => []],
+            'agencyScorecard' => $scorecard,
+            'categoryDistribution' => $report['categoryDistribution'] ?? [],
+            'caseIssueDistribution' => $report['caseIssueDistribution'] ?? [],
+            'referralAging' => $report['referralAging'] ?? ['labels' => [], 'data' => []],
+            'cycleTimeDistribution' => $report['cycleTimeDistribution'] ?? ['labels' => [], 'data' => []],
+            'geographicDistribution' => $report['geographicDistribution'] ?? ['labels' => [], 'data' => []],
+            'employmentDistribution' => $report['employmentDistribution'] ?? ['labels' => [], 'data' => []],
+            'caseTrends' => $this->trendFromBase($caseBase, 'cases.created_at'),
+            'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
+        ];
     }
 
-    private function dist(Collection $rows, string $label = 'label'): array
+    private function trendFromBase($base, string $column): array
     {
-        return ['labels' => $rows->pluck($label)->all(), 'data' => $rows->pluck('count')->map(fn ($v) => (int) $v)->all()];
-    }
+        $rows = (clone $base)
+            ->selectRaw("to_char($column, 'YYYY-MM') as label, count(*) as count")
+            ->groupBy('label')->orderBy('label')->get();
 
-    private function orderedBucketDist(Collection $rows): array
-    {
-        $counts = $rows->pluck('count', 'label');
-        $labels = ['< 1 week', '1-2 weeks', '2-4 weeks', '> 1 month'];
-
-        return ['labels' => $labels, 'data' => array_map(fn ($label) => (int) ($counts[$label] ?? 0), $labels)];
+        return ['labels' => $rows->pluck('label')->all(), 'data' => $rows->pluck('count')->map(fn ($v) => (int) $v)->all()];
     }
 
     private function riskRows($query, string $type): Collection
@@ -207,7 +317,27 @@ class ReportsExportService
             $rowCounts['pdf_top_cases_limit'] = self::PDF_TOP_N;
         }
 
-        return ['schema_version' => self::SCHEMA_VERSION, 'generated_at_utc' => $utc->toIso8601String(), 'generated_at_manila' => $utc->setTimezone(self::TZ)->toDateTimeString(), 'generated_by' => $request->user()->name, 'scope' => $c['role'], 'timezone' => self::TZ, 'filters' => ['from' => $c['from']->toDateString(), 'to' => $c['to']->toDateString()], 'row_counts' => $rowCounts, 'row_cap' => self::ROW_CAP, 'cap_warnings' => $warnings, 'ai_insights_included' => false, 'source' => $withDetails ? 'reports_excel_export' : 'reports_pdf_export'];
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'generated_at_utc' => $utc->toIso8601String(),
+            'generated_at_manila' => $utc->setTimezone(self::TZ)->toDateTimeString(),
+            'generated_by' => $request->user()->name,
+            'scope' => $c['role'],
+            'timezone' => self::TZ,
+            // Full filter set so an exported file ties back to the exact filtered view.
+            'filters' => [
+                'from' => $c['from']->toDateString(),
+                'to' => $c['to']->toDateString(),
+                'date_scope' => $c['dateScope'],
+                'province' => $c['province'] ?? 'All',
+                'city' => $c['city'] ?? 'All',
+            ],
+            'row_counts' => $rowCounts,
+            'row_cap' => self::ROW_CAP,
+            'cap_warnings' => $warnings,
+            'ai_insights_included' => false,
+            'source' => $withDetails ? 'reports_excel_export' : 'reports_pdf_export',
+        ];
     }
 
     private function sheets(array $p, Collection $refs, Collection $cases): array

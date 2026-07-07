@@ -9,7 +9,7 @@ const barOptions = {
   indexAxis: 'y',
   plugins: { legend: { display: false } },
   scales: {
-    x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+    x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.15)' } },
     y: { ticks: { font: { size: 10 } }, grid: { display: false } },
   },
 };
@@ -68,8 +68,8 @@ export default function EmploymentAnalytics({
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <article className="border border-slate-300 bg-white p-4">
-          <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+        <article className="border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
             Last Country of Employment
           </h3>
           {countryChartData ? (
@@ -77,32 +77,32 @@ export default function EmploymentAnalytics({
               <Bar data={countryChartData} options={barOptions} />
             </div>
           ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">
+            <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">
               No employment data available.
             </p>
           )}
         </article>
 
-        <article className="border border-slate-300 bg-white p-4">
-          <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+        <article className="border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
             Position Breakdown
           </h3>
           {employmentPositionBreakdown?.labels?.length > 0 ? (
             <div className="max-h-64 overflow-y-auto">
               <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="border-b border-slate-300 text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500">
+                  <tr className="border-b border-slate-300 dark:border-slate-700 text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 dark:text-slate-400">
                     <th className="pb-2 pr-3">Position</th>
                     <th className="pb-2 text-right">Clients</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employmentPositionBreakdown.labels.map((label, i) => (
-                    <tr key={label} className="border-b border-slate-200 last:border-0">
-                      <td className="py-1.5 pr-3 font-medium capitalize text-slate-700">
+                    <tr key={label} className="border-b border-slate-200 dark:border-slate-700 last:border-0">
+                      <td className="py-1.5 pr-3 font-medium capitalize text-slate-700 dark:text-slate-200">
                         {label.replace(/_/g, ' ').toLowerCase()}
                       </td>
-                      <td className="py-1.5 text-right font-bold text-slate-700">
+                      <td className="py-1.5 text-right font-bold text-slate-700 dark:text-slate-200">
                         {employmentPositionBreakdown.data[i] || 0}
                       </td>
                     </tr>
@@ -111,7 +111,7 @@ export default function EmploymentAnalytics({
               </table>
             </div>
           ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">
+            <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">
               No position data available.
             </p>
           )}

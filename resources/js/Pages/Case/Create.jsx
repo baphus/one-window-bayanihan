@@ -382,7 +382,7 @@ export default function CaseCreate() {
                         middle_initial: client.middle_initial || '',
                         suffix: client.suffix || '',
                         date_of_birth: client.date_of_birth || '',
-                        sex: normalizeSex(client.sex) || '',
+                        sex: normalizeSex(client.sex) || 'Male',
                         email: client.email || '',
                         contact_number: client.contact_number || '',
                     },
@@ -466,7 +466,7 @@ export default function CaseCreate() {
                 middle_initial: existingDraft.client.middle_initial || '',
                 suffix: existingDraft.client.suffix || '',
                 date_of_birth: existingDraft.client.date_of_birth || '',
-                sex: normalizeSex(existingDraft.client.sex) || '',
+                sex: normalizeSex(existingDraft.client.sex) || 'Male',
                 email: existingDraft.client.email || '',
                 contact_number: existingDraft.client.contact_number || '',
             });
@@ -538,7 +538,7 @@ export default function CaseCreate() {
                     middle_initial: clientData.middle_initial || '',
                     suffix: clientData.suffix || '',
                     date_of_birth: clientData.date_of_birth || '',
-                    sex: normalizeSex(clientData.sex) || '',
+                    sex: normalizeSex(clientData.sex) || 'Male',
                     email: clientData.email || '',
                     contact_number: clientData.contact_number || '',
                 });
@@ -625,7 +625,7 @@ export default function CaseCreate() {
                     middle_initial: c.middle_initial || '',
                     suffix: c.suffix || '',
                     date_of_birth: c.date_of_birth || '',
-                    sex: normalizeSex(c.sex) || '',
+                    sex: normalizeSex(c.sex) || 'Male',
                     email: c.email || '',
                     contact_number: c.contact_number || '',
                 },
@@ -1011,7 +1011,7 @@ export default function CaseCreate() {
     function handleSwitchToNew() {
         setClientSource('new');
         setData('selected_client_id', '');
-        setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
+        setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' });
         setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
         setData('next_of_kin', []);
@@ -1026,7 +1026,7 @@ export default function CaseCreate() {
                     vulnerability_indicator: 'None',
                     nok_vulnerability_indicator: 'None',
                     summary: '',
-                client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
+                client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
                 next_of_kin: [],
@@ -1056,7 +1056,7 @@ function handleConfirmClient(client) {
         middle_initial: client.middle_initial || '',
         suffix: client.suffix || '',
         date_of_birth: client.date_of_birth || '',
-        sex: normalizeSex(client.sex) || '',
+        sex: normalizeSex(client.sex) || 'Male',
         email: client.email || '',
         contact_number: client.contact_number || '',
     });
@@ -1121,7 +1121,7 @@ function handleConfirmClient(client) {
                 middle_initial: client.middle_initial || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
-                sex: normalizeSex(client.sex) || '',
+                sex: normalizeSex(client.sex) || 'Male',
                 email: client.email || '',
                 contact_number: client.contact_number || '',
             },

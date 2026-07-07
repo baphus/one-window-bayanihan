@@ -10,8 +10,8 @@ export default function OverdueSection() {
   if (isLoading) return <ChartSkeleton />;
   if (error) {
     return (
-      <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
-        <p className="py-8 text-center text-[13px] text-slate-400">Failed to load overdue data.</p>
+      <article className="border bg-white dark:bg-slate-900 dark:border-slate-700 p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
+        <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">Failed to load overdue data.</p>
       </article>
     );
   }
@@ -20,7 +20,7 @@ export default function OverdueSection() {
   const referrals = data?.referrals?.data ?? [];
 
   return (
-    <article className="border bg-white p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
+    <article className="border bg-white dark:bg-slate-900 dark:border-slate-700 p-4 shadow-sm" style={{ borderColor: COLORS.border }}>
       <div className="flex items-center justify-between mb-4">
         <h3 className={pageHeadingStyles.sectionTitle}>Overdue Referrals</h3>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-700">
@@ -30,11 +30,11 @@ export default function OverdueSection() {
       </div>
 
       {count > 0 ? (
-        <p className="mb-3 text-[11px] text-slate-500">
+        <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">
           Referrals exceeding 14-day threshold without completion
         </p>
       ) : (
-        <p className="py-8 text-center text-[13px] text-slate-400">No overdue referrals.</p>
+        <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">No overdue referrals.</p>
       )}
 
       {referrals.length > 0 && (
@@ -48,10 +48,10 @@ export default function OverdueSection() {
                 <div className="flex items-center gap-2 min-w-0">
                   <Clock className="h-3 w-3 shrink-0 text-rose-400" />
                   <div className="min-w-0">
-                    <Link href={route('referrals.show', ref.id)} className="text-[12px] font-semibold text-slate-700 hover:text-[#0b5a8c] truncate block">
+                    <Link href={route('referrals.show', ref.id)} className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 hover:text-[#0b5a8c] truncate block">
                       {ref.case_file?.case_number || 'N/A'}
                     </Link>
-                    <p className="text-[10px] text-slate-500 truncate">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                       {ref.case_file?.client ? `${ref.case_file.client.first_name} ${ref.case_file.client.last_name}` : ''}
                       {ref.agency ? ` · ${ref.agency.name}` : ''}
                     </p>

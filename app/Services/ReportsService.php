@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\CaseIssue;
+use App\Models\CaseStatus;
 use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
@@ -48,9 +51,9 @@ class ReportsService
             'referralStatusDistribution' => $this->getReferralStatusDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'referralAgencyDistribution' => $this->getReferralAgencyDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'casesOverTime' => $this->getCasesOverTime($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
-            'genderDistribution' => $this->getGenderDistribution(),
+            'genderDistribution' => $this->getGenderDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'clientTypeDistribution' => $this->getClientTypeDistribution($userId, 'CASE_MANAGER'),
-            'ageGroupDistribution' => $this->getAgeGroupDistribution(),
+            'ageGroupDistribution' => $this->getAgeGroupDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'mostRequestedService' => $this->getMostRequestedService($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'referralAging' => $this->getReferralAging($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
@@ -335,6 +338,31 @@ class ReportsService
         }
     }
 
+    /**
+     * Reference rows that drive the chart toggle controls (statuses, categories,
+     * case issues). Sourced from the live reference tables — active only, ordered
+     * by sort_order — so toggle lists and colors never drift from hard-coded literals.
+     */
+    public function getReferenceData(): array
+    {
+        return [
+            'referralStatuses' => CaseStatus::query()
+                ->where('type', 'referral')->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['slug', 'name', 'color'])->toArray(),
+            'caseStatuses' => CaseStatus::query()
+                ->where('type', 'case')->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['slug', 'name', 'color'])->toArray(),
+            'categories' => CaseCategory::query()
+                ->where('is_active', true)->orderBy('sort_order')
+                ->get(['name', 'color'])->toArray(),
+            'caseIssues' => CaseIssue::query()
+                ->where('is_active', true)->orderBy('sort_order')
+                ->get(['name'])->toArray(),
+        ];
+    }
+
     public function getReferralKpis(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
         $from = Carbon::parse($fromDate ?: now()->subYear());
@@ -350,14 +378,24 @@ class ReportsService
 
         $total = (clone $referrals)->count();
         $totalCases = (clone $cases)->distinct('cases.id')->count('cases.id');
+        $openCases = (clone $cases)->where('cases.status', 'OPEN')->distinct('cases.id')->count('cases.id');
         $completed = (clone $referrals)->where('status', 'COMPLETED')->count();
         $pending = (clone $referrals)->where('status', 'PENDING')->count();
         $processing = (clone $referrals)->where('status', 'PROCESSING')->count();
+        $forCompliance = (clone $referrals)->where('status', 'FOR_COMPLIANCE')->count();
         $rejected = (clone $referrals)->where('status', 'REJECTED')->count();
 
         $avgDays = (clone $referrals)
             ->where('status', 'COMPLETED')
             ->select(DB::raw('AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_days'))
+            ->value('avg_days');
+
+        // Accurate case resolution time uses the real close timestamp (closed_at),
+        // not updated_at which is corrupted by any later edit.
+        $avgResolutionDays = (clone $cases)
+            ->where('cases.status', 'CLOSED')
+            ->whereNotNull('cases.closed_at')
+            ->select(DB::raw('AVG(EXTRACT(EPOCH FROM (cases.closed_at - cases.created_at)) / 86400) as avg_days'))
             ->value('avg_days');
 
         $duration = $from->diffInDays($to);
@@ -380,12 +418,15 @@ class ReportsService
         return [
             'totalReferrals' => (int) $total,
             'totalCases' => (int) $totalCases,
+            'openCases' => (int) $openCases,
             'completedReferrals' => (int) $completed,
             'pendingReferrals' => (int) $pending,
             'processingReferrals' => (int) $processing,
+            'forComplianceReferrals' => (int) $forCompliance,
             'rejectedReferrals' => (int) $rejected,
             'completionRate' => $total > 0 ? round(($completed / $total) * 100) : 0,
             'avgCompletionDays' => round((float) ($avgDays ?? 0), 1),
+            'avgResolutionDays' => round((float) ($avgResolutionDays ?? 0), 1),
             'kpiChanges' => [
                 'totalReferrals' => $pct($total, $prevTotal),
                 'completedReferrals' => $pct($completed, $prevCompleted),
@@ -428,28 +469,64 @@ class ReportsService
         ];
     }
 
-    public function getGenderDistribution(): array
+    /**
+     * Subquery of client IDs whose cases match the active date/role/geo filters.
+     * Lets client-level distributions (gender/age) respect the same filters as
+     * the rest of the report instead of counting the whole clients table.
+     */
+    private function filteredClientIds(?string $userId, ?string $role, ?string $fromDate, ?string $toDate, ?string $province, ?string $city)
     {
-        $genders = Client::select('sex', DB::raw('count(*) as total'))
+        $q = CaseFile::query()
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNull('cases.deleted_at');
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $q->where('cases.user_id', $userId);
+        }
+        if ($fromDate) {
+            $q->whereDate('cases.created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $q->whereDate('cases.created_at', '<=', $toDate);
+        }
+        if ($province || $city) {
+            $q->join('client_addresses', 'client_addresses.client_id', '=', 'cases.client_id');
+            if ($province) {
+                $q->where('client_addresses.province', $province);
+            }
+            if ($city) {
+                $q->where('client_addresses.city_municipality', $city);
+            }
+        }
+
+        return $q->select('cases.client_id');
+    }
+
+    public function getGenderDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
+    {
+        // DB CHECK constraint (clients_sex_check) permits only MALE/FEMALE; a
+        // null value is surfaced as "Unknown" rather than an always-empty "Other".
+        $known = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city))
             ->whereNotNull('sex')
+            ->select('sex', DB::raw('count(*) as total'))
             ->groupBy('sex')
             ->pluck('total', 'sex');
 
-        $labels = [];
-        $data = [];
-        $colors = ['#6366f1', '#ec4899', '#94a3b8'];
+        $unknown = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city))
+            ->whereNull('sex')
+            ->count();
 
-        foreach (['MALE', 'FEMALE', 'OTHER'] as $i => $sex) {
-            $labels[] = ucfirst(strtolower($sex));
-            $data[] = (int) ($genders[$sex] ?? 0);
-        }
-
-        return ['labels' => $labels, 'data' => $data, 'colors' => $colors];
+        return [
+            'labels' => ['Male', 'Female', 'Unknown'],
+            'data' => [(int) ($known['MALE'] ?? 0), (int) ($known['FEMALE'] ?? 0), (int) $unknown],
+            'colors' => ['#2f6fb0', '#c73e78', '#94a3b8'],
+        ];
     }
 
-    public function getAgeGroupDistribution(): array
+    public function getAgeGroupDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
-        $ages = Client::whereNotNull('date_of_birth')
+        $ages = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city))
+            ->whereNotNull('date_of_birth')
             ->select(DB::raw("
                 CASE
                     WHEN EXTRACT(YEAR FROM age(date_of_birth)) < 18 THEN '0-17'

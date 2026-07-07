@@ -64,6 +64,8 @@ class ReportsController extends Controller
             'city' => $city,
             'provinceOptions' => $provinceOptions,
             'cityOptions' => $cityOptions,
+            // Reference rows (statuses/categories/issues) that drive the chart toggles.
+            'referenceData' => $this->reportsService->getReferenceData(),
 
             // Deferred props (loaded on-demand by section components via partial reload)
             'referralStatusDistribution' => Inertia::defer(fn () => $data['referralStatusDistribution'] ?? null, 'referralStatusDistribution'),
@@ -81,6 +83,7 @@ class ReportsController extends Controller
             'employmentPositionBreakdown' => Inertia::defer(fn () => $data['employmentPositionBreakdown'] ?? null, 'employmentPositionBreakdown'),
             'caseStatusDistribution' => Inertia::defer(fn () => $data['caseStatusDistribution'] ?? null, 'caseStatusDistribution'),
             'caseIssueDistribution' => Inertia::defer(fn () => $data['caseIssueDistribution'] ?? null, 'caseIssueDistribution'),
+            'vulnerabilityDistribution' => Inertia::defer(fn () => $data['vulnerabilityDistribution'] ?? null, 'vulnerabilityDistribution'),
             'overview' => Inertia::defer(fn () => $data['overview'] ?? null, 'overview'),
             'caseTrends' => Inertia::defer(fn () => $data['caseTrends'] ?? null, 'caseTrends'),
             'agencyWorkload' => Inertia::defer(fn () => $data['agencyWorkload'] ?? null, 'agencyWorkload'),
@@ -148,7 +151,7 @@ class ReportsController extends Controller
             'avg_processing_days' => (float) ($kpis['avgCompletionDays'] ?? 0),
             'completion_rate' => $completionRate,
             'pending_referrals' => (int) ($kpis['pendingReferrals'] ?? 0),
-            'overdue_referrals' => 0,
+            'overdue_referrals' => (int) ($data['overdueReferrals']['count'] ?? 0),
             'top_categories' => $topCategories,
             'top_agencies' => $topAgencies,
         ];

@@ -10,13 +10,13 @@ export default function AgencyScorecardSection({ pageHeadingStyles }) {
     >
       {(data) => (
         <article
-          className="border bg-white p-4 shadow-sm"
+          className="border bg-white dark:bg-slate-900 dark:border-slate-700 p-4 shadow-sm"
           style={{ borderColor: '#e2e8f0' }}
         >
           <h3
             className={`mb-4 ${
               pageHeadingStyles?.sectionTitle ||
-              'text-[11px] font-bold uppercase tracking-wider text-slate-500'
+              'text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'
             }`}
           >
             Agency Scorecard
@@ -26,7 +26,7 @@ export default function AgencyScorecardSection({ pageHeadingStyles }) {
               <table className="w-full text-[11px]">
                 <thead>
                   <tr
-                    className="border-b text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500"
+                    className="border-b dark:border-slate-700 text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 dark:text-slate-400"
                     style={{ borderColor: '#e2e8f0' }}
                   >
                     <th className="pb-2 pr-3">Agency</th>
@@ -41,18 +41,18 @@ export default function AgencyScorecardSection({ pageHeadingStyles }) {
                   {data.map((a) => (
                     <tr
                       key={a.agency}
-                      className="border-b border-slate-200 last:border-0"
+                      className="border-b border-slate-200 dark:border-slate-700 last:border-0"
                     >
-                      <td className="py-2 pr-3 font-semibold text-slate-700">
+                      <td className="py-2 pr-3 font-semibold text-slate-700 dark:text-slate-200">
                         {a.agency}
                       </td>
-                      <td className="py-2 pr-3 text-right text-slate-700">
+                      <td className="py-2 pr-3 text-right text-slate-700 dark:text-slate-200">
                         {a.total}
                       </td>
                       <td className="py-2 pr-3 text-right text-emerald-700">
                         {a.completed}
                       </td>
-                      <td className="py-2 pr-3 text-right font-bold text-slate-700">
+                      <td className="py-2 pr-3 text-right font-bold text-slate-700 dark:text-slate-200">
                         {a.completionRate}%
                       </td>
                       <td
@@ -75,7 +75,7 @@ export default function AgencyScorecardSection({ pageHeadingStyles }) {
               </table>
             </div>
           ) : (
-            <p className="py-8 text-center text-[13px] text-slate-400">
+            <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">
               No agency data available.
             </p>
           )}

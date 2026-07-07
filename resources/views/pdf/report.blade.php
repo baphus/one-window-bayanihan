@@ -24,6 +24,7 @@
     <div class="header">
         <h1>System Performance Report</h1>
         <div class="muted">Schema {{ e($metadata['schema_version'] ?? '') }} | Scope {{ e($metadata['scope'] ?? '') }} | {{ e($metadata['filters']['from'] ?? '') }} to {{ e($metadata['filters']['to'] ?? '') }} ({{ e($metadata['timezone'] ?? '') }})</div>
+        <div class="muted">Filters — Date basis: {{ e($metadata['filters']['date_scope'] ?? 'case_created_at') }} | Province: {{ e($metadata['filters']['province'] ?? 'All') }} | City: {{ e($metadata['filters']['city'] ?? 'All') }}</div>
         <div class="muted">Generated {{ e($metadata['generated_at_manila'] ?? '') }} Manila / {{ e($metadata['generated_at_utc'] ?? '') }} UTC by {{ e($metadata['generated_by'] ?? '') }}</div>
     </div>
 
@@ -32,10 +33,16 @@
     @endforeach
 
     <div class="cards">
-        <div class="card"><div class="value">{{ e($kpis['totalCases'] ?? 0) }}</div><div class="label">Cases</div></div>
+        <div class="card"><div class="value">{{ e($kpis['openCases'] ?? 0) }}</div><div class="label">Active Cases</div></div>
         <div class="card"><div class="value">{{ e($kpis['totalReferrals'] ?? 0) }}</div><div class="label">Referrals</div></div>
-        <div class="card"><div class="value">{{ e($kpis['completedReferrals'] ?? 0) }}</div><div class="label">Completed</div></div>
         <div class="card"><div class="value">{{ e($kpis['completionRate'] ?? 0) }}%</div><div class="label">Completion Rate</div></div>
+        <div class="card"><div class="value">{{ e($kpis['avgResolutionDays'] ?? 0) }}</div><div class="label">Avg Resolution (days)</div></div>
+    </div>
+    <div class="cards">
+        <div class="card"><div class="value">{{ e($kpis['totalCases'] ?? 0) }}</div><div class="label">Total Cases</div></div>
+        <div class="card"><div class="value">{{ e($kpis['completedReferrals'] ?? 0) }}</div><div class="label">Completed</div></div>
+        <div class="card"><div class="value">{{ e($kpis['pendingReferrals'] ?? 0) }}</div><div class="label">Pending</div></div>
+        <div class="card"><div class="value">{{ e($kpis['forComplianceReferrals'] ?? 0) }}</div><div class="label">For Compliance</div></div>
     </div>
 
     <h2>Export Metadata</h2>

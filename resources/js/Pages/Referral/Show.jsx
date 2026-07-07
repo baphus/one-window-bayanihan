@@ -253,6 +253,12 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
                     </CardSection>
                     {referral.compliance_requirements?.length > 0 && (
                         <CardSection title="For Compliance" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                            <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-100 bg-amber-50 px-3 py-2">
+                                <span className="material-symbols-outlined text-[16px] text-amber-600 mt-0.5">info</span>
+                                <p className="text-[11px] leading-5 text-amber-800">
+                                    Everything uploaded here will only be viewable by the referred agency.
+                                </p>
+                            </div>
                             <div className="space-y-3">
                                 {referral.compliance_requirements.map((cr) => (
                                     <div key={cr.id} className="rounded-md border border-slate-200 bg-white px-4 py-3">
