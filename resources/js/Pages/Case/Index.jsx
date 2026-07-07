@@ -58,6 +58,7 @@ function referredToAgencies(referrals) {
 }
 
 const COLUMN_DEFS = [
+  { key: 'case_number', label: 'Case Number', default: true },
   { key: 'tracker_number', label: 'Tracking ID', default: true },
   { key: 'client_type', label: 'Client Type', default: true },
   { key: 'client_name', label: 'Client Name', default: true },
@@ -238,11 +239,18 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       .map((col) => {
         const base = { key: col.key, title: col.label, sortable: true };
         switch (col.key) {
+          case 'case_number':
+            return {
+              ...base,
+              render: (row) => (
+                <span className="font-mono text-xs font-bold text-slate-700">{row.case_number}</span>
+              ),
+            };
           case 'tracker_number':
             return {
               ...base,
               render: (row) => (
-                <span className="font-mono text-xs font-bold text-slate-700">{row.tracker_number}</span>
+                <span className="font-mono text-xs text-slate-500">{row.tracker_number}</span>
               ),
             };
           case 'client_type':

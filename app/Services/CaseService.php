@@ -617,6 +617,7 @@ class CaseService
     public function getCases(array $filters = [], string $sort = 'created_at', string $direction = 'desc', int $perPage = 15)
     {
         $sortMap = [
+            'case_number' => 'case_number',
             'tracker_number' => 'tracker_number',
             'client_type' => 'client_type',
             'status' => 'status',
@@ -684,7 +685,8 @@ class CaseService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('tracker_number', 'like', "%{$search}%")
+                $q->where('case_number', 'like', "%{$search}%")
+                    ->orWhere('tracker_number', 'like', "%{$search}%")
                     ->orWhere('client_type', 'like', "%{$search}%")
                     ->orWhereHas('client', function ($q) use ($search) {
                         $q->where('first_name', 'like', "%{$search}%")
