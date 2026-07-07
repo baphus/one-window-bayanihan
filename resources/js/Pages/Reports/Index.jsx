@@ -127,6 +127,10 @@ function ReportsDashboard({
           <LazyDemographics />
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <LazyChartArticle lazyKey="vulnerabilityDistribution" title="Vulnerability Indicators" emptyText="No vulnerability data available." />
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <AgencyScorecardSection />
             <GeographicSection />
           </section>
@@ -184,6 +188,9 @@ function ReportsDashboard({
         <>
           <LazyDemographics />
           <EmploymentSection />
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <LazyChartArticle lazyKey="vulnerabilityDistribution" title="Vulnerability Indicators" emptyText="No vulnerability data available." />
+          </section>
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <GeographicSection />
             <LazyChartArticle lazyKey="cityDistribution" title="City/Municipality Distribution" emptyText="No city-level data available." />

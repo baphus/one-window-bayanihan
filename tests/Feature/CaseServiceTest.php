@@ -9,7 +9,6 @@ use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
-use App\Models\PhilippineAddress;
 use App\Models\User;
 use App\Services\CaseService;
 use Carbon\Carbon;
@@ -753,24 +752,16 @@ class CaseServiceTest extends TestCase
         $user = User::factory()->create();
         $client = Client::factory()->create();
 
-        // Seed philippine_addresses with a hierarchy
-        PhilippineAddress::create([
-            'code' => 'REG01', 'name' => 'Test Region', 'type' => 'region', 'parent_code' => null,
-        ]);
-        PhilippineAddress::create([
-            'code' => 'PROV01', 'name' => 'Test Province', 'type' => 'province', 'parent_code' => 'REG01',
-        ]);
-
         $result = $service->createCase([
             'client_type' => 'OFW',
             'client' => ['first_name' => 'John', 'last_name' => 'Doe'],
             'selected_client_id' => $client->id,
-            'address' => ['region' => 'REG01', 'province' => 'PROV01', 'city_municipality' => '', 'barangay' => '', 'street' => '123 Main'],
+            'address' => ['region' => '0700000000', 'province' => '0702200000', 'city_municipality' => '', 'barangay' => '', 'street' => '123 Main'],
         ], $user->id);
 
         $address = $client->addresses()->first();
-        $this->assertEquals('Test Region', $address->region);
-        $this->assertEquals('Test Province', $address->province);
+        $this->assertEquals('Region VII (Central Visayas)', $address->region);
+        $this->assertEquals('Cebu', $address->province);
     }
 
     public function test_update_draft_resolves_address_codes_to_names(): void
@@ -789,20 +780,12 @@ class CaseServiceTest extends TestCase
         $case->client_id = $client->id;
         $case->save();
 
-        // Seed philippine_addresses
-        PhilippineAddress::create([
-            'code' => 'REG01', 'name' => 'Test Region', 'type' => 'region', 'parent_code' => null,
-        ]);
-        PhilippineAddress::create([
-            'code' => 'PROV01', 'name' => 'Test Province', 'type' => 'province', 'parent_code' => 'REG01',
-        ]);
-
         $service = app(CaseService::class);
         $service->updateDraft($case->id, [
             'selected_client_id' => $client->id,
             'address' => [
-                'region' => 'REG01',
-                'province' => 'PROV01',
+                'region' => '0700000000',
+                'province' => '0702200000',
                 'city_municipality' => '',
                 'barangay' => '',
                 'street' => '456 Oak St',
@@ -810,8 +793,8 @@ class CaseServiceTest extends TestCase
         ], $user->id);
 
         $address = $client->addresses()->first();
-        $this->assertEquals('Test Region', $address->region);
-        $this->assertEquals('Test Province', $address->province);
+        $this->assertEquals('Region VII (Central Visayas)', $address->region);
+        $this->assertEquals('Cebu', $address->province);
     }
 
     public function test_normalize_nok_data_resolves_codes_to_names(): void
@@ -820,38 +803,24 @@ class CaseServiceTest extends TestCase
         $reflection = new \ReflectionMethod($service, 'normalizeNokData');
         $reflection->setAccessible(true);
 
-        // Seed philippine_addresses
-        PhilippineAddress::create([
-            'code' => 'REG01', 'name' => 'Test Region', 'type' => 'region', 'parent_code' => null,
-        ]);
-        PhilippineAddress::create([
-            'code' => 'PROV01', 'name' => 'Test Province', 'type' => 'province', 'parent_code' => 'REG01',
-        ]);
-        PhilippineAddress::create([
-            'code' => 'CIT01', 'name' => 'Test City', 'type' => 'city', 'parent_code' => 'PROV01',
-        ]);
-        PhilippineAddress::create([
-            'code' => 'BRG01', 'name' => 'Test Barangay', 'type' => 'barangay', 'parent_code' => 'CIT01',
-        ]);
-
         // Test flat format (codes at the top level)
         $flatData = [
             'first_name' => 'Jane',
             'last_name' => 'Doe',
             'relationship' => 'Spouse',
-            'region' => 'REG01',
-            'province' => 'PROV01',
-            'city_municipality' => 'CIT01',
-            'barangay' => 'BRG01',
-            'full_address' => '123 Main St, Test City',
+            'region' => '0700000000',
+            'province' => '0702200000',
+            'city_municipality' => '0702205000',
+            'barangay' => '0702205001',
+            'full_address' => '123 Main St, Argao',
         ];
 
         $result = $reflection->invoke($service, $flatData);
-        $this->assertEquals('Test Region', $result['region']);
-        $this->assertEquals('Test Province', $result['province']);
-        $this->assertEquals('Test City', $result['city_municipality']);
-        $this->assertEquals('Test Barangay', $result['barangay']);
-        $this->assertEquals('123 Main St, Test City', $result['full_address']);
+        $this->assertEquals('Region VII (Central Visayas)', $result['region']);
+        $this->assertEquals('Cebu', $result['province']);
+        $this->assertEquals('Argao', $result['city_municipality']);
+        $this->assertEquals('Alambijud', $result['barangay']);
+        $this->assertEquals('123 Main St, Argao', $result['full_address']);
 
         // Test nested format (codes in nok_address sub-array)
         $nestedData = [
@@ -859,19 +828,19 @@ class CaseServiceTest extends TestCase
             'last_name' => 'Smith',
             'relationship' => 'Sibling',
             'nok_address' => [
-                'region' => 'REG01',
-                'province' => 'PROV01',
-                'city_municipality' => 'CIT01',
-                'barangay' => 'BRG01',
+                'region' => '0700000000',
+                'province' => '0702200000',
+                'city_municipality' => '0702205000',
+                'barangay' => '0702205001',
             ],
-            'full_address' => '456 Oak Ave, Test Barangay',
+            'full_address' => '456 Oak Ave, Alambijud',
         ];
 
         $result = $reflection->invoke($service, $nestedData);
-        $this->assertEquals('Test Region', $result['region']);
-        $this->assertEquals('Test Province', $result['province']);
-        $this->assertEquals('Test City', $result['city_municipality']);
-        $this->assertEquals('Test Barangay', $result['barangay']);
-        $this->assertEquals('456 Oak Ave, Test Barangay', $result['full_address']);
+        $this->assertEquals('Region VII (Central Visayas)', $result['region']);
+        $this->assertEquals('Cebu', $result['province']);
+        $this->assertEquals('Argao', $result['city_municipality']);
+        $this->assertEquals('Alambijud', $result['barangay']);
+        $this->assertEquals('456 Oak Ave, Alambijud', $result['full_address']);
     }
 }

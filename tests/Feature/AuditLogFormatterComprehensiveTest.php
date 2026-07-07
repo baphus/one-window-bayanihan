@@ -507,9 +507,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             // Case-specific fields
             'vulnerability_indicator' => ['vulnerability_indicator', 'vulnerability level'],
             'nok_vulnerability_indicator' => ['nok_vulnerability_indicator', 'NOK vulnerability level'],
-            'sla_target_days' => ['sla_target_days', 'SLA target days'],
-            'sla_met' => ['sla_met', 'SLA met'],
-            'escalated_at' => ['escalated_at', 'escalated at'],
             'escalation_reason' => ['escalation_reason', 'escalation reason'],
             'category_id' => ['category_id', 'category'],
             'case_issue_id' => ['case_issue_id', 'case issue'],
@@ -804,9 +801,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'client_id' => null,
             'closed_at' => null,
             'consent_given_at' => null,
-            'sla_target_days' => 57,
-            'sla_met' => null,
-            'escalated_at' => null,
             'escalation_reason' => null,
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
@@ -859,8 +853,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'Tracker number did not change; changes should not mention it');
         $this->assertNotContains('case number', $fieldLabels,
             'Case number did not change; changes should not mention it');
-        $this->assertNotContains('sla target days', $fieldLabels,
-            'SLA target days did not change; changes should not mention it');
         $this->assertNotContains('client type', $fieldLabels,
             'Client type did not change; changes should not mention it');
 

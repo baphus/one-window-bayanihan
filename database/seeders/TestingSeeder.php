@@ -423,13 +423,11 @@ class TestingSeeder extends Seeder
 
             // Always include ALL columns so every row in a batch has identical keys (required by PostgreSQL)
             $closedAt = null;
-            $slaMet = null;
 
             if ($status === 'CLOSED') {
                 $closedAt = now()->subDays(rand(1, 90));
-                $slaMet = true;
             } elseif ($status === 'ARCHIVED') {
-                $slaMet = null;
+                // no special handling
             }
 
             $cases[] = [
@@ -447,8 +445,6 @@ class TestingSeeder extends Seeder
                 'client_id' => $clientId,
                 'category_id' => $hasCategory ? $categoryIds[array_rand($categoryIds)] : null,
                 'case_issue_id' => $hasIssue ? $issueIds[array_rand($issueIds)] : null,
-                'sla_target_days' => rand(30, 90),
-                'sla_met' => $slaMet,
                 'created_at' => now()->subDays(rand(0, 180)),
                 'updated_at' => $now,
             ];
@@ -518,14 +514,12 @@ class TestingSeeder extends Seeder
                 $decisionComment = null;
                 $firstActionAt = null;
                 $referralAssignedAt = null;
-                $slaMet = null;
 
                 if ($refStatus === 'COMPLETED') {
                     $decision = 'ACCEPT';
                     $decisionComment = null;
                     $firstActionAt = now()->subDays(rand(1, 90));
                     $referralAssignedAt = now()->subDays(rand(1, 90));
-                    $slaMet = true;
 
                     $completedReferralIds[] = $refId;
                     $completedReferralInfo[$refId] = [
@@ -553,8 +547,6 @@ class TestingSeeder extends Seeder
                     'type' => rand(0, 100) < 80 ? 'standard' : 'intervention',
                     'first_action_at' => $firstActionAt,
                     'referral_assigned_at' => $referralAssignedAt,
-                    'sla_target_days' => 14,
-                    'sla_met' => $slaMet,
                     'created_at' => now()->subDays(rand(0, 180)),
                     'updated_at' => $now,
                 ];

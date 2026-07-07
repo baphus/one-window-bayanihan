@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -9,12 +9,12 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 import {
   normalizeNotification,
   getSeverityConfig,
-  timeAgo,
-  formatDisplayDate,
+  formatDetailedTimestamp,
 } from '@/lib/notifications';
 
 // ─── Notifications Tab ───────────────────────────────────────────────────────
@@ -99,7 +99,12 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
           return (
             <div
               key={item.id}
-              className={`px-5 py-4 border-b border-slate-100 last:border-b-0 ${isUnread ? 'bg-blue-50/30' : ''}`}
+              onClick={() => {
+                if (item.action_url) {
+                  window.location.href = item.action_url;
+                }
+              }}
+              className={`px-5 py-4 border-b border-slate-100 last:border-b-0 ${isUnread ? 'bg-blue-50/30' : ''} ${item.action_url ? 'cursor-pointer hover:bg-slate-50/50' : ''} transition-colors`}
             >
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 shrink-0">
@@ -117,13 +122,28 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
                     <p className="mt-1 text-[12px] text-slate-500 leading-relaxed">{item.message}</p>
                   )}
                   <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400" title={formatDisplayDate(item.created_at)}>
-                      {timeAgo(item.created_at)}
+                    <span className="text-[11px] text-slate-400">
+                      {formatDetailedTimestamp(item.created_at)}
                     </span>
                     <div className="flex items-center gap-2">
+                      {item.action_url && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.visit(item.action_url);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900 transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          View
+                        </button>
+                      )}
                       {isUnread && (
                         <button
-                          onClick={() => markReadMutation.mutate(item._rawId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markReadMutation.mutate(item._rawId);
+                          }}
                           disabled={markReadMutation.isPending}
                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50"
                         >

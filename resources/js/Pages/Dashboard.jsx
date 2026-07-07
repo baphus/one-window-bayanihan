@@ -338,7 +338,7 @@ function CaseManagerDashboard({
           type: 'warning',
           title: 'Overdue Referral Follow-up',
           desc: `${ref.caseNo} · ${ref.agencyName} · ${daysOld} days pending`,
-          action: () => router.visit(`/referrals`),
+          action: () => router.visit(`/referrals/${ref.id}`),
         })
       }
       if (ref.status === 'REJECTED') {
@@ -347,7 +347,7 @@ function CaseManagerDashboard({
           type: 'error',
           title: 'Referral Returned — Needs Re-assignment',
           desc: `${ref.caseNo} · ${ref.agencyName} · ${ref.service}`,
-          action: () => router.visit(`/referrals`),
+          action: () => router.visit(`/referrals/${ref.id}`),
         })
       }
     })
@@ -569,14 +569,25 @@ function CaseManagerDashboard({
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Clients Served</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Snapshot</p>
             <span className="p-1.5 bg-violet-50 rounded-lg"><Users className="w-4 h-4 text-violet-600" /></span>
           </div>
           <p className="text-2xl font-black text-slate-900">{stats.uniqueClientCount ?? 0}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[11px] font-medium text-slate-500">{stats.ofwCount ?? 0} OFW · {stats.nokCount ?? 0} NOK</span>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-2">
+            <span className="text-[10px] font-semibold text-slate-500 bg-violet-50 px-1.5 py-0.5 rounded">{stats.ofwCount ?? 0} OFW</span>
+            <span className="text-[10px] font-semibold text-slate-500 bg-violet-50 px-1.5 py-0.5 rounded">{stats.nokCount ?? 0} NOK</span>
+            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{stats.maleCount ?? 0} Male</span>
+            <span className="text-[10px] font-semibold text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded">{stats.femaleCount ?? 0} Female</span>
           </div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Overseas Filipino Workers / Next of Kin</p>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+            {stats.pwdCount > 0 && <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">PWD {stats.pwdCount}</span>}
+            {stats.seniorCount > 0 && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Senior {stats.seniorCount}</span>}
+            {stats.singleParentCount > 0 && <span className="text-[10px] font-semibold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">Solo Parent {stats.singleParentCount}</span>}
+            {stats.pwdCount === 0 && stats.seniorCount === 0 && stats.singleParentCount === 0 && (
+              <span className="text-[10px] text-slate-400">No vulnerability indicators</span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">Clients by type, sex &amp; vulnerability</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">

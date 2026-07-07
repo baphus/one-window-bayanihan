@@ -63,6 +63,7 @@ class ReportsService
             'caseIssueDistribution' => $this->getCaseIssueDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'overdueReferrals' => $this->getOverdueReferrals($userId, 'CASE_MANAGER', $province, $city),
             'cityDistribution' => $this->getCityDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'vulnerabilityDistribution' => $this->getVulnerabilityDistribution($userId, 'CASE_MANAGER'),
         ];
     }
 
@@ -112,6 +113,7 @@ class ReportsService
             'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown(),
             'caseStatusDistribution' => $this->getCaseStatusDistribution(),
             'caseIssueDistribution' => $this->getCaseIssueDistribution(null, null, $from, $to, $dateScope, $province, $city),
+            'vulnerabilityDistribution' => $this->getVulnerabilityDistribution(),
         ];
     }
 
@@ -223,6 +225,34 @@ class ReportsService
                 (int) ($types['NEXT_OF_KIN'] ?? 0),
             ],
             'colors' => ['#6366f1', '#a5b4fc'],
+        ];
+    }
+
+    public function getVulnerabilityDistribution(?string $userId = null, ?string $role = null): array
+    {
+        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $query->where('cases.user_id', $userId);
+        }
+
+        $results = (clone $query)
+            ->select(DB::raw("
+                CASE
+                    WHEN client_type = 'NEXT_OF_KIN'
+                        THEN COALESCE(NULLIF(nok_vulnerability_indicator, 'None'), NULLIF(vulnerability_indicator, 'None'), 'None')
+                    ELSE COALESCE(NULLIF(vulnerability_indicator, 'None'), 'None')
+                END as vuln
+            "), DB::raw('count(*) as total'))
+            ->groupBy('vuln')
+            ->pluck('total', 'vuln');
+
+        $categories = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'];
+        $colors = ['#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#cbd5e1'];
+
+        return [
+            'labels' => $categories,
+            'data' => array_map(fn ($c) => (int) ($results[$c] ?? 0), $categories),
+            'colors' => $colors,
         ];
     }
 
@@ -640,14 +670,10 @@ class ReportsService
         ?string $province = null,
         ?string $city = null,
     ): array {
-        $query = CaseFile::select(DB::raw('COALESCE(pa.name, ca.province) as province'), DB::raw('count(*) as total'))
+        $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
-            ->leftJoin('philippine_addresses as pa', function ($join) {
-                $join->on('pa.name', '=', 'ca.province')
-                    ->where('pa.type', '=', 'province');
-            })
             ->whereNotNull('ca.province')
             ->where('ca.province', '!=', '');
 
@@ -667,13 +693,21 @@ class ReportsService
             $query->where('ca.city_municipality', $city);
         }
 
-        $result = $query->groupBy(DB::raw('COALESCE(pa.name, ca.province)'))
+        $rows = $query->groupBy('ca.province')
             ->orderByDesc('total')
             ->get();
 
+        $resolver = app(AddressNameResolver::class);
+        $aggregated = [];
+        foreach ($rows as $row) {
+            $name = $resolver->resolve($row->province);
+            $aggregated[$name] = ($aggregated[$name] ?? 0) + (int) $row->total;
+        }
+        arsort($aggregated);
+
         return [
-            'labels' => $result->pluck('province')->toArray(),
-            'data' => $result->pluck('total')->toArray(),
+            'labels' => array_keys($aggregated),
+            'data' => array_values($aggregated),
         ];
     }
 
@@ -857,14 +891,10 @@ class ReportsService
 
     public function getCityDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
-        $query = CaseFile::select(DB::raw('COALESCE(pa.name, ca.city_municipality) as city'), DB::raw('count(*) as total'))
+        $query = CaseFile::select('ca.city_municipality', DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
-            ->leftJoin('philippine_addresses as pa', function ($join) {
-                $join->on('pa.name', '=', 'ca.city_municipality')
-                    ->where('pa.type', '=', 'city');
-            })
             ->whereNotNull('ca.city_municipality')
             ->where('ca.city_municipality', '!=', '');
 
@@ -884,13 +914,21 @@ class ReportsService
             $query->where('ca.city_municipality', $city);
         }
 
-        $result = $query->groupBy(DB::raw('COALESCE(pa.name, ca.city_municipality)'))
+        $rows = $query->groupBy('ca.city_municipality')
             ->orderByDesc('total')
             ->get();
 
+        $resolver = app(AddressNameResolver::class);
+        $aggregated = [];
+        foreach ($rows as $row) {
+            $name = $resolver->resolve($row->city_municipality);
+            $aggregated[$name] = ($aggregated[$name] ?? 0) + (int) $row->total;
+        }
+        arsort($aggregated);
+
         return [
-            'labels' => $result->pluck('city')->toArray(),
-            'data' => $result->pluck('total')->toArray(),
+            'labels' => array_keys($aggregated),
+            'data' => array_values($aggregated),
         ];
     }
 
@@ -912,7 +950,12 @@ class ReportsService
             });
         }
 
-        return $query->pluck('province')->map(fn ($p) => ['value' => $p, 'label' => $p])->values()->toArray();
+        $resolver = app(AddressNameResolver::class);
+
+        return $query->pluck('province')->map(fn ($p) => [
+            'value' => $p,
+            'label' => $resolver->resolve($p),
+        ])->values()->toArray();
     }
 
     public function getCityOptions(?string $province = null, ?string $userId = null, ?string $role = null): array
@@ -937,6 +980,11 @@ class ReportsService
             });
         }
 
-        return $query->pluck('city_municipality')->map(fn ($c) => ['value' => $c, 'label' => $c])->values()->toArray();
+        $resolver = app(AddressNameResolver::class);
+
+        return $query->pluck('city_municipality')->map(fn ($c) => [
+            'value' => $c,
+            'label' => $resolver->resolve($c),
+        ])->values()->toArray();
     }
 }

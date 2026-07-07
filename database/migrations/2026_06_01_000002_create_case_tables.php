@@ -48,8 +48,6 @@ return new class extends Migration
             $table->uuid('category_id')->nullable();
             $table->uuid('case_issue_id')->nullable();
             $table->jsonb('draft_client_data')->nullable();
-            $table->integer('sla_target_days')->default(30);
-            $table->boolean('sla_met')->nullable();
             $table->timestamp('escalated_at')->nullable();
             $table->string('escalation_reason')->nullable();
             $table->timestamps();

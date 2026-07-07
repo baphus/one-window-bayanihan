@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -57,14 +58,59 @@ class DashboardService
         $ofwCount = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
 
-        $casesByProvince = CaseFile::select('ca.province', DB::raw('count(*) as total'))
+        $maleCount = Client::whereHas('caseFiles', fn ($q) => $q->whereNotIn('status', ['DRAFT', 'ARCHIVED']))
+            ->where('sex', 'MALE')
+            ->count();
+
+        $femaleCount = Client::whereHas('caseFiles', fn ($q) => $q->whereNotIn('status', ['DRAFT', 'ARCHIVED']))
+            ->where('sex', 'FEMALE')
+            ->count();
+
+        $pwdCount = Client::whereHas('caseFiles', fn ($q) => $q
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where(fn ($q2) => $q2
+                ->where('vulnerability_indicator', 'PWD')
+                ->orWhere('nok_vulnerability_indicator', 'PWD')
+            )
+        )->count();
+
+        $seniorCount = Client::whereHas('caseFiles', fn ($q) => $q
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where(fn ($q2) => $q2
+                ->where('vulnerability_indicator', 'Senior Citizen')
+                ->orWhere('nok_vulnerability_indicator', 'Senior Citizen')
+            )
+        )->count();
+
+        $singleParentCount = Client::whereHas('caseFiles', fn ($q) => $q
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where(fn ($q2) => $q2
+                ->where('vulnerability_indicator', 'Solo Parent')
+                ->orWhere('nok_vulnerability_indicator', 'Solo Parent')
+            )
+        )->count();
+
+        $rawProvinces = CaseFile::select('ca.province', DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
+            ->whereNotNull('ca.province')
+            ->where('ca.province', '!=', '')
             ->groupBy('ca.province')
             ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => ['province' => $row->province ?? 'Unknown', 'count' => (int) $row->total])
+            ->get();
+
+        $resolver = app(AddressNameResolver::class);
+        $aggregated = [];
+        foreach ($rawProvinces as $row) {
+            $name = $resolver->resolve($row->province);
+            $aggregated[$name] = ($aggregated[$name] ?? 0) + (int) $row->total;
+        }
+        arsort($aggregated);
+
+        $casesByProvince = collect($aggregated)
+            ->map(fn ($count, $province) => ['province' => $province, 'count' => $count])
+            ->values()
             ->toArray();
 
         $agencyBreakdown = Agency::withCount('referrals')
@@ -225,6 +271,11 @@ class DashboardService
             'uniqueClientCount' => $uniqueClientCount,
             'ofwCount' => $ofwCount,
             'nokCount' => $nokCount,
+            'maleCount' => $maleCount,
+            'femaleCount' => $femaleCount,
+            'pwdCount' => $pwdCount,
+            'seniorCount' => $seniorCount,
+            'singleParentCount' => $singleParentCount,
             'recentCases' => $recentCases,
             'allCases' => $allCases,
             'allReferrals' => $referralsData,

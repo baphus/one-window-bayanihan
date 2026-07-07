@@ -92,7 +92,6 @@ class ProductionSeeder extends Seeder
                 'issue_name' => 'Contract Violation',
                 'referral_status' => 'PROCESSING',
                 'agency_slug' => 'owwa',
-                'sla_target_days' => 30,
                 'client' => [
                     'first_name' => 'Ricardo',
                     'last_name' => 'Mariano',
@@ -129,7 +128,6 @@ class ProductionSeeder extends Seeder
                 'issue_name' => 'Medical Repatriation',
                 'referral_status' => 'COMPLETED',
                 'agency_slug' => 'doh',
-                'sla_target_days' => 30,
                 'client' => [
                     'first_name' => 'Elena',
                     'last_name' => 'Dela Cruz',
@@ -166,7 +164,6 @@ class ProductionSeeder extends Seeder
                 'issue_name' => 'Salary/Wage Dispute',
                 'referral_status' => 'PENDING',
                 'agency_slug' => 'dole',
-                'sla_target_days' => 30,
                 'client' => [
                     'first_name' => 'Arturo',
                     'last_name' => 'Panganiban',
@@ -241,14 +238,12 @@ class ProductionSeeder extends Seeder
                 'user_id' => $cmId,
                 'category_id' => $categoriesByName[$caseData['category_name']] ?? null,
                 'case_issue_id' => $issuesByName[$caseData['issue_name']] ?? null,
-                'sla_target_days' => $caseData['sla_target_days'],
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
 
             if ($caseData['status'] === 'CLOSED') {
                 $caseInsert['closed_at'] = $now;
-                $caseInsert['sla_met'] = true;
             }
 
             DB::table('cases')->insert($caseInsert);
@@ -270,7 +265,6 @@ class ProductionSeeder extends Seeder
                     'case_id' => $caseId,
                     'agcy_id' => $agency->id,
                     'type' => 'standard',
-                    'sla_target_days' => 14,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -279,7 +273,6 @@ class ProductionSeeder extends Seeder
                     $refInsert['decision'] = 'ACCEPT';
                     $refInsert['first_action_at'] = $now;
                     $refInsert['referral_assigned_at'] = $now;
-                    $refInsert['sla_met'] = true;
                 }
 
                 DB::table('referrals')->insert($refInsert);
