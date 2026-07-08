@@ -80,23 +80,38 @@ class NotificationService
      *
      * @param  string  $notificationId  UUID of the notification
      * @param  string  $notifiableType  'user' or 'ofw'
+     * @param  mixed  $notifiable  The notifiable entity (User model for 'user', client email string for 'ofw')
      * @return bool True if found and updated, false if not found
      */
-    public function markAsRead(string $notificationId, string $notifiableType = 'user'): bool
+    public function markAsRead(string $notificationId, string $notifiableType = 'user', mixed $notifiable = null): bool
     {
         if ($notifiableType === 'ofw') {
-            $updated = CaseNotification::where('id', $notificationId)
-                ->whereNull('read_at')
-                ->update(['read_at' => now()]);
+            $query = CaseNotification::where('id', $notificationId)
+                ->whereNull('read_at');
+
+            // If client email provided, scope to that client
+            if (is_string($notifiable) && ! empty($notifiable)) {
+                $query->where('client_email', $notifiable);
+            }
+
+            $updated = $query->update(['read_at' => now()]);
 
             return $updated > 0;
         }
 
-        // For authenticated users, find via the notifications table
-        $notification = app(DatabaseNotification::class)
-            ->where('id', $notificationId)
-            ->whereNull('read_at')
-            ->first();
+        // For authenticated users, scope to the user's notifications
+        if ($notifiable) {
+            $notification = $notifiable->notifications()
+                ->where('id', $notificationId)
+                ->whereNull('read_at')
+                ->first();
+        } else {
+            // Fallback if no notifiable provided (maintains backwards compatibility)
+            $notification = app(DatabaseNotification::class)
+                ->where('id', $notificationId)
+                ->whereNull('read_at')
+                ->first();
+        }
 
         if (! $notification) {
             return false;

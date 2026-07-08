@@ -544,7 +544,6 @@ class TestingSeeder extends Seeder
                     'decision_comment' => $decisionComment,
                     'case_id' => $caseId,
                     'agcy_id' => $agencyId,
-                    'type' => rand(0, 100) < 80 ? 'standard' : 'intervention',
                     'first_action_at' => $firstActionAt,
                     'referral_assigned_at' => $referralAssignedAt,
                     'created_at' => now()->subDays(rand(0, 180)),
