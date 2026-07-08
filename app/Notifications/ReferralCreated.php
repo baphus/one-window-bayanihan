@@ -30,8 +30,10 @@ class ReferralCreated extends Notification
     {
         return (new MailMessage)
             ->subject('New Referral Assigned')
-            ->line('A new referral has been assigned to your agency.')
-            ->line("Required services: {$this->referral->required_services}")
+            ->greeting('New Referral Assigned')
+            ->line('A new referral has been assigned to your agency for processing.')
+            ->line('**Required Services:** '.$this->referral->required_services)
+            ->line('**Status:** '.$this->referral->status)
             ->action('View Referral', url("/referrals/{$this->referral->id}"))
             ->line('Please review and process this referral at your earliest convenience.');
     }

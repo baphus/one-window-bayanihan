@@ -2,16 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\EmailChangedNotification;
 use App\Models\Agency;
+use App\Models\AuditLog;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\DefaultAgencyService;
+use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AdminUserController extends Controller
 {
+    public function __construct(
+        private readonly OtpService $otpService,
+    ) {}
+
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'role', 'status', 'agcy_id']);
@@ -58,7 +69,7 @@ class AdminUserController extends Controller
         return Inertia::render('Admin/User/Index', [
             'users' => $users,
             'filters' => $filters,
-            'agencies' => Inertia::lazy(fn () => $agencies),
+            'agencies' => $agencies,
             'stats' => [
                 'total' => User::count(),
                 'active' => User::where('is_active', true)->count(),
@@ -110,6 +121,7 @@ class AdminUserController extends Controller
             'bio' => $validated['bio'] ?? null,
             'emergency_contact' => $validated['emergency_contact'] ?? null,
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         return redirect()->route('admin.users.index')
@@ -141,14 +153,116 @@ class AdminUserController extends Controller
             $updateData['password'] = Hash::make($request->input('password'));
         }
 
-        if ($user->email !== $validated['email']) {
-            $user->email_verified_at = null;
+        $emailChanged = $user->email !== $validated['email'];
+
+        if ($emailChanged) {
+            $verifiedEmail = $request->session()->get('verified_new_email_admin_'.$id);
+
+            if (! $verifiedEmail || $verifiedEmail !== $validated['email']) {
+                throw ValidationException::withMessages([
+                    'email' => 'Email change requires OTP verification. Please complete the verification flow before saving.',
+                ]);
+            }
+
+            $oldEmail = $user->email;
+            $user->email_verified_at = now();
+            $user->email = $validated['email'];
+
+            $request->session()->forget('verified_new_email_admin_'.$id);
+
+            $user->save();
+
+            Mail::to($oldEmail)->queue(
+                new EmailChangedNotification($oldEmail, $validated['email'], $user->name)
+            );
+
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'email',
+                'entity_id' => $user->id,
+                'old_value' => ['email' => $oldEmail],
+                'new_value' => ['email' => $validated['email']],
+                'user_id' => $request->user()->id,
+                'timestamp' => now(),
+            ]);
         }
 
+        unset($updateData['email']);
         $user->update($updateData);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User updated successfully.');
+    }
+
+    public function sendEmailChangeOtp(Request $request, string $id)
+    {
+        $user = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'admin_password' => ['required', 'string', 'current_password'],
+            'new_email' => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
+        ]);
+
+        $newEmail = $validated['new_email'];
+
+        $otp = $this->otpService->generate(
+            $newEmail,
+            'admin_email_change',
+            $request->session()->getId().'_'.$id,
+        );
+
+        $request->session()->put('pending_admin_email_change_'.$id, $newEmail);
+
+        return back()->with([
+            'email_change_step' => 'otp',
+            'email_change_hint' => $this->maskEmail($newEmail),
+            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
+        ]);
+    }
+
+    public function verifyEmailChangeOtp(Request $request, string $id)
+    {
+        $pendingEmail = $request->session()->get('pending_admin_email_change_'.$id);
+
+        if (! $pendingEmail) {
+            throw ValidationException::withMessages([
+                'otp' => 'No pending email change found. Please start again.',
+            ]);
+        }
+
+        $request->validate(['otp' => ['required', 'string', 'size:6']]);
+
+        $verified = $this->otpService->verify(
+            $pendingEmail,
+            'admin_email_change',
+            $request->input('otp'),
+            $request->session()->getId().'_'.$id,
+        );
+
+        if (! $verified) {
+            throw ValidationException::withMessages([
+                'otp' => 'Invalid or expired OTP. Please request a new code.',
+            ]);
+        }
+
+        $request->session()->put('verified_new_email_admin_'.$id, $pendingEmail);
+        $request->session()->forget('pending_admin_email_change_'.$id);
+
+        return back()->with([
+            'email_change_step' => 'verified',
+            'success' => 'Email verified. Click Update to save changes.',
+        ]);
+    }
+
+    private function maskEmail(string $email): string
+    {
+        $parts = explode('@', $email);
+
+        if (strlen($parts[0]) <= 2) {
+            return $email;
+        }
+
+        return substr($parts[0], 0, 2).'***@'.$parts[1];
     }
 
     public function destroy(string $id)

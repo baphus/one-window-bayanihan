@@ -24,15 +24,19 @@ class CaseUpdated extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage)
+        $message = (new MailMessage)
             ->subject("Case #{$this->case->case_number} Updated")
-            ->line("{$this->updatedBy} updated the case:");
+            ->greeting('Case Updated')
+            ->line('**'.$this->updatedBy.'** made changes to **Case #'.$this->case->case_number.'**.')
+            ->line('The following changes were made:');
 
         foreach ($this->changes as $field => $change) {
-            $mail->line("- {$field}: {$change['old']} -> {$change['new']}");
+            $message->line('**'.$field.':** '.$change['old'].' &rarr; '.$change['new']);
         }
 
-        return $mail->action('View Case', route('cases.show', $this->case->id));
+        return $message
+            ->action('View Case', route('cases.show', $this->case->id))
+            ->line('Please review the updated case details.');
     }
 
     public function toDatabase(object $notifiable): array

@@ -32,9 +32,10 @@ class ReferralStatusChanged extends Notification
     {
         return (new MailMessage)
             ->subject("Referral Status Updated: {$this->newStatus}")
-            ->line("A referral's status has been updated.")
-            ->line("Status changed from **{$this->oldStatus}** to **{$this->newStatus}**.")
-            ->line("Required services: {$this->referral->required_services}")
+            ->greeting('Referral Status Updated')
+            ->line('The status of a referral has been updated.')
+            ->line('**Referral:** '.$this->referral->required_services)
+            ->line('**Status Change:** '.$this->oldStatus.' &rarr; **'.$this->newStatus.'**')
             ->action('View Referral', url("/referrals/{$this->referral->id}"))
             ->line('Please review the updated referral details.');
     }

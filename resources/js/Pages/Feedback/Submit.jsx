@@ -1,11 +1,11 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
-import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, useForm, usePage, Link } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
+import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import { useToast } from '@/Hooks/useToast';
 
 const DIMENSION_ORDER = [
@@ -208,10 +208,10 @@ export default function FeedbackSubmit({
   // --- Helpers ---
   const updateServqual = useCallback(
     (index, field, value) => {
-      setData('servqual_responses', (prev) => {
-        const updated = [...prev];
+      setData((prev) => {
+        const updated = [...prev.servqual_responses];
         updated[index] = { ...updated[index], [field]: value };
-        return updated;
+        return { ...prev, servqual_responses: updated };
       });
     },
     [setData],
@@ -266,13 +266,29 @@ export default function FeedbackSubmit({
 
   // ====================== RENDER ======================
 
+  function PageWrapper({ children }) {
+    return (
+      <div className="flex min-h-screen flex-col items-center bg-slate-50 pt-8 sm:justify-center sm:pt-0">
+        <FlashMessageWatcher />
+        <Link href="/" className="mb-6 block">
+          <img src="/logo.png" alt="One Window Bayanihan" className="h-16 w-auto" />
+        </Link>
+        <div className="w-full max-w-2xl bg-white px-6 py-6 sm:px-8 sm:py-8 shadow-sm border border-slate-200 sm:rounded-xl">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+
+
   // Thank-you success screen
   if (submitted) {
     return (
-      <GuestLayout>
+      <PageWrapper>
         <Head title="Feedback Submitted" />
 
-        <div className="text-center py-12 px-4">
+        <div className="text-center py-8 px-4">
           <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
             <svg
               className="w-8 h-8 text-green-600"
@@ -288,25 +304,25 @@ export default function FeedbackSubmit({
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">
             Thank You for Your Feedback!
           </h2>
-          <p className="text-gray-600 max-w-sm mx-auto text-sm leading-relaxed">
+          <p className="text-slate-500 max-w-sm mx-auto text-sm leading-relaxed">
             Your responses have been recorded and will help us improve the
             quality of services we provide.
           </p>
         </div>
-      </GuestLayout>
+      </PageWrapper>
     );
   }
 
   // Missing tracking token — show error
   if (!trackingToken) {
     return (
-      <GuestLayout>
+      <PageWrapper>
         <Head title="Invalid Link" />
 
-        <div className="text-center py-12 px-4">
+        <div className="text-center py-8 px-4">
           <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
             <svg
               className="w-8 h-8 text-red-600"
@@ -322,20 +338,20 @@ export default function FeedbackSubmit({
               />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
             Invalid Feedback Link
           </h2>
-          <p className="text-sm text-gray-600 max-w-xs mx-auto">
+          <p className="text-sm text-slate-500 max-w-xs mx-auto">
             This feedback link is missing or invalid. Please check the link you
             received in your email and try again.
           </p>
         </div>
-      </GuestLayout>
+      </PageWrapper>
     );
   }
 
   return (
-    <GuestLayout>
+    <PageWrapper>
       <Head title="Submit Feedback" />
 
       <UnsavedChangesModal
@@ -346,19 +362,19 @@ export default function FeedbackSubmit({
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* ── Header ── */}
-        <div className="text-center border-b border-gray-200 pb-5">
-          <h1 className="text-xl font-bold text-gray-900">
+        <div className="text-center border-b border-slate-200 pb-5">
+          <h1 className="text-xl font-bold text-slate-900">
             Share Your Feedback
           </h1>
           {service_name && (
-            <p className="text-sm text-gray-500 mt-1">{service_name}</p>
+            <p className="text-sm text-slate-500 mt-1">{service_name}</p>
           )}
         </div>
 
         {/* ── Instructions ── */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+        <div className="bg-[#0b5384]/5 border border-[#0b5384]/20 rounded-lg p-4 text-sm text-[#0b5384]">
           <p className="font-semibold mb-1.5">How to rate each question:</p>
-          <ul className="list-disc list-inside space-y-0.5 text-blue-700 text-[13px]">
+          <ul className="list-disc list-inside space-y-0.5 text-[#0b5384]/80 text-[13px]">
             <li>
               <strong>Minimum Expectation</strong> — How important is this
               aspect to you?
@@ -378,25 +394,25 @@ export default function FeedbackSubmit({
             ).map((dimension) => (
               <div key={dimension}>
                 {/* Dimension header */}
-                <div className="mb-3 pb-2 border-b border-gray-100">
-                  <h3 className="text-base font-semibold text-gray-900">
+                <div className="mb-3 pb-2 border-b border-slate-200">
+                  <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                     {dimension}
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-slate-400 mt-0.5">
                     {DIMENSION_DESCRIPTIONS[dimension]}
                   </p>
                 </div>
 
                 {/* Column headers — visible only on sm+ */}
-                <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto] sm:gap-4 mb-2 px-1">
+                <div className="hidden sm:grid sm:grid-cols-[1fr_minmax(14rem,auto)_minmax(14rem,auto)] sm:gap-4 mb-2 px-3">
                   <div />
-                  <div className="text-center">
-                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center justify-center gap-1 sm:gap-1.5 w-full">
+                    <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider leading-tight text-center">
                       Minimum<br />Expectation
                     </span>
                   </div>
-                  <div className="text-center">
-                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center justify-center gap-1 sm:gap-1.5 w-full">
+                    <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider leading-tight text-center">
                       Actual<br />Experience
                     </span>
                   </div>
@@ -423,7 +439,7 @@ export default function FeedbackSubmit({
                     return (
                       <div
                         key={globalIdx}
-                        className="sm:grid sm:grid-cols-[1fr_auto_auto] sm:gap-4 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="sm:grid sm:grid-cols-[1fr_minmax(14rem,auto)_minmax(14rem,auto)] sm:gap-4 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors"
                       >
                         {/* Question text */}
                         <div className="text-sm text-gray-700 mb-2 sm:mb-0 sm:pt-1.5">
@@ -492,11 +508,11 @@ export default function FeedbackSubmit({
         )}
 
         {/* ── Overall Rating ── */}
-        <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-1">
+        <div className="border-t border-slate-200 pt-6">
+          <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
             Overall Rating
           </h3>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-slate-400 mb-3">
             How would you rate your overall experience?
           </p>
           <StarRating
@@ -512,10 +528,10 @@ export default function FeedbackSubmit({
         <div>
           <label
             htmlFor="feedback-comments"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1.5"
           >
             Additional Comments{' '}
-            <span className="text-gray-400 font-normal">(optional)</span>
+            <span className="text-slate-400 font-normal">(optional)</span>
           </label>
           <textarea
             id="feedback-comments"
@@ -539,11 +555,11 @@ export default function FeedbackSubmit({
         </div>
 
         {/* ── Submit ── */}
-        <div className="border-t border-gray-200 pt-5">
+        <div className="border-t border-slate-200 pt-5">
           <button
             type="submit"
             disabled={processing || hasIncompleteQuestions}
-            className="w-full inline-flex items-center justify-center rounded-md border border-transparent bg-gray-800 px-6 py-3 text-sm font-semibold uppercase tracking-widest text-white transition duration-150 ease-in-out hover:bg-gray-700 focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 active:bg-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full inline-flex items-center justify-center rounded-md border border-transparent bg-[#0b5384] px-6 py-3 text-sm font-semibold uppercase tracking-widest text-white transition duration-150 ease-in-out hover:bg-[#09416a] focus:bg-[#09416a] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 active:bg-[#073353] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {processing ? (
               <span className="flex items-center gap-2">
@@ -581,6 +597,6 @@ export default function FeedbackSubmit({
           )}
         </div>
       </form>
-    </GuestLayout>
+    </PageWrapper>
   );
 }

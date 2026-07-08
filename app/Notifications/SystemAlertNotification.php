@@ -43,9 +43,11 @@ class SystemAlertNotification extends Notification implements ShouldQueue
     {
         return (new MailMessage)
             ->subject("System Alert: {$this->severity} - {$this->alertType}")
-            ->line("Type: {$this->alertType}")
-            ->line("Severity: {$this->severity}")
-            ->line("Message: {$this->message}")
+            ->greeting('System Alert')
+            ->line('A system alert requires your attention.')
+            ->line('**Type:** '.$this->alertType)
+            ->line('**Severity:** '.$this->severity)
+            ->line('**Message:** '.$this->message)
             ->action('View Dashboard', url('/admin/system/health'))
             ->line('This is an automated system alert.');
     }

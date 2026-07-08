@@ -26,8 +26,9 @@ class CaseStatusUpdated extends Notification
     {
         return (new MailMessage)
             ->subject("Case Status Updated: {$this->newStatus}")
-            ->line("Case #{$this->case->case_number} status has been updated.")
-            ->line("Status changed from **{$this->oldStatus}** to **{$this->newStatus}**.")
+            ->greeting('Case Status Updated')
+            ->line('The status of **Case #'.$this->case->case_number.'** has been updated.')
+            ->line('**Status Change:** '.$this->oldStatus.' &rarr; **'.$this->newStatus.'**')
             ->action('View Case', route('cases.show', $this->case->id))
             ->line('Please review the updated case details.');
     }

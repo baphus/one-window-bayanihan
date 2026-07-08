@@ -1,12 +1,4 @@
 <x-mail::message>
-<div style="text-align: center; margin-bottom: 24px;">
-    <img
-        src="{{ asset('logo.png') }}"
-        alt="{{ config('app.name') }}"
-        style="height: 72px;"
-    >
-</div>
-
 # Verify Your Identity
 
 @switch($purpose)
