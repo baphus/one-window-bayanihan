@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\MfaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PragmaRX\Google2FALaravel\Google2FA;
 
@@ -67,9 +67,12 @@ class MfaController extends Controller
             ]);
         }
 
+        $mfaService = app(MfaService::class);
+        $codes = $mfaService->generateRecoveryCodes();
+
         $user = $request->user();
         $user->mfa_secret = $secret;
-        $user->mfa_recovery_codes = $this->generateRecoveryCodes();
+        $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
         $user->mfa_enabled_at = now();
         $user->save();
 
@@ -77,6 +80,7 @@ class MfaController extends Controller
 
         return response()->json([
             'message' => 'Two-factor authentication has been enabled.',
+            'recovery_codes' => $codes,
         ]);
     }
 
@@ -116,8 +120,13 @@ class MfaController extends Controller
             return response()->json(['message' => 'Password confirmation is required.'], 403);
         }
 
+        $mfaService = app(MfaService::class);
+        $codes = $mfaService->generateRecoveryCodes();
+        $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
+        $user->save();
+
         return response()->json([
-            'recovery_codes' => $user->mfa_recovery_codes ?? [],
+            'recovery_codes' => $codes,
         ]);
     }
 
@@ -133,24 +142,13 @@ class MfaController extends Controller
             return response()->json(['message' => 'Password confirmation is required.'], 403);
         }
 
-        $codes = $this->generateRecoveryCodes();
-        $user->mfa_recovery_codes = $codes;
+        $mfaService = app(MfaService::class);
+        $codes = $mfaService->generateRecoveryCodes();
+        $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
         $user->save();
 
         return response()->json([
             'recovery_codes' => $codes,
         ]);
-    }
-
-    private function generateRecoveryCodes(): array
-    {
-        $codes = [];
-        for ($i = 0; $i < 8; $i++) {
-            $codes[] = strtoupper(
-                Str::random(4).'-'.Str::random(4).'-'.Str::random(4),
-            );
-        }
-
-        return $codes;
     }
 }

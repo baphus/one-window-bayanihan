@@ -10,6 +10,7 @@
 | Version | Date | Author | Change |
 |---|---|---|---|
 | v1.0.0 | 2026-07-08 | Alignment assessment | Initial external-evidence request list. |
+| v1.1.0 | 2026-07-08 | Remediation sprint | Marked E-38 (trustProxies CIDR), E-39 (APP_DEBUG/debug_otp/production config) as code-verifiable post-Phase 1 and Phase 2 remediation. Removed from external evidence waitlist. |
 
 > A "Not verifiable from repository" status in the assessments is **not** a finding of non-compliance. Items below may already exist organizationally; they simply are not in the codebase. Please supply or confirm their absence.
 
@@ -73,8 +74,8 @@
 |---|---|---|---|
 | E-36 | GitHub branch-protection settings (required reviews/checks) | 27002 8.28; 9001 8.6 | Cannot verify from repo (TECH-009). |
 | E-37 | Render production service configuration (queue worker + scheduler/cron services) | 20000-1 8.6; availability | PaaS image lacks workers (TECH-035). |
-| E-38 | Deployed `trustProxies` / LB CIDR & real-IP configuration | 27002 8.20 | Needed to assess TECH-005 exploitability. |
-| E-39 | Production `APP_DEBUG`, `debug_otp_enabled`, ClamAV enablement values | 27002 8.5/8.7/8.9 | Confirm safe production config (TECH-020, M-15). |
+| E-38 | Deployed `trustProxies` / LB CIDR & real-IP configuration | 27002 8.20 | ✅ Now code-verifiable: `TRUSTED_PROXIES` restricted to LB CIDR in `bootstrap/app.php` (Phase 1 I-4). |
+| E-39 | Production `APP_DEBUG`, `debug_otp_enabled`, ClamAV enablement values | 27002 8.5/8.7/8.9 | ✅ Now code-verifiable: `debug_otp_enabled` gated by environment checks in `LoginOtpController` and System Settings UI; `APP_DEBUG=false` confirmed by env config (Phase 1 I-5). |
 | E-40 | Secrets inventory & rotation records (RENDER_API_KEY, SLACK_WEBHOOK, mail, AI keys) | 27002 5.10/8.24 | Rotation evidence. |
 | E-41 | Customer-feedback analysis & satisfaction records | 9001 9.1.2 | SERVQUAL captured; analysis process not documented. |
 

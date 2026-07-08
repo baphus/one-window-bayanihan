@@ -9,7 +9,9 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\EmailChangeController;
 use App\Http\Controllers\LoginOtpController;
+use App\Models\AuditLog;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 Route::middleware('guest')->group(function () {
@@ -84,6 +86,20 @@ Route::middleware('auth')->group(function () {
         ->name('profile.email-change.verify-otp');
 
     Route::post('logout', function () {
+        $user = auth()->user();
+
+        AuditLog::create([
+            'action' => 'LOGOUT',
+            'module' => 'auth',
+            'entity_id' => $user?->id,
+            'description' => null,
+            'user_id' => $user?->id,
+            'timestamp' => now(),
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent() ?? '',
+            'request_id' => request()->attributes->get('correlation_id') ?? request()->header('X-Request-ID') ?? (string) Str::uuid(),
+        ]);
+
         auth()->guard('web')->logout();
         request()->session()->invalidate();
         request()->session()->regenerateToken();

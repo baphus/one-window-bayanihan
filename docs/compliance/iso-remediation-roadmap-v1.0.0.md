@@ -10,31 +10,32 @@
 | Version | Date | Author | Change |
 |---|---|---|---|
 | v1.0.0 | 2026-07-08 | Alignment assessment | Initial remediation roadmap. |
+| v1.1.0 | 2026-07-08 | Remediation sprint | Marked P0 items I-1–I-5, P1 items D30-1–D30-4, P2 item D60-3, and TECH-024 as **completed**. Added Phase 2 Waves A–C implementation. |
 
 Sequencing principle: close the **Critical/High technical** items first (fast, high risk-reduction, mostly code), then build the **management-system** layer (slower, documentation/governance), because certification depends on both but the technical items are exploitable today.
 
 ---
 
 ## Immediate actions (P0 — within days)
-| # | Action | Findings | Standards | Risk reduction | Dependencies | Owner | Effort | Validation |
-|---|---|---|---|---|---|---|---|---|
-| I-1 | Disable/gate public registration (invite + admin approval; domain allowlist) | TECH-001 | 27002 5.15/8.2 | Critical→Low (R-01) | none | Lead dev | S | Registration cannot create a privileged account; regression test |
-| I-2 | Enforce `is_active`/`is_deleted` at login + kill live sessions on deactivate | TECH-002 | 27002 5.18 | High→Low (R-02) | none | Lead dev | S | Deactivated user cannot log in; test |
-| I-3 | Remove `cookies.txt` from tracking + `.gitignore` + purge history; add secret-scan gate | TECH-004 | 27002 5.10/8.4 | Low→Low, hygiene | I-9 (CI) | DevOps | S | `git ls-files` clean; scanner in CI |
-| I-4 | Restrict `trustProxies` to the LB CIDR | TECH-005 | 27002 8.20 | High→Low (R-04) | E-38 | DevOps | S | Forged XFF ignored; admin allowlist holds |
-| I-5 | Confirm production `APP_DEBUG=false`, `debug_otp_enabled=false`, ClamAV enabled | TECH-020, M-15 | 27002 8.5/8.7 | Medium→Low (R-17) | E-39 | DevOps | S | Staging/prod never return `debug_otp` |
+| # | Action | Findings | Standards | Risk reduction | Dependencies | Owner | Effort | Validation | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| I-1 | Disable/gate public registration (invite + admin approval; domain allowlist) | TECH-001 | 27002 5.15/8.2 | Critical→Low (R-01) | none | Lead dev | S | Registration cannot create a privileged account; regression test | ✅ COMPLETED |
+| I-2 | Enforce `is_active`/`is_deleted` at login + kill live sessions on deactivate | TECH-002 | 27002 5.18 | High→Low (R-02) | none | Lead dev | S | Deactivated user cannot log in; test | ✅ COMPLETED |
+| I-3 | Remove `cookies.txt` from tracking + `.gitignore` + purge history; add secret-scan gate | TECH-004 | 27002 5.10/8.4 | Low→Low, hygiene | I-9 (CI) | DevOps | S | `git ls-files` clean; scanner in CI | ✅ COMPLETED |
+| I-4 | Restrict `trustProxies` to the LB CIDR | TECH-005 | 27002 8.20 | High→Low (R-04) | E-38 | DevOps | S | Forged XFF ignored; admin allowlist holds | ✅ COMPLETED |
+| I-5 | Confirm production `APP_DEBUG=false`, `debug_otp_enabled=false`, ClamAV enabled | TECH-020, M-15 | 27002 8.5/8.7 | Medium→Low (R-17) | E-39 | DevOps | S | Staging/prod never return `debug_otp` | ✅ COMPLETED |
 
 ## 30-day improvements (P1)
-| # | Action | Findings | Standards | Risk reduction | Owner | Effort | Validation |
-|---|---|---|---|---|---|---|---|
-| D30-1 | Enforce MFA for ADMIN (then CASE_MANAGER) | TECH-003 | 27002 8.5 | High→Low (R-03) | Lead dev/ISM | M | Un-enrolled admin blocked until setup |
-| D30-2 | Encrypt `mfa_secret`; hash recovery codes | TECH-011 | 27002 8.24 | High→Low (R-10) | Lead dev | S | Ciphertext in DB; login works |
-| D30-3 | Add auth-failure/logout/export audit events; fix hash chaining + verifier | TECH-006, TECH-007 | 27002 8.15/8.16 | High→Low (R-05/R-06) | Lead dev | M | Failed login + export produce audit rows; chain verifies |
-| D30-4 | PR-gated CI: tests + Pint + Larastan + ESLint + tsc + composer/npm audit + gitleaks; require as status check; add Dependabot | TECH-009, TECH-022, TECH-033 | 27002 8.28/8.29/8.8 | Medium→Low (R-08) | Lead dev | M | Failing PR blocked; branch protection (E-36) |
-| D30-5 | Reconcile all governance docs with code; add doc-review-on-change | TECH-010, TECH-023 | 27001/9001 7.5.3 | High→Low (R-21) | Lead dev/QMS | M | Sampling review: docs match code |
-| D30-6 | Independent encrypted offsite DB dumps + document & run a restore test | TECH-008 | 27002 8.13 | High→Low (R-07) | DevOps/ISM | M | Restore drill reproduces DB + a document |
-| D30-7 | Draft Information Security Policy + assign ISM/DPO roles | 27001 5.2/5.3; 27002 5.1 | E-01 | Governance uplift | Management/ISM | M | Approved policy exists |
-| D30-8 | Start PIA + execute DPAs with processors; draft privacy notice | TECH-014, R-20 | 27002 5.34/5.19; RA 10173 | Critical(reg)→Medium | DPO/Legal | L | PIA + signed DPAs (E-21/E-23/E-24) |
+| # | Action | Findings | Standards | Risk reduction | Owner | Effort | Validation | Status |
+|---|---|---|---|---|---|---|---|---|
+| D30-1 | Enforce MFA for ADMIN (then CASE_MANAGER) | TECH-003 | 27002 8.5 | High→Low (R-03) | Lead dev/ISM | M | Un-enrolled admin blocked until setup | ✅ COMPLETED |
+| D30-2 | Encrypt `mfa_secret`; hash recovery codes | TECH-011 | 27002 8.24 | High→Low (R-10) | Lead dev | S | Ciphertext in DB; login works | ✅ COMPLETED |
+| D30-3 | Add auth-failure/logout/export audit events; fix hash chaining + verifier | TECH-006, TECH-007 | 27002 8.15/8.16 | High→Low (R-05/R-06) | Lead dev | M | Failed login + export produce audit rows; chain verifies | ✅ COMPLETED |
+| D30-4 | PR-gated CI: tests + Pint + Larastan + ESLint + tsc + composer/npm audit + gitleaks; require as status check; add Dependabot | TECH-009, TECH-022, TECH-033 | 27002 8.28/8.29/8.8 | Medium→Low (R-08) | Lead dev | M | Failing PR blocked; branch protection (E-36) | ✅ COMPLETED |
+| D30-5 | Reconcile all governance docs with code; add doc-review-on-change | TECH-010, TECH-023 | 27001/9001 7.5.3 | High→Low (R-21) | Lead dev/QMS | M | Sampling review: docs match code | 🏗️ IN PROGRESS |
+| D30-6 | Independent encrypted offsite DB dumps + document & run a restore test | TECH-008 | 27002 8.13 | High→Low (R-07) | DevOps/ISM | M | Restore drill reproduces DB + a document | ⏳ PENDING |
+| D30-7 | Draft Information Security Policy + assign ISM/DPO roles | 27001 5.2/5.3; 27002 5.1 | E-01 | Governance uplift | Management/ISM | M | Approved policy exists | ⏳ PENDING |
+| D30-8 | Start PIA + execute DPAs with processors; draft privacy notice | TECH-014, R-20 | 27002 5.34/5.19; RA 10173 | Critical(reg)→Medium | DPO/Legal | L | PIA + signed DPAs (E-21/E-23/E-24) | ⏳ PENDING |
 
 ## 60-day improvements (P2)
 | # | Action | Findings | Standards | Owner | Effort |

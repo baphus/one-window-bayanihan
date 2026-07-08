@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckMfaEnrolled;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\CheckUserActive;
 use App\Http\Middleware\ContentSecurityPolicy;
@@ -48,6 +49,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             CheckUserActive::class,
+            CheckMfaEnrolled::class,
             ContentSecurityPolicy::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

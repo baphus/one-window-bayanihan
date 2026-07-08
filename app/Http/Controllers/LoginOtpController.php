@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ResendOtpRequest;
+use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\MfaService;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use PragmaRX\Google2FA\Google2FA;
@@ -30,12 +33,36 @@ class LoginOtpController extends Controller
         $user = User::where('email', $request->input('email'))->first();
 
         if (! $user || ! Hash::check($request->input('password'), $user->password)) {
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'auth',
+                'entity_id' => $user?->id,
+                'description' => 'Failed login attempt: invalid credentials',
+                'user_id' => null,
+                'timestamp' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent() ?? '',
+                'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => 'The provided credentials do not match our records.',
             ]);
         }
 
         if (! $user->is_active || $user->is_deleted) {
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'auth',
+                'entity_id' => $user->id,
+                'description' => 'Failed login attempt: inactive or deleted account',
+                'user_id' => null,
+                'timestamp' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent() ?? '',
+                'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => 'The provided credentials do not match our records.',
             ]);
@@ -110,6 +137,18 @@ class LoginOtpController extends Controller
         );
 
         if (! $verified) {
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'auth',
+                'entity_id' => null,
+                'description' => 'Invalid OTP entered for '.$request->input('email'),
+                'user_id' => null,
+                'timestamp' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent() ?? '',
+                'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+            ]);
+
             throw ValidationException::withMessages([
                 'otp' => 'Invalid or expired OTP.',
             ]);
@@ -137,6 +176,18 @@ class LoginOtpController extends Controller
                 'hint' => $hint,
             ]);
         }
+
+        AuditLog::create([
+            'action' => 'LOGIN',
+            'module' => 'auth',
+            'entity_id' => $user->id,
+            'description' => null,
+            'user_id' => $user->id,
+            'timestamp' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent() ?? '',
+            'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+        ]);
 
         Auth::login($user, true);
 
@@ -176,12 +227,37 @@ class LoginOtpController extends Controller
         $valid = $google2fa->verifyKey($user->mfa_secret, $request->input('otp'));
 
         if (! $valid) {
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'mfa',
+                'entity_id' => $user->id,
+                'description' => 'Invalid TOTP code during login',
+                'user_id' => $user->id,
+                'timestamp' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent() ?? '',
+                'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+            ]);
+
             throw ValidationException::withMessages([
                 'otp' => 'Invalid authentication code.',
             ]);
         }
 
         $request->session()->forget('pending_mfa_user_id');
+
+        AuditLog::create([
+            'action' => 'LOGIN',
+            'module' => 'auth',
+            'entity_id' => $user->id,
+            'description' => null,
+            'user_id' => $user->id,
+            'timestamp' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent() ?? '',
+            'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+        ]);
+
         Auth::login($user, true);
         $request->session()->regenerate();
 
@@ -213,23 +289,46 @@ class LoginOtpController extends Controller
             ]);
         }
 
+        $mfaService = app(MfaService::class);
         $recoveryCodes = $user->mfa_recovery_codes ?? [];
 
-        if (! in_array($request->input('recovery_code'), $recoveryCodes)) {
+        if (! $mfaService->verifyRecoveryCode($request->input('recovery_code'), $recoveryCodes)) {
+            AuditLog::create([
+                'action' => 'UPDATE',
+                'module' => 'mfa',
+                'entity_id' => $user->id,
+                'description' => 'Invalid recovery code used during login',
+                'user_id' => $user->id,
+                'timestamp' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent() ?? '',
+                'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+            ]);
+
             throw ValidationException::withMessages([
                 'recovery_code' => 'Invalid recovery code.',
             ]);
         }
 
-        $remainingCodes = array_values(array_filter(
-            $recoveryCodes,
-            fn ($code) => $code !== $request->input('recovery_code'),
-        ));
+        $remainingCodes = $mfaService->removeUsedCode($request->input('recovery_code'), $recoveryCodes);
 
         $user->mfa_recovery_codes = $remainingCodes;
         $user->save();
 
         $request->session()->forget('pending_mfa_user_id');
+
+        AuditLog::create([
+            'action' => 'LOGIN',
+            'module' => 'auth',
+            'entity_id' => $user->id,
+            'description' => null,
+            'user_id' => $user->id,
+            'timestamp' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent() ?? '',
+            'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+        ]);
+
         Auth::login($user, true);
         $request->session()->regenerate();
 

@@ -65,14 +65,9 @@ class AuditObserver
             'request_id' => $requestId,
         ];
 
-        // Hash chaining: compute prev_hash from previous log for same entity
-        $prevLog = AuditLog::where('entity_id', $model->getKey())
-            ->orderBy('timestamp', 'desc')
-            ->value('prev_hash');
-
-        if ($prevLog) {
-            $data['prev_hash'] = $prevLog;
-        }
+        // prev_hash is now computed in AuditLog::boot() creating event —
+        // it builds a global SHA-256 chain across all audit logs for
+        // integrity verification.
 
         // Generate description BEFORE creating (single-save pattern)
         try {
