@@ -255,6 +255,93 @@ class RlsMigrationIntegrityTest extends TestCase
         );
     }
 
+    // ===== MIDDLEWARE CHECKS =====
+
+    public function test_set_postgres_session_uses_parameterized_queries(): void
+    {
+        $path = app_path('Http/Middleware/SetPostgresSession.php');
+        $this->assertFileExists($path);
+
+        $content = File::get($path);
+
+        // Must use set_config with bound parameters (not raw string interpolation)
+        $this->assertStringContainsString(
+            'set_config(?, ?, ?)',
+            $content,
+            'SetPostgresSession must use set_config with parameterized bindings'
+        );
+
+        $this->assertStringContainsString(
+            'app.current_user_id',
+            $content,
+            'SetPostgresSession must set app.current_user_id context variable'
+        );
+
+        $this->assertStringContainsString(
+            'app.user_role',
+            $content,
+            'SetPostgresSession must set app.user_role context variable'
+        );
+
+        // Ensure no raw string interpolation with user values (safety check)
+        $this->assertStringNotContainsString(
+            "SET SESSION app.current_user_id = '{\$user->id}'",
+            $content,
+            'SetPostgresSession must NOT use string interpolation — use set_config with bindings'
+        );
+
+        $this->assertStringNotContainsString(
+            "SET SESSION app.user_role = '{\$user->role}'",
+            $content,
+            'SetPostgresSession must NOT use string interpolation — use set_config with bindings'
+        );
+    }
+
+    // ===== FAIL-CLOSED CHECKS =====
+
+    public function test_rls_migration_throws_on_non_postgres(): void
+    {
+        $files = File::glob(database_path('migrations/*.php'));
+        $migration = '';
+        foreach ($files as $file) {
+            if (str_contains(basename($file), 'enable_row_level_security')) {
+                $migration = $file;
+                break;
+            }
+        }
+
+        $this->assertNotEmpty($migration, 'RLS migration file not found');
+
+        $content = File::get($migration);
+
+        // The up() catch block must re-throw (fail-closed) instead of silently skipping
+        $this->assertStringContainsString(
+            'throw $e;',
+            $content,
+            'RLS migration up() catch block must re-throw the exception (fail-closed)'
+        );
+
+        // The down() catch block must also re-throw
+        $this->assertStringContainsString(
+            'throw $e;',
+            $content,
+            'RLS migration down() catch block must re-throw the exception (fail-closed)'
+        );
+
+        // Verify error logging (not just warning)
+        $this->assertStringContainsString(
+            "Log::error('Row-level security migration failed",
+            $content,
+            'RLS migration must log error level (not just warning) on failure'
+        );
+
+        $this->assertStringContainsString(
+            "Log::error('Row-level security rollback failed",
+            $content,
+            'RLS migration down() must log error level (not just warning) on failure'
+        );
+    }
+
     // ===== DOWN METHOD CHECKS =====
 
     public function test_migration_1_has_down_method(): void

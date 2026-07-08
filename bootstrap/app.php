@@ -18,6 +18,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -149,4 +150,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return Inertia::render('Errors/ServerError', ['incidentId' => $incidentId])->toResponse($request)->setStatusCode(500);
         });
+
+        // Report exceptions to Sentry in non-local environments
+        if (! App::environment('local', 'testing')) {
+            if (app()->bound('sentry')) {
+                app('sentry')->captureException($e);
+            }
+        }
     })->create();
