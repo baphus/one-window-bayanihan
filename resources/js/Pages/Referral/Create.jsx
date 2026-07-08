@@ -893,7 +893,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                                                     ) : (
                                                                                         <>
                                                                                             <FileUpload
-                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                                                                                 label="Choose file"
                                                                                                 onFilesSelected={(file) => handleFileChange(requirementKey, file)}
                                                                                             />

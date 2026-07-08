@@ -279,7 +279,7 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
                                         {cr.status === 'PENDING' ? (
                                             <div className="mt-3">
                                                 <FileUpload
-                                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                                     label="Upload to Fulfill"
                                                     onFilesSelected={(file) => {
                                                         if (!file) return;

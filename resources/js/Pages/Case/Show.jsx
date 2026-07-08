@@ -835,7 +835,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
               {canManageCaseDocuments && (
                 <FileUpload
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   maxSize={10 * 1024 * 1024}
                   label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
                   disabled={uploadingDoc}

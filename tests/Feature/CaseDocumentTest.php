@@ -266,6 +266,7 @@ class CaseDocumentTest extends TestCase
         // fake uploads are detected as application/x-empty)
         $this->mock(StorageService::class, function ($mock) {
             $mock->shouldReceive('validate')->andReturn([]);
+            $mock->shouldReceive('temporaryUrl')->andReturn('https://example.com/file.pdf');
             $mock->shouldReceive('store')->andReturn(new FileStoreResult(
                 path: 'case-documents/test/document.pdf',
                 originalName: 'document.pdf',

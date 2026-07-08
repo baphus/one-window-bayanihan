@@ -27,7 +27,7 @@ class StoreReferralRequest extends FormRequest
             'compliance_requirements.*.requirement_name' => ['required_with:compliance_requirements', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'documents' => ['nullable', 'array'],
-            'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp', 'max:10240'],
+            'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ];
     }
 
