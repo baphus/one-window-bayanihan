@@ -48,6 +48,9 @@ export default function ReferralIndex({ referrals, filters }) {
 
     const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
 
+    const [pendingDecision, setPendingDecision] = useState(null);
+    const [decisionRemark, setDecisionRemark] = useState('');
+
     const toast = useToast();
     const [isExporting, setIsExporting] = useState(false);
 

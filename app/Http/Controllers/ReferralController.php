@@ -6,6 +6,7 @@ use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
@@ -39,15 +40,43 @@ class ReferralController extends Controller
     public function create(Request $request)
     {
         $agencies = $this->referralService->getAgenciesWithServices();
-        $cases = CaseFile::with('client')
+
+        $casesQuery = CaseFile::with('client')
             ->where('status', 'OPEN')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'desc');
+
+        if ($search = $request->query('search')) {
+            $searchTerm = "%{$search}%";
+            $casesQuery->where(function ($q) use ($searchTerm) {
+                $q->where('tracker_number', 'ilike', $searchTerm)
+                    ->orWhere('case_number', 'ilike', $searchTerm)
+                    ->orWhereHas('client', function ($q) use ($searchTerm) {
+                        $q->where('first_name', 'ilike', $searchTerm)
+                            ->orWhere('last_name', 'ilike', $searchTerm);
+                    });
+            });
+        }
+
+        $cases = $casesQuery->paginate(12)->withQueryString();
+
+        // Build a lookup: case_id → [agcy_id, ...] so the frontend can warn
+        // when a case is already referred to a given agency.
+        $caseIds = $cases->pluck('id');
+        $existingReferrals = Referral::whereIn('case_id', $caseIds)
+            ->where('is_deleted', false)
+            ->select('case_id', 'agcy_id')
             ->get();
+        $caseReferrals = [];
+        foreach ($existingReferrals as $ref) {
+            $caseReferrals[$ref->case_id][] = $ref->agcy_id;
+        }
 
         return Inertia::render('Referral/Create', [
             'case_id' => $request->query('case_id'),
             'agencies' => $agencies,
             'cases' => $cases,
+            'caseReferrals' => $caseReferrals,
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -98,6 +127,7 @@ class ReferralController extends Controller
             'referral' => $referral,
             'serviceRequirements' => $serviceRequirements,
             'overdueDays' => $overdueDays,
+            'timeline' => $this->referralService->getReferralTimeline($referral),
         ]);
     }
 

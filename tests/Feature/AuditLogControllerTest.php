@@ -23,7 +23,7 @@ class AuditLogControllerTest extends TestCase
         parent::setUp();
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
-        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user = User::factory()->create(['role' => 'ADMIN']);
         DB::table('audit_logs')->delete();
     }
 
@@ -47,8 +47,6 @@ class AuditLogControllerTest extends TestCase
         $data = $response->json();
         $this->assertArrayHasKey('props', $data);
         $this->assertNotNull($data['props']['logs']['data'] ?? null);
-        $this->assertNotNull($data['props']['availableActions'] ?? null);
-        $this->assertNotNull($data['props']['availableModules'] ?? null);
     }
 
     #[Test]
@@ -135,6 +133,8 @@ class AuditLogControllerTest extends TestCase
 
         $response = $this->actingAs($this->user)
             ->withHeader('X-Inertia', 'true')
+            ->withHeader('X-Inertia-Partial-Data', 'availableActions,availableModules')
+            ->withHeader('X-Inertia-Partial-Component', 'AuditLog/Index')
             ->get('/audit-logs');
 
         $response->assertStatus(200);
@@ -161,6 +161,8 @@ class AuditLogControllerTest extends TestCase
 
         $response = $this->actingAs($this->user)
             ->withHeader('X-Inertia', 'true')
+            ->withHeader('X-Inertia-Partial-Data', 'availableActions,availableModules')
+            ->withHeader('X-Inertia-Partial-Component', 'AuditLog/Index')
             ->get('/audit-logs');
 
         $response->assertStatus(200);

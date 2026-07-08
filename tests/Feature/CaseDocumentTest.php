@@ -161,6 +161,73 @@ class CaseDocumentTest extends TestCase
             ->assertJsonCount(1);
     }
 
+    public function test_agency_user_with_active_referral_cannot_upload()
+    {
+        $agency = Agency::create([
+            'id' => fake()->uuid(),
+            'name' => 'Test Agency',
+            'short' => 'TA',
+            'slug' => 'test-agency-upload',
+        ]);
+
+        Referral::create([
+            'id' => fake()->uuid(),
+            'required_services' => 'Test service',
+            'status' => 'PENDING',
+            'case_id' => $this->case->id,
+            'agcy_id' => $agency->id,
+        ]);
+
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $agency->id,
+        ]);
+
+        $file = UploadedFile::fake()->create('doc.pdf', 100);
+
+        $response = $this->actingAs($agencyUser)
+            ->postJson(route('cases.documents.store', $this->case->id), [
+                'file' => $file,
+            ]);
+
+        $response->assertForbidden();
+    }
+
+    public function test_agency_user_with_active_referral_cannot_delete()
+    {
+        $doc = $this->createDocument();
+
+        $agency = Agency::create([
+            'id' => fake()->uuid(),
+            'name' => 'Test Agency',
+            'short' => 'TA',
+            'slug' => 'test-agency-delete',
+        ]);
+
+        Referral::create([
+            'id' => fake()->uuid(),
+            'required_services' => 'Test service',
+            'status' => 'PENDING',
+            'case_id' => $this->case->id,
+            'agcy_id' => $agency->id,
+        ]);
+
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $agency->id,
+        ]);
+
+        $response = $this->actingAs($agencyUser)
+            ->deleteJson(route('cases.documents.destroy', [$this->case->id, $doc->id]));
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('case_documents', [
+            'id' => $doc->id,
+            'is_deleted' => 0,
+        ]);
+    }
+
     public function test_agency_user_without_active_referral_cannot_access()
     {
         $this->createDocument();
@@ -193,12 +260,13 @@ class CaseDocumentTest extends TestCase
 
     public function test_document_creation_stores_size()
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         // Mock StorageService to bypass deep MIME inspection (empty-content
         // fake uploads are detected as application/x-empty)
         $this->mock(StorageService::class, function ($mock) {
             $mock->shouldReceive('validate')->andReturn([]);
+            $mock->shouldReceive('temporaryUrl')->andReturn('https://example.com/file.pdf');
             $mock->shouldReceive('store')->andReturn(new FileStoreResult(
                 path: 'case-documents/test/document.pdf',
                 originalName: 'document.pdf',

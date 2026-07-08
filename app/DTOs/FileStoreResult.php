@@ -10,7 +10,7 @@ readonly class FileStoreResult
         public string $storedName,    // UUID-based stored filename
         public string $type,          // MIME type
         public int $size,             // File size in bytes
-        public string $disk = 'supabase',
+        public string $disk = '',     // Storage disk name (resolved at runtime)
         public bool $success = true,
         public ?string $error = null,
     ) {}

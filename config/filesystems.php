@@ -55,6 +55,30 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Generic S3-compatible object storage (default for file uploads).
+         * Backward-compatible: falls back to SUPABASE_S3_* env vars when
+         * the generic STORAGE_* vars are not set.
+         */
+        'object-storage' => [
+            'driver' => env('STORAGE_DRIVER', env('SUPABASE_S3_DRIVER', 's3')),
+            'key' => env('STORAGE_ACCESS_KEY', env('SUPABASE_S3_ACCESS_KEY')),
+            'secret' => env('STORAGE_SECRET_KEY', env('SUPABASE_S3_SECRET_KEY')),
+            'region' => env('STORAGE_REGION', env('SUPABASE_S3_REGION', 'ap-southeast-1')),
+            'bucket' => env('STORAGE_BUCKET', env('SUPABASE_S3_BUCKET', 'case-files')),
+            'endpoint' => env('STORAGE_ENDPOINT', env('SUPABASE_S3_ENDPOINT')),
+            'root' => env('STORAGE_ROOT', env('SUPABASE_S3_ROOT', storage_path('app/storage'))),
+            'url' => env('STORAGE_URL', env('SUPABASE_S3_URL')),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        /*
+         * Legacy supabase-specific disk alias. References the same
+         * object-storage configuration. Kept for backward compatibility.
+         */
         'supabase' => [
             'driver' => env('SUPABASE_S3_DRIVER', 's3'),
             'key' => env('SUPABASE_S3_ACCESS_KEY'),

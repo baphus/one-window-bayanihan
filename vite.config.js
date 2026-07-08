@@ -8,14 +8,6 @@ export default defineConfig({
         dedupe: ['react', 'react-dom'],
         alias: {
             /**
-             * Stub Node.js `util` module for browser build.
-             * `object-inspect` (dep of side-channel -> qs -> @inertiajs/core)
-             * does `require('./util.inspect')` which does `require('util').inspect`.
-             * Without this alias, Vite externalizes `util` as a Proxy that throws
-             * on any property access with "Module "" has been externalized".
-             */
-            util: path.resolve(__dirname, 'resources/js/vendor-stubs/util-stub.js'),
-            /**
              * `@/` path alias matching tsconfig.json paths.
              * Must be absolute for rolldown (Vite 8) to resolve correctly.
              */
@@ -24,7 +16,6 @@ export default defineConfig({
     },
     server: {
         host: '127.0.0.1',
-        allowedHosts: ['.lhr.life'],
         port: 5173,
         cors: {
             origin: true,
@@ -37,6 +28,25 @@ export default defineConfig({
         },
     },
     plugins: [
+        /**
+         * Intercept `util` / `node:util` before rolldown's built-in detection.
+         *
+         * Rolldown (Vite 8) detects Node.js built-in modules BEFORE applying
+         * `resolve.alias`, so the old `util: stub-path` alias didn't work in
+         * production builds — rolldown would still generate the throwing Proxy.
+         *
+         * This plugin runs at the `resolveId` stage with `enforce: 'pre'` so
+         * the redirect happens before any built-in externalization logic.
+         */
+        {
+            name: 'resolve-util-stub',
+            enforce: 'pre',
+            resolveId(source) {
+                if (source === 'util' || source === 'node:util') {
+                    return path.resolve(__dirname, 'resources/js/vendor-stubs/util-stub.js');
+                }
+            },
+        },
         {
             name: 'dev-tunnel-headers',
             configureServer(server) {

@@ -2,9 +2,7 @@
 
 namespace App\Mail;
 
-use App\Models\Agency;
-use App\Models\CaseFile;
-use App\Models\Referral;
+use App\Models\FeedbackInvitation;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -17,10 +15,8 @@ class FeedbackRequestMail extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public function __construct(
-        public readonly Referral $referral,
-        public readonly CaseFile $caseFile,
-        public readonly Agency $agency,
-        public readonly string $trackingToken,
+        public readonly FeedbackInvitation $invitation,
+        public readonly string $token,
     ) {}
 
     public function envelope(): Envelope

@@ -90,7 +90,7 @@ class CaseDocumentController extends Controller
     public function destroy(Request $request, string $caseId, string $documentId)
     {
         $case = CaseFile::findOrFail($caseId);
-        $this->authorizeAccess($case, $request->user());
+        $this->authorizeWriteAccess($request->user());
 
         $document = CaseDocument::where('case_id', $caseId)
             ->where('id', $documentId)
@@ -125,6 +125,13 @@ class CaseDocumentController extends Controller
 
         if (! $hasActiveReferral) {
             abort(403, 'You do not have access to documents for this case.');
+        }
+    }
+
+    private function authorizeWriteAccess($user)
+    {
+        if (! $user->isCaseManager()) {
+            abort(403, 'Only case managers can manage case documents.');
         }
     }
 }

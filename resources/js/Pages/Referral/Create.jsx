@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
@@ -52,7 +52,9 @@ function InfoRow({ label, value, subtext }) {
     );
 }
 
-export default function ReferralCreate({ case_id, agencies, cases: openCases }) {
+export default function ReferralCreate({ case_id, agencies, cases: paginatedCases, caseReferrals = {}, filters = {} }) {
+    const cases = paginatedCases.data || [];
+    const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases.meta || {};
     const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
         case_id: case_id || '',
         agcy_id: '',
@@ -68,19 +70,33 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
     const [requirementUploads, setRequirementUploads] = useState({});
     const [fileErrors, setFileErrors] = useState({});
     const [notesValue, setNotesValue] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [searchQuery, setSearchQuery] = useState(filters.search || '');
+    const [debouncedSearch, setDebouncedSearch] = useState(filters.search || '');
     const [complianceMode, setComplianceMode] = useState({});
     const searchDebounceRef = useRef(null);
+    const agencySearchDebounceRef = useRef(null);
 
-    const filteredCases = useMemo(() => {
-        const q = debouncedSearch.trim().toLowerCase();
-        if (!q) return openCases;
-        return openCases.filter((c) => {
-            const clientName = [c.client?.first_name, c.client?.last_name].filter(Boolean).join(' ').toLowerCase();
-            return (c.case_number?.toLowerCase() || '').includes(q) || clientName.includes(q);
+    const [agencySearchQuery, setAgencySearchQuery] = useState('');
+    const [agencyDebouncedSearch, setAgencyDebouncedSearch] = useState('');
+
+    const selectedCaseRef = useRef(null);
+
+    useEffect(() => {
+        if (data.case_id) {
+            const found = cases.find((c) => c.id === data.case_id);
+            if (found) selectedCaseRef.current = found;
+        }
+    }, [cases, data.case_id]);
+
+    const filteredAgencies = useMemo(() => {
+        const q = agencyDebouncedSearch.trim().toLowerCase();
+        if (!q) return agencies;
+        return agencies.filter((a) => {
+            return (a.name?.toLowerCase() || '').includes(q)
+                || (a.short?.toLowerCase() || '').includes(q)
+                || (a.description?.toLowerCase() || '').includes(q);
         });
-    }, [openCases, debouncedSearch]);
+    }, [agencies, agencyDebouncedSearch]);
 
     const initialFormRef = useRef({ case_id: data.case_id, agcy_id: '', services: [] });
     const hasDirty = useMemo(() => (
@@ -91,8 +107,19 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         || Object.keys(requirementUploads).length > 0
     ), [data.case_id, data.agcy_id, data.services, notesValue, requirementUploads]);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
-    const selectedCase = openCases.find((item) => item.id === data.case_id);
+    const selectedCase = useMemo(() => {
+        if (!data.case_id) return null;
+        return cases.find((c) => c.id === data.case_id) || selectedCaseRef.current;
+    }, [cases, data.case_id]);
     const selectedAgency = agencies.find((item) => item.id === data.agcy_id);
+
+    // Agencies that already have a referral for the selected case
+    const referredAgencyIds = useMemo(() => {
+        if (!data.case_id || !caseReferrals[data.case_id]) return new Set();
+        return new Set(caseReferrals[data.case_id]);
+    }, [data.case_id, caseReferrals]);
+
+    const selectedAgencyIsReferred = data.agcy_id && referredAgencyIds.has(data.agcy_id);
 
     const availableServices = useMemo(() => {
         if (!data.agcy_id || !selectedAgency) return [];
@@ -160,8 +187,24 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
         }
     }, []);
 
+    const prevSearchRef = useRef(debouncedSearch);
+    useEffect(() => {
+        const prev = prevSearchRef.current;
+        prevSearchRef.current = debouncedSearch;
+        if (debouncedSearch === prev) return;
+
+        router.get(route('referrals.create'), {
+            search: debouncedSearch || null,
+            case_id: data.case_id || null,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    }, [debouncedSearch]);
+
     const isStepOneValid = Boolean(selectedCase);
-    const isStepTwoValid = Boolean(data.agcy_id);
+    const isStepTwoValid = Boolean(data.agcy_id) && !selectedAgencyIsReferred;
     const isStepThreeValid = Boolean(
         data.case_id && data.agcy_id && data.services.length > 0 && !hasMissingRequirementUploads
     );
@@ -397,7 +440,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                             <p className="mt-2 text-[13px] text-slate-500">Choose the case you want to refer to an agency.</p>
                                             <div className="mt-4">
                                                 <Field label="Case" required>
-                                                    {openCases.length === 0 ? (
+                                                    {total === 0 ? (
                                                         <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                                                             <span className="material-symbols-outlined text-[40px] mb-3">folder_off</span>
                                                             <p className="text-[14px] font-medium text-slate-500">No open cases available</p>
@@ -416,12 +459,12 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                         setDebouncedSearch(value);
                                                                     }, 300);
                                                                 }}
-                                                                placeholder="Search by case number or client name..."
+                                                                placeholder="Search by tracking number or client name..."
                                                                 className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             />
 
                                                             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                {filteredCases.map((item) => (
+                                                                {cases.map((item) => (
                                                                     <button
                                                                         key={item.id}
                                                                         type="button"
@@ -429,6 +472,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                             setData('case_id', item.id);
                                                                             setData('agcy_id', '');
                                                                             setData('services', []);
+                                                                            setNotesValue('');
                                                                         }}
                                                                         className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                                                                             item.id === data.case_id
@@ -437,7 +481,12 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                         }`}
                                                                     >
                                                                         <div className="flex items-start justify-between gap-2">
-                                                                            <span className="text-[13px] font-bold text-indigo-700">{item.case_number}</span>
+                                                                            <div className="min-w-0">
+                                                                                <span className="text-[13px] font-bold text-indigo-700">{item.case_number}</span>
+                                                                                {item.tracker_number && (
+                                                                                    <p className="text-[11px] text-indigo-500/70 mt-0.5 font-mono">ID: {item.tracker_number}</p>
+                                                                                )}
+                                                                            </div>
                                                                             <div className="flex shrink-0 gap-1.5">
                                                                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                                                                                     item.client_type === 'OFW'
@@ -470,11 +519,97 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                 ))}
                                                             </div>
 
-                                                            {filteredCases.length === 0 && (
+                                                            {cases.length === 0 && (
                                                                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                                                                     <span className="material-symbols-outlined text-[40px] mb-3">folder_off</span>
                                                                     <p className="text-[14px] font-medium text-slate-500">No cases found</p>
                                                                     <p className="text-[12px] text-slate-400 mt-1">Try a different search term.</p>
+                                                                </div>
+                                                            )}
+
+                                                            {lastPage > 1 && (
+                                                                <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4">
+                                                                    <p className="text-[11px] text-slate-500">
+                                                                        Showing {from}–{to} of {total} cases
+                                                                    </p>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={currentPage <= 1}
+                                                                            onClick={() => {
+                                                                                router.get(route('referrals.create'), {
+                                                                                    search: debouncedSearch || null,
+                                                                                    page: currentPage - 1,
+                                                                                    case_id: data.case_id || null,
+                                                                                }, {
+                                                                                    preserveState: true,
+                                                                                    preserveScroll: true,
+                                                                                    replace: true,
+                                                                                });
+                                                                            }}
+                                                                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                        >
+                                                                            <span className="material-symbols-outlined text-[14px]">chevron_left</span>
+                                                                            Prev
+                                                                        </button>
+                                                                        <div className="flex items-center gap-1">
+                                                                            {Array.from({ length: Math.min(lastPage, 5) }, (_, i) => {
+                                                                                let pageNum;
+                                                                                if (lastPage <= 5) {
+                                                                                    pageNum = i + 1;
+                                                                                } else if (currentPage <= 3) {
+                                                                                    pageNum = i + 1;
+                                                                                } else if (currentPage >= lastPage - 2) {
+                                                                                    pageNum = lastPage - 4 + i;
+                                                                                } else {
+                                                                                    pageNum = currentPage - 2 + i;
+                                                                                }
+                                                                                return (
+                                                                                    <button
+                                                                                        key={pageNum}
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            router.get(route('referrals.create'), {
+                                                                                                search: debouncedSearch || null,
+                                                                                                page: pageNum,
+                                                                                                case_id: data.case_id || null,
+                                                                                            }, {
+                                                                                                preserveState: true,
+                                                                                                preserveScroll: true,
+                                                                                                replace: true,
+                                                                                            });
+                                                                                        }}
+                                                                                        className={`flex h-7 w-7 items-center justify-center rounded-md text-[12px] font-semibold transition ${
+                                                                                            pageNum === currentPage
+                                                                                                ? 'bg-indigo-600 text-white'
+                                                                                                : 'text-slate-600 hover:bg-slate-100'
+                                                                                        }`}
+                                                                                    >
+                                                                                        {pageNum}
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={currentPage >= lastPage}
+                                                                            onClick={() => {
+                                                                                router.get(route('referrals.create'), {
+                                                                                    search: debouncedSearch || null,
+                                                                                    page: currentPage + 1,
+                                                                                    case_id: data.case_id || null,
+                                                                                }, {
+                                                                                    preserveState: true,
+                                                                                    preserveScroll: true,
+                                                                                    replace: true,
+                                                                                });
+                                                                            }}
+                                                                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                        >
+                                                                            Next
+                                                                            <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                         </>
@@ -511,27 +646,111 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                             <p className="mt-2 text-[13px] text-slate-500">Choose the agency to handle this referral.</p>
                                             <div className="mt-4">
                                                 <Field label="Agency" required>
-                                                    <select
-                                                        value={data.agcy_id}
-                                                        onChange={(e) => {
-                                                            const nextAgencyId = e.target.value;
-                                                            const agency = agencies.find((a) => a.id === nextAgencyId);
-                                                            const nextServices = agency?.services?.map((s) => s.name) || [];
-                                                            const valid = data.services.filter((s) => nextServices.includes(s));
-                                                            setData('agcy_id', nextAgencyId);
-                                                            setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
-                                                        }}
-                                                        className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                        required
-                                                    >
-                                                        <option value="">Select an agency...</option>
-                                                        {agencies.map((agency) => (
-                                                            <option key={agency.id} value={agency.id}>
-                                                                {agency.name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                    {agencies.length === 0 ? (
+                                                        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                                            <span className="material-symbols-outlined text-[40px] mb-3">business_off</span>
+                                                            <p className="text-[14px] font-medium text-slate-500">No agencies available</p>
+                                                            <p className="text-[12px] text-slate-400 mt-1">There are no agencies to refer to at this time.</p>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                value={agencySearchQuery}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    setAgencySearchQuery(value);
+                                                                    if (agencySearchDebounceRef.current) clearTimeout(agencySearchDebounceRef.current);
+                                                                    agencySearchDebounceRef.current = setTimeout(() => {
+                                                                        setAgencyDebouncedSearch(value);
+                                                                    }, 300);
+                                                                }}
+                                                                placeholder="Search by agency name..."
+                                                                className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            />
+
+                                                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                {filteredAgencies.map((agency) => {
+                                                                    const alreadyReferred = data.case_id && referredAgencyIds.has(agency.id);
+                                                                    return (
+                                                                        <button
+                                                                            key={agency.id}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                if (alreadyReferred) return;
+                                                                                const nextServices = agency.services?.map((s) => s.name) || [];
+                                                                                const valid = data.services.filter((s) => nextServices.includes(s));
+                                                                                setData('agcy_id', agency.id);
+                                                                                setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
+                                                                            }}
+                                                                            disabled={alreadyReferred}
+                                                                            className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                                                                alreadyReferred
+                                                                                    ? 'border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed'
+                                                                                    : agency.id === data.agcy_id
+                                                                                        ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/30'
+                                                                                        : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-md'
+                                                                            }`}
+                                                                        >
+                                                                            <div className="flex items-center gap-3">
+                                                                                {agency.logo_url ? (
+                                                                                    <img
+                                                                                        src={agency.logo_url}
+                                                                                        alt={agency.name}
+                                                                                        className="h-9 w-9 shrink-0 rounded-full object-contain border border-slate-200"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 text-[13px] font-bold">
+                                                                                        {(agency.name || '?').charAt(0).toUpperCase()}
+                                                                                    </div>
+                                                                                )}
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <div className="flex items-start justify-between gap-2">
+                                                                                        <span className="text-[13px] font-bold text-indigo-700 truncate">{agency.name}</span>
+                                                                                        {agency.short && (
+                                                                                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 shrink-0">
+                                                                                                {agency.short}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    {agency.description && (
+                                                                                        <p className="text-[12px] text-slate-600 line-clamp-2 leading-relaxed mt-0.5">
+                                                                                            {agency.description}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 mt-1">
+                                                                                <span className="text-[11px] text-slate-500">
+                                                                                    {agency.services?.length || 0} service{(agency.services?.length || 0) !== 1 ? 's' : ''}
+                                                                                </span>
+                                                                                {alreadyReferred && (
+                                                                                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                                                                                        Already referred
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {filteredAgencies.length === 0 && (
+                                                                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                                                    <span className="material-symbols-outlined text-[40px] mb-3">search_off</span>
+                                                                    <p className="text-[14px] font-medium text-slate-500">No agencies found</p>
+                                                                    <p className="text-[12px] text-slate-400 mt-1">Try a different search term.</p>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
                                                 </Field>
+                                                {selectedAgencyIsReferred && (
+                                                    <p className="mt-2 text-[12px] font-medium text-amber-700 flex items-center gap-1.5">
+                                                        <span className="material-symbols-outlined text-[16px]">warning</span>
+                                                        This case has already been referred to {selectedAgency?.name}. Select a different agency.
+                                                    </p>
+                                                )}
                                                 <InputError message={errors.agcy_id} className="mt-1" />
                                             </div>
                                         </div>
@@ -674,7 +893,7 @@ export default function ReferralCreate({ case_id, agencies, cases: openCases }) 
                                                                                     ) : (
                                                                                         <>
                                                                                             <FileUpload
-                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                                                                                 label="Choose file"
                                                                                                 onFilesSelected={(file) => handleFileChange(requirementKey, file)}
                                                                                             />

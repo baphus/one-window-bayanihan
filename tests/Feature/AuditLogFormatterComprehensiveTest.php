@@ -367,13 +367,33 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             if ($key === 'messageContains') {
                 $this->assertStringContainsString($value, $display['message']);
             } elseif ($key === 'detailContains') {
-                $this->assertStringContainsString($value, $display['detail']);
+                // detail is now an empty string; verify the changes array instead
+                $this->assertNotEmpty($display['changes'], "Expected changes for detailContains: $value");
+                $this->assertNotNull($display['changes']);
             } elseif ($key === 'messageNotContains') {
                 $this->assertStringNotContainsString($value, $display['message']);
             } elseif ($key === 'hasChanges') {
                 $this->assertSame($value, $display['hasChanges']);
             } elseif ($key === 'module') {
                 $this->assertEquals($value, $display['module']);
+            } elseif ($key === 'changesCheck') {
+                foreach ($value as $expected) {
+                    $found = false;
+                    foreach ($display['changes'] as $change) {
+                        $match = true;
+                        foreach ($expected as $k => $v) {
+                            if (! isset($change[$k]) || $change[$k] !== $v) {
+                                $match = false;
+                                break;
+                            }
+                        }
+                        if ($match) {
+                            $found = true;
+                            break;
+                        }
+                    }
+                    $this->assertTrue($found, 'Expected change matching: '.json_encode($expected));
+                }
             }
         }
     }
@@ -398,7 +418,9 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 'Maria Santos',
                 [
                     'messageContains' => 'published',
-                    'detailContains' => 'changed status from Draft to Open',
+                    'changesCheck' => [
+                        ['field' => 'status', 'old' => 'Draft', 'new' => 'Open'],
+                    ],
                     'hasChanges' => true,
                     'module' => 'Case',
                 ],
@@ -423,7 +445,9 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 'Juan Dela Cruz',
                 [
                     'messageContains' => 'Closed',
-                    'detailContains' => 'changed status from Open to Closed',
+                    'changesCheck' => [
+                        ['field' => 'status', 'old' => 'Open', 'new' => 'Closed'],
+                    ],
                     'hasChanges' => true,
                     'module' => 'Case',
                 ],
@@ -483,9 +507,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             // Case-specific fields
             'vulnerability_indicator' => ['vulnerability_indicator', 'vulnerability level'],
             'nok_vulnerability_indicator' => ['nok_vulnerability_indicator', 'NOK vulnerability level'],
-            'sla_target_days' => ['sla_target_days', 'SLA target days'],
-            'sla_met' => ['sla_met', 'SLA met'],
-            'escalated_at' => ['escalated_at', 'escalated at'],
             'escalation_reason' => ['escalation_reason', 'escalation reason'],
             'category_id' => ['category_id', 'category'],
             'case_issue_id' => ['case_issue_id', 'case issue'],
@@ -568,8 +589,8 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'boolean 1' => ['case_files', 'is_active', 1, 'Yes'],
             'boolean 0' => ['case_files', 'is_active', 0, 'No'],
 
-            // Arrays (serialized as JSON)
-            'array value' => ['case_files', 'notes', ['foo' => 'bar'], '{"foo":"bar"}'],
+            // Arrays (show field count instead of raw JSON)
+            'array value' => ['case_files', 'notes', ['foo' => 'bar'], '1 fields'],
 
             // NON-OFW (new client type from user's data)
             'client_type NON-OFW' => ['clients', 'client_type', 'NON-OFW', 'NON-OFW'],
@@ -627,8 +648,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 $lowerKey = strtolower($k);
                 if (str_contains($lowerKey, 'password') ||
                     str_contains($lowerKey, 'secret') ||
-                    str_contains($lowerKey, 'token') ||
-                    str_contains($lowerKey, 'key')) {
+                    str_contains($lowerKey, 'token')) {
                     $v = '[REDACTED]';
                 }
             });
@@ -660,7 +680,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
     public function test_sensitive_patterns_are_redacted_by_key_name_prefix(): void
     {
-        // Test that keys containing password/secret/token/key are redacted
+        // Test that keys containing password/secret/token (but NOT 'key' alone) are redacted
         $log = new AuditLog([
             'action' => 'UPDATE',
             'module' => 'user',
@@ -704,8 +724,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 $lowerKey = strtolower($k);
                 if (str_contains($lowerKey, 'password') ||
                     str_contains($lowerKey, 'secret') ||
-                    str_contains($lowerKey, 'token') ||
-                    str_contains($lowerKey, 'key')) {
+                    str_contains($lowerKey, 'token')) {
                     $v = '[REDACTED]';
                 }
             });
@@ -713,10 +732,11 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         }
 
         // Verify pattern-based redaction
-        $this->assertSame('[REDACTED]', $log->old_value['api_key']);        // contains 'key'
+        // api_key contains 'key' but NOT 'password'/'secret'/'token' — no longer redacted
+        $this->assertSame('sk-live-abc123', $log->old_value['api_key']);
         $this->assertSame('[REDACTED]', $log->old_value['access_token']);    // contains 'token'
         $this->assertSame('[REDACTED]', $log->old_value['some_secret_config']); // contains 'secret'
-        $this->assertSame('[REDACTED]', $log->new_value['api_key']);
+        $this->assertSame('sk-live-xyz789', $log->new_value['api_key']);
         $this->assertSame('[REDACTED]', $log->new_value['access_token']);
         $this->assertSame('[REDACTED]', $log->new_value['some_secret_config']);
 
@@ -781,9 +801,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'client_id' => null,
             'closed_at' => null,
             'consent_given_at' => null,
-            'sla_target_days' => 57,
-            'sla_met' => null,
-            'escalated_at' => null,
             'escalation_reason' => null,
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
@@ -815,28 +832,29 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $this->assertStringContainsString('CASE-20260702-0006', $description);
         $this->assertStringContainsString('published', $description);
 
-        // The detail/changes should only show what actually changed
-        $detail = $display['detail'];
+        // The changes should only show what actually changed
+        $changes = $display['changes'];
+        $fieldLabels = array_column($changes, 'fieldLabel');
 
         // Status change is meaningful
-        $this->assertStringContainsString('status', $detail);
-        $this->assertStringContainsString('Open', $detail);
-        $this->assertStringContainsString('Draft', $detail);
+        $this->assertContains('status', $fieldLabels);
+        $statusChanges = array_values(array_filter($changes, fn ($c) => $c['fieldLabel'] === 'status'));
+        $this->assertNotEmpty($statusChanges);
+        $this->assertStringContainsString('Open', $statusChanges[0]['new']);
+        $this->assertStringContainsString('Draft', $statusChanges[0]['old']);
 
         // client_id change is meaningful
-        $this->assertStringContainsString('client id', $detail);
+        $this->assertContains('client id', $fieldLabels);
 
         // Fields that didn't change should NOT appear
-        $this->assertStringNotContainsString('summary', $detail,
-            'Summary did not change; detail should not mention it');
-        $this->assertStringNotContainsString('tracker number', $detail,
-            'Tracker number did not change; detail should not mention it');
-        $this->assertStringNotContainsString('case number', $detail,
-            'Case number did not change; detail should not mention it');
-        $this->assertStringNotContainsString('sla target days', $detail,
-            'SLA target days did not change; detail should not mention it');
-        $this->assertStringNotContainsString('client type', $detail,
-            'Client type did not change; detail should not mention it');
+        $this->assertNotContains('summary', $fieldLabels,
+            'Summary did not change; changes should not mention it');
+        $this->assertNotContains('tracker number', $fieldLabels,
+            'Tracker number did not change; changes should not mention it');
+        $this->assertNotContains('case number', $fieldLabels,
+            'Case number did not change; changes should not mention it');
+        $this->assertNotContains('client type', $fieldLabels,
+            'Client type did not change; changes should not mention it');
 
         // No UUIDs in the output (they're already in old/new values but formatFieldValue won't resolve them)
         // Actually UUIDs may appear because formatFieldValue just returns the raw string value for UUID columns
@@ -853,7 +871,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $formatter = new AuditLogFormatter;
 
         // old_value null, new_value full array — this is the CREATE scenario
-        $changes = $formatter->formatChanges(null, [
+        $changes = $formatter->getStructuredChanges(null, [
             'id' => 'some-uuid',
             'created_at' => '2026-07-03T00:00:00Z',
             'updated_at' => '2026-07-03T00:00:00Z',
@@ -866,17 +884,19 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         ]);
 
         // Noise fields like id, created_at, etc. should be skipped
-        $this->assertStringNotContainsString('id', $changes);
-        $this->assertStringNotContainsString('created_at', $changes);
-        $this->assertStringNotContainsString('updated_at', $changes);
-        $this->assertStringNotContainsString('deleted_at', $changes);
-        $this->assertStringNotContainsString('deleted_by', $changes);
-        $this->assertStringNotContainsString('email_verified_at', $changes);
-        $this->assertStringNotContainsString('timestamp', $changes);
+        $fields = array_column($changes, 'field');
+        $this->assertNotContains('id', $fields);
+        $this->assertNotContains('created_at', $fields);
+        $this->assertNotContains('updated_at', $fields);
+        $this->assertNotContains('deleted_at', $fields);
+        $this->assertNotContains('deleted_by', $fields);
+        $this->assertNotContains('email_verified_at', $fields);
+        $this->assertNotContains('timestamp', $fields);
 
         // Meaningful fields should still show
-        $this->assertStringContainsString('status', $changes);
-        $this->assertStringContainsString('case number', $changes);
+        $fieldLabels = array_column($changes, 'fieldLabel');
+        $this->assertContains('status', $fieldLabels);
+        $this->assertContains('case number', $fieldLabels);
     }
 
     // ========================================================================

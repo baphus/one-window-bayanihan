@@ -97,7 +97,6 @@ These decisions SHALL NOT be changed without documented architectural review:
 | BR-010 | IP whitelist for admin backend | `ip.whitelist` middleware |
 | BR-011 | Privacy-safe public tracking | Public portal hides internal comments |
 | BR-012 | Duplicate flagging on intake | Name + birthdate matching |
-| BR-013 | GA for analytics on closed cases | AnonymizedAnalyticsService |
 
 ---
 

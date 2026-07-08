@@ -89,6 +89,110 @@ function Select({ value, onChange, options, placeholder, required }) {
     );
 }
 
+function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssues, notificationEmail, onClose, onConfirm, processing, isDraft, nokSummary }) {
+    if (!show) return null;
+
+    const categoryName = categories.find(c => String(c.id) === String(data.category_id))?.name || '—';
+    const issueName = caseIssues.find(i => String(i.id) === String(data.case_issue_id))?.name || '—';
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900">Confirm Case Creation</h3>
+                        <p className="text-[13px] text-slate-500 mt-0.5">Review the details below before creating the case.</p>
+                    </div>
+                    <button type="button" onClick={onClose} className="rounded-md p-1.5 text-slate-400 hover:text-slate-600 transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+
+                <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-[13px]">
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Case No.</span>
+                            <span className="font-semibold text-slate-800">{caseId}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Tracking ID</span>
+                            <span className="font-semibold text-slate-800">{trackingId}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Client Type</span>
+                            <span className="font-semibold text-slate-800">{data.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Client Name</span>
+                            <span className="font-semibold text-slate-800">{[data.client.first_name, data.client.last_name].filter(Boolean).join(' ') || '—'}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Email</span>
+                            <span className="font-semibold text-slate-800">{notificationEmail || '—'}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Contact Number</span>
+                            <span className="font-semibold text-slate-800">{data.client.contact_number || '—'}</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Address</span>
+                            <span className="font-semibold text-slate-800">
+                                {[data.address.barangay, data.address.city_municipality, data.address.province, data.address.region].filter(Boolean).join(', ') || '—'}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</span>
+                            <span className="font-semibold text-slate-800">{categoryName}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Case Issue</span>
+                            <span className="font-semibold text-slate-800">{issueName}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Vulnerability Status</span>
+                            <span className="font-semibold text-slate-800">{data.vulnerability_indicator || '—'}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Next of Kin</span>
+                            <span className="font-semibold text-slate-800">{nokSummary}</span>
+                        </div>
+                    </div>
+
+                    {data.summary && (
+                        <div>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Narrative / Summary</span>
+                            <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-lg border border-slate-200 p-3">
+                                {data.summary}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                        Go Back &amp; Edit
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={processing}
+                        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                        {processing ? (isDraft ? 'Publishing...' : 'Creating...') : 'Confirm &amp; Create Case'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function CaseCreate() {
     const { client, categories = [], existingDraft, auth, caseIssues = [] } = usePage().props;
 
@@ -160,6 +264,7 @@ export default function CaseCreate() {
     const [newIssueName, setNewIssueName] = useState('');
     const [addingIssue, setAddingIssue] = useState(false);
     const [localIssues, setLocalIssues] = useState(caseIssues);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     useEffect(() => { setLocalIssues(caseIssues); }, [caseIssues]);
 
     const initialFormRef = useRef({
@@ -382,7 +487,7 @@ export default function CaseCreate() {
                         middle_initial: client.middle_initial || '',
                         suffix: client.suffix || '',
                         date_of_birth: client.date_of_birth || '',
-                        sex: normalizeSex(client.sex) || '',
+                        sex: normalizeSex(client.sex) || 'Male',
                         email: client.email || '',
                         contact_number: client.contact_number || '',
                     },
@@ -466,7 +571,7 @@ export default function CaseCreate() {
                 middle_initial: existingDraft.client.middle_initial || '',
                 suffix: existingDraft.client.suffix || '',
                 date_of_birth: existingDraft.client.date_of_birth || '',
-                sex: normalizeSex(existingDraft.client.sex) || '',
+                sex: normalizeSex(existingDraft.client.sex) || 'Male',
                 email: existingDraft.client.email || '',
                 contact_number: existingDraft.client.contact_number || '',
             });
@@ -538,7 +643,7 @@ export default function CaseCreate() {
                     middle_initial: clientData.middle_initial || '',
                     suffix: clientData.suffix || '',
                     date_of_birth: clientData.date_of_birth || '',
-                    sex: normalizeSex(clientData.sex) || '',
+                    sex: normalizeSex(clientData.sex) || 'Male',
                     email: clientData.email || '',
                     contact_number: clientData.contact_number || '',
                 });
@@ -625,7 +730,7 @@ export default function CaseCreate() {
                     middle_initial: c.middle_initial || '',
                     suffix: c.suffix || '',
                     date_of_birth: c.date_of_birth || '',
-                    sex: normalizeSex(c.sex) || '',
+                    sex: normalizeSex(c.sex) || 'Male',
                     email: c.email || '',
                     contact_number: c.contact_number || '',
                 },
@@ -789,21 +894,45 @@ export default function CaseCreate() {
 
     function canProceed() {
         if (currentStep === 1) {
-            return data.client.first_name.trim().length > 0
+            const clientOk = data.client.first_name.trim().length > 0
                 && data.client.last_name.trim().length > 0
                 && data.client.date_of_birth.length > 0
                 && data.client.sex.length > 0
                 && data.client.contact_number.trim().length > 0
-                && data.address.region.length > 0
+                && data.client.email.trim().length > 0;
+
+            const addressOk = data.address.region.length > 0
                 && data.address.province.length > 0
                 && data.address.city_municipality.length > 0
                 && data.address.barangay.length > 0;
+
+            const employmentOk = data.employment.employer_name.trim().length > 0
+                && data.employment.last_country.length > 0
+                && data.employment.last_position.trim().length > 0
+                && data.employment.date_of_arrival.length > 0;
+
+            // NOK fields required only if NOK entries exist
+            const nokOk = data.next_of_kin.length === 0 || data.next_of_kin.every(nok =>
+                nok.first_name.trim().length > 0
+                && nok.last_name.trim().length > 0
+                && nok.relationship.length > 0
+                && nok.phone_number.trim().length > 0
+                && nok.email.trim().length > 0
+                && (nok.nok_address?.region || '').length > 0
+                && (nok.nok_address?.province || '').length > 0
+                && (nok.nok_address?.city_municipality || '').length > 0
+                && (nok.nok_address?.barangay || '').length > 0
+            );
+
+            return clientOk && addressOk && employmentOk && nokOk;
         }
         if (currentStep === 2) {
+            const baseOk = data.client_type && data.category_id && data.case_issue_id && data.vulnerability_indicator;
             if (data.client_type === 'NEXT_OF_KIN') {
-                return data.selected_nok_index !== '' && !!selectedNok?.email?.trim();
+                return baseOk && data.selected_nok_index !== '' && !!selectedNok?.email?.trim()
+                    && data.nok_vulnerability_indicator;
             }
-            return data.client.email.trim().length > 0;
+            return baseOk && data.client.email.trim().length > 0;
         }
         return true;
     }
@@ -816,17 +945,36 @@ export default function CaseCreate() {
             if (!data.client.date_of_birth) missing.push('Date of Birth');
             if (!data.client.sex) missing.push('Sex');
             if (!data.client.contact_number.trim()) missing.push('Contact Number');
+            if (!data.client.email.trim()) missing.push('OFW Email');
             if (!data.address.region) missing.push('Region');
             if (!data.address.province) missing.push('Province');
             if (!data.address.city_municipality) missing.push('City/Municipality');
             if (!data.address.barangay) missing.push('Barangay');
+            if (!data.employment.employer_name.trim()) missing.push('Employer Name');
+            if (!data.employment.last_country) missing.push('Last Country of Employment');
+            if (!data.employment.last_position.trim()) missing.push('Last Job Position');
+            if (!data.employment.date_of_arrival) missing.push('Arrival Date');
+            data.next_of_kin.forEach((nok, idx) => {
+                if (!nok.first_name.trim()) missing.push(`NOK #${idx + 1} First Name`);
+                if (!nok.last_name.trim()) missing.push(`NOK #${idx + 1} Last Name`);
+                if (!nok.relationship) missing.push(`NOK #${idx + 1} Relationship`);
+                if (!nok.phone_number.trim()) missing.push(`NOK #${idx + 1} Phone Number`);
+                if (!nok.email.trim()) missing.push(`NOK #${idx + 1} Email`);
+                if (!(nok.nok_address?.region || '')) missing.push(`NOK #${idx + 1} Region`);
+                if (!(nok.nok_address?.province || '')) missing.push(`NOK #${idx + 1} Province`);
+                if (!(nok.nok_address?.city_municipality || '')) missing.push(`NOK #${idx + 1} City/Municipality`);
+                if (!(nok.nok_address?.barangay || '')) missing.push(`NOK #${idx + 1} Barangay`);
+            });
             return missing;
         }
         if (currentStep === 2) {
             const missing = [];
+            if (!data.case_issue_id) missing.push('Case Issue');
+            if (!data.vulnerability_indicator) missing.push('Vulnerability Status');
             if (data.client_type === 'NEXT_OF_KIN') {
                 if (data.selected_nok_index === '') missing.push('Selected Next of Kin');
                 if (!selectedNok?.email?.trim()) missing.push('Selected Next of Kin Email');
+                if (!data.nok_vulnerability_indicator) missing.push('NOK Vulnerability Status');
             } else if (!data.client.email.trim()) {
                 missing.push('OFW Email');
             }
@@ -866,6 +1014,11 @@ export default function CaseCreate() {
                 isValid = false;
                 missing.push('Contact Number');
             }
+            if (!data.client.email.trim()) {
+                setError('client.email', 'Email address is required.');
+                isValid = false;
+                missing.push('OFW Email');
+            }
             if (!data.address.region) {
                 setError('address.region', 'Region is required.');
                 isValid = false;
@@ -886,6 +1039,74 @@ export default function CaseCreate() {
                 isValid = false;
                 missing.push('Barangay');
             }
+            if (!data.employment.employer_name.trim()) {
+                setError('employment.employer_name', 'Employer name is required.');
+                isValid = false;
+                missing.push('Employer Name');
+            }
+            if (!data.employment.last_country) {
+                setError('employment.last_country', 'Last country of employment is required.');
+                isValid = false;
+                missing.push('Last Country of Employment');
+            }
+            if (!data.employment.last_position.trim()) {
+                setError('employment.last_position', 'Last job position is required.');
+                isValid = false;
+                missing.push('Last Job Position');
+            }
+            if (!data.employment.date_of_arrival) {
+                setError('employment.date_of_arrival', 'Arrival date is required.');
+                isValid = false;
+                missing.push('Arrival Date');
+            }
+
+            data.next_of_kin.forEach((nok, idx) => {
+                if (!nok.first_name.trim()) {
+                    setError(`next_of_kin.${idx}.first_name`, 'First name is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} First Name`);
+                }
+                if (!nok.last_name.trim()) {
+                    setError(`next_of_kin.${idx}.last_name`, 'Last name is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} Last Name`);
+                }
+                if (!nok.relationship) {
+                    setError(`next_of_kin.${idx}.relationship`, 'Relationship is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} Relationship`);
+                }
+                if (!nok.phone_number.trim()) {
+                    setError(`next_of_kin.${idx}.phone_number`, 'Phone number is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} Phone Number`);
+                }
+                if (!nok.email.trim()) {
+                    setError(`next_of_kin.${idx}.email`, 'Email is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} Email`);
+                }
+                if (!(nok.nok_address?.region || '')) {
+                    setError(`next_of_kin.${idx}.nok_address.region`, 'Region is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} Region`);
+                }
+                if (!(nok.nok_address?.province || '')) {
+                    setError(`next_of_kin.${idx}.nok_address.province`, 'Province is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} Province`);
+                }
+                if (!(nok.nok_address?.city_municipality || '')) {
+                    setError(`next_of_kin.${idx}.nok_address.city_municipality`, 'City/Municipality is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} City/Municipality`);
+                }
+                if (!(nok.nok_address?.barangay || '')) {
+                    setError(`next_of_kin.${idx}.nok_address.barangay`, 'Barangay is required.');
+                    isValid = false;
+                    missing.push(`NOK #${idx + 1} Barangay`);
+                }
+            });
 
             if (!isValid) {
                 if (missing.length === 1) {
@@ -900,32 +1121,56 @@ export default function CaseCreate() {
             if (!data.category_id) {
                 setError('category_id', 'Category is required.');
                 isValid = false;
-                toast.error('Please select a case category.');
+                missing.push('Category');
+            }
+            if (!data.case_issue_id) {
+                setError('case_issue_id', 'Case issue is required.');
+                isValid = false;
+                missing.push('Case Issue');
+            }
+            if (!data.vulnerability_indicator) {
+                setError('vulnerability_indicator', 'Vulnerability status is required.');
+                isValid = false;
+                missing.push('Vulnerability Status');
             }
             if (data.client_type === 'NEXT_OF_KIN') {
                 if (data.selected_nok_index === '') {
                     setError('selected_nok_index', 'Please select the next of kin receiving case notifications.');
                     isValid = false;
-                    toast.error('Please select a next of kin.');
+                    missing.push('Selected Next of Kin');
                 }
 
                 if (!selectedNok?.email?.trim()) {
                     setError('next_of_kin.email', 'The selected next of kin email is required.');
                     isValid = false;
-                    toast.error('Please provide the selected next of kin email address.');
+                    missing.push('Selected Next of Kin Email');
                 } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(selectedNok.email.trim())) {
                     setError('next_of_kin.email', 'Please provide a valid next of kin email address.');
                     isValid = false;
-                    toast.error('Please provide a valid next of kin email address.');
+                    missing.push('Valid Next of Kin Email');
+                }
+
+                if (!data.nok_vulnerability_indicator) {
+                    setError('nok_vulnerability_indicator', 'Next of kin vulnerability status is required.');
+                    isValid = false;
+                    missing.push('NOK Vulnerability Status');
                 }
             } else if (!data.client.email.trim()) {
                 setError('client.email', 'The OFW email address is required.');
                 isValid = false;
-                toast.error('Please provide the OFW email address.');
+                missing.push('OFW Email');
             } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client.email.trim())) {
                 setError('client.email', 'Please provide a valid email address.');
                 isValid = false;
-                toast.error('Please provide a valid OFW email address.');
+                missing.push('Valid OFW Email');
+            }
+
+            if (!isValid) {
+                if (missing.length === 1) {
+                    toast.error(`${missing[0]} is required.`);
+                } else {
+                    toast.error(`Complete ${missing.length} required fields: ${missing.join(', ')}`);
+                }
             }
         }
 
@@ -936,6 +1181,10 @@ export default function CaseCreate() {
         return data.client.first_name.trim().length > 0
             && data.client.last_name.trim().length > 0
             && notificationEmail.trim().length > 0
+            && data.summary.trim().length > 0
+            && data.case_issue_id
+            && data.category_id
+            && data.vulnerability_indicator
             && (clientSource === 'existing' || data.consent);
     }
 
@@ -976,6 +1225,11 @@ export default function CaseCreate() {
     function handleSubmit(e) {
         e.preventDefault();
         if (currentStep !== 3) return;
+        setShowCreateModal(true);
+    }
+
+    function handleConfirmSubmit() {
+        setShowCreateModal(false);
         bypassNext();
 
         if (existingDraft) {
@@ -1011,7 +1265,7 @@ export default function CaseCreate() {
     function handleSwitchToNew() {
         setClientSource('new');
         setData('selected_client_id', '');
-        setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' });
+        setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' });
         setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
         setData('next_of_kin', []);
@@ -1026,7 +1280,7 @@ export default function CaseCreate() {
                     vulnerability_indicator: 'None',
                     nok_vulnerability_indicator: 'None',
                     summary: '',
-                client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', email: '', contact_number: '' },
+                client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
                 next_of_kin: [],
@@ -1056,7 +1310,7 @@ function handleConfirmClient(client) {
         middle_initial: client.middle_initial || '',
         suffix: client.suffix || '',
         date_of_birth: client.date_of_birth || '',
-        sex: normalizeSex(client.sex) || '',
+        sex: normalizeSex(client.sex) || 'Male',
         email: client.email || '',
         contact_number: client.contact_number || '',
     });
@@ -1121,7 +1375,7 @@ function handleConfirmClient(client) {
                 middle_initial: client.middle_initial || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
-                sex: normalizeSex(client.sex) || '',
+                sex: normalizeSex(client.sex) || 'Male',
                 email: client.email || '',
                 contact_number: client.contact_number || '',
             },
@@ -1764,11 +2018,12 @@ function handleConfirmClient(client) {
                                             </h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Indicate if the client falls under any vulnerable sector.</p>
                                             <div className={`mt-4 grid ${data.client_type === 'OFW' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
-                                                <Field label={data.client_type === 'OFW' ? 'OFW Vulnerability Status' : 'Client Vulnerability Status'}>
+                                                <Field label={data.client_type === 'OFW' ? 'OFW Vulnerability Status' : 'Client Vulnerability Status'} required>
                                                     <select
                                                         value={data.vulnerability_indicator}
                                                         onChange={(e) => setData('vulnerability_indicator', e.target.value)}
                                                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        required
                                                     >
                                                         <option value="">Select vulnerability...</option>
                                                         <option value="PWD">PWD</option>
@@ -1779,11 +2034,12 @@ function handleConfirmClient(client) {
                                                     </select>
                                                 </Field>
                                                 {data.client_type === 'NEXT_OF_KIN' && (
-                                                    <Field label="Next of Kin Vulnerability Status">
+                                                    <Field label="Next of Kin Vulnerability Status" required>
                                                         <select
                                                             value={data.nok_vulnerability_indicator}
                                                             onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
                                                             className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            required
                                                         >
                                                             <option value="">Select vulnerability...</option>
                                                             <option value="PWD">PWD</option>
@@ -1796,26 +2052,6 @@ function handleConfirmClient(client) {
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-
-                                {currentStep === 3 && (
-                                    <div className="space-y-4">
-                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Narrative</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Use concise plain text to summarize the case background.</p>
-                                            <div className="mt-4">
-                                                <Field label="Narrative">
-                                                    <textarea
-                                                        rows={8}
-                                                        value={data.summary}
-                                                        onChange={(e) => setData('summary', e.target.value)}
-                                                        placeholder="Describe the client situation and reason for opening the case..."
-                                                        className="w-full rounded-[3px] border border-slate-300 px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                    />
-                                                </Field>
-                                            </div>
-                                        </div>
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Issues/Concerns</h3>
@@ -1823,12 +2059,13 @@ function handleConfirmClient(client) {
                                                 Select the primary issue or concern related to this case.
                                             </p>
                                             <div className="mt-4">
-                                                <Field label="Issue/Concern">
+                                                <Field label="Issue/Concern" required>
                                                     <div className="flex gap-2">
                                                         <select
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
                                                             className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            required
                                                         >
                                                             <option value="">Select issue/concern...</option>
                                                             {localIssues.map((issue) => (
@@ -1879,27 +2116,90 @@ function handleConfirmClient(client) {
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
+                                )}
 
-                                        <div className="rounded-xl border border-slate-200 bg-[#fcfdff] p-6 shadow-sm">
-                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Summary</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Review the core case details before you finalize creation.</p>
-                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <Field label="Case No.">
-                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{caseId}</div>
-                                                </Field>
-                                                <Field label="Tracking ID">
-                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{trackingId}</div>
-                                                </Field>
-                                                <Field label="Client Type">
-                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{data.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'}</div>
-                                                </Field>
-                                                <Field label="Client Name">
-                                                    <div className="h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700 flex items-center">{[data.client.first_name, data.client.last_name].filter(Boolean).join(' ')}</div>
-                                                </Field>
-                                                <Field label="Next of Kin" className="md:col-span-2">
-                                                    <div className="min-h-10 w-full rounded-[3px] border border-slate-300 bg-slate-50 px-3 py-2 text-[13px] text-slate-700">{nokSummary}</div>
+                                {currentStep === 3 && (
+                                    <div className="space-y-4">
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Narrative</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Use concise plain text to summarize the case background.</p>
+                                            <div className="mt-4">
+                                                <Field label="Narrative" required>
+                                                    <textarea
+                                                        rows={8}
+                                                        value={data.summary}
+                                                        onChange={(e) => setData('summary', e.target.value)}
+                                                        placeholder="Describe the client situation and reason for opening the case..."
+                                                        className="w-full rounded-[3px] border border-slate-300 px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        required
+                                                    />
                                                 </Field>
                                             </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case Issues/Concerns</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">
+                                                Select the primary issue or concern related to this case.
+                                            </p>
+                                            <div className="mt-4">
+                                                <Field label="Issue/Concern" required>
+                                                    <div className="flex gap-2">
+                                                        <select
+                                                            value={data.case_issue_id}
+                                                            onChange={(e) => setData('case_issue_id', e.target.value)}
+                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            required
+                                                        >
+                                                            <option value="">Select issue/concern...</option>
+                                                            {localIssues.map((issue) => (
+                                                                <option key={issue.id} value={issue.id}>{issue.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
+                                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-indigo-300 text-indigo-600 transition hover:bg-indigo-50"
+                                                            title="Add new issue"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[20px]">add</span>
+                                                        </button>
+                                                    </div>
+                                                </Field>
+                                            </div>
+                                            {showAddIssue && (
+                                                <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                                                    <Field label="New Issue Name">
+                                                        <input
+                                                            type="text"
+                                                            value={newIssueName}
+                                                            onChange={(e) => setNewIssueName(e.target.value)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
+                                                            placeholder="Enter new issue name..."
+                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            autoFocus
+                                                        />
+                                                    </Field>
+                                                    <div className="mt-2 flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleQuickAddIssue}
+                                                            disabled={addingIssue || !newIssueName.trim()}
+                                                            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {addingIssue ? 'Adding...' : 'Add'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
+                                                            className="text-[12px] font-medium text-slate-500 hover:text-slate-700"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1953,6 +2253,20 @@ function handleConfirmClient(client) {
             </form>
             <ClientProfileSummaryModal show={!!selectedClient} client={selectedClient} onConfirm={handleConfirmClient} onClose={() => setSelectedClient(null)} />
             <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+            <CaseSummaryModal
+                show={showCreateModal}
+                data={data}
+                caseId={caseId}
+                trackingId={trackingId}
+                categories={categories}
+                caseIssues={caseIssues}
+                notificationEmail={notificationEmail}
+                onClose={() => setShowCreateModal(false)}
+                onConfirm={handleConfirmSubmit}
+                processing={processing}
+                isDraft={!!existingDraft}
+                nokSummary={nokSummary}
+            />
         </AppLayout>
     );
 }

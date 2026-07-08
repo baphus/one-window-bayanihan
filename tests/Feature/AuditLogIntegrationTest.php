@@ -19,7 +19,7 @@ class AuditLogIntegrationTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user = User::factory()->create(['role' => 'ADMIN']);
     }
 
     public function test_backfill_command_populates_descriptions(): void
@@ -84,10 +84,7 @@ class AuditLogIntegrationTest extends TestCase
         $props = $response->json('props');
 
         $this->assertArrayHasKey('logs', $props);
-        $this->assertArrayHasKey('availableActions', $props);
-        $this->assertArrayHasKey('availableModules', $props);
         $this->assertArrayHasKey('filterValues', $props);
-        $this->assertArrayHasKey('availableModulesLabels', $props);
 
         $this->assertNotEmpty($props['logs']['data']);
 
@@ -103,19 +100,36 @@ class AuditLogIntegrationTest extends TestCase
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?action=CREATE&module=case_files&user_id='.$this->user->id.'&per_page=15');
 
+        $filtered->assertStatus(200);
+
         $filteredProps = $filtered->json('props');
+        $this->assertArrayHasKey('filterValues', $filteredProps);
         $this->assertSame('CREATE', $filteredProps['filterValues']['action']);
         $this->assertSame('case_files', $filteredProps['filterValues']['module']);
         $this->assertSame($this->user->id, $filteredProps['filterValues']['user_id']);
         $this->assertSame('15', (string) $filteredProps['filterValues']['per_page']);
         $this->assertNotEmpty($filteredProps['logs']['data']);
+
+        // Lazy props require Inertia partial reload headers.
+        // Note: withHeader() persists across requests in Laravel tests,
+        // so partial-reload requests must come after all non-partial assertions.
+        $lazyResponse = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->withHeader('X-Inertia-Partial-Data', 'availableActions,availableModules,availableModulesLabels')
+            ->withHeader('X-Inertia-Partial-Component', 'AuditLog/Index')
+            ->get('/audit-logs');
+
+        $lazyProps = $lazyResponse->json('props');
+        $this->assertArrayHasKey('availableActions', $lazyProps);
+        $this->assertArrayHasKey('availableModules', $lazyProps);
+        $this->assertArrayHasKey('availableModulesLabels', $lazyProps);
     }
 
     public function test_backfill_dry_run_shows_count(): void
     {
         AuditLog::create([
             'user_id' => $this->user->id,
-            'action' => 'VIEW',
+            'action' => 'LOGIN',
             'module' => 'clients',
             'timestamp' => now(),
         ]);

@@ -9,7 +9,7 @@ import { Eye } from 'lucide-react';
 
 export default function AdminDashboard({ dashboard }) {
     const { auth } = usePage().props;
-    const { stats, recentCases = [], recentLogs = [], systemHealth = null } = dashboard || {};
+    const { stats, recentCases = [], recentLogs = [] } = dashboard || {};
     const userName = auth?.user?.name?.split(' ')[0] || 'Administrator';
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -24,86 +24,6 @@ export default function AdminDashboard({ dashboard }) {
                 <time className="text-sm text-slate-400 whitespace-nowrap">{today}</time>
             </header>
 
-            {/* System Health Overview — placed above KPI cards for priority */}
-            {systemHealth && (
-                <div data-tour="dashboard-admin-system" className="mb-10">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-semibold text-slate-900">System Health</h3>
-                        <Link href="/admin/system/health" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">View Details</Link>
-                    </div>
-
-                    {/* Overall Status — prominent summary card */}
-                    <div className={`rounded-md border p-5 mb-4 ${
-                        systemHealth.overallStatus === 'healthy' ? 'border-l-green-500 border-slate-200' :
-                        systemHealth.overallStatus === 'warning' ? 'border-l-yellow-500 border-slate-200' :
-                        systemHealth.overallStatus === 'critical' ? 'border-l-red-500 border-slate-200' :
-                        'border-l-slate-400 border-slate-200'
-                    }`}>
-                        <div className="flex items-start gap-4">
-                            <span className={`material-symbols-outlined text-3xl ${
-                                systemHealth.overallStatus === 'healthy' ? 'text-green-600' :
-                                systemHealth.overallStatus === 'warning' ? 'text-yellow-600' :
-                                systemHealth.overallStatus === 'critical' ? 'text-red-600' :
-                                'text-slate-400'
-                            }`}>
-                                {systemHealth.overallStatus === 'healthy' ? 'check_circle' :
-                                 systemHealth.overallStatus === 'warning' ? 'warning' :
-                                 systemHealth.overallStatus === 'critical' ? 'error' :
-                                 'help'}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Overall Status</p>
-                                <p className={`text-lg font-bold ${
-                                    systemHealth.overallStatus === 'healthy' ? 'text-green-700' :
-                                    systemHealth.overallStatus === 'warning' ? 'text-yellow-700' :
-                                    systemHealth.overallStatus === 'critical' ? 'text-red-700' :
-                                    'text-slate-700'
-                                }`}>
-                                    {systemHealth.overallStatus === 'healthy' ? 'All Systems Operational' :
-                                     systemHealth.overallStatus === 'warning' ? 'Degraded Performance' :
-                                     systemHealth.overallStatus === 'critical' ? 'System Disruption' :
-                                     'Unknown'}
-                                </p>
-                                <p className="text-sm text-slate-500 mt-1">
-                                    {systemHealth.overallStatus === 'healthy' ? 'All monitored services are running normally.' :
-                                     systemHealth.overallStatus === 'warning' ? 'Some services are experiencing issues.' :
-                                     systemHealth.overallStatus === 'critical' ? 'Critical services require immediate attention.' :
-                                     'Unable to determine system status.'}
-                                </p>
-                            </div>
-                            <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                                systemHealth.overallStatus === 'healthy' ? 'bg-green-50 text-green-700' :
-                                systemHealth.overallStatus === 'warning' ? 'bg-yellow-50 text-yellow-700' :
-                                systemHealth.overallStatus === 'critical' ? 'bg-red-50 text-red-700' :
-                                'bg-slate-50 text-slate-700'
-                            }`}>
-                                {systemHealth.overallStatus === 'healthy' ? 'Healthy' :
-                                 systemHealth.overallStatus === 'warning' ? 'Warning' :
-                                 systemHealth.overallStatus === 'critical' ? 'Critical' :
-                                 'Unknown'}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Secondary metrics */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div className="rounded-md border border-slate-200 bg-white p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Unread Alerts</p>
-                            <p className={`text-xl font-bold mt-1.5 ${systemHealth.alertCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {systemHealth.alertCount ?? 0}
-                            </p>
-                        </div>
-                        <div className="rounded-md border border-slate-200 bg-white p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Last Check</p>
-                            <p className="text-xl font-bold mt-1.5 text-slate-900">{systemHealth.lastCheckAt || 'Never'}</p>
-                        </div>
-                        <div className="rounded-md border border-slate-200 bg-white p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Checks</p>
-                            <p className="text-xl font-bold mt-1.5 text-slate-900">{systemHealth.checks?.length ?? 0}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-10">

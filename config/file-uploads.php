@@ -10,17 +10,17 @@ return [
     */
 
     'default' => [
-        'mimes' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'webp'],
+        'mimes' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
         'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 10240), // KB
     ],
 
     'case_document' => [
-        'mimes' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif'],
+        'mimes' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
         'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 10240),
     ],
 
     'referral_attachment' => [
-        'mimes' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'webp'],
+        'mimes' => ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
         'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 10240),
     ],
 ];

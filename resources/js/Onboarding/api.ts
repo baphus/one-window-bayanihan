@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { route } from 'ziggy-js';
 import type { TourState } from '@/Onboarding/types';
 
 /**

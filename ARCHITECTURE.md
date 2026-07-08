@@ -69,7 +69,6 @@ graph TB
             PromptSvc["PromptAssemblyService"]
             RetrievalSvc["RetrievalRankingService"]
             HelpCenterSvc["HelpCenter Providers"]
-            AnalyticsSvc["AnonymizedAnalyticsService"]
             InsightsSvc["InsightsService"]
             StorageSvc["StorageService"]
             SecuritySvc["SecuritySettingsService"]
@@ -192,8 +191,6 @@ Role-based dashboards showing aggregated case and referral data.
 
 - **Route**: `/dashboard` — closure-based, instantiates `DashboardService` + `ReportsService`
 - **Role variants**: `AGENCY` sees agency-specific data, `ADMIN` sees all, `CASE_MANAGER` sees system-wide stats
-- **Anonymized Analytics**: `/analytics` — page for anonymized public metrics
-- **Insights API**: `/api/insights/*` — 20+ endpoints for KPI cards, trends, SLA compliance, geographic distribution, bottleneck analysis, forecasts, etc.
 - **Reports**: `/reports` — aggregated reports + PDF export + AI-powered insight generation
 
 ### 6. Helpdesk & Knowledge Base
@@ -550,7 +547,7 @@ app/
 ├── Http/
 │   ├── Controllers/      # Request handlers
 │   │   ├── Admin/        # 17 admin management controllers
-│   │   ├── Api/          # 4 API controllers (address, alerts, insights, clients)
+│   │   ├── Api/          # API controllers (address, clients)
 │   │   └── Auth/         # 9 auth controllers (Breeze scaffold)
 │   └── Middleware/       # CheckRole, IpWhitelist, HandleInertiaRequests, SetPostgresSession
 ├── Jobs/                 # EmbedHelpdeskArticleChunks, SyncPhilippineAddresses
@@ -558,7 +555,7 @@ app/
 ├── Mail/                 # OtpMail
 ├── Models/               # 33 Eloquent models (all UUID, soft-delete flagged)
 │   └── Concerns/         # UsesUuid trait, SoftDeleteFlag trait
-├── Notifications/        # 6 notification classes
+├── Notifications/        # 5 notification classes
 ├── Observers/            # AuditObserver (generic Eloquent auditing)
 ├── Providers/
 └── Services/             # 29 service classes
@@ -578,7 +575,6 @@ resources/js/
 ├── Components/           # 38 React shared components
 │   ├── Admin/            # Admin-specific components
 │   ├── Helpdesk/         # Helpdesk components
-│   ├── Insights/         # Insights components
 │   ├── Reports/          # Reports components
 │   ├── ui/               # Base UI primitives
 │   └── landing/          # Landing page components
@@ -589,7 +585,7 @@ resources/js/
 │   ├── Auth/             # Login, Register, Password, Verify
 │   ├── Case/             # Index, Show, Create, Edit
 │   ├── Referral/         # Index, Show, Create
-│   └── ...               # Analytics, Feedback, Helpdesk, Insights, etc.
+│   └── ...               # Analytics, Feedback, Helpdesk, etc.
 ├── chatbot-widget/       # Standalone chatbot widget
 ├── lib/                  # Library utilities
 └── types/                # TypeScript definitions
@@ -597,7 +593,7 @@ resources/js/
 routes/
 ├── web.php               # 295 lines — all authenticated + public pages
 ├── auth.php              # 74 lines — all auth routes (login/register/password)
-└── api.php               # 55 lines — address + alerts + insights + clients API
+└── api.php               # Address lookup API (PSGC)
 ```
 
 ---

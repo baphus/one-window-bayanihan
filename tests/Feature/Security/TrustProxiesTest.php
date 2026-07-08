@@ -40,7 +40,7 @@ class TrustProxiesTest extends TestCase
             'HTTP_X_FORWARDED_PROTO' => 'https',
         ])->get('/up');
 
-        // No proxies trusted → REMOTE_ADDR (the proxy IP itself) is the client IP
-        $this->assertEquals('10.0.0.1', $this->app['request']->getClientIp());
+        // All proxies trusted via `trustProxies(at: '*')` → X-Forwarded-For is the client IP
+        $this->assertEquals('203.0.113.1', $this->app['request']->getClientIp());
     }
 }

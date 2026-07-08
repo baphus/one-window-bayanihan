@@ -5,6 +5,8 @@ namespace App\Observers;
 use App\Models\AuditLog;
 use App\Services\AuditLogFormatter;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class AuditObserver
 {
@@ -42,7 +44,15 @@ class AuditObserver
 
     private function log(string $action, $model, ?array $old, ?array $new): void
     {
-        $log = AuditLog::create([
+        $request = request();
+
+        // Get request ID from LogContext middleware or generate one
+        $requestId = $request?->attributes->get('correlation_id')
+            ?? $request?->header('X-Request-ID')
+            ?? ($request ? (string) Str::uuid() : 'cli');
+
+        // Build data array
+        $data = [
             'action' => $action,
             'module' => method_exists($model, 'getAuditModuleName') ? $model->getAuditModuleName() : $model->getTable(),
             'entity_id' => $model->getKey(),
@@ -50,18 +60,34 @@ class AuditObserver
             'new_value' => $new,
             'user_id' => Auth::id(),
             'timestamp' => now(),
-        ]);
+            'ip_address' => $request?->ip() ?? 'cli',
+            'user_agent' => $request?->userAgent() ?? 'cli',
+            'request_id' => $requestId,
+        ];
 
-        try {
-            $formatter = app(AuditLogFormatter::class);
-            $log->description = $formatter->format($log);
-            $log->save();
-        } catch (\Throwable $e) {
-            logger()->error('Failed to populate audit log description', [
-                'audit_log_id' => $log->id,
-                'exception' => $e->getMessage(),
-            ]);
+        // Hash chaining: compute prev_hash from previous log for same entity
+        $prevLog = AuditLog::where('entity_id', $model->getKey())
+            ->orderBy('timestamp', 'desc')
+            ->value('prev_hash');
+
+        if ($prevLog) {
+            $data['prev_hash'] = $prevLog;
         }
+
+        // Generate description BEFORE creating (single-save pattern)
+        try {
+            $tempLog = new AuditLog($data);
+            $data['description'] = app(AuditLogFormatter::class)->format($tempLog);
+        } catch (\Throwable $e) {
+            logger()->warning('Audit description generation failed', ['exception' => $e->getMessage()]);
+        }
+
+        // Single INSERT
+        $log = AuditLog::create($data);
+
+        // Invalidate cache for distinct action/module lists
+        Cache::forget('audit_log_available_actions');
+        Cache::forget('audit_log_available_modules');
     }
 
     private function filterKeys(array $attributes, $model): array

@@ -199,26 +199,6 @@ class TestingSeeder extends Seeder
             'Very helpful and responsive to my concerns.',
         ];
 
-        $alertTypes = [
-            'case_stalled', 'referral_stalled', 'sla_breach_warning',
-            'sla_breached', 'agency_overloaded', 'referral_rejected',
-            'new_referral', 'feedback_submitted', 'capacity_warning',
-            'system_health',
-        ];
-
-        $severityPool = [];
-        for ($i = 0; $i < 100; $i++) {
-            if ($i < 50) {
-                $severityPool[] = 'info';
-            } elseif ($i < 80) {
-                $severityPool[] = 'medium';
-            } elseif ($i < 95) {
-                $severityPool[] = 'high';
-            } else {
-                $severityPool[] = 'critical';
-            }
-        }
-
         // Shuffle name pools for better distribution
         shuffle($femaleNames);
         shuffle($maleNames);
@@ -443,13 +423,11 @@ class TestingSeeder extends Seeder
 
             // Always include ALL columns so every row in a batch has identical keys (required by PostgreSQL)
             $closedAt = null;
-            $slaMet = null;
 
             if ($status === 'CLOSED') {
                 $closedAt = now()->subDays(rand(1, 90));
-                $slaMet = true;
             } elseif ($status === 'ARCHIVED') {
-                $slaMet = null;
+                // no special handling
             }
 
             $cases[] = [
@@ -467,8 +445,6 @@ class TestingSeeder extends Seeder
                 'client_id' => $clientId,
                 'category_id' => $hasCategory ? $categoryIds[array_rand($categoryIds)] : null,
                 'case_issue_id' => $hasIssue ? $issueIds[array_rand($issueIds)] : null,
-                'sla_target_days' => rand(30, 90),
-                'sla_met' => $slaMet,
                 'created_at' => now()->subDays(rand(0, 180)),
                 'updated_at' => $now,
             ];
@@ -538,14 +514,12 @@ class TestingSeeder extends Seeder
                 $decisionComment = null;
                 $firstActionAt = null;
                 $referralAssignedAt = null;
-                $slaMet = null;
 
                 if ($refStatus === 'COMPLETED') {
                     $decision = 'ACCEPT';
                     $decisionComment = null;
                     $firstActionAt = now()->subDays(rand(1, 90));
                     $referralAssignedAt = now()->subDays(rand(1, 90));
-                    $slaMet = true;
 
                     $completedReferralIds[] = $refId;
                     $completedReferralInfo[$refId] = [
@@ -573,8 +547,6 @@ class TestingSeeder extends Seeder
                     'type' => rand(0, 100) < 80 ? 'standard' : 'intervention',
                     'first_action_at' => $firstActionAt,
                     'referral_assigned_at' => $referralAssignedAt,
-                    'sla_target_days' => 14,
-                    'sla_met' => $slaMet,
                     'created_at' => now()->subDays(rand(0, 180)),
                     'updated_at' => $now,
                 ];
@@ -790,65 +762,7 @@ class TestingSeeder extends Seeder
         unset($servqualRows);
 
         // =====================================================================
-        // 10. ALERTS  (100 rows)
-        //     Severity distribution: 50% info, 30% medium, 15% high, 5% critical
-        //     assigned_to_id is NOT NULL
-        // =====================================================================
-
-        $alertTitles = [
-            'case_stalled' => 'Case has stalled',
-            'referral_stalled' => 'Referral has stalled',
-            'sla_breach_warning' => 'SLA breach warning',
-            'sla_breached' => 'SLA has been breached',
-            'agency_overloaded' => 'Agency is overloaded',
-            'referral_rejected' => 'Referral has been rejected',
-            'new_referral' => 'New referral assigned',
-            'feedback_submitted' => 'New feedback submitted',
-            'capacity_warning' => 'Capacity warning',
-            'system_health' => 'System health alert',
-        ];
-
-        $alertMessages = [
-            'case_stalled' => 'A case has not been updated in 7 days.',
-            'referral_stalled' => 'A referral has not been actioned in 5 days.',
-            'sla_breach_warning' => 'A case is approaching its SLA deadline.',
-            'sla_breached' => 'A case has exceeded its SLA deadline.',
-            'agency_overloaded' => 'An agency has exceeded its maximum case load.',
-            'referral_rejected' => 'A referral was rejected due to incomplete requirements.',
-            'new_referral' => 'A new referral has been assigned to your agency.',
-            'feedback_submitted' => 'A client has submitted feedback on a completed referral.',
-            'capacity_warning' => 'System capacity is approaching limits.',
-            'system_health' => 'A routine system health check was performed.',
-        ];
-
-        $alerts = [];
-
-        DB::beginTransaction();
-
-        for ($i = 0; $i < 100; $i++) {
-            $type = $alertTypes[array_rand($alertTypes)];
-
-            $alerts[] = [
-                'id' => (string) Str::uuid(),
-                'type' => $type,
-                'severity' => $severityPool[array_rand($severityPool)],
-                'title' => $alertTitles[$type] ?? 'Alert',
-                'message' => $alertMessages[$type] ?? 'System alert.',
-                'assigned_to_id' => $userIds[array_rand($userIds)],
-                'created_at' => now()->subDays(rand(0, 180)),
-            ];
-        }
-
-        foreach (array_chunk($alerts, 100) as $chunk) {
-            DB::table('alerts')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($alerts);
-
-        // =====================================================================
-        // 11. AUDIT LOGS  (50 rows)
+        // 10. AUDIT LOGS  (50 rows)
         //     Only CREATE actions for cases and referrals
         //     Table uses `module`, `action`, `entity_id`, `timestamp` columns
         // =====================================================================

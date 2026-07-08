@@ -47,11 +47,11 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function add_attachment_rejects_exe_file(): void
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
-        $file = UploadedFile::fake()->create('malware.exe', 100);
+        $file = UploadedFile::fake()->createWithContent('malware.exe', 'malicious content', 'application/x-msdownload');
 
         $response = $this->from('/some-page')->actingAs($admin)->post(
             route('referrals.attachments.store', $this->referral),
@@ -64,11 +64,11 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function add_attachment_accepts_valid_pdf(): void
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
-        $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
         $response = $this->actingAs($admin)->post(
             route('referrals.attachments.store', $this->referral),
@@ -84,11 +84,11 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function store_rejects_php_file(): void
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
-        $file = UploadedFile::fake()->create('shell.php', 100);
+        $file = UploadedFile::fake()->createWithContent('shell.php', '<?php echo "hello"; ?>', 'application/x-php');
 
         $response = $this->from('/some-page')->actingAs($admin)->post(
             route('referrals.store'),
@@ -106,11 +106,11 @@ class ReferralDocumentUploadTest extends TestCase
     #[Test]
     public function store_accepts_valid_pdf(): void
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
-        $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
         $response = $this->actingAs($admin)->post(
             route('referrals.store'),

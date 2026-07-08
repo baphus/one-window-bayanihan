@@ -53,7 +53,7 @@ export default function OverdueReferralsIndex({ overdueReferrals, overdueDays })
     function sendReminders(referralIds) {
         if (sending) return;
         setSending(true);
-        router.post(route('admin.overdue-referrals.send-reminders'), {
+        router.post(route('overdue-referrals.send-reminders'), {
             referral_ids: referralIds,
         }, {
             preserveScroll: true,

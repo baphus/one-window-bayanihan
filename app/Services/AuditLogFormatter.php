@@ -3,10 +3,23 @@
 namespace App\Services;
 
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
+use App\Models\CaseIssue;
+use App\Models\Client;
+use App\Models\User;
 
 class AuditLogFormatter
 {
     private array $noiseFields = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'email_verified_at', 'timestamp'];
+
+    private array $createNoiseFields = ['case_number', 'tracker_number', 'consent_given_at', 'status'];
+
+    private array $uuidFieldMap = [
+        'user_id' => [User::class, 'name'],
+        'category_id' => [CaseCategory::class, 'name'],
+        'case_issue_id' => [CaseIssue::class, 'name'],
+        'client_id' => [Client::class, 'first_name', 'last_name'],
+    ];
 
     public function format(AuditLog $log): string
     {
@@ -118,9 +131,6 @@ class AuditLogFormatter
             'vulnerability_indicator' => 'vulnerability level',
             'nok_vulnerability_indicator' => 'NOK vulnerability level',
             'consent_given_at' => 'consent date',
-            'sla_target_days' => 'SLA target days',
-            'sla_met' => 'SLA met',
-            'escalated_at' => 'escalated at',
             'escalation_reason' => 'escalation reason',
             'case_issue_id' => 'case issue',
             'category_id' => 'category',
@@ -138,8 +148,44 @@ class AuditLogFormatter
             return in_array($value, [true, 1, '1'], true) ? 'Yes' : 'No';
         }
 
+        // Summarize draft_client_data — extract key info instead of showing raw JSON
+        // Must be checked BEFORE generic array handling
+        if ($field === 'draft_client_data' && is_array($value)) {
+            $first = $value['first_name'] ?? '';
+            $last = $value['last_name'] ?? '';
+            $name = trim("$first $last");
+            $email = $value['email'] ?? '';
+            $clientType = $value['client_type'] ?? '';
+
+            $parts = [];
+            if ($name !== '') {
+                $parts[] = $name;
+            }
+            if ($clientType !== '') {
+                $parts[] = "($clientType)";
+            }
+            if ($email !== '') {
+                $parts[] = "— $email";
+            }
+
+            return $parts !== [] ? 'Client: '.implode(' ', $parts) : sprintf('%d fields', count($value));
+        }
+
         if (is_array($value)) {
-            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'not set';
+            $count = count($value);
+            if ($count === 0) {
+                return 'empty';
+            }
+            // Check if it's a flat list (sequential integer keys)
+            if (array_is_list($value)) {
+                $items = array_map(fn ($v) => is_scalar($v) ? (string) $v : '…', array_slice($value, 0, 3));
+                $suffix = $count > 3 ? sprintf(' (+%d more)', $count - 3) : '';
+
+                return implode(', ', $items).$suffix;
+            }
+
+            // Associative array — show key count
+            return sprintf('%d fields', $count);
         }
 
         $stringValue = (string) $value;
@@ -178,87 +224,122 @@ class AuditLogFormatter
             };
         }
 
+        // Resolve UUID foreign keys to human-readable names
+        $resolved = $this->resolveUuidValue($field, $value);
+        if ($resolved !== null) {
+            return $resolved;
+        }
+
         return $stringValue;
-    }
-
-    public function formatChanges(?array $old, ?array $new): string
-    {
-        if ($old === null && $new === null) {
-            return '';
-        }
-
-        $module = '';
-        $changes = [];
-
-        if ($old === null && is_array($new)) {
-            foreach ($new as $field => $value) {
-                if (in_array($field, $this->noiseFields, true)) {
-                    continue;
-                }
-                $fieldName = $this->formatFieldName((string) $field);
-                $changes[] = sprintf('set %s to %s', $fieldName, $this->formatFieldValue($module, (string) $field, $value));
-            }
-
-            return implode('; ', $changes);
-        }
-
-        if ($new === null && is_array($old)) {
-            foreach ($old as $field => $value) {
-                if (in_array($field, $this->noiseFields, true)) {
-                    continue;
-                }
-                $changes[] = sprintf('cleared %s', $this->formatFieldName((string) $field));
-            }
-
-            return implode('; ', $changes);
-        }
-
-        $old = $old ?? [];
-        $new = $new ?? [];
-        $fields = array_unique(array_merge(array_keys($old), array_keys($new)));
-
-        foreach ($fields as $field) {
-            $hasOld = array_key_exists($field, $old);
-            $hasNew = array_key_exists($field, $new);
-            $oldValue = $hasOld ? $old[$field] : null;
-            $newValue = $hasNew ? $new[$field] : null;
-
-            if ($hasOld && $hasNew && $oldValue == $newValue) {
-                continue;
-            }
-
-            if (in_array($field, $this->noiseFields, true)) {
-                continue;
-            }
-
-            $fieldName = $this->formatFieldName((string) $field);
-            $changes[] = sprintf(
-                'changed %s from %s to %s',
-                $fieldName,
-                $this->formatFieldValue($module, (string) $field, $oldValue),
-                $this->formatFieldValue($module, (string) $field, $newValue),
-            );
-        }
-
-        return implode('; ', $changes);
     }
 
     public function formatForDisplay(AuditLog $log): array
     {
         $description = $this->format($log);
-        $changes = $this->formatChanges($log->old_value, $log->new_value);
         $userName = $this->resolveUserName($log);
         $action = strtoupper((string) $log->action);
+        $changes = $this->getStructuredChanges($log->old_value, $log->new_value, $action);
 
         return [
             'message' => $description,
-            'detail' => $changes,
+            'detail' => '',
+            'changes' => $changes,
             'action' => $action,
             'module' => $this->formatModule((string) $log->module),
             'actor' => $userName,
             'timestamp' => $log->timestamp?->toISOString(),
-            'hasChanges' => $changes !== '',
+            'hasChanges' => $changes !== [],
         ];
+    }
+
+    public function getStructuredChanges(?array $old, ?array $new, string $action = 'UPDATE'): array
+    {
+        if ($old === null && $new === null) {
+            return [];
+        }
+
+        $excludeFields = $action === 'CREATE'
+            ? array_merge($this->noiseFields, $this->createNoiseFields)
+            : $this->noiseFields;
+
+        $changes = [];
+
+        if ($old === null && is_array($new)) {
+            // CREATE: all fields are new
+            foreach ($new as $field => $value) {
+                if (in_array($field, $excludeFields, true)) {
+                    continue;
+                }
+                $changes[] = [
+                    'field' => $field,
+                    'fieldLabel' => $this->formatFieldName((string) $field),
+                    'old' => null,
+                    'new' => $this->formatFieldValue('', (string) $field, $value),
+                ];
+            }
+        } elseif ($new === null && is_array($old)) {
+            // DELETE: all fields were removed
+            foreach ($old as $field => $value) {
+                if (in_array($field, $excludeFields, true)) {
+                    continue;
+                }
+                $changes[] = [
+                    'field' => $field,
+                    'fieldLabel' => $this->formatFieldName((string) $field),
+                    'old' => $this->formatFieldValue('', (string) $field, $value),
+                    'new' => null,
+                ];
+            }
+        } elseif (is_array($old) && is_array($new)) {
+            // UPDATE: compare old vs new
+            $fields = array_unique(array_merge(array_keys($old), array_keys($new)));
+            foreach ($fields as $field) {
+                if (in_array($field, $excludeFields, true)) {
+                    continue;
+                }
+                $oldValue = array_key_exists($field, $old) ? $old[$field] : null;
+                $newValue = array_key_exists($field, $new) ? $new[$field] : null;
+
+                if ($oldValue == $newValue) {
+                    continue;
+                }
+
+                $changes[] = [
+                    'field' => $field,
+                    'fieldLabel' => $this->formatFieldName((string) $field),
+                    'old' => $this->formatFieldValue('', (string) $field, $oldValue),
+                    'new' => $this->formatFieldValue('', (string) $field, $newValue),
+                ];
+            }
+        }
+
+        return $changes;
+    }
+
+    private function resolveUuidValue(string $field, mixed $value): ?string
+    {
+        if (! isset($this->uuidFieldMap[$field]) || ! is_string($value)) {
+            return null;
+        }
+
+        // Quick check: UUIDs are 36 chars with 4 hyphens
+        if (strlen($value) !== 36 || substr_count($value, '-') !== 4) {
+            return null;
+        }
+
+        $nameFields = $this->uuidFieldMap[$field];
+        $modelClass = array_shift($nameFields);
+        $model = $modelClass::find($value);
+
+        if ($model === null) {
+            return null;
+        }
+
+        // Combine name fields (e.g. first_name + last_name for Client)
+        $parts = array_map(fn ($f) => $model->{$f} ?? '', $nameFields);
+        $name = trim(implode(' ', $parts));
+
+        return $name !== '' ? $name : null;
     }
 
     private function formatLogin(string $userName, AuditLog $log): string
@@ -349,31 +430,23 @@ class AuditLogFormatter
         $identifier = $this->extractEntityDetail($allValues, $moduleRaw);
         $entityPrefix = $identifier ?: $module;
 
-        $changes = $this->formatChanges($log->old_value, $log->new_value);
+        $changes = $this->getStructuredChanges($log->old_value, $log->new_value, 'UPDATE');
 
-        if ($changes === '') {
+        if (empty($changes)) {
             return sprintf('%s was updated', $entityPrefix);
         }
 
-        // Parse changes to produce cleaner single-field update messages
-        $changeParts = explode('; ', $changes);
-        if (count($changeParts) === 1) {
-            // Single change: "changed status from Processing to Completed"
-            $change = $changeParts[0];
-            if (preg_match('/^changed (.+) from .+ to (.+)$/', $change, $matches)) {
-                return sprintf('%s %s changed to %s', $entityPrefix, $matches[1], $matches[2]);
-            }
+        if (count($changes) === 1) {
+            $change = $changes[0];
+
+            return sprintf('%s %s changed to %s', $entityPrefix, $change['fieldLabel'], $change['new'] ?? 'not set');
         }
 
-        // Multi-field: use first change + "and more"
-        $firstChange = $changeParts[0];
-        if (preg_match('/^changed (.+) from .+ to (.+)$/', $firstChange, $matches)) {
-            $suffix = count($changeParts) > 1 ? ' (+'.(count($changeParts) - 1).' more)' : '';
+        // Multi-field: use first change + count
+        $firstChange = $changes[0];
+        $suffix = ' (+'.(count($changes) - 1).' more)';
 
-            return sprintf('%s %s changed to %s%s', $entityPrefix, $matches[1], $matches[2], $suffix);
-        }
-
-        return sprintf('%s was updated', $entityPrefix);
+        return sprintf('%s %s changed to %s%s', $entityPrefix, $firstChange['fieldLabel'], $firstChange['new'] ?? 'not set', $suffix);
     }
 
     private function formatDelete(string $userName, AuditLog $log, string $module): string

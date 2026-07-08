@@ -7,6 +7,7 @@ use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Services\AuditLogFormatter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class AuditLogController extends Controller
@@ -65,7 +66,7 @@ class AuditLogController extends Controller
         $query->orderBy('timestamp', 'desc');
 
         $perPage = min((int) $request->input('per_page', 15), 100);
-        $logs = $query->paginate($perPage);
+        $logs = $query->cursorPaginate($perPage);
 
         $logs->getCollection()->transform(function ($log) use ($formatter) {
             if ($log->description === null) {
@@ -83,23 +84,16 @@ class AuditLogController extends Controller
             $log->actor = $display['actor'];
             $log->hasChanges = $display['hasChanges'];
             $log->formatted_module = $display['module'];
-
-            if ($log->old_value || $log->new_value) {
-                $fields = array_unique(array_merge(
-                    array_keys($log->old_value ?? []),
-                    array_keys($log->new_value ?? [])
-                ));
-                $log->formatted_fields = collect($fields)
-                    ->mapWithKeys(fn ($f) => [$f => $formatter->formatFieldName($f)])
-                    ->toArray();
-            } else {
-                $log->formatted_fields = [];
-            }
+            $log->changes = $display['changes'];
 
             return $log;
         });
 
-        $availableActions = AuditLog::distinct()->pluck('action')->values()->toArray();
+        $availableActions = Cache::remember(
+            'audit_log_available_actions',
+            now()->addHours(24),
+            fn () => AuditLog::distinct()->pluck('action')->values()->toArray()
+        );
 
         $canonicalMap = [
             'case_files' => 'case', 'case' => 'case',
@@ -115,7 +109,11 @@ class AuditLogController extends Controller
             'helpdesk_articles' => 'helpdesk_article', 'helpdesk_article' => 'helpdesk_article',
         ];
 
-        $availableModulesRaw = AuditLog::distinct()->pluck('module')->values()->toArray();
+        $availableModulesRaw = Cache::remember(
+            'audit_log_available_modules',
+            now()->addHours(24),
+            fn () => AuditLog::distinct()->pluck('module')->values()->toArray()
+        );
         $availableModules = collect($availableModulesRaw)
             ->map(fn ($m) => $canonicalMap[$m] ?? $m)
             ->unique()

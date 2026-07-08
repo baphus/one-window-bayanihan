@@ -365,6 +365,60 @@ class DataExportQueries
                     ->whereNotNull('c7.client_id');
             });
         }
+        if (! empty($filters['vulnerability_indicator'])) {
+            $vuln = $filters['vulnerability_indicator'];
+            $query->whereIn('cl.id', function ($q) use ($vuln) {
+                $q->select('c8.client_id')
+                    ->from('cases AS c8')
+                    ->where(function ($q2) use ($vuln) {
+                        $q2->where('c8.vulnerability_indicator', $vuln)
+                            ->orWhere('c8.nok_vulnerability_indicator', $vuln);
+                    })
+                    ->where('c8.is_deleted', false)
+                    ->whereNotNull('c8.client_id');
+            });
+        }
+        if (! empty($filters['case_status'])) {
+            $query->whereIn('cl.id', function ($q) use ($filters) {
+                $q->select('c9.client_id')
+                    ->from('cases AS c9')
+                    ->where('c9.status', $filters['case_status'])
+                    ->where('c9.is_deleted', false)
+                    ->whereNotNull('c9.client_id');
+            });
+        }
+        if (! empty($filters['category_id'])) {
+            $query->whereIn('cl.id', function ($q) use ($filters) {
+                $q->select('c10.client_id')
+                    ->from('cases AS c10')
+                    ->where('c10.category_id', $filters['category_id'])
+                    ->where('c10.is_deleted', false)
+                    ->whereNotNull('c10.client_id');
+            });
+        }
+        if (! empty($filters['case_issue_id'])) {
+            $query->whereIn('cl.id', function ($q) use ($filters) {
+                $q->select('c11.client_id')
+                    ->from('cases AS c11')
+                    ->where('c11.case_issue_id', $filters['case_issue_id'])
+                    ->where('c11.is_deleted', false)
+                    ->whereNotNull('c11.client_id');
+            });
+        }
+        if (! empty($filters['agcy_id'])) {
+            $query->whereIn('cl.id', function ($q) use ($filters) {
+                $q->select('c12.client_id')
+                    ->from('cases AS c12')
+                    ->whereIn('c12.id', function ($q2) use ($filters) {
+                        $q2->select('r3.case_id')
+                            ->from('referrals AS r3')
+                            ->where('r3.agcy_id', $filters['agcy_id'])
+                            ->where('r3.is_deleted', false);
+                    })
+                    ->where('c12.is_deleted', false)
+                    ->whereNotNull('c12.client_id');
+            });
+        }
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {

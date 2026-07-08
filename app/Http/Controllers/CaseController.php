@@ -16,6 +16,7 @@ use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\PhilippineAddressService;
+use App\Services\TrackingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -24,6 +25,7 @@ class CaseController extends Controller
     public function __construct(
         private readonly CaseService $caseService,
         private readonly PhilippineAddressService $addressService,
+        private readonly TrackingService $trackingService,
     ) {}
 
     public function index(Request $request)
@@ -143,9 +145,12 @@ class CaseController extends Controller
         }
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
+        $trackingData = $this->trackingService->buildTrackingData($case);
+
         return Inertia::render('Case/Show', [
             'case' => $case,
             'overdueDays' => $overdueDays,
+            'milestoneTimeline' => $trackingData['milestoneTimeline'],
         ]);
     }
 

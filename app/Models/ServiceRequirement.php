@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ServiceRequirement extends Model
 {
-    use HasFactory, UsesUuid, SoftDeleteFlag;
+    use HasFactory, SoftDeleteFlag, UsesUuid;
 
     protected $fillable = [
         'name',

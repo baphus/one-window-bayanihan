@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { usePage } from '@inertiajs/react';
+import { route } from 'ziggy-js';
 import { useOnboarding } from './OnboardingProvider';
 import { useToast } from '@/Hooks/useToast';
 import { completeOnboarding } from './api';

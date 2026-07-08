@@ -4,8 +4,6 @@ use App\Http\Controllers\Admin\ActiveSessionsController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
-use App\Http\Controllers\Admin\AlertConfigController;
-use App\Http\Controllers\Admin\BackupStatusController;
 use App\Http\Controllers\Admin\DataExportController;
 use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\LogViewerController;
@@ -13,15 +11,11 @@ use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\ScheduledTaskController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
-use App\Http\Controllers\Admin\SupabaseDashboardController;
-use App\Http\Controllers\Admin\SystemHealthController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
 use App\Http\Controllers\AgencyServqualConfigController;
-use App\Http\Controllers\AnonymizedAnalyticsController;
-use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
@@ -34,6 +28,7 @@ use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicFeedbackController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\StakeholderController;
@@ -46,6 +41,14 @@ use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+// Public feedback submission — no auth required (token-based)
+Route::get('/feedback/{token}', [PublicFeedbackController::class, 'showForm'])
+    ->name('feedbacks.submit-page')
+    ->middleware('throttle:30,1');
+Route::post('/feedback/{token}', [PublicFeedbackController::class, 'submit'])
+    ->name('feedbacks.submit')
+    ->middleware('throttle:10,1');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -87,7 +90,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile/mfa/recovery-codes', [MfaController::class, 'getRecoveryCodes'])->name('profile.mfa.recovery-codes');
     Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate');
 
-    // All-roles routes: referrals, analytics, reports, notifications
+    // All-roles routes: referrals, reports, notifications
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
@@ -104,10 +107,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
     Route::post('/referrals/{referral}/compliance/{compliance}/fulfill', [ReferralController::class, 'fulfillCompliance'])->name('referrals.compliance.fulfill');
 
-    Route::get('/analytics', [AnonymizedAnalyticsController::class, 'index'])->name('analytics.index');
-    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:60,1');
     Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight')->middleware('throttle:10,1');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
+    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
@@ -116,10 +119,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/notifications/page', function () {
         return Inertia::render('Notifications/Index');
     })->name('notifications.page');
-
-    // Feedback submission — all roles
-    Route::get('/feedbacks/submit-page', [FeedbackController::class, 'submitPage'])->name('feedbacks.submit-page');
-    Route::post('/feedbacks/submit', [FeedbackController::class, 'submit'])->name('feedbacks.submit');
 
     // Role-gated: CASE_MANAGER + ADMIN only
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
@@ -139,17 +138,14 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/case-issues/quick', [CaseIssueController::class, 'quickStore'])->name('case-issues.quick');
 
-        Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
-        Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
-        Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
-        Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
-        Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
-
         Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
         Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+    });
 
+    // Feedback views: CASE_MANAGER, ADMIN, and AGENCY (controller scopes by agency_id)
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
         Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
         Route::get('/feedbacks/servqual-config', [FeedbackController::class, 'servqualConfig'])->name('feedbacks.servqual-config');
         Route::get('/feedbacks/export-excel', [FeedbackController::class, 'exportExcel'])->name('feedbacks.export-excel');
@@ -159,6 +155,17 @@ Route::middleware(['auth'])->group(function () {
     // Case show: AGENCY can view cases with active referrals (authorized in controller)
     Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show')
         ->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
+        Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
+        Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
+        Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
+    });
+
+    Route::middleware('role:CASE_MANAGER')->group(function () {
+        Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
+        Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
+    });
 
     // Client routes: accessible to CASE_MANAGER, ADMIN, and AGENCY (controller handles per-role authorization)
     Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
@@ -182,6 +189,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/', [AgencyServqualConfigController::class, 'store'])->name('store');
         Route::get('/{config}/edit', [AgencyServqualConfigController::class, 'edit'])->name('edit');
         Route::patch('/{config}', [AgencyServqualConfigController::class, 'update'])->name('update');
+        Route::patch('/{config}/activate', [AgencyServqualConfigController::class, 'activate'])->name('activate');
         Route::delete('/{config}', [AgencyServqualConfigController::class, 'destroy'])->name('destroy');
     });
 
@@ -241,14 +249,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/data-export/export', [DataExportController::class, 'export'])->name('data-export.export');
 
         Route::prefix('system')->name('system.')->group(function () {
-            Route::get('/health', [SystemHealthController::class, 'index'])->name('health');
-            Route::post('/health/run-checks', [SystemHealthController::class, 'runChecks'])->name('health.run-checks');
-
-            Route::get('/supabase', [SupabaseDashboardController::class, 'index'])->name('supabase');
-
-            Route::get('/backups', [BackupStatusController::class, 'index'])->name('backups');
-            Route::post('/backups/refresh', [BackupStatusController::class, 'refresh'])->name('backups.refresh');
-
             Route::get('/logs', [LogViewerController::class, 'index'])->name('logs');
             Route::get('/logs/entries', [LogViewerController::class, 'entries'])->name('logs.entries');
             Route::get('/logs/download', [LogViewerController::class, 'download'])->name('logs.download');
@@ -265,10 +265,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/active-sessions', [ActiveSessionsController::class, 'index'])->name('active-sessions');
             Route::post('/active-sessions/{session}/terminate', [ActiveSessionsController::class, 'terminate'])->name('active-sessions.terminate');
 
-            Route::get('/alerts', [AlertConfigController::class, 'index'])->name('alerts');
-            Route::post('/alerts', [AlertConfigController::class, 'update'])->name('alerts.update');
-            Route::post('/alerts/test-email', [AlertConfigController::class, 'testEmail'])->name('alerts.test-email');
-
             Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
             Route::post('/email-logs/{emailLog}/resend', [EmailLogController::class, 'resend'])->name('email-logs.resend');
 
@@ -276,7 +272,7 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-Route::middleware(['auth', 'role:ADMIN'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:ADMIN,CASE_MANAGER,AGENCY'])->group(function () {
     Route::get('/overdue-referrals', [OverdueReferralController::class, 'index'])->name('overdue-referrals.index');
     Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])->name('overdue-referrals.send-reminders');
 });
@@ -327,19 +323,12 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
     ]))->name('show');
 });
 
-Route::get('/api/analytics', [AnonymizedAnalyticsController::class, 'api'])->middleware(['auth', 'throttle:api-global'])->name('api.analytics');
-
 // API routes (authenticated via web session) — in web.php for session middleware support
 Route::middleware(['auth', 'throttle:api-global'])->prefix('api')->group(function () {
     // Client selection for case creation form
     Route::get('/clients', [ClientSelectController::class, 'search']);
     Route::get('/clients/{client}', [ClientSelectController::class, 'show']);
 
-    // Alerts
-    Route::get('/alerts', [AlertController::class, 'index']);
-    Route::post('/alerts/{id}/dismiss', [AlertController::class, 'dismiss']);
-    Route::post('/alerts/{id}/read', [AlertController::class, 'read']);
-    Route::post('/alerts/mark-all-read', [AlertController::class, 'markAllAsRead']);
 });
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])

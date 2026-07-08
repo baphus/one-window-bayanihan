@@ -28,11 +28,11 @@ class RateLimitingApiTest extends TestCase
 
         // Make 60 requests (should all succeed)
         for ($i = 0; $i < 60; $i++) {
-            $this->actingAs($user)->getJson('/api/alerts');
+            $this->actingAs($user)->getJson('/api/clients');
         }
 
         // 61st should be rate limited
-        $response = $this->actingAs($user)->getJson('/api/alerts');
+        $response = $this->actingAs($user)->getJson('/api/clients');
         $response->assertStatus(429);
     }
 
@@ -44,11 +44,11 @@ class RateLimitingApiTest extends TestCase
         // The api-global limiter applies to all requests in the group (GET and POST)
         // Make 60 requests to exhaust the limit
         for ($i = 0; $i < 60; $i++) {
-            $this->actingAs($user)->getJson('/api/alerts');
+            $this->actingAs($user)->getJson('/api/clients');
         }
 
         // Next request should be 429
-        $response = $this->actingAs($user)->getJson('/api/alerts');
+        $response = $this->actingAs($user)->getJson('/api/clients');
         $response->assertStatus(429);
     }
 
@@ -60,15 +60,15 @@ class RateLimitingApiTest extends TestCase
 
         // Exhaust user1's limit
         for ($i = 0; $i < 60; $i++) {
-            $this->actingAs($user1)->getJson('/api/alerts');
+            $this->actingAs($user1)->getJson('/api/clients');
         }
 
         // user1 is rate limited
-        $response = $this->actingAs($user1)->getJson('/api/alerts');
+        $response = $this->actingAs($user1)->getJson('/api/clients');
         $response->assertStatus(429);
 
         // user2 still has quota
-        $response = $this->actingAs($user2)->getJson('/api/alerts');
+        $response = $this->actingAs($user2)->getJson('/api/clients');
         $response->assertStatus(200);
     }
 }

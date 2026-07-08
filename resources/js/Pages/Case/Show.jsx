@@ -50,7 +50,81 @@ function formatNokAddress(nok) {
   return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
-export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
+export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [] }) {
+  const EVENT_CONFIG = {
+    case_opened:     { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
+    referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
+    referral_status: { dot: 'bg-amber-50 border-amber-200 text-amber-600',       icon: 'sync_alt' },
+    milestone:       { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
+    case_closed:     { dot: 'bg-slate-100 border-slate-200 text-slate-600',     icon: 'lock' },
+  };
+
+  const EVENT_TYPE_OPTIONS = [
+    { value: 'ALL',          label: 'All Events' },
+    { value: 'case_opened',  label: 'Case Opened' },
+    { value: 'referral',     label: 'Referrals' },
+    { value: 'referral_status', label: 'Status Updates' },
+    { value: 'milestone',    label: 'Milestones' },
+    { value: 'case_closed',  label: 'Case Closed' },
+  ];
+
+  function formatEventDate(dateStr) {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) {
+      return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function formatHumanDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }) + ' at ' + date.toLocaleTimeString('en-PH', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+
+  const [timelineAgencyFilter, setTimelineAgencyFilter] = useState('ALL');
+  const [timelineTypeFilter, setTimelineTypeFilter] = useState('ALL');
+
+  const timelineAgencyNames = useMemo(() => {
+    const names = milestoneTimeline
+      ? milestoneTimeline.map(i => i.agency).filter((a, i, arr) => a && arr.indexOf(a) === i)
+      : [];
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [milestoneTimeline]);
+
+  const filteredTimeline = useMemo(() => {
+    if (!milestoneTimeline) return [];
+    let items = [...milestoneTimeline];
+    if (timelineAgencyFilter !== 'ALL') {
+      items = items.filter(i => i.agency === timelineAgencyFilter);
+    }
+    if (timelineTypeFilter === 'referral') {
+      items = items.filter(i => i.type === 'referral_sent' || i.type === 'referral_status');
+    } else if (timelineTypeFilter !== 'ALL') {
+      items = items.filter(i => i.type === timelineTypeFilter);
+    }
+    return items.reverse();
+  }, [milestoneTimeline, timelineAgencyFilter, timelineTypeFilter]);
+
+  const hasActiveFilters = timelineAgencyFilter !== 'ALL' || timelineTypeFilter !== 'ALL';
+
+  const clearFilters = () => {
+    setTimelineAgencyFilter('ALL');
+    setTimelineTypeFilter('ALL');
+  };
+
   const page = usePage();
   const { auth } = page.props;
   const client = caseFile.client;
@@ -118,6 +192,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
   const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
 
   const canUploadAvatar = auth.user?.role === 'ADMIN' || auth.user?.role === 'CASE_MANAGER';
+  const canManageCaseDocuments = auth.user?.role === 'CASE_MANAGER';
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
   const referralRows = useMemo(() => {
@@ -153,65 +228,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     );
   }, [caseFile.referrals]);
 
-  const timelineItems = useMemo(() => {
-    const items = [];
-    items.push({
-      id: `${caseFile.id}-created`,
-      type: 'system',
-      actor: caseFile.user?.name || 'Case Manager',
-      agency: 'Bayanihan',
-      title: 'Case Created',
-      description: 'Case record was created in the Bayanihan portal.',
-      timestamp: caseFile.created_at,
-    });
-    (caseFile.referrals || []).forEach((ref) => {
-      items.push({
-        id: `${ref.id}-referred`,
-        type: 'referral',
-        actor: caseFile.user?.name || 'Case Manager',
-        agency: ref.agency?.name || 'Agency',
-        title: `Referral Sent to ${ref.agency?.name || 'Agency'}`,
-        description: `Case was referred for ${ref.required_services || 'services'}.`,
-        timestamp: ref.created_at,
-      });
-      const milestones = ref.milestones || [];
-      if (milestones.length > 0) {
-        const latest = milestones.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
-        items.push({
-          id: latest.id,
-          type: 'milestone',
-          actor: latest.user?.name || 'System',
-          agency: ref.agency?.name || 'Agency',
-          title: latest.title,
-          description: latest.description || '',
-          timestamp: latest.created_at,
-        });
-      }
-    });
-    if (caseFile.status === 'CLOSED') {
-      items.push({
-        id: `${caseFile.id}-closed`,
-        type: 'system',
-        actor: 'System',
-        agency: 'Bayanihan',
-        title: 'Case Closed',
-        description: 'Case was closed after processing.',
-        timestamp: caseFile.updated_at,
-      });
-    }
-    items.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    return items;
-  }, [caseFile]);
-
-  const timelineAgencies = useMemo(() => {
-    const agencies = timelineItems
-      .filter((item) => item.type !== 'system')
-      .map((item) => item.agency)
-      .filter(Boolean);
-    return Array.from(new Set(agencies)).sort((a, b) => a.localeCompare(b));
-  }, [timelineItems]);
-
-  const [timelineFilter, setTimelineFilter] = useState('ALL');
   const [contextMenu, setContextMenu] = useState(null);
 
   function handleRowContextMenu(e, row) {
@@ -219,12 +235,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
     setContextMenu({ x: e.clientX, y: e.clientY, row });
   }
 
-  const filteredTimeline = useMemo(() => {
-    if (timelineFilter === 'ALL') return timelineItems;
-    return timelineItems.filter(
-      (item) => item.type === 'system' || item.agency === timelineFilter
-    );
-  }, [timelineItems, timelineFilter]);
+
 
   const referralColumns = [
     {
@@ -531,53 +542,101 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
             />
           </CardSection>
 
-          {/* Timeline — moved from sidebar, full width */}
           <div data-tour="case-timeline">
-          <CardSection title="Case Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardSection title="Activity Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Chronological Events</span>
-                {filteredTimeline.length > 0 && (
-                  <span className="text-[10px] text-slate-400">({filteredTimeline.length} event{filteredTimeline.length !== 1 ? 's' : ''})</span>
+                {milestoneTimeline && milestoneTimeline.length > 0 && (
+                  <span className="text-[10px] text-slate-400">({milestoneTimeline.length} event{milestoneTimeline.length !== 1 ? 's' : ''})</span>
                 )}
               </div>
-              <select
-                value={timelineFilter}
-                onChange={(e) => setTimelineFilter(e.target.value)}
-                className="h-[30px] w-[170px] max-w-full shrink-0 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600"
-              >
-                <option value="ALL">All agencies</option>
-                {timelineAgencies.map((agency) => (
-                  <option key={agency} value={agency}>{agency}</option>
-                ))}
-              </select>
-            </div>
-            {filteredTimeline.length > 0 ? (
-              <div className="relative mt-4">
-                <div className="absolute left-[10px] top-1 bottom-1 w-px bg-slate-300" />
-                <div className="flex flex-col-reverse gap-4">
-                  {filteredTimeline.map((item) => (
-                    <div key={item.id} className="relative grid grid-cols-[22px_1fr] items-start gap-3">
-                      <div className={`z-10 mt-0.5 flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full border border-white bg-white shadow-sm ${item.type === 'system' ? 'text-blue-900' : 'text-slate-500'}`}>
-                        <span className="material-symbols-outlined text-[13px]">
-                          {item.type === 'system' ? 'account_balance' : 'business'}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] leading-5 font-semibold text-slate-700">{item.title}</p>
-                        {item.description && (
-                          <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
-                        )}
-                        <p className="mt-0.5 text-[10px] text-slate-400">
-                          {formatDisplayDateTime(item.timestamp)} &middot; {item.actor}
-                        </p>
-                      </div>
-                    </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Agency filter */}
+                {timelineAgencyNames.length > 0 && (
+                  <select
+                    value={timelineAgencyFilter}
+                    onChange={e => setTimelineAgencyFilter(e.target.value)}
+                    className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
+                  >
+                    <option value="ALL">All Agencies</option>
+                    {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                )}
+                {/* Type filter */}
+                <select
+                  value={timelineTypeFilter}
+                  onChange={e => setTimelineTypeFilter(e.target.value)}
+                  className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
+                >
+                  {EVENT_TYPE_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
-                </div>
+                </select>
+                {/* Clear filters */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-blue-600 hover:text-blue-800 px-2 py-1.5 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filter results count */}
+            {milestoneTimeline && milestoneTimeline.length > 0 && (
+              <p className="mt-2 text-[10px] text-slate-400 font-medium px-0.5">
+                Showing {filteredTimeline.length} of {milestoneTimeline.length} events
+              </p>
+            )}
+
+            {filteredTimeline.length === 0 ? (
+              <div className="mt-4 bg-white rounded-xl border border-slate-200 p-10 text-center">
+                <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">history</span>
+                <p className="text-sm text-slate-500">No activity matches your filters.</p>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
+                    Clear filters
+                  </button>
+                )}
               </div>
             ) : (
-              <p className="text-[12px] text-slate-500 py-4 text-center">No timeline events recorded.</p>
+              <div className="relative mt-4">
+                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
+                <div className="space-y-6">
+                  {filteredTimeline.map((item, index) => {
+                    const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone;
+                    return (
+                      <div key={`${item.date}-${index}`} className="relative flex gap-4 items-start group">
+                        <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white ${cfg.dot} shadow-sm shrink-0`}>
+                          <span className="material-symbols-outlined text-[14px]">{cfg.icon}</span>
+                        </div>
+                        <div className="min-w-0 pt-0.5 flex-1">
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                              {formatEventDate(item.date)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                              {formatHumanDate(item.date)}
+                            </span>
+                            {item.agency && (
+                              <span className="text-[11px] font-semibold text-slate-400 border-l border-slate-200 pl-2">
+                                {item.agency}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900 mt-1 leading-snug">{item.title}</h4>
+                          {item.description && (
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-prose">{item.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </CardSection>
           </div>
@@ -727,11 +786,17 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
           </CardSection>
 
           <CardSection title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
+              <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
+              <p className="text-[11px] leading-5 text-blue-800">
+                Everything uploaded to this section will be viewable to all referred agencies.
+              </p>
+            </div>
             <div className="space-y-4">
               {caseFile.documents?.length > 0 ? (
                 <div className="space-y-2">
                   {caseFile.documents.map((doc) => {
-                    const canDelete = auth.user?.id === caseFile.user_id || auth.user?.role === 'ADMIN';
+                    const canDelete = canManageCaseDocuments;
                     return (
                       <div key={doc.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                         <div className="min-w-0">
@@ -768,25 +833,27 @@ export default function CaseShow({ case: caseFile, overdueDays = 7 }) {
                 <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
               )}
 
-              <FileUpload
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
-                maxSize={10 * 1024 * 1024}
-                label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
-                disabled={uploadingDoc}
-                onFilesSelected={(file) => {
-                  if (!file) return;
-                  setUploadingDoc(true);
-                  router.post(
-                    route('cases.documents.store', caseFile.id),
-                    { file },
-                    {
-                      preserveScroll: true,
-                      onSuccess: () => setUploadingDoc(false),
-                      onError: () => setUploadingDoc(false),
-                    },
-                  );
-                }}
-              />
+              {canManageCaseDocuments && (
+                <FileUpload
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  maxSize={10 * 1024 * 1024}
+                  label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                  disabled={uploadingDoc}
+                  onFilesSelected={(file) => {
+                    if (!file) return;
+                    setUploadingDoc(true);
+                    router.post(
+                      route('cases.documents.store', caseFile.id),
+                      { file },
+                      {
+                        preserveScroll: true,
+                        onSuccess: () => setUploadingDoc(false),
+                        onError: () => setUploadingDoc(false),
+                      },
+                    );
+                  }}
+                />
+              )}
             </div>
           </CardSection>
         </aside>

@@ -22,6 +22,10 @@ class AuditLog extends Model
         'new_value',
         'user_id',
         'timestamp',
+        'ip_address',
+        'user_agent',
+        'request_id',
+        'prev_hash',
     ];
 
     protected $casts = [
@@ -29,6 +33,7 @@ class AuditLog extends Model
         'new_value' => 'array',
         'timestamp' => 'datetime',
         'is_deleted' => 'boolean',
+        'request_id' => 'string',
     ];
 
     private static array $sensitiveFields = [
@@ -56,16 +61,20 @@ class AuditLog extends Model
 
                         return;
                     }
-                    // Pattern match: any key containing password/secret/token/key
+                    // Pattern match: any key containing password/secret/token
                     $lowerKey = strtolower($k);
                     if (str_contains($lowerKey, 'password') ||
                         str_contains($lowerKey, 'secret') ||
-                        str_contains($lowerKey, 'token') ||
-                        str_contains($lowerKey, 'key')) {
+                        str_contains($lowerKey, 'token')) {
                         $v = '[REDACTED]';
                     }
                 });
                 $auditLog->$column = $value;
+            }
+
+            // CR/LF sanitization to prevent log injection
+            if ($auditLog->description) {
+                $auditLog->description = str_replace(["\r", "\n"], ' ', $auditLog->description);
             }
         });
     }

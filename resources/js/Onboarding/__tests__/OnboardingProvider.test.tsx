@@ -67,8 +67,8 @@ beforeEach(() => {
 describe('OnboardingProvider', () => {
     it('renders children without error', () => {
         vi.mocked(usePage).mockReturnValue({
-            props: { onboarding_required: false },
-        });
+            props: { errors: {}, onboarding_required: false },
+        } as never);
         render(
             <OnboardingProvider>
                 <div>child content</div>

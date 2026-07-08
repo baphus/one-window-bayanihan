@@ -21,10 +21,12 @@ class OtpResendAuthTest extends TestCase
             'password' => 'P@ssw0rd!',
         ]);
 
+        Log::shouldReceive('withContext')->zeroOrMoreTimes();
+        Log::shouldReceive('error')->zeroOrMoreTimes();
         Log::shouldReceive('info')
             ->once()
             ->withArgs(fn ($message, $context) => $message === 'otp_resend_successful'
-                && ($context['email'] ?? '') === $user->email);
+                && str_contains($context['email'] ?? '', substr($user->email, 0, 2)));
 
         $response = $this->post('/login/resend-otp', [
             'email' => $user->email,

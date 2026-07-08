@@ -6,15 +6,15 @@ export default function ReportLazySection({ lazyKey, skeleton, children, emptyMe
   if (isLoading) return skeleton;
   if (error) {
     return (
-      <div className="border bg-white p-4 shadow-sm" style={{ borderColor: '#e2e8f0' }}>
-        <p className="py-8 text-center text-[13px] text-slate-400">Failed to load this section.</p>
+      <div className="rounded-[3px] border border-[#e2e8f0] bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">Failed to load this section.</p>
       </div>
     );
   }
   if (data === null || data === undefined) {
     return emptyMessage ? (
-      <div className="border bg-white p-4 shadow-sm" style={{ borderColor: '#e2e8f0' }}>
-        <p className="py-8 text-center text-[13px] text-slate-400">{emptyMessage}</p>
+      <div className="rounded-[3px] border border-[#e2e8f0] bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">{emptyMessage}</p>
       </div>
     ) : null;
   }

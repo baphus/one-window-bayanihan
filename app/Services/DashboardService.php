@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\Referral;
-use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -58,14 +58,59 @@ class DashboardService
         $ofwCount = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
         $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
 
-        $casesByProvince = CaseFile::select('ca.province', DB::raw('count(*) as total'))
+        $maleCount = Client::whereHas('caseFiles', fn ($q) => $q->whereNotIn('status', ['DRAFT', 'ARCHIVED']))
+            ->where('sex', 'MALE')
+            ->count();
+
+        $femaleCount = Client::whereHas('caseFiles', fn ($q) => $q->whereNotIn('status', ['DRAFT', 'ARCHIVED']))
+            ->where('sex', 'FEMALE')
+            ->count();
+
+        $pwdCount = Client::whereHas('caseFiles', fn ($q) => $q
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where(fn ($q2) => $q2
+                ->where('vulnerability_indicator', 'PWD')
+                ->orWhere('nok_vulnerability_indicator', 'PWD')
+            )
+        )->count();
+
+        $seniorCount = Client::whereHas('caseFiles', fn ($q) => $q
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where(fn ($q2) => $q2
+                ->where('vulnerability_indicator', 'Senior Citizen')
+                ->orWhere('nok_vulnerability_indicator', 'Senior Citizen')
+            )
+        )->count();
+
+        $singleParentCount = Client::whereHas('caseFiles', fn ($q) => $q
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->where(fn ($q2) => $q2
+                ->where('vulnerability_indicator', 'Solo Parent')
+                ->orWhere('nok_vulnerability_indicator', 'Solo Parent')
+            )
+        )->count();
+
+        $rawProvinces = CaseFile::select('ca.province', DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
+            ->whereNotNull('ca.province')
+            ->where('ca.province', '!=', '')
             ->groupBy('ca.province')
             ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => ['province' => $row->province ?? 'Unknown', 'count' => (int) $row->total])
+            ->get();
+
+        $resolver = app(AddressNameResolver::class);
+        $aggregated = [];
+        foreach ($rawProvinces as $row) {
+            $name = $resolver->resolve($row->province);
+            $aggregated[$name] = ($aggregated[$name] ?? 0) + (int) $row->total;
+        }
+        arsort($aggregated);
+
+        $casesByProvince = collect($aggregated)
+            ->map(fn ($count, $province) => ['province' => $province, 'count' => $count])
+            ->values()
             ->toArray();
 
         $agencyBreakdown = Agency::withCount('referrals')
@@ -102,6 +147,7 @@ class DashboardService
                     $display = [
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
+                        'changes' => [],
                         'action' => $log->action,
                         'module' => $log->module,
                         'actor' => 'System',
@@ -110,15 +156,18 @@ class DashboardService
                     ];
                 }
 
+                $changes = $display['changes'] ?? [];
+
                 return [
                     'id' => $log->id,
                     'title' => $display['message'],
-                    'desc' => $display['detail'],
+                    'desc' => $this->formatChangeSummary($changes),
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                     // enriched structured data for modern UI
                     'message' => $display['message'],
                     'detail' => $display['detail'],
+                    'changes' => $changes,
                     'actionType' => $display['action'],
                     'module' => $display['module'],
                     'actor' => $display['actor'],
@@ -222,6 +271,11 @@ class DashboardService
             'uniqueClientCount' => $uniqueClientCount,
             'ofwCount' => $ofwCount,
             'nokCount' => $nokCount,
+            'maleCount' => $maleCount,
+            'femaleCount' => $femaleCount,
+            'pwdCount' => $pwdCount,
+            'seniorCount' => $seniorCount,
+            'singleParentCount' => $singleParentCount,
             'recentCases' => $recentCases,
             'allCases' => $allCases,
             'allReferrals' => $referralsData,
@@ -296,6 +350,7 @@ class DashboardService
                     $display = [
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
+                        'changes' => [],
                         'action' => $log->action,
                         'module' => $log->module,
                         'actor' => 'System',
@@ -304,14 +359,17 @@ class DashboardService
                     ];
                 }
 
+                $changes = $display['changes'] ?? [];
+
                 return [
                     'id' => $log->id,
                     'title' => $display['message'],
-                    'desc' => $display['detail'],
+                    'desc' => $this->formatChangeSummary($changes),
                     'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
                     'logoSrc' => '/logo.png',
                     'message' => $display['message'],
                     'detail' => $display['detail'],
+                    'changes' => $changes,
                     'actionType' => $display['action'],
                     'module' => $display['module'],
                     'actor' => $display['actor'],
@@ -342,27 +400,6 @@ class DashboardService
         $totalUsers = User::count();
         $totalAgencies = Agency::count();
 
-        // System health data
-        $healthStatus = DB::table('health_check_logs')
-            ->select('check_type', 'status', 'metric_value', 'checked_at')
-            ->fromSub(function ($q) {
-                $q->select('check_type', 'status', 'metric_value', 'checked_at')
-                    ->selectRaw('ROW_NUMBER() OVER (PARTITION BY check_type ORDER BY checked_at DESC) as rn')
-                    ->from('health_check_logs');
-            }, 'latest')
-            ->where('rn', 1)
-            ->orderBy('checked_at', 'desc')
-            ->get()
-            ->toArray();
-
-        $alertCount = DB::table('system_alert_logs')
-            ->where('is_deleted', false)
-            ->whereNull('read_at')
-            ->count();
-
-        $lastHealthCheck = SystemSetting::getValue('last_health_check_at', 'Never');
-        $overallStatus = SystemSetting::getValue('last_health_check_status', 'unknown');
-
         $recentCases = CaseFile::with(['client', 'user'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
@@ -382,6 +419,7 @@ class DashboardService
                     $display = [
                         'message' => $log->action.' '.$log->module,
                         'detail' => '',
+                        'changes' => [],
                         'action' => $log->action,
                         'module' => $log->module,
                         'actor' => $log->user?->name ?? 'System',
@@ -389,6 +427,8 @@ class DashboardService
                         'hasChanges' => false,
                     ];
                 }
+
+                $changes = $display['changes'] ?? [];
 
                 return [
                     'id' => $log->id,
@@ -400,6 +440,7 @@ class DashboardService
                     // enriched structured data
                     'message' => $display['message'],
                     'detail' => $display['detail'],
+                    'changes' => $changes,
                     'actor' => $display['actor'],
                     'hasChanges' => $display['hasChanges'],
                 ];
@@ -426,13 +467,29 @@ class DashboardService
             'totalAgencies' => $totalAgencies,
             'recentCases' => $recentCases,
             'recentLogs' => $recentLogs,
-            'systemHealth' => [
-                'checks' => $healthStatus,
-                'alertCount' => $alertCount,
-                'lastCheckAt' => $lastHealthCheck,
-                'overallStatus' => $overallStatus,
-            ],
             'casesByCategory' => $casesByCategory,
         ];
+    }
+
+    private function formatChangeSummary(array $changes): string
+    {
+        if (empty($changes)) {
+            return '';
+        }
+
+        $first = $changes[0];
+        $summary = $first['fieldLabel'].': ';
+
+        if ($first['old'] !== null && $first['old'] !== 'not set') {
+            $summary .= $first['old'].' → ';
+        }
+
+        $summary .= $first['new'] ?? '';
+
+        if (count($changes) > 1) {
+            $summary .= ' (+'.(count($changes) - 1).' more)';
+        }
+
+        return $summary;
     }
 }

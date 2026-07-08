@@ -11,7 +11,7 @@ import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, Aler
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayDateTime, formatStatusLabel } from '@/lib/utils';
 import TourPrototype from './__TourPrototype';
 import DashboardBanner from '@/Components/DashboardBanner';
 
@@ -143,7 +143,7 @@ function AgencyDashboard({ stats, recentReferrals, recentActivity, dashboardNoti
     );
 }
 
-function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
+function AdminDashboard({ stats, recentCases, recentLogs }) {
     return (
         <>
             <DashboardBanner />
@@ -160,46 +160,6 @@ function AdminDashboard({ stats, recentCases, recentLogs, systemHealth }) {
                 <KpiCard title="Users" value={stats.totalUsers} icon="people" iconBg="bg-blue-50" iconColor="text-blue-600" />
                 <KpiCard title="Agencies" value={stats.totalAgencies} icon="account_balance" iconBg="bg-green-50" iconColor="text-green-600" />
             </div>
-
-            {/* System Health Overview */}
-            {systemHealth && (
-                <div data-tour="dashboard-admin-system" className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-base font-semibold text-slate-900">System Health</h3>
-                        <Link href="/admin/system/health" className="text-sm text-indigo-600 hover:text-indigo-900">View Details</Link>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className={`rounded-xl border p-4 shadow-sm ${
-                            systemHealth.overallStatus === 'healthy' ? 'border-green-200 bg-green-50' :
-                            systemHealth.overallStatus === 'warning' ? 'border-yellow-200 bg-yellow-50' :
-                            systemHealth.overallStatus === 'critical' ? 'border-red-200 bg-red-50' :
-                            'border-slate-200 bg-white'
-                        }`}>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Overall Status</p>
-                            <p className={`text-lg font-bold mt-1 ${
-                                systemHealth.overallStatus === 'healthy' ? 'text-green-700' :
-                                systemHealth.overallStatus === 'warning' ? 'text-yellow-700' :
-                                systemHealth.overallStatus === 'critical' ? 'text-red-700' :
-                                'text-slate-700'
-                            }`}>{systemHealth.overallStatus || 'Unknown'}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Unread Alerts</p>
-                            <p className={`text-lg font-bold mt-1 ${systemHealth.alertCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {systemHealth.alertCount ?? 0}
-                            </p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Last Check</p>
-                            <p className="text-lg font-bold mt-1 text-slate-700">{systemHealth.lastCheckAt || 'Never'}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Checks</p>
-                            <p className="text-lg font-bold mt-1 text-slate-700">{systemHealth.checks?.length ?? 0}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div data-tour="admin-recent-cases">
@@ -378,7 +338,7 @@ function CaseManagerDashboard({
           type: 'warning',
           title: 'Overdue Referral Follow-up',
           desc: `${ref.caseNo} · ${ref.agencyName} · ${daysOld} days pending`,
-          action: () => router.visit(`/referrals`),
+          action: () => router.visit(`/referrals/${ref.id}`),
         })
       }
       if (ref.status === 'REJECTED') {
@@ -387,7 +347,7 @@ function CaseManagerDashboard({
           type: 'error',
           title: 'Referral Returned — Needs Re-assignment',
           desc: `${ref.caseNo} · ${ref.agencyName} · ${ref.service}`,
-          action: () => router.visit(`/referrals`),
+          action: () => router.visit(`/referrals/${ref.id}`),
         })
       }
     })
@@ -496,12 +456,12 @@ function CaseManagerDashboard({
   }), [casesOverTime])
 
   const referralPieChart = useMemo(() => ({
-    labels: referralStatusStats.map((s) => s.label),
+    labels: referralStatusStats.map((s) => formatStatusLabel(s.label)),
     datasets: [{ data: referralStatusStats.map((s) => s.count), backgroundColor: referralStatusStats.map((s) => s.hex), borderWidth: 0 }],
   }), [referralStatusStats])
 
   const casesStatusPieChart = useMemo(() => ({
-    labels: casesStatusStats.map((s) => s.label),
+    labels: casesStatusStats.map((s) => formatStatusLabel(s.label)),
     datasets: [{ data: casesStatusStats.map((s) => s.count), backgroundColor: casesStatusStats.map((s) => s.hex), borderWidth: 0 }],
   }), [casesStatusStats])
 
@@ -609,14 +569,25 @@ function CaseManagerDashboard({
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Clients Served</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Snapshot</p>
             <span className="p-1.5 bg-violet-50 rounded-lg"><Users className="w-4 h-4 text-violet-600" /></span>
           </div>
           <p className="text-2xl font-black text-slate-900">{stats.uniqueClientCount ?? 0}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[11px] font-medium text-slate-500">{stats.ofwCount ?? 0} OFW · {stats.nokCount ?? 0} NOK</span>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-2">
+            <span className="text-[10px] font-semibold text-slate-500 bg-violet-50 px-1.5 py-0.5 rounded">{stats.ofwCount ?? 0} OFW</span>
+            <span className="text-[10px] font-semibold text-slate-500 bg-violet-50 px-1.5 py-0.5 rounded">{stats.nokCount ?? 0} NOK</span>
+            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{stats.maleCount ?? 0} Male</span>
+            <span className="text-[10px] font-semibold text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded">{stats.femaleCount ?? 0} Female</span>
           </div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Overseas Filipino Workers / Next of Kin</p>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+            {stats.pwdCount > 0 && <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">PWD {stats.pwdCount}</span>}
+            {stats.seniorCount > 0 && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Senior {stats.seniorCount}</span>}
+            {stats.singleParentCount > 0 && <span className="text-[10px] font-semibold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">Solo Parent {stats.singleParentCount}</span>}
+            {stats.pwdCount === 0 && stats.seniorCount === 0 && stats.singleParentCount === 0 && (
+              <span className="text-[10px] text-slate-400">No vulnerability indicators</span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">Clients by type, sex &amp; vulnerability</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -718,7 +689,7 @@ function CaseManagerDashboard({
                     <div key={stat.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${stat.label === 'Open' ? 'bg-blue-900' : 'bg-slate-300'}`} />
-                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                        <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
                       </div>
                       <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                     </div>
@@ -738,7 +709,7 @@ function CaseManagerDashboard({
                     <div key={stat.label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                        <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                        <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
                       </div>
                       <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                     </div>
@@ -909,7 +880,6 @@ export default function Dashboard(props) {
         role, recentCases, recentReferrals, recentLogs,
         allCases, allReferrals, casesByProvince, agencyBreakdown,
         casesByCategory, casesOverTime, recentActivity, dashboardNotifications,
-        systemHealth,
         ...stats
     } = dashboardProps;
 
@@ -931,7 +901,7 @@ export default function Dashboard(props) {
         return (
             <AppLayout title="Dashboard">
                 <Head title="Dashboard" />
-                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} systemHealth={systemHealth} />
+                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} />
             </AppLayout>
         );
     }

@@ -24,7 +24,7 @@ const EVENT_CONFIG = {
 const EVENT_TYPE_OPTIONS = [
   { value: 'ALL',          label: 'All Events' },
   { value: 'case_opened',  label: 'Case Opened' },
-  { value: 'referral_sent', label: 'Referrals' },
+  { value: 'referral',     label: 'Referrals' },
   { value: 'referral_status', label: 'Status Updates' },
   { value: 'milestone',    label: 'Milestones' },
   { value: 'case_closed',  label: 'Case Closed' },
@@ -34,10 +34,26 @@ function formatEventDate(dateStr) {
   const date = new Date(dateStr);
   const now = new Date();
   const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) {
+    return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
   return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatHumanDate(dateStr) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }) + ' at ' + date.toLocaleTimeString('en-PH', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 function AgencyCard({ name, note, status, steps = [], latestMilestoneLabel, compliance_requirements }) {
@@ -219,7 +235,9 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
     if (timelineAgencyFilter !== 'ALL') {
       items = items.filter(i => i.agency === timelineAgencyFilter || i.agency === null);
     }
-    if (timelineTypeFilter !== 'ALL') {
+    if (timelineTypeFilter === 'referral') {
+      items = items.filter(i => i.type === 'referral_sent' || i.type === 'referral_status');
+    } else if (timelineTypeFilter !== 'ALL') {
       items = items.filter(i => i.type === timelineTypeFilter);
     }
     return items.reverse();
@@ -410,6 +428,9 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
                           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
                               {formatEventDate(item.date)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                              {formatHumanDate(item.date)}
                             </span>
                             {item.agency && (
                               <span className="text-[11px] font-semibold text-slate-400 border-l border-slate-200 pl-2">

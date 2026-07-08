@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\AuditLog;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +37,7 @@ class AgencyServiceService
 
     public function createService(string $agencyId, array $data, string $userId): Service
     {
-        return DB::transaction(function () use ($agencyId, $data, $userId) {
+        return DB::transaction(function () use ($agencyId, $data) {
             $service = Service::create([
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
@@ -55,13 +54,7 @@ class AgencyServiceService
                 ]);
             }
 
-            AuditLog::create([
-                'action' => 'CREATE',
-                'module' => 'SERVICE',
-                'entity_id' => $service->id,
-                'new_value' => $service->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
             return $service->load('requirements');
         });
@@ -69,7 +62,7 @@ class AgencyServiceService
 
     public function updateService(string $id, string $agencyId, array $data, string $userId): Service
     {
-        return DB::transaction(function () use ($id, $agencyId, $data, $userId) {
+        return DB::transaction(function () use ($id, $agencyId, $data) {
             $service = Service::where('agcy_id', $agencyId)->findOrFail($id);
             $oldValue = $service->toArray();
 
@@ -92,14 +85,7 @@ class AgencyServiceService
                 }
             }
 
-            AuditLog::create([
-                'action' => 'UPDATE',
-                'module' => 'SERVICE',
-                'entity_id' => $service->id,
-                'old_value' => $oldValue,
-                'new_value' => $service->fresh()->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             return $service->fresh()->load('requirements');
         });
@@ -107,16 +93,10 @@ class AgencyServiceService
 
     public function deleteService(string $id, string $agencyId, string $userId): void
     {
-        DB::transaction(function () use ($id, $agencyId, $userId) {
+        DB::transaction(function () use ($id, $agencyId) {
             $service = Service::where('agcy_id', $agencyId)->findOrFail($id);
 
-            AuditLog::create([
-                'action' => 'DELETE',
-                'module' => 'SERVICE',
-                'entity_id' => $service->id,
-                'old_value' => $service->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::deleted() — no manual log needed.
 
             $service->requirements()->delete();
             $service->delete();

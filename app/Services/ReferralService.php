@@ -26,7 +26,7 @@ class ReferralService
 
     public function createReferral(array $data, string $userId): Referral
     {
-        return DB::transaction(function () use ($data, $userId) {
+        return DB::transaction(function () use ($data) {
             $services = ! empty($data['services']) && is_array($data['services'])
                 ? implode(', ', $data['services'])
                 : ($data['required_services'] ?? '');
@@ -52,13 +52,7 @@ class ReferralService
                 $referral->refresh();
             }
 
-            AuditLog::create([
-                'action' => 'CREATE',
-                'module' => 'REFERRAL',
-                'entity_id' => $referral->id,
-                'new_value' => $referral->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
             // Notify agency users about the new referral
             $agencyUsers = User::where('agcy_id', $referral->agcy_id)
@@ -165,7 +159,7 @@ class ReferralService
 
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
     {
-        return DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId) {
+        return DB::transaction(function () use ($id, $status, $decision, $decisionComment) {
             $referral = Referral::findOrFail($id);
             $oldStatus = $referral->status;
 
@@ -174,16 +168,7 @@ class ReferralService
                 'decision' => $decision ?? $referral->decision,
                 'decision_comment' => $decisionComment ?? $referral->decision_comment,
             ]);
-
-            AuditLog::create([
-                'action' => 'UPDATE',
-                'module' => 'REFERRAL',
-                'entity_id' => $referral->id,
-                'description' => "Referral status changed from {$oldStatus} to {$status}",
-                'old_value' => ['status' => $oldStatus],
-                'new_value' => ['status' => $status, 'decision' => $decision, 'decision_comment' => $decisionComment],
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             // Notify case manager about the status change
             if ($referral->caseFile) {
@@ -232,13 +217,7 @@ class ReferralService
                 'user_id' => $userId,
             ]);
 
-            AuditLog::create([
-                'action' => 'CREATE',
-                'module' => 'MILESTONE',
-                'entity_id' => $milestone->id,
-                'new_value' => $milestone->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
             // Dispatch notifications for the milestone
             $referral = $milestone->referral ?? Referral::find($referralId);
@@ -307,13 +286,7 @@ class ReferralService
             'user_id' => $userId,
         ]);
 
-        AuditLog::create([
-            'action' => 'CREATE',
-            'module' => 'REFERRAL_COMMENT',
-            'entity_id' => $comment->id,
-            'new_value' => $comment->toArray(),
-            'user_id' => $userId,
-        ]);
+        // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
         return $comment->load('user');
     }
@@ -330,13 +303,7 @@ class ReferralService
             'user_id' => $userId,
         ]);
 
-        AuditLog::create([
-            'action' => 'CREATE',
-            'module' => 'REFERRAL_REPLY',
-            'entity_id' => $reply->id,
-            'new_value' => $reply->toArray(),
-            'user_id' => $userId,
-        ]);
+        // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
         return $reply->load('user');
     }
@@ -353,13 +320,7 @@ class ReferralService
             'version_group_id' => (string) Str::uuid(),
         ]);
 
-        AuditLog::create([
-            'action' => 'CREATE',
-            'module' => 'REFERRAL_ATTACHMENT',
-            'entity_id' => $attachment->id,
-            'new_value' => $attachment->toArray(),
-            'user_id' => $userId,
-        ]);
+        // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
         return $attachment->load('user');
     }
@@ -381,13 +342,7 @@ class ReferralService
                 'completed_at' => now(),
             ]);
 
-            AuditLog::create([
-                'action' => 'CREATE',
-                'module' => 'REFERRAL_COMPLIANCE',
-                'entity_id' => $requirement->id,
-                'new_value' => $requirement->fresh()->toArray(),
-                'user_id' => $userId,
-            ]);
+            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             return $attachment;
         });
@@ -417,6 +372,62 @@ class ReferralService
 
             return $newAttachment->load('user');
         });
+    }
+
+    /**
+     * Build a unified referral timeline that includes referral sent, status changes,
+     * and milestones — all sorted by timestamp.
+     */
+    public function getReferralTimeline(Referral $referral): array
+    {
+        $events = collect();
+
+        // 1. Referral sent event
+        $events->push([
+            'id' => 'sent-'.$referral->id,
+            'type' => 'referral_sent',
+            'title' => 'Referral sent to '.($referral->agency?->name ?? 'agency'),
+            'description' => $referral->required_services ?? '',
+            'timestamp' => $referral->created_at->toISOString(),
+            'actor' => $referral->caseFile?->user?->name ?? 'System',
+        ]);
+
+        // 2. Status changes from AuditLog (observer-created, module='referral')
+        $statusLogs = AuditLog::with('user')
+            ->where('module', 'referral')
+            ->where('entity_id', $referral->id)
+            ->where('action', 'UPDATE')
+            ->orderBy('timestamp')
+            ->get()
+            ->filter(fn (AuditLog $log) => ($log->old_value['status'] ?? null) !== ($log->new_value['status'] ?? null));
+
+        foreach ($statusLogs as $log) {
+            $oldStatus = $log->old_value['status'] ?? 'UNKNOWN';
+            $newStatus = $log->new_value['status'] ?? 'UNKNOWN';
+
+            $events->push([
+                'id' => 'status-'.$log->id,
+                'type' => 'referral_status',
+                'title' => 'Status changed from '.str_replace('_', ' ', $oldStatus).' to '.str_replace('_', ' ', $newStatus),
+                'description' => $log->description ?? '',
+                'timestamp' => $log->timestamp->toISOString(),
+                'actor' => $log->user?->name ?? 'System',
+            ]);
+        }
+
+        // 3. Milestones
+        foreach ($referral->milestones->sortBy('created_at') as $ms) {
+            $events->push([
+                'id' => 'milestone-'.$ms->id,
+                'type' => 'milestone',
+                'title' => $ms->title,
+                'description' => $ms->description ?? '',
+                'timestamp' => $ms->created_at->toISOString(),
+                'actor' => $ms->user?->name ?? 'System',
+            ]);
+        }
+
+        return $events->sortBy('timestamp')->values()->toArray();
     }
 
     public function getAttachmentVersions(string $versionGroupId)

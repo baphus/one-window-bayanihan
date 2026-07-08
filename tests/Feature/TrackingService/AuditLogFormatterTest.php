@@ -105,7 +105,7 @@ class AuditLogFormatterTest extends TestCase
     {
         $user = User::factory()->create();
         $log = AuditLog::create([
-            'entity_id' => 'some-uuid',
+            'entity_id' => '00000000-0000-0000-0000-000000000000',
             'action' => 'UPDATE',
             'module' => 'case_files',
             'old_value' => ['status' => 'OPEN'],

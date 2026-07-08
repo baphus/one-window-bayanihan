@@ -6,7 +6,6 @@ use App\Http\Requests\EmailChangeInitRequest;
 use App\Http\Requests\EmailChangeSendOtpRequest;
 use App\Http\Requests\EmailChangeVerifyOtpRequest;
 use App\Mail\EmailChangedNotification;
-use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\Log;
@@ -94,16 +93,7 @@ class EmailChangeController extends Controller
             new EmailChangedNotification($oldEmail, $newEmail, $user->name)
         );
 
-        // Create audit log entry
-        AuditLog::create([
-            'action' => 'UPDATE',
-            'module' => 'email',
-            'entity_id' => $user->id,
-            'old_value' => ['email' => $oldEmail],
-            'new_value' => ['email' => $newEmail],
-            'user_id' => $user->id,
-            'timestamp' => now(),
-        ]);
+        // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
         // Clear email change session state so the section resets
         $request->session()->forget(['email_change_step', 'pending_new_email']);

@@ -1,7 +1,8 @@
+import { router } from '@inertiajs/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { getSeverityConfig, normalizeNotification, timeAgo } from '@/lib/notifications';
+import { getSeverityConfig, normalizeNotification, formatDetailedTimestamp } from '@/lib/notifications';
 
 export default function NotificationPanel() {
   const [open, setOpen] = useState(false);
@@ -152,9 +153,15 @@ export default function NotificationPanel() {
                 return (
                   <div
                     key={item.id}
-                    className={`px-4 py-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors ${
+                    onClick={() => {
+                      if (item.action_url) {
+                        setOpen(false);
+                        router.visit(item.action_url);
+                      }
+                    }}
+                    className={`px-4 py-3 border-b border-slate-50 last:border-b-0 transition-colors ${
                       isUnread ? 'bg-blue-50/40' : ''
-                    }`}
+                    } ${item.action_url ? 'cursor-pointer hover:bg-slate-100' : ''}`}
                   >
                     <div className="flex items-start gap-3">
                       {/* Severity icon */}
@@ -180,7 +187,7 @@ export default function NotificationPanel() {
                         )}
                         <div className="mt-1.5 flex items-center justify-between">
                           <span className="text-[10px] text-slate-400">
-                            {timeAgo(item.created_at)}
+                            {formatDetailedTimestamp(item.created_at)}
                           </span>
                           <div className="flex items-center gap-2">
                             {isUnread && (

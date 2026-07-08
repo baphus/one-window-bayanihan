@@ -51,10 +51,7 @@ class FeedbackController extends Controller
                 if ($user->isCaseManager()) {
                     $hasAccess = true;
                 } elseif ($user->agcy_id) {
-                    $hasAccess = $feedback->caseFile->referrals()
-                        ->where('agcy_id', $user->agcy_id)
-                        ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
-                        ->exists();
+                    $hasAccess = $feedback->agency_id === $user->agcy_id;
                 }
                 if (! $hasAccess) {
                     abort(404, 'Feedback not found');

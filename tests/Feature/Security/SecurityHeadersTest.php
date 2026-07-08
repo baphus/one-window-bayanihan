@@ -58,7 +58,7 @@ class SecurityHeadersTest extends TestCase
 
         $user = User::factory()->create(['role' => 'ADMIN']);
 
-        $response = $this->actingAs($user)->getJson('/api/analytics');
+        $response = $this->actingAs($user)->getJson('/api/reports');
 
         $response->assertHeader('X-Frame-Options', 'DENY');
     }

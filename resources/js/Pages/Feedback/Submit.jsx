@@ -24,7 +24,7 @@ const DIMENSION_DESCRIPTIONS = {
   Empathy: 'Caring, individualized attention the agency provides its clients',
 };
 
-const RATING_LABELS = {
+const DEFAULT_RATING_LABELS = {
   1: 'Very Low',
   2: 'Low',
   3: 'Moderate',
@@ -33,13 +33,11 @@ const RATING_LABELS = {
 };
 
 const surveySchema = z.object({
-  tracking_token: z.string().min(1),
   servqual_responses: z
     .array(
       z.object({
         dimension: z.string(),
         question_text: z.string(),
-        question: z.string(),
         expectation: z
           .number({
             required_error: 'Please rate your minimum expectation',
@@ -96,7 +94,9 @@ function StarRating({ value, onChange }) {
 }
 
 /** Single 1-5 radio column for either Expectation or Perception */
-function ServqualRadioColumn({ selected, onChange, label }) {
+function ServqualRadioColumn({ selected, onChange, label, ratingLabels }) {
+  const labels = ratingLabels || DEFAULT_RATING_LABELS;
+
   return (
     <div className="flex items-center gap-1 sm:gap-1.5">
       {[1, 2, 3, 4, 5].map((rating) => (
@@ -109,7 +109,7 @@ function ServqualRadioColumn({ selected, onChange, label }) {
               ? 'text-primary'
               : 'text-gray-400 hover:text-gray-600'
           }`}
-          aria-label={`${label}: ${rating} - ${RATING_LABELS[rating]}`}
+          aria-label={`${label}: ${rating} - ${labels[rating]}`}
         >
           <span
             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
@@ -121,7 +121,7 @@ function ServqualRadioColumn({ selected, onChange, label }) {
             {rating}
           </span>
           <span className="text-[9px] sm:text-[10px] leading-tight text-center whitespace-nowrap">
-            {RATING_LABELS[rating]}
+            {labels[rating]}
           </span>
         </button>
       ))}
@@ -130,6 +130,10 @@ function ServqualRadioColumn({ selected, onChange, label }) {
 }
 
 export default function FeedbackSubmit({
+  invitation,
+  client_name: clientName,
+  // Old-style fallback props
+  tracking_token: oldTrackingToken,
   case_id,
   agency_id,
   referral_id,
@@ -139,31 +143,52 @@ export default function FeedbackSubmit({
   const { url } = usePage();
   const [submitted, setSubmitted] = useState(false);
 
-  // Extract tracking token from URL query string
-  const trackingToken = useMemo(() => {
+  // Resolve the token from invitation (new) or old-style prop or URL
+  const token = useMemo(() => {
+    if (invitation?.token) return invitation.token;
+    if (oldTrackingToken) return oldTrackingToken;
     try {
       const query = url.split('?')[1] || '';
       return new URLSearchParams(query).get('tracking_token') || '';
     } catch {
       return '';
     }
-  }, [url]);
+  }, [invitation, oldTrackingToken, url]);
 
-  // Build initial SERVQUAL responses from questions prop
+  // Derive questions from invitation form_snapshot or old-style questions prop
+  const surveyQuestions = useMemo(() => {
+    if (invitation?.form_snapshot?.length > 0) {
+      return invitation.form_snapshot;
+    }
+    return questions || [];
+  }, [invitation, questions]);
+
+  // Derive rating labels from invitation or fallback to defaults
+  const ratingLabels = useMemo(() => {
+    if (invitation?.rating_labels?.length > 0) {
+      // API returns array of {value, label}; convert to map {1: 'label', 2: 'label', ...}
+      const map = {};
+      invitation.rating_labels.forEach((rl) => {
+        map[rl.value] = rl.label;
+      });
+      return map;
+    }
+    return DEFAULT_RATING_LABELS;
+  }, [invitation]);
+
+  // Build initial SERVQUAL responses from questions
   const initialServqual = useMemo(
     () =>
-      (questions || []).map((q) => ({
+      (surveyQuestions || []).map((q) => ({
         dimension: q.dimension || '',
         question_text: q.question_text || q.question || '',
-        question: q.question_text || q.question || '',
         expectation: null,
         perception: null,
       })),
-    [questions],
+    [surveyQuestions],
   );
 
-  const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
-    tracking_token: trackingToken,
+  const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
     servqual_responses: initialServqual,
     overall_rating: null,
     comments: '',
@@ -172,7 +197,7 @@ export default function FeedbackSubmit({
   const { validate } = useClientValidation(surveySchema, data, setError);
   const toast = useToast();
 
-  // --- Unsaved changes tracking ---
+  // Unsaved changes tracking
   const initialSnapshotRef = useRef(null);
   if (!initialSnapshotRef.current && initialServqual.length > 0) {
     initialSnapshotRef.current = {
@@ -205,7 +230,7 @@ export default function FeedbackSubmit({
   const { showModal, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(isDirty);
 
-  // --- Helpers ---
+  // Helpers
   const updateServqual = useCallback(
     (index, field, value) => {
       setData((prev) => {
@@ -239,13 +264,15 @@ export default function FeedbackSubmit({
     return map;
   }, [data.servqual_responses]);
 
-  // --- Submit ---
+  // Submit
   const handleSubmit = (e) => {
     e.preventDefault();
     clearErrors();
     if (!validate()) return;
 
-    post('/feedbacks/submit', {
+    const submitUrl = token ? `/feedback/${encodeURIComponent(token)}` : '/feedbacks/submit';
+
+    post(submitUrl, {
       preserveScroll: true,
       onSuccess: () => {
         toast.success('Thank you for your feedback!');
@@ -257,7 +284,7 @@ export default function FeedbackSubmit({
     });
   };
 
-  // --- Validation helpers ---
+  // Validation helpers
   const hasIncompleteQuestions =
     data.servqual_responses.length > 0 &&
     data.servqual_responses.some(
@@ -316,8 +343,8 @@ export default function FeedbackSubmit({
     );
   }
 
-  // Missing tracking token — show error
-  if (!trackingToken) {
+  // Missing token — show error
+  if (!token) {
     return (
       <PageWrapper>
         <Head title="Invalid Link" />
@@ -350,6 +377,8 @@ export default function FeedbackSubmit({
     );
   }
 
+  const displayName = clientName || service_name || '';
+
   return (
     <PageWrapper>
       <Head title="Submit Feedback" />
@@ -366,8 +395,8 @@ export default function FeedbackSubmit({
           <h1 className="text-xl font-bold text-slate-900">
             Share Your Feedback
           </h1>
-          {service_name && (
-            <p className="text-sm text-slate-500 mt-1">{service_name}</p>
+          {displayName && (
+            <p className="text-sm text-slate-500 mt-1">{displayName}</p>
           )}
         </div>
 
@@ -387,7 +416,7 @@ export default function FeedbackSubmit({
         </div>
 
         {/* ── SERVQUAL Questionnaire ── */}
-        {questions?.length > 0 ? (
+        {surveyQuestions.length > 0 ? (
           <div className="space-y-8">
             {DIMENSION_ORDER.filter(
               (dim) => (groupedResponses[dim]?.length ?? 0) > 0,
@@ -461,6 +490,7 @@ export default function FeedbackSubmit({
                               )
                             }
                             label="Expectation"
+                            ratingLabels={ratingLabels}
                           />
                           {expErr && (
                             <InputError
@@ -485,6 +515,7 @@ export default function FeedbackSubmit({
                               )
                             }
                             label="Perception"
+                            ratingLabels={ratingLabels}
                           />
                           {perErr && (
                             <InputError

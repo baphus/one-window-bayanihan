@@ -9,7 +9,7 @@ import {
 import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, TrendingUp, TrendingDown, NotepadText } from 'lucide-react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
-import { formatDisplayDate, formatCaseAge, getCaseAgeInDays } from '@/lib/utils';
+import { formatDisplayDate, formatCaseAge, getCaseAgeInDays, formatStatusLabel } from '@/lib/utils';
 import { doughnutOptions, barOptions, barOptionsHorizontal } from '@/Components/Dashboard/chartConfig';
 import ActivityItem from '@/Components/Dashboard/ActivityItem';
 import TourPrototype from '../__TourPrototype';
@@ -187,12 +187,12 @@ export default function CaseManagerDashboard({ dashboard }) {
     }), [casesOverTime])
 
     const referralPieChart = useMemo(() => ({
-        labels: referralStatusStats.map((s) => s.label),
+        labels: referralStatusStats.map((s) => formatStatusLabel(s.label)),
         datasets: [{ data: referralStatusStats.map((s) => s.count), backgroundColor: referralStatusStats.map((s) => s.hex), borderWidth: 0 }],
     }), [referralStatusStats])
 
     const casesStatusPieChart = useMemo(() => ({
-        labels: casesStatusStats.map((s) => s.label),
+        labels: casesStatusStats.map((s) => formatStatusLabel(s.label)),
         datasets: [{ data: casesStatusStats.map((s) => s.count), backgroundColor: casesStatusStats.map((s) => s.hex), borderWidth: 0 }],
     }), [casesStatusStats])
 
@@ -398,7 +398,7 @@ export default function CaseManagerDashboard({ dashboard }) {
                                         <div key={stat.label} className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className={`w-2 h-2 rounded-full shrink-0 ${stat.label === 'Open' ? 'bg-blue-900' : 'bg-slate-300'}`} />
-                                                <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                                                <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
                                             </div>
                                             <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                                         </div>
@@ -418,7 +418,7 @@ export default function CaseManagerDashboard({ dashboard }) {
                                         <div key={stat.label} className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                                                <span className="text-[11px] font-medium text-slate-600">{stat.label}</span>
+                                                <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
                                             </div>
                                             <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
                                         </div>

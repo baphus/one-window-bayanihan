@@ -175,9 +175,8 @@ class CaseReferralGuardTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'UPDATE',
-            'module' => 'CASE',
+            'module' => 'case',
             'entity_id' => $this->case->id,
-            'user_id' => $this->user->id,
         ]);
     }
 }

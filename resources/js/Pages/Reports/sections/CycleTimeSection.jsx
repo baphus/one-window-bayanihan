@@ -9,7 +9,7 @@ const barOptions = {
   indexAxis: 'y',
   plugins: { legend: { display: false } },
   scales: {
-    x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+    x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.15)' } },
     y: { ticks: { font: { size: 10 } }, grid: { display: false } },
   },
 };
@@ -31,18 +31,18 @@ export default function CycleTimeSection({ pageHeadingStyles }) {
 
         return (
           <article
-            className="border bg-white p-4 shadow-sm"
+            className="border bg-white dark:bg-slate-900 dark:border-slate-700 p-4 shadow-sm"
             style={{ borderColor: COLORS.border }}
           >
             <h3
               className={`mb-4 ${
                 pageHeadingStyles?.sectionTitle ||
-                'text-[11px] font-bold uppercase tracking-wider text-slate-500'
+                'text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400'
               }`}
             >
               Cycle Time Distribution
             </h3>
-            <p className="mb-3 text-[11px] text-slate-500">
+            <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">
               Time from referral creation to completion
             </p>
             {chartData ? (
@@ -50,7 +50,7 @@ export default function CycleTimeSection({ pageHeadingStyles }) {
                 <Bar data={chartData} options={barOptions} />
               </div>
             ) : (
-              <p className="py-8 text-center text-[13px] text-slate-400">
+              <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">
                 No completed referrals yet.
               </p>
             )}

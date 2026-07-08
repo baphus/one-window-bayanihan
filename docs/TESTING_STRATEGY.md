@@ -62,7 +62,6 @@ From `phpunit.xml`:
 | `CaseReferralGuardTest.php` | 11 | canClose, toggle, archive, audit logging |
 | `AuditEventViewTest.php` | 5 | VIEW audit on case/referral show, dedup, user attribution |
 | `PdfExportTest.php` | 3 | Auth guard, route exists, date params |
-| `AnonymizedAnalyticsTest.php` | 5 | casesByStatus, casesByService, totalClients, referralStats, zero-data |
 
 **Total: 29 tests, all passing.**
 

@@ -85,7 +85,9 @@ class ServiceSeeder extends Seeder
 
         foreach ($servicesData as $svc) {
             $agencyId = $agenciesBySlug[$svc['agency_slug']] ?? null;
-            if (!$agencyId) continue;
+            if (! $agencyId) {
+                continue;
+            }
 
             $serviceId = (string) Str::uuid();
             DB::table('services')->insert([

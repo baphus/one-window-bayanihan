@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ReferralComment extends Model
 {
-    use HasFactory, UsesUuid, SoftDeleteFlag;
+    use HasFactory, SoftDeleteFlag, UsesUuid;
 
     protected $fillable = [
         'refr_id',

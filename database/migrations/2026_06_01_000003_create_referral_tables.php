@@ -24,8 +24,6 @@ return new class extends Migration
             $table->string('type', 20)->default('standard')->comment('standard | intervention');
             $table->timestamp('first_action_at')->nullable();
             $table->timestamp('referral_assigned_at')->nullable();
-            $table->integer('sla_target_days')->default(14);
-            $table->boolean('sla_met')->nullable();
             $table->timestamps();
 
             $table->boolean('is_deleted')->default(false);

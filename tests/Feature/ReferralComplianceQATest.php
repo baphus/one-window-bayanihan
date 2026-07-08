@@ -59,7 +59,7 @@ class ReferralComplianceQATest extends TestCase
     #[Test]
     public function scenario_a_all_documents_uploaded_no_compliance(): void
     {
-        $pdf = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
+        $pdf = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
         $response = $this->actingAs($this->admin)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
@@ -104,7 +104,7 @@ class ReferralComplianceQATest extends TestCase
     #[Test]
     public function scenario_b_mixed_upload_and_compliance(): void
     {
-        $pdf = UploadedFile::fake()->create('uploaded-doc.pdf', 100, 'application/pdf');
+        $pdf = UploadedFile::fake()->createWithContent('uploaded-doc.pdf', '%PDF-1.4 test document', 'application/pdf');
 
         $response = $this->actingAs($this->admin)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
@@ -189,7 +189,7 @@ class ReferralComplianceQATest extends TestCase
         ]);
 
         // Fulfill with a valid PDF
-        $pdf = UploadedFile::fake()->create('nbi-clearance.pdf', 100, 'application/pdf');
+        $pdf = UploadedFile::fake()->createWithContent('nbi-clearance.pdf', '%PDF-1.4 test document', 'application/pdf');
 
         $response = $this->actingAs($this->admin)->post(
             route('referrals.compliance.fulfill', [$referral, $requirement]),
@@ -245,7 +245,7 @@ class ReferralComplianceQATest extends TestCase
         ]);
 
         // Attempt to fulfill again via HTTP
-        $pdf = UploadedFile::fake()->create('police-clearance.pdf', 100, 'application/pdf');
+        $pdf = UploadedFile::fake()->createWithContent('police-clearance.pdf', '%PDF-1.4 test document', 'application/pdf');
 
         $response = $this->actingAs($this->admin)->post(
             route('referrals.compliance.fulfill', [$referral, $requirement]),

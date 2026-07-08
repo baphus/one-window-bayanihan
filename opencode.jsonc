@@ -47,6 +47,18 @@
         "--mcp"
       ],
       "enabled": true
+    },
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp"
+      ],
+      "enabled": true,
+      "env": {
+        "BROWSER": "chromium"
+      }
     }
   }
 }

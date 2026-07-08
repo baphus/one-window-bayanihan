@@ -65,7 +65,7 @@ Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, 
 | JS unit | Vitest 4 | `vitest.config.ts` | jsdom, setup: `resources/js/test-setup.ts` |
 | E2E | Playwright | `playwright.config.ts` | `testDir: resources/js/test/e2e`, auto-starts serve on port 8000 |
 
-**PHPUnit gotchas:** `phpunit.xml` overrides env for testing: `BROADCAST_CONNECTION=null`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`, `SUPABASE_S3_DRIVER=local` (fakes S3). Services using PostgreSQL functions (`to_char`, `EXTRACT`, `age` in `ReportsService`, `AnonymizedAnalyticsService`, `DashboardService`) require test data to exist in the test DB.
+**PHPUnit gotchas:** `phpunit.xml` overrides env for testing: `BROADCAST_CONNECTION=null`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`, `SUPABASE_S3_DRIVER=local` (fakes S3). Services using PostgreSQL functions (`to_char`, `EXTRACT`, `age` in `ReportsService`, `DashboardService`) require test data to exist in the test DB.
 
 ## Core Gotchas
 
@@ -151,3 +151,33 @@ In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the re
 
 If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
 <!-- CODEGRAPH_END -->
+
+<!-- OPENCODE_SKILLS_START -->
+## OpenCode Skills & Commands
+
+### Skill Rules (from global `~/.config/opencode/skills/`)
+
+Load these skills in the following situations:
+
+| Situation | Skill |
+|-----------|-------|
+| Any bug, test failure, or unexpected behavior | `systematic-debugging` — forces root-cause investigation before fixes |
+| About to claim work done | `verification-before-completion` — run verification first, claim after |
+| Requirements are vague or ambiguous | `ask-questions-if-underspecified` — clarify before implementing |
+| Multi-step feature with spec | `writing-plans` — produce bite-sized tasks with complete code |
+| New API/routes/migrations/cross-layer work | `implementation-strategy` — design decisions before edits |
+
+### Slash Commands (from `.opencode/commands/`)
+
+| Command | When to Use |
+|---------|-------------|
+| `/learn` | After any session with non-obvious discoveries | 
+| `/finish-work` | Before commit or PR handoff — runs test suite + cross-layer check |
+| `/careful-review` | Before claiming work done — fresh-eyes read of every changed file |
+| `/session-summary` | At end of work session — record actions, cost, improvements |
+
+### How to Use
+
+- **Skills:** Use the skill tool: `Load the systematic-debugging skill` or `Use the verification-before-completion skill`
+- **Commands:** Type `/learn`, `/finish-work`, `/careful-review`, or `/session-summary` in chat
+<!-- OPENCODE_SKILLS_END -->

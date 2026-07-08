@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Referral;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreReferralRequest extends FormRequest
@@ -26,7 +27,34 @@ class StoreReferralRequest extends FormRequest
             'compliance_requirements.*.requirement_name' => ['required_with:compliance_requirements', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'documents' => ['nullable', 'array'],
-            'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,gif,webp', 'max:10240'],
+            'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ];
+    }
+
+    /**
+     * Prevent duplicate referrals: same case cannot be referred to the same agency twice.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $caseId = $this->input('case_id');
+            $agcyId = $this->input('agcy_id');
+
+            if (! $caseId || ! $agcyId) {
+                return;
+            }
+
+            $exists = Referral::where('case_id', $caseId)
+                ->where('agcy_id', $agcyId)
+                ->where('is_deleted', false)
+                ->exists();
+
+            if ($exists) {
+                $validator->errors()->add(
+                    'agcy_id',
+                    'This case has already been referred to the selected agency.',
+                );
+            }
+        });
     }
 }
