@@ -22,7 +22,7 @@ class ContentSecurityPolicy
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $isDev = app()->environment('local');
+        $isDev = app()->environment('local', 'testing');
 
         $nonce = $isDev ? '' : base64_encode(random_bytes(18));
 
