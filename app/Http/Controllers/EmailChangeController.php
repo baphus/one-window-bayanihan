@@ -58,7 +58,7 @@ class EmailChangeController extends Controller
         return Inertia::render('Profile/Edit', [
             'email_change_step' => 'otp',
             'email_change_hint' => $hint,
-            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
+            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local')) ? $otp : null,
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Models\Agency;
 use App\Models\User;
 use App\Services\DefaultAgencyService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -157,6 +158,9 @@ class AdminUserController extends Controller
         $user->is_active = false;
         $user->is_deleted = true;
         $user->save();
+
+        // Kill all active sessions for the deactivated user
+        DB::table('sessions')->where('user_id', $user->id)->delete();
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User deactivated successfully.');

@@ -6,7 +6,6 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\EmailChangeController;
 use App\Http\Controllers\LoginOtpController;
@@ -37,12 +36,6 @@ Route::middleware('guest')->group(function () {
     Route::post('login/verify-recovery-code', [LoginOtpController::class, 'verifyRecoveryCode'])
         ->middleware('throttle:recovery-code')
         ->name('login.verify-recovery-code');
-
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
-
-    Route::post('register', [RegisteredUserController::class, 'store'])
-        ->middleware('turnstile');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');

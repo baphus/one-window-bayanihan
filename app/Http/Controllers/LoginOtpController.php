@@ -35,6 +35,12 @@ class LoginOtpController extends Controller
             ]);
         }
 
+        if (! $user->is_active || $user->is_deleted) {
+            throw ValidationException::withMessages([
+                'email' => 'The provided credentials do not match our records.',
+            ]);
+        }
+
         $request->session()->put('login_step', 1);
 
         $otp = $this->otpService->generate($user->email, 'login', $request->session()->getId());
@@ -48,7 +54,7 @@ class LoginOtpController extends Controller
             'step' => 'otp',
             'email' => $user->email,
             'hint' => $hint,
-            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
+            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local')) ? $otp : null,
         ]);
     }
 
@@ -66,9 +72,9 @@ class LoginOtpController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (! $user) {
+        if (! $user || ! $user->is_active || $user->is_deleted) {
             throw ValidationException::withMessages([
-                'email' => 'User not found.',
+                'email' => __('auth.failed'),
             ]);
         }
 
@@ -85,7 +91,7 @@ class LoginOtpController extends Controller
             'step' => 'otp',
             'email' => $user->email,
             'hint' => $hint,
-            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
+            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local')) ? $otp : null,
         ]);
     }
 
@@ -111,7 +117,7 @@ class LoginOtpController extends Controller
 
         $user = User::where('email', $request->input('email'))->first();
 
-        if (! $user) {
+        if (! $user || ! $user->is_active || $user->is_deleted) {
             throw ValidationException::withMessages([
                 'email' => 'User not found.',
             ]);
@@ -158,7 +164,7 @@ class LoginOtpController extends Controller
             ->where('id', $pendingId)
             ->first();
 
-        if (! $user || $user->mfa_enabled_at === null) {
+        if (! $user || ! $user->is_active || $user->is_deleted || $user->mfa_enabled_at === null) {
             throw ValidationException::withMessages([
                 'email' => 'Unable to verify. Please log in again.',
             ]);
@@ -201,7 +207,7 @@ class LoginOtpController extends Controller
             ->where('id', $pendingId)
             ->first();
 
-        if (! $user || $user->mfa_enabled_at === null) {
+        if (! $user || ! $user->is_active || $user->is_deleted || $user->mfa_enabled_at === null) {
             throw ValidationException::withMessages([
                 'email' => 'Unable to verify. Please log in again.',
             ]);
