@@ -79,8 +79,6 @@ const navByRole = {
       { name: 'Users', href: '/admin/users', icon: 'manage_accounts' },
     ]},
     { label: 'System Health', items: [
-      { name: 'Supabase', href: '/admin/system/supabase', icon: 'cloud' },
-      { name: 'Database Backups', href: '/admin/system/backups', icon: 'backup' },
       { name: 'System Logs', href: '/admin/system/logs', icon: 'list_alt' },
       { name: 'Email Logs', href: '/admin/system/email-logs', icon: 'mail' },
     ]},

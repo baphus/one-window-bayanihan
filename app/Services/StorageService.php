@@ -10,12 +10,29 @@ use Illuminate\Support\Str;
 
 class StorageService
 {
+    /**
+     * The storage disk to use. Resolved from config so it's
+     * environment-agnostic — swap to any S3-compatible or local disk
+     * by changing FILESYSTEM_DISK in your .env.
+     */
+    private readonly string $disk;
+
     public function __construct(
         private readonly MalwareScannerInterface $malwareScanner,
-    ) {}
+    ) {
+        $this->disk = config('filesystems.default', 'local');
+    }
 
     /**
-     * Store an uploaded file to the supabase disk.
+     * Get the configured storage disk name.
+     */
+    public function diskName(): string
+    {
+        return $this->disk;
+    }
+
+    /**
+     * Store an uploaded file to the configured storage disk.
      *
      * @param  UploadedFile  $file  The uploaded file instance.
      * @param  string  $directory  The directory within the disk to store the file.
@@ -50,7 +67,7 @@ class StorageService
         }
 
         $storedName = Str::uuid().'.'.$file->guessExtension();
-        $path = $file->storeAs($directory, $storedName, 'supabase');
+        $path = $file->storeAs($directory, $storedName, $this->disk);
 
         if ($path === false) {
             return new FileStoreResult(
@@ -70,11 +87,12 @@ class StorageService
             storedName: $storedName,
             type: $file->getMimeType() ?? 'application/octet-stream',
             size: $file->getSize() ?? 0,
+            disk: $this->disk,
         );
     }
 
     /**
-     * Delete a file from the supabase disk.
+     * Delete a file from the configured storage disk.
      *
      * @param  string  $path  The full storage path to delete.
      * @return bool True on success, false on failure or exception.
@@ -82,7 +100,7 @@ class StorageService
     public function delete(string $path): bool
     {
         try {
-            return Storage::disk('supabase')->delete($path);
+            return Storage::disk($this->disk)->delete($path);
         } catch (\Throwable $e) {
             return false;
         }
@@ -98,7 +116,7 @@ class StorageService
     public function temporaryUrl(string $path, int $ttlHours = 24): ?string
     {
         try {
-            return Storage::disk('supabase')->temporaryUrl(
+            return Storage::disk($this->disk)->temporaryUrl(
                 $path,
                 now()->addHours($ttlHours)
             );

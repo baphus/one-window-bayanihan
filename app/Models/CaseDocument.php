@@ -7,7 +7,6 @@ use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class CaseDocument extends Model
 {
@@ -52,7 +51,7 @@ class CaseDocument extends Model
     public function fileUrl(): Attribute
     {
         return Attribute::get(fn () => $this->file_path
-            ? Storage::disk('supabase')->temporaryUrl($this->file_path, now()->addHours(24))
+            ? app(StorageService::class)->temporaryUrl($this->file_path, 24)
             : null);
     }
 }

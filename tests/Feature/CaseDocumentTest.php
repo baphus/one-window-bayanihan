@@ -260,7 +260,7 @@ class CaseDocumentTest extends TestCase
 
     public function test_document_creation_stores_size()
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         // Mock StorageService to bypass deep MIME inspection (empty-content
         // fake uploads are detected as application/x-empty)

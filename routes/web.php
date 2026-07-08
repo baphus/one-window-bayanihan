@@ -4,7 +4,6 @@ use App\Http\Controllers\Admin\ActiveSessionsController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
-use App\Http\Controllers\Admin\BackupStatusController;
 use App\Http\Controllers\Admin\DataExportController;
 use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\LogViewerController;
@@ -12,7 +11,6 @@ use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\ScheduledTaskController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
-use App\Http\Controllers\Admin\SupabaseDashboardController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
@@ -109,7 +107,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
     Route::post('/referrals/{referral}/compliance/{compliance}/fulfill', [ReferralController::class, 'fulfillCompliance'])->name('referrals.compliance.fulfill');
 
-    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:60,1');
     Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight')->middleware('throttle:10,1');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
@@ -249,11 +247,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/data-export/export', [DataExportController::class, 'export'])->name('data-export.export');
 
         Route::prefix('system')->name('system.')->group(function () {
-            Route::get('/supabase', [SupabaseDashboardController::class, 'index'])->name('supabase');
-
-            Route::get('/backups', [BackupStatusController::class, 'index'])->name('backups');
-            Route::post('/backups/refresh', [BackupStatusController::class, 'refresh'])->name('backups.refresh');
-
             Route::get('/logs', [LogViewerController::class, 'index'])->name('logs');
             Route::get('/logs/entries', [LogViewerController::class, 'entries'])->name('logs.entries');
             Route::get('/logs/download', [LogViewerController::class, 'download'])->name('logs.download');

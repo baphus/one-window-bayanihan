@@ -17,6 +17,10 @@ class StorageServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Use a dedicated test disk so we control what gets faked
+        Config::set('filesystems.default', 'object-storage');
+
         $this->service = app(StorageService::class);
     }
 
@@ -35,7 +39,7 @@ class StorageServiceTest extends TestCase
 
     public function test_store_valid_file(): void
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         $file = UploadedFile::fake()->image('test-photo.jpg', 500);
         $result = $this->service->store($file, 'case-files');
@@ -47,12 +51,12 @@ class StorageServiceTest extends TestCase
         $this->assertNull($result->error);
 
         // Verify the file was actually stored on the fake disk
-        Storage::disk('supabase')->assertExists($result->path);
+        Storage::disk('object-storage')->assertExists($result->path);
     }
 
     public function test_store_sanitizes_filename(): void
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         $file = UploadedFile::fake()->create('../../etc/passwd.pdf', 100);
         $result = $this->service->store($file, 'files');
@@ -64,12 +68,12 @@ class StorageServiceTest extends TestCase
         $this->assertStringNotContainsString('/', $result->storedName);
 
         // Verify the stored file path is safe
-        Storage::disk('supabase')->assertExists($result->path);
+        Storage::disk('object-storage')->assertExists($result->path);
     }
 
     public function test_store_preserves_original_name(): void
     {
-        Storage::fake('supabase');
+        Storage::fake('object-storage');
 
         $originalName = 'my-document.pdf';
         $file = UploadedFile::fake()->create($originalName, 100);
@@ -87,7 +91,7 @@ class StorageServiceTest extends TestCase
         $disk = \Mockery::mock(Filesystem::class);
         $disk->shouldReceive('delete')->with('case-files/test.pdf')->once()->andReturn(true);
 
-        Storage::shouldReceive('disk')->with('supabase')->once()->andReturn($disk);
+        Storage::shouldReceive('disk')->with('object-storage')->once()->andReturn($disk);
 
         $result = $this->service->delete('case-files/test.pdf');
 
@@ -99,7 +103,7 @@ class StorageServiceTest extends TestCase
         $disk = \Mockery::mock(Filesystem::class);
         $disk->shouldReceive('delete')->with('non-existent/file.pdf')->once()->andReturn(false);
 
-        Storage::shouldReceive('disk')->with('supabase')->once()->andReturn($disk);
+        Storage::shouldReceive('disk')->with('object-storage')->once()->andReturn($disk);
 
         $result = $this->service->delete('non-existent/file.pdf');
 
@@ -111,7 +115,7 @@ class StorageServiceTest extends TestCase
         $disk = \Mockery::mock(Filesystem::class);
         $disk->shouldReceive('delete')->with('some/path')->once()->andThrow(new \RuntimeException('Disk failure'));
 
-        Storage::shouldReceive('disk')->with('supabase')->once()->andReturn($disk);
+        Storage::shouldReceive('disk')->with('object-storage')->once()->andReturn($disk);
 
         $result = $this->service->delete('some/path');
 
