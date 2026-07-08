@@ -11,6 +11,7 @@
 |---|---|---|---|
 | v1.0.0 | 2026-07-08 | Alignment assessment | Initial remediation roadmap. |
 | v1.1.0 | 2026-07-08 | Remediation sprint | Marked P0 items I-1–I-5, P1 items D30-1–D30-4, P2 item D60-3, and TECH-024 as **completed**. Added Phase 2 Waves A–C implementation. |
+| v1.2.0 | 2026-07-08 | Phase 3 implementation | Marked D60-1 (nonce-based CSP + security headers), D60-4 (HTTP timeouts), and D60-7 (audit prune fix) as **completed**. |
 
 Sequencing principle: close the **Critical/High technical** items first (fast, high risk-reduction, mostly code), then build the **management-system** layer (slower, documentation/governance), because certification depends on both but the technical items are exploitable today.
 
@@ -40,13 +41,13 @@ Sequencing principle: close the **Critical/High technical** items first (fast, h
 ## 60-day improvements (P2)
 | # | Action | Findings | Standards | Owner | Effort |
 |---|---|---|---|---|---|
-| D60-1 | Nonce-based strict CSP; consolidate/deduplicate security headers | TECH-013, TECH-028 | 27002 8.26/8.9 | Lead dev | M |
-| D60-2 | `encrypted` casts for sensitive PII + key-management approach | TECH-014 | 27002 8.24/5.34 | Lead dev/ISM | M |
-| D60-3 | Session invalidation on password reset/change | TECH-012 | 27002 8.5 | Lead dev | S |
-| D60-4 | Timeouts/retries on all outbound HTTP; move non-critical to queue | TECH-017 | 27002 8.6 | Lead dev | M |
+| D60-1 | Nonce-based strict CSP; consolidate/deduplicate security headers | TECH-013, TECH-028 | 27002 8.26/8.9 | Lead dev | M | ✅ COMPLETED |
+| D60-2 | `encrypted` casts for sensitive PII + key-management approach | TECH-014 | 27002 8.24/5.34 | Lead dev/ISM | M | ⏳ PENDING |
+| D60-3 | Session invalidation on password reset/change | TECH-012 | 27002 8.5 | Lead dev | S | ✅ COMPLETED |
+| D60-4 | Timeouts/retries on all outbound HTTP; move non-critical to queue | TECH-017 | 27002 8.6 | Lead dev | M | ✅ COMPLETED |
 | D60-5 | Deploy health-gate + pre-deploy snapshot + documented rollback; remove `continue-on-error` | TECH-018 | 20000-1 8.5.1; 9001 8.6 | DevOps | M |
 | D60-6 | Error tracker (Sentry) + failed-job/security alerting; standardize `/up` health path | TECH-016, TECH-027, TECH-032 | 27002 8.16 | DevOps | M |
-| D60-7 | Fix audit prune vs append-only trigger; implement tiered retention | TECH-015 | 27002 8.10/5.33; RA 10173 | Lead dev | S |
+| D60-7 | Fix audit prune vs append-only trigger; implement tiered retention | TECH-015 | 27002 8.10/5.33; RA 10173 | Lead dev | S | ✅ COMPLETED |
 | D60-8 | Risk register + Statement of Applicability (build on this assessment) | 27001 6.1 | ISM | L |
 | D60-9 | Incident-response plan + change-management procedure + release approval | 27002 5.24/8.32; 20000-1 8.5.1/8.6 | ISM/DevOps | M |
 | D60-10 | Quality policy & objectives; CAPA register; management-review cadence | 9001 5.2/6.2/9.3/10.2 | Management/QMS | M |

@@ -70,7 +70,7 @@ These are listed with rationale in `external-evidence-required-v1.0.0.md`. Their
 ## Recommended remediation sequence
 1. **Days:** Close TECH-001, TECH-002, TECH-004, TECH-005; confirm safe production flags (roadmap I-1…I-5).
 2. **30 days:** Enforce MFA; encrypt MFA secrets; complete the audit trail; stand up PR-gated CI with scanning; reconcile docs to code; independent backup + restore test; draft the InfoSec policy and start the PIA/DPAs.
-3. **60 days:** Strict CSP + PII-at-rest encryption; deploy health-gate/rollback; monitoring & alerting; risk register + SoA; incident/change procedures; quality policy + CAPA.
+3. **60 days (Strict CSP + HTTP timeouts ✅ Completed):** Nonce-based CSP deployed via Report-Only; HTTP timeouts set on Turnstile and Cloudinary; PII-at-rest encryption pending; health-gate/rollback pending; monitoring & alerting pending; risk register + SoA pending; incident/change procedures pending; quality policy + CAPA pending.
 4. **90 days & long-term:** service catalogue/SLAs; BCP/DR with RPO/RTO; capacity testing; E2E test coverage; internal audit & management-review cadence; classification scheme.
 
 ## Autogeneration triage of these deliverables (per documentation-generation policy)

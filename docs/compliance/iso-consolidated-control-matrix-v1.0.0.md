@@ -29,7 +29,7 @@
 | M-10 | 27002 | 8.24 | Cryptography (secrets at rest) | Yes | ✅ Implemented | `User.php:69-83` `Model::encrypted` cast; `MfaService.php` HMAC-SHA256 | Strong | MFA secret encrypted + recovery codes hashed | R-10 | ✅ Completed: encrypted cast for mfa_secret + HMAC recovery codes (Phase 2 D30-2) | P1 | S | — |
 | M-11 | 27002 | 8.24/5.34 | PII encryption at rest | Yes | Partial | TECH-014 | Weak | PII plaintext | R-11 | encrypted casts + key mgmt | P2 | M | Key-management approach |
 | M-12 | 27002 | 8.5 | Session invalidation on reset | Yes | ✅ Implemented | `PasswordController::update`; `NewPasswordController::store`; TECH-012 | Strong | Sessions invalidated on password change/reset | R-12 | ✅ Completed: password change/reset deletes all other sessions (Phase 2 D60-3) | P2 | S | — |
-| M-13 | 27002 | 8.26/8.9 | App security config (CSP) | Yes | Partial | `ContentSecurityPolicy.php:75`; TECH-013 | Moderate | unsafe-inline/eval | R-13 | Nonce-based CSP | P2 | M | — |
+| M-13 | 27002 | 8.26/8.9 | App security config (CSP) | Yes | ✅ Implemented | `ContentSecurityPolicy.php:45-48`; nonce-based, Report-Only | Strong | nonce-based CSP | R-13 | ✅ Completed: nonce-based CSP deployed via Report-Only with object-src 'none', base-uri 'self' | P2 | M | — |
 | M-14 | 27002 | 5.10/8.4 | Secrets in VCS | Yes | ✅ Implemented | `cookies.txt` removed; `.gitignore`; gitleaks in CI | Strong | Cookie file purged; secret scan gate active | R-09 | ✅ Completed: cookies.txt removed, history purged, gitleaks in CI pipeline (Phase 1 I-3) | P0 | S | — |
 | M-15 | 27002 | 8.7 | Malware protection | Yes | Implemented | `StorageService.php`; P-01 | Strong | Scanner null by default | — | Confirm prod enablement | P2 | S | Prod ClamAV config |
 | M-16 | 27002 | 8.16 | Monitoring & alerting | Yes | Weak | `config/logging.php`; TECH-016 | Weak | No monitoring/alerting | R-14 | Error tracker + alerting | P2 | M | — |
@@ -47,7 +47,7 @@
 | M-28 | 9001 | 8.2.3 | Requirements review/traceability | Yes | Implemented | `REQUIREMENTS_TRACEABILITY.md`; P-15 | Strong | Minor stale flags | — | Keep current | P3 | S | — |
 | M-29 | 9001 | 5.2/6.2 | Quality policy & objectives | Yes | Not impl | — | None | No quality policy | — | Author policy/objectives | P2 | S | — |
 | M-30 | 9001 | 9.1.2 | Customer satisfaction | Yes | Partial | SERVQUAL feature | Moderate | No analysis process | — | Document analysis/review | P2 | S | Feedback analysis records |
-| M-31 | 27002 | 8.6/20000-1 8.6 | Capacity/availability | Yes | Weak | targets unmeasured; TECH-017 | Weak | Unmeasured; no timeouts | R-14 | Timeouts + capacity plan | P2 | M | Capacity/monitoring data |
+| M-31 | 27002 | 8.6/20000-1 8.6 | Capacity/availability | Yes | Weak | targets unmeasured; HTTP timeouts implemented (TECH-017) | Weak | Unmeasured; timeouts fixed | R-14 | Timeouts done; capacity plan pending | P2 | M | Capacity/monitoring data |
 | M-32 | 27002 | 6.1-6.8 | People controls | Yes | EER | — | None | Not in repo | — | Provide HR/security records | P2 | — | Screening/awareness/NDA records |
 | M-33 | 27002 | 7.1-7.14 | Physical controls | Yes | EER | PaaS | None | Provider-covered | — | Provide provider certs | P3 | — | Provider certifications |
 | M-34 | 27002 | 8.31 | Dev/test/prod separation | Yes | △ Enhanced | env configs; `LoginOtpController` env gate; `SystemSetting:debug_otp_enabled` | Strong | debug_otp gated to local/testing only via env + SystemSetting | R-17 | ✅ Completed: debug_otp restricted to local/testing environments (Phase 1 I-5) | P0 | S | — |

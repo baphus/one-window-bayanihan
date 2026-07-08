@@ -719,4 +719,3 @@ The following features have been implemented to enhance operational efficiency, 
 | PgSQL RLS policies (NFR-SEC-028) | Security | Lane isolation not at DB level |
 | Data retention policy (LEGAL-006) | Legal | No automated data cleanup |
 | Accessibility CI check (ACC-029) | Accessibility | Regressions possible |
-| Security headers (CSP, HSTS) | Security | OWASP recommendation |

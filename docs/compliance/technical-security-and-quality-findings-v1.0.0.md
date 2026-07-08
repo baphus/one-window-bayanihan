@@ -15,6 +15,7 @@ This is the master finding register. The other reports reference these `TECH-nnn
 | Version | Date | Author | Change |
 |---|---|---|---|
 | v1.0.0 | 2026-07-08 | Alignment assessment | Initial consolidated technical findings (36 findings + positives). |
+| v1.1.0 | 2026-07-08 | Phase 1-3 remediation | Remediated findings: TECH-001 (registration), TECH-002 (deactivated login), TECH-003 (MFA enforcement), TECH-004 (cookies.txt), TECH-005 (trustProxies), TECH-006 (audit hash chain), TECH-007 (audit events), TECH-009 (PR CI), TECH-010 (docs reconcilation, partial), TECH-011 (MFA secrets encryption), TECH-012 (session invalidation), TECH-013 (nonce-based CSP), TECH-015 (audit prune), TECH-017 (HTTP timeouts), TECH-020 (debug OTP scope), TECH-021-022 (CI runtimes/deps), TECH-024 (password reset enumeration), TECH-028 (duplicate headers). See iso-remediation-roadmap.md for detailed tracking. |
 
 ## Severity summary
 
