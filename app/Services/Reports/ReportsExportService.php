@@ -15,7 +15,7 @@ class ReportsExportService
 
     private const TZ = 'Asia/Manila';
 
-    private const ROW_CAP = 10000;
+    private const DEFAULT_ROW_CAP = 10000;
 
     private const PDF_TOP_N = 10;
 
@@ -69,15 +69,16 @@ class ReportsExportService
         $refDetailCount = (clone $refBase)->count();
         $caseDetailCount = (clone $caseBase)->count();
 
-        $refRows = $withDetails ? $this->referralRows($refBase)->limit(self::ROW_CAP)->get() : collect();
-        $caseRows = $withDetails ? $this->caseRows($caseBase)->limit(self::ROW_CAP)->get() : collect();
+        $rowCap = $this->rowCap();
+        $refRows = $withDetails ? $this->referralRows($refBase)->limit($rowCap)->get() : collect();
+        $caseRows = $withDetails ? $this->caseRows($caseBase)->limit($rowCap)->get() : collect();
 
         $warnings = [];
-        if ($withDetails && $refDetailCount > self::ROW_CAP) {
-            $warnings[] = 'Referral Details capped at '.self::ROW_CAP.' of '.$refDetailCount.' matching rows.';
+        if ($withDetails && $refDetailCount > $rowCap) {
+            $warnings[] = 'Referral Details capped at '.$rowCap.' of '.$refDetailCount.' matching rows.';
         }
-        if ($withDetails && $caseDetailCount > self::ROW_CAP) {
-            $warnings[] = 'Case Details capped at '.self::ROW_CAP.' of '.$caseDetailCount.' matching rows.';
+        if ($withDetails && $caseDetailCount > $rowCap) {
+            $warnings[] = 'Case Details capped at '.$rowCap.' of '.$caseDetailCount.' matching rows.';
         }
 
         $summary = $this->summaryFromReport($report, $refBase, $caseBase);
@@ -305,13 +306,19 @@ class ReportsExportService
         })->sortBy([['risk_score', 'desc'], ['created_at', 'asc'], [$idKey, 'asc']])->values();
     }
 
+    private function rowCap(): int
+    {
+        return max(1, (int) config('reports.export_row_cap', self::DEFAULT_ROW_CAP));
+    }
+
     private function metadata(Request $request, array $c, int $refCount, int $caseCount, array $warnings, bool $withDetails): array
     {
         $utc = CarbonImmutable::now('UTC');
+        $rowCap = $this->rowCap();
         $rowCounts = ['referral_details_matching' => $refCount, 'case_details_matching' => $caseCount];
         if ($withDetails) {
-            $rowCounts['referral_details_exported'] = min($refCount, self::ROW_CAP);
-            $rowCounts['case_details_exported'] = min($caseCount, self::ROW_CAP);
+            $rowCounts['referral_details_exported'] = min($refCount, $rowCap);
+            $rowCounts['case_details_exported'] = min($caseCount, $rowCap);
         } else {
             $rowCounts['pdf_top_referrals_limit'] = self::PDF_TOP_N;
             $rowCounts['pdf_top_cases_limit'] = self::PDF_TOP_N;
@@ -333,7 +340,7 @@ class ReportsExportService
                 'city' => $c['city'] ?? 'All',
             ],
             'row_counts' => $rowCounts,
-            'row_cap' => self::ROW_CAP,
+            'row_cap' => $rowCap,
             'cap_warnings' => $warnings,
             'ai_insights_included' => false,
             'source' => $withDetails ? 'reports_excel_export' : 'reports_pdf_export',

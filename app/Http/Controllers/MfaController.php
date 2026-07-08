@@ -28,11 +28,14 @@ class MfaController extends Controller
 
         $secret = $google2fa->generateSecretKey();
 
-        $qrCodeUrl = $google2fa->getQRCodeUrl(
+        $qrCodeSvg = $google2fa->getQRCodeInline(
             config('app.name'),
             $request->user()->email,
             $secret,
         );
+
+        // Wrap SVG as a data URL for use in <img src>
+        $qrCodeUrl = 'data:image/svg+xml;base64,'.base64_encode($qrCodeSvg);
 
         $request->session()->put('mfa_pending_secret', $secret);
 
