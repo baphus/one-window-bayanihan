@@ -395,22 +395,128 @@ class DashboardService
     {
         $formatter = app(AuditLogFormatter::class);
 
+        $activeReferralStatuses = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
+        $dashboardWindow = now()->subDays(5);
+
         $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
+        $openCases = CaseFile::where('status', 'OPEN')->count();
+        $closedCases = CaseFile::where('status', 'CLOSED')->count();
+
         $totalReferrals = Referral::count();
+        $pendingReferrals = Referral::where('status', 'PENDING')->count();
+        $processingReferrals = Referral::where('status', 'PROCESSING')->count();
+        $forComplianceReferrals = Referral::where('status', 'FOR_COMPLIANCE')->count();
+        $overdueReferrals = Referral::whereIn('status', $activeReferralStatuses)
+            ->where('created_at', '<', $dashboardWindow)
+            ->count();
+
         $totalUsers = User::count();
+        $activeUsers = User::where('is_active', true)->count();
+        $verifiedUsers = User::whereNotNull('email_verified_at')->count();
+        $inactiveUsers = max($totalUsers - $activeUsers, 0);
+
         $totalAgencies = Agency::count();
+        $activeAgencies = Agency::where('is_active', true)->count();
+        $inactiveAgencies = max($totalAgencies - $activeAgencies, 0);
+
+        $operationalQueues = [
+            [
+                'key' => 'openCases',
+                'label' => 'Open cases',
+                'count' => $openCases,
+                'note' => 'Active case files on deck.',
+                'tone' => 'blue',
+                'icon' => 'folder_open',
+            ],
+            [
+                'key' => 'pendingReferrals',
+                'label' => 'Pending referrals',
+                'count' => $pendingReferrals,
+                'note' => 'Waiting for agency action.',
+                'tone' => 'amber',
+                'icon' => 'schedule',
+            ],
+            [
+                'key' => 'processingReferrals',
+                'label' => 'Processing',
+                'count' => $processingReferrals,
+                'note' => 'Already in motion.',
+                'tone' => 'cyan',
+                'icon' => 'sync',
+            ],
+            [
+                'key' => 'forComplianceReferrals',
+                'label' => 'For compliance',
+                'count' => $forComplianceReferrals,
+                'note' => 'Needs missing documents.',
+                'tone' => 'orange',
+                'icon' => 'fact_check',
+            ],
+            [
+                'key' => 'overdueReferrals',
+                'label' => 'Overdue referrals',
+                'count' => $overdueReferrals,
+                'note' => 'Older than five days.',
+                'tone' => 'rose',
+                'icon' => 'warning',
+            ],
+        ];
+
+        $usersByRole = User::select('role', DB::raw('count(*) as total'))
+            ->groupBy('role')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => [
+                'role' => $row->role,
+                'label' => match ($row->role) {
+                    'ADMIN' => 'Administrators',
+                    'CASE_MANAGER' => 'Case managers',
+                    'AGENCY' => 'Agency users',
+                    default => $row->role,
+                },
+                'count' => (int) $row->total,
+            ])
+            ->toArray();
+
+        $topAgencies = Agency::select('id', 'name', 'is_active')
+            ->withCount('referrals')
+            ->withCount(['referrals as active_referrals_count' => fn ($query) => $query->whereIn('status', $activeReferralStatuses)])
+            ->orderByDesc('active_referrals_count')
+            ->orderByDesc('referrals_count')
+            ->take(5)
+            ->get()
+            ->map(fn ($agency) => [
+                'id' => $agency->id,
+                'name' => $agency->name,
+                'isActive' => (bool) $agency->is_active,
+                'totalReferrals' => (int) $agency->referrals_count,
+                'activeReferrals' => (int) $agency->active_referrals_count,
+            ])
+            ->toArray();
 
         $recentCases = CaseFile::with(['client', 'user'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
-            ->take(5)
+            ->take(6)
             ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'case_number' => $c->case_number,
+                'tracker_number' => $c->tracker_number,
+                'client_name' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
+                'client_type' => $c->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'status' => $c->status,
+                'created_at' => $c->created_at?->toISOString() ?? now()->toISOString(),
+                'updated_at' => $c->updated_at?->toISOString() ?? now()->toISOString(),
+                'case_owner' => $c->user?->name,
+                'category' => $c->category?->name,
+            ])
             ->toArray();
 
         $recentLogs = AuditLog::with('user')
             ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
             ->orderBy('timestamp', 'desc')
-            ->take(10)
+            ->take(8)
             ->get()
             ->map(function ($log) use ($formatter) {
                 try {
@@ -460,11 +566,44 @@ class DashboardService
             ])
             ->toArray();
 
-        return [
+        $stats = [
             'totalCases' => $totalCases,
+            'openCases' => $openCases,
+            'closedCases' => $closedCases,
             'totalReferrals' => $totalReferrals,
+            'pendingReferrals' => $pendingReferrals,
+            'processingReferrals' => $processingReferrals,
+            'forComplianceReferrals' => $forComplianceReferrals,
+            'overdueReferrals' => $overdueReferrals,
             'totalUsers' => $totalUsers,
+            'activeUsers' => $activeUsers,
+            'verifiedUsers' => $verifiedUsers,
+            'inactiveUsers' => $inactiveUsers,
             'totalAgencies' => $totalAgencies,
+            'activeAgencies' => $activeAgencies,
+            'inactiveAgencies' => $inactiveAgencies,
+        ];
+
+        return [
+            'stats' => $stats,
+            'totalCases' => $totalCases,
+            'openCases' => $openCases,
+            'closedCases' => $closedCases,
+            'totalReferrals' => $totalReferrals,
+            'pendingReferrals' => $pendingReferrals,
+            'processingReferrals' => $processingReferrals,
+            'forComplianceReferrals' => $forComplianceReferrals,
+            'overdueReferrals' => $overdueReferrals,
+            'totalUsers' => $totalUsers,
+            'activeUsers' => $activeUsers,
+            'verifiedUsers' => $verifiedUsers,
+            'inactiveUsers' => $inactiveUsers,
+            'totalAgencies' => $totalAgencies,
+            'activeAgencies' => $activeAgencies,
+            'inactiveAgencies' => $inactiveAgencies,
+            'operationalQueues' => $operationalQueues,
+            'usersByRole' => $usersByRole,
+            'topAgencies' => $topAgencies,
             'recentCases' => $recentCases,
             'recentLogs' => $recentLogs,
             'casesByCategory' => $casesByCategory,

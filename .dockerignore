@@ -2,7 +2,6 @@
 .git
 .gitattributes
 .gitignore
-.gitnexus
 
 # IDE / editor
 .agents

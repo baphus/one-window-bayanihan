@@ -34,8 +34,7 @@
       ".opencode/node_modules/**",
       "vendor/**",
       "storage/**",
-      "public/build/**",
-      ".gitnexus/**"
+      "public/build/**"
     ]
   },
   "mcp": {
