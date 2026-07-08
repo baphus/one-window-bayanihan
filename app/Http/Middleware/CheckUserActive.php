@@ -20,7 +20,12 @@ class CheckUserActive
         if (Auth::check()) {
             $user = $request->user();
 
-            if (! $user || ! $user->is_active || $user->is_deleted) {
+            // Treat NULL as "active"/"not deleted" to avoid accidentally
+            // logging out users whose flags were never explicitly set.
+            $isInactive = $user && $user->is_active === false;
+            $isDeleted = $user && $user->is_deleted === true;
+
+            if ($isInactive || $isDeleted) {
                 Auth::guard('web')->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

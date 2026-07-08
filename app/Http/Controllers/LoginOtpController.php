@@ -54,7 +54,7 @@ class LoginOtpController extends Controller
             'step' => 'otp',
             'email' => $user->email,
             'hint' => $hint,
-            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local')) ? $otp : null,
+            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'testing')) ? $otp : null,
         ]);
     }
 
@@ -91,7 +91,7 @@ class LoginOtpController extends Controller
             'step' => 'otp',
             'email' => $user->email,
             'hint' => $hint,
-            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local')) ? $otp : null,
+            'debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'testing')) ? $otp : null,
         ]);
     }
 
