@@ -53,6 +53,7 @@
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "ziggy-js": "^2.6.3",
     "zod": "^4.4.3"
   },
   "trustedDependencies": [

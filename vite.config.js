@@ -12,7 +12,6 @@ export default defineConfig({
              * Must be absolute for rolldown (Vite 8) to resolve correctly.
              */
             '@': path.resolve(__dirname, 'resources/js'),
-            'ziggy-js': path.resolve(__dirname, 'vendor/tightenco/ziggy'),
         },
     },
     server: {
