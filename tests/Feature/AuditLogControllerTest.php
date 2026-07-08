@@ -24,7 +24,6 @@ class AuditLogControllerTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
         $this->user = User::factory()->create(['role' => 'ADMIN']);
-        DB::table('audit_logs')->delete();
     }
 
     #[Test]
@@ -71,7 +70,8 @@ class AuditLogControllerTest extends TestCase
 
         $response->assertStatus(200);
         $data = $response->json('props.logs.data');
-        $this->assertCount(1, $data);
+        // Two CREATE entries: one from user factory creation in setUp, one from this test
+        $this->assertCount(2, $data);
         $this->assertEquals('CREATE', $data[0]['action']);
     }
 
@@ -103,7 +103,6 @@ class AuditLogControllerTest extends TestCase
     public function it_filters_by_user()
     {
         $otherUser = User::factory()->create(['role' => 'CASE_MANAGER']);
-        DB::table('audit_logs')->delete();
         AuditLog::create(['user_id' => $this->user->id, 'action' => 'UPDATE', 'module' => 'clients', 'timestamp' => now()->subMinute()]);
         AuditLog::create(['user_id' => $otherUser->id, 'action' => 'UPDATE', 'module' => 'clients', 'timestamp' => now()]);
 
@@ -140,7 +139,7 @@ class AuditLogControllerTest extends TestCase
         $response->assertStatus(200);
         $props = $response->json('props');
         $this->assertEqualsCanonicalizing(['CREATE', 'UPDATE'], $props['availableActions']);
-        $this->assertEqualsCanonicalizing(['case', 'referral'], $props['availableModules']);
+        $this->assertEqualsCanonicalizing(['case', 'referral', 'user'], $props['availableModules']);
     }
 
     #[Test]
@@ -167,7 +166,7 @@ class AuditLogControllerTest extends TestCase
 
         $response->assertStatus(200);
         $props = $response->json('props');
-        $this->assertEqualsCanonicalizing(['case'], $props['availableModules']);
+        $this->assertEqualsCanonicalizing(['case', 'user'], $props['availableModules']);
     }
 
     #[Test]

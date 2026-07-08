@@ -69,15 +69,6 @@ class AuditLogController extends Controller
         $logs = $query->cursorPaginate($perPage);
 
         $logs->getCollection()->transform(function ($log) use ($formatter) {
-            if ($log->description === null) {
-                try {
-                    $log->description = $formatter->format($log);
-                    $log->save();
-                } catch (\Throwable $e) {
-                    $log->description = $log->action.' '.$log->module;
-                }
-            }
-
             $display = $formatter->formatForDisplay($log);
             $log->message = $display['message'];
             $log->detail = $display['detail'];
