@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,6 +18,8 @@ class CaseDraftTest extends TestCase
 
     protected CaseCategory $category;
 
+    protected CaseIssue $caseIssue;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -26,6 +29,10 @@ class CaseDraftTest extends TestCase
         ]);
 
         $this->category = CaseCategory::factory()->create();
+        $this->caseIssue = CaseIssue::create([
+            'name' => 'Test Issue',
+            'is_active' => true,
+        ]);
     }
 
     public function test_store_creates_draft(): void
@@ -33,12 +40,29 @@ class CaseDraftTest extends TestCase
         $response = $this->actingAs($this->user)->post(route('cases.store'), [
             'client_type' => 'OFW',
             'category_id' => $this->category->id,
+            'case_issue_id' => $this->caseIssue->id,
             'client' => [
                 'first_name' => 'Juan',
                 'last_name' => 'Dela Cruz',
                 'email' => 'juan@test.com',
                 'sex' => 'Male',
+                'date_of_birth' => '1990-01-01',
+                'contact_number' => '09171234567',
             ],
+            'address' => [
+                'region' => 'Region VII',
+                'province' => 'Cebu',
+                'city_municipality' => 'Cebu City',
+                'barangay' => 'Barangay 1',
+            ],
+            'employment' => [
+                'employer_name' => 'ACME Corp',
+                'last_country' => 'UAE',
+                'last_position' => 'Engineer',
+                'date_of_arrival' => '2024-01-15',
+            ],
+            'vulnerability_indicator' => 'None',
+            'summary' => 'Draft test case',
             'consent' => true,
         ]);
 
@@ -63,11 +87,29 @@ class CaseDraftTest extends TestCase
         $this->actingAs($this->user)->post(route('cases.store'), [
             'client_type' => 'OFW',
             'category_id' => $this->category->id,
+            'case_issue_id' => $this->caseIssue->id,
             'client' => [
                 'first_name' => 'Maria',
                 'last_name' => 'Santos',
                 'email' => 'maria@test.com',
+                'date_of_birth' => '1988-05-20',
+                'sex' => 'Female',
+                'contact_number' => '09191234567',
             ],
+            'address' => [
+                'region' => 'Region VII',
+                'province' => 'Cebu',
+                'city_municipality' => 'Cebu City',
+                'barangay' => 'Barangay 1',
+            ],
+            'employment' => [
+                'employer_name' => 'XYZ Inc',
+                'last_country' => 'UAE',
+                'last_position' => 'Nurse',
+                'date_of_arrival' => '2023-06-01',
+            ],
+            'vulnerability_indicator' => 'None',
+            'summary' => 'Draft test for client count',
             'consent' => true,
         ]);
 
@@ -79,6 +121,7 @@ class CaseDraftTest extends TestCase
         $this->actingAs($this->user)->post(route('cases.store'), [
             'client_type' => 'OFW',
             'category_id' => $this->category->id,
+            'case_issue_id' => $this->caseIssue->id,
             'client' => [
                 'first_name' => 'Pedro',
                 'last_name' => 'Gomez',
@@ -93,6 +136,14 @@ class CaseDraftTest extends TestCase
                 'city_municipality' => 'Cebu City',
                 'barangay' => 'Barangay 1',
             ],
+            'employment' => [
+                'employer_name' => 'ACME Corp',
+                'last_country' => 'UAE',
+                'last_position' => 'Engineer',
+                'date_of_arrival' => '2024-01-15',
+            ],
+            'vulnerability_indicator' => 'None',
+            'summary' => 'Publish test case',
             'is_draft' => false,
             'consent' => true,
         ]);

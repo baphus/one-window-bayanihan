@@ -15,6 +15,8 @@ use App\Services\CloudinaryAvatarService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ClientController extends Controller
@@ -24,7 +26,7 @@ class ClientController extends Controller
         $user = $request->user();
         $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'sort', 'direction', 'per_page'];
 
-        $clients = Client::with([
+        $clients = Client::where('is_deleted', false)->with([
             'caseFile' => function ($q) {
                 $q->with(['referrals.agency', 'category', 'caseIssue']);
             },
@@ -129,55 +131,69 @@ class ClientController extends Controller
 
     private function getClientStats(?User $user): array
     {
-        $baseQuery = Client::where('is_deleted', false);
+        $cacheKey = 'client_stats:'.$user?->id;
 
-        // Apply same role scoping as index
-        if ($user && ! $user->isAdmin()) {
-            if ($user->isCaseManager()) {
-                $baseQuery->whereHas('caseFile', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
-            } elseif ($user->isAgency() && $user->agcy_id) {
-                $baseQuery->whereHas('caseFile.referrals', function ($q) use ($user) {
-                    $q->where('agcy_id', $user->agcy_id);
-                });
+        return Cache::remember($cacheKey, 30, function () use ($user) {
+            // Single query with conditional aggregation — replaces 10 separate count queries
+            $sql = "SELECT
+                (SELECT COUNT(*) FROM clients WHERE is_deleted = false) AS total_clients,
+                COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS ofw_clients,
+                COUNT(DISTINCT CASE WHEN c.client_type = 'NOK' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS nok_clients,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator = 'PWD' OR c.nok_vulnerability_indicator = 'PWD') THEN cl.id END) AS vuln_pwd,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator = 'Senior Citizen' OR c.nok_vulnerability_indicator = 'Senior Citizen') THEN cl.id END) AS vuln_senior,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator = 'Solo Parent' OR c.nok_vulnerability_indicator = 'Solo Parent') THEN cl.id END) AS vuln_solo,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator = 'Indigenous Person' OR c.nok_vulnerability_indicator = 'Indigenous Person') THEN cl.id END) AS vuln_indigenous,
+                COUNT(DISTINCT CASE WHEN c.status = 'OPEN' THEN cl.id END) AS open_cases
+            FROM clients cl
+            JOIN cases c ON c.client_id = cl.id AND c.is_deleted = false
+            WHERE cl.is_deleted = false";
+
+            $bindings = [];
+
+            if ($user && ! $user->isAdmin()) {
+                if ($user->isCaseManager()) {
+                    $sql .= ' AND c.user_id = ?';
+                    $bindings[] = $user->id;
+                } elseif ($user->isAgency() && $user->agcy_id) {
+                    $sql .= ' AND c.id IN (SELECT ref.case_id FROM referrals ref WHERE ref.agcy_id = ? AND ref.is_deleted = false)';
+                    $bindings[] = $user->agcy_id;
+                }
             }
-        }
 
-        $total = (clone $baseQuery)->count();
-        $ofw = (clone $baseQuery)->whereHas('caseFile', fn ($q) => $q->where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED']))->count();
-        $nok = (clone $baseQuery)->whereHas('caseFile', fn ($q) => $q->where('client_type', 'NOK')->whereNotIn('status', ['DRAFT', 'ARCHIVED']))->count();
+            $row = DB::selectOne($sql, $bindings);
 
-        $vulnLabels = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'];
-        $vulnCounts = [];
-        foreach ($vulnLabels as $v) {
-            $vulnCounts[$v] = (clone $baseQuery)->whereHas('caseFile', function ($q) use ($v) {
-                $q->where(function ($q2) use ($v) {
-                    $q2->where('vulnerability_indicator', $v)
-                        ->orWhere('nok_vulnerability_indicator', $v);
-                });
-            })->count();
-        }
+            // Referrals count (separate query — different base table)
+            $refSql = 'SELECT COUNT(*) AS total FROM referrals r
+                JOIN cases c ON r.case_id = c.id AND c.is_deleted = false
+                WHERE r.is_deleted = false';
+            $refBindings = [];
 
-        $clientsWithOpenCases = (clone $baseQuery)->whereHas('caseFile', fn ($q) => $q->where('status', 'OPEN'))->count();
+            if ($user && ! $user->isAdmin()) {
+                if ($user->isCaseManager()) {
+                    $refSql .= ' AND c.user_id = ?';
+                    $refBindings[] = $user->id;
+                } elseif ($user->isAgency() && $user->agcy_id) {
+                    $refSql .= ' AND c.id IN (SELECT ref2.case_id FROM referrals ref2 WHERE ref2.agcy_id = ? AND ref2.is_deleted = false)';
+                    $refBindings[] = $user->agcy_id;
+                }
+            }
 
-        // Total referrals across all cases linked to scoped clients
-        $totalReferrals = 0;
-        $scopedIds = (clone $baseQuery)->pluck('id');
-        if ($scopedIds->isNotEmpty()) {
-            $totalReferrals = Referral::whereIn('case_id', function ($q) use ($scopedIds) {
-                $q->select('id')->from('cases')->whereIn('client_id', $scopedIds);
-            })->count();
-        }
+            $refRow = DB::selectOne($refSql, $refBindings);
 
-        return [
-            'total_clients' => $total,
-            'ofw_clients' => $ofw,
-            'nok_clients' => $nok,
-            'vulnerability_counts' => $vulnCounts,
-            'clients_with_open_cases' => $clientsWithOpenCases,
-            'total_referrals' => $totalReferrals,
-        ];
+            return [
+                'total_clients' => (int) ($row->total_clients ?? 0),
+                'ofw_clients' => (int) ($row->ofw_clients ?? 0),
+                'nok_clients' => (int) ($row->nok_clients ?? 0),
+                'vulnerability_counts' => [
+                    'PWD' => (int) ($row->vuln_pwd ?? 0),
+                    'Senior Citizen' => (int) ($row->vuln_senior ?? 0),
+                    'Solo Parent' => (int) ($row->vuln_solo ?? 0),
+                    'Indigenous Person' => (int) ($row->vuln_indigenous ?? 0),
+                ],
+                'clients_with_open_cases' => (int) ($row->open_cases ?? 0),
+                'total_referrals' => (int) ($refRow->total ?? 0),
+            ];
+        });
     }
 
     public function show(string $id, Request $request)
