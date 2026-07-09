@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -31,6 +32,9 @@ class NextOfKin extends Model
 
     protected $casts = [
         'is_primary' => 'boolean',
+        'phone_number' => EncryptedString::class,
+        'email' => EncryptedString::class,
+        'full_address' => EncryptedString::class,
         'is_deleted' => 'boolean',
     ];
 

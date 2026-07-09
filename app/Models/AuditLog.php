@@ -6,6 +6,7 @@ use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 class AuditLog extends Model
 {
@@ -76,6 +77,32 @@ class AuditLog extends Model
             if ($auditLog->description) {
                 $auditLog->description = str_replace(["\r", "\n"], ' ', $auditLog->description);
             }
+        });
+
+        // Global SHA-256 hash chain for audit integrity verification.
+        // Each row stores the hash of the PREVIOUS row's content, forming
+        // a tamper-evident chain: any modification to a past row breaks
+        // the chain for all subsequent rows.
+        static::creating(function (self $auditLog) {
+            $lastLog = AuditLog::orderBy('timestamp', 'desc')->first();
+
+            if ($lastLog) {
+                $content = implode('|', [
+                    $lastLog->id,
+                    $lastLog->action,
+                    $lastLog->module,
+                    $lastLog->entity_id ?? '',
+                    $lastLog->user_id ?? '',
+                    $lastLog->timestamp?->toIso8601String() ?? '',
+                    json_encode($lastLog->old_value, JSON_UNESCAPED_SLASHES),
+                    json_encode($lastLog->new_value, JSON_UNESCAPED_SLASHES),
+                    $lastLog->ip_address ?? '',
+                    $lastLog->prev_hash ?? '',
+                ]);
+
+                $auditLog->prev_hash = hash('sha256', $content);
+            }
+            // First row: prev_hash remains null
         });
     }
 

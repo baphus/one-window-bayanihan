@@ -11,7 +11,12 @@
         "types": ["vite/client", "node"],
         "allowImportingTsExtensions": true,
         "noEmit": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        // Incremental strict-mode flags — set true as codebase migrates to .tsx
+        "noImplicitAny": true,
+        "strictNullChecks": false,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false
     },
     "include": ["resources/js/**/*"],
     "exclude": ["node_modules", "public"]

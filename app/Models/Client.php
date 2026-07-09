@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedDate;
 use App\Models\Concerns\HasAvatar;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
@@ -35,7 +36,7 @@ class Client extends Model
     ];
 
     protected $casts = [
-        'date_of_birth' => 'date',
+        'date_of_birth' => EncryptedDate::class,
         'is_deleted' => 'boolean',
     ];
 

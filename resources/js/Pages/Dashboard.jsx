@@ -14,6 +14,7 @@ import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatDisplayDateTime, formatStatusLabel } from '@/lib/utils';
 import TourPrototype from './__TourPrototype';
 import DashboardBanner from '@/Components/DashboardBanner';
+import AdminDispatchDashboard from './Dashboard/Admin';
 
 ChartJS.register(
     CategoryScale, LinearScale, BarElement,
@@ -901,7 +902,7 @@ export default function Dashboard(props) {
         return (
             <AppLayout title="Dashboard">
                 <Head title="Dashboard" />
-                <AdminDashboard stats={stats} recentCases={recentCases} recentLogs={recentLogs} />
+                <AdminDispatchDashboard dashboard={dashboardProps} />
             </AppLayout>
         );
     }

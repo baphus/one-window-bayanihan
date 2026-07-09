@@ -20,6 +20,7 @@ use App\Observers\AuditObserver;
 use App\Services\Contracts\MalwareScannerInterface;
 use App\Services\Malware\ClamAvScanner;
 use App\Services\Malware\NullScanner;
+use Cloudinary\Configuration\Configuration;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -116,5 +117,11 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ReferralCompleted::class, SendFeedbackRequest::class);
 
         Event::subscribe(EmailEventSubscriber::class);
+
+        // Set Cloudinary API timeout to prevent hanging uploads
+        if (class_exists(Configuration::class)) {
+            Configuration::instance()
+                ->api->timeout = 30;
+        }
     }
 }

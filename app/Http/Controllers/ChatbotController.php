@@ -26,6 +26,24 @@ class ChatbotController extends Controller
         'default' => "I'm not sure I understand your question. I can help you with:\n\n- **Agency info** — Details about OWWA, DMW, TESDA, DSWD, DOLE\n- **Services** — What services are available and their requirements\n- **Case tracking** — How to track your case status\n- **OFW support** — Repatriation, legal assistance, skills training\n- **Referrals** — How the inter-agency referral process works\n- **Documents** — Required documents for OFW assistance\n\nType \"help\" to see all options, or ask me a specific question!",
     ];
 
+    /** Maximum chatbot response length in characters. */
+    private const MAX_RESPONSE_LENGTH = 2000;
+
+    /** Patterns that indicate prompt-injection attempts. */
+    private const BLOCKED_PATTERNS = [
+        '/ignore\s+(?:all\s+)?(?:previous|above|below)\s+(?:instructions|directives|commands)/i',
+        '/you\s+are\s+(?:not\s+)?(?:an?\s+)?(?:AI|assistant|chatbot|language\s+model|bot)/i',
+        '/system\s+(?:prompt|message|instruction|directive)/i',
+        '/reveal\s+(?:your\s+)?(?:prompt|instructions|system\s+message|configuration)/i',
+        '/output\s+(?:your\s+|the\s+)?(?:prompt|instructions|system|internal)/i',
+        '/forget\s+(?:everything|all\s+(?:previous|prior)\s+)/i',
+        '/new\s+instructions/i',
+        '/act\s+as\s+(?:an?\s+)?(?:AI|assistant|different|new)/i',
+        '/disregard\s+(?:all\s+)?(?:previous|prior)\s+/i',
+        '/print\s+(?:the\s+)?(?:prompt|instructions|system)/i',
+        '/dump\s+(?:the\s+)?(?:prompt|system)/i',
+    ];
+
     public function message(Request $request)
     {
         $request->validate([
@@ -33,6 +51,15 @@ class ChatbotController extends Controller
         ]);
 
         $userMessage = $request->input('message');
+
+        // Refusal guard: block prompt-injection patterns
+        foreach (self::BLOCKED_PATTERNS as $pattern) {
+            if (preg_match($pattern, $userMessage)) {
+                return response()->json([
+                    'reply' => "I'm sorry, I can only provide information about the Bayanihan One Window system. Please ask me about OFW support, agency information, case tracking, or available services.",
+                ]);
+            }
+        }
 
         // Try AI-first via agent() helper
         if (config('ai-chatbot.enabled', false)) {
@@ -53,7 +80,12 @@ class ChatbotController extends Controller
                     model: config('ai-chatbot.model', ''),
                 );
 
-                return response()->json(['reply' => $response->text]);
+                $reply = $response->text;
+                if (mb_strlen($reply) > self::MAX_RESPONSE_LENGTH) {
+                    $reply = mb_substr($reply, 0, self::MAX_RESPONSE_LENGTH - 3).'...';
+                }
+
+                return response()->json(['reply' => $reply]);
             } catch (\Throwable $e) {
                 Log::warning('Chatbot AI agent failed', [
                     'error' => $e->getMessage(),
@@ -67,6 +99,10 @@ class ChatbotController extends Controller
         // Fallback: keyword matching
         $message = strtolower(trim($userMessage));
         $response = $this->getResponse($message);
+
+        if (mb_strlen($response) > self::MAX_RESPONSE_LENGTH) {
+            $response = mb_substr($response, 0, self::MAX_RESPONSE_LENGTH - 3).'...';
+        }
 
         return response()->json([
             'reply' => $response,

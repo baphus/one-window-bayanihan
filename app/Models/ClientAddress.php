@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,6 +29,7 @@ class ClientAddress extends Model
     ];
 
     protected $casts = [
+        'street' => EncryptedString::class,
         'is_deleted' => 'boolean',
     ];
 

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -52,6 +54,24 @@ class NewPasswordController extends Controller
                 ])->save();
 
                 event(new PasswordReset($user));
+
+                AuditLog::create([
+                    'action' => 'UPDATE',
+                    'module' => 'auth',
+                    'entity_id' => $user->id,
+                    'description' => 'Password reset via email link',
+                    'user_id' => $user->id,
+                    'timestamp' => now(),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent() ?? '',
+                    'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+                ]);
+
+                // Invalidate ALL sessions for this user since the password
+                // was reset via email link (guest route — no current session).
+                DB::table('sessions')
+                    ->where('user_id', $user->id)
+                    ->delete();
             }
         );
 

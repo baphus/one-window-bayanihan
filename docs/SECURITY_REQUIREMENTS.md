@@ -80,7 +80,7 @@ Layer 6: Audit & Accountability— Immutable logs, event tracking
 
 | SRS ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| NFR-SEC-035 | OWASP Top 10 protections | CSRF tokens, XSS escaping (Blade/React), SQL injection (Eloquent), input validation | ✅ |
+| NFR-SEC-035 | OWASP Top 10 protections | CSRF tokens, nonce-based CSP XSS mitigation, SQL injection (Eloquent), input validation, strict security headers | ✅ |
 | NFR-SEC-036 | Server-side business logic validation | Form Request classes for all inputs | ✅ |
 | NFR-SEC-037 | Client-side validation not sole control | Server-side is authoritative | ✅ |
 | NFR-SEC-038 | Authorization before sensitive actions | Gates + middleware on all mutations | ✅ |
@@ -275,4 +275,3 @@ Access to documents uploaded directly to a case is restricted via authorization 
 | Application-layer encryption for sensitive fields not implemented | MEDIUM | P2 | Encrypt passport, address, emergency contact at app layer |
 | PostgreSQL RLS policies not fully configured | MEDIUM | P2 | Create RLS policies for lane isolation |
 | No rate limiting on non-auth public routes | LOW | P3 | Audit and add throttles where needed |
-| No security headers (CSP, HSTS, X-Frame-Options) | LOW | P3 | Add via middleware or Render config |

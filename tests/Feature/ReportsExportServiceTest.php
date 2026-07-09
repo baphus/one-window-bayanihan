@@ -164,8 +164,10 @@ class ReportsExportServiceTest extends TestCase
     }
 
     #[Test]
-    public function excel_detail_cap_exports_first_ten_thousand_rows_with_warning(): void
+    public function excel_detail_cap_exports_only_configured_row_limit_with_warning(): void
     {
+        config(['reports.export_row_cap' => 50]);
+
         [$agency] = $this->seedAgencies();
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = CaseFile::factory()->create([
@@ -176,34 +178,36 @@ class ReportsExportServiceTest extends TestCase
         ]);
 
         $newestService = null;
-        $rows = [];
         $baseTime = CarbonImmutable::parse('2026-01-01 00:00:00');
-        for ($i = 0; $i < 10001; $i++) {
-            $service = 'Cap Row '.$i;
-            $newestService = $service;
-            $rows[] = [
-                'id' => (string) Str::uuid(),
-                'required_services' => $service,
-                'status' => 'PENDING',
-                'case_id' => $case->id,
-                'agcy_id' => $agency->id,
-                'is_deleted' => false,
-                'created_at' => $baseTime->addSeconds($i),
-                'updated_at' => $baseTime->addSeconds($i),
-            ];
-        }
-        foreach (array_chunk($rows, 1000) as $chunk) {
-            DB::table('referrals')->insert($chunk);
+        $total = 51;
+        foreach (array_chunk(range(0, $total - 1), 1000) as $chunk) {
+            $rows = [];
+            foreach ($chunk as $i) {
+                $service = 'Cap Row '.$i;
+                $newestService = $service;
+                $rows[] = [
+                    'id' => (string) Str::uuid(),
+                    'required_services' => $service,
+                    'status' => 'PENDING',
+                    'case_id' => $case->id,
+                    'agcy_id' => $agency->id,
+                    'is_deleted' => false,
+                    'created_at' => $baseTime->addSeconds($i),
+                    'updated_at' => $baseTime->addSeconds($i),
+                ];
+            }
+            DB::table('referrals')->insert($rows);
+            unset($rows);
         }
 
         $sheets = $this->service->buildExcelSheets($this->requestFor($manager));
         $referrals = $this->sheetRows($sheets, 'Referral Details');
         $info = $this->reportInfo($sheets);
 
-        $this->assertCount(10000, $referrals);
+        $this->assertCount(50, $referrals);
         $this->assertSame($newestService, $referrals->first()->required_services);
-        $this->assertSame(10001, (int) $info['row_counts']['referral_details_matching']);
-        $this->assertSame(10000, (int) $info['row_counts']['referral_details_exported']);
+        $this->assertSame(51, (int) $info['row_counts']['referral_details_matching']);
+        $this->assertSame(50, (int) $info['row_counts']['referral_details_exported']);
         $this->assertNotEmpty($info['cap_warnings']);
     }
 

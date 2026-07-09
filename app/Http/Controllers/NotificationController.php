@@ -59,7 +59,7 @@ class NotificationController extends Controller
      */
     public function markAsRead(Request $request, string $id): JsonResponse
     {
-        $updated = $this->notificationService->markAsRead($id, 'user');
+        $updated = $this->notificationService->markAsRead($id, 'user', $request->user());
 
         if (! $updated) {
             return response()->json(['message' => 'Notification not found'], 404);

@@ -73,6 +73,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_deleted' => 'boolean',
+            'mfa_secret' => 'encrypted',
             'mfa_recovery_codes' => 'array',
             'emergency_contact' => 'array',
             'notifications_config' => 'array',

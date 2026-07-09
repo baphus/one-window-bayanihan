@@ -10,13 +10,20 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\EmailChangeController;
 use App\Http\Controllers\LoginOtpController;
+use App\Models\AuditLog;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 Route::middleware('guest')->group(function () {
     Route::get('login', function () {
         return Inertia::render('Auth/Login');
     })->name('login');
+
+    Route::get('register', [RegisteredUserController::class, 'create'])
+        ->name('register');
+
+    Route::post('register', [RegisteredUserController::class, 'store']);
 
     Route::post('login', [LoginOtpController::class, 'init'])
         ->middleware(['turnstile', 'throttle:login'])
@@ -37,12 +44,6 @@ Route::middleware('guest')->group(function () {
     Route::post('login/verify-recovery-code', [LoginOtpController::class, 'verifyRecoveryCode'])
         ->middleware('throttle:recovery-code')
         ->name('login.verify-recovery-code');
-
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
-
-    Route::post('register', [RegisteredUserController::class, 'store'])
-        ->middleware('turnstile');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
@@ -91,6 +92,20 @@ Route::middleware('auth')->group(function () {
         ->name('profile.email-change.verify-otp');
 
     Route::post('logout', function () {
+        $user = auth()->user();
+
+        AuditLog::create([
+            'action' => 'LOGOUT',
+            'module' => 'auth',
+            'entity_id' => $user?->id,
+            'description' => null,
+            'user_id' => $user?->id,
+            'timestamp' => now(),
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent() ?? '',
+            'request_id' => request()->attributes->get('correlation_id') ?? request()->header('X-Request-ID') ?? (string) Str::uuid(),
+        ]);
+
         auth()->guard('web')->logout();
         request()->session()->invalidate();
         request()->session()->regenerateToken();

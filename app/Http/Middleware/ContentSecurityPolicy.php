@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Foundation\Vite;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -10,9 +11,9 @@ use Symfony\Component\HttpFoundation\Response;
  * Add Content-Security-Policy headers to all HTTP responses.
  *
  * Restricts which resources the browser can load, mitigating XSS attacks.
- * In dev mode, Vite HMR uses a WebSocket connection on the Vite dev server
- * origin, which is permitted via connect-src. Script sources are relaxed
- * to allow Vite's inline HMR scripts and React Fast Refresh.
+ * In production/staging, a nonce-based policy is deployed via the
+ * Report-Only header first, allowing violation collection before enforcement.
+ * In dev mode, Vite HMR requires relaxed directives.
  */
 class ContentSecurityPolicy
 {
@@ -21,34 +22,67 @@ class ContentSecurityPolicy
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $isDev = app()->environment('local', 'testing');
+
+        $nonce = $isDev ? '' : base64_encode(random_bytes(18));
+
+        // Share nonce with Blade templates for @routes (Ziggy)
+        view()->share('cspNonce', $nonce);
+
+        // Set nonce on Vite instance — @vite and @viteReactRefresh
+        // read it automatically via useScriptTagAttributes.
+        if (! $isDev) {
+            app(Vite::class)->useScriptTagAttributes(['nonce' => $nonce]);
+        }
+
         $response = $next($request);
 
-        if (! $response->headers->has('Content-Security-Policy')) {
-            $response->headers->set('Content-Security-Policy', $this->getPolicy());
+        if ($isDev) {
+            // Dev/local: keep the relaxed policy on the main header
+            if (! $response->headers->has('Content-Security-Policy')) {
+                $response->headers->set('Content-Security-Policy', $this->getDevPolicy());
+            }
+        } else {
+            // Production/staging: deploy nonce-based policy via Report-Only
+            if (! $response->headers->has('Content-Security-Policy-Report-Only')) {
+                $response->headers->set('Content-Security-Policy-Report-Only', $this->getReportOnlyPolicy($nonce));
+            }
         }
 
         return $response;
     }
 
     /**
-     * Return the Content-Security-Policy directive string.
+     * Report-Only policy for production/staging — nonce-based script-src.
      *
-     * If a VITE_DEV_SERVER_URL is explicitly configured (non-empty), we assume
-     * a Vite dev server may be running and use the relaxed dev policy regardless
-     * of APP_ENV. This prevents CSP violations when developing locally with
-     * APP_ENV=staging or APP_ENV=production for testing.
+     * Remove `'unsafe-eval'` from prod script-src (React prod build does not need it).
+     * Style `'unsafe-inline'` kept as acceptable tradeoff with Tailwind JIT/MUI.
      */
-    private function getPolicy(): string
+    private function getReportOnlyPolicy(string $nonce): string
     {
-        $viteOrigin = env('VITE_DEV_SERVER_URL');
+        $reportUri = config('csp.report_uri', '');
 
-        return $viteOrigin || app()->environment('local')
-            ? $this->getDevPolicy()
-            : $this->getProdPolicy();
+        $policy = "default-src 'self'; "
+            ."script-src 'self' 'nonce-{$nonce}' https://challenges.cloudflare.com; "
+            ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
+            ."img-src 'self' data: blob: https://res.cloudinary.com; "
+            ."connect-src 'self' wss: https://challenges.cloudflare.com; "
+            ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
+            ."object-src 'none'; "
+            ."base-uri 'self'; "
+            ."form-action 'self'; "
+            ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
+
+        if ($reportUri) {
+            $policy .= "; report-uri {$reportUri}";
+        }
+
+        return $policy;
     }
 
     /**
      * CSP for local development — permits Vite HMR and React Fast Refresh.
+     * No nonce; uses relaxed directives.
      */
     private function getDevPolicy(): string
     {
@@ -62,21 +96,8 @@ class ContentSecurityPolicy
             ."connect-src 'self' {$appOrigin} http://localhost:8000 http://127.0.0.1:8000 wss: {$viteOrigin} ws://127.0.0.1:5173 https://challenges.cloudflare.com; "
             ."worker-src 'self' blob:; "
             ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
-            ."form-action 'self'; "
-            ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
-    }
-
-    /**
-     * CSP for production/staging — strict script-src, font CDNs allowed.
-     */
-    private function getProdPolicy(): string
-    {
-        return "default-src 'self'; "
-            ."script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com; "
-            ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
-            ."img-src 'self' data: blob: https://res.cloudinary.com; "
-            ."connect-src 'self' wss: https://challenges.cloudflare.com; "
-            ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
+            ."object-src 'none'; "
+            ."base-uri 'self'; "
             ."form-action 'self'; "
             ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
     }

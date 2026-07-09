@@ -6,10 +6,12 @@ use App\Http\Requests\EmailChangeInitRequest;
 use App\Http\Requests\EmailChangeSendOtpRequest;
 use App\Http\Requests\EmailChangeVerifyOtpRequest;
 use App\Mail\EmailChangedNotification;
+use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -57,7 +59,7 @@ class EmailChangeController extends Controller
         return Inertia::render('Profile/Edit', [
             'email_change_step' => 'otp',
             'email_change_hint' => $hint,
-            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
+            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'testing')) ? $otp : null,
         ]);
     }
 
@@ -93,7 +95,20 @@ class EmailChangeController extends Controller
             new EmailChangedNotification($oldEmail, $newEmail, $user->name)
         );
 
-        // Audit logging is handled by AuditObserver::updated() — no manual log needed.
+        // Audit the email change (email is excluded from AuditObserver to prevent noise in general updates)
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'user',
+            'entity_id' => $user->id,
+            'old_value' => ['email' => $oldEmail],
+            'new_value' => ['email' => $newEmail],
+            'description' => 'Email changed from '.$oldEmail.' to '.$newEmail,
+            'user_id' => $user->id,
+            'timestamp' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent() ?? '',
+            'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
+        ]);
 
         // Clear email change session state so the section resets
         $request->session()->forget(['email_change_step', 'pending_new_email']);

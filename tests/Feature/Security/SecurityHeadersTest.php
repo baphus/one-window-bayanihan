@@ -25,11 +25,12 @@ class SecurityHeadersTest extends TestCase
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()');
-        $response->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        $response->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+        $response->assertHeader('Cross-Origin-Resource-Policy', 'same-origin');
     }
 
     #[Test]
-    public function it_does_not_send_hsts_in_local_environment(): void
+    public function it_does_not_send_hsts_and_corp_in_local_environment(): void
     {
         $this->app['env'] = 'local';
 
@@ -37,6 +38,7 @@ class SecurityHeadersTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertHeaderMissing('Strict-Transport-Security');
+        $response->assertHeaderMissing('Cross-Origin-Resource-Policy');
     }
 
     #[Test]
@@ -45,7 +47,7 @@ class SecurityHeadersTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertStatus(200);
-        $response->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        $response->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     }
 
     #[Test]
