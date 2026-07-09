@@ -36,10 +36,10 @@ class CheckMfaEnrolled
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Not enforced in testing — existing tests exercise many pages
-        // without MFA setup. Add explicit tests for this middleware in
+        // Not enforced in local/testing — local dev doesn't have MFA set up
+        // for every account. Add explicit tests for this middleware in
         // a dedicated test class.
-        if (app()->environment('testing')) {
+        if (app()->environment('local', 'testing')) {
             return $next($request);
         }
 

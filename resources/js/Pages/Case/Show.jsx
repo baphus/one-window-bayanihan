@@ -658,10 +658,21 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                       clientId={client.id}
                     />
                   ) : client.avatar_url ? (
-                    <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-slate-200 flex-shrink-0" />
+                    <span className="inline-flex shrink-0">
+                      <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-slate-200" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }} />
+                      <span className="avatar-fallback hidden h-12 w-12 rounded-full text-white text-[15px] font-bold flex items-center justify-center relative overflow-hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-white/30">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                        <span className="relative z-10">{getInitials([client.first_name, client.last_name].filter(Boolean).join(' '))}</span>
+                      </span>
+                    </span>
                   ) : (
-                    <span className={`h-12 w-12 inline-flex items-center justify-center rounded-full text-white text-[15px] font-bold flex-shrink-0 ${getAvatarColor([client.first_name, client.last_name].filter(Boolean).join(' '))}`}>
-                      {getInitials([client.first_name, client.last_name].filter(Boolean).join(' '))}
+                    <span className={`h-12 w-12 inline-flex items-center justify-center rounded-full text-white text-[15px] font-bold flex-shrink-0 relative overflow-hidden ${getAvatarColor([client.first_name, client.last_name].filter(Boolean).join(' '))}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-white/30">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                      <span className="relative z-10">{getInitials([client.first_name, client.last_name].filter(Boolean).join(' '))}</span>
                     </span>
                   )}
                   <div className="min-w-0 flex-1 self-center">

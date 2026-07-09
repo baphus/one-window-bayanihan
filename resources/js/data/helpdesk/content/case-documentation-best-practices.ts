@@ -1,87 +1,38 @@
 const content = `# Case Documentation Best Practices
 
-Proper documentation is the foundation of effective case management. This guide covers best practices for maintaining clear, complete, and audit-ready case records.
+Good documentation makes a case easier to act on, review, and close. A case record includes the case number, tracker number, client details, vulnerability indicators, consent timestamp, category, issue, summary, status, and related referrals.
 
-## Writing Effective Case Summaries
+![Case details page](/helpdesk/cases-show.png)
 
-A good case summary is:
+## Keep key fields accurate
 
-- **Clear** — use plain language that anyone can understand
-- **Factual** — state what happened, not what you think might have happened
-- **Chronological** — present events in the order they occurred
-- **Complete** — include all relevant details without unnecessary information
+- **case_number**: internal reference, **CASE-YYYYMMDD-XXXX**.
+- **tracker_number**: public reference, **OWBAP-XXXXXXX**.
+- **client_type** and client profile: identify who is assisted.
+- **vulnerability_indicator** and **nok_vulnerability_indicator**: record relevant risks factually.
+- **category_id** and **case_issue_id**: select the best match.
+- **summary**: explain concern, prior actions, and next steps.
+- **status**: use **DRAFT**, **OPEN**, **CLOSED**, or **ARCHIVED**.
 
-### Case Summary Template
+## Intake sections
 
-\`\`\`
-Summary:
-- Client reported that [issue] occurred on [date]
-- Previous actions taken: [list]
-- Current status: [what is happening now]
-- Required next steps: [what needs to happen]
-\`\`\`
+The create form captures client data, address, employment, multiple next-of-kin entries, consent, category, issue, and summary. Review all sections before publishing.
 
-## Organizing Uploaded Documents
+![Case create top section](/helpdesk/cases-create-top.png)
+![Client information section](/helpdesk/cases-create-client.png)
+![Address section](/helpdesk/cases-create-address.png)
+![Next-of-kin section](/helpdesk/cases-create-nok.png)
 
-Follow these conventions for document management:
+## Write useful summaries
 
-### Naming Convention
-Use a consistent format: \`[DocumentType]_[ClientName]_[Date].[ext]\`
+Use plain language and chronological order. State who needs assistance, what happened, what has already been done, and what action is needed next. Separate verified facts from client statements.
 
-Examples:
-- \`Passport_Santos_20260115.pdf\`
-- \`EmploymentContract_Cruz_20260201.pdf\`
-- \`MedicalCertificate_Reyes_20260310.pdf\`
+## Do and do not
 
-### Document Categories
-Organize documents by type:
+Do use dates, agency names, document references, milestones, and clear next steps. Do not add personal opinions, unofficial case statuses, unnecessary sensitive numbers, or vague notes such as “for action” with no owner.
 
-- **Identification** — passport, government ID, birth certificate
-- **Employment** — contract, certificate of employment, pay slips
-- **Evidence** — photos, correspondence, supporting documents
-- **Reports** — assessment reports, referral outcomes
-- **Correspondence** — letters, official communications
+## Before closure
 
-### Versioning
-When a document is updated:
-1. Upload the new version with the updated date in the filename
-2. Keep the previous version for the audit trail
-3. Add a note explaining what changed and why
-
-## Required vs Optional Documentation
-
-| Case Type | Required | Optional |
-|-----------|----------|----------|
-| Employment Issue | Employment contract, ID | Photos, correspondence |
-| Repatriation | Travel documents, request form | Medical certificate |
-| Welfare Concern | Client statement, ID | Supporting evidence |
-| Legal Assistance | Complaint affidavit, evidence | Witness statements |
-
-## Maintaining a Complete Audit Trail
-
-- All case notes are **append-only** — never delete or edit entries
-- Each entry is **timestamped** and attributed to the user who created it
-- Use **descriptive notes** — "Called client to confirm address" instead of "Follow-up call"
-- Record all **decisions and rationale** — why a particular action was taken
-
-## Common Documentation Pitfalls
-
-| Pitfall | Why It Matters | How to Avoid |
-|---------|---------------|--------------|
-| Incomplete information | Delays processing | Use checklists |
-| Unverified claims | Weakens the case | Always verify facts |
-| Vague descriptions | Hard to understand | Be specific |
-| Missing dates | Breaks the timeline | Always include dates |
-| Opinion instead of fact | Compromises objectivity | State facts, separate opinion |
-
-## Cross-Referencing with Milestones
-
-Each case milestone should reference supporting documents:
-
-- When a referral is created, link to the referral document
-- When documents are reviewed, note which documents and key findings
-- When a decision is made, reference the evidence that supported it
-
-This creates a clear chain of evidence that supports every action taken on the case.
+Before marking a case **CLOSED**, confirm that the final summary, referral outcomes, milestones, and compliance items explain why closure is appropriate.
 `;
 export default content;

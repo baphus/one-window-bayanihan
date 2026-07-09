@@ -261,17 +261,22 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
               ...base,
               render: (row) => (
                 <div className="flex items-center gap-2">
-                  {row.avatar_url ? (
-                    <img
-                      src={row.avatar_url}
-                      alt={fullName(row)}
-                      className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
-                    />
-                  ) : (
-                    <span className="w-7 h-7 rounded-full bg-blue-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {(row.first_name?.[0] || '').toUpperCase()}{(row.last_name?.[0] || '').toUpperCase()}
+                  <span className="inline-flex shrink-0">
+                    {row.avatar_url ? (
+                      <img
+                        src={row.avatar_url}
+                        alt={fullName(row)}
+                        className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                        onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }}
+                      />
+                    ) : null}
+                    <span className={`${row.avatar_url ? 'avatar-fallback hidden' : ''} w-7 h-7 rounded-full bg-blue-900 text-white text-[10px] font-bold flex items-center justify-center relative overflow-hidden`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-white/30">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                      <span className="relative z-10">{(row.first_name?.[0] || '').toUpperCase()}{(row.last_name?.[0] || '').toUpperCase()}</span>
                     </span>
-                  )}
+                  </span>
                   <span className="text-xs font-semibold text-slate-700 truncate max-w-[180px]">{fullName(row)}</span>
                 </div>
               ),

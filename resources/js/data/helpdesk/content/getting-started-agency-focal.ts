@@ -1,95 +1,140 @@
 const content = `# Getting Started for Agency Focal Persons
 
-Welcome to the One Window Bayanihan system! This guide will help you get started as an Agency Focal Person handling referrals from DMW Region VII.
+This tutorial is for users with the **AGENCY** role. Agency users work on referrals assigned to their agency, update the referral status, add milestones, comments, and attachments, and respond to compliance requirements when the interface makes those actions available.
 
-## Step 1: Logging In
+## 1. Sign in and complete OTP
 
-1. Navigate to the system login page
-2. Enter your **email address** and **password**
-3. Check your email for the **6-digit OTP code**
-4. Enter the OTP code to complete authentication
-5. You arrive at your **Agency Dashboard**
+![Login page](/helpdesk/login-page.png)
 
-## Step 2: Dashboard Overview
+1. Open the One Window Bayanihan login page.
+2. Enter your registered **email address** and **password**.
+3. Continue to the OTP/MFA screen.
+4. Enter the one-time password for your account.
 
-Your agency-specific dashboard shows:
+![OTP verification](/helpdesk/login-otp.png)
 
-- **Referrals Received**: total referrals sent to your agency
-- **In Progress**: referrals currently being processed
-- **Completed This Month**: successfully closed referrals
-- **Overdue**: referrals past the SLA processing time
-- **Recent Referrals List**: newest referrals requiring action
+> **Important:** OTP codes expire after **5 minutes**. If your code expires, request a new one and enter the latest code.
 
-## Step 3: Viewing Incoming Referrals
+After verification, the system opens the agency workspace for referrals linked to your agency account.
 
-1. Click **"Referrals"** in the sidebar
-2. The list shows all referrals sent to your agency
-3. Use filters to view by status: **Pending**, **Processing**, **Completed**, or **Rejected**
-4. Click any referral to view full details including case context and attached documents
+## 2. Read the agency dashboard
 
-## Step 4: Accepting or Rejecting a Referral
+![Agency dashboard](/helpdesk/dashboard-agency.png)
 
-When you receive a new referral:
+Your dashboard focuses on referrals scoped to your agency. In the database, agency users are associated with an agency identifier, and referral lists are limited to that agency. You should not see referrals assigned to unrelated agencies.
 
-1. Open the referral details
-2. Review the **referral notes** and **attached documents**
-3. Decide whether your agency can handle the request
-4. Click **"Accept"** to start processing, or **"Reject"** to decline
+Use dashboard cards and recent activity to answer three questions:
 
-> **Important:** If rejecting, you **must** provide a reason in the comments. This helps the Case Manager reassign the referral appropriately.
+| Question | What to check |
+|---|---|
+| What needs action now? | New **PENDING** referrals and items nearing their due date. |
+| What is already being handled? | **PROCESSING** referrals and milestone updates. |
+| What is blocked? | **FOR_COMPLIANCE** referrals awaiting requirements or clarification. |
 
-## Step 5: Processing Referrals and Adding Milestones
+Open the referral record before taking action. Dashboard numbers are summaries; the referral page contains the notes, documents, comments, and history you need.
 
-While processing a referral:
+## 3. Review incoming referrals
 
-1. Update the status to **PROCESSING** when work begins
-2. Add **milestone entries** at each significant progress point:
-   - Initial assessment completed
-   - Client interview conducted
-   - Documents verified
-   - Service rendered
-3. If more information is needed, set status to **FOR COMPLIANCE** and specify what is required
+![Referrals list](/helpdesk/referrals-index.png)
 
-## Step 6: Updating Referral Status
+1. Go to **Referrals**.
+2. Use search or filters to narrow the list by status, date, or other available fields.
+3. Open a referral to view the case context, request notes, uploaded attachments, comments, and timeline.
 
-The valid status flow is:
+![Referral details](/helpdesk/referrals-show.png)
 
-| From | To | When |
-|------|-----|------|
-| PENDING | PROCESSING | Work has started |
-| PROCESSING | FOR COMPLIANCE | More info needed from client |
-| FOR COMPLIANCE | PROCESSING | Compliance received |
-| PROCESSING | COMPLETED | All services rendered |
-| Any | REJECTED | Agency cannot fulfill |
+The Case Manager sends the referral because they need your agency to perform a specific action or provide a service. Read the notes carefully. If the request is unclear, use comments to ask for clarification instead of guessing.
 
-Each status change requires a brief note explaining the reason.
+## 4. Know the referral statuses
 
-## Step 7: Communicating with Case Managers
+The system uses these referral statuses:
 
-Use the **comments section** on each referral to communicate:
+| Status | Use it when |
+|---|---|
+| **PENDING** | The referral has been sent to your agency and is awaiting initial action. |
+| **PROCESSING** | Your agency has started reviewing or providing the requested service. |
+| **FOR_COMPLIANCE** | More documents, information, or client action is needed before work can continue. |
+| **COMPLETED** | Your agency has finished the requested action or service. |
+| **REJECTED** | Your agency cannot fulfill the referral or it was assigned incorrectly. |
 
-- Ask clarifying questions about the referral
-- Provide progress updates
-- Flag any issues or delays
-- Confirm completion details
+When changing status, add a clear note. A useful note explains what changed, who acted, and what the Case Manager or client should expect next.
 
-Comments support threaded replies for organized conversations.
+> **Do not mark a referral completed just because it was acknowledged.** Use **COMPLETED** only when your agency's required action is finished.
 
-## Step 8: Managing Service Offerings
+## 5. Start work on a referral
 
-Keep your agency profile accurate:
+For a new referral:
 
-1. Go to **"Services"** in the sidebar
-2. Review your list of offered services
-3. Update **processing time estimates** (SLA) as needed
-4. Deactivate services your agency is currently unable to provide
+1. Open the referral from the **Referrals** list.
+2. Review the referral notes and attachments.
+3. Confirm that the request belongs to your agency and service area.
+4. If your agency can act on it, update the status to **PROCESSING** using the available status action.
+5. Add a comment or milestone summarizing the first action taken.
 
-## Tips for Success
+Examples of useful first updates:
 
-- Check the dashboard **at least twice daily** for new referrals
-- Respond to new referrals **within 24 hours** (accept or reject)
-- Add milestones for **every significant action** taken
-- Communicate **delays proactively** — do not wait for the Case Manager to ask
-- Keep your service listings **accurate and up to date**
+- Initial review completed; documents are sufficient for assessment.
+- Client interview scheduled for a specific date.
+- Referral received by the relevant unit for validation.
+- Additional proof of identity or authorization is needed.
+
+## 6. Request compliance requirements
+
+Use **FOR_COMPLIANCE** when work cannot continue without missing information, documents, or client participation.
+
+Your compliance note should include:
+
+1. The exact requirement needed.
+2. Why it is needed, if not obvious.
+3. Who should provide it.
+4. Any deadline or time-sensitive detail.
+
+Example: **FOR_COMPLIANCE — Please provide a signed authorization letter and a clear copy of the OFW passport bio page before benefit eligibility can be validated.**
+
+Once the Case Manager or client provides the requirement through the supported workflow, update the referral back to **PROCESSING** if work resumes.
+
+## 7. Add milestones, comments, and attachments
+
+Milestones record progress. Comments support coordination. Attachments provide evidence or output documents. Use all three where applicable.
+
+| Tool | Best use |
+|---|---|
+| Milestones | Major progress events, such as assessment completed, interview conducted, documents verified, service released. |
+| Comments | Questions, clarifications, delay notices, and coordination with the Case Manager. |
+| Attachments | Official response letters, proof of service, forms, or other supporting files. |
+
+Keep entries professional and short. Avoid private side conversations outside the system when the update affects the case record, because the referral timeline is part of the official coordination history.
+
+## 8. Complete or reject a referral
+
+Use **COMPLETED** when your agency has fully provided the requested service or issued its official response. Include a completion note that states the result and references any uploaded document.
+
+Use **REJECTED** only when your agency cannot process the referral. Give a reason that helps the Case Manager decide the next step. Examples include wrong agency jurisdiction, service not offered, duplicate referral, or insufficient basis after review.
+
+> **Important:** Rejection should not be used for temporary missing requirements. Use **FOR_COMPLIANCE** when the referral can continue after requirements are submitted.
+
+## 9. Agency services and profile information
+
+Some agency users may have screens for agency services or profile details. If available in your navigation, keep them accurate so Case Managers choose the correct service when creating referrals.
+
+Review these items periodically:
+
+- Agency contact information.
+- Services currently offered.
+- Processing time or SLA expectations, if shown.
+- Inactive or unavailable services that should not receive new referrals.
+
+If you cannot edit a needed agency setting, coordinate with a System Administrator.
+
+## 10. Daily routine checklist
+
+1. Check the **Dashboard** for new and overdue referrals.
+2. Open **PENDING** referrals and move valid work to **PROCESSING**.
+3. Add milestones after meaningful actions.
+4. Use **FOR_COMPLIANCE** with exact requirements when blocked.
+5. Upload official outputs before marking work **COMPLETED**.
+6. Review comments so Case Managers receive timely responses.
+
+Using the referral record consistently keeps DMW Region VII and partner agencies aligned on each client's progress.
 `;
 export default content;

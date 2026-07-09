@@ -29,6 +29,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class TestingSeeder extends Seeder
@@ -50,6 +51,84 @@ class TestingSeeder extends Seeder
         ]);
 
         // =====================================================================
+        // CREATE TEST USERS — always runs, idempotent via updateOrInsert
+        // =====================================================================
+
+        $now = now();
+
+        $agenciesList = DB::table('agencies')->select('id', 'slug')->get()->keyBy('slug');
+        $dmwId = $agenciesList['dmw']->id ?? null;
+
+        // ── Agency users (AGENCY role, linked to their agency) ────────────
+
+        $agencyUsers = [
+            'owwa' => ['name' => 'OWWA',           'email' => 'owwa@bayanihan.gov.ph'],
+            'dswd' => ['name' => 'DSWD',           'email' => 'dswd@bayanihan.gov.ph'],
+            'doh' => ['name' => 'DOH',            'email' => 'doh@bayanihan.gov.ph'],
+            'law-center-inc' => ['name' => 'Law Center Inc.', 'email' => 'law-center-inc@bayanihan.gov.ph'],
+            'province-cebu' => ['name' => 'Province of Cebu', 'email' => 'province-cebu@bayanihan.gov.ph'],
+            'tesda' => ['name' => 'TESDA',          'email' => 'tesda@bayanihan.gov.ph'],
+            'city-cebu' => ['name' => 'Cebu City',      'email' => 'city-cebu@bayanihan.gov.ph'],
+            'dole' => ['name' => 'DOLE',           'email' => 'dole@bayanihan.gov.ph'],
+            'dmw' => ['name' => 'DMW',            'email' => 'dmw@bayanihan.gov.ph'],
+        ];
+
+        foreach ($agencyUsers as $slug => $spec) {
+            $agency = $agenciesList[$slug] ?? null;
+            if (! $agency) {
+                continue;
+            }
+            DB::table('users')->updateOrInsert(
+                ['email' => $spec['email']],
+                [
+                    'id' => DB::table('users')->where('email', $spec['email'])->value('id') ?? (string) Str::uuid(),
+                    'name' => $spec['name'],
+                    'password' => Hash::make('P@ssw0rd!'),
+                    'role' => 'AGENCY',
+                    'agcy_id' => $agency->id,
+                    'is_active' => true,
+                    'email_verified_at' => $now,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+        }
+
+        // ── Case Manager (CASE_MANAGER role, under DMW) ───────────────────
+
+        DB::table('users')->updateOrInsert(
+            ['email' => 'case@bayanihan.gov.ph'],
+            [
+                'id' => DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id') ?? (string) Str::uuid(),
+                'name' => 'Case Manager',
+                'password' => Hash::make('P@ssw0rd!'),
+                'role' => 'CASE_MANAGER',
+                'agcy_id' => $dmwId,
+                'is_active' => true,
+                'email_verified_at' => $now,
+                'updated_at' => $now,
+                'created_at' => $now,
+            ]
+        );
+
+        // ── Administrator (ADMIN role, under DMW) ─────────────────────────
+
+        DB::table('users')->updateOrInsert(
+            ['email' => 'admin@bayanihan.gov.ph'],
+            [
+                'id' => DB::table('users')->where('email', 'admin@bayanihan.gov.ph')->value('id') ?? (string) Str::uuid(),
+                'name' => 'System Administrator',
+                'password' => Hash::make('P@ssw0rd!'),
+                'role' => 'ADMIN',
+                'agcy_id' => $dmwId,
+                'is_active' => true,
+                'email_verified_at' => $now,
+                'updated_at' => $now,
+                'created_at' => $now,
+            ]
+        );
+
+        // =====================================================================
         // IDEMPOTENCY GUARD — skip all bulk inserts if data already exists
         // =====================================================================
 
@@ -64,16 +143,15 @@ class TestingSeeder extends Seeder
         // GLOBALS
         // =====================================================================
 
-        $now = now();
-
         // ---------------------------------------------------------------------
         // Reference lookups
         // ---------------------------------------------------------------------
 
         /** @var Collection $agencies slug-keyed */
         $agencies = DB::table('agencies')->select('id', 'slug')->get()->keyBy('slug');
-        $caseManagerId = DB::table('users')->where('email', 'admin@bayanihan.gov.ph')->value('id');
         $userIds = DB::table('users')->pluck('id')->toArray();
+        $caseManagerId = DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id')
+            ?? DB::table('users')->where('email', 'admin@bayanihan.gov.ph')->value('id');
         $categoryIds = DB::table('case_categories')->pluck('id')->toArray();
         $issueIds = DB::table('case_issues')->pluck('id')->toArray();
         $agencyIds = DB::table('agencies')->pluck('id')->toArray();
@@ -126,8 +204,8 @@ class TestingSeeder extends Seeder
         ];
 
         $middleInitials = [
-            'A.', 'B.', 'C.', 'D.', 'E.', 'F.', 'G.', 'H.', 'J.', 'L.',
-            'M.', 'N.', 'P.', 'R.', 'S.', 'T.', 'V.',
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'L',
+            'M', 'N', 'P', 'R', 'S', 'T', 'V',
         ];
 
         $suffixes = ['Jr.', 'Sr.', 'III'];

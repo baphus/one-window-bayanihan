@@ -54,12 +54,21 @@ function formatProcessingDays(days) {
 }
 
 function sanitizeText(value) {
-  return typeof value === 'string' ? value.trim() : '';
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value
+    .replace(/\\r\\n|\\n|\\r/g, '\n')
+    .replace(/\r\n|\r|\n/g, '\n')
+    .trim();
 }
 
 export default function PublicAgencyShow({ agency }) {
   const services = Array.isArray(agency?.services) ? agency.services : [];
-  const hasContactInfo = sanitizeText(agency?.contact_info).length > 0;
+  const contactInfo = sanitizeText(agency?.contact_info);
+  const agencyDescription = sanitizeText(agency?.description);
+  const hasContactInfo = contactInfo.length > 0;
   const hasLocationData =
     sanitizeText(agency?.map_link).length > 0 ||
     sanitizeText(agency?.location_query).length > 0 ||
@@ -105,9 +114,9 @@ export default function PublicAgencyShow({ agency }) {
                   {agency?.name || 'Agency Details'}
                 </h1>
 
-                {sanitizeText(agency?.description) && (
-                  <p className="mt-4 max-w-2xl text-base leading-7 text-white/80 md:text-lg">
-                    {agency.description}
+                {agencyDescription && (
+                  <p className="mt-4 max-w-2xl whitespace-pre-line text-base leading-7 text-white/80 md:text-lg">
+                    {agencyDescription}
                   </p>
                 )}
               </div>
@@ -120,7 +129,7 @@ export default function PublicAgencyShow({ agency }) {
             <InfoCard icon="call" label="Contact info">
               {hasContactInfo ? (
                 <p className="whitespace-pre-line text-sm leading-6 text-on-surface-variant">
-                  {agency.contact_info}
+                  {contactInfo}
                 </p>
               ) : (
                 <p className="text-sm text-on-surface-variant">

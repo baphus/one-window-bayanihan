@@ -1,90 +1,136 @@
 const content = `# Getting Started for Case Managers
 
-Welcome to the One Window Bayanihan system! This guide will help you get started as a Case Manager and walk you through your daily workflow.
+This tutorial is for users with the **CASE_MANAGER** role. Case Managers handle intake, prepare case records, publish drafts, create referrals to partner agencies, and monitor progress until a case can be closed or archived.
 
-## Step 1: Logging In
+## 1. Sign in with OTP verification
 
-1. Navigate to the system login page
-2. Enter your **email address** and **password**
-3. Check your email for the **6-digit OTP code** sent to your registered email
-4. Enter the OTP code on the verification screen
-5. You are now logged in and redirected to the **Dashboard**
+![Login page](/helpdesk/login-page.png)
 
-> **Note:** OTP codes expire after 5 minutes. If yours expires, click **"Resend OTP"** to get a new one.
+1. Open the One Window Bayanihan login page.
+2. Enter your registered **email address** and **password**.
+3. Submit the login form and check the OTP/MFA screen.
+4. Enter the one-time password sent for your account.
 
-## Step 2: Dashboard Overview
+![OTP verification](/helpdesk/login-otp.png)
 
-The Dashboard is your command center. It shows:
+> **Important:** OTP codes expire after **5 minutes**. If the code is rejected because it expired, request a new code and use the most recent one.
 
-- **KPI Stat Cards** at the top: total open cases, pending referrals, completed this month, and overdue referrals
-- **Recent Cases List**: the most recently updated cases with status indicators
-- **Pending Referrals**: referrals awaiting agency action
-- **Case Trends Chart**: a visual overview of case volume over time
+After verification, the system opens your Case Manager dashboard.
 
-Take a moment to study each widget. The dashboard updates in real time as cases and referrals are processed.
+## 2. Understand the Case Manager dashboard
 
-## Step 3: Navigation Sidebar
+![Case Manager dashboard](/helpdesk/dashboard-cm.png)
 
-The sidebar on the left gives you access to:
+Use the dashboard as your starting point at the beginning and end of each shift. It helps you spot new workload, overdue items, and changes made by agencies.
 
-| Menu Item | Description |
-|-----------|-------------|
-| Dashboard | Your main monitoring hub |
-| Cases | Full list of all cases with filtering and search |
-| Referrals | All referrals sent to agencies |
-| Overdue Referrals | Referrals past their SLA deadline |
-| Reports | Generate case and referral reports |
+Typical dashboard information includes:
 
-## Step 4: Creating Your First Case
+| Area | How to use it |
+|---|---|
+| Case totals and status cards | See how many cases are open, closed, archived, or still being prepared. |
+| Referral summaries | Check pending or overdue referrals that need follow-up. |
+| Recent activity | Review newly updated cases and agency responses. |
+| Reports or trend widgets | Watch case volume and processing performance over time. |
 
-1. Click **"Cases"** in the sidebar
-2. Click the **"New Case"** button
-3. Fill out the intake form with the following sections:
-   - **OFW Information**: full name, date of birth, nationality, contact number, email address
-   - **Address Information**: current address, province, city/municipality
-   - **Employment Information**: employer name, position, industry, country of employment
-   - **Next of Kin**: name, relationship, contact number of a family member
-   - **Case Summary**: detailed description of the concern or issue
-   - **Documents**: upload supporting documents (PDF, JPG, or PNG, max 10MB each)
-4. Click **"Save"** to create the case
+The dashboard is a monitoring view, not a substitute for reviewing the actual case record. Open the case or referral before making decisions.
 
-The system generates a **Case Number** (internal) and a **Tracker Number** (public-facing, format OWBAP-XXXXXXX).
+## 3. Navigate your workspace
 
-## Step 5: Viewing Case Details and Timeline
+The left-side navigation gives access to the main work areas available to Case Managers.
 
-Open any case to see:
+| Navigation area | Purpose |
+|---|---|
+| **Dashboard** | Operational overview and workload monitoring. |
+| **Cases** | Search, filter, create, review, and update case records. |
+| **Referrals** | Track referrals sent to agencies and review their responses. |
+| **Reports** | View reporting pages available to your role. |
 
-- **Case Information**: all details from the intake form
-- **Timeline**: a chronological log of all activities, status changes, and milestones
-- **Referrals**: referral records sent to partner agencies
-- **Documents**: uploaded files organized by type
+Use search and filters before creating a new record. Duplicate case records make public tracking and referral coordination harder.
 
-## Step 6: Creating a Referral
+## 4. Create a case as a draft
 
-1. Open the case you want to refer
-2. Click **"Create Referral"**
-3. Select the **agency** and **service** needed
-4. Write detailed referral notes explaining what is required
-5. Attach relevant case documents
-6. Click **"Submit"** — the agency receives an automatic notification
+![Cases list](/helpdesk/cases-index.png)
 
-## Daily Workflow Routine
+1. Go to **Cases**.
+2. Choose the page action for creating a new case.
+3. Complete the intake form using verified information from the client, OFW, family member, or official document.
 
-A productive daily routine looks like this:
+![Create case form](/helpdesk/cases-create-top.png)
 
-1. **Start with the dashboard** — review new cases and pending referrals
-2. **Process new intake** — review and categorize new cases
-3. **Check referral updates** — see if agencies have responded
-4. **Follow up on overdue items** — contact agencies or escalate
-5. **Update case records** — add notes, upload new documents
-6. **End with a dashboard review** — confirm everything is on track
+Enter the core case information carefully. Depending on the form configuration, you may be asked for personal details, address, employment or deployment information, category/issue details, narrative summary, and supporting documents.
 
-## Tips for Efficiency
+When you save a new case, the system creates it as **DRAFT** by default. This is intentional. Draft-first processing gives you time to check spelling, validate identity details, attach documents, and confirm that the case is ready for official handling.
 
-- Use the **search and filter** features to quickly locate cases
-- Set aside time each morning for **proactive case review**
-- Keep case notes **concise and factual** — they form the audit trail
-- Use **referral milestone updates** to track agency progress
-- Flag cases needing attention using the **priority indicators**
+> **Do not treat a saved draft as an active public case.** A draft is still being prepared. Public tracking maps **DRAFT** to **BEING_PREPARED**.
+
+## 5. Review and publish the draft
+
+Before publishing, open the draft and check:
+
+1. The person and contact details are complete enough for follow-up.
+2. The case category and issue match the concern.
+3. The summary is factual, concise, and free of unsupported conclusions.
+4. Required documents are attached or the missing documents are clearly noted.
+5. No duplicate case already exists for the same concern.
+
+When the record is ready, use the available publish action on the draft. Publishing changes the status from **DRAFT** to **OPEN**. Public tracking maps **OPEN** to **IN_PROGRESS**.
+
+Case status meanings:
+
+| Internal status | Public tracking meaning | Use when |
+|---|---|---|
+| **DRAFT** | **BEING_PREPARED** | Intake is saved but not yet published. |
+| **OPEN** | **IN_PROGRESS** | The case is active and may receive referrals. |
+| **CLOSED** | **RESOLVED** | The case has been resolved or completed. |
+| **ARCHIVED** | **ARCHIVED** | The case is retained for record purposes. |
+
+## 6. Work from the case record
+
+The case detail page is the official workspace for a concern. Use it to review the case narrative, uploaded documents, referral history, comments, and timeline entries.
+
+Good case notes should be:
+
+- **Factual** — record what was reported, submitted, or verified.
+- **Specific** — include dates, agencies, document names, and action taken.
+- **Professional** — avoid speculation, blame, or unnecessary personal remarks.
+- **Auditable** — assume notes may be reviewed later by authorized users.
+
+## 7. Create and monitor referrals
+
+![Referrals list](/helpdesk/referrals-index.png)
+
+Referrals are how Case Managers coordinate with partner agencies. Create a referral only after the case is sufficiently prepared and the receiving agency/service is appropriate.
+
+1. Open the relevant case.
+2. Use the referral action available on the case page.
+3. Select the partner agency and service, if the form provides service selection.
+4. Write clear referral notes describing what the agency is being asked to do.
+5. Attach or reference supporting documents needed by the agency.
+6. Submit the referral.
+
+![Referral details](/helpdesk/referrals-show.png)
+
+Referral statuses used by the system are:
+
+| Status | Meaning for Case Managers |
+|---|---|
+| **PENDING** | Sent to the agency and waiting for action. |
+| **PROCESSING** | Agency has started work. |
+| **FOR_COMPLIANCE** | Agency needs additional requirements or information. |
+| **COMPLETED** | Agency has completed its action. |
+| **REJECTED** | Agency declined or cannot fulfill the referral. |
+
+Check referrals regularly. If a referral is **FOR_COMPLIANCE**, coordinate with the client or source office and provide the needed requirement through the supported workflow. If a referral is **REJECTED**, review the reason and decide whether to revise, send to another agency, or handle internally.
+
+## 8. Daily routine checklist
+
+1. Open the **Dashboard** and scan for overdue or newly updated work.
+2. Review **DRAFT** cases and publish only those ready to become **OPEN**.
+3. Process new intake and avoid duplicate records.
+4. Check **Referrals** for pending agency action, compliance requests, and completed work.
+5. Update case notes and documents after every meaningful action.
+6. Use **Reports** when you need a wider workload or performance view.
+
+> **Reminder:** The system keeps an audit trail. Use your own account only, and record actions in a way another authorized user can understand later.
 `;
 export default content;

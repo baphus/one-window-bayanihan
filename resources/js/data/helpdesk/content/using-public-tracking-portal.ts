@@ -1,71 +1,48 @@
 const content = `# Using the Public Tracking Portal
 
-The public tracking portal lets you monitor your case status online without creating an account. You only need your tracker number and access to your registered mobile number or email.
+The public tracking portal lets a client check progress without signing in. It is a limited, client-facing view protected by tracker number and OTP.
 
-## Step 1: Navigating to the Tracker
+![Tracking portal form](/helpdesk/tracking-portal.png)
 
-1. Open your browser and go to the One Window Bayanihan homepage
-2. Click **"Track Case"** or navigate directly to the \`/track\` page
-3. You will see a simple form with two fields
+## What you need
 
-## Step 2: Entering Your Tracker Number
+- Tracker number: **OWBAP-XXXXXXX**.
+- Access to the registered mobile number or email address.
+- A browser session to request and enter the OTP.
 
-Your tracker number follows this format: **OWBAP-XXXXXXX**
+The tracker number is different from the staff case number. Case numbers use **CASE-YYYYMMDD-XXXX**. Give clients the tracker number for public updates.
 
-Where XXXXXXX is a unique 7-digit number assigned when your case was created.
+## Steps
 
-> **Where to find it:** Your tracker number was sent to you via SMS and email when the case was submitted. Check your messages or ask the Case Manager who handled your intake.
+1. Open the tracking page.
+2. Enter the tracker number exactly, including **OWBAP-**.
+3. Request an OTP.
+4. Check the registered phone or email.
+5. Enter the OTP to view the result.
 
-## Step 3: Requesting an OTP
+![Tracking result page](/helpdesk/track-result.png)
 
-1. Enter your tracker number
-2. Click **"Request OTP"**
-3. A 6-digit code is sent to your registered **mobile number** and **email address**
-4. The OTP is valid for **5 minutes**
+## What clients can see
 
-> **Tip:** If you do not receive the OTP, check your spam folder or click **"Resend OTP"** after 5 minutes.
+The result shows client-safe progress, including case status, public milestones, and agency progress cards built from referral activity. Internal notes and private coordination comments are not shown.
 
-## Step 4: Entering the OTP Code
+Case statuses are exact system values:
 
-1. Enter the 6-digit code in the verification field
-2. Click **"Verify"**
-3. You are now granted access to view your case information
+| Status | Meaning |
+| --- | --- |
+| **DRAFT** | Owner-only staff draft; not normally public. |
+| **OPEN** | The case has been submitted and is active. |
+| **CLOSED** | The case has been completed or resolved. |
+| **ARCHIVED** | The case is retained as an inactive record. |
 
-## Step 5: Viewing Case Status
+Referral progress may mention **PENDING**, **FOR_COMPLIANCE**, **COMPLETED**, or **REJECTED** when relevant. If requirements are requested, the client should follow the Case Manager or agency instructions.
 
-The tracking page displays:
+## Staff checklist
 
-- **Current Status** with a color-coded indicator:
-  - **OPEN** (blue) — your case has been received
-  - **PROCESSING** (yellow) — a Case Manager is working on it
-  - **FOR COMPLIANCE** (orange) — additional information is needed from you
-  - **CLOSED** (green) — your case has been resolved
-- **Date Submitted** — when the case was created
-- **Last Updated** — most recent activity date
-
-## Step 6: Understanding the Public Timeline
-
-The timeline shows significant events in your case:
-
-- Case created
-- Assigned to a Case Manager
-- Referred to a partner agency
-- Status changes
-- Case resolved
-
-Some internal notes are not visible to the public. Only milestone events and status changes are shown.
-
-## What Each Status Means for You
-
-| Status | What Is Happening | What You Should Do |
-|--------|-------------------|--------------------|
-| OPEN | Your case is being reviewed | Wait for initial contact from a Case Manager |
-| PROCESSING | Your case is actively being worked on | Respond promptly to any requests |
-| FOR COMPLIANCE | More documents or information needed | Check what is needed and submit quickly |
-| CLOSED | Your case has been resolved | Provide feedback if you wish |
-
-## Need Help?
-
-If you have trouble with the tracking portal, contact the DMW Region VII hotline or visit the office in person.
+- Confirm the client has the tracker number, not just the case number.
+- Keep milestone wording factual and client-safe.
+- Use referral comments for internal coordination.
+- Do not ask clients to share OTPs except under an approved support process.
+- Update contact details through the case record if OTP delivery fails because the registered phone or email changed.
 `;
 export default content;

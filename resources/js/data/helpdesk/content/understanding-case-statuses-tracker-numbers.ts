@@ -1,59 +1,29 @@
 const content = `# Understanding Case Statuses and Tracker Numbers
 
-This guide explains the numbering system and status lifecycle used in the One Window Bayanihan system.
+Case statuses show the internal lifecycle of a case. Tracker numbers allow clients to check progress without exposing internal record IDs.
 
-## Case Numbers vs Tracker Numbers
+![Cases index](/helpdesk/cases-index.png)
 
-The system uses two different identifiers:
-
-| Identifier | Format | Purpose | Who Sees It |
-|------------|--------|---------|-------------|
-| Case Number | UUID (internal) | Internal DMW record keeping | Case Managers and admins |
-| Tracker Number | OWBAP-XXXXXXX | Public tracking | OFWs and the public |
-
-The **Tracker Number** is specifically designed for public use. It is shorter, easier to communicate, and does not expose internal system identifiers.
-
-## Case Lifecycle
-
-Every case moves through these stages:
-
-### 1. OPEN
-The case has been submitted and is awaiting review. A Case Manager has not yet been assigned or initial assessment has not started.
-
-### 2. PROCESSING
-A Case Manager is actively working on the case. This may involve:
-- Reviewing submitted documents
-- Contacting the client for additional information
-- Coordinating with partner agencies
-- Creating referrals
-
-### 3. FOR COMPLIANCE
-The case is waiting for the OFW or another party to provide additional documents or information. The Case Manager has specified what is needed. The clock pauses until compliance is received.
-
-### 4. CLOSED
-The case has been resolved. All referrals are in terminal states (COMPLETED or REJECTED). Final documentation has been completed. The client may now provide feedback.
-
-## Referral Statuses
-
-When a case is referred to a partner agency, the referral follows its own lifecycle:
+## Case statuses
 
 | Status | Meaning |
-|--------|---------|
-| PENDING | Awaiting agency acceptance |
-| PROCESSING | Agency is actively working on the referral |
-| FOR COMPLIANCE | Agency needs more information from the client |
-| COMPLETED | Agency has rendered all required services |
-| REJECTED | Agency declined the referral (with reason) |
+|---|---|
+| DRAFT | The case is being prepared and may still need required details. |
+| OPEN | The case is active and being handled. |
+| CLOSED | The case handling is complete. |
+| ARCHIVED | The case is retained for records and no longer active. |
 
-## Milestones and Timeline
+Administrators manage case status references in the admin CaseStatus section. System statuses cannot be deleted. Categories, issues, and statuses may be active or inactive and use soft-delete behavior when removed.
 
-Every status change and significant action creates a **timeline entry**. This provides a complete, immutable history of the case. Both internal users and the public (via the tracking portal) can view the timeline, though internal notes remain confidential.
+## Tracker numbers
 
-## Why This Matters for OFWs
+A tracker number is the public reference given to a client. It is safer to share than internal UUIDs and helps clients ask for updates. Staff should still verify identity and avoid disclosing sensitive details just because someone knows a tracker number.
 
-- Your **Tracker Number** is your key to checking case status anytime
-- **FOR COMPLIANCE** means action is needed from you — check what documents are required
-- **CLOSED** means your case is resolved — look for the feedback invitation
-- Each status change gives you visibility into how your case is progressing
+## Staff guidance
+
+- Use OPEN for active assistance work.
+- Close only when the required action and documentation are complete.
+- Archive according to local record-handling procedures.
+- Use referral statuses separately; a case can be OPEN while one referral is COMPLETED and another is still PROCESSING.
 `;
 export default content;

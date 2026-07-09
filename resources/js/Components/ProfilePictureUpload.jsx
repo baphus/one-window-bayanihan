@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 
 const sizeMap = {
@@ -22,10 +22,15 @@ export default function ProfilePictureUpload({
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
+    const [imgError, setImgError] = useState(false);
     const fileInputRef = useRef(null);
 
     const displayUrl = preview || currentUrl;
-    const hasImage = !!displayUrl;
+    const hasImage = !!displayUrl && !imgError;
+
+    useEffect(() => {
+        setImgError(false);
+    }, [displayUrl]);
     const hasChanges = !!selectedFile;
     const dimensions = sizeMap[size] || sizeMap.lg;
 
@@ -118,11 +123,24 @@ export default function ProfilePictureUpload({
                             src={displayUrl}
                             alt={name || 'Profile picture'}
                             className="h-full w-full object-cover"
+                            onError={() => setImgError(true)}
                         />
                     ) : (
-                        <span className="font-semibold text-indigo-700 select-none">
-                            {getInitial(name)}
-                        </span>
+                        <div className="relative h-full w-full flex items-center justify-center">
+                            {/* Person icon as subtle background */}
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                className="absolute w-3/5 h-3/5 text-indigo-300/40"
+                            >
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                            {/* Initials on top */}
+                            <span className="relative font-semibold text-indigo-700 select-none z-10">
+                                {getInitial(name)}
+                            </span>
+                        </div>
                     )}
                 </button>
 

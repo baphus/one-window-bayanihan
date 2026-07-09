@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePage } from '@inertiajs/react';
 
 export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving }) {
@@ -6,9 +6,14 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
     const roleLabels = { CASE_MANAGER: 'Case Manager', AGENCY: 'Agency Focal', ADMIN: 'System Admin' };
     const fileInputRef = useRef(null);
 
+    const [imgError, setImgError] = useState(false);
     const displayUrl = avatarPreview || user.avatar_url;
-    const hasImage = !!displayUrl;
+    const hasImage = !!displayUrl && !imgError;
     const hasNewFile = !!avatarPreview;
+
+    useEffect(() => {
+        setImgError(false);
+    }, [displayUrl]);
 
     function handleFileChange(e) {
         const file = e.target.files?.[0];
@@ -27,10 +32,23 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
                     aria-label="Change profile picture"
                 >
                     {hasImage ? (
-                        <img src={displayUrl} alt={user.name} className="h-full w-full object-cover" />
+                        <img
+                            src={displayUrl}
+                            alt={user.name}
+                            className="h-full w-full object-cover"
+                            onError={() => setImgError(true)}
+                        />
                     ) : (
-                        <div className="h-full w-full bg-indigo-100 flex items-center justify-center">
-                            <span className="text-2xl font-bold text-indigo-700 select-none">
+                        <div className="h-full w-full bg-indigo-100 flex items-center justify-center relative">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                className="absolute w-3/5 h-3/5 text-indigo-300/50"
+                            >
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                            <span className="relative text-2xl font-bold text-indigo-700 select-none z-10">
                                 {user.name?.charAt(0)?.toUpperCase() || '?'}
                             </span>
                         </div>

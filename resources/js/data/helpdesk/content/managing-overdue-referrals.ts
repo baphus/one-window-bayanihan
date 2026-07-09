@@ -1,91 +1,35 @@
 const content = `# Managing Overdue Referrals
 
-Overdue referrals can delay case resolution and affect client satisfaction. This guide covers how to identify, manage, and prevent overdue referrals.
+Overdue referrals are active referrals older than the configured cutoff. The default setting is commonly **referral_overdue_days = 7**. Terminal **COMPLETED** and **REJECTED** referrals are excluded.
 
-## Accessing the Overdue Referral Dashboard
+![Referrals index](/helpdesk/referrals-index.png)
 
-Navigate to **"Overdue Referrals"** in the sidebar. This page shows:
+## What to review
 
-- All referrals past their SLA deadline
-- Sortable by **days overdue**, **agency**, or **service type**
-- Color-coded urgency indicators
-- Quick action buttons for follow-up
+Active referrals include work that is not finished, such as **PENDING** and **FOR_COMPLIANCE**. Open the oldest or highest-risk referral first, then check details, milestones, comments, and compliance requirements.
 
-## Understanding SLA Tracking
+![Referral details](/helpdesk/referrals-show.png)
 
-Each service has a defined **Service Level Agreement (SLA)** measured in processing days:
+## Common causes
 
-| SLA Status | Color | Meaning |
-|------------|-------|---------|
-| On Track | Green | Within SLA period |
-| Approaching | Yellow | Less than 24 hours until deadline |
-| Overdue | Orange | 1-3 days past deadline |
-| Critical | Red | More than 3 days past deadline |
+- The agency has not acted on a **PENDING** referral.
+- The referral is **FOR_COMPLIANCE** and requirements are missing.
+- Work was completed but status was not updated.
+- A question was left in comments without a clear owner.
+- The referral was sent to the wrong agency service.
 
-The SLA is calculated from the date the agency accepts the referral.
+## Corrective actions
 
-## Sending Reminder Notifications
+- Add a specific referral comment with the requested update and deadline.
+- Add or request a milestone for work already done.
+- Follow up on missing compliance attachments.
+- Update status when the work is **COMPLETED** or **REJECTED**.
+- Escalate through office channels if there is no response.
 
-1. Open the overdue referral
-2. Click **"Send Reminder"**
-3. The agency focal person receives an automatic notification
-4. A log entry is added to the case timeline
+![Referral comments](/helpdesk/referrals-comments.png)
 
-> **Tip:** Send a reminder as soon as a referral approaches the SLA deadline, not after it becomes overdue.
+## Prevention checklist
 
-## Escalation Procedures for Chronically Overdue Referrals
-
-If a referral remains overdue despite reminders, follow the escalation ladder:
-
-### Level 1: Direct Contact
-Contact the agency focal person directly by phone or internal message. Clarify the reason for the delay and agree on a revised timeline.
-
-### Level 2: Agency Supervisor
-If the focal person is unresponsive, escalate to the agency supervisor. Provide a summary of the referral history and previous communication attempts.
-
-### Level 3: DMW Coordinator
-Notify the DMW coordinator responsible for agency relations. They can facilitate a resolution at the management level.
-
-### Level 4: Director Review
-For critical cases more than 10 days overdue, escalate to the DMW Region VII Director for formal intervention.
-
-## Documenting Escalations
-
-Every escalation step must be documented:
-
-- Record the date and method of contact
-- Note who was contacted and their response
-- Update the referral notes with the outcome
-- Attach any relevant correspondence
-
-## Preventing Overdue Referrals
-
-### Proactive Communication
-- Introduce yourself to agency focal persons early
-- Confirm receipt of referrals within 24 hours
-- Check in mid-way through the SLA period
-
-### Clear Referral Notes
-Write referrals that set the agency up for success:
-
-- Specify exactly what services are needed
-- Include relevant case context
-- Attach all supporting documents upfront
-- State any deadlines or urgency clearly
-
-### Realistic Deadlines
-- Understand each agency's typical processing times
-- Discuss timelines with the agency if unsure
-- Build in buffer time for complex cases
-
-## Monitoring Agency Performance
-
-Use the dashboard to track agency performance trends:
-
-- Average processing time per agency
-- On-time completion rate
-- Number of overdue referrals over time
-
-Share this data with agency supervisors during regular coordination meetings. Use it to identify agencies that may need additional support or training.
+Create referrals with clear instructions, use compliance requirements for required documents, review **PENDING** items daily, add milestones after meaningful progress, and keep service profiles current.
 `;
 export default content;

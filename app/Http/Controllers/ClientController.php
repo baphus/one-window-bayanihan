@@ -255,13 +255,16 @@ class ClientController extends Controller
         $this->authorizeClientAccess($client, $request->user());
 
         $file = $request->file('profile_picture');
-        app(CloudinaryAvatarService::class)->deleteByUrl($client->getRawOriginal('avatar_url'));
-
-        $client->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
-            $file,
-            'client-profile-pictures',
-            'client-'.$client->id,
-        );
+        try {
+            app(CloudinaryAvatarService::class)->deleteByUrl($client->getRawOriginal('avatar_url'));
+            $client->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+                $file,
+                'client-profile-pictures',
+                'client-'.$client->id,
+            );
+        } catch (\RuntimeException $e) {
+            return redirect()->route('clients.show', $client)->withErrors(['profile_picture' => $e->getMessage()]);
+        }
         $client->save();
 
         return redirect()->route('clients.show', $client)->with('success', 'Profile picture updated successfully.');

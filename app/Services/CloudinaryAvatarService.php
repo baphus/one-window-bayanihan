@@ -22,6 +22,8 @@ class CloudinaryAvatarService
 
     public function uploadImage(UploadedFile $file, string $folder, string $publicId): string
     {
+        $this->validateImageFile($file);
+
         $result = $this->cloudinary->uploadApi()->upload($file->getRealPath(), [
             'folder' => $folder,
             'public_id' => $publicId,
@@ -30,6 +32,29 @@ class CloudinaryAvatarService
         ]);
 
         return $result['secure_url'] ?? throw new \RuntimeException('Cloudinary upload did not return a secure URL.');
+    }
+
+    private function validateImageFile(UploadedFile $file): void
+    {
+        $realPath = $file->getRealPath();
+
+        if (! $realPath || ! file_exists($realPath)) {
+            throw new \RuntimeException('Uploaded file does not have a valid path.');
+        }
+
+        if (filesize($realPath) === 0) {
+            throw new \RuntimeException('Uploaded file is empty.');
+        }
+
+        $imageInfo = @getimagesize($realPath);
+        if ($imageInfo === false) {
+            throw new \RuntimeException('Uploaded file is not a valid image.');
+        }
+
+        // Reject images smaller than 32x32 (likely corrupt/placeholder)
+        if ($imageInfo[0] < 32 || $imageInfo[1] < 32) {
+            throw new \RuntimeException('Uploaded image dimensions are too small.');
+        }
     }
 
     public function deleteByUrl(?string $url): void

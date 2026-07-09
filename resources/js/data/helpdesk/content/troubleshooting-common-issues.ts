@@ -1,129 +1,36 @@
 const content = `# Troubleshooting Common Issues
 
-This guide provides solutions for common issues encountered when using the One Window Bayanihan system.
+Use this guide before escalating a support issue. Capture the user, time, page, record identifier, and exact message shown on screen.
 
-## Login Problems
+## Login or access problems
 
-### Wrong Credentials
-If you cannot log in:
-1. Check that you are entering the correct **email address**
-2. Check that you are entering the correct **password**
-3. Passwords are **case-sensitive**
-4. If you forgot your password, contact your system administrator to reset it
+- Confirm the user is using the correct account.
+- Check whether the role is correct: CASE_MANAGER, AGENCY, or ADMIN.
+- For admin-only pages, confirm the user is an administrator and any required security restrictions are satisfied.
+- If a session issue is suspected, administrators can review ActiveSessions.
 
-### Account Inactive
-If your account has been deactivated:
-- You will see a message indicating the account is inactive
-- Contact your system administrator to reactivate it
-- Accounts are typically deactivated for users who are on leave or have changed roles
+## Cannot find a case
 
-### OTP Not Received
-If you do not receive the OTP code after logging in:
+![Cases index](/helpdesk/cases-index.png)
 
-1. **Check your email** — the OTP is sent to your registered email address
-2. **Check your spam/junk folder** — the email may have been filtered
-3. **Wait 5 minutes** — the OTP expires after 5 minutes; after expiry, click **"Resend OTP"**
-4. **Check SMTP configuration** — if OTPs are not being sent to anyone, an administrator should verify the mail server settings
-5. **Request a resend** — after the 5-minute expiry, click the resend button
+Search by case number, tracker number, OFW name, or other available filters. Remember that access is role-based. Agency users normally work from referrals assigned to their agency, not from unrestricted case search.
 
-### Persistent Login Issues
-If you have tried all the above and still cannot log in:
-- Clear your browser cache and cookies
-- Try a different browser (Chrome, Edge, Firefox, or Safari)
-- Check your internet connection
-- Contact your system administrator
+## Referral not moving forward
 
-## Document Upload Failures
+![Referrals index](/helpdesk/referrals-index.png)
 
-### File Too Large
-The maximum file size is **10MB per document**. If your file exceeds this:
-- Compress the file using compression software
-- Split the document into multiple files
-- Convert images to a compressed format (JPG instead of PNG for photos)
+Check the referral status first. PENDING means it is waiting for agency action; PROCESSING means work has started; FOR_COMPLIANCE means more information or action is required; COMPLETED and REJECTED require review for case next steps.
 
-### Wrong File Format
-Accepted file formats are: **PDF, JPG, PNG**
+## Export or report issue
 
-- Convert Word documents (.doc, .docx) to PDF before uploading
-- Convert other image formats (.bmp, .gif, .tiff) to JPG or PNG
-- Spreadsheets and presentations cannot be uploaded directly
+If an Excel export or report does not appear correct, confirm the filters, date range, and permissions. Reports include aggregate sections, while case exports can include detailed personal data. Do not retry repeatedly if a background task may still be running.
 
-### Storage Connectivity Issues
-If uploads fail consistently:
-- The file is being sent to Supabase Storage for storage
-- Check your internet connection
-- Supabase Storage service may be temporarily unavailable
-- Contact your system administrator if the problem persists
+## Email or notification issue
 
-## Dashboard Not Loading
+Administrators should review EmailLogs and LogViewer for errors around the time the user expected the message. Confirm the record action was saved before assuming a notification problem.
 
-If the dashboard is blank or not loading properly:
+## When to escalate
 
-1. **Clear your browser cache** — Ctrl+Shift+Delete (Windows) or Cmd+Shift+Delete (Mac)
-2. **Try a different browser** — Chrome, Edge, Firefox, and Safari are all supported
-3. **Check your internet connection** — a stable connection is required
-4. **Disable browser extensions** — ad blockers or script blockers may interfere
-5. **Check system status** — the system may be undergoing maintenance
-
-## Notifications Not Arriving
-
-If you are not receiving system notifications:
-
-1. Verify the **queue worker** is running:
-   \`\`\`
-   php artisan queue:listen
-   \`\`\`
-2. Check the **failed_jobs** table for any failed notification jobs
-3. Retry any failed jobs:
-   \`\`\`
-   php artisan queue:retry all
-   \`\`\`
-4. Ensure your **email address** is correct in your user profile
-5. Check that **notifications are enabled** in your account settings
-
-## Referral Status Not Updating
-
-If you cannot update a referral status:
-
-### Mandatory Fields
-- Changing to **REJECTED** requires a **decision reason** comment
-- Ensure all **required fields** are filled in
-
-### Valid Status Transitions
-Referrals can only follow valid transitions:
-- PENDING to PROCESSING or REJECTED
-- PROCESSING to FOR COMPLIANCE or COMPLETED
-- FOR COMPLIANCE to PROCESSING
-
-If you are trying to make an invalid transition, the system will show an error message.
-
-## Session Timeout
-
-Users are automatically logged out after **120 minutes of inactivity**:
-
-- Any unsaved work will be lost — save frequently
-- After logout, you will need to log in again with email, password, and OTP
-- If you need longer sessions, ask your administrator to adjust the session timeout setting
-
-## Browser Compatibility
-
-For the best experience, use one of these supported browsers:
-
-| Browser | Minimum Version |
-|---------|----------------|
-| Google Chrome | Latest 2 versions |
-| Microsoft Edge | Latest 2 versions |
-| Mozilla Firefox | Latest 2 versions |
-| Apple Safari | Latest 2 versions |
-
-Clear your browser cache and update to the latest version before reporting issues.
-
-## Still Having Problems?
-
-If none of these solutions resolve your issue:
-1. Contact your **system administrator** or **supervisor**
-2. Provide a detailed description of the problem, including any error messages
-3. Mention what browser and operating system you are using
-4. Note the time the issue occurred — this helps with audit log investigation
+Escalate with evidence: screenshot without unnecessary personal data, timestamp, browser, page, route or admin section, and affected case/referral identifiers. Avoid sending full exports unless specifically requested for support.
 `;
 export default content;

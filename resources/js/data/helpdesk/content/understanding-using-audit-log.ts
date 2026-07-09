@@ -1,104 +1,53 @@
 const content = `# Understanding and Using the Audit Log
 
-The audit log records every significant action taken in the system, providing a complete trail of who did what and when.
+The audit log is the system record of important activity in One Window Bayanihan. It helps administrators review user actions, investigate support questions, and confirm that case and referral work was handled through the proper account.
 
-## What the Audit Log Records
+![Admin audit log](/helpdesk/admin-audit-log.png)
 
-The system logs the following categories of events:
+## Who can see audit logs
 
-### Authentication Events
-- **LOGIN** — successful user login
-- **LOGOUT** — user logout
-- **LOGIN_FAILED** — failed login attempt
-- **OTP_SENT** — OTP code generated and sent
-- **OTP_VERIFIED** — successful OTP verification
+Administrators can review the full audit log from the admin area. Non-admin users may see audit information only for records within their allowed scope: their own cases, referrals related to their work, or referrals assigned to their agency. This protects sensitive case data while still allowing operational traceability.
 
-### Case Events
-- **CASE_CREATED** — new case submitted
-- **CASE_UPDATED** — case details modified
-- **CASE_CLOSED** — case marked as resolved
+## Available filters
 
-### Referral Events
-- **REFERRAL_CREATED** — referral sent to agency
-- **REFERRAL_ACCEPTED** — agency accepted referral
-- **REFERRAL_REJECTED** — agency rejected referral
-- **REFERRAL_STATUS_CHANGED** — status updated
-- **MILESTONE_ADDED** — milestone entry created
+The audit log page supports these filters:
 
-### Document Events
-- **DOCUMENT_UPLOADED** — file added to a case
-- **DOCUMENT_DOWNLOADED** — file accessed by a user
-- **DOCUMENT_DELETED** — file removed
+| Filter | Use |
+|---|---|
+| action | Narrow results to a specific action type. |
+| module | Show activity for a system area such as cases, referrals, users, or settings. |
+| user_id | Review activity performed by one user account. |
+| date_from | Start of the activity date range. |
+| date_to | End of the activity date range. |
+| search | Search visible audit text for relevant terms. |
+| per_page | Change how many entries are shown per page. |
 
-### Administration Events
-- **USER_CREATED** — new user account created
-- **USER_UPDATED** — user details changed
-- **USER_DEACTIVATED** — account deactivated
-- **SETTINGS_CHANGED** — system configuration updated
+Module aliases are normalized by the system. For example, searches using \`case_files\` and \`case\` can resolve to the same case-related audit area, and \`referrals\` and \`referral\` are treated consistently.
 
-## Accessing Audit Logs
+## How to investigate an event
 
-1. Navigate to **"Audit Logs"** in the sidebar (admin users only)
-2. The page displays a paginated list of events in reverse chronological order
-3. Each entry shows: **timestamp**, **user**, **action**, **module**, and **details**
+1. Start with the approximate date range.
+2. Add the user filter if you know the account involved.
+3. Filter by module, such as cases or referrals.
+4. Open the related case or referral in another tab to compare the audit entry with the current record.
+5. Document your findings in the proper operational channel. Do not copy unnecessary personal information into chat or email.
 
-## Filtering Audit Logs
+## Common uses
 
-Use filters to narrow down specific events:
+- Confirm who changed a case or referral status.
+- Review administrative changes to users, agencies, services, settings, and maintenance items.
+- Investigate reports of missing updates or unexpected record changes.
+- Support privacy and accountability requirements under RA 10173 by maintaining traceability.
 
-### By Action Type
-Select from: CREATE, UPDATE, DELETE, VIEW, LOGIN, LOGOUT, and others. This helps isolate specific kinds of activities.
+## Reading audit entries carefully
 
-### By Module
-Filter by system module: Cases, Referrals, Users, Documents, Settings, Auth. This shows events related to a specific area.
+Audit entries show who performed an action and when the system recorded it. They should be interpreted with the related case, referral, user, or admin record. A log entry may confirm that an action occurred, but it does not always explain the business reason. Use case notes, referral milestones, and agency communications for context.
 
-### By User
-Enter a user name or email to see all actions performed by that person.
+## Good practices
 
-### By Date Range
-Set a start and end date to view events within a specific period.
-
-## Understanding Audit Events in Context
-
-Each audit entry contains:
-
-| Field | Description |
-|-------|-------------|
-| Timestamp | Exact date and time of the action |
-| User | Name and email of the person who performed the action |
-| Action | The type of action (CREATE, UPDATE, DELETE, etc.) |
-| Module | Which part of the system was affected |
-| Target ID | The ID of the record that was affected |
-| IP Address | The network address the action came from |
-| User Agent | The browser or device used |
-| Details | Additional context in JSON format |
-
-## Security Monitoring Use Cases
-
-### Detecting Unusual Access Patterns
-- Multiple failed logins from the same IP
-- Logins at unusual hours
-- Access to records outside a user's normal scope
-- Bulk downloads of documents
-
-### Investigating Incidents
-If a case record is modified unexpectedly:
-1. Filter the audit log by that case ID
-2. See every action taken on that record
-3. Identify who made changes and when
-4. Review the details of each change
-
-### Compliance Verification
-- Confirm that only authorized users access sensitive records
-- Verify that required actions were performed within timelines
-- Document that procedures were followed correctly
-
-## Best Practices
-
-- Review audit logs **weekly** for security monitoring
-- **Export** logs periodically for long-term retention
-- Investigate **unusual patterns** promptly
-- Use audit data for **training** — identify common errors
-- Retain logs according to **data privacy requirements**
+- Use the smallest date range that answers the question.
+- Search by exact tracker number, case number, or user when available.
+- Do not export or share audit details unless there is an operational need.
+- Escalate suspicious activity to the system administrator promptly.
 `;
 export default content;

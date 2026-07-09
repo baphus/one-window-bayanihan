@@ -1,101 +1,44 @@
 const content = `# Privacy and Data Protection in One Window Bayanihan
 
-The One Window Bayanihan system is committed to protecting the privacy and personal data of all users in compliance with the Data Privacy Act of 2012 (Republic Act 10173).
+One Window Bayanihan handles sensitive OFW and family-assistance information. Users must process data only for official purposes and follow the Data Privacy Act of 2012 (RA 10173), agency policy, and local operating procedures.
 
-## Data Privacy Act of 2012 (RA 10173)
+![Admin audit log](/helpdesk/admin-audit-log.png)
 
-The Data Privacy Act protects the fundamental right to privacy of communication while ensuring the free flow of information. It establishes the principles for processing personal data and the rights of data subjects in the Philippines.
+## Built-in safeguards
 
-## What Personal Data the System Collects
+- Role-based access control limits pages and actions by role: CASE_MANAGER, AGENCY, and ADMIN.
+- Audit logs record significant actions for accountability.
+- Data is stored in PostgreSQL/Supabase-backed infrastructure configured for the deployment.
+- File access uses storage controls such as temporary URLs where implemented.
+- Sensitive settings may be stored encrypted by the application.
 
-### For OFWs and Clients
-- Full name and date of birth
-- Contact information (phone number, email address)
-- Current and permanent address
-- Employment information (employer, position, industry, country)
-- Next of kin details (name, relationship, contact number)
-- Case-related information and supporting documents
-- Tracker number and case history
+These safeguards support privacy operations, but they do not replace user responsibility. Authorized access must still be necessary, proportionate, and work-related.
 
-### For System Users
-- Name and email address
-- Role and agency affiliation
-- Login activity and audit logs
-- Actions performed within the system
+## Handling case data
 
-## How Data Is Protected
+Case records may include OFW details, addresses, vulnerability information, employment information, issue summaries, next-of-kin details, receiving parties, documents, notes, and referral history. Treat all of these as confidential.
 
-### Encryption
+Do not:
 
-| Stage | Technology | What It Protects |
-|-------|-----------|------------------|
-| In Transit | TLS 1.2+ | All data moving between your browser and our servers |
-| At Rest | AES-256 | All data stored in the database |
-| Backups | AES-256 | All backup copies of the data |
+- Share screenshots containing personal data in unsecured channels.
+- Download exports unless needed for official work.
+- Reuse tracker numbers or case details as training examples outside approved materials.
+- Leave exported Excel files on shared desktops or personal drives.
 
-### Access Controls
+## Exports and reports
 
-The system implements multiple layers of access control:
+Reports and case exports can contain personal or operationally sensitive data. Before exporting, confirm the purpose, recipient, and retention period. Prefer aggregate reports where individual case details are not needed.
 
-**Role-Based Access Control (RBAC)**
-Each user role has specific permissions:
-- CASE_MANAGER — access to assigned cases and referrals
-- AGENCY — access to referrals sent to their agency only
-- ADMIN — full system access (audited)
+## Audit and accountability
 
-**Lane Isolation**
-Users can only see data relevant to their role and assignments:
-- Case Managers see only their own cases
-- Agency users see only referrals to their agency
-- Admin access is fully logged and auditable
+Audit logs help determine who accessed or changed information. Administrators should use audit logs for investigations and compliance checks, but audit data should also be handled carefully because it can reveal user activity and case relationships.
 
-**Audit Trails**
-Every access to sensitive data is recorded:
-- Who accessed the record
-- When it was accessed
-- What action was taken
-- From which IP address
+## Practical privacy checklist
 
-## User Rights Under the DPA
-
-As a data subject, you have the following rights:
-
-| Right | Description | How to Exercise |
-|-------|-------------|-----------------|
-| Right to be Informed | Know what data is collected and why | See this article or contact DPO |
-| Right to Access | Request a copy of your personal data | Submit a request to DMW DPO |
-| Right to Correction | Correct inaccurate data | Contact your Case Manager |
-| Right to Deletion Objection | Object to data processing in certain cases | Submit a formal request |
-| Right to Data Portability | Receive your data in a portable format | Available upon request |
-
-To exercise any of these rights, contact the DMW Region VII Data Protection Officer (DPO).
-
-## Data Retention and Disposal
-
-| Data Type | Retention Period | Disposal Method |
-|-----------|-----------------|-----------------|
-| Active case records | Until case closure + 5 years | Anonymized after retention |
-| User accounts | Duration of employment/engagement | Deactivated, then deleted after 1 year |
-| Audit logs | 3 years | Archived, then deleted |
-| System backups | 30 days rolling | Overwritten automatically |
-
-## Who Has Access to Your Data
-
-- **DMW Case Managers** — processing your case
-- **Agency Focal Persons** — only for referrals to their specific agency
-- **System Administrators** — for maintenance and support (fully logged)
-- **DMW DPO** — for privacy compliance and data subject requests
-
-Your data is never shared with unauthorized third parties.
-
-## Reporting Privacy Concerns
-
-If you believe your privacy has been violated:
-
-1. Contact the **DMW Region VII Data Protection Officer**
-2. Email or visit the DMW office in person
-3. You may also file a complaint with the **National Privacy Commission (NPC)**
-
-> **The protection of your personal data is our priority. We are committed to handling your information with the utmost care and in full compliance with the law.**
+1. Use your own account only.
+2. Open only cases and referrals required for your work.
+3. Verify recipients before sending referrals or exports.
+4. Remove local files when the operational need has ended.
+5. Report suspected unauthorized access, wrong-recipient disclosure, or lost exported files immediately.
 `;
 export default content;

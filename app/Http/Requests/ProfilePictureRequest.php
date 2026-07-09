@@ -14,7 +14,7 @@ class ProfilePictureRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'profile_picture' => ['required', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120'],
+            'profile_picture' => ['required', 'image', 'mimes:jpeg,png,gif,webp', 'max:5120', 'dimensions:min_width=32,min_height=32'],
         ];
     }
 

@@ -1,106 +1,39 @@
 const content = `# Configuring System Settings and AI Chatbot
 
-This guide covers the system settings available to administrators, including the AI chatbot configuration.
+Administrators manage application settings from the admin settings area. Settings can affect login behavior, notifications, integrations, and optional AI chatbot behavior, so changes should be planned and recorded.
 
-## Accessing System Settings
+![Admin settings](/helpdesk/admin-settings.png)
 
-Navigate to **Admin > System Settings** to access the configuration panel.
+## Before changing settings
 
-## OTP Debug Mode
+Confirm the purpose of the change, who requested it, and when it should take effect. Some sensitive settings are stored encrypted by the application. Do not paste secrets into tickets, screenshots, chat, or helpdesk articles.
 
-This setting controls whether OTP codes are auto-filled during development.
+## Recommended change process
 
-| Setting | Effect |
-|---------|--------|
-| Enabled | OTP field is auto-populated with a debug code — no real SMS/email sent |
-| Disabled | Normal OTP behavior — real codes sent to user email |
+1. Review the current value.
+2. Confirm the expected operational effect.
+3. Make the smallest necessary change.
+4. Save the setting.
+5. Test the affected workflow, such as login, case creation, referral notification, or chatbot response.
+6. Review the audit log for the settings change if confirmation is needed.
 
-> **Critical Warning:** Only enable OTP Debug Mode in local development environments. Never enable this in production. It bypasses all real OTP verification and creates a security vulnerability.
+## AI chatbot guidance
 
-## Session Timeout Configuration
+If chatbot settings are enabled in your deployment, treat the chatbot as a support assistant, not a decision maker. It should help users find guidance, but official case action still belongs to authorized users in the case or referral workflow.
 
-Controls how long a user session remains active without activity:
+Good chatbot configuration practices:
 
-- **Default:** 120 minutes
-- Adjust based on your security requirements
-- Shorter timeouts (30-60 min) for sensitive environments
-- Longer timeouts (up to 480 min) may be acceptable in controlled office settings
+- Keep prompts factual and aligned with current helpdesk articles.
+- Do not include credentials, private keys, or personal case details in prompts.
+- Test with common user questions before announcing a change.
+- Disable or revise responses that could be read as legal, medical, or final adjudication advice.
 
-When a session expires, the user is automatically logged out and must re-authenticate.
+## Security-related admin pages
 
-## File Upload Limits
+Depending on your role and deployment, administrators may also use Security and ActiveSessions pages to review security configuration and active user sessions. Use these pages when investigating account access issues or enforcing operational security practices.
 
-| Setting | Description | Recommended |
-|---------|-------------|-------------|
-| Max File Size | Largest single file allowed | 10MB |
-| Allowed Types | Accepted file formats | PDF, JPG, PNG |
+## When to escalate
 
-Files exceeding the size limit will be rejected with an error message. Ensure users are informed of these limits through the helpdesk documentation.
-
-## AI Chatbot Configuration
-
-The system includes an AI-powered chatbot that can answer user questions based on helpdesk articles.
-
-### Provider Selection
-
-Choose your AI provider:
-
-- **OpenAI** — GPT-4 models, most capable but requires API key
-- **Anthropic** — Claude models, strong on safety and reasoning
-- **Custom** — connect to your own LLM endpoint
-
-### API Key Management
-
-- Enter the API key in the **masked input** field
-- The key is stored encrypted in the database
-- Once saved, the key is masked for security
-- To change the key, enter a new value (the old one is overwritten)
-
-### Chatbot Instruction Prompt
-
-This **system message** defines how the chatbot behaves:
-
-- Set the chatbot personality and tone
-- Define what topics it can discuss
-- Set boundaries on what it should not answer
-- Instruct it to cite helpdesk articles as sources
-
-Example prompt:
-
-\`\`\`
-You are a helpful assistant for the One Window Bayanihan 
-system. Answer questions about case management, referrals, 
-and system features. Use the helpdesk articles as your 
-source of information. If you do not know the answer, 
-say so and direct the user to contact their supervisor 
-or system administrator.
-\`\`\`
-
-### Model Parameters
-
-| Parameter | Purpose | Recommended |
-|-----------|---------|-------------|
-| Temperature | Controls randomness of responses (0.0-1.0) | 0.3 for factual answers |
-| Token Limit | Maximum response length | 1024 tokens |
-
-Lower temperature values (0.1-0.3) produce more focused, deterministic responses suitable for factual Q&A. Higher values (0.7-1.0) produce more creative responses.
-
-## Testing Configuration Changes
-
-After making configuration changes:
-
-1. Click **"Save"** to apply changes
-2. Test the affected feature
-3. For OTP changes, log out and verify the login flow
-4. For chatbot changes, open the chatbot and ask a test question
-5. For upload limits, try uploading files of different sizes
-
-## Configuration Best Practices
-
-- Document all configuration changes in your internal change log
-- Test changes in a staging environment first
-- Set up monitoring alerts for critical settings changes
-- Review all settings during quarterly system audits
-- Keep API keys secure and rotate them periodically
+Escalate before changing settings that affect authentication, data retention, storage, email delivery, or external integrations. These settings can interrupt work across DMW and partner agencies if misconfigured.
 `;
 export default content;

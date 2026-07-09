@@ -1,85 +1,37 @@
 const content = `# Using the Dashboard for Daily Monitoring
 
-The dashboard is your primary tool for staying on top of your caseload. This guide explains how to use each section effectively.
+The dashboard is a daily snapshot for Case Managers. It helps prioritize work, but it should not be treated as a real-time alert feed. Refresh when you need current counts.
 
-## Understanding KPI Stat Cards
+![Case Manager dashboard](/helpdesk/dashboard-cm.png)
 
-The top of the dashboard displays four key metrics:
+## Start-of-day review
 
-| KPI | What It Shows | Why It Matters |
-|-----|---------------|----------------|
-| Open Cases | Total active cases assigned to you | Workload volume |
-| Pending Referrals | Referrals awaiting agency action | Items needing follow-up |
-| Completed This Month | Cases closed this calendar month | Productivity tracking |
-| Overdue Referrals | Referrals past their SLA deadline | Items needing escalation |
+1. Review active **OPEN** cases assigned to you.
+2. Check referrals that are **PENDING** or **FOR_COMPLIANCE**.
+3. Open overdue referral lists or filtered referral pages.
+4. Review recently updated cases for milestones or comments.
+5. Confirm drafts are not being forgotten.
 
-Each card shows the current count and may include a trend indicator (up or down compared to the previous period).
+## Move from counts to records
 
-## Reviewing Recent Cases
+Use the cases index to inspect actual records and statuses: **DRAFT**, **OPEN**, **CLOSED**, and **ARCHIVED**.
 
-Below the KPIs is a list of recently updated cases:
+![Cases index](/helpdesk/cases-index.png)
 
-- Each row shows the **tracker number**, **client name**, **status**, and **last updated** time
-- Click any row to open the case details
-- Use the **"View All Cases"** link to open the full case list with advanced filters
+For each active case, ask whether the summary is complete, the category and issue are correct, consent is captured, and a referral is needed.
 
-## Monitoring Pending Referrals
+## Referral monitoring
 
-The pending referrals section is critical for proactive case management:
+Detailed work happens on referral pages. Prioritize old **PENDING** referrals, **FOR_COMPLIANCE** referrals, and active referrals near the overdue cutoff. Overdue logic excludes terminal **COMPLETED** and **REJECTED** referrals and commonly uses the **referral_overdue_days** setting, defaulting to 7 days.
 
-1. Review each pending referral in the list
-2. Check how long it has been waiting
-3. If approaching the SLA deadline, contact the agency focal person
-4. Use the **reminder** function to prompt agency action
+![Referrals index](/helpdesk/referrals-index.png)
 
-## Identifying Overdue Referrals
+## End-of-day closeout
 
-Overdue referrals are highlighted with color indicators:
-
-- **Yellow** — approaching SLA deadline (within 24 hours)
-- **Orange** — past SLA deadline (1-3 days overdue)
-- **Red** — significantly overdue (more than 3 days past SLA)
-
-Click on any overdue referral to see details and take action.
-
-## Interpreting the Case Trends Chart
-
-The chart at the bottom of the dashboard shows case activity over time:
-
-- **X-axis**: time (days, weeks, or months)
-- **Y-axis**: case count
-- Multiple colored lines for different metrics (new cases, closed cases, referrals)
-
-Use the chart to identify:
-- Peak periods for new cases
-- Trends in case resolution
-- Seasonal patterns that may affect workload
-
-## Setting Up a Daily Workflow
-
-A structured daily routine maximizes your effectiveness:
-
-### Morning (First 30 Minutes)
-1. Review the **dashboard KPIs** for an overview
-2. Check **new cases** assigned overnight
-3. Review **pending referrals** for updates
-
-### Mid-Day Check-In
-1. Process any **new referrals** received from agencies
-2. Update **case records** with morning activities
-3. Address any **urgent items**
-
-### End of Day (Last 15 Minutes)
-1. Review **overdue items** and plan follow-up
-2. Update case notes for the day
-3. Plan priorities for the next day
-
-## Customizing Your View
-
-Some dashboard elements can be customized:
-
-- **Date range** — adjust the trends chart period
-- **Sort order** — change how recent cases are sorted
-- **Filters** — filter by case type, urgency, or agency
+- Publish, update, or delete drafts as appropriate.
+- Add milestones for completed referral actions.
+- Reply to comments needing your input.
+- Check compliance items remain **PENDING** only when truly unresolved.
+- Close cases only when closure requirements are met.
 `;
 export default content;

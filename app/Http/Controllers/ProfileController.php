@@ -48,12 +48,16 @@ class ProfileController extends Controller
 
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
-            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
-            $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
-                $file,
-                'avatars',
-                'user-'.$user->id,
-            );
+            try {
+                app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
+                $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+                    $file,
+                    'avatars',
+                    'user-'.$user->id,
+                );
+            } catch (\RuntimeException $e) {
+                return Redirect::route('profile.edit')->withErrors(['avatar' => $e->getMessage()]);
+            }
         }
 
         if ($user->isDirty('email')) {

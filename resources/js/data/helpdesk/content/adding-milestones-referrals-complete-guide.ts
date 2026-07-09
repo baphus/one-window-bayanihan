@@ -1,108 +1,33 @@
 const content = `# Adding Milestones to Referrals: Complete Guide
 
-Milestones create a detailed record of progress on each referral. They are append-only, meaning they cannot be edited or deleted once created.
+Milestones record meaningful referral progress. Each milestone has a title and description, then notifications are sent to relevant users.
 
-## What Are Milestones?
+![Referral details timeline](/helpdesk/referrals-show.png)
 
-Milestones are timestamped entries that record significant events or progress points during referral processing. Together they form a chronological timeline of all actions taken.
+## When to add a milestone
 
-### Key Properties
+Add one when the agency reviewed the referral, contacted the client, received documents, accepted compliance, rendered service, changed status, completed work, or rejected the referral. Use comments for questions; use milestones for timeline-worthy progress.
 
-| Property | Description |
-|----------|-------------|
-| Append-only | Once added, milestones cannot be edited or deleted |
-| Timestamped | Each milestone is marked with the exact date and time |
-| Attributed | The user who added the milestone is recorded |
-| Visible | Both agency and Case Manager can view the timeline |
+## Steps
 
-## When to Add Milestones
+1. Open the referral details page.
+2. Choose the add milestone action.
+3. Enter a short title.
+4. Write a factual description.
+5. Save and confirm it appears in the timeline.
 
-Add a milestone at each significant point in the referral lifecycle:
+![Add milestone form](/helpdesk/referrals-add-milestone.png)
 
-- **Referral accepted** — confirm the referral has been received and reviewed
-- **Initial assessment** — document the preliminary evaluation
-- **Client contact** — record interactions with the client
-- **Document review** — note when documents are received and verified
-- **Service rendered** — confirm the service has been provided
-- **Status change** — whenever the referral status changes
-- **Completion** — mark the referral as fully processed
+## Strong titles
 
-## Writing Effective Milestone Titles
+Good titles are brief and action-oriented: “Reviewed submitted employment documents,” “Contacted client for compliance instructions,” or “Completed agency assessment.” Avoid vague titles such as “Update” or “Done.”
 
-A good title is:
+## Useful descriptions
 
-- **Action-oriented** — start with a verb (e.g., "Conducted", "Reviewed", "Processed")
-- **Specific** — describe exactly what was done
-- **Brief** — 5-10 words that summarize the action
+Include what was done, who was involved, what was found, and the next step. Do not include unrelated sensitive details or opinions.
 
-Examples:
-- "Conducted initial client interview"
-- "Verified employment documents submitted"
-- "Processed financial assistance request"
-- "Completed final review of case file"
+## Status connection
 
-## Writing Useful Milestone Descriptions
-
-The description provides context and detail:
-
-### Include
-- What was done
-- Who was involved
-- Any decisions made
-- Next steps planned
-- Relevant document references
-
-### Avoid
-- Vague statements like "Continued processing"
-- Opinions or subjective assessments
-- Personal comments about the client or agency
-
-### Example
-
-\`\`\`
-Title: Reviewed repatriation documents
-Description: Verified passport, flight itinerary, and 
-Repatriation Assistance Request Form submitted by the 
-client. All documents are complete and compliant. 
-Forwarded to OWWA for processing. Estimated completion: 
-3 working days.
-\`\`\`
-
-## Milestone Frequency Best Practices
-
-- Add at least **one milestone per week** for active referrals
-- Add a milestone **immediately after any status change**
-- Add a milestone **after any client interaction**
-- For long-running referrals, add regular **progress update** milestones
-
-## Example Milestone Timeline
-
-Here is what a complete milestone history might look like for a typical case:
-
-\`\`\`
-Day 1 — Referral Accepted
-  Initial review of case documents completed.
-
-Day 2 — Client Interview Conducted
-  Interviewed client via phone. Verified case details.
-  Client requested financial assistance.
-
-Day 3 — Documents Verified
-  All required documents checked and approved.
-
-Day 5 — Financial Assistance Processed
-  Assistance amount approved and processed.
-  Client notified of disbursement timeline.
-
-Day 7 — Referral Completed
-  All services rendered. Final documentation filed.
-\`\`\`
-
-## Why Milestones Matter
-
-- **Transparency** — Case Managers see exactly what is happening
-- **Accountability** — creates a clear record of who did what and when
-- **Audit trail** — provides evidence of proper processing
-- **Performance tracking** — helps identify bottlenecks in workflows
+Status changes use the referral status workflow. When a referral becomes **COMPLETED**, completion handling and notifications run. Add a final milestone so the result is understandable. If requirements remain **PENDING**, do not treat the referral as complete.
 `;
 export default content;

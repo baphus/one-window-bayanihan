@@ -21,6 +21,16 @@ import monitoringQueueJobsSystemHealth from "./content/monitoring-queue-jobs-sys
 import privacyDataProtectionOwb from "./content/privacy-data-protection-owb";
 import glossaryOfTerms from "./content/glossary-of-terms";
 import troubleshootingCommonIssues from "./content/troubleshooting-common-issues";
+import managingDraftCases from "./content/managing-draft-cases";
+import managingComplianceRequirements from "./content/managing-compliance-requirements";
+import usingReferralComments from "./content/using-referral-comments";
+import creatingPublishingCases from "./content/creating-publishing-cases";
+import usingReportsAnalytics from "./content/using-reports-analytics";
+import exportingCaseDataExcel from "./content/exporting-case-data-excel";
+import adminCaseCategoriesIssuesStatuses from "./content/admin-case-categories-issues-statuses";
+import userManagementGuide from "./content/user-management-guide";
+import agencyServiceManagementGuide from "./content/agency-service-management-guide";
+import referralStatusReference from "./content/referral-status-reference";
 
 // ---------------------------------------------------------------------------
 // Category slug → ID mapping (from categories.ts)
@@ -64,7 +74,7 @@ const TAG: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// All 22 helpdesk articles
+// All 32 helpdesk articles
 // ---------------------------------------------------------------------------
 export const articles: HelpdeskArticle[] = [
   // ======== Featured (3) ========
@@ -347,5 +357,128 @@ export const articles: HelpdeskArticle[] = [
     tagIds: [TAG["troubleshooting"], TAG["onboarding"]],
     featured: false,
     publishedAt: "2025-01-15T00:00:00.000Z",
+  },
+
+  // ======== Expanded Workflow Guides (23–32) ========
+
+  {
+    id: "article-23",
+    title: "Creating and Publishing Cases: Complete Walkthrough",
+    slug: "creating-publishing-cases",
+    excerpt:
+      "A field-by-field walkthrough for creating a draft case, completing intake details, publishing it to OPEN, and confirming the public tracker number.",
+    content: creatingPublishingCases,
+    categoryId: CATEGORY["cm-workflow"],
+    tagIds: [TAG["cases"], TAG["training"], TAG["documents"]],
+    featured: true,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-24",
+    title: "Managing Draft Cases: Save, Edit, Publish, Delete",
+    slug: "managing-draft-cases",
+    excerpt:
+      "How Case Managers use the DRAFT workflow safely, including owner-only access, draft updates, publishing, and deleting unfinished drafts.",
+    content: managingDraftCases,
+    categoryId: CATEGORY["cm-workflow"],
+    tagIds: [TAG["cases"], TAG["documents"], TAG["onboarding"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-25",
+    title: "Managing Compliance Requirements on Referrals",
+    slug: "managing-compliance-requirements",
+    excerpt:
+      "Guide to referral compliance requirements, FOR_COMPLIANCE status, uploading fulfillment documents, and returning work to processing.",
+    content: managingComplianceRequirements,
+    categoryId: CATEGORY["referral-processing"],
+    tagIds: [TAG["referrals"], TAG["documents"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-26",
+    title: "Using Referral Comments and Communication",
+    slug: "using-referral-comments",
+    excerpt:
+      "How Case Managers and agency users keep referral communication in the system using comments, replies, visibility, and milestones.",
+    content: usingReferralComments,
+    categoryId: CATEGORY["coordination-communication"],
+    tagIds: [TAG["referrals"], TAG["escalation"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-27",
+    title: "Using Reports and Analytics",
+    slug: "using-reports-analytics",
+    excerpt:
+      "A practical guide to reading status distribution, referral funnel, trend, demographics, geography, employment, cycle-time, category, and agency scorecard reports.",
+    content: usingReportsAnalytics,
+    categoryId: CATEGORY["cm-workflow"],
+    tagIds: [TAG["dashboard"], TAG["tracking"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-28",
+    title: "Exporting Case Data to Excel",
+    slug: "exporting-case-data-excel",
+    excerpt:
+      "How to export case data with the system's business-safe columns, filters, timestamps, and privacy expectations.",
+    content: exportingCaseDataExcel,
+    categoryId: CATEGORY["cm-workflow"],
+    tagIds: [TAG["cases"], TAG["documents"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-29",
+    title: "Admin Reference: Managing Case Categories, Issues, and Statuses",
+    slug: "admin-case-categories-issues-statuses",
+    excerpt:
+      "Reference guide for administrators configuring case categories, issue lists, custom statuses, active flags, sort order, and system status restrictions.",
+    content: adminCaseCategoriesIssuesStatuses,
+    categoryId: CATEGORY["system-config"],
+    tagIds: [TAG["training"], TAG["compliance"], TAG["troubleshooting"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-30",
+    title: "User Management Guide",
+    slug: "user-management-guide",
+    excerpt:
+      "How administrators create, verify, edit, deactivate, and review user accounts for ADMIN, CASE_MANAGER, and AGENCY roles.",
+    content: userManagementGuide,
+    categoryId: CATEGORY["user-account-management"],
+    tagIds: [TAG["onboarding"], TAG["training"], TAG["audit"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-31",
+    title: "Agency and Service Management Guide",
+    slug: "agency-service-management-guide",
+    excerpt:
+      "How administrators maintain agency records, services, processing-day targets, requirements, and active/inactive service availability.",
+    content: agencyServiceManagementGuide,
+    categoryId: CATEGORY["system-config"],
+    tagIds: [TAG["referrals"], TAG["training"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+  {
+    id: "article-32",
+    title: "Referral Status Reference",
+    slug: "referral-status-reference",
+    excerpt:
+      "Reference for PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, and REJECTED referral states and the user actions behind each status.",
+    content: referralStatusReference,
+    categoryId: CATEGORY["referrals-escalations"],
+    tagIds: [TAG["referrals"], TAG["tracking"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-09T00:00:00.000Z",
   },
 ];

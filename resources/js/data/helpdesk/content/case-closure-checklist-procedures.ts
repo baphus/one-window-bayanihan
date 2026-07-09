@@ -1,98 +1,40 @@
 const content = `# Case Closure Checklist and Procedures
 
-Closing a case properly ensures complete documentation and a smooth transition for the client. Follow this checklist to avoid common errors.
+Close a case only when assistance has been completed, the outcome is documented, and no active referral task still requires case management.
 
-## Pre-Closure Verification
+![Case details before closure](/helpdesk/cases-show.png)
 
-Before closing any case, verify each of the following:
+## Status check
 
-### 1. All Referrals Are in Terminal States
+Case statuses are exactly **DRAFT**, **OPEN**, **CLOSED**, and **ARCHIVED**. A case should generally be **OPEN** before closure. Drafts should be published or deleted, not closed.
 
-Check every referral created for this case:
+## Referral checklist
 
-| Status | Allow Closure? |
-|--------|---------------|
-| COMPLETED | Yes |
-| REJECTED | Yes |
-| PENDING | No — must be resolved first |
-| PROCESSING | No — must be completed or reassigned |
-| FOR COMPLIANCE | No — must be resolved first |
+Review every referral connected to the case.
 
-If any referral is not in a terminal state, contact the agency or reassign the referral before proceeding.
+- **COMPLETED** referrals should have a clear final milestone or outcome.
+- **REJECTED** referrals should explain why and what alternative action was taken.
+- Active statuses such as **PENDING** or **FOR_COMPLIANCE** should be resolved before closure unless a documented exception applies.
 
-### 2. Client Confirmation Received
+![Referral details](/helpdesk/referrals-show.png)
 
-- Confirm that the client has been informed of the case outcome
-- Document the client's acknowledgment (verbal confirmation is acceptable, written is preferred)
-- If the client cannot be reached, document all attempts made
+## Compliance checklist
 
-### 3. All Required Documents Are Uploaded
+Compliance requirements have statuses such as **PENDING** and **COMPLIED** and are fulfilled through attachments. Mark **COMPLIED** only after the attachment or proof is accepted.
 
-Ensure the case file contains:
+![Referral compliance requirements](/helpdesk/referrals-compliance.png)
 
-- **Initial intake documents** — verified and complete
-- **Referral documents** — referral forms and agency responses
-- **Milestone records** — all significant actions documented
-- **Final case summary** — outcome documentation
+## Documentation checklist
 
-### 4. Final Case Summary Completed
+Confirm the record explains the original concern, client circumstances, vulnerability indicators, agencies involved, compliance requested and received, referral outcomes, final action, and any instructions given to the client.
 
-Write a comprehensive closure summary including:
+## Closure steps
 
-- Brief overview of the case
-- Actions taken by DMW and partner agencies
-- Outcome and resolution details
-- Any pending follow-up items or recommendations
-- Client feedback if available
-
-## The Closure Process
-
-1. Navigate to the **case details page**
-2. Click the **"Close Case"** button
-3. Read the confirmation dialog carefully
-4. Confirm by clicking **"Yes, Close Case"**
-5. The case status changes to **CLOSED**
-
-> **Warning:** Closing a case is irreversible. Make sure all steps above are completed before confirming.
-
-## Closing vs Archiving
-
-| Action | What It Does | When to Use |
-|--------|-------------|-------------|
-| Close | Marks the case as resolved, no further action needed | Case is fully resolved |
-| Archive | Hides the case from active lists but preserves all data | Case is closed and no longer needed in regular view |
-
-After closing, the case is automatically archived after a set period.
-
-## Post-Closure Procedures
-
-### Client Feedback
-
-Once closed, the client receives a notification inviting them to provide feedback:
-
-- **SERVQUAL survey** — rates service quality across five dimensions
-- Feedback is optional but encouraged
-- Results are anonymized for quality reporting
-
-### Documentation Review
-
-- Verify the case file is complete
-- Ensure all notes are finalized
-- Confirm the audit trail is unbroken
-
-### Performance Tracking
-
-Closed cases contribute to monthly performance metrics:
-- Cases closed per Case Manager
-- Average processing time
-- Client satisfaction scores
-- Agency performance data
-
-## Common Closure Errors
-
-- Closing with **active referrals** — always resolve referrals first
-- Missing **final summary** — write the summary before closing
-- Forgetting to **notify the client** — inform them of the outcome
-- Skipping **document verification** — ensure all files are uploaded
+1. Open the case details page.
+2. Review the summary and referrals.
+3. Add missing milestones or comments before changing status.
+4. Mark the case **CLOSED**.
+5. Confirm the closure date is reflected.
+6. Tell the client how to use tracking and feedback when appropriate.
 `;
 export default content;
