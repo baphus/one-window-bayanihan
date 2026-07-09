@@ -111,10 +111,11 @@ return new class extends Migration
 
             echo "✅ RLS enabled on 11 tables — 33 policies created (11 admin, 11 case_manager, 11 agency).\n";
         } catch (Throwable $e) {
-            Log::warning('Row-level security migration requires PostgreSQL. Skipping — ensure it runs on production.', [
+            Log::error('Row-level security migration failed (PostgreSQL required)', [
                 'error' => $e->getMessage(),
             ]);
-            echo "⚠️  Row-level security migration requires PostgreSQL. Skipping — ensure it runs on production.\n";
+            echo "❌ Row-level security migration failed (PostgreSQL required): {$e->getMessage()}\n";
+            throw $e;
         }
     }
 
@@ -159,10 +160,11 @@ return new class extends Migration
 
             echo "✅ Dropped all 33 RLS policies and disabled RLS on 11 tables.\n";
         } catch (Throwable $e) {
-            Log::warning('Failed to roll back row-level security migration.', [
+            Log::error('Row-level security rollback failed (PostgreSQL required)', [
                 'error' => $e->getMessage(),
             ]);
-            echo "⚠️  Failed to roll back row-level security. See log for details.\n";
+            echo "❌ Row-level security rollback failed (PostgreSQL required): {$e->getMessage()}\n";
+            throw $e;
         }
     }
 };

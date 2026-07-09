@@ -2,6 +2,10 @@
 
 namespace App\Services\Export;
 
+use App\Models\Client;
+use App\Models\ClientAddress;
+use App\Models\ClientEmployment;
+use App\Models\NextOfKin;
 use App\Models\User;
 use App\Services\AddressNameResolver;
 use Carbon\CarbonImmutable;
@@ -220,6 +224,11 @@ class DataExportQueries
             $row->province = $addressResolver->resolve($row->province ?? null);
             $row->region = $addressResolver->resolve($row->region ?? null);
 
+            // NOTE: Encrypted PII fields from subqueries (ofw_date_of_birth, ofw_contact_number,
+            // ofw_email, nok_contact_number, nok_email) will appear as ciphertext in this enriched
+            // export until this query is refactored from raw SQL to Eloquent.
+            // The simple table exports (getClients, getNextOfKins, etc.) handle decryption correctly.
+
             return $row;
         });
     }
@@ -229,7 +238,7 @@ class DataExportQueries
      */
     public function getClients(?User $user = null): Collection
     {
-        $query = DB::table('clients')
+        $query = Client::query()
             ->select([
                 'id',
                 'first_name',
@@ -790,7 +799,7 @@ class DataExportQueries
      */
     public function getNextOfKins(?User $user = null): Collection
     {
-        $query = DB::table('next_of_kin')
+        $query = NextOfKin::query()
             ->select([
                 'id',
                 'client_id',
@@ -969,7 +978,7 @@ class DataExportQueries
      */
     public function getClientAddresses(?User $user = null): Collection
     {
-        $query = DB::table('client_addresses')
+        $query = ClientAddress::query()
             ->select([
                 'id',
                 'client_id',
@@ -1009,7 +1018,7 @@ class DataExportQueries
      */
     public function getClientEmployments(?User $user = null): Collection
     {
-        $query = DB::table('client_employments')
+        $query = ClientEmployment::query()
             ->select([
                 'id',
                 'client_id',

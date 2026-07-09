@@ -341,10 +341,9 @@ class CaseServiceTest extends TestCase
             'id' => $result->client_id,
             'email' => null,
         ]);
-        $this->assertDatabaseHas('next_of_kin', [
-            'client_id' => $result->client_id,
-            'email' => 'maria@example.test',
-        ]);
+        $nok = NextOfKin::where('client_id', $result->client_id)->first();
+        $this->assertNotNull($nok);
+        $this->assertEquals('maria@example.test', $nok->email);
     }
 
     public function test_user_cannot_publish_another_users_draft(): void
@@ -546,11 +545,9 @@ class CaseServiceTest extends TestCase
             'province' => 'Metro Manila',
         ]);
         // Assert employment updated
-        $this->assertDatabaseHas('client_employments', [
-            'id' => $employment->id,
-            'employer_name' => 'New Employer',
-            'country' => 'USA',
-        ]);
+        $employment->refresh();
+        $this->assertEquals('New Employer', $employment->employer_name);
+        $this->assertEquals('USA', $employment->country);
         // Assert next of kin updated
         $this->assertDatabaseHas('next_of_kin', [
             'id' => $nok->id,

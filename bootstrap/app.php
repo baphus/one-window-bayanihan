@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Middleware\CheckMfaEnrolled;
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\CheckUserActive;
 use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IpWhitelist;
@@ -16,6 +18,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -37,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
         $middleware->trustProxies(
-            at: '*',
+            at: explode(',', env('TRUSTED_PROXIES', '10.0.0.0/8')),
             headers: Request::HEADER_X_FORWARDED_FOR
                 | Request::HEADER_X_FORWARDED_HOST
                 | Request::HEADER_X_FORWARDED_PORT
@@ -46,6 +49,8 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->web(append: [
+            CheckUserActive::class,
+            CheckMfaEnrolled::class,
             ContentSecurityPolicy::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
@@ -145,4 +150,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return Inertia::render('Errors/ServerError', ['incidentId' => $incidentId])->toResponse($request)->setStatusCode(500);
         });
+
+        // Report exceptions to Sentry in non-local environments
+        if (! App::environment('local', 'testing')) {
+            if (app()->bound('sentry')) {
+                app('sentry')->captureException($e);
+            }
+        }
     })->create();

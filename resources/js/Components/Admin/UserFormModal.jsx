@@ -13,7 +13,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
   const isEdit = !!user;
   const isNewUserViaSelectedAgency = !!selectedAgencyId && !user?.id;
 
-  const { data, setData, post, patch, processing, errors, clearErrors } = useForm({
+  const { data, setData, setError, post, patch, processing, errors, clearErrors } = useForm({
     name: user?.name ?? '',
     email: user?.email ?? '',
     password: '',

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AuditLog;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class PruneAuditLogs extends Command
 {
@@ -43,7 +44,14 @@ class PruneAuditLogs extends Command
             }
         }
 
-        $deleted = AuditLog::where('timestamp', '<', $cutoff)->forceDelete();
+        DB::statement("SET app.allow_audit_mutations = 'true'");
+
+        try {
+            $deleted = AuditLog::where('timestamp', '<', $cutoff)->forceDelete();
+        } finally {
+            DB::statement("SET app.allow_audit_mutations = ''");
+        }
+
         $this->info("Pruned {$deleted} audit log entries.");
 
         return Command::SUCCESS;

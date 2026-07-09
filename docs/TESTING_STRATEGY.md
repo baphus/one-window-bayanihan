@@ -248,4 +248,3 @@ php artisan test --filter test_case_manager_can_close_case
 | Type check | `phpstan analyse` | Every PR |
 | Unit + Feature tests | `php artisan test` | Every PR |
 | Frontend build | `npm run build` | Every PR |
-| Access audit | `gitnexus detect-changes` | Before merge |

@@ -27,7 +27,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 .github
-/.gitnexus
 /.omo
 /.opencode
 /.playwright-mcp
@@ -36,3 +35,4 @@ Thumbs.db
 skills-lock.json
 interview
 .slim/deepwork/
+cookies.txt

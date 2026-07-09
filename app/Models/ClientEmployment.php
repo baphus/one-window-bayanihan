@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -34,6 +35,11 @@ class ClientEmployment extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'date_of_arrival' => 'date',
+        'employer_name' => EncryptedString::class,
+        'position' => EncryptedString::class,
+        'last_position' => EncryptedString::class,
+        'country' => EncryptedString::class,
+        'last_country' => EncryptedString::class,
         'is_deleted' => 'boolean',
     ];
 

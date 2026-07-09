@@ -126,4 +126,19 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Failed Job Alerting
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure how failed jobs are reported. Currently supported
+    | drivers: "sentry" (requires sentry/sentry-laravel), "log", "none".
+    |
+    */
+
+    'failed_alerting' => [
+        'driver' => env('QUEUE_FAILED_ALERT_DRIVER', 'log'),
+        'sentry_dsn' => env('SENTRY_LARAVEL_DSN'),
+    ],
+
 ];

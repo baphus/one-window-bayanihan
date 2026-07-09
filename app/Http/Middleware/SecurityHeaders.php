@@ -21,7 +21,8 @@ class SecurityHeaders
         $response = $next($request);
 
         if (! app()->environment('local')) {
-            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+            $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
         }
 
         $response->headers->set('X-Frame-Options', 'DENY');

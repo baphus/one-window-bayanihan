@@ -17,6 +17,19 @@ class EmailEventSubscriber
         $subject = $event->message->getSubject() ?? '(no subject)';
         $mailableType = $this->extractMailableType($event);
 
+        // Prevent duplicate log entries: skip if an identical entry was created
+        // within the last 2 seconds (guards against double-fired MessageSent).
+        $recentDuplicate = EmailLog::where('to_email', $to)
+            ->where('subject', $subject)
+            ->where('mailable_type', $mailableType)
+            ->where('status', 'sent')
+            ->where('created_at', '>=', now()->subSeconds(2))
+            ->exists();
+
+        if ($recentDuplicate) {
+            return;
+        }
+
         EmailLog::create([
             'to_email' => $to,
             'subject' => $subject,

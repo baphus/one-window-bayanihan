@@ -1,183 +1,64 @@
 # One Window Bayanihan
 
-Laravel 13 + Inertia SPA case management system for DMW Region VII. PostgreSQL, React 18, Tailwind CSS 3, Vite 8.
+Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL/Supabase, Tailwind CSS 3, Vite 8, PHP 8.3.
 
 ## Commands
 
-| Command | What it does |
-|---------|-------------|
-| `composer run dev` | Starts `php artisan serve` + `queue:listen` + `vite` via concurrently |
-| `composer run setup` | Full project bootstrap: `composer install` → copy `.env` → `key:generate` → `migrate` → `npm install` → `npm run build` |
-| `composer run test` | Runs `php artisan config:clear` then `php artisan test` (config clear is required before tests) |
-| `php artisan test` | Runs PHPUnit test suite — uses PostgreSQL (`bayanihan_test` DB) |
-| `php artisan migrate` | Run pending migrations (PostgreSQL) |
-| `php artisan db:seed` | Seeds roles, agencies, services, demo data |
-| `php artisan queue:listen` | Process database queue jobs (required for async) |
-| `php artisan storage:link` | Required for local file upload testing |
-| `npm run dev` | Vite dev server only |
+| Command | Use |
+|---|---|
+| `composer run setup` | Bootstrap: `composer install`, copy `.env`, keygen, migrate, `npm install --ignore-scripts`, build |
+| `composer run dev` | Starts `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, and Vite via `concurrently` |
+| `composer run test` | Clears Laravel config, then runs `php artisan test` |
+| `php artisan test tests/Feature/NameTest.php` | Focused PHP test file |
+| `php artisan test --filter test_name` | Focused PHP test method/name |
+| `./vendor/bin/pint --test` | PHP style check; run `./vendor/bin/pint` to fix |
+| `npm run dev` | Vite dev server only (`127.0.0.1:5173`) |
 | `npm run build` | Production Vite build |
-| `npm test` | Vitest (watch mode) — JS unit tests in jsdom |
-| `npm run test:run` | Vitest single run |
-| `npm run test:e2e` | Playwright E2E tests (starts `php artisan serve` automatically) |
-| `npm run addresses:sync` | Sync Philippine address data (PSGC) |
+| `npm test` | Vitest watch mode |
+| `npm run test:run` | Vitest one-shot |
+| `npm run test:e2e` | Playwright; auto-starts `php artisan serve --port=8000` |
+| `npm run addresses:sync` | Sync Philippine PSGC address data |
 
-## Entrypoints & Layouts
+## Entrypoints and routing
 
-- **App entry (Vite):** `resources/js/app.tsx`
-- **Auth routes:** `routes/auth.php` — custom OTP 2FA login (`LoginOtpController`), not default Breeze
-- **App routes:** `routes/web.php` — all authenticated pages. Includes inline `api/*` routes (session-authenticated, not Laravel API routes)
-- **Public API routes:** `routes/api.php` — public Philippine address lookups (PSGC), no auth required, throttled 60/min
-- **Main app layout:** `resources/js/Layouts/AppLayout.jsx` (sidebar). Also `AuthenticatedLayout.jsx` (top nav) and `GuestLayout.jsx` (auth pages)
-- **Helpdesk layout:** `resources/js/Layouts/HelpdeskLayout.jsx` (public-facing helpdesk)
-- **Error pages:** Inertia components at `resources/js/Pages/Errors/` — NotFound, Forbidden, ServerError, TooManyRequests
-- **Path alias:** `@/` → `resources/js/` (tsconfig.json + vite.config.js)
+- SPA entry is `resources/js/app.tsx`; Inertia resolves pages from `resources/js/Pages/**/*.{jsx,tsx}`.
+- Vite input is `resources/js/app.tsx`; alias `@/` points to `resources/js` in `vite.config.js`, `vitest.config.ts`, and `tsconfig.json`.
+- Auth routes live in `routes/auth.php`; login is custom OTP/MFA via `LoginOtpController`, not default Breeze login flow.
+- Authenticated app routes live in `routes/web.php`. Some session-authenticated `api/*` endpoints are defined there, so do not assume every API-looking route is in `routes/api.php`.
+- Public API routes in `routes/api.php` are only PSGC address lookup and CSP report endpoints, throttled and unauthenticated.
+- Middleware, aliases, routing, and exception rendering are configured in `bootstrap/app.php`, not `app/Http/Kernel.php`.
 
-## Backend Architecture
+## Backend conventions
 
-- **Controllers** → **Services** (`app/Services/*`) → **Models** (UUID PKs, `UsesUuid` trait, `SoftDeleteFlag` flag-based soft deletes)
-- Audit logging in Service layer: `AuditLog::log(module, action, model, userId)`. Models declare `$auditExclude` and `getAuditModuleName()` to control what gets logged.
-- Validation via Form Request classes (`app/Http/Requests/`)
-- RBAC via `CheckRole` middleware — alias `role`, reads `users.role` column. Usage: `->middleware('role:ADMIN')` or `->middleware('role:CASE_MANAGER,ADMIN')`
-- Roles: `CASE_MANAGER`, `AGENCY`, `ADMIN`
-- Admin routes additionally gated by `ip.whitelist` middleware
-- Middleware configured in `bootstrap/app.php` (Laravel 11+), not `app/Http/Kernel.php`
-- Middleware aliases: `role` (CheckRole), `ip.whitelist` (IpWhitelist), `turnstile` (VerifyTurnstile)
-- Global middleware: `SetPostgresSession`, `LogContext`, `SecurityHeaders`. Web: `ContentSecurityPolicy`, `HandleInertiaRequests`.
-- Model traits in `app/Models/Concerns/`: `UsesUuid`, `SoftDeleteFlag`, `HasAvatar`
-- `route()` helper (Ziggy) available in JS — path alias `ziggy-js` in tsconfig.json
-- App is wrapped in `<ErrorBoundary>` + `<QueryClientProvider>` (TanStack React Query, 5min stale time) + `<OnboardingProvider>` (driver.js)
+- Keep controllers thin: Controller → Service (`app/Services/*`) → Model. Put validation in `app/Http/Requests/*`.
+- Models use UUID primary keys via `App\Models\Concerns\UsesUuid`; route model binding expects string UUIDs.
+- Soft deletion is flag-based (`SoftDeleteFlag`, `is_deleted`, `deleted_at`, `deleted_by`), not Laravel's `SoftDeletes` trait.
+- Audit logging belongs in the service layer with `AuditLog::log(...)`; models may define `$auditExclude` and `getAuditModuleName()`.
+- RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`). Admin areas also use `ip.whitelist`.
+- Global/web middleware includes PostgreSQL session context, log context, security headers, CSP, active-user/MFA checks, and Inertia shared props.
 
-## UI Conventions
+## Frontend conventions
 
-- **Icons:** Material Symbols (`<span className="material-symbols-outlined">icon_name</span>`) is the primary icon system. `lucide-react` is in deps but rarely used.
-- **Styling:** Tailwind utility classes only — no CSS modules or styled-components. Design token colors in `tailwind.config.js` (primary: #005288, full Material 3 palette).
-- **Components:** Default exports, PascalCase filenames, `.jsx` extension (not `.tsx`).
-- **Forms:** Inertia `useForm()` for all mutations. `Link` / `router` for navigation.
-- **Font:** Public Sans (Google Fonts), loaded in `resources/views/app.blade.php`.
-- **Flash/Toast:** Any `->with('success', '...')` from backend auto-shows as toast. DO NOT add `seenRef` tracking — each navigation gives a new `props.flash` object. Files: `ToastProvider.jsx`, `useToast.jsx`, `HandleInertiaRequests.php`.
-- **Unsaved Changes:** All form pages use `useUnsavedChanges(dirty)` + `<UnsavedChangesModal>`. **Critical:** `router.on('before', handler)` receives a `CustomEvent` — access `event.detail.visit`, NOT the event directly.
+- Components are default exports in PascalCase `.jsx` files unless an existing `.tsx` file already owns the area.
+- Use Inertia `useForm()` for mutations, `Link`/`router` for navigation, and Ziggy `route()` for URLs.
+- Tailwind utilities only; design tokens are in `tailwind.config.js`. Material Symbols are the primary icon style.
+- The app is wrapped in `ErrorBoundary`, TanStack `QueryClientProvider` (5 minute stale time), `ToastProvider`, and `OnboardingProvider`.
+- Flash messages from backend redirects auto-toast through shared `props.flash`; do not add `seenRef`/dedupe state that suppresses normal navigation flash.
+- Form pages should use `useUnsavedChanges(dirty)` plus `UnsavedChangesModal`. Inertia `router.on('before')` receives a `CustomEvent`; read `event.detail.visit`.
 
-## Test Suite
+## Tests and environment gotchas
 
-| Layer | Tool | Config | Notes |
-|-------|------|--------|-------|
-| PHP (Feature/Unit) | PHPUnit 12 | `phpunit.xml` | PostgreSQL (`bayanihan_test`), cache=array, queue=sync, session=array |
-| JS unit | Vitest 4 | `vitest.config.ts` | jsdom, setup: `resources/js/test-setup.ts` |
-| E2E | Playwright | `playwright.config.ts` | `testDir: resources/js/test/e2e`, auto-starts serve on port 8000 |
+- PHPUnit uses PostgreSQL database `bayanihan_test` from `phpunit.xml`; ensure it exists before PHP test runs.
+- `phpunit.xml` overrides queue/cache/session/storage to sync/array/local, including fake Supabase S3 credentials.
+- Reports/dashboard code uses PostgreSQL functions (`to_char`, `EXTRACT`, `age`); tests need PostgreSQL-compatible data, not SQLite assumptions.
+- `.npmrc` sets `ignore-scripts=true`; use npm and `package-lock.json`, not alternate package managers.
+- `composer run dev` intentionally omits `php artisan pail` because `pcntl` is unavailable on Windows.
+- Vite has a custom pre-resolve `util`/`node:util` stub (`resources/js/vendor-stubs/util-stub.js`) for Rolldown/Vite 8 builds; do not remove it as “unused”.
+- `.env.example` is generic, but local deployments commonly use database-backed cache, queue, and sessions; verify the active `.env` before changing async/cache behavior.
 
-**PHPUnit gotchas:** `phpunit.xml` overrides env for testing: `BROADCAST_CONNECTION=null`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`, `SUPABASE_S3_DRIVER=local` (fakes S3). Services using PostgreSQL functions (`to_char`, `EXTRACT`, `age` in `ReportsService`, `DashboardService`) require test data to exist in the test DB.
+## Docs worth checking
 
-## Core Gotchas
-
-| Gotcha | Detail |
-|--------|--------|
-| **Cache** | `CACHE_STORE=database` — OTPs and settings persist in the `cache` table, not Redis |
-| **Queue** | `QUEUE_CONNECTION=database` — jobs table driven; run `queue:listen` for async work |
-| **Sessions** | `SESSION_DRIVER=database` — sessions in `sessions` table |
-| **Storage** | `FILESYSTEM_DISK=supabase` — files go to Supabase Storage (S3-compatible). Also Cloudinary for media (`CLOUDINARY_URL` in env) |
-| **OTP** | 6-digit, 5-min TTL (`OtpService`). Debug mode in System Settings auto-fills OTP input |
-| **Dev on Windows** | `php artisan pail` needs `pcntl` (Unix-only). Removed from `composer run dev`. Use `start-mailpit.ps1` for local SMTP |
-| **DB** | PostgreSQL via Supabase pooler. `.env.example` shows Redis/Pusher/Supabase Storage defaults — actual `.env` uses database drivers |
-| **Route bindings** | All PKs are UUIDs; implicit route model binding works with string IDs |
-| **Blade** | Inertia SPA — root layout only (`resources/views/app.blade.php`). All rendering is JSX. Blade files under `resources/views/emails/`, `mail/`, `pdf/` for non-SPA output |
-| **Vite `util` polyfill** | `resources/js/vendor-stubs/util-stub.js` stubs Node.js `util` module. Required because `object-inspect` (inertia dependency chain) accesses `require('util').inspect` which Vite externalizes |
-| **Ziggy** | `route()` JS helper available. tsconfig.json maps `ziggy-js` → `./vendor/tightenco/ziggy` |
-| **Toast/Flash** | Universal auto-toast via `HandleInertiaRequests.php` → `usePage().props.flash` → `FlashMessageWatcher`. Any `->with('success', '...')` works. DO NOT add `seenRef` — each navigation gives a new `props.flash` object, so `useEffect` fires once naturally. Files: `ToastProvider.jsx`, `useToast.jsx`, `HandleInertiaRequests.php` |
-| **Unsaved Changes** | All form pages must use `useUnsavedChanges(dirty)` hook + `<UnsavedChangesModal>`. Hook in `resources/js/Hooks/useUnsavedChanges.jsx`, modal in `resources/js/Components/UnsavedChangesModal.jsx`. **CRITICAL: `router.on('before', handler)` receives a `CustomEvent` — access `event.detail.visit`, NOT the event directly. The callback must call `router.visit(visit.url, ...)` where `visit` comes from `event.detail.visit`.** |
-| **Middleware stack** | Auth routes use `turnstile` (Cloudflare Turnstile) + named throttle: `login`, `otp`, `totp-challenge`, `recovery-code`, `api-global`, `tracking`. Chatbot uses `throttle:30,1` |
-
-## Environment Quirks
-
-- **`.npmrc` has `ignore-scripts=true`** — `npm install` silently skips postinstall scripts. `composer run setup` passes `--ignore-scripts` explicitly.
-- **`package-lock.json` is canonical.** `bun.lock` exists but is stale — use npm, not bun.
-- **Bootstrap config:** Middleware, exceptions, and routing are configured in `bootstrap/app.php` (Laravel 11+ pattern), not `app/Http/Kernel.php`.
-- **Supabase S3 driver** uses `SUPABASE_S3_DRIVER` env var (default `s3`). In testing it's overridden to `local` to avoid network calls.
-
-## Architecture Reference
-
-Detailed docs in `ARCHITECTURE.md` (633 lines with Mermaid diagrams) and `docs/` directory (13 files covering data model, API contracts, testing strategy, deployment, security, UI patterns). `instructions.md` is a stale GitHub Copilot reference — ignore it; the actual architecture follows patterns already documented here and in `docs/`.
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **one-window-bayanihan**. Use GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/one-window-bayanihan/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/one-window-bayanihan/clusters` | All functional areas |
-| `gitnexus://repo/one-window-bayanihan/processes` | All execution flows |
-| `gitnexus://repo/one-window-bayanihan/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
-
-<!-- CODEGRAPH_START -->
-## CodeGraph
-
-In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
-
-- **MCP tool** (when available): `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
-- **Shell** (always works): `codegraph explore "<symbol names or question>"` prints the same output.
-
-If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
-<!-- CODEGRAPH_END -->
-
-<!-- OPENCODE_SKILLS_START -->
-## OpenCode Skills & Commands
-
-### Skill Rules (from global `~/.config/opencode/skills/`)
-
-Load these skills in the following situations:
-
-| Situation | Skill |
-|-----------|-------|
-| Any bug, test failure, or unexpected behavior | `systematic-debugging` — forces root-cause investigation before fixes |
-| About to claim work done | `verification-before-completion` — run verification first, claim after |
-| Requirements are vague or ambiguous | `ask-questions-if-underspecified` — clarify before implementing |
-| Multi-step feature with spec | `writing-plans` — produce bite-sized tasks with complete code |
-| New API/routes/migrations/cross-layer work | `implementation-strategy` — design decisions before edits |
-
-### Slash Commands (from `.opencode/commands/`)
-
-| Command | When to Use |
-|---------|-------------|
-| `/learn` | After any session with non-obvious discoveries | 
-| `/finish-work` | Before commit or PR handoff — runs test suite + cross-layer check |
-| `/careful-review` | Before claiming work done — fresh-eyes read of every changed file |
-| `/session-summary` | At end of work session — record actions, cost, improvements |
-
-### How to Use
-
-- **Skills:** Use the skill tool: `Load the systematic-debugging skill` or `Use the verification-before-completion skill`
-- **Commands:** Type `/learn`, `/finish-work`, `/careful-review`, or `/session-summary` in chat
-<!-- OPENCODE_SKILLS_END -->
+- `docs/PROJECT_RULES.md` for domain/business constraints and role rules.
+- `docs/ARCHITECTURE.md` / root `ARCHITECTURE.md` for system flow and deployment diagrams.
+- `docs/TESTING_STRATEGY.md` for focused test commands and coverage expectations.
+- `instructions.md` is stale Copilot-era guidance; prefer executable config and current `docs/` files.

@@ -525,27 +525,38 @@ class ReportsService
 
     public function getAgeGroupDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null): array
     {
-        $ages = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city))
-            ->whereNotNull('date_of_birth')
-            ->select(DB::raw("
-                CASE
-                    WHEN EXTRACT(YEAR FROM age(date_of_birth)) < 18 THEN '0-17'
-                    WHEN EXTRACT(YEAR FROM age(date_of_birth)) BETWEEN 18 AND 25 THEN '18-25'
-                    WHEN EXTRACT(YEAR FROM age(date_of_birth)) BETWEEN 26 AND 40 THEN '26-40'
-                    WHEN EXTRACT(YEAR FROM age(date_of_birth)) BETWEEN 41 AND 60 THEN '41-60'
-                    ELSE '60+'
-                END as age_group
-            "))
-            ->selectRaw('count(*) as total')
-            ->groupBy('age_group')
-            ->pluck('total', 'age_group');
-
         $groups = ['0-17', '18-25', '26-40', '41-60', '60+'];
         $colors = ['#818cf8', '#6366f1', '#4f46e5', '#4338ca', '#3730a3'];
 
+        // Use Eloquent to decrypt date_of_birth (encrypted via EncryptedDate cast),
+        // then calculate age groups in PHP — avoids PostgreSQL age() on text column.
+        $clients = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city))
+            ->whereNotNull('date_of_birth')
+            ->get(['id', 'date_of_birth']);
+
+        $counts = array_fill_keys($groups, 0);
+        foreach ($clients as $client) {
+            $dob = $client->date_of_birth;
+            if ($dob === null) {
+                continue;
+            }
+            $age = $dob->age;
+            if ($age < 18) {
+                $counts['0-17']++;
+            } elseif ($age <= 25) {
+                $counts['18-25']++;
+            } elseif ($age <= 40) {
+                $counts['26-40']++;
+            } elseif ($age <= 60) {
+                $counts['41-60']++;
+            } else {
+                $counts['60+']++;
+            }
+        }
+
         return [
             'labels' => $groups,
-            'data' => array_map(fn ($g) => (int) ($ages[$g] ?? 0), $groups),
+            'data' => array_map(fn ($g) => $counts[$g], $groups),
             'colors' => $colors,
         ];
     }

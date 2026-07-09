@@ -6,6 +6,7 @@ use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\Client;
+use App\Models\ClientEmployment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -258,12 +259,11 @@ class CaseDraftTest extends TestCase
             'city_municipality' => 'Manila',
         ]);
 
-        $this->assertDatabaseHas('client_employments', [
-            'client_id' => $client->id,
-            'employer_name' => 'ACME Corp',
-            'position' => 'Engineer',
-            'country' => 'UAE',
-        ]);
+        $employment = ClientEmployment::where('client_id', $client->id)->first();
+        $this->assertNotNull($employment);
+        $this->assertEquals('ACME Corp', $employment->employer_name);
+        $this->assertEquals('Engineer', $employment->position);
+        $this->assertEquals('UAE', $employment->country);
 
         $this->assertDatabaseHas('next_of_kin', [
             'client_id' => $client->id,

@@ -264,7 +264,6 @@ class ProductionSeeder extends Seeder
                     'status' => $caseData['referral_status'],
                     'case_id' => $caseId,
                     'agcy_id' => $agency->id,
-                    'type' => 'standard',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];

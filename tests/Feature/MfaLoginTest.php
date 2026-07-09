@@ -58,6 +58,16 @@ class MfaLoginTest extends TestCase
         return $this->withUnencryptedCookie($name, $value);
     }
 
+    /**
+     * Hash recovery codes so they match what MfaService expects on verification.
+     */
+    private function hashedCodes(array $plainCodes): array
+    {
+        $key = config('app.key');
+
+        return array_map(fn ($c) => hash_hmac('sha256', $c, $key), $plainCodes);
+    }
+
     public function test_user_without_mfa_skips_challenge_and_logs_in(): void
     {
         $user = User::factory()->create();
@@ -84,7 +94,7 @@ class MfaLoginTest extends TestCase
 
         $user = User::factory()->create([
             'mfa_secret' => $secret,
-            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_recovery_codes' => $this->hashedCodes(['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX']),
             'mfa_enabled_at' => now(),
         ]);
 
@@ -131,7 +141,7 @@ class MfaLoginTest extends TestCase
 
         $user = User::factory()->create([
             'mfa_secret' => $secret,
-            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_recovery_codes' => $this->hashedCodes(['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX']),
             'mfa_enabled_at' => now(),
         ]);
 
@@ -165,7 +175,7 @@ class MfaLoginTest extends TestCase
 
         $user = User::factory()->create([
             'mfa_secret' => $secret,
-            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_recovery_codes' => $this->hashedCodes(['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX']),
             'mfa_enabled_at' => now(),
         ]);
 
@@ -199,7 +209,7 @@ class MfaLoginTest extends TestCase
 
         $user = User::factory()->create([
             'mfa_secret' => $secret,
-            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_recovery_codes' => $this->hashedCodes(['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX']),
             'mfa_enabled_at' => now(),
         ]);
 
@@ -231,7 +241,7 @@ class MfaLoginTest extends TestCase
 
         $user = User::factory()->create([
             'mfa_secret' => $secret,
-            'mfa_recovery_codes' => ['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX'],
+            'mfa_recovery_codes' => $this->hashedCodes(['ABCD-EFGH-IJKL', 'MNOP-QRST-UVWX']),
             'mfa_enabled_at' => now(),
         ]);
 
@@ -256,8 +266,8 @@ class MfaLoginTest extends TestCase
         $user->refresh();
 
         $this->assertCount(1, $user->mfa_recovery_codes);
-        $this->assertNotContains('ABCD-EFGH-IJKL', $user->mfa_recovery_codes);
-        $this->assertContains('MNOP-QRST-UVWX', $user->mfa_recovery_codes);
+        $this->assertNotContains($this->hashedCodes(['ABCD-EFGH-IJKL'])[0], $user->mfa_recovery_codes);
+        $this->assertContains($this->hashedCodes(['MNOP-QRST-UVWX'])[0], $user->mfa_recovery_codes);
     }
 
     public function test_used_recovery_code_cannot_be_reused(): void
@@ -268,7 +278,7 @@ class MfaLoginTest extends TestCase
 
         $user = User::factory()->create([
             'mfa_secret' => $secret,
-            'mfa_recovery_codes' => ['ONLY-CODE-XXXX'],
+            'mfa_recovery_codes' => $this->hashedCodes(['ONLY-CODE-XXXX']),
             'mfa_enabled_at' => now(),
         ]);
 

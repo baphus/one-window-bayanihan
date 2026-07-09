@@ -264,3 +264,60 @@ CREATE POLICY agency_lane_isolation ON referrals
 2. **Database corruption:** Restore from Supabase backup (PITR)
 3. **Full disaster:** Deploy from Git, restore DB, restore storage assets
 4. **Queue data:** `jobs` and `failed_jobs` tables backed up with DB
+
+---
+
+## 10. Backup & Restore
+
+### Automated Backups
+
+The project includes two scripts for database backup management:
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/backup.sh` | Creates encrypted PostgreSQL dump with optional offsite upload |
+| `scripts/restore-test.sh` | Verifies backup integrity by restoring to a temporary database |
+
+### Backup Schedule
+
+Recommended: Automated daily backup via cron:
+
+```bash
+# Daily at 1 AM — dump, encrypt, upload to offsite storage
+0 1 * * * cd /opt/bayanihan && ./scripts/backup.sh >> /var/log/bayanihan-backup.log 2>&1
+```
+
+### Retention Policy
+
+| Tier | Retention | Storage |
+|------|-----------|---------|
+| Local | 7 days | Server disk (`storage/backups/`) |
+| Offsite | 90 days | S3-compatible object storage |
+| Monthly | 12 months | Archived to cold storage |
+
+### Restore Procedure
+
+1. Locate the backup file (local or offsite)
+2. Run the restore test:
+   ```bash
+   ./scripts/restore-test.sh storage/backups/bayanihan-db-20250101-120000.sql.gz.enc
+   ```
+3. For production restore:
+   ```bash
+   # Stop the app
+   # Drop and recreate the database
+   # Decrypt and decompress
+   gpg --decrypt backup.sql.gz.enc | gunzip | psql -d production_db
+   ```
+4. Verify data integrity with the restore test script
+
+### Recovery Point Objective (RPO)
+
+- **Target:** 24 hours (daily backup)
+- **Current:** Manual (automation via cron planned)
+- **Measurement:** Time since last successful backup
+
+### Recovery Time Objective (RTO)
+
+- **Target:** 4 hours
+- **Current:** Dependent on database size and network speed for offsite retrieval
