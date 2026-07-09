@@ -658,7 +658,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                       clientId={client.id}
                     />
                   ) : client.avatar_url ? (
-                    <span className="inline-flex shrink-0">
+                    <span className="inline-flex shrink-0 overflow-hidden rounded-full">
                       <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-slate-200" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }} />
                       <span className="avatar-fallback hidden h-12 w-12 rounded-full text-white text-[15px] font-bold flex items-center justify-center relative overflow-hidden">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-white/30">

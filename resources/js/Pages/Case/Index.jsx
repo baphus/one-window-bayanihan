@@ -279,7 +279,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                   : '??';
                 return (
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex shrink-0">
+                    <span className="inline-flex shrink-0 overflow-hidden rounded-full">
                       {user.avatar_url ? (
                         <img
                           src={user.avatar_url}

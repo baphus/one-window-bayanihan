@@ -27,6 +27,7 @@ namespace Database\Seeders;
  */
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -400,26 +401,29 @@ class TestingSeeder extends Seeder
         unset($employments);
 
         // =====================================================================
-        // 4. NEXT OF KIN  (500 rows — first 500 clients, one each)
+        // 4. NEXT OF KIN  (1000+ rows — one per client, some get a second)
         // =====================================================================
 
         $kinRecords = [];
+        $kinIds = []; // track which kin records belong to which client
 
         DB::beginTransaction();
 
-        for ($i = 0; $i < 500; $i++) {
-            $sex = $i < 250 ? 'MALE' : 'FEMALE';
+        for ($i = 0; $i < 1000; $i++) {
+            $sex = $i < 500 ? 'MALE' : 'FEMALE';
             $namePool = $sex === 'MALE' ? $maleNames : $femaleNames;
             $kinFirstName = $namePool[array_rand($namePool)];
 
+            $kinId = (string) Str::uuid();
+            $kinIds[$clientIds[$i]][] = $kinId;
             $kinRecords[] = [
-                'id' => (string) Str::uuid(),
+                'id' => $kinId,
                 'client_id' => $clientIds[$i],
                 'first_name' => $kinFirstName,
                 'last_name' => $surnames[array_rand($surnames)],
                 'middle_initial' => rand(0, 1) ? $middleInitials[array_rand($middleInitials)] : null,
                 'relationship' => $relationships[array_rand($relationships)],
-                'is_primary' => rand(0, 100) < 70,
+                'is_primary' => true,
                 'phone_number' => '09'.str_pad(rand(0, 999999999), 9, '0', STR_PAD_LEFT),
                 'email' => strtolower($kinFirstName).'.'.strtolower(str_replace(' ', '', $surnames[array_rand($surnames)])).rand(1, 999).'@email.com',
                 'full_address' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St, '
@@ -433,6 +437,35 @@ class TestingSeeder extends Seeder
                 'created_at' => now()->subDays(rand(0, 180)),
                 'updated_at' => $now,
             ];
+
+            // ~20% of clients get a secondary NOK
+            if (rand(0, 100) < 20) {
+                $kinId2 = (string) Str::uuid();
+                $kinIds[$clientIds[$i]][] = $kinId2;
+                $kinSex = rand(0, 1) ? 'MALE' : 'FEMALE';
+                $kinNamePool2 = $kinSex === 'MALE' ? $maleNames : $femaleNames;
+                $kinRecords[] = [
+                    'id' => $kinId2,
+                    'client_id' => $clientIds[$i],
+                    'first_name' => $kinNamePool2[array_rand($kinNamePool2)],
+                    'last_name' => $surnames[array_rand($surnames)],
+                    'middle_initial' => rand(0, 1) ? $middleInitials[array_rand($middleInitials)] : null,
+                    'relationship' => $relationships[array_rand($relationships)],
+                    'is_primary' => false,
+                    'phone_number' => '09'.str_pad(rand(0, 999999999), 9, '0', STR_PAD_LEFT),
+                    'email' => strtolower($kinFirstName).'.'.strtolower(str_replace(' ', '', $surnames[array_rand($surnames)])).rand(1, 999).'@email.com',
+                    'full_address' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St, '
+                        .$cities[array_rand($cities)].', Cebu',
+                    'region' => 'Central Visayas',
+                    'province' => 'Cebu',
+                    'city_municipality' => $cities[array_rand($cities)],
+                    'barangay' => $barangays[array_rand($barangays)],
+                    'street' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St',
+                    'sort_order' => 1,
+                    'created_at' => now()->subDays(rand(0, 180)),
+                    'updated_at' => $now,
+                ];
+            }
         }
 
         foreach (array_chunk($kinRecords, 100) as $chunk) {
@@ -444,24 +477,24 @@ class TestingSeeder extends Seeder
         unset($kinRecords);
 
         // =====================================================================
-        // 5. CASES  (560 rows)
+        // 5. CASES  (850 rows)
         // =====================================================================
 
-        // We assign the first 560 clients to cases. The remaining 440 clients
+        // We assign the first 850 clients to cases. The remaining 150 clients
         // exist in the database but have no case — that's realistic.
-        $casesToCreate = 560;
+        $casesToCreate = 850;
         $caseCounter = 1;
         $usedTrackers = [];
         $datePrefix = now()->format('Ymd');
 
-        // Status distribution: 40% OPEN, 30% CLOSED, 20% DRAFT, 10% ARCHIVED
+        // Status distribution: 40% OPEN, 30% CLOSED, 15% DRAFT, 15% ARCHIVED
         $caseStatusDistribution = [];
         for ($i = 0; $i < $casesToCreate; $i++) {
-            if ($i < 224) {
+            if ($i < 340) {
                 $caseStatusDistribution[] = 'OPEN';
-            } elseif ($i < 392) {
+            } elseif ($i < 595) {
                 $caseStatusDistribution[] = 'CLOSED';
-            } elseif ($i < 504) {
+            } elseif ($i < 723) {
                 $caseStatusDistribution[] = 'DRAFT';
             } else {
                 $caseStatusDistribution[] = 'ARCHIVED';
@@ -511,7 +544,7 @@ class TestingSeeder extends Seeder
             $cases[] = [
                 'id' => $caseId,
                 'case_number' => $caseNumber,
-                'client_type' => rand(0, 100) < 80 ? 'OFW' : 'NON-OFW',
+                'client_type' => rand(0, 100) < 60 ? 'OFW' : (rand(0, 100) < 50 ? 'NEXT_OF_KIN' : 'NON-OFW'),
                 'vulnerability_indicator' => $vulnerabilities[array_rand($vulnerabilities)],
                 'nok_vulnerability_indicator' => null,
                 'tracker_number' => $tracker,
@@ -839,39 +872,133 @@ class TestingSeeder extends Seeder
         unset($servqualRows);
 
         // =====================================================================
-        // 10. AUDIT LOGS  (50 rows)
-        //     Only CREATE actions for cases and referrals
-        //     Table uses `module`, `action`, `entity_id`, `timestamp` columns
+        // 10. AUDIT LOGS  (event-driven timeline, sequenced per case)
+        //     Order per case: Case CREATED → Referral CREATED → Milestones →
+        //     Referral COMPLETED/REJECTED → Case CLOSED/ARCHIVED
         // =====================================================================
 
-        // Collect some case and referral IDs for entity_id references
-        $allCaseIds = DB::table('cases')->pluck('id')->toArray();
-        $allReferralIds = DB::table('referrals')->pluck('id')->toArray();
+        $allCases = DB::table('cases')->get();
+        $allReferrals = DB::table('referrals')->get();
+        $allMilestones = DB::table('milestones')->get();
+
+        $referralsByCase = [];
+        foreach ($allReferrals as $ref) {
+            $referralsByCase[$ref->case_id][] = $ref;
+        }
+
+        $milestonesByRef = [];
+        foreach ($allMilestones as $ms) {
+            $milestonesByRef[$ms->refr_id][] = $ms;
+        }
 
         $auditLogs = [];
 
         DB::beginTransaction();
 
-        for ($i = 0; $i < 50; $i++) {
-            $isCase = rand(0, 1) === 0;
-            $entityId = $isCase
-                ? $allCaseIds[array_rand($allCaseIds)]
-                : $allReferralIds[array_rand($allReferralIds)];
+        foreach ($allCases as $case) {
+            $baseTs = Carbon::parse($case->created_at);
 
+            // 1. Case CREATED (ALWAYS first — the opening event)
             $auditLogs[] = [
                 'id' => (string) Str::uuid(),
                 'action' => 'CREATE',
-                'module' => $isCase ? 'case' : 'referral',
-                'entity_id' => $entityId,
-                'description' => $isCase ? 'Case created' : 'Referral created',
+                'module' => 'case',
+                'entity_id' => $case->id,
+                'description' => null,
                 'old_value' => null,
-                'new_value' => json_encode(['status' => $isCase ? 'OPEN' : 'PENDING']),
-                'user_id' => $userIds[array_rand($userIds)],
-                'timestamp' => now()->subDays(rand(0, 180)),
+                'new_value' => json_encode([
+                    'case_number' => $case->case_number,
+                    'client_type' => $case->client_type,
+                    'status' => $case->status === 'DRAFT' ? 'DRAFT' : 'OPEN',
+                ]),
+                'user_id' => $case->user_id,
+                'timestamp' => $baseTs,
             ];
+
+            $ts = $baseTs->copy();
+
+            // Referrals for this case
+            $caseRefs = $referralsByCase[$case->id] ?? [];
+            foreach ($caseRefs as $ref) {
+                // 2. Referral CREATED (comes after case creation)
+                $ts = $ts->addMinutes(rand(30, 1440));
+                $auditLogs[] = [
+                    'id' => (string) Str::uuid(),
+                    'action' => 'CREATE',
+                    'module' => 'referral',
+                    'entity_id' => $ref->id,
+                    'description' => null,
+                    'old_value' => null,
+                    'new_value' => json_encode([
+                        'required_services' => $ref->required_services,
+                        'status' => $ref->status,
+                    ]),
+                    'user_id' => $case->user_id,
+                    'timestamp' => $ts,
+                ];
+
+                // 3. Milestones (progress events after referral)
+                $refMss = $milestonesByRef[$ref->id] ?? [];
+                foreach ($refMss as $ms) {
+                    $ts = $ts->addMinutes(rand(60, 2880));
+                    $auditLogs[] = [
+                        'id' => (string) Str::uuid(),
+                        'action' => 'CREATE',
+                        'module' => 'milestone',
+                        'entity_id' => $ms->id,
+                        'description' => null,
+                        'old_value' => null,
+                        'new_value' => json_encode([
+                            'title' => $ms->title,
+                            'description' => $ms->description,
+                        ]),
+                        'user_id' => $ms->user_id,
+                        'timestamp' => $ts,
+                    ];
+                }
+
+                // 4. Referral status change (COMPLETED or REJECTED — terminal for that referral)
+                if ($ref->status === 'COMPLETED' || $ref->status === 'REJECTED') {
+                    $ts = $ts->addMinutes(rand(30, 1440));
+                    $auditLogs[] = [
+                        'id' => (string) Str::uuid(),
+                        'action' => 'UPDATE',
+                        'module' => 'referral',
+                        'entity_id' => $ref->id,
+                        'description' => null,
+                        'old_value' => json_encode(['status' => 'PROCESSING']),
+                        'new_value' => json_encode([
+                            'status' => $ref->status,
+                            'decision' => $ref->decision,
+                        ]),
+                        'user_id' => $case->user_id,
+                        'timestamp' => $ts,
+                    ];
+                }
+            }
+
+            // 5. Case status change (CLOSED or ARCHIVED — terminal event for the case)
+            if ($case->status === 'CLOSED' || $case->status === 'ARCHIVED') {
+                $ts = $ts->addMinutes(rand(30, 1440));
+                $beforeStatus = $case->status === 'DRAFT' ? 'DRAFT' : 'OPEN';
+                $auditLogs[] = [
+                    'id' => (string) Str::uuid(),
+                    'action' => 'UPDATE',
+                    'module' => 'case',
+                    'entity_id' => $case->id,
+                    'description' => null,
+                    'old_value' => json_encode(['status' => $beforeStatus]),
+                    'new_value' => json_encode([
+                        'status' => $case->status,
+                        'closed_at' => $case->closed_at,
+                    ]),
+                    'user_id' => $case->user_id,
+                    'timestamp' => $ts,
+                ];
+            }
         }
 
-        foreach (array_chunk($auditLogs, 50) as $chunk) {
+        foreach (array_chunk($auditLogs, 200) as $chunk) {
             DB::table('audit_logs')->insert($chunk);
         }
 

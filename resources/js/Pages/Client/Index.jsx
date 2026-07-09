@@ -261,7 +261,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
               ...base,
               render: (row) => (
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex shrink-0">
+                  <span className="inline-flex shrink-0 overflow-hidden rounded-full">
                     {row.avatar_url ? (
                       <img
                         src={row.avatar_url}
