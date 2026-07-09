@@ -25,6 +25,10 @@ function AgencyLogo({ agency }) {
   );
 }
 
+function getAgencyRouteParam(agency) {
+  return agency?.slug || agency?.id;
+}
+
 export default function PartnersSection({ agencies }) {
   return (
     <section id="partners" className="overflow-hidden bg-white px-8 py-20">
@@ -55,7 +59,7 @@ export default function PartnersSection({ agencies }) {
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-secondary">View Agency Location</p>
-                <Link href={route('partners.show', agency.slug)} className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary border border-primary/30 px-3 py-1 hover:bg-primary/5 transition-colors">
+                <Link href={route('partners.show', getAgencyRouteParam(agency))} className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary border border-primary/30 px-3 py-1 hover:bg-primary/5 transition-colors">
                   View Agency
                 </Link>
               </div>

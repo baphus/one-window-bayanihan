@@ -26,6 +26,10 @@ function AgencyLogo({ agency }) {
   );
 }
 
+function getAgencyRouteParam(agency) {
+  return agency?.slug || agency?.id;
+}
+
 export default function PublicAgencies({ agencies }) {
   return (
     <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface">
@@ -76,7 +80,7 @@ export default function PublicAgencies({ agencies }) {
 
                   <div className="mt-4">
                     <Link
-                      href={route('partners.show', agency.slug)}
+                      href={route('partners.show', getAgencyRouteParam(agency))}
                       className="inline-flex items-center justify-center gap-1.5 w-full border border-primary/30 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/5"
                     >
                       <span className="material-symbols-outlined text-[16px]">open_in_new</span>

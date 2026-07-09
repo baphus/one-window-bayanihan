@@ -279,8 +279,10 @@ Route::get('/partners', function () {
     return Inertia::render('PublicAgencies/Index', ['agencies' => $agencies]);
 })->name('partners');
 
-Route::get('/partners/{agency:slug}', function (Agency $agency) {
-    abort_unless($agency->is_active, 404);
+Route::get('/partners/{agency}', function (string $agency) {
+    $agency = Agency::where('is_active', true)
+        ->where(fn ($q) => $q->where('slug', $agency)->orWhere('id', $agency))
+        ->firstOrFail();
 
     $agency->load(['services' => fn ($q) => $q->with('requirements')->orderBy('name')]);
 
