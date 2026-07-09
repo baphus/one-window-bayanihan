@@ -82,7 +82,7 @@ function AppWithOnboarding({ App, appProps }) {
                 <ToastProvider>
                     <App {...appProps} />
                 </ToastProvider>
-                {import.meta.env.DEV && <DevTools />}
+                {/* DevTools hidden — remove comment to restore <DevTools /> */}
             </QueryClientProvider>
         </OnboardingProvider>
     );

@@ -6,7 +6,7 @@ One Window Bayanihan helps DMW case managers coordinate assistance for OFWs and 
 
 Services are maintained by administrators and linked to agencies. During case handling, the case manager identifies the issue, documents the need, and creates referrals to the appropriate agency or service provider.
 
-![Admin services](/helpdesk/admin-services.png)
+![Admin services](/assets/helpdesk/admin-services.png)
 
 ## Common assistance areas
 

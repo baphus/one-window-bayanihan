@@ -2,7 +2,7 @@ const content = `# Understanding and Using the Audit Log
 
 The audit log is the system record of important activity in One Window Bayanihan. It helps administrators review user actions, investigate support questions, and confirm that case and referral work was handled through the proper account.
 
-![Admin audit log](/helpdesk/admin-audit-log.png)
+![Admin audit log](/assets/helpdesk/admin-audit-log.png)
 
 ## Who can see audit logs
 

@@ -319,7 +319,7 @@ Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
     ->middleware('throttle:tracking');
 Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
 
-Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
+Route::prefix('help')->name('helpdesk.')->group(function () {
     Route::get('/', function (Request $request) {
         return inertia('Helpdesk/Index', [
             'category' => $request->query('category'),

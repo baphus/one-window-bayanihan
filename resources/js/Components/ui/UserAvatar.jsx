@@ -78,7 +78,7 @@ function UserAvatar({ user, size = 'sm', fallbackType = 'initials', onClick }) {
             <button
                 type="button"
                 onClick={onClick}
-                className={`${sizeClass} rounded-full flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+                className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
                 aria-label={`View ${user?.name || 'user'}'s profile`}
             >
                 {avatarContent}

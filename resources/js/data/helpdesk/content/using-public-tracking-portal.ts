@@ -2,7 +2,7 @@ const content = `# Using the Public Tracking Portal
 
 The public tracking portal lets a client check progress without signing in. It is a limited, client-facing view protected by tracker number and OTP.
 
-![Tracking portal form](/helpdesk/tracking-portal.png)
+![Tracking portal form](/assets/helpdesk/tracking-portal.png)
 
 ## What you need
 
@@ -20,7 +20,7 @@ The tracker number is different from the staff case number. Case numbers use **C
 4. Check the registered phone or email.
 5. Enter the OTP to view the result.
 
-![Tracking result page](/helpdesk/track-result.png)
+![Tracking result page](/assets/helpdesk/track-result.png)
 
 ## What clients can see
 

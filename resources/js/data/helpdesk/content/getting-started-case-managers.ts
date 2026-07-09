@@ -4,14 +4,14 @@ This tutorial is for users with the **CASE_MANAGER** role. Case Managers handle 
 
 ## 1. Sign in with OTP verification
 
-![Login page](/helpdesk/login-page.png)
+![Login page](/assets/helpdesk/login-page.png)
 
 1. Open the One Window Bayanihan login page.
 2. Enter your registered **email address** and **password**.
 3. Submit the login form and check the OTP/MFA screen.
 4. Enter the one-time password sent for your account.
 
-![OTP verification](/helpdesk/login-otp.png)
+![OTP verification](/assets/helpdesk/login-otp.png)
 
 > **Important:** OTP codes expire after **5 minutes**. If the code is rejected because it expired, request a new code and use the most recent one.
 
@@ -19,7 +19,7 @@ After verification, the system opens your Case Manager dashboard.
 
 ## 2. Understand the Case Manager dashboard
 
-![Case Manager dashboard](/helpdesk/dashboard-cm.png)
+![Case Manager dashboard](/assets/helpdesk/dashboard-cm.png)
 
 Use the dashboard as your starting point at the beginning and end of each shift. It helps you spot new workload, overdue items, and changes made by agencies.
 
@@ -49,13 +49,13 @@ Use search and filters before creating a new record. Duplicate case records make
 
 ## 4. Create a case as a draft
 
-![Cases list](/helpdesk/cases-index.png)
+![Cases list](/assets/helpdesk/cases-index.png)
 
 1. Go to **Cases**.
 2. Choose the page action for creating a new case.
 3. Complete the intake form using verified information from the client, OFW, family member, or official document.
 
-![Create case form](/helpdesk/cases-create-top.png)
+![Create case form](/assets/helpdesk/cases-create-top.png)
 
 Enter the core case information carefully. Depending on the form configuration, you may be asked for personal details, address, employment or deployment information, category/issue details, narrative summary, and supporting documents.
 
@@ -97,7 +97,7 @@ Good case notes should be:
 
 ## 7. Create and monitor referrals
 
-![Referrals list](/helpdesk/referrals-index.png)
+![Referrals list](/assets/helpdesk/referrals-index.png)
 
 Referrals are how Case Managers coordinate with partner agencies. Create a referral only after the case is sufficiently prepared and the receiving agency/service is appropriate.
 
@@ -108,7 +108,7 @@ Referrals are how Case Managers coordinate with partner agencies. Create a refer
 5. Attach or reference supporting documents needed by the agency.
 6. Submit the referral.
 
-![Referral details](/helpdesk/referrals-show.png)
+![Referral details](/assets/helpdesk/referrals-show.png)
 
 Referral statuses used by the system are:
 

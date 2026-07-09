@@ -2,11 +2,11 @@ const content = `# Admin Guide: Case Categories, Issues, and Statuses
 
 Administrators maintain the reference data used to classify cases and report outcomes. These sections are found in the admin area as CaseCategory, CaseIssue, and CaseStatus.
 
-![Admin case categories](/helpdesk/admin-case-categories.png)
+![Admin case categories](/assets/helpdesk/admin-case-categories.png)
 
-![Admin case issues](/helpdesk/admin-case-issues.png)
+![Admin case issues](/assets/helpdesk/admin-case-issues.png)
 
-![Admin case statuses](/helpdesk/admin-case-statuses.png)
+![Admin case statuses](/assets/helpdesk/admin-case-statuses.png)
 
 ## Categories and issues
 

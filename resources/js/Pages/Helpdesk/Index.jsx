@@ -267,7 +267,7 @@ export default function Index() {
 
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <Link
-                        href={`/helpdesk?category=${parent.slug}`}
+                        href={`/help?category=${parent.slug}`}
                         className="rounded-none border border-slate-200 px-3 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
                       >
                         Open category
@@ -315,7 +315,7 @@ export default function Index() {
                               </div>
 
                               <Link
-                                href={`/helpdesk?category=${child.slug}`}
+                                href={`/help?category=${child.slug}`}
                                 className="rounded-none border border-slate-200 bg-white px-2.5 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
                               >
                                 Open

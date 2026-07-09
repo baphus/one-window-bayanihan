@@ -2,13 +2,13 @@ const content = `# Monitoring Queue Jobs and System Health
 
 Administrators use the maintenance and log pages to monitor background work and system health. This includes queue-related issues, email delivery checks, application logs, and operational maintenance tasks.
 
-![Admin maintenance](/helpdesk/admin-maintenance.png)
+![Admin maintenance](/assets/helpdesk/admin-maintenance.png)
 
 ## Where to look
 
 Relevant admin areas include Maintenance, EmailLogs, LogViewer, ActiveSessions, and OverdueReferrals. The dashboard may also show operational summaries for cases, referrals, and workload.
 
-![Admin dashboard](/helpdesk/dashboard-admin.png)
+![Admin dashboard](/assets/helpdesk/dashboard-admin.png)
 
 ## Common health checks
 

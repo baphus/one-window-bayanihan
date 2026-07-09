@@ -2,7 +2,7 @@ const content = `# Managing Compliance Requirements
 
 Compliance requirements track documents or proof needed before a referral can proceed. They use statuses such as **PENDING** and **COMPLIED** and are fulfilled through attachments.
 
-![Referral compliance requirements](/helpdesk/referrals-compliance.png)
+![Referral compliance requirements](/assets/helpdesk/referrals-compliance.png)
 
 ## When to create requirements
 
@@ -23,7 +23,7 @@ Be specific. Instead of “documents needed,” write “Clear copy of employmen
 5. Mark **COMPLIED** only after acceptance.
 6. Add a milestone or comment if the next action changes.
 
-![Referral details](/helpdesk/referrals-show.png)
+![Referral details](/assets/helpdesk/referrals-show.png)
 
 ## Common mistakes
 

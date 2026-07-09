@@ -2,7 +2,7 @@ const content = `# Exporting Case Data to Excel
 
 Case Excel exports are useful for authorized reporting, reconciliation, and operational review. They can contain personal and sensitive data, so export only when there is an official purpose.
 
-![Admin data export](/helpdesk/admin-data-export.png)
+![Admin data export](/assets/helpdesk/admin-data-export.png)
 
 ## Included columns
 

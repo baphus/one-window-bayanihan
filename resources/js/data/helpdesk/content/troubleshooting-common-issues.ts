@@ -11,13 +11,13 @@ Use this guide before escalating a support issue. Capture the user, time, page, 
 
 ## Cannot find a case
 
-![Cases index](/helpdesk/cases-index.png)
+![Cases index](/assets/helpdesk/cases-index.png)
 
 Search by case number, tracker number, OFW name, or other available filters. Remember that access is role-based. Agency users normally work from referrals assigned to their agency, not from unrestricted case search.
 
 ## Referral not moving forward
 
-![Referrals index](/helpdesk/referrals-index.png)
+![Referrals index](/assets/helpdesk/referrals-index.png)
 
 Check the referral status first. PENDING means it is waiting for agency action; PROCESSING means work has started; FOR_COMPLIANCE means more information or action is required; COMPLETED and REJECTED require review for case next steps.
 

@@ -11,7 +11,7 @@ export function MetaTile({ label, value, subtext }) {
   return (
     <div className="rounded-[3px] border border-slate-200 bg-slate-50 px-3 py-2">
       <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{label}</p>
-      <p className="mt-1 text-[13px] font-semibold text-slate-800">{value}</p>
+      <p className="mt-1 text-[13px] font-semibold text-slate-800 whitespace-pre-wrap">{value}</p>
       {subtext && <p className="text-[11px] text-slate-500 mt-0.5">{subtext}</p>}
     </div>
   );

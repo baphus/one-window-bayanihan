@@ -10,7 +10,7 @@ const roleLabels = {
 
 const navLinks = [
   { name: 'Home', href: '/', exact: true },
-  { name: 'Help Center', href: '/helpdesk', exact: false },
+  { name: 'Help Center', href: '/help', exact: false },
   { name: 'Track Your Case', href: '/track', exact: false },
   { name: 'Partners', href: '/partners', exact: false },
   { name: 'Contact', href: '/contact', exact: false },

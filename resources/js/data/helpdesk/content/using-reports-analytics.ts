@@ -2,7 +2,7 @@ const content = `# Using Reports and Analytics
 
 Reports help administrators and managers understand workload, outcomes, and referral performance. Use reports for operational review, not as a replacement for case-level verification.
 
-![Reports](/helpdesk/reports.png)
+![Reports](/assets/helpdesk/reports.png)
 
 ## Report sections
 

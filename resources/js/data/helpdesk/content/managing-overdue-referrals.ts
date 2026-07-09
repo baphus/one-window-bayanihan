@@ -2,13 +2,13 @@ const content = `# Managing Overdue Referrals
 
 Overdue referrals are active referrals older than the configured cutoff. The default setting is commonly **referral_overdue_days = 7**. Terminal **COMPLETED** and **REJECTED** referrals are excluded.
 
-![Referrals index](/helpdesk/referrals-index.png)
+![Referrals index](/assets/helpdesk/referrals-index.png)
 
 ## What to review
 
 Active referrals include work that is not finished, such as **PENDING** and **FOR_COMPLIANCE**. Open the oldest or highest-risk referral first, then check details, milestones, comments, and compliance requirements.
 
-![Referral details](/helpdesk/referrals-show.png)
+![Referral details](/assets/helpdesk/referrals-show.png)
 
 ## Common causes
 
@@ -26,7 +26,7 @@ Active referrals include work that is not finished, such as **PENDING** and **FO
 - Update status when the work is **COMPLETED** or **REJECTED**.
 - Escalate through office channels if there is no response.
 
-![Referral comments](/helpdesk/referrals-comments.png)
+![Referral comments](/assets/helpdesk/referrals-comments.png)
 
 ## Prevention checklist
 

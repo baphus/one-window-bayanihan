@@ -2,7 +2,7 @@ const content = `# Providing Feedback on Your Case
 
 Feedback helps DMW Region VII improve service quality. The feedback form appears after completion or closure, when the client can rate the full assistance experience.
 
-![Completed tracking result](/helpdesk/track-result.png)
+![Completed tracking result](/assets/helpdesk/track-result.png)
 
 ## When feedback is available
 

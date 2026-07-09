@@ -2,7 +2,7 @@ const content = `# Using Referral Comments
 
 Referral comments keep coordination attached to the referral record. They support content, visibility, and replies. Visibility is **INTERNAL** by default.
 
-![Referral comments](/helpdesk/referrals-comments.png)
+![Referral comments](/assets/helpdesk/referrals-comments.png)
 
 ## When to comment
 
@@ -24,7 +24,7 @@ Use replies for direct answers so the thread stays together. If the reply report
 
 Internal does not mean informal. Comments may be audited or reviewed. Do not include OTPs, passwords, unnecessary ID numbers, personal opinions, unrelated medical or family details, or side conversations.
 
-![Referrals index](/helpdesk/referrals-index.png)
+![Referrals index](/assets/helpdesk/referrals-index.png)
 
 ## Checklist
 

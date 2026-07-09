@@ -4,19 +4,19 @@ This tutorial is for users with the **ADMIN** role. Administrators maintain the 
 
 ## 1. Sign in securely
 
-![Login page](/helpdesk/login-page.png)
+![Login page](/assets/helpdesk/login-page.png)
 
 1. Open the login page from an approved network location if IP restrictions are enabled.
 2. Enter your administrator **email address** and **password**.
 3. Complete OTP/MFA verification.
 
-![OTP verification](/helpdesk/login-otp.png)
+![OTP verification](/assets/helpdesk/login-otp.png)
 
 > **Important:** OTP codes expire after **5 minutes**. Request a new code if the first one expires. Never ask another user to share an OTP.
 
 After successful verification, you will see the administrator dashboard.
 
-![Admin dashboard](/helpdesk/dashboard-admin.png)
+![Admin dashboard](/assets/helpdesk/dashboard-admin.png)
 
 ## 2. Understand administrator responsibilities
 
@@ -35,7 +35,7 @@ Use the least-privilege principle: assign users only the role they need.
 
 ## 3. Manage users
 
-![Admin users](/helpdesk/admin-users.png)
+![Admin users](/assets/helpdesk/admin-users.png)
 
 Go to the administrator user-management area to create or maintain accounts.
 
@@ -58,7 +58,7 @@ When creating or editing a user:
 
 ## 4. Manage agencies
 
-![Admin agencies](/helpdesk/admin-agencies.png)
+![Admin agencies](/assets/helpdesk/admin-agencies.png)
 
 Agency records represent the partner offices that receive referrals. Keep agency names, contact details, and identifiers accurate so Case Managers can route work correctly and Agency users see the right workload.
 
@@ -73,7 +73,7 @@ If an agency is temporarily unable to accept work, update services or availabili
 
 ## 5. Manage services
 
-![Admin services](/helpdesk/admin-services.png)
+![Admin services](/assets/helpdesk/admin-services.png)
 
 Services define what Case Managers can request from partner agencies. A service should be clear enough that the receiving agency understands the expected action.
 
@@ -112,7 +112,7 @@ When changing settings:
 
 ## 7. Review audit logs
 
-![Admin audit log](/helpdesk/admin-audit-log.png)
+![Admin audit log](/assets/helpdesk/admin-audit-log.png)
 
 The audit log helps administrators investigate activity such as logins, case changes, referral actions, document activity, and configuration changes. Use filters such as user, module, action, and date range when available.
 
@@ -127,7 +127,7 @@ Review audit logs when:
 
 ## 8. Maintenance and security tasks
 
-![Admin maintenance](/helpdesk/admin-maintenance.png)
+![Admin maintenance](/assets/helpdesk/admin-maintenance.png)
 
 Use the maintenance and security pages, if available, for operational checks and controlled administrative actions. Depending on deployment, some tasks may also be performed by technical staff through server tools.
 

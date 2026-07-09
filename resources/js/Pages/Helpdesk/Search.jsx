@@ -190,7 +190,7 @@ export default function Search() {
                 .map((category) => (
                   <Link
                     key={category.id}
-                    href={`/helpdesk?category=${category.slug}`}
+                    href={`/help?category=${category.slug}`}
                     className="inline-flex items-center gap-2 rounded-none border border-slate-200 bg-white px-3 py-1.5 font-label text-xs font-medium text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
                   >
                     {category.icon && (

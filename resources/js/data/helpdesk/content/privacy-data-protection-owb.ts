@@ -2,7 +2,7 @@ const content = `# Privacy and Data Protection in One Window Bayanihan
 
 One Window Bayanihan handles sensitive OFW and family-assistance information. Users must process data only for official purposes and follow the Data Privacy Act of 2012 (RA 10173), agency policy, and local operating procedures.
 
-![Admin audit log](/helpdesk/admin-audit-log.png)
+![Admin audit log](/assets/helpdesk/admin-audit-log.png)
 
 ## Built-in safeguards
 

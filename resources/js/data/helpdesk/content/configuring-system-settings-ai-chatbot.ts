@@ -2,7 +2,7 @@ const content = `# Configuring System Settings and AI Chatbot
 
 Administrators manage application settings from the admin settings area. Settings can affect login behavior, notifications, integrations, and optional AI chatbot behavior, so changes should be planned and recorded.
 
-![Admin settings](/helpdesk/admin-settings.png)
+![Admin settings](/assets/helpdesk/admin-settings.png)
 
 ## Before changing settings
 

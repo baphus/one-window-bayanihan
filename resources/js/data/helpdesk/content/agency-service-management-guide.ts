@@ -2,9 +2,9 @@ const content = `# Agency and Service Management Guide
 
 Administrators maintain partner agencies and their services so case managers can route referrals correctly.
 
-![Admin agencies](/helpdesk/admin-agencies.png)
+![Admin agencies](/assets/helpdesk/admin-agencies.png)
 
-![Admin services](/helpdesk/admin-services.png)
+![Admin services](/assets/helpdesk/admin-services.png)
 
 ## Agencies
 

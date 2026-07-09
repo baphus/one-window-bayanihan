@@ -2,7 +2,7 @@ const content = `# Understanding Case Statuses and Tracker Numbers
 
 Case statuses show the internal lifecycle of a case. Tracker numbers allow clients to check progress without exposing internal record IDs.
 
-![Cases index](/helpdesk/cases-index.png)
+![Cases index](/assets/helpdesk/cases-index.png)
 
 ## Case statuses
 

@@ -2,7 +2,7 @@ const content = `# Referral Status Reference
 
 Referral statuses show where an agency referral stands. They are separate from case statuses.
 
-![Referrals index](/helpdesk/referrals-index.png)
+![Referrals index](/assets/helpdesk/referrals-index.png)
 
 | Status | Meaning | Typical next action |
 |---|---|---|

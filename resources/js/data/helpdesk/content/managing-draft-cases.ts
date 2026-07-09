@@ -2,7 +2,7 @@ const content = `# Managing Draft Cases
 
 Draft cases let Case Managers save incomplete intake work before publishing. Drafts are owner-only and use the exact status **DRAFT**.
 
-![Draft cases list](/helpdesk/cases-drafts.png)
+![Draft cases list](/assets/helpdesk/cases-drafts.png)
 
 ## What drafts are for
 
@@ -18,9 +18,9 @@ Do not treat a draft as an active case. Public tracking, formal referrals, and c
 4. Complete missing information.
 5. Save again or publish when ready.
 
-![Client information section](/helpdesk/cases-create-client.png)
-![Address section](/helpdesk/cases-create-address.png)
-![Next-of-kin section](/helpdesk/cases-create-nok.png)
+![Client information section](/assets/helpdesk/cases-create-client.png)
+![Address section](/assets/helpdesk/cases-create-address.png)
+![Next-of-kin section](/assets/helpdesk/cases-create-nok.png)
 
 ## Publishing checklist
 
@@ -33,7 +33,7 @@ Do not treat a draft as an active case. Public tracking, formal referrals, and c
 
 After publishing, the case becomes **OPEN** and appears in the regular case workflow.
 
-![Cases index after publishing](/helpdesk/cases-index.png)
+![Cases index after publishing](/assets/helpdesk/cases-index.png)
 
 ## Deleting drafts
 

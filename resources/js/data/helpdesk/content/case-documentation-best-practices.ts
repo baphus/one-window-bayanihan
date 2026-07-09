@@ -2,7 +2,7 @@ const content = `# Case Documentation Best Practices
 
 Good documentation makes a case easier to act on, review, and close. A case record includes the case number, tracker number, client details, vulnerability indicators, consent timestamp, category, issue, summary, status, and related referrals.
 
-![Case details page](/helpdesk/cases-show.png)
+![Case details page](/assets/helpdesk/cases-show.png)
 
 ## Keep key fields accurate
 
@@ -18,10 +18,10 @@ Good documentation makes a case easier to act on, review, and close. A case reco
 
 The create form captures client data, address, employment, multiple next-of-kin entries, consent, category, issue, and summary. Review all sections before publishing.
 
-![Case create top section](/helpdesk/cases-create-top.png)
-![Client information section](/helpdesk/cases-create-client.png)
-![Address section](/helpdesk/cases-create-address.png)
-![Next-of-kin section](/helpdesk/cases-create-nok.png)
+![Case create top section](/assets/helpdesk/cases-create-top.png)
+![Client information section](/assets/helpdesk/cases-create-client.png)
+![Address section](/assets/helpdesk/cases-create-address.png)
+![Next-of-kin section](/assets/helpdesk/cases-create-nok.png)
 
 ## Write useful summaries
 

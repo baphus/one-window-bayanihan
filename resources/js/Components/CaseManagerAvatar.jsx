@@ -33,11 +33,11 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
     // Level 0: try user avatar_url
     if (user?.avatar_url && fallbackLevel === 0) {
         return (
-            <span className="group relative inline-block">
+            <span className={`group relative inline-block ${sizeClass}`}>
                 <img
                     src={user.avatar_url}
                     alt={user.name || 'Avatar'}
-                    className={`${sizeClass} ${imageClasses}`}
+                    className="h-full w-full rounded-full object-cover border border-slate-200"
                     onError={() => setFallbackLevel(1)}
                 />
                 {user?.name && (
@@ -52,11 +52,11 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
     // Level 1: try Bayanihan logo
     if (fallbackLevel <= 1) {
         return (
-            <span className="group relative inline-block">
+            <span className={`group relative inline-block ${sizeClass}`}>
                 <img
                     src={BAYANIHAN_LOGO}
                     alt="Bayanihan Logo"
-                    className={`${sizeClass} ${imageClasses} object-contain`}
+                    className="h-full w-full rounded-full object-contain border border-slate-200"
                     onError={() => setFallbackLevel(2)}
                 />
                 {user?.name && (
@@ -70,8 +70,8 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
 
     // Level 2: initials fallback
     return (
-        <span className="group relative inline-block">
-            <span className={`${sizeClass} ${initialsClasses}`}>
+        <span className={`group relative inline-block ${sizeClass}`}>
+            <span className={`h-full w-full ${initialsClasses}`}>
                 {getInitials(user?.name)}
             </span>
             {user?.name && (

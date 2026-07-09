@@ -66,7 +66,7 @@ function SearchBar({ query, onSearch, large }) {
               return (
                 <Link
                   key={article.id}
-                  href={`/helpdesk/${article.slug}`}
+                  href={`/help/${article.slug}`}
                   className="block px-4 py-3 transition-colors hover:bg-slate-50"
                 >
                   <div className="flex items-start gap-3">
@@ -123,7 +123,7 @@ function CategoryNav({ categories, activeSlug }) {
   return (
     <nav className="space-y-1">
       <Link
-        href="/helpdesk"
+        href="/help"
         className={`flex items-center gap-3 border-l-4 px-3 py-2.5 text-sm font-label transition-colors ${
           !activeSlug
             ? 'border-primary bg-primary/10 text-primary font-bold'
@@ -143,7 +143,7 @@ function CategoryNav({ categories, activeSlug }) {
           <div key={cat.id} className="border-b border-slate-200 last:border-b-0">
             <div className="group flex items-stretch gap-0">
               <Link
-                href={`/helpdesk?category=${cat.slug}`}
+                href={`/help?category=${cat.slug}`}
                 className={`flex flex-1 items-center gap-3 border-l-4 px-3 py-2.5 text-sm font-label transition-colors ${
                   isParentActive
                     ? 'border-primary bg-primary/10 text-primary font-bold'
@@ -180,7 +180,7 @@ function CategoryNav({ categories, activeSlug }) {
                   return (
                     <Link
                       key={child.id}
-                      href={`/helpdesk?category=${child.slug}`}
+                      href={`/help?category=${child.slug}`}
                       className={`flex items-center gap-2 border-l-4 px-3 py-2 text-sm font-label transition-colors ${
                         isChildActive
                           ? 'border-primary bg-primary/10 text-primary font-bold'
@@ -205,7 +205,7 @@ export default function HelpdeskLayout({ title, children, activeSlug, query, sho
   const parentCategories = useMemo(() => buildCategoryTree(categoryData, articles), []);
 
   const handleSearch = (q) => {
-    router.visit('/helpdesk/search?q=' + encodeURIComponent(q));
+    router.visit('/help/search?q=' + encodeURIComponent(q));
   };
 
   return (

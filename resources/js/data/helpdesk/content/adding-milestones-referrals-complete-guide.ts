@@ -2,7 +2,7 @@ const content = `# Adding Milestones to Referrals: Complete Guide
 
 Milestones record meaningful referral progress. Each milestone has a title and description, then notifications are sent to relevant users.
 
-![Referral details timeline](/helpdesk/referrals-show.png)
+![Referral details timeline](/assets/helpdesk/referrals-show.png)
 
 ## When to add a milestone
 
@@ -16,7 +16,7 @@ Add one when the agency reviewed the referral, contacted the client, received do
 4. Write a factual description.
 5. Save and confirm it appears in the timeline.
 
-![Add milestone form](/helpdesk/referrals-add-milestone.png)
+![Add milestone form](/assets/helpdesk/referrals-add-milestone.png)
 
 ## Strong titles
 

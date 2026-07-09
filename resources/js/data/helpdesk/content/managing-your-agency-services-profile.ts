@@ -2,7 +2,7 @@ const content = `# Managing Your Agency Services Profile
 
 Agency service profiles help Case Managers send referrals to the correct service. Accurate profiles reduce rejected referrals, duplicate coordination, and delay.
 
-![Create referral form](/helpdesk/referrals-create.png)
+![Create referral form](/assets/helpdesk/referrals-create.png)
 
 ## What to maintain
 

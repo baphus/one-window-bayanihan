@@ -2,7 +2,7 @@ const content = `# Communication Guidelines for Inter-Agency Coordination
 
 Referral comments are the main written coordination channel between Case Managers and agency focal persons. Good communication is brief, factual, and tied to the action needed.
 
-![Referral comments panel](/helpdesk/referrals-comments.png)
+![Referral comments panel](/assets/helpdesk/referrals-comments.png)
 
 ## Use comments for coordination
 
@@ -22,11 +22,11 @@ Example: “The uploaded contract is missing the signature page. Please confirm 
 
 If the action is completed progress, add a milestone rather than only a comment.
 
-![Add milestone form](/helpdesk/referrals-add-milestone.png)
+![Add milestone form](/assets/helpdesk/referrals-add-milestone.png)
 
 If the agency needs a document before proceeding, use compliance requirements. Requirements have **PENDING** and **COMPLIED** states and can be fulfilled through an attachment.
 
-![Compliance requirements](/helpdesk/referrals-compliance.png)
+![Compliance requirements](/assets/helpdesk/referrals-compliance.png)
 
 ## Professional standards
 

@@ -16,7 +16,7 @@ function buildBreadcrumbs(categoryId) {
   const items = [];
   let current = categories.find((c) => c.id === categoryId);
   while (current) {
-    items.unshift({ label: current.name, href: `/helpdesk?category=${current.slug}` });
+    items.unshift({ label: current.name, href: `/help?category=${current.slug}` });
     current = current.parentId ? categories.find((c) => c.id === current.parentId) : null;
   }
   return items;
@@ -60,7 +60,7 @@ export default function Show() {
             The article you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <Link
-            href="/helpdesk"
+            href="/help"
             className="mt-4 inline-flex px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors"
           >
             &larr; Back to Help Center
@@ -96,7 +96,7 @@ export default function Show() {
           {/* Category badge */}
           {category && (
             <Link
-              href={`/helpdesk?category=${category.slug}`}
+              href={`/help?category=${category.slug}`}
               className="mb-3 inline-flex items-center gap-1 rounded-none bg-primary/10 px-3 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:bg-primary/20"
             >
               {category.icon && (

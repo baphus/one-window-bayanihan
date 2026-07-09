@@ -1,6 +1,6 @@
 const content = `# Glossary of Terms
 
-![Helpdesk index](/helpdesk/helpdesk-index.png)
+![Helpdesk index](/assets/helpdesk/helpdesk-index.png)
 
 ## Roles
 

@@ -27,7 +27,7 @@ const navByRole = {
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
-      { name: 'Help Center', href: '/helpdesk', icon: 'help', external: true },
+      { name: 'Help Center', href: '/help', icon: 'help', external: true },
     ]},
   ],
   AGENCY: [
@@ -51,7 +51,7 @@ const navByRole = {
       { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
     ]},
     { label: 'Resources', items: [
-      { name: 'Help Center', href: '/helpdesk', icon: 'help', external: true },
+      { name: 'Help Center', href: '/help', icon: 'help', external: true },
     ]},
   ],
   ADMIN: [

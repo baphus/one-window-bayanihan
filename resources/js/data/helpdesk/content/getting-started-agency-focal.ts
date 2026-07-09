@@ -4,14 +4,14 @@ This tutorial is for users with the **AGENCY** role. Agency users work on referr
 
 ## 1. Sign in and complete OTP
 
-![Login page](/helpdesk/login-page.png)
+![Login page](/assets/helpdesk/login-page.png)
 
 1. Open the One Window Bayanihan login page.
 2. Enter your registered **email address** and **password**.
 3. Continue to the OTP/MFA screen.
 4. Enter the one-time password for your account.
 
-![OTP verification](/helpdesk/login-otp.png)
+![OTP verification](/assets/helpdesk/login-otp.png)
 
 > **Important:** OTP codes expire after **5 minutes**. If your code expires, request a new one and enter the latest code.
 
@@ -19,7 +19,7 @@ After verification, the system opens the agency workspace for referrals linked t
 
 ## 2. Read the agency dashboard
 
-![Agency dashboard](/helpdesk/dashboard-agency.png)
+![Agency dashboard](/assets/helpdesk/dashboard-agency.png)
 
 Your dashboard focuses on referrals scoped to your agency. In the database, agency users are associated with an agency identifier, and referral lists are limited to that agency. You should not see referrals assigned to unrelated agencies.
 
@@ -35,13 +35,13 @@ Open the referral record before taking action. Dashboard numbers are summaries; 
 
 ## 3. Review incoming referrals
 
-![Referrals list](/helpdesk/referrals-index.png)
+![Referrals list](/assets/helpdesk/referrals-index.png)
 
 1. Go to **Referrals**.
 2. Use search or filters to narrow the list by status, date, or other available fields.
 3. Open a referral to view the case context, request notes, uploaded attachments, comments, and timeline.
 
-![Referral details](/helpdesk/referrals-show.png)
+![Referral details](/assets/helpdesk/referrals-show.png)
 
 The Case Manager sends the referral because they need your agency to perform a specific action or provide a service. Read the notes carefully. If the request is unclear, use comments to ask for clarification instead of guessing.
 

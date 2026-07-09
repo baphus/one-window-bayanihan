@@ -2,7 +2,7 @@ const content = `# User Management Guide
 
 Administrators manage user accounts from the Admin/User section. User management controls who can access cases, referrals, reports, and administrative functions.
 
-![Admin users](/helpdesk/admin-users.png)
+![Admin users](/assets/helpdesk/admin-users.png)
 
 ## Roles
 

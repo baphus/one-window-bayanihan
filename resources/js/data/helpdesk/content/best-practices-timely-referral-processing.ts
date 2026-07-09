@@ -2,13 +2,13 @@ const content = `# Best Practices for Timely Referral Processing
 
 Timely referral processing depends on correct routing, clear instructions, quick acknowledgement, and consistent updates.
 
-![Referrals index](/helpdesk/referrals-index.png)
+![Referrals index](/assets/helpdesk/referrals-index.png)
 
 ## Starting status
 
 When a Case Manager creates a referral, the starting status depends on compliance requirements. Without compliance requirements, the referral is **PENDING**. With compliance requirements, it starts as **FOR_COMPLIANCE**.
 
-![Create referral form](/helpdesk/referrals-create.png)
+![Create referral form](/assets/helpdesk/referrals-create.png)
 
 ## Daily routine
 
@@ -21,7 +21,7 @@ Start by reviewing new **PENDING** referrals, **FOR_COMPLIANCE** referrals, over
 - **Compliance requirements** track required attachments or proof.
 - **Status changes** reflect the actual workflow state.
 
-![Referral comments](/helpdesk/referrals-comments.png)
+![Referral comments](/assets/helpdesk/referrals-comments.png)
 
 ## Avoid preventable delays
 

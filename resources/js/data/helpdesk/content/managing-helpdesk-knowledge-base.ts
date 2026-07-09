@@ -1,8 +1,8 @@
 const content = `# Managing the Helpdesk Knowledge Base
 
-One Window Bayanihan helpdesk articles are maintained as static TypeScript markdown files in \`resources/js/data/helpdesk/content\`. There is no runtime helpdesk CMS in the current application, so publishing changes requires editing the article file and, for new articles, registering it in the helpdesk article index maintained by the development team.
+One Window Bayanihan helpdesk articles are maintained as static TypeScript markdown files in \`resources/js/data/assets/helpdesk/content\`. There is no runtime helpdesk CMS in the current application, so publishing changes requires editing the article file and, for new articles, registering it in the helpdesk article index maintained by the development team.
 
-![Helpdesk index](/helpdesk/helpdesk-index.png)
+![Helpdesk index](/assets/helpdesk/helpdesk-index.png)
 
 ## What administrators should know
 
@@ -20,7 +20,7 @@ export default content;
 
 ## Updating an existing article
 
-1. Find the article file under \`resources/js/data/helpdesk/content\`.
+1. Find the article file under \`resources/js/data/assets/helpdesk/content\`.
 2. Edit the markdown inside the template string only.
 3. Keep headings clear and scannable.
 4. Use exact role names, status names, and field names shown in the application.
