@@ -279,6 +279,20 @@ Route::get('/partners', function () {
     return Inertia::render('PublicAgencies/Index', ['agencies' => $agencies]);
 })->name('partners');
 
+Route::get('/partners/{agency:slug}', function (Agency $agency) {
+    abort_unless($agency->is_active, 404);
+
+    $agency->load(['services' => fn ($q) => $q->with('requirements')->orderBy('name')]);
+
+    return Inertia::render('PublicAgencies/Show', [
+        'agency' => $agency->toArray(),
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+        'laravelVersion' => Application::VERSION,
+        'phpVersion' => PHP_VERSION,
+    ]);
+})->name('partners.show');
+
 Route::get('/contact', function () {
     return Inertia::render('Contact/Index');
 })->name('contact');

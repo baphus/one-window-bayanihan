@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import AppButton from './AppButton';
+import { Link } from '@inertiajs/react';
 import AgencyMapView from '@/Components/AgencyMapView';
 
 function AgencyLogo({ agency }) {
@@ -53,7 +53,12 @@ export default function PartnersSection({ agencies }) {
                   embedHeight="110px"
                 />
               </div>
-              <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-secondary">View Agency Location</p>
+              <div className="mt-3 flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-secondary">View Agency Location</p>
+                <Link href={route('partners.show', agency.slug)} className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary border border-primary/30 px-3 py-1 hover:bg-primary/5 transition-colors">
+                  View Agency
+                </Link>
+              </div>
             </div>
           ))}
         </div>

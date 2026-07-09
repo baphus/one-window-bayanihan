@@ -74,6 +74,16 @@ export default function PublicAgencies({ agencies }) {
                     embedHeight="100px"
                   />
 
+                  <div className="mt-4">
+                    <Link
+                      href={route('partners.show', agency.slug)}
+                      className="inline-flex items-center justify-center gap-1.5 w-full border border-primary/30 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/5"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                      View Agency
+                    </Link>
+                  </div>
+
                   {agency.services?.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-slate-100">
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Services</p>
