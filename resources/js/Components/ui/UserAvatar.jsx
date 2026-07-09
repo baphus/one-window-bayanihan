@@ -21,43 +21,45 @@ function UserAvatar({ user, size = 'sm', fallbackType = 'initials', onClick }) {
     const sizeClass = sizeMap[size] || sizeMap.sm;
     const [imgError, setImgError] = useState(false);
 
-    let avatarContent;
+    const hasImage = user?.avatar_url && !imgError;
+    const fallbackImg = fallbackType === 'bayanihan' || fallbackType === 'agency';
 
-    if (user?.avatar_url && !imgError) {
-        avatarContent = (
+    // Inner content: either an <img> or the initials fallback
+    let innerContent;
+
+    if (hasImage) {
+        innerContent = (
             <img
                 src={user.avatar_url}
                 alt={user.name || 'Avatar'}
-                className={`${sizeClass} object-cover rounded-full`}
+                className="h-full w-full object-cover"
                 onError={() => setImgError(true)}
             />
         );
     } else if (fallbackType === 'bayanihan') {
-        avatarContent = (
+        innerContent = (
             <img
                 src="/images/defaults/bayanihan-logo.png"
                 alt="Bayanihan Logo"
-                className={`${sizeClass} object-contain rounded-full`}
+                className="h-full w-full object-contain"
             />
         );
     } else if (fallbackType === 'agency') {
         if (user?.agency?.logo_url && !imgError) {
-            avatarContent = (
+            innerContent = (
                 <img
                     src={user.agency.logo_url}
                     alt={`${user.agency?.name || 'Agency'} Logo`}
-                    className={`${sizeClass} object-contain rounded-full`}
+                    className="h-full w-full object-contain"
                     onError={() => setImgError(true)}
                 />
             );
         }
     }
 
-    if (!avatarContent) {
-        avatarContent = (
-            <span
-                className={`${sizeClass} inline-flex items-center justify-center rounded-full text-white font-bold ${getAvatarColor(user?.name)} relative overflow-hidden`}
-            >
+    if (!innerContent) {
+        innerContent = (
+            <>
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -69,24 +71,33 @@ function UserAvatar({ user, size = 'sm', fallbackType = 'initials', onClick }) {
                 <span className="relative z-10">
                     {getInitials(user?.name)}
                 </span>
-            </span>
+            </>
         );
     }
+
+    // Shared container: square + circular clip
+    const containerClass = `${sizeClass} rounded-full overflow-hidden flex-shrink-0 inline-flex items-center justify-center relative ${
+        hasImage || fallbackImg ? '' : getAvatarColor(user?.name) + ' text-white font-bold'
+    }`;
 
     if (onClick) {
         return (
             <button
                 type="button"
                 onClick={onClick}
-                className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+                className={`${containerClass} cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
                 aria-label={`View ${user?.name || 'user'}'s profile`}
             >
-                {avatarContent}
+                {innerContent}
             </button>
         );
     }
 
-    return avatarContent;
+    return (
+        <span className={containerClass}>
+            {innerContent}
+        </span>
+    );
 }
 
 export default UserAvatar;
