@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Helpers\DefaultServqualQuestions;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -22,16 +23,15 @@ class ProductionSeeder extends Seeder
         $issuesByName = DB::table('case_issues')->pluck('id', 'name')->toArray();
 
         // ────────────────────────────────────────────
-        // 2. Create users (idempotent via updateOrInsert)
+        // 2. Create admin user (idempotent via updateOrInsert)
         // ────────────────────────────────────────────
 
-        // Admin
         $adminEmail = 'admin@bayanihan.gov.ph';
         DB::table('users')->updateOrInsert(
             ['email' => $adminEmail],
             [
                 'id' => DB::table('users')->where('email', $adminEmail)->value('id') ?? (string) Str::uuid(),
-                'name' => 'Admin User',
+                'name' => 'System Administrator',
                 'password' => Hash::make('P@ssw0rd!'),
                 'role' => 'ADMIN',
                 'is_active' => true,
@@ -40,44 +40,84 @@ class ProductionSeeder extends Seeder
                 'created_at' => $now,
             ]
         );
+        $adminId = DB::table('users')->where('email', $adminEmail)->value('id');
 
-        // Case Manager
-        $cmEmail = 'case@bayanihan.gov.ph';
-        DB::table('users')->updateOrInsert(
-            ['email' => $cmEmail],
-            [
-                'id' => DB::table('users')->where('email', $cmEmail)->value('id') ?? (string) Str::uuid(),
-                'name' => 'Maria Santos',
-                'password' => Hash::make('P@ssw0rd!'),
-                'role' => 'CASE_MANAGER',
-                'contact_number' => '09171234567',
-                'is_active' => true,
-                'updated_at' => $now,
-                'created_at' => $now,
-            ]
-        );
-        $cmId = DB::table('users')->where('email', $cmEmail)->value('id');
+        // ────────────────────────────────────────────
+        // 3. Create one active SERVQUAL config per agency
+        // ────────────────────────────────────────────
 
-        // 9 agency focals
+        $defaultQuestions = DefaultServqualQuestions::get();
+
+        $inserted = 0;
         foreach ($agencies as $slug => $agency) {
-            $agencyEmail = $slug.'@bayanihan.gov.ph';
-            DB::table('users')->updateOrInsert(
-                ['email' => $agencyEmail],
-                [
-                    'id' => DB::table('users')->where('email', $agencyEmail)->value('id') ?? (string) Str::uuid(),
-                    'name' => ($agency->short ?? strtoupper($slug)).' Focal',
-                    'password' => Hash::make('P@ssw0rd!'),
-                    'role' => 'AGENCY',
-                    'agcy_id' => $agency->id,
-                    'is_active' => true,
-                    'updated_at' => $now,
-                    'created_at' => $now,
-                ]
-            );
+            $serviceName = DB::table('services')
+                ->where('agcy_id', $agency->id)
+                ->orderBy('name')
+                ->value('name') ?? 'General Assistance';
+
+            // Skip if this agency already has a servqual config
+            $existingConfig = DB::table('servqual_configs')
+                ->where('agency_id', $agency->id)
+                ->exists();
+
+            if (! $existingConfig) {
+                try {
+                    DB::table('servqual_configs')->insert([
+                        'id' => (string) Str::uuid(),
+                        'agency_id' => $agency->id,
+                        'service_name' => $serviceName,
+                        'questions' => json_encode($defaultQuestions),
+                        'is_active' => true,
+                        'activated_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                    $inserted++;
+                } catch (\Throwable $e) {
+                    logger()->warning('Failed to create servqual config for agency '.$slug.' ('.$agency->id.'): '.$e->getMessage());
+                }
+            } else {
+                // Ensure at least one config is active for this agency
+                $activeExists = DB::table('servqual_configs')
+                    ->where('agency_id', $agency->id)
+                    ->where('is_active', true)
+                    ->exists();
+
+                if (! $activeExists) {
+                    DB::table('servqual_configs')
+                        ->where('agency_id', $agency->id)
+                        ->limit(1)
+                        ->update(['is_active' => true, 'activated_at' => $now]);
+                }
+            }
+        }
+
+        // Safety: ensure no agency has more than one active config
+        $activeCounts = DB::table('servqual_configs')
+            ->select('agency_id', DB::raw('count(*) as cnt'))
+            ->where('is_active', true)
+            ->groupBy('agency_id')
+            ->having('cnt', '>', 1)
+            ->get();
+
+        foreach ($activeCounts as $dup) {
+            $dups = DB::table('servqual_configs')
+                ->where('agency_id', $dup->agency_id)
+                ->where('is_active', true)
+                ->orderBy('activated_at', 'desc')
+                ->skip(1)
+                ->take(100)
+                ->get();
+
+            foreach ($dups as $d) {
+                DB::table('servqual_configs')
+                    ->where('id', $d->id)
+                    ->update(['is_active' => false, 'activated_at' => null]);
+            }
         }
 
         // ────────────────────────────────────────────
-        // 3. Case definitions with all supporting data
+        // 4. Case definitions with all supporting data
         // ────────────────────────────────────────────
 
         $casesData = [
@@ -192,7 +232,7 @@ class ProductionSeeder extends Seeder
         ];
 
         // ────────────────────────────────────────────
-        // 4. Insert cases (skip existing case_numbers for idempotency)
+        // 5. Insert cases (skip existing case_numbers for idempotency)
         // ────────────────────────────────────────────
 
         foreach ($casesData as $caseData) {
@@ -235,7 +275,7 @@ class ProductionSeeder extends Seeder
                 'summary' => $caseData['summary'],
                 'status' => $caseData['status'],
                 'client_id' => $clientId,
-                'user_id' => $cmId,
+                'user_id' => $adminId,
                 'category_id' => $categoriesByName[$caseData['category_name']] ?? null,
                 'case_issue_id' => $issuesByName[$caseData['issue_name']] ?? null,
                 'created_at' => $now,
@@ -249,7 +289,7 @@ class ProductionSeeder extends Seeder
             DB::table('cases')->insert($caseInsert);
 
             // ────────────────────────────────────────────
-            // 5. Referral
+            // 6. Referral
             // ────────────────────────────────────────────
 
             $agency = $agencies[$caseData['agency_slug']] ?? null;
@@ -277,7 +317,7 @@ class ProductionSeeder extends Seeder
                 DB::table('referrals')->insert($refInsert);
 
                 // ────────────────────────────────────────────
-                // 6. Milestones
+                // 7. Milestones
                 // ────────────────────────────────────────────
 
                 // Referral received milestone (for non-PENDING referrals)
@@ -287,7 +327,7 @@ class ProductionSeeder extends Seeder
                         'title' => 'Referral Received',
                         'description' => 'Referral received by the agency.',
                         'refr_id' => $refId,
-                        'user_id' => $cmId,
+                        'user_id' => $adminId,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
@@ -300,7 +340,7 @@ class ProductionSeeder extends Seeder
                         'title' => 'Services Rendered',
                         'description' => 'All required services have been provided.',
                         'refr_id' => $refId,
-                        'user_id' => $cmId,
+                        'user_id' => $adminId,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
@@ -309,7 +349,7 @@ class ProductionSeeder extends Seeder
                         'title' => 'Case Closed',
                         'description' => 'Case successfully closed.',
                         'refr_id' => $refId,
-                        'user_id' => $cmId,
+                        'user_id' => $adminId,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);

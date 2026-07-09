@@ -72,7 +72,7 @@ class TestingSeeder extends Seeder
 
         /** @var Collection $agencies slug-keyed */
         $agencies = DB::table('agencies')->select('id', 'slug')->get()->keyBy('slug');
-        $caseManagerId = DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id');
+        $caseManagerId = DB::table('users')->where('email', 'admin@bayanihan.gov.ph')->value('id');
         $userIds = DB::table('users')->pluck('id')->toArray();
         $categoryIds = DB::table('case_categories')->pluck('id')->toArray();
         $issueIds = DB::table('case_issues')->pluck('id')->toArray();

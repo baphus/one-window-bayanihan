@@ -9,7 +9,6 @@ use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\LogViewerController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
-use App\Http\Controllers\Admin\ScheduledTaskController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
@@ -252,9 +251,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/logs', [LogViewerController::class, 'index'])->name('logs');
             Route::get('/logs/entries', [LogViewerController::class, 'entries'])->name('logs.entries');
             Route::get('/logs/download', [LogViewerController::class, 'download'])->name('logs.download');
-
-            Route::get('/scheduled-tasks', [ScheduledTaskController::class, 'index'])->name('scheduled-tasks');
-            Route::post('/scheduled-tasks/{task}/toggle', [ScheduledTaskController::class, 'toggle'])->name('scheduled-tasks.toggle');
 
             Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance');
             Route::post('/maintenance/toggle', [MaintenanceController::class, 'toggle'])->name('maintenance.toggle');

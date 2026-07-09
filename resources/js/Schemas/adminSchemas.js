@@ -24,6 +24,31 @@ export const userFormSchema = z.object({
   contact_number: z.string().optional(),
 });
 
+/**
+ * Stricter schema for new user creation — password is required.
+ */
+export const createUserFormSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Name is required.')
+    .max(255, 'Name must not exceed 255 characters.'),
+  email: z
+    .string()
+    .min(1, 'Email is required.')
+    .email('Please provide a valid email address.'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters.'),
+  role: z
+    .string()
+    .min(1, 'Role is required.')
+    .refine((val) => ['CASE_MANAGER', 'AGENCY', 'ADMIN'].includes(val), {
+      message: 'Please select a valid role.',
+    }),
+  agcy_id: z.string().uuid().nullable().optional(),
+  contact_number: z.string().optional(),
+});
+
 export const serviceFormSchema = z.object({
   name: z
     .string()

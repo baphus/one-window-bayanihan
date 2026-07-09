@@ -1,7 +1,7 @@
-import { useForm, router, usePage } from '@inertiajs/react';
-import { useState, useRef, useEffect } from 'react';
+import { useForm, router } from '@inertiajs/react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import InputError from '@/Components/InputError';
-import { userFormSchema } from '@/Schemas/adminSchemas';
+import { userFormSchema, createUserFormSchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 
 const roleOptions = [
@@ -27,6 +27,9 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     admin_password: '',
   });
 
+  // Use a stricter schema for new users (password required) vs edit (optional)
+  const schema = useMemo(() => isEdit ? userFormSchema : createUserFormSchema, [isEdit]);
+
   const emailChanged = isEdit && data.email !== originalEmail;
 
   // OTP flow state
@@ -42,7 +45,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
   const autoFilled = useRef(false);
   const cooldownInterval = useRef(null);
 
-  const { validate } = useClientValidation(userFormSchema, data, setError);
+  const { validate } = useClientValidation(schema, data, setError);
 
   // Cooldown timer for resend
   useEffect(() => {
@@ -57,7 +60,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         cooldownInterval.current = null;
       }
     };
-  }, [resendCooldown > 0]);
+  }, [resendCooldown]);
 
   // Reset cooldown when entering OTP step
   useEffect(() => {
@@ -225,10 +228,32 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
       return;
     }
 
+    // Client-side password confirmation check for new users
+    if (!isEdit && data.password !== data.password_confirmation) {
+      setError('password_confirmation', 'Passwords do not match.');
+      return;
+    }
+
     if (isEdit) {
-      patch(route('admin.users.update', user.id), { onSuccess: onClose });
+      patch(route('admin.users.update', user.id), {
+        onSuccess: () => {
+          onClose?.();
+          router.reload({ only: ['users'] });
+        },
+        onError: () => {
+          // Server errors will be shown inline — keep modal open
+        },
+      });
     } else {
-      post(route('admin.users.store'), { onSuccess: onClose });
+      post(route('admin.users.store'), {
+        onSuccess: () => {
+          onClose?.();
+          router.reload({ only: ['users'] });
+        },
+        onError: () => {
+          // Server errors will be shown inline — keep modal open
+        },
+      });
     }
   }
 
@@ -372,9 +397,18 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
           {/* Password */}
           <div>
             <label className="block text-sm font-medium text-slate-700">Password {isEdit ? '(leave blank to keep current)' : '*'}</label>
-            <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" minLength={8} />
+            <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" minLength={8} required={!isEdit} />
             <InputError message={errors.password} className="mt-1" />
           </div>
+
+          {/* Password Confirmation (only for new users) */}
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Confirm Password *</label>
+              <input type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" minLength={8} required />
+              <InputError message={errors.password_confirmation} className="mt-1" />
+            </div>
+          )}
 
           {/* Role */}
           <div>

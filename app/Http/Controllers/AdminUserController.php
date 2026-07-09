@@ -26,9 +26,14 @@ class AdminUserController extends Controller
 
     public function index(Request $request)
     {
-        $filters = $request->only(['search', 'role', 'status', 'agcy_id']);
+        $filters = $request->only(['search', 'role', 'status', 'agcy_id', 'show_deleted']);
 
         $query = User::with('agency');
+
+        // By default exclude soft-deleted users unless show_deleted filter is active
+        if (! $request->boolean('show_deleted')) {
+            $query->where('is_deleted', false);
+        }
 
         if ($search = $request->search) {
             $query->where(function ($q) use ($search) {
@@ -269,6 +274,32 @@ class AdminUserController extends Controller
     public function destroy(string $id)
     {
         $user = User::findOrFail($id);
+
+        // Prevent deleting yourself
+        if ($user->id === request()->user()->id) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'You cannot delete your own account.');
+        }
+
+        // Prevent deleting the last admin
+        if ($user->isAdmin() && User::where('role', 'ADMIN')->where('is_deleted', false)->count() <= 1) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Cannot delete the only admin user.');
+        }
+
+        // If already inactive/deleted, permanently remove from database
+        if (! $user->is_active || $user->is_deleted) {
+            // Kill sessions
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+
+            // Force delete from database
+            $user->forceDelete();
+
+            return redirect()->route('admin.users.index')
+                ->with('success', 'User permanently deleted.');
+        }
+
+        // Otherwise, soft-deactivate (flag-based soft delete)
         $user->is_active = false;
         $user->is_deleted = true;
         $user->save();

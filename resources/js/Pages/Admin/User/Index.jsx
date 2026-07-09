@@ -69,6 +69,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
   const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
   const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
   const [mfaFilter, setMfaFilter] = useState(filters?.mfa_status ?? '');
+  const [showDeleted, setShowDeleted] = useState(filters?.show_deleted ?? false);
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -101,6 +102,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
       chips.push({ key: 'agcy_id', label: 'Agency', value: agency?.name || agencyFilter });
     }
     if (mfaFilter) chips.push({ key: 'mfa_status', label: 'MFA', value: mfaFilter === 'enabled' ? 'Enabled' : 'Disabled' });
+    if (showDeleted) chips.push({ key: 'show_deleted', label: 'Deleted', value: 'Including deleted' });
     return chips;
   }, [roleFilter, statusFilter, agencyFilter, mfaFilter, agencies]);
 
@@ -109,6 +111,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
     if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
     if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
     if (filter.key === 'mfa_status') { setMfaFilter(''); navigateWith({ mfa_status: undefined }); }
+    if (filter.key === 'show_deleted') { setShowDeleted(false); navigateWith({ show_deleted: undefined }); }
   };
 
   const handleClearFilters = () => {
@@ -116,7 +119,8 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
     setStatusFilter('');
     setAgencyFilter('');
     setMfaFilter('');
-    navigateWith({ role: undefined, status: undefined, agcy_id: undefined, mfa_status: undefined });
+    setShowDeleted(false);
+    navigateWith({ role: undefined, status: undefined, agcy_id: undefined, mfa_status: undefined, show_deleted: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -293,7 +297,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
                   >
                     Edit
                   </button>
-                  {isAdmin && row.is_active && (
+                  {isAdmin && row.is_active && !row.is_deleted && (
                     <button
                       onClick={() => {
                         if (confirm('Deactivate this user? They will lose access to the system.')) {
@@ -303,6 +307,18 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
                       className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
                     >
                       Deactivate
+                    </button>
+                  )}
+                  {isAdmin && (!row.is_active || row.is_deleted) && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Permanently delete user "${row.name}"? This action cannot be undone.`)) {
+                          router.delete(route('admin.users.destroy', row.id), { preserveScroll: true });
+                        }
+                      }}
+                      className="min-h-[28px] px-2.5 bg-red-600 text-white hover:bg-red-700 text-[11px] font-bold rounded-md transition-colors border border-red-700"
+                    >
+                      Delete
                     </button>
                   )}
                 </div>
@@ -386,8 +402,24 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
           <option value="disabled">Disabled</option>
         </select>
       </div>
+      <div>
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showDeleted}
+            onChange={(e) => {
+              const val = e.target.checked;
+              setShowDeleted(val);
+              setFilterOpen(false);
+              navigateWith({ show_deleted: val ? '1' : undefined });
+            }}
+            className="rounded border-slate-300 text-red-600 focus:ring-red-500 focus:ring-offset-0"
+          />
+          <span className="text-[12px] font-semibold text-slate-700">Show deleted users</span>
+        </label>
+      </div>
     </div>
-  ), [roleFilter, statusFilter, agencyFilter, mfaFilter, agencies]);
+  ), [roleFilter, statusFilter, agencyFilter, mfaFilter, showDeleted, agencies]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -522,10 +554,18 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
             setShowForm(true);
             setContextMenu(null);
           }} />
-          {contextMenu.row.status !== 'INACTIVE' && (
+          {contextMenu.row.is_active && !contextMenu.row.is_deleted && (
             <RowContextMenuItem icon="block" label="Deactivate" variant="danger" onClick={() => {
               if (confirm(`Deactivate user ${contextMenu.row.name}?`)) {
-                router.post(route('admin.users.toggle-status', contextMenu.row.id), {}, { preserveScroll: true });
+                router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
+              }
+              setContextMenu(null);
+            }} />
+          )}
+          {(!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
+            <RowContextMenuItem icon="delete" label="Delete permanently" variant="danger" onClick={() => {
+              if (confirm(`Permanently delete user "${contextMenu.row.name}"? This cannot be undone.`)) {
+                router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
               }
               setContextMenu(null);
             }} />
