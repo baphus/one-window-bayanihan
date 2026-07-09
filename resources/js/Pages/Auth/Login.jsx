@@ -20,11 +20,12 @@ export default function Login({ status, canResetPassword }) {
     const autoFilled = useRef(false);
     const cooldownInterval = useRef(null);
     const [turnstileToken, setTurnstileToken] = useState('');
-    const [mfaMode, setMfaMode] = useState('totp'); // 'totp' | 'recovery'
+    const [mfaMode, setMfaMode] = useState('totp'); // 'totp' | 'email' | 'recovery'
     const [mfaTotp, setMfaTotp] = useState(['', '', '', '', '', '']);
     const [mfaTotpError, setMfaTotpError] = useState('');
     const [mfaRecoveryCode, setMfaRecoveryCode] = useState('');
     const [mfaRecoveryError, setMfaRecoveryError] = useState('');
+    const [mfaEmailSent, setMfaEmailSent] = useState(false);
     const mfaTotpRefs = useRef([]);
 
 
@@ -69,7 +70,7 @@ export default function Login({ status, canResetPassword }) {
         router.post(route('login.init'), { email, password, cf_turnstile_response: turnstileToken }, {
             onSuccess: (page) => {
                 setProcessing(false);
-                setStep('otp');
+                setStep(page.props?.step || 'otp');
                 setHint(page.props?.hint || email.replace(/(.{2}).+(@.+)/, '$1***$2'));
             },
             onError: (err) => {
@@ -142,6 +143,7 @@ export default function Login({ status, canResetPassword }) {
         setOtpError('');
 
         router.post(route('login.resend-otp'), { email, password }, {
+            preserveState: true,
             onSuccess: (page) => {
                 setProcessing(false);
                 setResendCooldown(30);
@@ -154,6 +156,34 @@ export default function Login({ status, canResetPassword }) {
                 setProcessing(false);
                 setOtpError(err.email || 'Failed to resend OTP. Please try again.');
             },
+        });
+    };
+
+    const handleSelectMfaEmail = () => {
+        setMfaMode('email');
+        setMfaTotp(['', '', '', '', '', '']);
+        setMfaTotpError('');
+        setMfaRecoveryCode('');
+        setMfaRecoveryError('');
+
+        if (mfaEmailSent || resendCooldown > 0) return;
+
+        setProcessing(true);
+        setOtpError('');
+
+        router.post(route('login.resend-otp'), { email, password }, {
+            preserveState: true,
+            onSuccess: (page) => {
+                setMfaEmailSent(true);
+                setResendCooldown(30);
+                setOtp(['', '', '', '', '', '']);
+                if (page.props?.hint) setHint(page.props.hint);
+                setTimeout(() => otpRefs.current[0]?.focus(), 0);
+            },
+            onError: (err) => {
+                setOtpError(err.email || err.password || 'Failed to send email code. Please return to login and try again.');
+            },
+            onFinish: () => setProcessing(false),
         });
     };
 
@@ -422,112 +452,190 @@ export default function Login({ status, canResetPassword }) {
 
                             {step === 'mfa-challenge' && (
                                 <div className="max-w-md mx-auto text-center">
+                                    <div className="mb-8 flex flex-col items-center gap-4">
+                                        <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                                            <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>security</span>
+                                        </div>
+                                        <h2 className="font-headline text-2xl font-black uppercase text-primary">VERIFY YOUR SIGN-IN</h2>
+                                        <p className="text-sm text-on-surface-variant leading-relaxed max-w-sm">
+                                            Choose how to verify this sign-in for <span className="font-bold text-on-surface">{hint}</span>. Use an authenticator app or receive a one-time code by email.
+                                        </p>
+                                    </div>
+
+                                    <div className="mb-6 grid grid-cols-2 gap-2 rounded-none border border-outline p-2 bg-surface-container/60">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setMfaMode('totp'); setOtp(['', '', '', '', '', '']); setOtpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); }}
+                                            className={`flex flex-col items-center gap-1 px-3 py-3 text-left transition-colors ${mfaMode === 'totp' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
+                                            aria-pressed={mfaMode === 'totp'}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">smartphone</span>
+                                            <span className="text-xs font-bold uppercase tracking-wide">Authenticator</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleSelectMfaEmail}
+                                            className={`flex flex-col items-center gap-1 px-3 py-3 text-left transition-colors ${mfaMode === 'email' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
+                                            aria-pressed={mfaMode === 'email'}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">mail</span>
+                                            <span className="text-xs font-bold uppercase tracking-wide">Email Code</span>
+                                        </button>
+                                    </div>
+
                                     {mfaMode === 'totp' ? (
-                                        <>
-                                            <div className="mb-10 flex flex-col items-center gap-4">
-                                                <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                                                    <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>security</span>
-                                                </div>
-                                                <h2 className="font-headline text-2xl font-black uppercase text-primary">TWO-FACTOR AUTH</h2>
-                                                <p className="text-sm text-on-surface-variant leading-relaxed">
-                                                    Enter the 6-digit code from your authenticator app for <span className="font-bold text-on-surface">{hint}</span>
-                                                </p>
+                                        <form onSubmit={handleVerifyTotp}>
+                                            <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                                                Enter the 6-digit code from Google Authenticator, Microsoft Authenticator, Authy, or another TOTP app.
+                                            </p>
+                                            <div className="mb-8 flex justify-center gap-3" onPaste={handleMfaPaste}>
+                                                {mfaTotp.map((digit, idx) => (
+                                                    <input
+                                                        key={idx}
+                                                        ref={(el) => { mfaTotpRefs.current[idx] = el; }}
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        autoComplete="one-time-code"
+                                                        maxLength={1}
+                                                        value={digit}
+                                                        onChange={(e) => handleMfaTotpChange(idx, e.target.value)}
+                                                        onKeyDown={(e) => handleMfaTotpKeyDown(idx, e)}
+                                                        className="h-14 w-12 border border-outline bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
+                                                    />
+                                                ))}
                                             </div>
 
-                                            <form onSubmit={handleVerifyTotp}>
-                                                <div className="mb-10 flex justify-center gap-3" onPaste={handleMfaPaste}>
-                                                    {mfaTotp.map((digit, idx) => (
+                                            {mfaTotpError && (
+                                                <p className="text-xs font-semibold text-error mb-4">{mfaTotpError}</p>
+                                            )}
+
+                                            <button
+                                                type="submit"
+                                                disabled={processing}
+                                                className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                            >
+                                                {processing ? 'Verifying...' : 'Verify & Continue'}
+                                            </button>
+                                        </form>
+                                    ) : mfaMode === 'email' ? (
+                                        <form onSubmit={handleVerifyOtp}>
+                                            <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                                                {mfaEmailSent ? `Enter the 6-digit code sent to ${hint}.` : 'Send a one-time code to your registered email address.'}
+                                            </p>
+
+                                            {mfaEmailSent && (
+                                                <div className="mb-8 flex justify-center gap-3" onPaste={handlePaste}>
+                                                    {otp.map((digit, idx) => (
                                                         <input
                                                             key={idx}
-                                                            ref={(el) => { mfaTotpRefs.current[idx] = el; }}
+                                                            ref={(el) => { otpRefs.current[idx] = el; }}
                                                             type="text"
                                                             inputMode="numeric"
                                                             autoComplete="one-time-code"
                                                             maxLength={1}
                                                             value={digit}
-                                                            onChange={(e) => handleMfaTotpChange(idx, e.target.value)}
-                                                            onKeyDown={(e) => handleMfaTotpKeyDown(idx, e)}
+                                                            onChange={(e) => handleOtpChange(idx, e.target.value)}
+                                                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                                                             className="h-14 w-12 border border-outline bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
                                                         />
                                                     ))}
                                                 </div>
+                                            )}
 
-                                                {mfaTotpError && (
-                                                    <p className="text-xs font-semibold text-error mb-4">{mfaTotpError}</p>
-                                                )}
+                                            {otpError && (
+                                                <p className="text-xs font-semibold text-error mb-4">{otpError}</p>
+                                            )}
 
-                                                <button
-                                                    type="submit"
-                                                    disabled={processing}
-                                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
-                                                >
-                                                    {processing ? 'Verifying...' : 'Verify & Continue'}
-                                                </button>
-                                            </form>
-
-                                            <div className="mt-6 text-center">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setMfaMode('recovery'); setMfaRecoveryCode(''); setMfaRecoveryError(''); }}
-                                                    className="text-sm font-bold text-primary hover:text-primary/80 underline underline-offset-2"
-                                                >
-                                                    Use a recovery code instead
-                                                </button>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="mb-10 flex flex-col items-center gap-4">
-                                                <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                                                    <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>key</span>
+                                            {debug_otp && mfaEmailSent && (
+                                                <div className="mb-4 rounded bg-amber-50 border border-amber-300 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">
+                                                    Debug Mode — OTP: {debug_otp}
                                                 </div>
-                                                <h2 className="font-headline text-2xl font-black uppercase text-primary">RECOVERY CODE</h2>
-                                                <p className="text-sm text-on-surface-variant leading-relaxed">
-                                                    Enter one of your recovery codes to access your account.
-                                                </p>
-                                            </div>
+                                            )}
 
-                                            <form onSubmit={handleVerifyRecoveryCode}>
-                                                <div className="mb-6">
-                                                    <input
-                                                        type="text"
-                                                        value={mfaRecoveryCode}
-                                                        onChange={(e) => { setMfaRecoveryCode(e.target.value.toUpperCase()); setMfaRecoveryError(''); }}
-                                                        placeholder="XXXX-XXXX-XXXX"
-                                                        className="w-full border border-outline bg-surface-container px-4 py-3 text-center text-lg font-mono font-bold tracking-widest focus:border-primary focus:outline-none rounded-none uppercase"
+                                            {mfaEmailSent ? (
+                                                <>
+                                                    <button
+                                                        type="submit"
                                                         disabled={processing}
-                                                        autoComplete="off"
-                                                    />
-                                                </div>
+                                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                                    >
+                                                        {processing ? 'Verifying...' : 'Verify Email Code'}
+                                                    </button>
 
-                                                {mfaRecoveryError && (
-                                                    <p className="text-xs font-semibold text-error mb-4">{mfaRecoveryError}</p>
-                                                )}
-
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleResendOtp}
+                                                        disabled={resendCooldown > 0 || processing}
+                                                        className="mt-5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {resendCooldown > 0 ? (
+                                                            <span className="text-on-surface-variant">
+                                                                Resend code in <span className="text-primary">{resendCooldown}s</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-primary hover:text-primary/80 underline underline-offset-2">
+                                                                Resend code
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                </>
+                                            ) : (
                                                 <button
-                                                    type="submit"
+                                                    type="button"
+                                                    onClick={handleSelectMfaEmail}
                                                     disabled={processing}
                                                     className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
                                                 >
-                                                    {processing ? 'Verifying...' : 'Verify Recovery Code'}
+                                                    {processing ? 'Sending...' : 'Send Email Code'}
                                                 </button>
-                                            </form>
-
-                                            <div className="mt-6 text-center">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setMfaMode('totp'); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); }}
-                                                    className="text-sm font-bold text-primary hover:text-primary/80 underline underline-offset-2"
-                                                >
-                                                    Use authenticator app instead
-                                                </button>
+                                            )}
+                                        </form>
+                                    ) : (
+                                        <form onSubmit={handleVerifyRecoveryCode}>
+                                            <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                                                Use this only if you cannot access your authenticator app or email.
+                                            </p>
+                                            <div className="mb-6">
+                                                <input
+                                                    type="text"
+                                                    value={mfaRecoveryCode}
+                                                    onChange={(e) => { setMfaRecoveryCode(e.target.value.toUpperCase()); setMfaRecoveryError(''); }}
+                                                    placeholder="XXXX-XXXX-XXXX"
+                                                    className="w-full border border-outline bg-surface-container px-4 py-3 text-center text-lg font-mono font-bold tracking-widest focus:border-primary focus:outline-none rounded-none uppercase"
+                                                    disabled={processing}
+                                                    autoComplete="off"
+                                                />
                                             </div>
-                                        </>
+
+                                            {mfaRecoveryError && (
+                                                <p className="text-xs font-semibold text-error mb-4">{mfaRecoveryError}</p>
+                                            )}
+
+                                            <button
+                                                type="submit"
+                                                disabled={processing}
+                                                className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                            >
+                                                {processing ? 'Verifying...' : 'Verify Recovery Code'}
+                                            </button>
+                                        </form>
+                                    )}
+
+                                    {mfaMode !== 'recovery' && (
+                                        <div className="mt-5 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setMfaMode('recovery'); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setOtp(['', '', '', '', '', '']); setOtpError(''); }}
+                                                className="text-xs font-bold text-primary hover:text-primary/80 underline underline-offset-2"
+                                            >
+                                                Use a recovery code instead
+                                            </button>
+                                        </div>
                                     )}
 
                                     <button
                                         type="button"
-                                        onClick={() => { setStep('login'); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); setMfaMode('totp'); }}
+                                        onClick={() => { setStep('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); setMfaMode('totp'); setMfaEmailSent(false); }}
                                         className="mt-8 flex items-center justify-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary mx-auto transition-colors"
                                     >
                                         <span className="material-symbols-outlined text-[18px]">arrow_back</span>

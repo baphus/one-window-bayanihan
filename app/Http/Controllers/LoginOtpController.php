@@ -68,14 +68,24 @@ class LoginOtpController extends Controller
             ]);
         }
 
-        $request->session()->put('login_step', 1);
-
-        $otp = $this->otpService->generate($user->email, 'login', $request->session()->getId());
-
         $emailParts = explode('@', $user->email);
         $hint = strlen($emailParts[0]) > 2
             ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
             : $user->email;
+
+        $request->session()->put('login_step', 1);
+
+        if ($user->mfa_enabled_at !== null) {
+            $request->session()->put('pending_mfa_user_id', $user->id);
+
+            return Inertia::render('Auth/Login', [
+                'step' => 'mfa-challenge',
+                'email' => $user->email,
+                'hint' => $hint,
+            ]);
+        }
+
+        $otp = $this->otpService->generate($user->email, 'login', $request->session()->getId());
 
         return Inertia::render('Auth/Login', [
             'step' => 'otp',
@@ -162,7 +172,7 @@ class LoginOtpController extends Controller
             ]);
         }
 
-        if ($user->mfa_enabled_at !== null) {
+        if ($user->mfa_enabled_at !== null && $request->session()->get('pending_mfa_user_id') !== $user->id) {
             $request->session()->put('pending_mfa_user_id', $user->id);
 
             $emailParts = explode('@', $user->email);
@@ -176,6 +186,8 @@ class LoginOtpController extends Controller
                 'hint' => $hint,
             ]);
         }
+
+        $request->session()->forget('pending_mfa_user_id');
 
         AuditLog::create([
             'action' => 'LOGIN',
