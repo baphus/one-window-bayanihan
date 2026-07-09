@@ -519,6 +519,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
           }} />
           <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
             setEditingUser(contextMenu.row);
+            setShowForm(true);
             setContextMenu(null);
           }} />
           {contextMenu.row.status !== 'INACTIVE' && (

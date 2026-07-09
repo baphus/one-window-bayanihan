@@ -60,7 +60,7 @@ Route::get('/', function () {
     ]);
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', function () {
         $service = app(DashboardService::class);
         $reportsService = app(ReportsService::class);
@@ -224,6 +224,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
         Route::patch('/users/{user}/verify', [AdminUserController::class, 'verify'])->name('users.verify');
+        Route::post('/users/{user}/email-change/send-otp', [AdminUserController::class, 'sendEmailChangeOtp'])->name('users.email-change.send-otp');
+        Route::post('/users/{user}/email-change/verify-otp', [AdminUserController::class, 'verifyEmailChangeOtp'])->name('users.email-change.verify-otp');
 
         Route::get('/system-settings', [SystemSettingsController::class, 'index'])->name('system-settings.index');
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
@@ -322,7 +324,7 @@ Route::prefix('helpdesk')->name('helpdesk.')->group(function () {
 });
 
 // API routes (authenticated via web session) — in web.php for session middleware support
-Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->group(function () {
+Route::middleware(['auth', 'throttle:api-global'])->prefix('api')->group(function () {
     // Client selection for case creation form
     Route::get('/clients', [ClientSelectController::class, 'search']);
     Route::get('/clients/{client}', [ClientSelectController::class, 'show']);

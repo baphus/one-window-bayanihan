@@ -41,10 +41,10 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
     const [avatarPreview, setAvatarPreview] = useState(null);
     const [avatarDirty, setAvatarDirty] = useState(false);
     const { validate } = useClientValidation(profileSchema, data, setError);
-    const initialRef = useRef(JSON.parse(JSON.stringify({ ...data, avatar: null })));
 
     // Dirty tracking: exclude avatar (can be a File object, not JSON-serializable)
     const { avatar: _avatar, ...restData } = data;
+    const initialRef = useRef(JSON.parse(JSON.stringify(restData)));
     const isDirty = avatarDirty || JSON.stringify(restData) !== JSON.stringify(initialRef.current);
     const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(isDirty);
 
@@ -71,7 +71,8 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
         patch(route('profile.update'), {
             preserveScroll: true,
             onSuccess: () => {
-                initialRef.current = JSON.parse(JSON.stringify({ ...data, avatar: null }));
+                const { avatar: _newAvatar, ...newRest } = data;
+                initialRef.current = JSON.parse(JSON.stringify(newRest));
                 setAvatarPreview(null);
                 setAvatarDirty(false);
             },
@@ -82,24 +83,14 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
         <AppLayout title="Profile">
             <Head title="Profile" />
 
-            <div className="mb-8 flex items-start justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
-                        Profile
-                    </h1>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                        Manage your account settings and preferences.
-                    </p>
-                </div>
-
-                <PrimaryButton
-                    onClick={handleSubmit}
-                    disabled={!isDirty || processing}
-                >
-                    {processing ? 'Saving...' : 'Save Changes'}
-                </PrimaryButton>
-            </div>
+            <header className="mb-8">
+                <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
+                    Profile
+                </h1>
+                <p className="text-sm text-slate-400 font-body mt-0.5">
+                    Manage your account settings and preferences.
+                </p>
+            </header>
 
             <DashboardBanner
                 onSkip={() => { bypassNext(); router.post(route('onboarding.skip-profile'), {}, { preserveState: true, preserveScroll: true }); }}
@@ -118,6 +109,13 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                 {/* Personal Information & Emergency Contact */}
                 <PersonalInfoForm data={data} setData={setData} errors={errors} />
 
+                {/* Save Button */}
+                <div className="flex justify-end">
+                    <PrimaryButton onClick={handleSubmit} disabled={!isDirty || processing}>
+                        {processing ? 'Saving...' : 'Save Changes'}
+                    </PrimaryButton>
+                </div>
+
                 {/* Notification Preferences */}
                 <NotificationPreferencesSection prefs={data.notifications_config} onToggle={handleNotificationToggle} />
 
@@ -127,13 +125,6 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                     hint={email_change_hint || ''}
                     debugOtp={email_change_debug_otp}
                 />
-
-                {/* Save Button */}
-                <div className="flex justify-end">
-                    <PrimaryButton onClick={handleSubmit} disabled={!isDirty || processing}>
-                        {processing ? 'Saving...' : 'Save Changes'}
-                    </PrimaryButton>
-                </div>
 
                 {/* Update Password */}
                 <UpdatePasswordForm onBypass={bypassNext} />
