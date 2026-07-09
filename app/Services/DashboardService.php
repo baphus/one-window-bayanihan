@@ -494,7 +494,7 @@ class DashboardService
             ])
             ->toArray();
 
-        $recentCases = CaseFile::with(['client', 'user'])
+        $recentCases = CaseFile::with(['client', 'user', 'category'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
             ->take(6)
