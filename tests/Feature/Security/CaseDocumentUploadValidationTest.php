@@ -31,6 +31,7 @@ class CaseDocumentUploadValidationTest extends TestCase
                 size: 1024,
                 success: true,
             ));
+            $mock->shouldReceive('temporaryUrl')->andReturn(null);
         });
 
         $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');

@@ -16,21 +16,24 @@ class FileExtensionValidationTest extends TestCase
         // Write minimal valid GIF89a binary content
         file_put_contents($filePath, "GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x21\xf9\x04\x00\x00\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b");
 
-        // Client claims the file is attack.jpg, but content is actually GIF
-        $file = new UploadedFile($filePath, 'attack.jpg', null, null, true);
+        try {
+            // Client claims the file is attack.jpg, but content is actually GIF
+            $file = new UploadedFile($filePath, 'attack.jpg', null, null, true);
+            $clientExtension = $file->getClientOriginalExtension();
+            $guessedExtension = $file->guessExtension();
 
-        // getClientOriginalExtension() trusts the client-supplied filename
-        $this->assertSame('jpg', $file->getClientOriginalExtension());
+            // getClientOriginalExtension() trusts the client-supplied filename
+            $this->assertSame('jpg', $clientExtension);
 
-        // guessExtension() inspects the actual file content via MIME detection
-        $this->assertSame('gif', $file->guessExtension());
+            // guessExtension() inspects the actual file content via MIME detection
+            $this->assertSame('gif', $guessedExtension);
 
-        // These must differ — that's the security boundary
-        $this->assertNotSame(
-            $file->getClientOriginalExtension(),
-            $file->guessExtension()
-        );
-
-        unlink($filePath);
+            // These must differ — that's the security boundary
+            $this->assertNotSame($clientExtension, $guessedExtension);
+        } finally {
+            if (file_exists($filePath)) {
+                unlink($filePath);
+            }
+        }
     }
 }

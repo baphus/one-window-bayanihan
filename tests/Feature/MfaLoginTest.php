@@ -53,6 +53,33 @@ class MfaLoginTest extends TestCase
         ];
     }
 
+    private function initMfaLogin(User $user): array
+    {
+        $response = $this->withHeader('X-Inertia', 'true')
+            ->post(route('login.init'), [
+                'email' => $user->email,
+                'password' => 'P@ssw0rd!',
+            ]);
+
+        $response->assertJson([
+            'component' => 'Auth/Login',
+            'props' => [
+                'step' => 'mfa-challenge',
+                'email' => $user->email,
+            ],
+        ]);
+
+        $sessionName = $this->app['session']->getName();
+        $sessionCookie = collect($response->headers->getCookies())
+            ->first(fn ($c) => $c->getName() === $sessionName);
+        $this->assertNotNull($sessionCookie);
+
+        return [
+            'cookieName' => $sessionCookie->getName(),
+            'cookieValue' => $sessionCookie->getValue(),
+        ];
+    }
+
     private function withSessionCookie(string $name, string $value): static
     {
         return $this->withUnencryptedCookie($name, $value);
@@ -98,24 +125,7 @@ class MfaLoginTest extends TestCase
             'mfa_enabled_at' => now(),
         ]);
 
-        $login = $this->initLogin($user);
-
-        // Verify with X-Inertia so we get JSON with Inertia page data
-        $response = $this
-            ->withSessionCookie($login['cookieName'], $login['cookieValue'])
-            ->withHeader('X-Inertia', 'true')
-            ->post(route('login.verify-otp'), [
-                'email' => $user->email,
-                'otp' => $login['otp'],
-            ]);
-
-        $response->assertJson([
-            'component' => 'Auth/Login',
-            'props' => [
-                'step' => 'mfa-challenge',
-                'email' => $user->email,
-            ],
-        ]);
+        $login = $this->initMfaLogin($user);
 
         $this->assertGuest();
 
@@ -145,15 +155,7 @@ class MfaLoginTest extends TestCase
             'mfa_enabled_at' => now(),
         ]);
 
-        $login = $this->initLogin($user);
-
-        // verify-otp (no assertion on response, just pass session cookie)
-        $this
-            ->withSessionCookie($login['cookieName'], $login['cookieValue'])
-            ->post(route('login.verify-otp'), [
-                'email' => $user->email,
-                'otp' => $login['otp'],
-            ]);
+        $login = $this->initMfaLogin($user);
 
         // verify-recovery-code returns redirect — no X-Inertia for assertRedirect
         $response = $this
@@ -179,16 +181,7 @@ class MfaLoginTest extends TestCase
             'mfa_enabled_at' => now(),
         ]);
 
-        $login = $this->initLogin($user);
-
-        // verify-otp with X-Inertia for the assertInertia check
-        $this
-            ->withSessionCookie($login['cookieName'], $login['cookieValue'])
-            ->withHeader('X-Inertia', 'true')
-            ->post(route('login.verify-otp'), [
-                'email' => $user->email,
-                'otp' => $login['otp'],
-            ]);
+        $login = $this->initMfaLogin($user);
 
         $response = $this
             ->withSessionCookie($login['cookieName'], $login['cookieValue'])
@@ -213,14 +206,7 @@ class MfaLoginTest extends TestCase
             'mfa_enabled_at' => now(),
         ]);
 
-        $login = $this->initLogin($user);
-
-        $this
-            ->withSessionCookie($login['cookieName'], $login['cookieValue'])
-            ->post(route('login.verify-otp'), [
-                'email' => $user->email,
-                'otp' => $login['otp'],
-            ]);
+        $login = $this->initMfaLogin($user);
 
         $response = $this
             ->withSessionCookie($login['cookieName'], $login['cookieValue'])
@@ -245,14 +231,7 @@ class MfaLoginTest extends TestCase
             'mfa_enabled_at' => now(),
         ]);
 
-        $login = $this->initLogin($user);
-
-        $this
-            ->withSessionCookie($login['cookieName'], $login['cookieValue'])
-            ->post(route('login.verify-otp'), [
-                'email' => $user->email,
-                'otp' => $login['otp'],
-            ]);
+        $login = $this->initMfaLogin($user);
 
         $this
             ->withSessionCookie($login['cookieName'], $login['cookieValue'])
@@ -283,14 +262,7 @@ class MfaLoginTest extends TestCase
         ]);
 
         // === First login — consume the only recovery code ===
-        $login = $this->initLogin($user);
-
-        $this
-            ->withSessionCookie($login['cookieName'], $login['cookieValue'])
-            ->post(route('login.verify-otp'), [
-                'email' => $user->email,
-                'otp' => $login['otp'],
-            ]);
+        $login = $this->initMfaLogin($user);
 
         $this
             ->withSessionCookie($login['cookieName'], $login['cookieValue'])
@@ -310,14 +282,7 @@ class MfaLoginTest extends TestCase
         $this->assertCount(0, $user->mfa_recovery_codes);
 
         // === Second login — try same code, should fail ===
-        $login2 = $this->initLogin($user);
-
-        $this
-            ->withSessionCookie($login2['cookieName'], $login2['cookieValue'])
-            ->post(route('login.verify-otp'), [
-                'email' => $user->email,
-                'otp' => $login2['otp'],
-            ]);
+        $login2 = $this->initMfaLogin($user);
 
         $response = $this
             ->withSessionCookie($login2['cookieName'], $login2['cookieValue'])

@@ -49,7 +49,7 @@ class AdminAgencyControllerTest extends TestCase
     public function test_admin_can_upload_logo_when_creating_agency(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
-        $file = UploadedFile::fake()->image('logo.jpg');
+        $file = UploadedFile::fake()->image('logo.jpg', 128, 128);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',

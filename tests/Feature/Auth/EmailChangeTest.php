@@ -100,7 +100,7 @@ class EmailChangeTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $response->assertRedirect(route('login'));
+        $response->assertRedirect(route('profile.edit'));
 
         $this->user->refresh();
         $this->assertEquals('new@example.com', $this->user->email);

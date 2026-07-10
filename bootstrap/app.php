@@ -151,10 +151,12 @@ return Application::configure(basePath: dirname(__DIR__))
             return Inertia::render('Errors/ServerError', ['incidentId' => $incidentId])->toResponse($request)->setStatusCode(500);
         });
 
-        // Report exceptions to Sentry in non-local environments
-        if (! App::environment('local', 'testing')) {
-            if (app()->bound('sentry')) {
-                app('sentry')->captureException($e);
+        $exceptions->report(function (Throwable $e): void {
+            // Report exceptions to Sentry in non-local environments
+            if (! App::environment('local', 'testing')) {
+                if (app()->bound('sentry')) {
+                    app('sentry')->captureException($e);
+                }
             }
-        }
+        });
     })->create();
