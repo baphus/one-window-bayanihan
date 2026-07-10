@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\ReferralCompleted;
 use App\Mail\FeedbackRequestMail;
 use App\Models\Feedback;
+use App\Models\Service;
 use App\Models\SystemSetting;
 use App\Services\FeedbackInvitationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,12 +51,16 @@ class SendFeedbackRequest implements ShouldQueue
             return;
         }
 
+        // Resolve service_id from referral's required_services text
+        $serviceId = $this->resolveServiceId($referral->required_services, $referral->agcy_id);
+
         // Create invitation with a secure token
         $result = app(FeedbackInvitationService::class)->createInvitation(
             caseId: $referral->case_id,
             agencyId: $referral->agcy_id,
             referralId: $referral->id,
             clientEmail: $caseFile->client->email,
+            serviceId: $serviceId,
         );
 
         $invitation = $result['invitation'];
@@ -72,5 +77,31 @@ class SendFeedbackRequest implements ShouldQueue
             invitation: $invitation,
             token: $rawToken,
         ));
+    }
+
+    /**
+     * Resolve a service ID from the referral's required_services text.
+     *
+     * Takes the first service name from the comma-separated list
+     * and matches it to a service record for the agency.
+     */
+    private function resolveServiceId(?string $requiredServices, string $agencyId): ?string
+    {
+        if (empty($requiredServices)) {
+            return null;
+        }
+
+        // Take the first service name from comma-separated list
+        $firstService = trim(explode(',', $requiredServices)[0]);
+
+        if (empty($firstService)) {
+            return null;
+        }
+
+        $service = Service::where('agcy_id', $agencyId)
+            ->where('name', $firstService)
+            ->first();
+
+        return $service?->id;
     }
 }

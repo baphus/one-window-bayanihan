@@ -12,6 +12,8 @@ class ServqualConfig extends Model
 
     protected $fillable = [
         'agency_id',
+        'service_id',
+        'name',
         'service_name',
         'questions',
         'is_active',
@@ -26,5 +28,10 @@ class ServqualConfig extends Model
     public function agency()
     {
         return $this->belongsTo(Agency::class, 'agency_id');
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class);
     }
 }

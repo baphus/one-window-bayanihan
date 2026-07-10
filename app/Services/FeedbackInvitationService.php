@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Feedback;
 use App\Models\FeedbackInvitation;
 use App\Models\Referral;
+use App\Models\Service;
 use App\Models\ServqualConfig;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class FeedbackInvitationService
@@ -21,8 +23,8 @@ class FeedbackInvitationService
     /**
      * Create a new feedback invitation from a completed referral.
      *
-     * Snapshots the agency's active SERVQUAL config at the time of creation.
-     * The full token is returned (for email); only prefix + hash are persisted.
+     * Resolves the correct SERVQUAL config: service-specific override first,
+     * then agency default. Snapshots the form at creation time.
      *
      * @return array{invitation: FeedbackInvitation, token: string}
      */
@@ -31,17 +33,27 @@ class FeedbackInvitationService
         string $agencyId,
         string $referralId,
         ?string $clientEmail = null,
+        ?string $serviceId = null,
     ): array {
         $token = $this->generateToken();
 
-        // Snapshot the active SERVQUAL config
-        $activeConfig = ServqualConfig::where('agency_id', $agencyId)
-            ->where('is_active', true)
-            ->first();
+        // Resolve the correct SERVQUAL config
+        $config = $this->resolveConfig($agencyId, $serviceId);
 
-        $formSnapshot = $activeConfig?->questions ?? [];
-        $serviceName = $activeConfig?->service_name ?? '';
-        $snapshotSource = $activeConfig ? 'agency_active_form' : 'system_default';
+        $formSnapshot = $config?->questions ?? [];
+        $service = $serviceId ? Service::where('id', $serviceId)
+            ->where('agcy_id', $agencyId)
+            ->where('is_deleted', false)
+            ->first() : null;
+        $serviceName = $service?->name ?? $config?->service_name ?? '';
+        $snapshotSource = $config ? 'agency_active_form' : 'system_default';
+
+        if (! $config) {
+            Log::warning('No active feedback form found for agency', [
+                'agency_id' => $agencyId,
+                'service_id' => $serviceId,
+            ]);
+        }
 
         $invitation = FeedbackInvitation::create([
             'case_id' => $caseId,
@@ -50,6 +62,7 @@ class FeedbackInvitationService
             'client_email' => $clientEmail,
             'token_prefix' => substr($token, 0, 10),
             'token_hash' => hash('sha256', $token),
+            'service_id' => $serviceId,
             'service_name' => $serviceName,
             'snapshot_source' => $snapshotSource,
             'form_snapshot' => $formSnapshot,
@@ -63,6 +76,32 @@ class FeedbackInvitationService
             'invitation' => $invitation,
             'token' => $token,
         ];
+    }
+
+    /**
+     * Resolve the SERVQUAL config for a given agency and optional service.
+     *
+     * Priority: service-specific override → agency default (service_id IS NULL).
+     */
+    private function resolveConfig(string $agencyId, ?string $serviceId): ?ServqualConfig
+    {
+        // 1. Look for service-specific override
+        if ($serviceId) {
+            $override = ServqualConfig::where('agency_id', $agencyId)
+                ->where('service_id', $serviceId)
+                ->where('is_active', true)
+                ->first();
+
+            if ($override) {
+                return $override;
+            }
+        }
+
+        // 2. Fall back to agency default (service_id IS NULL)
+        return ServqualConfig::where('agency_id', $agencyId)
+            ->whereNull('service_id')
+            ->where('is_active', true)
+            ->first();
     }
 
     /**

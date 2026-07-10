@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\AdminAgencyController;
+use App\Http\Controllers\AdminFeedbackController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
@@ -143,12 +144,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });
 
-    // Feedback views: CASE_MANAGER, ADMIN, and AGENCY (controller scopes by agency_id)
+    // Feedback dashboard: routes to different controller methods based on role
     Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
-        Route::get('/feedbacks', [FeedbackController::class, 'index'])->name('feedbacks.index');
+        Route::get('/feedbacks', [FeedbackController::class, 'dashboard'])->name('feedbacks.index');
         Route::get('/feedbacks/servqual-config', [FeedbackController::class, 'servqualConfig'])->name('feedbacks.servqual-config');
         Route::get('/feedbacks/export-excel', [FeedbackController::class, 'exportExcel'])->name('feedbacks.export-excel');
         Route::get('/feedbacks/{feedback}', [FeedbackController::class, 'show'])->name('feedbacks.show');
+    });
+
+    // Admin cross-agency feedback dashboard
+    Route::middleware(['role:ADMIN', 'ip.whitelist'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/feedbacks', [AdminFeedbackController::class, 'dashboard'])->name('feedbacks.dashboard');
     });
 
     // Case show: AGENCY can view cases with active referrals (authorized in controller)
@@ -189,6 +195,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{config}/edit', [AgencyServqualConfigController::class, 'edit'])->name('edit');
         Route::patch('/{config}', [AgencyServqualConfigController::class, 'update'])->name('update');
         Route::patch('/{config}/activate', [AgencyServqualConfigController::class, 'activate'])->name('activate');
+        Route::post('/{config}/assign-service', [AgencyServqualConfigController::class, 'assignService'])->name('assign-service');
+        Route::post('/{config}/unassign-service', [AgencyServqualConfigController::class, 'unassignService'])->name('unassign-service');
         Route::delete('/{config}', [AgencyServqualConfigController::class, 'destroy'])->name('destroy');
     });
 

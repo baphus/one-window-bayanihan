@@ -26,6 +26,7 @@ class FeedbackInvitationFactory extends Factory
             'client_email' => $this->faker->safeEmail(),
             'token_prefix' => substr($fullToken, 0, 10),
             'token_hash' => hash('sha256', $fullToken),
+            'service_id' => null,
             'service_name' => $this->faker->company.' Service',
             'snapshot_source' => 'agency_active_form',
             'form_snapshot' => $questions,

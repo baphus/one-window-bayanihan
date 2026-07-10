@@ -36,6 +36,7 @@ class ServqualConfigSeeder extends Seeder
             DB::table('servqual_configs')->insert([
                 'id' => (string) Str::uuid(),
                 'agency_id' => $agency->id,
+                'name' => 'Default Feedback Form',
                 'service_name' => $serviceName,
                 'questions' => json_encode($defaultQuestions),
                 'is_active' => true,

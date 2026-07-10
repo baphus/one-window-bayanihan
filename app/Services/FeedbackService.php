@@ -6,6 +6,7 @@ use App\Models\CaseNotification;
 use App\Models\Feedback;
 use App\Models\FeedbackServqualResponse;
 use App\Models\Referral;
+use App\Models\Service;
 use App\Models\ServqualConfig;
 use App\Models\SystemSetting;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -71,6 +72,7 @@ class FeedbackService
 
         // Derive agency_id and service_name from the referral
         $agencyId = null;
+        $serviceId = $notification->data['service_id'] ?? null;
         $serviceName = '';
 
         if ($referralId) {
@@ -78,14 +80,21 @@ class FeedbackService
             if ($referral) {
                 $agencyId = $referral->agcy_id;
                 $serviceName = $referral->required_services ?? '';
+                if (! $serviceId && $serviceName) {
+                    $serviceId = Service::where('agcy_id', $agencyId)
+                        ->where('name', $serviceName)
+                        ->where('is_deleted', false)
+                        ->value('id');
+                }
             }
         }
 
-        $feedback = DB::transaction(function () use ($caseId, $agencyId, $referralId, $serviceName, $overallRating, $comments, $servqualResponses) {
+        $feedback = DB::transaction(function () use ($caseId, $agencyId, $referralId, $serviceId, $serviceName, $overallRating, $comments, $servqualResponses) {
             $feedback = Feedback::create([
                 'case_id' => $caseId,
                 'agency_id' => $agencyId,
                 'referral_id' => $referralId,
+                'service_id' => $serviceId,
                 'service_name' => $serviceName,
                 'overall_rating' => $overallRating,
                 'comments' => $comments,

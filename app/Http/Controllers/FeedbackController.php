@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\IpWhitelist;
 use App\Http\Requests\FeedbackSubmitRequest;
 use App\Models\Feedback;
+use App\Models\FeedbackInvitation;
+use App\Models\Service;
 use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\FeedbackService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,19 +25,190 @@ class FeedbackController extends Controller
         private readonly FeedbackService $feedbackService,
     ) {}
 
-    public function index(Request $request)
+    public function dashboard(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
-        $query = Feedback::with(['agency', 'caseFile.client', 'servqualResponses']);
 
-        if ($user->role === 'AGENCY' && $user->agcy_id) {
-            $query->where('agency_id', $user->agcy_id);
+        if ($user->role === 'ADMIN') {
+            $this->enforceAdminIpWhitelist($request);
+
+            return redirect()->route('admin.feedbacks.dashboard', $request->query());
         }
 
-        $feedbacks = $query->orderBy('created_at', 'desc')->paginate(15);
+        $window = $request->get('window', 'all');
+        $isAgency = $user->role === 'AGENCY' && $user->agcy_id;
+        $agencyId = $isAgency ? $user->agcy_id : null;
 
-        return Inertia::render('Feedback/Index', [
-            'feedbacks' => $feedbacks,
+        // Time window filter
+        $query = function ($query, string $createdAtColumn = 'created_at') use ($window) {
+            if ($window !== 'all') {
+                $from = match ($window) {
+                    '7d' => now()->subDays(7),
+                    '30d' => now()->subDays(30),
+                    '90d' => now()->subDays(90),
+                    'quarter' => now()->startOfQuarter(),
+                    'year' => now()->startOfYear(),
+                    default => null,
+                };
+                if ($from) {
+                    $query->where($createdAtColumn, '>=', $from);
+                }
+            }
+        };
+
+        // Total invitations sent
+        $invitationQuery = FeedbackInvitation::query();
+        if ($agencyId) {
+            $invitationQuery->where('agency_id', $agencyId);
+        }
+        $query($invitationQuery);
+        $totalSent = $invitationQuery->count();
+
+        // Total feedback submitted
+        $feedbackQuery = Feedback::query();
+        if ($agencyId) {
+            $feedbackQuery->where('agency_id', $agencyId);
+        }
+        $query($feedbackQuery);
+        $totalSubmitted = $feedbackQuery->count();
+
+        // Response rate
+        $responseRate = $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0;
+
+        // Average rating
+        $ratingQuery = Feedback::query()->whereNotNull('overall_rating');
+        if ($agencyId) {
+            $ratingQuery->where('agency_id', $agencyId);
+        }
+        $query($ratingQuery);
+        $avgRating = $ratingQuery->avg('overall_rating');
+        $avgRating = $avgRating ? round((float) $avgRating, 2) : null;
+
+        // Average SERVQUAL perception
+        $servqualQuery = DB::table('feedback_servqual_responses')
+            ->join('feedback', 'feedback_servqual_responses.feedback_id', '=', 'feedback.id')
+            ->whereNotNull('feedback_servqual_responses.perception');
+        if ($agencyId) {
+            $servqualQuery->where('feedback.agency_id', $agencyId);
+        }
+        $query($servqualQuery, 'feedback.created_at');
+        $avgServqual = $servqualQuery->avg('feedback_servqual_responses.perception');
+        $avgServqual = $avgServqual ? round((float) $avgServqual, 2) : null;
+
+        // Rating distribution
+        $ratingDistQuery = Feedback::query()->whereNotNull('overall_rating');
+        if ($agencyId) {
+            $ratingDistQuery->where('agency_id', $agencyId);
+        }
+        $query($ratingDistQuery);
+        $ratingDistribution = $ratingDistQuery
+            ->select('overall_rating', DB::raw('count(*) as count'))
+            ->groupBy('overall_rating')
+            ->pluck('count', 'overall_rating')
+            ->toArray();
+        // Fill missing ratings
+        for ($i = 1; $i <= 5; $i++) {
+            $ratingDistribution[$i] = $ratingDistribution[$i] ?? 0;
+        }
+        ksort($ratingDistribution);
+
+        // SERVQUAL dimension averages
+        $dimensionQuery = DB::table('feedback_servqual_responses')
+            ->join('feedback', 'feedback_servqual_responses.feedback_id', '=', 'feedback.id')
+            ->whereNotNull('feedback_servqual_responses.perception');
+        if ($agencyId) {
+            $dimensionQuery->where('feedback.agency_id', $agencyId);
+        }
+        $query($dimensionQuery, 'feedback.created_at');
+        $dimensionAverages = $dimensionQuery
+            ->select('feedback_servqual_responses.dimension', DB::raw('avg(feedback_servqual_responses.perception) as avg_perception'))
+            ->groupBy('feedback_servqual_responses.dimension')
+            ->pluck('avg_perception', 'dimension')
+            ->map(fn ($v) => round((float) $v, 2))
+            ->toArray();
+
+        // Service breakdown
+        if ($agencyId) {
+            $serviceBreakdown = Service::where('agcy_id', $agencyId)
+                ->where('is_deleted', false)
+                ->orderBy('name')
+                ->get()
+                ->map(function ($service) use ($query) {
+                    $sent = FeedbackInvitation::where('service_id', $service->id);
+                    $submitted = Feedback::where('service_id', $service->id);
+                    $query($sent);
+                    $query($submitted);
+
+                    $sentCount = $sent->count();
+                    $submittedCount = $submitted->count();
+                    $avgRating = (clone $submitted)->whereNotNull('overall_rating')->avg('overall_rating');
+
+                    return [
+                        'service_id' => $service->id,
+                        'service_name' => $service->name,
+                        'invitations_sent' => $sentCount,
+                        'count' => $submittedCount,
+                        'response_rate' => $sentCount > 0 ? round(($submittedCount / $sentCount) * 100, 1) : 0,
+                        'avg_rating' => $avgRating ? round((float) $avgRating, 2) : null,
+                    ];
+                })
+                ->toArray();
+        } else {
+            $serviceBreakdownQuery = Feedback::query()->whereNotNull('service_id');
+            $query($serviceBreakdownQuery);
+            $serviceBreakdown = $serviceBreakdownQuery
+                ->select('service_id', DB::raw('max(service_name) as service_name'), DB::raw('count(*) as count'), DB::raw('avg(overall_rating) as avg_rating'))
+                ->groupBy('service_id')
+                ->orderByDesc('count')
+                ->get()
+                ->map(fn ($row) => [
+                    'service_id' => $row->service_id,
+                    'service_name' => $row->service_name,
+                    'count' => (int) $row->count,
+                    'avg_rating' => $row->avg_rating ? round((float) $row->avg_rating, 2) : null,
+                ])
+                ->toArray();
+        }
+
+        // Recent feedback
+        $recentQuery = Feedback::with(['agency', 'caseFile.client', 'servqualResponses']);
+        if ($agencyId) {
+            $recentQuery->where('agency_id', $agencyId);
+        }
+        $query($recentQuery);
+        $recentFeedback = $recentQuery
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get()
+            ->map(fn ($fb) => [
+                'id' => $fb->id,
+                'client_name' => $fb->caseFile?->client
+                    ? trim(($fb->caseFile->client->first_name ?? '').' '.($fb->caseFile->client->last_name ?? ''))
+                    : 'Anonymous',
+                'agency_name' => $fb->agency?->name ?? 'N/A',
+                'service_name' => $fb->service_name ?? 'N/A',
+                'overall_rating' => $fb->overall_rating,
+                'comments' => $fb->comments,
+                'created_at' => $fb->created_at,
+                'servqual_avg' => $fb->servqualResponses->count() > 0
+                    ? round($fb->servqualResponses->avg('perception'), 2)
+                    : null,
+            ])
+            ->toArray();
+
+        return Inertia::render('Feedback/Dashboard', [
+            'stats' => [
+                'total_sent' => $totalSent,
+                'total_submitted' => $totalSubmitted,
+                'response_rate' => $responseRate,
+                'avg_rating' => $avgRating,
+                'avg_servqual' => $avgServqual,
+            ],
+            'rating_distribution' => $ratingDistribution,
+            'dimension_averages' => $dimensionAverages,
+            'service_breakdown' => $serviceBreakdown,
+            'recent_feedback' => $recentFeedback,
+            'window' => $window,
         ]);
     }
 
@@ -45,6 +221,8 @@ class FeedbackController extends Controller
         }
 
         $user = $request->user();
+        $this->enforceAdminIpWhitelist($request);
+
         if (! $user->isAdmin()) {
             if ($feedback->caseFile) {
                 $hasAccess = false;
@@ -141,6 +319,8 @@ class FeedbackController extends Controller
     public function exportExcel(Request $request)
     {
         $user = $request->user();
+        $this->enforceAdminIpWhitelist($request);
+
         $filters = $request->only(['agency_id', 'date_from', 'date_to']);
 
         $queries = new DataExportQueries;
@@ -149,5 +329,17 @@ class FeedbackController extends Controller
         $filename = 'feedback-export-'.now()->format('Ymd-His').'.xlsx';
 
         return (new DataExportService)->generateSingleSheet('Feedbacks', $columnMap, $rows, $filename);
+    }
+
+    private function enforceAdminIpWhitelist(Request $request): void
+    {
+        if (! $request->user()?->isAdmin()) {
+            return;
+        }
+
+        app(IpWhitelist::class)->handle(
+            $request,
+            fn (Request $request) => response()->noContent()
+        );
     }
 }

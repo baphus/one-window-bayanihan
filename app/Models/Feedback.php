@@ -14,6 +14,7 @@ class Feedback extends Model
         'case_id',
         'agency_id',
         'referral_id',
+        'service_id',
         'service_name',
         'overall_rating',
         'comments',

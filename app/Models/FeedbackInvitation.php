@@ -25,6 +25,7 @@ class FeedbackInvitation extends Model
         'client_email',
         'token_prefix',
         'token_hash',
+        'service_id',
         'service_name',
         'snapshot_source',
         'form_snapshot',

@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Feedback;
 use App\Models\FeedbackInvitation;
 use App\Models\Referral;
+use App\Models\Service;
 use App\Models\ServqualConfig;
 use App\Models\User;
 use App\Services\FeedbackInvitationService;
@@ -28,6 +29,7 @@ class FeedbackInvitationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->invitationService = app(FeedbackInvitationService::class);
         $this->feedbackService = app(FeedbackService::class);
     }
@@ -73,6 +75,83 @@ class FeedbackInvitationTest extends TestCase
         $this->assertTrue($invitation->expires_at->diffInDays(now()) <= 31);
         $this->assertNull($invitation->submitted_at);
         $this->assertEquals('agency_active_form', $invitation->snapshot_source);
+    }
+
+    #[Test]
+    public function create_invitation_persists_service_id_foreign_key(): void
+    {
+        $agency = Agency::factory()->create();
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Legal Aid', 'description' => 'Legal', 'processing_days' => 3]);
+        $client = Client::factory()->create();
+        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+        $referral = Referral::factory()->completed()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        ServqualConfig::factory()->active()->create([
+            'agency_id' => $agency->id,
+            'service_id' => $service->id,
+            'service_name' => $service->name,
+        ]);
+
+        $result = $this->invitationService->createInvitation($case->id, $agency->id, $referral->id, $client->email, $service->id);
+
+        $this->assertEquals($service->id, $result['invitation']->service_id);
+        $this->assertDatabaseHas('feedback_invitations', ['id' => $result['invitation']->id, 'service_id' => $service->id]);
+    }
+
+    #[Test]
+    public function service_specific_form_takes_precedence_over_agency_default(): void
+    {
+        $agency = Agency::factory()->create();
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'OWWA Membership', 'description' => 'Membership', 'processing_days' => 1]);
+        $client = Client::factory()->create();
+        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+        $referral = Referral::factory()->completed()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        ServqualConfig::factory()->active()->create([
+            'agency_id' => $agency->id,
+            'service_id' => null,
+            'service_name' => 'Default Form',
+            'questions' => [['dimension' => 'Tangibles', 'question' => 'Default question?', 'order' => 1]],
+        ]);
+        ServqualConfig::factory()->active()->create([
+            'agency_id' => $agency->id,
+            'service_id' => $service->id,
+            'service_name' => 'Override Form',
+            'questions' => [['dimension' => 'Reliability', 'question' => 'Override question?', 'order' => 1]],
+        ]);
+
+        $invitation = $this->invitationService->createInvitation($case->id, $agency->id, $referral->id, $client->email, $service->id)['invitation'];
+
+        $this->assertEquals('OWWA Membership', $invitation->service_name);
+        $this->assertSame('Override question?', $invitation->form_snapshot[0]['question']);
+    }
+
+    #[Test]
+    public function form_resolution_falls_back_to_default_and_then_system_default(): void
+    {
+        $agency = Agency::factory()->create();
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Unconfigured Service', 'description' => 'None', 'processing_days' => 1]);
+        $client = Client::factory()->create();
+        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+        $referral = Referral::factory()->completed()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        ServqualConfig::factory()->active()->create([
+            'agency_id' => $agency->id,
+            'service_id' => null,
+            'service_name' => 'Agency Default',
+            'questions' => [['dimension' => 'Empathy', 'question' => 'Default fallback?', 'order' => 1]],
+        ]);
+
+        $fallback = $this->invitationService->createInvitation($case->id, $agency->id, $referral->id, $client->email, $service->id)['invitation'];
+        $this->assertEquals('agency_active_form', $fallback->snapshot_source);
+        $this->assertEquals('Default fallback?', $fallback->form_snapshot[0]['question']);
+
+        ServqualConfig::query()->delete();
+        $secondCase = CaseFile::factory()->create(['client_id' => $client->id]);
+        $secondReferral = Referral::factory()->completed()->create(['case_id' => $secondCase->id, 'agcy_id' => $agency->id]);
+        $none = $this->invitationService->createInvitation($secondCase->id, $agency->id, $secondReferral->id, $client->email, $service->id)['invitation'];
+        $this->assertEquals('system_default', $none->snapshot_source);
+        $this->assertEmpty($none->form_snapshot);
     }
 
     #[Test]
@@ -227,6 +306,7 @@ class FeedbackInvitationTest extends TestCase
     public function get_servqual_config_filters_by_is_active(): void
     {
         $agency = Agency::factory()->create();
+        $inactiveService = Service::create(['agcy_id' => $agency->id, 'name' => 'Inactive Override', 'processing_days' => 1]);
 
         $activeQuestions = [
             ['dimension' => 'Tangibles', 'question' => 'Active question 1', 'order' => 1],
@@ -244,6 +324,7 @@ class FeedbackInvitationTest extends TestCase
 
         ServqualConfig::factory()->create([
             'agency_id' => $agency->id,
+            'service_id' => $inactiveService->id,
             'questions' => $inactiveQuestions,
             'is_active' => false,
             'activated_at' => null,
@@ -271,6 +352,7 @@ class FeedbackInvitationTest extends TestCase
         ];
 
         $response = $this->post(route('servqual-configs.store'), [
+            'name' => 'Test Form',
             'service_name' => 'Test Service',
             'questions' => $questions,
         ]);
@@ -288,11 +370,13 @@ class FeedbackInvitationTest extends TestCase
     public function agency_servqual_config_does_not_auto_activate_second_config(): void
     {
         $agency = Agency::factory()->create();
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Second Service', 'description' => 'Second', 'processing_days' => 2]);
         $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
         $this->actingAs($user);
 
         // First config (auto-activated)
         $this->post(route('servqual-configs.store'), [
+            'name' => 'First Form',
             'service_name' => 'First Service',
             'questions' => [
                 ['dimension' => 'Tangibles', 'question' => 'First question?', 'order' => 1],
@@ -301,6 +385,8 @@ class FeedbackInvitationTest extends TestCase
 
         // Second config
         $this->post(route('servqual-configs.store'), [
+            'name' => 'Second Form',
+            'service_id' => $service->id,
             'service_name' => 'Second Service',
             'questions' => [
                 ['dimension' => 'Reliability', 'question' => 'Second question?', 'order' => 1],
@@ -312,35 +398,129 @@ class FeedbackInvitationTest extends TestCase
             ->first();
 
         $this->assertNotNull($secondConfig);
-        $this->assertFalse($secondConfig->is_active);
-        $this->assertNull($secondConfig->activated_at);
+        $this->assertTrue($secondConfig->is_active);
+        $this->assertNotNull($secondConfig->activated_at);
     }
 
     #[Test]
-    public function activate_endpoint_deactivates_previous_active(): void
+    public function agency_cannot_create_two_default_forms(): void
+    {
+        $agency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        ServqualConfig::factory()->active()->create(['agency_id' => $agency->id, 'service_id' => null]);
+
+        $response = $this->actingAs($user)->post(route('servqual-configs.store'), [
+            'name' => 'Duplicate Default',
+            'service_id' => null,
+            'service_name' => 'Default Service',
+            'questions' => [['dimension' => 'Tangibles', 'question' => 'Duplicate?', 'order' => 1]],
+        ]);
+
+        $response->assertSessionHasErrors('service_id');
+        $this->assertEquals(1, ServqualConfig::where('agency_id', $agency->id)->whereNull('service_id')->count());
+    }
+
+    #[Test]
+    public function activating_service_override_does_not_deactivate_default(): void
     {
         $agency = Agency::factory()->create();
         $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
         $this->actingAs($user);
 
-        // Create two configs
-        $config1 = ServqualConfig::factory()->active()->create([
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Override Service', 'processing_days' => 1]);
+
+        $defaultConfig = ServqualConfig::factory()->active()->create([
             'agency_id' => $agency->id,
+            'service_id' => null,
         ]);
 
-        $config2 = ServqualConfig::factory()->create([
+        $overrideConfig = ServqualConfig::factory()->create([
             'agency_id' => $agency->id,
-            'is_active' => false,
-            'activated_at' => null,
+            'service_id' => $service->id,
+            'is_active' => true,
         ]);
 
-        $response = $this->patch(route('servqual-configs.activate', $config2->id));
+        $response = $this->patch(route('servqual-configs.activate', $overrideConfig->id));
 
         $response->assertRedirect();
 
-        $this->assertFalse($config1->fresh()->is_active);
-        $this->assertTrue($config2->fresh()->is_active);
-        $this->assertNotNull($config2->fresh()->activated_at);
+        $this->assertTrue($defaultConfig->fresh()->is_active);
+        $this->assertTrue($overrideConfig->fresh()->is_active);
+    }
+
+    #[Test]
+    public function agency_cannot_assign_cross_agency_service_to_form(): void
+    {
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $config = ServqualConfig::factory()->create(['agency_id' => $agency->id, 'service_id' => null]);
+        $otherService = Service::create(['agcy_id' => $otherAgency->id, 'name' => 'Other Service', 'processing_days' => 1]);
+
+        $response = $this->actingAs($user)->post(route('servqual-configs.assign-service', $config->id), [
+            'service_id' => $otherService->id,
+        ]);
+
+        $response->assertSessionHasErrors('service_id');
+        $this->assertNull($config->fresh()->service_id);
+    }
+
+    #[Test]
+    public function agency_cannot_create_duplicate_service_specific_form(): void
+    {
+        $agency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Legal', 'processing_days' => 1]);
+        ServqualConfig::factory()->create(['agency_id' => $agency->id, 'service_id' => $service->id]);
+
+        $response = $this->actingAs($user)->post(route('servqual-configs.store'), [
+            'name' => 'Duplicate Override',
+            'service_id' => $service->id,
+            'service_name' => $service->name,
+            'questions' => [['dimension' => 'Tangibles', 'question' => 'Duplicate?', 'order' => 1]],
+        ]);
+
+        $response->assertSessionHasErrors('service_id');
+        $this->assertEquals(1, ServqualConfig::where('agency_id', $agency->id)->where('service_id', $service->id)->count());
+    }
+
+    #[Test]
+    public function agency_cannot_update_form_to_duplicate_default_or_service(): void
+    {
+        $agency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Legal', 'processing_days' => 1]);
+        $otherService = Service::create(['agcy_id' => $agency->id, 'name' => 'Welfare', 'processing_days' => 1]);
+        $default = ServqualConfig::factory()->active()->create(['agency_id' => $agency->id, 'service_id' => null]);
+        $override = ServqualConfig::factory()->create(['agency_id' => $agency->id, 'service_id' => $service->id]);
+        $otherOverride = ServqualConfig::factory()->create(['agency_id' => $agency->id, 'service_id' => $otherService->id]);
+
+        $this->actingAs($user)
+            ->patch(route('servqual-configs.update', $override->id), ['service_id' => null])
+            ->assertSessionHasErrors('service_id');
+
+        $this->actingAs($user)
+            ->patch(route('servqual-configs.update', $otherOverride->id), ['service_id' => $service->id])
+            ->assertSessionHasErrors('service_id');
+
+        $this->assertNull($default->fresh()->service_id);
+        $this->assertEquals($service->id, $override->fresh()->service_id);
+        $this->assertEquals($otherService->id, $otherOverride->fresh()->service_id);
+    }
+
+    #[Test]
+    public function unassigning_override_deletes_it_when_default_exists(): void
+    {
+        $agency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Legal', 'processing_days' => 1]);
+        ServqualConfig::factory()->active()->create(['agency_id' => $agency->id, 'service_id' => null]);
+        $override = ServqualConfig::factory()->create(['agency_id' => $agency->id, 'service_id' => $service->id]);
+
+        $response = $this->actingAs($user)->post(route('servqual-configs.unassign-service', $override->id));
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('servqual_configs', ['id' => $override->id]);
     }
 
     #[Test]
@@ -354,8 +534,11 @@ class FeedbackInvitationTest extends TestCase
             'agency_id' => $agency->id,
         ]);
 
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Override Service', 'processing_days' => 1]);
+
         ServqualConfig::factory()->create([
             'agency_id' => $agency->id,
+            'service_id' => $service->id,
             'is_active' => false,
             'activated_at' => null,
         ]);
@@ -417,6 +600,7 @@ class FeedbackInvitationTest extends TestCase
     public function public_feedback_submit_creates_feedback_and_marks_invitation(): void
     {
         $agency = Agency::factory()->create();
+        $service = Service::create(['agcy_id' => $agency->id, 'name' => 'Legal Assistance', 'processing_days' => 1]);
         $client = Client::factory()->create();
         $case = CaseFile::factory()->create(['client_id' => $client->id]);
         $referral = Referral::factory()->completed()->create([
@@ -430,6 +614,7 @@ class FeedbackInvitationTest extends TestCase
             agencyId: $agency->id,
             referralId: $referral->id,
             clientEmail: $client->email,
+            serviceId: $service->id,
         );
 
         $rawToken = $result['token'];
@@ -459,6 +644,7 @@ class FeedbackInvitationTest extends TestCase
             'case_id' => $case->id,
             'agency_id' => $agency->id,
             'referral_id' => $referral->id,
+            'service_id' => $service->id,
         ]);
 
         $invitation = $result['invitation']->fresh();

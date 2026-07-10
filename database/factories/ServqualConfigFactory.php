@@ -15,6 +15,8 @@ class ServqualConfigFactory extends Factory
     {
         return [
             'agency_id' => Agency::factory(),
+            'name' => $this->faker->words(3, true).' Form',
+            'service_id' => null,
             'service_name' => $this->faker->company.' Service',
             'questions' => DefaultServqualQuestions::get(),
             'is_active' => false,
