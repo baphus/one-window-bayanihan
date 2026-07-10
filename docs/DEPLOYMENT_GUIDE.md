@@ -13,7 +13,15 @@
 | Database | Supabase | PostgreSQL 17 | Pro plan (paid) |
 | Media Storage | Supabase Storage | Document uploads + CDN | Supabase plan (S3 storage) |
 | Email/SMTP | SendGrid / SMTP | OTP + notifications | Free tier sufficient |
-| AI Chatbot (optional) | OpenAI | Chatbot service | Pay-as-you-go |
+| AI Chatbot (optional) | Local model (Ollama / llama.cpp) | Answer generation only — retrieval is in-app SQLite FTS5 (no vector DB) | Self-hosted, no per-call cost |
+
+**Chatbot model options** (answer generation is the only model-dependent step; the retrieval index is built in-app by `php artisan chatbot:index`, which the Docker entrypoint runs automatically when `AI_CHATBOT_ENABLED=true`):
+
+1. **Ollama sidecar** (default): run `ollama` next to the app container, `ollama pull llama3.2:3b` (~2 GB RAM, CPU-only is fine), set `AI_CHATBOT_PROVIDER=ollama`, `AI_CHATBOT_MODEL=llama3.2:3b`, `OLLAMA_URL=http://ollama:11434`.
+2. **Single-container**: run `llama.cpp`'s `llama-server` with a GGUF model (OpenAI-compatible API) inside the same host; set `AI_CHATBOT_PROVIDER=openai` and `OPENAI_URL=http://127.0.0.1:8080/v1`.
+3. **Hosted API** (only if data-residency policy permits): any provider in `config/ai.php` via its env keys.
+
+If the model backend is down, the chatbot degrades gracefully: it serves the top retrieved help-article section verbatim instead of erroring.
 
 ---
 

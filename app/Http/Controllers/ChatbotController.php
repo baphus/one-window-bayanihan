@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Services\Chatbot\ChatbotGuideService;
 use App\Services\Chatbot\ChatbotHelpdeskService;
+use App\Services\Chatbot\ChatbotIntentService;
+use App\Services\Chatbot\ChatbotRetrievalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +13,13 @@ use Illuminate\Support\Facades\Log;
 
 use function Laravel\Ai\agent;
 
+/**
+ * Chatbot message pipeline: injection guard → heuristic intent (zero LLM) →
+ * FTS5 retrieval → verbatim tier (zero LLM) or a single LLM call.
+ *
+ * At most one LLM request is made per message; when the model backend is
+ * unavailable the bot degrades to serving the retrieved section verbatim.
+ */
 class ChatbotController extends Controller
 {
     private const MAX_RESPONSE_LENGTH = 2000;
@@ -29,6 +38,14 @@ class ChatbotController extends Controller
         '/dump\s+(?:the\s+)?(?:prompt|system)/i',
     ];
 
+    /** Map of user roles to the audience groups they should see. */
+    private const ROLE_AUDIENCE_MAP = [
+        'public' => ['OFW & Public'],
+        'case_manager' => ['OFW & Public', 'Case Managers'],
+        'agency' => ['OFW & Public', 'Agency Focal Persons'],
+        'admin' => null, // null = show all
+    ];
+
     private array $responsesGreeting;
 
     private array $responsesIdentity;
@@ -40,6 +57,8 @@ class ChatbotController extends Controller
     public function __construct(
         private readonly ChatbotHelpdeskService $helpdesk,
         private readonly ChatbotGuideService $guide,
+        private readonly ChatbotRetrievalService $retrieval,
+        private readonly ChatbotIntentService $intent,
     ) {
         $name = config('ai-chatbot.assistant_name', 'Bayani');
 
@@ -69,14 +88,6 @@ class ChatbotController extends Controller
         ];
     }
 
-    /** Map of user roles to the audience groups they should see. */
-    private const ROLE_AUDIENCE_MAP = [
-        'public' => ['OFW & Public'],
-        'case_manager' => ['OFW & Public', 'Case Managers'],
-        'agency' => ['OFW & Public', 'Agency Focal Persons'],
-        'admin' => null, // null = show all
-    ];
-
     public function message(Request $request): JsonResponse
     {
         $request->validate([
@@ -87,7 +98,6 @@ class ChatbotController extends Controller
         ]);
 
         $userMessage = $request->input('message');
-        $history = $request->input('history', []);
         $userContext = $this->resolveUserContext();
 
         // ── 1. Prompt-injection guard ──
@@ -99,46 +109,68 @@ class ChatbotController extends Controller
             }
         }
 
-        // ── 2. Classify intent (with conversation history context) ──
-        try {
-            $intent = $this->classifyIntent($userMessage, $history);
-        } catch (\Throwable $e) {
-            Log::warning('Chatbot intent classification failed', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->fallbackResponse();
-        }
-
-        // ── 3. Non-relevant → canned response (follow_up is handled separately) ──
-        if (! in_array($intent, ['relevant', 'follow_up'], true)) {
+        // ── 2. Heuristic intent — greetings/identity/gibberish never reach the LLM ──
+        $intent = $this->intent->classify($userMessage);
+        if ($intent !== ChatbotIntentService::CONTENT_QUERY) {
             return response()->json([
                 'reply' => $this->cannedForIntent($intent),
             ]);
         }
 
-        // ── 3b. Follow-up with stored context → reuse previous article ──
-        if ($intent === 'follow_up') {
-            $lastContext = session()->get('chatbot_last_context');
-            if ($lastContext && ! empty($lastContext['source_label']) && $lastContext['source_label'] !== 'multiple') {
-                // Re-use the stored article directly — keyword matcher would lack
-                // context for vague follow-ups like "What documents do I need?"
-                $sourceType = $lastContext['source_type'] ?? 'helpdesk';
-                $sourceLabel = $lastContext['source_label'];
-
-                if ($sourceType === 'guide') {
-                    return $this->answerWithSources($userMessage, [['type' => 'guide', 'key' => $sourceLabel]], $userContext);
-                }
-
-                return $this->answerWithSources($userMessage, [['type' => 'helpdesk', 'slug' => $sourceLabel]], $userContext);
-            }
-
-            // No stored context → fall through to full pipeline
-            return $this->answerFromSelectedContent($userMessage, $userContext);
+        // ── 3. Lexical retrieval (FTS5 + BM25, audience-filtered) ──
+        try {
+            $hits = $this->retrieval->search($userMessage, $userContext['groups']);
+        } catch (\Throwable $e) {
+            Log::warning('Chatbot retrieval failed', ['error' => $e->getMessage()]);
+            $hits = [];
         }
 
-        // ── 4. Pick the most relevant articles/guides ──
-        return $this->answerFromSelectedContent($userMessage, $userContext);
+        $verbatimMin = (float) config('ai-chatbot.retrieval.verbatim_min_score');
+
+        // ── 4. Follow-up: vague continuation of a stored topic → reuse that source ──
+        $stored = session()->get('chatbot_last_context');
+        $hasStored = $stored
+            && ! empty($stored['source_label'])
+            && ($stored['source_label'] ?? '') !== 'multiple';
+
+        if ($hasStored) {
+            $weakOwnMatch = $hits === [] || $hits[0]['score'] < $verbatimMin;
+            if ($hits === [] || ($weakOwnMatch && $this->intent->isFollowUpCandidate($userMessage))) {
+                $storedHits = $this->hitsForStoredSource($stored);
+                if ($storedHits !== []) {
+                    return $this->answerWithAi($userMessage, $storedHits, $userContext, rememberContext: false);
+                }
+            }
+        }
+
+        // ── 5. No match at all → answer from curated fallback sections ──
+        if ($hits === []) {
+            return $this->answerWithAi($userMessage, [], $userContext, rememberContext: false);
+        }
+
+        // ── 6. Verbatim tier: unambiguous single-section match needs no LLM ──
+        // Ambiguity is measured against the best hit from a DIFFERENT source —
+        // runner-up sections of the same article mean the topic is unambiguous.
+        $gapRatio = (float) config('ai-chatbot.retrieval.verbatim_gap_ratio');
+        $topScore = $hits[0]['score'];
+        $topSource = $hits[0]['source_type'].':'.$hits[0]['slug'];
+        $rival = null;
+        foreach ($hits as $hit) {
+            if ($hit['source_type'].':'.$hit['slug'] !== $topSource) {
+                $rival = $hit;
+                break;
+            }
+        }
+        $clearWinner = $rival === null || $topScore >= $gapRatio * $rival['score'];
+
+        if ($topScore >= $verbatimMin && $clearWinner) {
+            $this->rememberContext([$hits[0]]);
+
+            return $this->replyJson($this->verbatimText($hits[0]), $this->actionsFor($hits));
+        }
+
+        // ── 7. Ambiguous/multi-source → the single LLM call ──
+        return $this->answerWithAi($userMessage, $hits, $userContext);
     }
 
     /**
@@ -177,351 +209,41 @@ class ChatbotController extends Controller
         ];
     }
 
-    // ──────────────────────────────────────────────
-    //  Intent classification
-    // ──────────────────────────────────────────────
-
     /**
-     * Classify the user's message intent via the LLM.
-     *
-     * @return string One of "greeting", "identity", "irrelevant", "gibberish", or "relevant"
-     */
-    private function classifyIntent(string $message, ?array $history = null): string
-    {
-        // Build conversation context from history and session
-        $contextBlock = "\nUser's new message: {$message}\n";
-
-        $lastContext = session()->get('chatbot_last_context');
-        if ($lastContext && ! empty($lastContext['article_title'])) {
-            $contextBlock .= "Previous topic: {$lastContext['article_title']}\n";
-        }
-
-        if ($history !== null && count($history) > 0) {
-            $recent = array_slice($history, -5);
-            $userQueries = array_map(
-                fn ($msg) => 'User: '.mb_substr($msg['text'] ?? '', 0, 200),
-                $recent,
-            );
-            $contextBlock .= 'Recent conversation:'."\n".implode("\n", $userQueries)."\n";
-        }
-
-        $instruction = <<<EOT
-You are a classifier for an OFW assistance chatbot. Categorize the user's message into exactly one of these intents:
-
-- greeting: The user is just saying hello, hi, good morning, or similar greeting
-- identity: The user is asking who you are, what you are, or what you can do
-- follow_up: The user is continuing a previous conversation topic — their question is vague on its own but makes sense in context of the prior discussion (e.g. "What documents do I need?" after asking about filing a complaint)
-- irrelevant: The topic is completely unrelated to OFW services, case tracking, DMW, or the Bayanihan One Window system
-- gibberish: The message is garbled, has heavy typos that obscure meaning, keyboard mash, or seems unintelligible as a real question (e.g. "waht", "could usay that agian", "asdfgh", "sm like that", "uoy nac dlef"). Also includes messages where the user seems confused and is just asking the bot to repeat itself (e.g. "what?", "say that again", "come again?")
-- relevant: The user is asking about OFW services, case tracking, agencies, documents, or anything related to the system
-
-Use the conversation context below to decide — especially for follow_up detection.
-
-{$contextBlock}
-Reply with ONLY the intent word (one of: greeting, identity, follow_up, irrelevant, gibberish, relevant), nothing else.
-EOT;
-
-        $response = agent(
-            instructions: $instruction,
-        )->prompt(
-            prompt: $message,
-            provider: config('ai-chatbot.provider'),
-            model: config('ai-chatbot.model'),
-        );
-
-        $intent = strtolower(trim($response->text));
-
-        return match ($intent) {
-            'greeting', 'identity', 'irrelevant', 'follow_up', 'gibberish' => $intent,
-            default => 'relevant',
-        };
-    }
-
-    /**
-     * Return a canned response for a non-relevant intent.
+     * Return a canned response for a non-content intent.
      */
     private function cannedForIntent(string $intent): string
     {
         return match ($intent) {
-            'greeting' => $this->randomReply($this->responsesGreeting),
-            'identity' => $this->randomReply($this->responsesIdentity),
-            'irrelevant' => $this->randomReply($this->responsesIrrelevant),
-            'gibberish' => $this->randomReply($this->responsesUnclear),
+            ChatbotIntentService::GREETING => $this->randomReply($this->responsesGreeting),
+            ChatbotIntentService::IDENTITY => $this->randomReply($this->responsesIdentity),
+            ChatbotIntentService::GIBBERISH => $this->randomReply($this->responsesUnclear),
             default => $this->randomReply($this->responsesIrrelevant),
         };
     }
 
     // ──────────────────────────────────────────────
-    //  Article / guide selection
+    //  Answer generation (the single LLM call)
     // ──────────────────────────────────────────────
 
     /**
-     * Keyword-based article selection — deterministic, no LLM call.
+     * Generate the answer with one LLM call over the retrieved content.
+     * Empty $hits means "answer from the curated fallback sections".
+     * On LLM failure, degrade to serving the top section verbatim (HTTP 200).
      *
-     * Tokenizes the user question and scores articles/guides by keyword overlap
-     * with titles, excerpts, and descriptions. Returns the top 1-3 sources
-     * sorted by relevance score.
-     *
-     * @return list<array{type: string, key?: string, slug?: string}>
+     * @param  list<array{source_type: string, source_key: string, slug: string, heading: string}>  $hits
      */
-    private function matchArticles(string $message, array $userContext): array
+    private function answerWithAi(string $message, array $hits, array $userContext, bool $rememberContext = true): JsonResponse
     {
-        $articles = $this->helpdesk->getArticleMeta($userContext['groups']);
-        $guideTopics = $this->guide->getAllTopics();
+        $content = $hits !== []
+            ? $this->retrieval->contentFor($hits)
+            : $this->helpdesk->getFallbackSections();
 
-        // Tokenize question: lowercase, split on non-word chars, remove short/stop words
-        $stopWords = [
-            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-            'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-            'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
-            'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
-            'before', 'after', 'and', 'but', 'or', 'nor', 'not', 'so', 'yet',
-            'both', 'either', 'neither', 'each', 'every', 'all', 'any', 'few',
-            'more', 'most', 'other', 'some', 'such', 'no', 'only', 'own', 'same',
-            'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
-            'it', 'its', 'how', 'i', 'me', 'my', 'we', 'our', 'you', 'your',
-            'he', 'him', 'his', 'she', 'her', 'they', 'them', 'their', 'about',
-            'just', 'like', 'know', 'want', 'need', 'tell', 'ask', 'please', 'thanks',
-        ];
+        $actions = $this->actionsFor($hits);
 
-        $words = array_unique(array_filter(
-            preg_split('/\W+/', mb_strtolower($message)),
-            fn ($w) => mb_strlen($w) > 2 && ! in_array($w, $stopWords),
-        ));
-
-        if (empty($words)) {
-            Log::warning('Chatbot matchArticles no meaningful keywords', ['message' => $message]);
-
-            throw new \RuntimeException('No meaningful keywords in query');
-        }
-
-        $scored = [];
-
-        // Score helpdesk articles by title + excerpt keyword overlap.
-        // Title matches weigh 2× excerpt matches — titles are more specific.
-        foreach ($articles as $slug => $meta) {
-            $titleText = mb_strtolower($meta['title']);
-            $excerptText = mb_strtolower($meta['excerpt']);
-            $score = 0;
-            foreach ($words as $word) {
-                if (str_contains($titleText, $word)) {
-                    $score += 2;
-                } elseif (str_contains($excerptText, $word)) {
-                    $score += 1;
-                }
-            }
-            if ($score > 0) {
-                $scored[] = ['type' => 'helpdesk', 'slug' => $slug, 'score' => $score];
-            }
-        }
-
-        // Score guide topics by heading + description keyword overlap.
-        // Guide topics are supplementary; their content is brief compared to
-        // helpdesk articles, so all matches get +1 weight.
-        foreach ($guideTopics as $key => $meta) {
-            $headingText = mb_strtolower($meta['heading']);
-            $descriptionText = mb_strtolower($meta['description']);
-            $score = 0;
-            foreach ($words as $word) {
-                if (str_contains($headingText, $word) || str_contains($descriptionText, $word)) {
-                    $score += 1;
-                }
-            }
-            if ($score > 0) {
-                $scored[] = ['type' => 'guide', 'key' => $key, 'score' => $score];
-            }
-        }
-
-        if (empty($scored)) {
-            Log::warning('Chatbot matchArticles no keyword matches', ['words' => $words]);
-
-            throw new \RuntimeException('No articles matched keywords');
-        }
-
-        // Sort by score descending, tie-break: helpdesk articles before guide topics
-        usort($scored, function (array $a, array $b): int {
-            if ($b['score'] !== $a['score']) {
-                return $b['score'] <=> $a['score'];
-            }
-
-            if ($a['type'] !== $b['type']) {
-                return $a['type'] === 'helpdesk' ? -1 : 1;
-            }
-
-            return 0;
-        });
-
-        // Deduplicate by slug/key (keep highest score)
-        $seen = [];
-        $unique = [];
-        foreach ($scored as $item) {
-            $id = ($item['type'] === 'guide' ? 'g:' : 'h:').($item['slug'] ?? $item['key'] ?? '');
-            if (! isset($seen[$id])) {
-                $seen[$id] = true;
-                $unique[] = $item;
-            }
-        }
-
-        // Return top 1-3, strip scores
-        $top = array_slice($unique, 0, 3);
-
-        $result = [];
-        foreach ($top as $item) {
-            if ($item['type'] === 'guide') {
-                $result[] = ['type' => 'guide', 'key' => $item['key']];
-            } else {
-                $result[] = ['type' => 'helpdesk', 'slug' => $item['slug']];
-            }
-        }
-
-        Log::debug('Chatbot matchArticles result', [
-            'sources' => $result,
-            'words' => $words,
-        ]);
-
-        return $result;
-    }
-
-    // ──────────────────────────────────────────────
-    //  Section selection
-    // ──────────────────────────────────────────────
-
-    /**
-     * Have the LLM pick the most relevant sections from the chosen source.
-     *
-     * @param  array{type: string, key?: string, slug?: string}  $source
-     * @return list<string> Section identifiers
-     */
-    private function pickSections(string $message, array $source, array $userContext): array
-    {
-        // Guide topics are single-section — no need for an extra LLM call
-        if ($source['type'] === 'guide') {
-            return [$source['key']];
-        }
-
-        $name = config('ai-chatbot.assistant_name', 'Bayani');
-        $slug = $source['slug'];
-        $headings = $this->helpdesk->getArticleHeadings($slug);
-
-        if ($headings === []) {
-            throw new \RuntimeException("No sections found for article: {$slug}");
-        }
-
-        $userLabel = $userContext['label'];
-        $sectionList = implode("\n", array_map(fn ($h) => "- {$h}", $headings));
-
-        $instruction = <<<EOT
-You are {$name}, an assistant for the Bayanihan One Window system.
-
-The user ({$userLabel}) is asking: "{$message}"
-
-The article "{$slug}" has these sections:
-{$sectionList}
-
-Select 1-3 sections most relevant to the user's question.
-Reply with ONLY the section heading text, one per line, in the order they should be read.
-Do NOT include the article slug or any prefix — just the heading text.
-EOT;
-
-        $response = agent(
-            instructions: $instruction,
-        )->prompt(
-            prompt: $message,
-            provider: config('ai-chatbot.provider'),
-            model: config('ai-chatbot.model'),
-        );
-
-        Log::debug('Chatbot pickSections raw response', [
-            'slug' => $slug,
-            'response' => $response->text,
-        ]);
-
-        $lines = explode("\n", trim($response->text));
-
-        // Build a lookup of normalized known headings for validation
-        $knownNormalized = [];
-        foreach ($headings as $h) {
-            $normalized = $this->normalizeHeading($h);
-            $knownNormalized[$normalized] = $h; // original heading as value
-        }
-
-        $selected = [];
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-
-            // Strip bullet points, numbered lists, markdown bold, and backticks
-            $cleaned = preg_replace(
-                ['/^[-*]\s+/', '/^\d+[.)]\s+/', '/\*\*(.+?)\*\*/', '/`(.+?)`/'],
-                ['', '', '$1', '$1'],
-                $line,
-            );
-            $cleaned = trim($cleaned);
-
-            if ($cleaned === '') {
-                continue;
-            }
-
-            // Match against known headings — exact, fuzzy, or substring
-            $normalized = $this->normalizeHeading($cleaned);
-
-            if (isset($knownNormalized[$normalized])) {
-                // Exact normalized match
-                $selected[] = $knownNormalized[$normalized];
-            } else {
-                // Substring match: LLM may say "Viewing Case Status" instead of "Step 5: Viewing Case Status"
-                foreach ($knownNormalized as $normKey => $original) {
-                    if (str_contains($normKey, $normalized) || str_contains($normalized, $normKey)) {
-                        $selected[] = $original;
-                        break;
-                    }
-                }
-            }
-        }
-
-        Log::debug('Chatbot pickSections matched', [
-            'slug' => $slug,
-            'selected' => $selected,
-            'count' => count($selected),
-        ]);
-
-        // If no headings matched, load ALL sections rather than returning nothing.
-        // The AI gets broader content instead of hallucinating from no context.
-        if ($selected === []) {
-            Log::debug('Chatbot pickSections fell back to all sections', ['slug' => $slug]);
-
-            return $this->allSectionIdsFor($source);
-        }
-
-        return array_map(
-            fn ($heading) => "{$slug}::{$heading}",
-            $selected,
-        );
-    }
-
-    // ──────────────────────────────────────────────
-    //  Answer generation
-    // ──────────────────────────────────────────────
-
-    /**
-     * Load the selected sections and generate an AI answer.
-     *
-     * @param  list<string>  $sectionIds
-     */
-    private function answerFromSections(string $message, array $sectionIds, array $userContext, array $actions = []): JsonResponse
-    {
         try {
             $name = config('ai-chatbot.assistant_name', 'Bayani');
-            $sectionContent = $this->loadSectionContent($sectionIds);
             $userLabel = $userContext['label'];
-
-            Log::debug('Chatbot answerFromSections section count', [
-                'sectionIds' => $sectionIds,
-                'content_length' => strlen($sectionContent),
-                'content_preview' => mb_substr($sectionContent, 0, 200),
-            ]);
 
             $instructions = <<<EOT
 You are {$name}, a helpful and friendly virtual assistant for the Bayanihan One Window system operated by DMW Region VII. You are knowledgeable about the system and speak with confidence.
@@ -533,19 +255,18 @@ CRITICAL RULES — You must follow these strictly:
 2. NEVER make up or imply specific information about a user's case (status, dates, documents, etc.). If a user asks about their personal case, explain how to check it through the tracking portal using their tracker number — do NOT pretend to check it yourself.
 3. Answer ONLY the user's exact question. Do NOT add procedures, steps, instructions, explanations, or details the user did not ask for. If the user asks "give me the link", say "here's the link" — do NOT explain how to use it. If the user asks "what does OPEN mean", explain only OPEN — not the other statuses. Never explain a full process when the user asked a simple question.
 4. Stay on topic — do not introduce procedures, services, or agencies the user didn't ask about.
-5. When explaining case statuses, use general descriptions — never say "Your case is Under Review."
-6. Be very concise — 1 to 3 sentences max. No fluff, no repetition, no introductory phrases. Answer the question and stop. Use markdown formatting sparingly.
-7. Tailor your response to the user's role — use appropriate terminology and detail level for their context.
-8. CRITICAL — Present information naturally as if it is your own knowledge. NEVER say "according to the reference", "the provided content says", "based on the documentation", "the reference material states", or any similar phrase. You know this. Just answer directly.
+5. If the user's question is unrelated to the Bayanihan One Window system, OFW services, or the reference content, politely say you can only help with Bayanihan One Window and OFW-related topics — do not answer the unrelated question.
+6. When explaining case statuses, use general descriptions — never say "Your case is Under Review."
+7. Be very concise — 1 to 3 sentences max. No fluff, no repetition, no introductory phrases. Answer the question and stop. Use markdown formatting sparingly.
+8. Tailor your response to the user's role — use appropriate terminology and detail level for their context.
+9. CRITICAL — Present information naturally as if it is your own knowledge. NEVER say "according to the reference", "the provided content says", "based on the documentation", "the reference material states", or any similar phrase. You know this. Just answer directly.
 EOT;
 
-            // Reference content is included in the user prompt below. Models like
-            // llama3 pay better attention to content in the user message vs system
-            // instructions. The prompt phrasing guides the AI to speak from knowledge,
-            // not to cite a source.
+            // Reference content goes in the user prompt — small local models pay
+            // better attention to it there than in the system instructions.
             $userPrompt = $message;
-            if ($sectionContent !== '') {
-                $userPrompt .= "\n\n---\n\n{$sectionContent}";
+            if ($content !== '') {
+                $userPrompt .= "\n\n---\n\n{$content}";
             }
 
             $response = agent(
@@ -556,133 +277,28 @@ EOT;
                 model: config('ai-chatbot.model'),
             );
 
-            $reply = $response->text;
-
-            if (mb_strlen($reply) > self::MAX_RESPONSE_LENGTH) {
-                $reply = mb_substr($reply, 0, self::MAX_RESPONSE_LENGTH - 3).'...';
+            if ($rememberContext) {
+                $this->rememberContext($hits);
             }
 
-            $response = ['reply' => $reply];
-            if ($actions !== []) {
-                $response['actions'] = $actions;
-            }
-
-            return response()->json($response);
+            return $this->replyJson($response->text, $actions);
         } catch (\Throwable $e) {
-            Log::warning('Chatbot AI answer failed', [
+            Log::warning('Chatbot AI answer failed — degrading to verbatim content', [
                 'error' => $e->getMessage(),
             ]);
+
+            // Basic mode: the model is down, but retrieval still works.
+            if ($hits !== []) {
+                $reply = "_I'm having trouble reaching my AI service, so here's the most relevant help content:_\n\n"
+                    .$this->verbatimText($hits[0]);
+
+                return $this->replyJson($reply, $actions);
+            }
 
             return response()->json([
-                'reply' => null,
-                'error' => 'AI service is currently unavailable. Please try again later.',
-            ], 503);
-        }
-    }
-
-    /**
-     * Select articles + sections and generate an answer.
-     *
-     * matchArticles selects 1-3 sources via keyword matching (deterministic,
-     * no LLM call). pickSections selects relevant headings from each source,
-     * falling back to all sections if nothing matches.
-     */
-    private function answerFromSelectedContent(string $message, array $userContext): JsonResponse
-    {
-        // ── 1. Pick 1-3 most relevant articles/guides via keyword matching ──
-        try {
-            $sources = $this->matchArticles($message, $userContext);
-        } catch (\Throwable $e) {
-            Log::warning('Chatbot article selection failed', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->answerWithFallback($message, $userContext);
-        }
-
-        return $this->answerWithSources($message, $sources, $userContext);
-    }
-
-    /**
-     * Pick sections from the given sources, store conversation context,
-     * and generate an AI answer.
-     *
-     * @param  list<array{type: string, key?: string, slug?: string}>  $sources
-     */
-    private function answerWithSources(string $message, array $sources, array $userContext): JsonResponse
-    {
-        // ── Pick sections from each source ──
-        $allSectionIds = [];
-        foreach ($sources as $source) {
-            try {
-                $sectionIds = $this->pickSections($message, $source, $userContext);
-            } catch (\Throwable $e) {
-                Log::warning('Chatbot section selection failed', [
-                    'error' => $e->getMessage(),
-                ]);
-
-                $sectionIds = $this->allSectionIdsFor($source);
-            }
-
-            $allSectionIds = array_merge($allSectionIds, $sectionIds);
-        }
-
-        // ── Store conversation context for follow-up detection ──
-        $firstSource = $sources[0] ?? null;
-        if ($firstSource && count($sources) === 1) {
-            $sourceType = $firstSource['type'];
-            $sourceLabel = $firstSource['slug'] ?? $firstSource['key'] ?? 'multiple';
-            session()->put('chatbot_last_context', [
-                'source_type' => $sourceType,
-                'source_label' => $sourceLabel,
-                'article_title' => $sourceType === 'helpdesk'
-                    ? ($this->helpdesk->getTitle($sourceLabel) ?? 'Selected Article')
-                    : ($this->guide->getAllTopics()[$sourceLabel]['heading'] ?? 'Selected Topic'),
-            ]);
-        } else {
-            session()->put('chatbot_last_context', [
-                'source_type' => 'multiple',
-                'source_label' => 'multiple',
-                'article_title' => 'Selected Articles',
+                'reply' => "I'm sorry, I'm having trouble processing your request right now. Please try again later or browse our Help Center for assistance.",
             ]);
         }
-
-        // ── Build action links based on matched sources ──
-        $actions = [];
-        foreach ($sources as $source) {
-            if (($source['slug'] ?? '') === 'using-public-tracking-portal') {
-                $actions[] = [
-                    'label' => 'Go to Tracking Portal',
-                    'url' => route('track.index'),
-                    'icon' => 'track',
-                ];
-            }
-        }
-
-        // ── Load section content + generate answer ──
-        return $this->answerFromSections($message, $allSectionIds, $userContext, $actions);
-    }
-
-    // ──────────────────────────────────────────────
-    //  Fallback paths
-    // ──────────────────────────────────────────────
-
-    /**
-     * Answer using curated fallback sections when article/section selection fails.
-     */
-    private function answerWithFallback(string $message, array $userContext): JsonResponse
-    {
-        return $this->answerFromSections($message, ['__fallback__'], $userContext);
-    }
-
-    /**
-     * Generic fallback when even classification fails.
-     */
-    private function fallbackResponse(): JsonResponse
-    {
-        return response()->json([
-            'reply' => "I'm sorry, I'm having trouble processing your request right now. Please try again later or browse our Help Center for assistance.",
-        ]);
     }
 
     // ──────────────────────────────────────────────
@@ -690,76 +306,123 @@ EOT;
     // ──────────────────────────────────────────────
 
     /**
-     * Load content from a list of section identifiers.
+     * Rebuild hit descriptors for every section of a previously stored source,
+     * so a follow-up question is answered from the same article/guide.
      *
-     * Supports guide keys (plain strings) and helpdesk format ("slug::Heading").
-     *
-     * @param  list<string>  $sectionIds
+     * @return list<array{source_type: string, source_key: string, slug: string, heading: string}>
      */
-    private function loadSectionContent(array $sectionIds): string
+    private function hitsForStoredSource(array $stored): array
     {
-        // Special fallback sentinel
-        if ($sectionIds === ['__fallback__']) {
-            return $this->helpdesk->getFallbackSections();
+        $type = $stored['source_type'] ?? 'helpdesk';
+        $label = $stored['source_label'];
+
+        if ($type === 'guide') {
+            return [[
+                'source_type' => 'guide',
+                'source_key' => $label,
+                'slug' => $label,
+                'heading' => $this->guide->getAllTopics()[$label]['heading'] ?? $label,
+            ]];
         }
 
-        $guideKeys = [];
-        $helpdeskIds = [];
-
-        foreach ($sectionIds as $id) {
-            if (str_contains($id, '::')) {
-                $helpdeskIds[] = $id;
-            } else {
-                $guideKeys[] = $id;
-            }
+        $hits = [];
+        foreach ($this->helpdesk->getArticleHeadings($label) as $heading) {
+            $hits[] = [
+                'source_type' => 'helpdesk',
+                'source_key' => "{$label}::{$heading}",
+                'slug' => $label,
+                'heading' => $heading,
+            ];
         }
 
-        $parts = [];
-
-        if ($guideKeys !== []) {
-            $content = $this->guide->getSections($guideKeys);
-            if ($content !== '') {
-                $parts[] = $content;
-            }
-        }
-
-        if ($helpdeskIds !== []) {
-            $content = $this->helpdesk->getSections($helpdeskIds);
-            if ($content !== '') {
-                $parts[] = $content;
-            }
-        }
-
-        return implode("\n\n---\n\n", $parts);
+        return $hits;
     }
 
     /**
-     * Build section identifiers for all sections of a source.
+     * Store conversation context so vague follow-ups can reuse the same source.
      *
-     * @param  array{type: string, key?: string, slug?: string}  $source
-     * @return list<string>
+     * @param  list<array{source_type: string, source_key: string, slug: string}>  $hits
      */
-    private function allSectionIdsFor(array $source): array
+    private function rememberContext(array $hits): void
     {
-        if ($source['type'] === 'guide') {
-            return [$source['key']];
+        $sources = [];
+        foreach ($hits as $hit) {
+            $sources[$hit['source_type'].':'.$hit['slug']] = $hit;
         }
 
-        $slug = $source['slug'];
-        $headings = $this->helpdesk->getArticleHeadings($slug);
+        if (count($sources) === 1) {
+            $hit = reset($sources);
+            $isGuide = $hit['source_type'] === 'guide';
+            $label = $isGuide ? $hit['source_key'] : $hit['slug'];
 
-        return array_map(fn ($h) => "{$slug}::{$h}", $headings);
+            session()->put('chatbot_last_context', [
+                'source_type' => $hit['source_type'],
+                'source_label' => $label,
+                'article_title' => $isGuide
+                    ? ($this->guide->getAllTopics()[$label]['heading'] ?? 'Selected Topic')
+                    : ($this->helpdesk->getTitle($label) ?? 'Selected Article'),
+            ]);
+
+            return;
+        }
+
+        session()->put('chatbot_last_context', [
+            'source_type' => 'multiple',
+            'source_label' => 'multiple',
+            'article_title' => 'Selected Articles',
+        ]);
     }
 
     /**
-     * Normalise a heading for fuzzy comparison: lowercase, strip non-alphanumeric,
-     * collapse whitespace. Mirrors ChatbotHelpdeskService::normalizeKey().
+     * Build action links based on the matched sources.
      */
-    private function normalizeHeading(string $heading): string
+    private function actionsFor(array $hits): array
     {
-        $key = preg_replace('/[^a-z0-9\s]+/i', ' ', $heading);
+        foreach ($hits as $hit) {
+            if (($hit['slug'] ?? '') === 'using-public-tracking-portal') {
+                return [[
+                    'label' => 'Go to Tracking Portal',
+                    'url' => route('track.index'),
+                    'icon' => 'track',
+                ]];
+            }
+        }
 
-        return strtolower(trim(preg_replace('/\s+/', ' ', $key)));
+        return [];
+    }
+
+    /**
+     * Render a hit's section content for direct display in the chat, demoting
+     * the markdown header to bold so it fits a chat bubble.
+     */
+    private function verbatimText(array $hit): string
+    {
+        $content = $this->retrieval->contentFor([$hit]);
+
+        return trim(preg_replace('/^#{1,2}\s+(.+)$/m', '**$1**', $content, 1));
+    }
+
+    /**
+     * Build the standard response payload: reply capped to the length limit,
+     * actions only when present.
+     */
+    private function replyJson(string $reply, array $actions = []): JsonResponse
+    {
+        $payload = ['reply' => $this->capLength($reply)];
+        if ($actions !== []) {
+            $payload['actions'] = $actions;
+        }
+
+        return response()->json($payload);
+    }
+
+    private function capLength(string $reply): string
+    {
+        if (mb_strlen($reply) > self::MAX_RESPONSE_LENGTH) {
+            return mb_substr($reply, 0, self::MAX_RESPONSE_LENGTH - 3).'...';
+        }
+
+        return $reply;
     }
 
     private function randomReply(array $replies): string

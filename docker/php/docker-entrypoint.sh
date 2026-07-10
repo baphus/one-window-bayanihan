@@ -30,6 +30,12 @@ if [ "${RUN_MIGRATIONS}" = "true" ]; then
     php artisan migrate --force --no-interaction || true
 fi
 
+# ── Chatbot: build the FTS5 retrieval index (fails loudly if FTS5 missing) ──
+if [ "${AI_CHATBOT_ENABLED}" = "true" ]; then
+    echo "[ENTRYPOINT] Rebuilding chatbot retrieval index..."
+    php artisan chatbot:index --no-interaction || echo "[ENTRYPOINT] WARNING: chatbot:index failed — the bot will rebuild lazily on first query" >&2
+fi
+
 # ── Execute the main command (supervisord, queue:listen, schedule:work, etc.) ──
 echo "[ENTRYPOINT] Starting: $@"
 exec "$@"

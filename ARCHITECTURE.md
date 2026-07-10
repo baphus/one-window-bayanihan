@@ -64,11 +64,10 @@ graph TB
             TrackingSvc["TrackingService"]
             NotifSvc["NotificationService"]
             AuditFmt["AuditLogFormatter"]
-            ChatbotCaseSvc["ChatbotCaseService"]
-            AiSvc["AiService"]
-            PromptSvc["PromptAssemblyService"]
-            RetrievalSvc["RetrievalRankingService"]
-            HelpCenterSvc["HelpCenter Providers"]
+            ChatbotIntentSvc["ChatbotIntentService"]
+            ChatbotRetrievalSvc["ChatbotRetrievalService<br/>(SQLite FTS5)"]
+            ChatbotHelpdeskSvc["ChatbotHelpdeskService"]
+            ChatbotGuideSvc["ChatbotGuideService"]
             InsightsSvc["InsightsService"]
             StorageSvc["StorageService"]
             SecuritySvc["SecuritySettingsService"]
@@ -121,10 +120,8 @@ graph TB
     DashboardSvc --> CaseM & ReferralM & AgencyM & UserM
     TrackCtrl --> TrackingSvc & OtpSvc
     TrackingSvc --> CaseM & AuditFmt
-    ChatbotCtrl --> ChatbotCaseSvc & AiSvc
-    ChatbotCtrl --> OtpSvc
-    ChatbotCaseSvc --> CaseSvc & OtpSvc
-    AiSvc --> PromptSvc & RetrievalSvc & HelpCenterM
+    ChatbotCtrl --> ChatbotIntentSvc & ChatbotRetrievalSvc
+    ChatbotRetrievalSvc --> ChatbotHelpdeskSvc & ChatbotGuideSvc
     ReportsSvc --> CaseM & ReferralM
     InsightsCtrl --> InsightsSvc
     InsightsSvc --> CaseM & ReferralM & FeedbackM & AuditLogM
@@ -199,23 +196,20 @@ Public knowledge base with AI-powered chatbot.
 
 - **Public**: `/helpdesk` — searchable articles categorized and tagged
 - **Admin**: `/admin/helpdesk/articles/*` — full CRUD, featured articles, version history (revisions), image upload
-- **AI Search**: pgvector-powered semantic search via `EmbeddingService` → `HelpdeskArticleChunks`
+- **Chatbot grounding**: helpdesk article content (`resources/js/data/helpdesk/`) is parsed and indexed into the chatbot's SQLite FTS5 retrieval index (see §7) — no vector database
 - **Feedback**: Per-article helpfulness rating
 
 ### 7. AI Chatbot
 
-Context-aware chatbot embedded in the sidebar of all authenticated pages.
+Retrieval-grounded assistant ("Bayani") embedded on public and authenticated pages. At most **one LLM call per message**; no vector database.
 
-- **Widget**: Self-contained React widget at `resources/js/chatbot-widget/`
-- **Controller**: `ChatbotController::message()` — accepts messages, returns AI responses
-- **Tool-based architecture**:
-  - `handleSearchCases` → search case data
-  - `handleGetCaseDetail` → get specific case details  
-  - `handleInitiateCaseOTP` → send OTP for case access
-  - `handleVerifyCaseOTP` → verify OTP for case access
-- **LLM Providers**: Anthropic, OpenAI, Google Gemini (pluggable via `AiProvider` contract)
-- **Ranking**: `RetrievalRankingService` scores and filters retrieval results
-- **Observability**: `RetrievalLogger` + `UnansweredTracker` for monitoring
+- **Widget**: `resources/js/Components/ChatBot.jsx`, rendered by the layouts and tracking pages
+- **Controller**: `ChatbotController::message()` — pipeline: prompt-injection guard → heuristic intent (`ChatbotIntentService`, zero LLM) → lexical retrieval → verbatim tier or single LLM call
+- **Intent detection**: `ChatbotIntentService` — deterministic regex/keyword rules (EN + Filipino) for greeting, identity, gibberish, and follow-up signals; canned responses need no model
+- **Retrieval**: `ChatbotRetrievalService` — standalone SQLite FTS5 index over helpdesk sections + guide topics, BM25 ranking, config-driven synonym expansion (Taglish/domain terms), audience-group filtering by user role; rebuilt via `php artisan chatbot:index` (auto-rebuilds on content-hash change)
+- **Content sources**: `ChatbotHelpdeskService` (parses helpdesk articles, persistently cached by content hash) and `ChatbotGuideService` (OFW case-tracking guide)
+- **Verbatim tier**: unambiguous single-source matches are answered with the curated section content directly — instant and hallucination-free (thresholds in `config/ai-chatbot.php`)
+- **LLM**: default Ollama `llama3.2:3b` (CPU-friendly); any provider in `config/ai.php` via env. On model failure the bot degrades to serving the top retrieved section verbatim (HTTP 200) instead of erroring
 
 ### 8. Audit & Observability
 
@@ -459,21 +453,20 @@ CaseManager            ReferralController      ReferralService          Agency U
 ### 4. AI Chatbot Tool Query Flow
 
 ```
-User              ChatbotController      AiService           PromptAssembly      RetrievalRanking     HelpdeskChunks
- |                     |                     |                      |                   |                   |
- |— POST /chatbot      |                     |                      |                   |                   |
- |                     |— parse + validate   |                      |                   |                   |
- |                     |— route to handler   |                      |                   |                   |
- |                     |— handleSearchCases  |                      |                   |                   |
- |                     |   |— AiService::query()                   |                   |                   |
- |                     |      |— buildSystemPrompt() ──────────────>|                   |                   |
- |                     |      |— retrieval::rank(query) ──────────────────────────────>|                   |
- |                     |      |   |— calculateScore()              |                   |                   |
- |                     |      |   |— getMinimumScoreThreshold()    |                   |                   |
- |                     |      |   |— cosineSimilarity(embedding) ────────────────────────────>|           |
- |                     |      |— LLM provider (Anthropic/OpenAI)   |                   |                   |
- |                     |      |— format + return response          |                   |                   |
- |                     |— return JSON to widget                    |                   |                   |
+User            ChatbotController         IntentService       RetrievalService (FTS5)       LLM (Ollama)
+ |                    |                          |                       |                       |
+ |— POST /chatbot/message                        |                       |                       |
+ |                    |— validate + injection guard                      |                       |
+ |                    |— classify(message) ─────>|                       |                       |
+ |                    |   greeting/identity/gibberish → canned reply, DONE (zero LLM)            |
+ |                    |— search(message, audience groups) ──────────────>|                       |
+ |                    |   |— tokenize → synonyms → BM25 → top 1-3        |                       |
+ |                    |— vague follow-up? reuse stored source from session                       |
+ |                    |— top hit a clear winner (score + gap thresholds)?                        |
+ |                    |   YES → verbatim section content, DONE (zero LLM)                        |
+ |                    |   NO  → single grounded prompt ─────────────────────────────────────────>|
+ |                    |         on failure: top section verbatim, HTTP 200 ("basic mode")        |
+ |                    |— return JSON {reply, actions?}                   |                       |
 ```
 
 ---
@@ -558,12 +551,8 @@ app/
 ├── Notifications/        # 5 notification classes
 ├── Observers/            # AuditObserver (generic Eloquent auditing)
 ├── Providers/
-└── Services/             # 29 service classes
-    ├── Ai/               # LLM abstraction (Anthropic, OpenAI, Gemini)
-    ├── Chatbot/          # Chatbot case/data services
-    ├── Content/          # Content management
-    ├── HelpCenter/       # Knowledge base provider + ranking
-    └── Observability/    # Retrieval logging, unanswered tracking
+└── Services/             # Service classes
+    └── Chatbot/          # Intent heuristics, FTS5 retrieval, helpdesk/guide content parsing
 
 config/                   # Laravel config files
 database/
@@ -586,7 +575,7 @@ resources/js/
 │   ├── Case/             # Index, Show, Create, Edit
 │   ├── Referral/         # Index, Show, Create
 │   └── ...               # Analytics, Feedback, Helpdesk, etc.
-├── chatbot-widget/       # Standalone chatbot widget
+├── data/helpdesk/        # Helpdesk article content (source for the chatbot index)
 ├── lib/                  # Library utilities
 └── types/                # TypeScript definitions
 

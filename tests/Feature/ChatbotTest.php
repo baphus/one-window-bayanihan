@@ -17,6 +17,15 @@ class ChatbotTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware(PreventRequestForgery::class);
+
+        config(['ai-chatbot.retrieval.index_path' => storage_path('framework/testing/chatbot-index-endpoint.sqlite')]);
+    }
+
+    protected function tearDown(): void
+    {
+        @unlink(storage_path('framework/testing/chatbot-index-endpoint.sqlite'));
+
+        parent::tearDown();
     }
 
     // ── Validation ──
@@ -53,11 +62,11 @@ class ChatbotTest extends TestCase
         $this->assertStringContainsString('Bayanihan', $reply);
     }
 
-    // ── Intent classification → canned responses ──
+    // ── Heuristic intents → canned responses, zero LLM calls ──
 
-    public function test_greeting_returns_canned_response(): void
+    public function test_greeting_returns_canned_response_without_llm(): void
     {
-        AnonymousAgent::fake(['greeting']);
+        AnonymousAgent::fake([])->preventStrayPrompts(true);
 
         $response = $this->postJson(route('chatbot.message'), [
             'message' => 'hello',
@@ -67,9 +76,9 @@ class ChatbotTest extends TestCase
         $this->assertStringContainsString(config('ai-chatbot.assistant_name'), $response->json('reply'));
     }
 
-    public function test_identity_returns_canned_response(): void
+    public function test_identity_returns_canned_response_without_llm(): void
     {
-        AnonymousAgent::fake(['identity']);
+        AnonymousAgent::fake([])->preventStrayPrompts(true);
 
         $response = $this->postJson(route('chatbot.message'), [
             'message' => 'who are you',
@@ -79,30 +88,33 @@ class ChatbotTest extends TestCase
         $this->assertStringContainsString(config('ai-chatbot.assistant_name'), $response->json('reply'));
     }
 
-    public function test_irrelevant_returns_canned_response(): void
+    public function test_gibberish_returns_clarification_without_llm(): void
     {
-        AnonymousAgent::fake(['irrelevant']);
+        AnonymousAgent::fake([])->preventStrayPrompts(true);
 
         $response = $this->postJson(route('chatbot.message'), [
-            'message' => 'what is the weather today',
+            'message' => 'asdfgh',
         ]);
 
         $response->assertOk();
-        // All irrelevant responses reference what Bayani CAN do
-        $this->assertStringContainsString('Bayanihan', $response->json('reply'));
+        $reply = strtolower($response->json('reply'));
+        $this->assertTrue(
+            str_contains($reply, 'rephras') || str_contains($reply, 'another way'),
+            "Expected a clarification response, got: {$reply}",
+        );
     }
 
-    // ── Relevant flow ──
+    // ── Content queries → single LLM call ──
 
-    public function test_relevant_query_goes_through_full_pipeline(): void
+    public function test_content_query_uses_exactly_one_llm_call(): void
     {
-        // matchArticles is keyword-based (no LLM), so only 3 agent calls:
-        // classifyIntent → pickSections → answerFromSections
+        // Force the LLM path (verbatim tier off) and allow exactly one response;
+        // a second agent call would throw a stray-prompt error and change the reply.
+        config(['ai-chatbot.retrieval.verbatim_min_score' => 1000.0]);
+
         AnonymousAgent::fake([
-            'relevant',
-            "Overview\nStep 2: Entering Your Tracker Number\nStep 3: Requesting an OTP",
             'To track your case, visit our portal at /track and enter your tracker number.',
-        ]);
+        ])->preventStrayPrompts(true);
 
         $response = $this->postJson(route('chatbot.message'), [
             'message' => 'how do I track my case',
@@ -112,28 +124,81 @@ class ChatbotTest extends TestCase
         $this->assertStringContainsString('track', strtolower($response->json('reply')));
     }
 
-    // ── Fallback when classification fails ──
-
-    public function test_fallback_when_classification_fails(): void
+    public function test_high_confidence_match_is_answered_verbatim_without_llm(): void
     {
+        // Thresholds forced low so the top hit is always a "clear winner".
+        config([
+            'ai-chatbot.retrieval.verbatim_min_score' => 0.1,
+            'ai-chatbot.retrieval.verbatim_gap_ratio' => 0.1,
+        ]);
+
         AnonymousAgent::fake([])->preventStrayPrompts(true);
 
         $response = $this->postJson(route('chatbot.message'), [
-            'message' => 'hello',
+            'message' => 'how do I use the public tracking portal',
+        ]);
+
+        $response->assertOk();
+        // Verbatim replies serve curated section content directly
+        $this->assertNotEmpty($response->json('reply'));
+        $this->assertStringContainsString('tracking', strtolower($response->json('reply')));
+    }
+
+    public function test_verbatim_reply_includes_tracking_portal_action(): void
+    {
+        config([
+            'ai-chatbot.retrieval.verbatim_min_score' => 0.1,
+            'ai-chatbot.retrieval.verbatim_gap_ratio' => 0.1,
+        ]);
+
+        AnonymousAgent::fake([])->preventStrayPrompts(true);
+
+        $response = $this->postJson(route('chatbot.message'), [
+            'message' => 'how do I use the public tracking portal',
+        ]);
+
+        $response->assertOk();
+        $actions = $response->json('actions');
+        $this->assertNotEmpty($actions);
+        $this->assertSame('track', $actions[0]['icon']);
+    }
+
+    // ── Graceful degradation when the LLM is unavailable ──
+
+    public function test_llm_failure_degrades_to_verbatim_content(): void
+    {
+        config(['ai-chatbot.retrieval.verbatim_min_score' => 1000.0]); // force LLM path
+
+        // No faked responses → the agent call throws → degraded mode
+        AnonymousAgent::fake([])->preventStrayPrompts(true);
+
+        $response = $this->postJson(route('chatbot.message'), [
+            'message' => 'how do I track my case',
         ]);
 
         $response->assertOk();
         $reply = $response->json('reply');
+        $this->assertStringContainsString('most relevant help content', $reply);
+    }
 
-        // Should get the soft fallback message (not a canned greeting)
-        $this->assertStringContainsString('sorry', strtolower($reply));
+    public function test_llm_failure_with_no_match_returns_static_message(): void
+    {
+        AnonymousAgent::fake([])->preventStrayPrompts(true);
+
+        session()->forget('chatbot_last_context');
+
+        $response = $this->postJson(route('chatbot.message'), [
+            'message' => 'quantum astrophysics telescope nebula',
+        ]);
+
+        $response->assertOk();
+        $this->assertStringContainsString('sorry', strtolower($response->json('reply')));
     }
 
     // ── Follow-up detection ──
 
-    public function test_follow_up_reselects_sections_from_stored_article(): void
+    public function test_follow_up_reuses_stored_article(): void
     {
-        // Pre-populate session with stored article context from a previous relevant answer
         session()->put('chatbot_last_context', [
             'source_type' => 'helpdesk',
             'source_label' => 'using-public-tracking-portal',
@@ -141,10 +206,8 @@ class ChatbotTest extends TestCase
         ]);
 
         AnonymousAgent::fake([
-            'follow_up', // 1st call: classifyIntent
-            "Overview\nStep 5: Viewing Case Status", // 2nd call: pickSections (re-selects from stored article)
-            'You can view your case status by navigating to the tracking portal and entering your tracker number.', // 3rd call: answerFromSections
-        ]);
+            'You can view your case status by navigating to the tracking portal and entering your tracker number.',
+        ])->preventStrayPrompts(true);
 
         $response = $this->postJson(route('chatbot.message'), [
             'message' => 'What documents do I need?',
@@ -157,18 +220,14 @@ class ChatbotTest extends TestCase
         $this->assertStringContainsString('tracker', strtolower($response->json('reply')));
     }
 
-    public function test_follow_up_without_stored_context_falls_to_relevant(): void
+    public function test_follow_up_without_stored_context_uses_retrieval(): void
     {
         session()->forget('chatbot_last_context');
+        config(['ai-chatbot.retrieval.verbatim_min_score' => 1000.0]); // force LLM path
 
-        // Without stored context, matchArticles uses keywords.
-        // "tracking portal" uniquely matches using-public-tracking-portal.
-        // 3 agent calls: classifyIntent → pickSections → answerFromSections
         AnonymousAgent::fake([
-            'follow_up', // 1st call: classifyIntent (no context → falls through)
-            "Overview\nStep 2: Entering Your Tracker Number", // 2nd call: pickSections
-            'Visit the tracking portal to check your case.', // 3rd call: answerFromSections
-        ]);
+            'Visit the tracking portal to check your case.',
+        ])->preventStrayPrompts(true);
 
         $response = $this->postJson(route('chatbot.message'), [
             'message' => 'how does the tracking portal work',

@@ -2,6 +2,8 @@
 
 namespace App\Services\Chatbot;
 
+use Illuminate\Support\Facades\Cache;
+
 class ChatbotHelpdeskService
 {
     private string $contentDir;
@@ -10,8 +12,13 @@ class ChatbotHelpdeskService
 
     private string $categoriesTsPath;
 
-    /** @var array<string, array<string, array{heading: string, content: string}>> Cache of parsed sections by slug */
-    private array $sectionCache = [];
+    /**
+     * Fully parsed helpdesk content, loaded once per content version from the
+     * persistent cache (see parsed()).
+     *
+     * @var array{titles: array<string, string>, sections: array<string, array<string, array{heading: string, content: string}>>, articles: array<string, array{title: string, excerpt: string, categorySlug: string}>, groups: array<string, string>}|null
+     */
+    private ?array $parsed = null;
 
     /** Articles whose sections are included in the classifier-miss fallback. */
     private array $fallbackSlugs = [
@@ -24,6 +31,85 @@ class ChatbotHelpdeskService
         $this->contentDir = resource_path('js/data/helpdesk/content');
         $this->articlesTsPath = resource_path('js/data/helpdesk/articles.ts');
         $this->categoriesTsPath = resource_path('js/data/helpdesk/categories.ts');
+    }
+
+    // ── Content versioning + persistent cache ──
+
+    /**
+     * Hash of the helpdesk content files (name, mtime, size). Changes whenever
+     * any article, the article index, or the category tree changes — used as
+     * the cache key so edits invalidate automatically.
+     */
+    public function contentHash(): string
+    {
+        $files = glob("{$this->contentDir}/*.ts") ?: [];
+        $files[] = $this->articlesTsPath;
+        $files[] = $this->categoriesTsPath;
+
+        $parts = [];
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                $parts[] = basename($file).'|'.filemtime($file).'|'.filesize($file);
+            }
+        }
+        sort($parts);
+
+        return md5(implode("\n", $parts));
+    }
+
+    /**
+     * Drop the cached parse for the current content version and re-parse.
+     * Returns the current content hash (used by the index rebuild command).
+     */
+    public function refreshCache(): string
+    {
+        $hash = $this->contentHash();
+        Cache::forget("chatbot.helpdesk.{$hash}");
+        $this->parsed = null;
+        $this->parsed();
+
+        return $hash;
+    }
+
+    /**
+     * Load the fully parsed helpdesk content, from the persistent cache when warm.
+     */
+    private function parsed(): array
+    {
+        if ($this->parsed !== null) {
+            return $this->parsed;
+        }
+
+        return $this->parsed = Cache::remember(
+            'chatbot.helpdesk.'.$this->contentHash(),
+            now()->addWeek(),
+            fn () => $this->parseAll(),
+        );
+    }
+
+    /**
+     * Parse every content file plus the article/category indexes in one pass.
+     */
+    private function parseAll(): array
+    {
+        $titles = [];
+        $sections = [];
+
+        foreach ($this->discoverSlugs() as $slug) {
+            $content = $this->loadContent($slug);
+            if ($content === null) {
+                continue;
+            }
+            $titles[$slug] = $this->extractTitle($content);
+            $sections[$slug] = $this->splitSections($content);
+        }
+
+        return [
+            'titles' => $titles,
+            'sections' => $sections,
+            'articles' => $this->parseArticlesTsFile(),
+            'groups' => $this->buildAudienceGroupsFile(),
+        ];
     }
 
     // ── Public API ──
@@ -100,12 +186,34 @@ class ChatbotHelpdeskService
      */
     public function getTitle(string $slug): ?string
     {
-        $content = $this->loadContent($slug);
-        if ($content === null) {
-            return null;
+        return $this->parsed()['titles'][$slug] ?? null;
+    }
+
+    /**
+     * Return every article's title, audience group, and parsed sections —
+     * the full corpus used to build the retrieval index.
+     *
+     * @return array<string, array{title: string, audience_group: string, sections: array<string, array{heading: string, content: string}>}>
+     */
+    public function getAllParsedArticles(): array
+    {
+        $parsed = $this->parsed();
+
+        $result = [];
+        foreach ($parsed['sections'] as $slug => $sections) {
+            $categorySlug = $parsed['articles'][$slug]['categorySlug'] ?? null;
+            $group = $categorySlug !== null
+                ? ($parsed['groups'][$categorySlug] ?? 'General')
+                : 'General';
+
+            $result[$slug] = [
+                'title' => $parsed['titles'][$slug] ?? $slug,
+                'audience_group' => $group,
+                'sections' => $sections,
+            ];
         }
 
-        return $this->extractTitle($content);
+        return $result;
     }
 
     /**
@@ -295,11 +403,21 @@ class ChatbotHelpdeskService
     }
 
     /**
-     * Parse articles.ts to extract slug → title + excerpt + categorySlug mapping.
+     * Cached slug → title + excerpt + categorySlug mapping.
      *
      * @return array<string, array{title: string, excerpt: string, categorySlug: string}>
      */
     private function parseArticlesTs(): array
+    {
+        return $this->parsed()['articles'];
+    }
+
+    /**
+     * Parse articles.ts to extract slug → title + excerpt + categorySlug mapping.
+     *
+     * @return array<string, array{title: string, excerpt: string, categorySlug: string}>
+     */
+    private function parseArticlesTsFile(): array
     {
         if (! file_exists($this->articlesTsPath)) {
             return [];
@@ -352,11 +470,21 @@ class ChatbotHelpdeskService
     }
 
     /**
-     * Build a slug → audience group mapping from the category hierarchy.
+     * Cached category slug → audience group mapping.
      *
      * @return array<string, string> category slug → audience group name
      */
     private function buildAudienceGroups(): array
+    {
+        return $this->parsed()['groups'];
+    }
+
+    /**
+     * Build a slug → audience group mapping from the category hierarchy.
+     *
+     * @return array<string, string> category slug → audience group name
+     */
+    private function buildAudienceGroupsFile(): array
     {
         if (! file_exists($this->categoriesTsPath)) {
             return [];
@@ -431,15 +559,16 @@ class ChatbotHelpdeskService
      */
     private function parseSections(string $slug): array
     {
-        if (isset($this->sectionCache[$slug])) {
-            return $this->sectionCache[$slug];
-        }
+        return $this->parsed()['sections'][$slug] ?? [];
+    }
 
-        $content = $this->loadContent($slug);
-        if ($content === null) {
-            return $this->sectionCache[$slug] = [];
-        }
-
+    /**
+     * Split raw markdown article content into H2-level sections.
+     *
+     * @return array<string, array{heading: string, content: string}>
+     */
+    private function splitSections(string $content): array
+    {
         $parts = preg_split('/^##\s+/m', $content);
         $first = trim((string) array_shift($parts));
 
@@ -473,8 +602,6 @@ class ChatbotHelpdeskService
                 ];
             }
         }
-
-        $this->sectionCache[$slug] = $sections;
 
         return $sections;
     }

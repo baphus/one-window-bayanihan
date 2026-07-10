@@ -6,173 +6,167 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
+/**
+ * HTTP-level verification of the pipeline's LLM budget: canned intents and
+ * the verbatim tier make ZERO model requests; content queries make exactly ONE.
+ * Requests to the Ollama backend are recorded via Http::fake.
+ */
 class ChatbotPipeCleanTest extends TestCase
 {
     private array $ollamaRequests = [];
 
-    /** Shared Ollama response for generic answer generation. */
-    private function answerResponse(): array
+    protected function setUp(): void
     {
-        return [
-            'message' => ['content' => 'The case statuses use color-coded indicators: OPEN (blue) means received, PROCESSING (yellow) means being worked on, FOR COMPLIANCE (orange) means more info needed, and CLOSED (green) means resolved.'],
-            'model' => 'llama3:latest',
-            'done_reason' => 'stop',
-            'prompt_eval_count' => 200,
-            'eval_count' => 40,
-        ];
+        parent::setUp();
+
+        config([
+            'ai-chatbot.retrieval.index_path' => storage_path('framework/testing/chatbot-index-pipe.sqlite'),
+            'ai-chatbot.provider' => 'ollama',
+        ]);
     }
 
-    /** Shared Ollama response for section picking. */
-    private function sectionsResponse(): array
+    protected function tearDown(): void
     {
-        return [
-            'message' => ['content' => "Step 5: Viewing Case Status\nWhat Each Status Means for You"],
-            'model' => 'llama3:latest',
-            'done_reason' => 'stop',
-            'prompt_eval_count' => 60,
-            'eval_count' => 15,
-        ];
+        @unlink(storage_path('framework/testing/chatbot-index-pipe.sqlite'));
+
+        parent::tearDown();
     }
 
     /**
-     * Set up the Http fake that records all Ollama requests.
-     *
-     * @param  callable|null  $classifyDecision  Return the classify response array.
-     *                                           Default returns "relevant".
+     * Record every outbound model request and answer with a canned completion.
      */
-    private function fakeOllama(?callable $classifyDecision = null): void
+    private function fakeOllama(): void
     {
         $this->ollamaRequests = [];
 
-        $classifyDecision ??= fn () => Http::response([
-            'message' => ['content' => 'relevant'],
-            'model' => 'llama3:latest',
-            'done_reason' => 'stop',
-            'prompt_eval_count' => 50,
-            'eval_count' => 1,
-        ]);
-
-        Http::fake(function (Request $request) use ($classifyDecision) {
+        Http::fake(function (Request $request) {
             $body = json_decode($request->body(), true);
             $this->ollamaRequests[] = [
                 'url' => $request->url(),
-                'method' => $request->method(),
                 'body' => $body,
-                'preview' => mb_substr($body['messages'][0]['content'] ?? '', 0, 120),
             ];
 
-            $instructions = '';
-            foreach ($body['messages'] ?? [] as $msg) {
-                if ($msg['role'] === 'system') {
-                    $instructions = $msg['content'];
-                }
-            }
-
-            // classifyIntent
-            if (str_contains($instructions, 'classifier for an OFW assistance chatbot')) {
-                return $classifyDecision();
-            }
-
-            // pickSections
-            if (str_contains($instructions, 'Select 1-3 sections')) {
-                return Http::response($this->sectionsResponse());
-            }
-
-            // answerFromSections (fallback)
-            return Http::response($this->answerResponse());
+            return Http::response([
+                'message' => ['content' => 'The case statuses use color-coded indicators to show progress.'],
+                'model' => config('ai-chatbot.model'),
+                'done_reason' => 'stop',
+                'prompt_eval_count' => 200,
+                'eval_count' => 40,
+            ]);
         });
+    }
+
+    /** Extract the system and user message contents from a recorded request. */
+    private function requestMessages(array $recorded): array
+    {
+        $system = '';
+        $user = '';
+        foreach ($recorded['body']['messages'] ?? [] as $msg) {
+            if (($msg['role'] ?? '') === 'system') {
+                $system .= $msg['content'] ?? '';
+            }
+            if (($msg['role'] ?? '') === 'user') {
+                $user .= $msg['content'] ?? '';
+            }
+        }
+
+        return [$system, $user];
     }
 
     // ──────────────────────────────────────────────
     //  Tests
     // ──────────────────────────────────────────────
 
-    public function test_colors_question_full_pipeline(): void
+    public function test_content_query_makes_exactly_one_llm_call(): void
     {
         $this->fakeOllama();
         session()->forget('chatbot_last_context');
+        config(['ai-chatbot.retrieval.verbatim_min_score' => 1000.0]); // force the LLM path
 
         $response = $this->postJson(route('chatbot.message'), [
             'message' => 'What do the colors mean for case status?',
         ]);
 
-        // Assert response structure
         $response->assertStatus(200);
         $response->assertJsonStructure(['reply']);
-        $reply = $response->json('reply');
-        $this->assertNotNull($reply);
-        $this->assertIsString($reply);
-        $this->assertGreaterThan(0, strlen($reply));
 
-        // matchArticles("What do the colors mean for case status?") returns 2 articles:
-        //   1st: understanding-case-statuses-tracker-numbers (score 7: title "case"+2 "status"+2, excerpt "mean"+1 "case"+1 "status"+1)
-        //   2nd: using-public-tracking-portal (score 2: excerpt "case"+1 "status"+1)
-        //   ("colors" keyword does NOT substring-match in the excerpt, so it scores 0)
-        // So: 1 classify + 2 pickSections + 1 answer = 4 calls
-        $this->assertCount(4, $this->ollamaRequests,
-            'Pipeline should make 4 LLM calls (classify + 2× pickSections + answer)'
-        );
+        $this->assertCount(1, $this->ollamaRequests,
+            'Content queries must make exactly one LLM call (answer generation only)');
 
-        // Call 1: classifyIntent
-        $classifyBody = $this->ollamaRequests[0]['body'] ?? [];
-        $this->assertStringContainsString(
-            'classifier for an OFW assistance chatbot',
-            $classifyBody['messages'][0]['content'] ?? '',
-        );
+        [$system, $user] = $this->requestMessages($this->ollamaRequests[0]);
 
-        // Call 2: pickSections for first matched article (statuses article — higher keyword score)
-        $pick1Body = $this->ollamaRequests[1]['body'] ?? [];
-        $this->assertStringContainsString(
-            'understanding-case-statuses-tracker-numbers',
-            $pick1Body['messages'][0]['content'] ?? '',
-            'First pickSections should be the statuses article (higher keyword score)',
-        );
-
-        // Call 3: pickSections for second matched article (tracking portal)
-        $pick2Body = $this->ollamaRequests[2]['body'] ?? [];
-        $this->assertStringContainsString(
-            'using-public-tracking-portal',
-            $pick2Body['messages'][0]['content'] ?? '',
-            'Second pickSections should be the tracking portal article',
-        );
-
-        // Call 4: answerFromSections — reference content should include status info
-        $answerBody = $this->ollamaRequests[3]['body'] ?? [];
-        $answerUserMsg = '';
-        foreach ($answerBody['messages'] as $msg) {
-            if ($msg['role'] === 'user') {
-                $answerUserMsg = $msg['content'];
-                break;
-            }
-        }
-        $this->assertStringContainsString(
-            'DRAFT',
-            $answerUserMsg,
-            'Answer step should receive DRAFT status from case statuses section',
-        );
-        $this->assertStringContainsString(
-            'OPEN',
-            $answerUserMsg,
-            'Answer step should receive OPEN status from case statuses section',
-        );
-
-        // Reply should mention status
-        $this->assertStringContainsStringIgnoringCase('status', $reply,
-            'Reply should mention case status in the response'
-        );
+        // The single call is the grounded answer prompt: our rules in the system
+        // message, the question plus retrieved reference content in the user message.
+        $this->assertStringContainsString('CRITICAL RULES', $system);
+        $this->assertStringContainsString('What do the colors mean for case status?', $user);
+        $this->assertStringContainsString('---', $user, 'Retrieved reference content should be attached to the prompt');
     }
 
-    public function test_follow_up_reuses_stored_context(): void
+    public function test_greeting_makes_zero_llm_calls(): void
     {
-        // For this test, the classify must return "follow_up" so the
-        // follow-up branch is exercised. Then pickSections + answer run.
-        $this->fakeOllama(classifyDecision: fn () => Http::response([
-            'message' => ['content' => 'follow_up'],
-            'model' => 'llama3:latest',
-            'done_reason' => 'stop',
-            'prompt_eval_count' => 50,
-            'eval_count' => 1,
-        ]));
+        $this->fakeOllama();
+
+        $response = $this->postJson(route('chatbot.message'), [
+            'message' => 'hello',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertCount(0, $this->ollamaRequests, 'Greetings must not reach the LLM');
+        $this->assertStringContainsString(config('ai-chatbot.assistant_name'), $response->json('reply'));
+    }
+
+    public function test_verbatim_tier_makes_zero_llm_calls(): void
+    {
+        $this->fakeOllama();
+        session()->forget('chatbot_last_context');
+        config([
+            'ai-chatbot.retrieval.verbatim_min_score' => 0.1,
+            'ai-chatbot.retrieval.verbatim_gap_ratio' => 0.1,
+        ]);
+
+        $response = $this->postJson(route('chatbot.message'), [
+            'message' => 'how do I use the public tracking portal',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertCount(0, $this->ollamaRequests, 'Verbatim answers must not reach the LLM');
+        $this->assertStringContainsString('tracking', strtolower($response->json('reply')));
+    }
+
+    public function test_tuned_defaults_answer_unambiguous_query_verbatim(): void
+    {
+        // Uses the shipped default thresholds — this locks in the 3.7 tuning.
+        $this->fakeOllama();
+        session()->forget('chatbot_last_context');
+
+        $response = $this->postJson(route('chatbot.message'), [
+            'message' => 'how does the OTP verification work',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertCount(0, $this->ollamaRequests,
+            'Unambiguous single-topic query should be answered verbatim under default thresholds');
+        $this->assertStringContainsString('otp', strtolower($response->json('reply')));
+    }
+
+    public function test_tuned_defaults_send_ambiguous_query_to_llm(): void
+    {
+        $this->fakeOllama();
+        session()->forget('chatbot_last_context');
+
+        $response = $this->postJson(route('chatbot.message'), [
+            'message' => 'why is my OTP not arriving',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertCount(1, $this->ollamaRequests,
+            'Ambiguous multi-source query should be synthesized by the LLM under default thresholds');
+    }
+
+    public function test_follow_up_reuses_stored_context_in_one_call(): void
+    {
+        $this->fakeOllama();
+        config(['ai-chatbot.retrieval.verbatim_min_score' => 1000.0]);
 
         session()->put('chatbot_last_context', [
             'source_type' => 'helpdesk',
@@ -185,25 +179,10 @@ class ChatbotPipeCleanTest extends TestCase
         ]);
 
         $response->assertStatus(200);
-        $response->assertJsonStructure(['reply']);
+        $this->assertCount(1, $this->ollamaRequests, 'Follow-up must still be a single LLM call');
 
-        // 1 classify(follow_up) → follow-up shortcut → 1 pickSections → 1 answer = 3
-        $this->assertCount(3, $this->ollamaRequests);
-
-        // The classify call should include "Previous topic" context
-        $classifyBody = $this->ollamaRequests[0]['body'] ?? [];
-        $this->assertStringContainsString(
-            'Previous topic: Using the Public Tracking Portal',
-            $classifyBody['messages'][0]['content'] ?? '',
-            'Classify should include stored context for follow-up detection',
-        );
-
-        // pickSections call should reference the stored article
-        $pickBody = $this->ollamaRequests[1]['body'] ?? [];
-        $this->assertStringContainsString(
-            'using-public-tracking-portal',
-            $pickBody['messages'][0]['content'] ?? '',
-            'Follow-up should reuse the stored article slug',
-        );
+        [, $user] = $this->requestMessages($this->ollamaRequests[0]);
+        $this->assertStringContainsString('Public Tracking Portal', $user,
+            'Follow-up should be grounded in the stored article content');
     }
 }
