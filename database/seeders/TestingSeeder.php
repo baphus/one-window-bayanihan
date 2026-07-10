@@ -212,7 +212,11 @@ class TestingSeeder extends Seeder
         $suffixes = ['Jr.', 'Sr.', 'III'];
 
         // ---------------------------------------------------------------------
-        // Address data (Central Visayas)
+        // Address data — see resources/js/data/testingAddresses.ts for the
+        // canonical TypeScript definition of these regions.
+        //
+        // Region VII (Central Visayas) per EO 64 (2024):
+        //   Cebu, Bohol
         // ---------------------------------------------------------------------
 
         $regionVIIProvinces = [
@@ -233,21 +237,6 @@ class TestingSeeder extends Seeder
                 ],
                 'slots' => 5,
             ],
-            [
-                'province' => 'Negros Oriental',
-                'cities' => [
-                    'Dumaguete City', 'Bais City', 'Bayawan City', 'Tanjay City',
-                    'Guihulngan City', 'Sibulan', 'Valencia', 'Bacong', 'Amlan', 'Mabinay',
-                ],
-                'slots' => 5,
-            ],
-            [
-                'province' => 'Siquijor',
-                'cities' => [
-                    'Siquijor', 'Larena', 'Lazi', 'Maria', 'San Juan', 'Enrique Villanueva',
-                ],
-                'slots' => 2,
-            ],
         ];
 
         $locationCycle = [];
@@ -256,11 +245,6 @@ class TestingSeeder extends Seeder
                 $locationCycle[] = $provinceSpec;
             }
         }
-
-        $cities = collect($regionVIIProvinces)
-            ->flatMap(fn ($provinceSpec) => $provinceSpec['cities'])
-            ->values()
-            ->all();
 
         $barangays = [
             'Poblacion', 'Mabini', 'Rizal', 'Lahug', 'Banilad', 'Guadalupe',
