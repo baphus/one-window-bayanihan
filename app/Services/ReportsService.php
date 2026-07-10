@@ -12,6 +12,7 @@ use App\Models\Referral;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ReportsService
 {
@@ -59,6 +60,7 @@ class ReportsService
             'referralAging' => $this->getReferralAging($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'agencyScorecard' => $this->getAgencyScorecard($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'geographicDistribution' => $this->getGeographicDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
+            'geographicMapData' => $this->getGeographicMapData($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city),
             'categoryDistribution' => $this->categoryDistribution($userId, 'CASE_MANAGER'),
             'employmentDistribution' => $this->getLastEmploymentDistribution($userId, 'CASE_MANAGER'),
             'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown($userId, 'CASE_MANAGER'),
@@ -95,6 +97,7 @@ class ReportsService
             'genderDistribution' => $this->getGenderDistribution(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
             'ageGroupDistribution' => $this->getAgeGroupDistribution(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
             'clientTypeDistribution' => $this->getClientTypeDistribution(null, 'AGENCY'),
+            'geographicMapData' => $this->getGeographicMapData(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
         ];
     }
 
@@ -113,6 +116,7 @@ class ReportsService
             'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, null, $from, $to, $dateScope, $province, $city),
             'referralAging' => $this->getReferralAging(null, null, $from, $to, $dateScope, $province, $city),
             'geographicDistribution' => $this->getGeographicDistribution(null, null, $from, $to, $dateScope, $province, $city),
+            'geographicMapData' => $this->getGeographicMapData(null, null, $from, $to, $dateScope, $province, $city),
             'agencyScorecard' => $this->getAgencyScorecard(null, null, $from, $to, $dateScope, $province, $city),
             'categoryDistribution' => $this->categoryDistribution(),
             'employmentDistribution' => $this->getLastEmploymentDistribution(),
@@ -764,6 +768,53 @@ class ReportsService
         ?string $province = null,
         ?string $city = null,
     ): array {
+        $aggregated = $this->getGeographicProvinceCounts($userId, $role, $fromDate, $toDate, $dateScope, $province, $city);
+
+        return [
+            'labels' => array_column($aggregated, 'name'),
+            'data' => array_column($aggregated, 'total'),
+        ];
+    }
+
+    public function getGeographicMapData(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
+    ): array {
+        $provinces = array_map(function (array $row) {
+            $codes = $row['codes'];
+            $provinceCode = $codes[0] ?? null;
+            $id = $provinceCode ? (string) $provinceCode : Str::upper(Str::slug($row['name'], '_'));
+
+            $province = [
+                'id' => $id,
+                'name' => $row['name'],
+                'cases' => (int) $row['total'],
+            ];
+
+            if ($provinceCode && $provinceCode !== $id) {
+                $province['value'] = (string) $provinceCode;
+            }
+
+            return $province;
+        }, $this->getGeographicProvinceCounts($userId, $role, $fromDate, $toDate, $dateScope, $province, $city));
+
+        return ['provinces' => $provinces];
+    }
+
+    private function getGeographicProvinceCounts(
+        ?string $userId = null,
+        ?string $role = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
+        string $dateScope = 'case_created_at',
+        ?string $province = null,
+        ?string $city = null,
+    ): array {
         $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
@@ -795,14 +846,19 @@ class ReportsService
         $aggregated = [];
         foreach ($rows as $row) {
             $name = $resolver->resolve($row->province);
-            $aggregated[$name] = ($aggregated[$name] ?? 0) + (int) $row->total;
+            $aggregated[$name] ??= ['name' => $name, 'total' => 0, 'codes' => []];
+            $aggregated[$name]['total'] += (int) $row->total;
+            $aggregated[$name]['codes'][] = (string) $row->province;
         }
-        arsort($aggregated);
 
-        return [
-            'labels' => array_keys($aggregated),
-            'data' => array_values($aggregated),
-        ];
+        foreach ($aggregated as &$item) {
+            $item['codes'] = array_values(array_unique($item['codes']));
+        }
+        unset($item);
+
+        usort($aggregated, fn ($a, $b) => $b['total'] <=> $a['total']);
+
+        return $aggregated;
     }
 
     public function getLastEmploymentDistribution(?string $userId = null, ?string $role = null): array

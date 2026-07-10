@@ -13,7 +13,7 @@ namespace Database\Seeders;
  * │   4. next_of_kin                (FK → clients.id)
  * │   5. cases                      (FK → clients.id, case_categories.id, case_issues.id, users.id)
  * │   6. referrals                  (FK → cases.id, agencies.id)
- * │   7. milestones                 (FK → referrals.id, users.id)
+ * │   7. he geomilestones                 (FK → referrals.id, users.id)
  * │   8. feedback                   (FK → cases.id, agencies.id, referrals.id; UNIQUE case+agency+referral)
  * │   9. feedback_servqual_responses (FK → feedback.id)
  * │  10. alerts                     (FK → users.id)
@@ -215,11 +215,52 @@ class TestingSeeder extends Seeder
         // Address data (Central Visayas)
         // ---------------------------------------------------------------------
 
-        $cities = [
-            'Cebu City', 'Lapu-Lapu City', 'Mandaue City', 'Talisay City',
-            'Toledo City', 'Danao City', 'Carcar City', 'Naga City',
-            'Bogo City', 'Minglanilla',
+        $regionVIIProvinces = [
+            [
+                'province' => 'Cebu',
+                'cities' => [
+                    'Cebu City', 'Lapu-Lapu City', 'Mandaue City', 'Talisay City',
+                    'Toledo City', 'Danao City', 'Carcar City', 'Naga City',
+                    'Bogo City', 'Minglanilla',
+                ],
+                'slots' => 8,
+            ],
+            [
+                'province' => 'Bohol',
+                'cities' => [
+                    'Tagbilaran City', 'Panglao', 'Dauis', 'Tubigon', 'Talibon',
+                    'Ubay', 'Carmen', 'Jagna', 'Loon', 'Anda',
+                ],
+                'slots' => 5,
+            ],
+            [
+                'province' => 'Negros Oriental',
+                'cities' => [
+                    'Dumaguete City', 'Bais City', 'Bayawan City', 'Tanjay City',
+                    'Guihulngan City', 'Sibulan', 'Valencia', 'Bacong', 'Amlan', 'Mabinay',
+                ],
+                'slots' => 5,
+            ],
+            [
+                'province' => 'Siquijor',
+                'cities' => [
+                    'Siquijor', 'Larena', 'Lazi', 'Maria', 'San Juan', 'Enrique Villanueva',
+                ],
+                'slots' => 2,
+            ],
         ];
+
+        $locationCycle = [];
+        foreach ($regionVIIProvinces as $provinceSpec) {
+            for ($slot = 0; $slot < $provinceSpec['slots']; $slot++) {
+                $locationCycle[] = $provinceSpec;
+            }
+        }
+
+        $cities = collect($regionVIIProvinces)
+            ->flatMap(fn ($provinceSpec) => $provinceSpec['cities'])
+            ->values()
+            ->all();
 
         $barangays = [
             'Poblacion', 'Mabini', 'Rizal', 'Lahug', 'Banilad', 'Guadalupe',
@@ -338,16 +379,24 @@ class TestingSeeder extends Seeder
         // =====================================================================
 
         $addresses = [];
+        $clientLocations = [];
 
         DB::beginTransaction();
 
         for ($i = 0; $i < 1000; $i++) {
+            $location = $locationCycle[$i % count($locationCycle)];
+            $city = $location['cities'][$i % count($location['cities'])];
+            $clientLocations[$clientIds[$i]] = [
+                'province' => $location['province'],
+                'city' => $city,
+            ];
+
             $addresses[] = [
                 'id' => (string) Str::uuid(),
                 'client_id' => $clientIds[$i],
                 'region' => 'Central Visayas',
-                'province' => 'Cebu',
-                'city_municipality' => $cities[array_rand($cities)],
+                'province' => $location['province'],
+                'city_municipality' => $city,
                 'barangay' => $barangays[array_rand($barangays)],
                 'street' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St',
                 'created_at' => now()->subDays(rand(0, 180)),
@@ -413,6 +462,7 @@ class TestingSeeder extends Seeder
             $sex = $i < 500 ? 'MALE' : 'FEMALE';
             $namePool = $sex === 'MALE' ? $maleNames : $femaleNames;
             $kinFirstName = $namePool[array_rand($namePool)];
+            $location = $clientLocations[$clientIds[$i]] ?? ['province' => 'Cebu', 'city' => 'Cebu City'];
 
             $kinId = (string) Str::uuid();
             $kinIds[$clientIds[$i]][] = $kinId;
@@ -427,10 +477,10 @@ class TestingSeeder extends Seeder
                 'phone_number' => '09'.str_pad(rand(0, 999999999), 9, '0', STR_PAD_LEFT),
                 'email' => strtolower($kinFirstName).'.'.strtolower(str_replace(' ', '', $surnames[array_rand($surnames)])).rand(1, 999).'@email.com',
                 'full_address' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St, '
-                    .$cities[array_rand($cities)].', Cebu',
+                    .$location['city'].', '.$location['province'],
                 'region' => 'Central Visayas',
-                'province' => 'Cebu',
-                'city_municipality' => $cities[array_rand($cities)],
+                'province' => $location['province'],
+                'city_municipality' => $location['city'],
                 'barangay' => $barangays[array_rand($barangays)],
                 'street' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St',
                 'sort_order' => 0,
@@ -455,10 +505,10 @@ class TestingSeeder extends Seeder
                     'phone_number' => '09'.str_pad(rand(0, 999999999), 9, '0', STR_PAD_LEFT),
                     'email' => strtolower($kinFirstName).'.'.strtolower(str_replace(' ', '', $surnames[array_rand($surnames)])).rand(1, 999).'@email.com',
                     'full_address' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St, '
-                        .$cities[array_rand($cities)].', Cebu',
+                        .$location['city'].', '.$location['province'],
                     'region' => 'Central Visayas',
-                    'province' => 'Cebu',
-                    'city_municipality' => $cities[array_rand($cities)],
+                    'province' => $location['province'],
+                    'city_municipality' => $location['city'],
                     'barangay' => $barangays[array_rand($barangays)],
                     'street' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St',
                     'sort_order' => 1,

@@ -81,6 +81,7 @@ class ReportsController extends Controller
             'referralAging' => Inertia::defer(fn () => $data['referralAging'] ?? null),
             'agencyScorecard' => Inertia::defer(fn () => $data['agencyScorecard'] ?? null),
             'geographicDistribution' => Inertia::defer(fn () => $data['geographicDistribution'] ?? null),
+            'geographicMapData' => Inertia::defer(fn () => $data['geographicMapData'] ?? null),
             'categoryDistribution' => Inertia::defer(fn () => $data['categoryDistribution'] ?? null),
             'employmentDistribution' => Inertia::defer(fn () => $data['employmentDistribution'] ?? null),
             'employmentPositionBreakdown' => Inertia::defer(fn () => $data['employmentPositionBreakdown'] ?? null),

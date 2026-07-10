@@ -5,6 +5,13 @@ import { Users, Target, Clock, GitFork, CheckCircle2, Hourglass, ClipboardCheck 
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { pageHeadingStyles, COLORS } from '@/Components/Reports/pageHeadingStyles';
 import MetricCard from '@/Components/Reports/MetricCard';
+import TopServiceRequestedCard from '@/Components/Reports/TopServiceRequestedCard';
+import OverviewBanner from '@/Components/Reports/OverviewBanner';
+import AttentionSection from '@/Components/Reports/AttentionSection';
+import ClientSnapshotCard from '@/Components/Reports/ClientSnapshotCard';
+import AgencyWorkloadChart from '@/Components/Reports/AgencyWorkloadChart';
+import AvgCompletionCard from '@/Components/Reports/AvgCompletionCard';
+import OverdueReferralsCard from '@/Components/Reports/OverdueReferralsCard';
 import TrendIndicator from '@/Components/Reports/TrendIndicator';
 import Sparkline from '@/Components/Reports/Sparkline';
 import DateRangePicker from '@/Components/Reports/DateRangePicker';
@@ -19,13 +26,13 @@ import { useLazyProp } from '@/Hooks/useLazyProp';
 import AgencyScorecardSection from '@/Pages/Reports/sections/AgencyScorecardSection';
 import StatusDistributionSection from '@/Pages/Reports/sections/StatusDistributionSection';
 import CycleTimeSection from '@/Pages/Reports/sections/CycleTimeSection';
-import GeographicSection from '@/Pages/Reports/sections/GeographicSection';
+import GeographicMapSection from '@/Pages/Reports/sections/GeographicMapSection';
 import CategorySection from '@/Pages/Reports/sections/CategorySection';
 import EmploymentSection from '@/Pages/Reports/sections/EmploymentSection';
 import LazyTrendChart from '@/Pages/Reports/sections/LazyTrendChart';
 import LazyChartArticle from '@/Pages/Reports/sections/LazyChartArticle';
-import LazyDemographics from '@/Pages/Reports/sections/LazyDemographics';
 import ReferralFunnelSection from '@/Pages/Reports/sections/ReferralFunnelSection';
+import ReferralTrendsSection from '@/Pages/Reports/sections/ReferralTrendsSection';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -42,13 +49,16 @@ function ReportsDashboard({
   const [province, setProvince] = useState(initialProvince || null);
   const [city, setCity] = useState(initialCity || null);
   const [caseStatusDist, caseStatusLoading] = useLazyProp('caseStatusDistribution');
-  const [overview] = useLazyProp('overview');
   const [casesSeries] = useLazyProp('casesOverTime');
 
   const caseSparkline = casesSeries?.datasets?.[0]?.data;
   const referralStatuses = referenceData?.referralStatuses || [];
 
-  const extraDeps = role === 'CASE_MANAGER' ? { date_scope: dateScope, province, city } : {};
+  const extraDeps = {
+    ...(role === 'CASE_MANAGER' ? { date_scope: dateScope } : {}),
+    province,
+    city,
+  };
   const { fromDateISO, setFromDateISO, toDateISO, setToDateISO, quickRange, handleQuickRange, resetDateRange } = useReportFilters(
     initialFrom, initialTo, extraDeps,
   );
@@ -58,6 +68,7 @@ function ReportsDashboard({
     : role === 'ADMIN'
       ? 'System-wide performance metrics and trends.'
       : 'Your caseload, referral throughput, and where cases need attention.';
+  const heroCols = role === 'CASE_MANAGER' ? 'xl:grid-cols-5' : 'xl:grid-cols-4';
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-4">
@@ -82,8 +93,8 @@ function ReportsDashboard({
               fromDateISO={fromDateISO}
               toDateISO={toDateISO}
               dateScope={role === 'CASE_MANAGER' ? dateScope : undefined}
-              province={role === 'CASE_MANAGER' ? province : undefined}
-              city={role === 'CASE_MANAGER' ? city : undefined}
+              province={province}
+              city={city}
             />
           </div>
         </div>
@@ -103,7 +114,7 @@ function ReportsDashboard({
       </header>
 
       {/* ── KPI hero: primary "am I on track" tier ── */}
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
         <MetricCard label="Active Caseload" value={`${suppressCount(kpis?.openCases ?? 0)}`} accent="border-l-[#0b5a8c]"
           icon={<Users className="h-3.5 w-3.5 text-[#0b5a8c]" />}
           sparkline={<Sparkline data={caseSparkline} color={COLORS.primary} />} />
@@ -116,6 +127,7 @@ function ReportsDashboard({
         <MetricCard label="Avg Resolution" value={`${kpis?.avgResolutionDays ?? 0}d`} accent="border-l-[#9b51b0]"
           icon={<Hourglass className="h-3.5 w-3.5 text-[#9b51b0]" />}
           description="Time from case open to close" />
+        <TopServiceRequestedCard role={role} />
       </section>
 
       {/* ── KPI hero: volume strip ── */}
@@ -129,6 +141,9 @@ function ReportsDashboard({
         <MetricCard label="For Compliance" value={`${suppressCount(kpis?.forComplianceReferrals ?? 0)}`} accent="border-l-[#d9663b]" valueTone="text-[#d9663b]"
           icon={<ClipboardCheck className="h-3.5 w-3.5 text-[#d9663b]" />} />
       </section>
+
+      {activeTab === 'overview' && <OverviewBanner />}
+      {activeTab === 'overview' && <AttentionSection />}
 
       {/* ── OVERVIEW ── */}
       {activeTab === 'overview' && (
@@ -156,11 +171,18 @@ function ReportsDashboard({
             <CycleTimeSection />
           </section>
 
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <AvgCompletionCard role={role} />
+            <OverdueReferralsCard role={role} />
+          </section>
+
           <ReferralFunnelSection referralStatuses={referralStatuses} />
 
           <section className="mb-2">
             <LazyTrendChart lazyKey="caseTrends" title="Case Trends (12 Months)" />
           </section>
+
+          <ReferralTrendsSection role={role} />
         </>
       )}
 
@@ -173,7 +195,11 @@ function ReportsDashboard({
           </section>
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <AgencyWorkloadChart role={role} />
             <LazyChartArticle lazyKey="referralAgencyDistribution" title="Referrals by Agency" emptyText="No agency referral data available." />
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <LazyChartArticle lazyKey="caseIssueDistribution" title="Case Issue Distribution" emptyText="No issue data available." />
           </section>
         </>
@@ -187,7 +213,7 @@ function ReportsDashboard({
             <CategorySection />
           </section>
 
-          <LazyDemographics />
+          <ClientSnapshotCard />
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <LazyChartArticle lazyKey="vulnerabilityDistribution" title="Vulnerability Indicators" emptyText="No vulnerability data available." />
@@ -195,7 +221,7 @@ function ReportsDashboard({
           </section>
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <GeographicSection />
+            <GeographicMapSection province={province} setProvince={setProvince} setCity={setCity} provinceOptions={provinceOptions || []} />
             <LazyChartArticle lazyKey="cityDistribution" title="City/Municipality Distribution" emptyText="No city-level data available." />
           </section>
 
