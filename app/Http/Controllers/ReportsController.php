@@ -67,35 +67,35 @@ class ReportsController extends Controller
             // Reference rows (statuses/categories/issues) that drive the chart toggles.
             'referenceData' => $this->reportsService->getReferenceData(),
 
-            // Deferred props — all in one group ('default') so Inertia batches
-            // them into a single request instead of N parallel requests (one per group).
-            // See \Inertia\DeferProp::group(): properties with the same group name
-            // are loaded together in a single request.
-            'referralStatusDistribution' => Inertia::defer(fn () => $data['referralStatusDistribution'] ?? null),
-            'referralAgencyDistribution' => Inertia::defer(fn () => $data['referralAgencyDistribution'] ?? null),
-            'casesOverTime' => Inertia::defer(fn () => $data['casesOverTime'] ?? null),
-            'genderDistribution' => Inertia::defer(fn () => $data['genderDistribution'] ?? null),
+            // ── EAGER PROPS (filter-sensitive — re-fetched on every filter change) ──
+            'referralStatusDistribution' => $data['referralStatusDistribution'] ?? null,
+            'referralAgencyDistribution' => $data['referralAgencyDistribution'] ?? null,
+            'casesOverTime' => $data['casesOverTime'] ?? null,
+            'genderDistribution' => $data['genderDistribution'] ?? null,
+            'ageGroupDistribution' => $data['ageGroupDistribution'] ?? null,
+            'cycleTimeDistribution' => $data['cycleTimeDistribution'] ?? null,
+            'referralAging' => $data['referralAging'] ?? null,
+            'agencyScorecard' => $data['agencyScorecard'] ?? null,
+            'geographicDistribution' => $data['geographicDistribution'] ?? null,
+            'geographicMapData' => $data['geographicMapData'] ?? null,
+            'caseIssueDistribution' => $data['caseIssueDistribution'] ?? null,
+            'mostRequestedService' => $data['mostRequestedService'] ?? null,
+            'overdueReferrals' => $data['overdueReferrals'] ?? null,
+            'cityDistribution' => $data['cityDistribution'] ?? null,
+
+            // ── DEFERRED PROPS (static data that doesn't change with filters) ──
+            // Loaded in one background group after initial render.
             'clientTypeDistribution' => Inertia::defer(fn () => $data['clientTypeDistribution'] ?? null),
-            'ageGroupDistribution' => Inertia::defer(fn () => $data['ageGroupDistribution'] ?? null),
-            'cycleTimeDistribution' => Inertia::defer(fn () => $data['cycleTimeDistribution'] ?? null),
-            'referralAging' => Inertia::defer(fn () => $data['referralAging'] ?? null),
-            'agencyScorecard' => Inertia::defer(fn () => $data['agencyScorecard'] ?? null),
-            'geographicDistribution' => Inertia::defer(fn () => $data['geographicDistribution'] ?? null),
-            'geographicMapData' => Inertia::defer(fn () => $data['geographicMapData'] ?? null),
             'categoryDistribution' => Inertia::defer(fn () => $data['categoryDistribution'] ?? null),
             'employmentDistribution' => Inertia::defer(fn () => $data['employmentDistribution'] ?? null),
             'employmentPositionBreakdown' => Inertia::defer(fn () => $data['employmentPositionBreakdown'] ?? null),
             'caseStatusDistribution' => Inertia::defer(fn () => $data['caseStatusDistribution'] ?? null),
-            'caseIssueDistribution' => Inertia::defer(fn () => $data['caseIssueDistribution'] ?? null),
             'vulnerabilityDistribution' => Inertia::defer(fn () => $data['vulnerabilityDistribution'] ?? null),
             'overview' => Inertia::defer(fn () => $data['overview'] ?? null),
             'caseTrends' => Inertia::defer(fn () => $data['caseTrends'] ?? null),
             'agencyWorkload' => Inertia::defer(fn () => $data['agencyWorkload'] ?? null),
             'referralTrends' => Inertia::defer(fn () => $data['referralTrends'] ?? null),
             'avgReferralCompletion' => Inertia::defer(fn () => $data['avgReferralCompletion'] ?? null),
-            'mostRequestedService' => Inertia::defer(fn () => $data['mostRequestedService'] ?? null),
-            'overdueReferrals' => Inertia::defer(fn () => $data['overdueReferrals'] ?? null),
-            'cityDistribution' => Inertia::defer(fn () => $data['cityDistribution'] ?? null),
         ]);
     }
 
