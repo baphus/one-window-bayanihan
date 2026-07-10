@@ -7,7 +7,7 @@ import { categories as categoryData, buildCategoryTree } from '@/data/helpdesk/c
 import { articles } from '@/data/helpdesk/articles';
 import { searchArticles } from '@/data/helpdesk/search';
 
-function SearchBar({ query, onSearch, large }) {
+export function SearchBar({ query, onSearch, large }) {
   const [value, setValue] = useState(query || '');
 
   useEffect(() => {
@@ -29,23 +29,24 @@ function SearchBar({ query, onSearch, large }) {
 
   return (
     <div className={`w-full relative ${large ? 'max-w-3xl' : 'max-w-xl'}`}>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} role="search">
         <div className={`flex w-full border border-slate-200 bg-white ${large ? 'min-h-14' : 'min-h-11'}`}>
           <div className={`flex items-center justify-center border-r border-slate-200 px-4 text-primary ${large ? 'bg-primary/5' : 'bg-slate-50'}`}>
-            <span className="material-symbols-outlined text-xl">search</span>
+            <span className="material-symbols-outlined text-xl" aria-hidden="true">search</span>
           </div>
           <input
             type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="Search the help center..."
+            aria-label="Search the help center"
             className={`min-w-0 flex-1 border-0 bg-transparent px-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-0 ${
               large ? 'text-base' : 'text-sm'
             }`}
           />
           <button
             type="submit"
-            className={`border-l border-slate-200 bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] ${large ? 'px-6' : ''}`}
+            className={`border-l border-slate-200 bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${large ? 'px-6' : ''}`}
           >
             Search
           </button>
@@ -67,17 +68,15 @@ function SearchBar({ query, onSearch, large }) {
                 <Link
                   key={article.id}
                   href={`/help/${article.slug}`}
-                  className="block px-4 py-3 transition-colors hover:bg-slate-50"
+                  className="block px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined mt-0.5 text-sm text-primary">article</span>
+                    <span className="material-symbols-outlined mt-0.5 text-sm text-primary" aria-hidden="true">article</span>
                     <div className="min-w-0 flex-1">
                       <p className="font-headline text-sm font-semibold text-slate-900">{article.title}</p>
                       <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{article.excerpt}</p>
                       {category && (
-                        <p className="mt-1 font-label text-[11px] uppercase tracking-[0.12em] text-slate-400">
-                          {category.name}
-                        </p>
+                        <p className="mt-1 text-xs text-slate-400">{category.name}</p>
                       )}
                     </div>
                   </div>
@@ -88,7 +87,7 @@ function SearchBar({ query, onSearch, large }) {
           <div className="border-t border-slate-200 px-4 py-2">
             <Link
               href={route('helpdesk.search') + '?q=' + encodeURIComponent(value.trim())}
-              className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary hover:underline"
+              className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               View all results
             </Link>
@@ -99,7 +98,7 @@ function SearchBar({ query, onSearch, large }) {
   );
 }
 
-function CategoryNav({ categories, activeSlug }) {
+function CategoryNav({ categories, activeSlug, idPrefix = 'desktop' }) {
   const hasActiveChild = (cat) => cat.children?.some((ch) => ch.slug === activeSlug);
   const getExpandedForActiveSlug = () => {
     if (!categories) return {};
@@ -120,38 +119,40 @@ function CategoryNav({ categories, activeSlug }) {
 
   const toggle = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
+  const linkClasses = (isActive) =>
+    `flex flex-1 items-center gap-3 border-l-4 px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+      isActive
+        ? 'border-primary bg-primary/10 font-bold text-primary'
+        : 'border-transparent text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-primary'
+    }`;
+
   return (
-    <nav className="space-y-1">
+    <div className="space-y-1">
       <Link
         href="/help"
-        className={`flex items-center gap-3 border-l-4 px-3 py-2.5 text-sm font-label transition-colors ${
-          !activeSlug
-            ? 'border-primary bg-primary/10 text-primary font-bold'
-            : 'border-transparent text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-primary'
-        }`}
+        aria-current={!activeSlug ? 'page' : undefined}
+        className={linkClasses(!activeSlug)}
       >
-        <span className="material-symbols-outlined text-base">home</span>
-        All Articles
+        <span className="material-symbols-outlined text-base" aria-hidden="true">home</span>
+        All topics
       </Link>
       {categories?.map((cat) => {
         const isActive = activeSlug === cat.slug;
         const isParentActive = isActive || hasActiveChild(cat);
         const hasChildren = cat.children?.length > 0;
         const isExpanded = expanded[cat.id] ?? false;
+        const childListId = `${idPrefix}-subnav-${cat.id}`;
 
         return (
           <div key={cat.id} className="border-b border-slate-200 last:border-b-0">
             <div className="group flex items-stretch gap-0">
               <Link
                 href={`/help?category=${cat.slug}`}
-                className={`flex flex-1 items-center gap-3 border-l-4 px-3 py-2.5 text-sm font-label transition-colors ${
-                  isParentActive
-                    ? 'border-primary bg-primary/10 text-primary font-bold'
-                    : 'border-transparent text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-primary'
-                }`}
+                aria-current={isActive ? 'page' : undefined}
+                className={linkClasses(isParentActive)}
               >
                 {cat.icon && (
-                  <span className="material-symbols-outlined text-base text-slate-400">
+                  <span className="material-symbols-outlined text-base text-slate-400" aria-hidden="true">
                     {cat.icon}
                   </span>
                 )}
@@ -159,31 +160,38 @@ function CategoryNav({ categories, activeSlug }) {
               </Link>
               {hasChildren && (
                 <button
+                  type="button"
                   onClick={() => toggle(cat.id)}
-                  className={`flex items-center justify-center border-l border-slate-200 px-2.5 text-sm transition-colors ${
+                  aria-expanded={isExpanded}
+                  aria-controls={childListId}
+                  aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${cat.name} subtopics`}
+                  className={`flex items-center justify-center border-l border-slate-200 px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
                     isParentActive
                       ? 'bg-primary/10 text-primary'
                       : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
                   }`}
-                  title={isExpanded ? 'Collapse' : 'Expand'}
                 >
-                  <span className={`material-symbols-outlined text-base transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                    {isExpanded ? 'expand_more' : 'chevron_right'}
+                  <span
+                    className={`material-symbols-outlined text-base transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                    aria-hidden="true"
+                  >
+                    chevron_right
                   </span>
                 </button>
               )}
             </div>
             {hasChildren && isExpanded && (
-              <div className="ml-4 border-l border-slate-200 py-1 pl-3">
+              <div id={childListId} className="ml-4 border-l border-slate-200 py-1 pl-3">
                 {cat.children.map((child) => {
                   const isChildActive = activeSlug === child.slug;
                   return (
                     <Link
                       key={child.id}
                       href={`/help?category=${child.slug}`}
-                      className={`flex items-center gap-2 border-l-4 px-3 py-2 text-sm font-label transition-colors ${
+                      aria-current={isChildActive ? 'page' : undefined}
+                      className={`flex items-center gap-2 border-l-4 px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
                         isChildActive
-                          ? 'border-primary bg-primary/10 text-primary font-bold'
+                          ? 'border-primary bg-primary/10 font-bold text-primary'
                           : 'border-transparent text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-primary'
                       }`}
                     >
@@ -196,11 +204,50 @@ function CategoryNav({ categories, activeSlug }) {
           </div>
         );
       })}
-    </nav>
+    </div>
   );
 }
 
-export default function HelpdeskLayout({ title, children, activeSlug, query, showSearchHero }) {
+function MobileTopicsDisclosure({ categories, activeSlug }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mb-6 border border-slate-200 bg-white shadow-sm lg:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-controls="mobile-topics-nav"
+        className="flex w-full items-center justify-between px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <span className="material-symbols-outlined text-base text-primary" aria-hidden="true">menu_book</span>
+          Browse topics
+        </span>
+        <span
+          className={`material-symbols-outlined text-base text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        >
+          expand_more
+        </span>
+      </button>
+      {open && (
+        <nav id="mobile-topics-nav" aria-label="Help topics" className="border-t border-slate-200 px-2 py-3">
+          <CategoryNav categories={categories} activeSlug={activeSlug} idPrefix="mobile" />
+        </nav>
+      )}
+    </div>
+  );
+}
+
+export default function HelpdeskLayout({
+  title,
+  children,
+  activeSlug,
+  query,
+  showSidebar = true,
+  showCompactSearch = true,
+}) {
   // Always compute sidebar from the flat data module, not from page props.
   const parentCategories = useMemo(() => buildCategoryTree(categoryData, articles), []);
 
@@ -212,42 +259,45 @@ export default function HelpdeskLayout({ title, children, activeSlug, query, sho
     <div className="min-h-screen bg-surface font-body text-on-surface">
       <Head title={`${title} - Help Center`} />
 
+      <a
+        href="#help-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Skip to main content
+      </a>
+
       <AppHeader onTrackCaseClick={() => router.visit(route('track.index'))} />
 
       <ChatBot />
 
-      <div className="mx-auto max-w-7xl px-4 pb-2 pt-24 sm:px-6 lg:px-8">
-        {showSearchHero && (
-          <div className="mb-8 flex justify-center pt-4">
-            <SearchBar query={query} onSearch={handleSearch} large />
-          </div>
-        )}
-        {!showSearchHero && (
+      <div className="mx-auto max-w-7xl px-4 pb-8 pt-24 sm:px-6 lg:px-8">
+        {showCompactSearch && (
           <div className="mb-4 flex justify-end pt-3">
             <div className="w-full max-w-xs">
               <SearchBar query={query} onSearch={handleSearch} />
             </div>
           </div>
         )}
-      </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        {showSidebar && <MobileTopicsDisclosure categories={parentCategories} activeSlug={activeSlug} />}
+
         <div className="flex gap-8">
-          <aside className="hidden w-72 flex-shrink-0 lg:block">
-            <div className="sticky top-24 rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-200 bg-surface-container-low px-4 py-3">
-                <h2 className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                  Browse topics
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">Navigate categories, subcategories, and articles.</p>
+          {showSidebar && (
+            <aside className="hidden w-72 flex-shrink-0 lg:block">
+              <div className="sticky top-24 rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 bg-surface-container-low px-4 py-3">
+                  <h2 className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                    Browse topics
+                  </h2>
+                </div>
+                <nav aria-label="Help topics" className="px-2 py-3">
+                  <CategoryNav categories={parentCategories} activeSlug={activeSlug} idPrefix="desktop" />
+                </nav>
               </div>
-              <div className="px-2 py-3">
-                <CategoryNav categories={parentCategories} activeSlug={activeSlug} />
-              </div>
-            </div>
-          </aside>
+            </aside>
+          )}
 
-          <main className="min-w-0 flex-1">{children}</main>
+          <main id="help-main" className="min-w-0 flex-1">{children}</main>
         </div>
       </div>
 
@@ -262,7 +312,7 @@ export default function HelpdeskLayout({ title, children, activeSlug, query, sho
             </div>
             <Link
               href={route('contact')}
-              className="rounded-none bg-primary px-6 py-2.5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white"
+              className="rounded-none bg-primary px-6 py-2.5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Contact Support
             </Link>

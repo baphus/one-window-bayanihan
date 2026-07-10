@@ -40,6 +40,7 @@ use App\Services\ReportsService;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 // Public feedback submission — no auth required (token-based)
@@ -289,7 +290,13 @@ Route::get('/partners', function () {
 
 Route::get('/partners/{agency}', function (string $agency) {
     $agency = Agency::where('is_active', true)
-        ->where(fn ($q) => $q->where('slug', $agency)->orWhere('id', $agency))
+        ->where(function ($q) use ($agency) {
+            $q->where('slug', $agency);
+
+            if (Str::isUuid($agency)) {
+                $q->orWhere('id', $agency);
+            }
+        })
         ->firstOrFail();
 
     $agency->load(['services' => fn ($q) => $q->with('requirements')->orderBy('name')]);

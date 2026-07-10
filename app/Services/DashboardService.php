@@ -6,12 +6,19 @@ use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Client;
+use App\Models\Feedback;
+use App\Models\FeedbackInvitation;
 use App\Models\Referral;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
+    private const ACTIVE_REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
+
+    private const OVERDUE_DAYS = 5;
+
     public function getCaseManagerData(?User $user = null): array
     {
         $formatter = app(AuditLogFormatter::class);
@@ -258,6 +265,23 @@ class DashboardService
             ])
             ->toArray();
 
+        $referralStatusDistribution = $this->buildStatusDistribution($allReferrals, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED']);
+        $referralAgingBands = $this->buildReferralAgingBands($allReferrals);
+        $priorityReferrals = $this->buildPriorityReferrals($allReferrals, 8, true);
+        $priorityCases = $this->buildPriorityCases($allCases, $allReferrals, 8);
+        $agencyResponseScorecard = $this->buildAgencyResponseScorecard($allReferrals);
+        $casesWithoutReferrals = collect($allCases)
+            ->filter(fn ($case) => ($case['status'] ?? null) === 'OPEN' && $allReferrals->where('case_id', $case['id'])->isEmpty())
+            ->count();
+
+        $workQueue = [
+            $this->queueItem('agingOpenCases', 'Aging open cases', collect($allCases)->filter(fn ($case) => ($case['status'] ?? null) === 'OPEN' && $this->ageInDays($case['createdAt'] ?? null) >= 7)->count(), 'Open seven days or more.', 'amber', 'folder_clock', '/cases'),
+            $this->queueItem('pendingReferrals', 'Pending referrals', $pendingReferrals, 'Waiting for agency action.', 'amber', 'schedule', '/referrals'),
+            $this->queueItem('rejectedReferrals', 'Returned referrals', $rejectedReferrals, 'Needs reassignment or follow-up.', 'rose', 'assignment_return', '/referrals'),
+            $this->queueItem('draftCases', 'Draft cases', $myDraftCount, 'Your unfinished case drafts.', 'slate', 'edit_note', '/cases/drafts'),
+            $this->queueItem('casesWithoutReferrals', 'Cases without referrals', $casesWithoutReferrals, 'Open cases that may need routing.', 'blue', 'hub', '/cases'),
+        ];
+
         return [
             'totalCases' => $totalCases,
             'openCases' => $openCases,
@@ -283,6 +307,12 @@ class DashboardService
             'casesByCategory' => $casesByCategory,
             'agencyBreakdown' => $agencyBreakdown,
             'casesOverTime' => $casesOverTime,
+            'referralStatusDistribution' => $referralStatusDistribution,
+            'referralAgingBands' => $referralAgingBands,
+            'priorityReferrals' => $priorityReferrals,
+            'priorityCases' => $priorityCases,
+            'agencyResponseScorecard' => $agencyResponseScorecard,
+            'workQueue' => $workQueue,
             'recentActivity' => $recentActivity,
             'dashboardNotifications' => $recentNotifications->toArray(),
             'averageCaseDaysToClose' => $averageCaseDaysToClose,
@@ -300,8 +330,14 @@ class DashboardService
         $totalReferrals = Referral::where('agcy_id', $agencyId)->count();
         $pendingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PENDING')->count();
         $processingReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'PROCESSING')->count();
+        $forComplianceReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'FOR_COMPLIANCE')->count();
         $completedReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'COMPLETED')->count();
         $rejectedReferrals = Referral::where('agcy_id', $agencyId)->where('status', 'REJECTED')->count();
+
+        $agencyReferrals = Referral::with(['caseFile.client', 'agency'])
+            ->where('agcy_id', $agencyId)
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $recentReferrals = Referral::with(['caseFile.client', 'agency'])
             ->where('agcy_id', $agencyId)
@@ -309,6 +345,24 @@ class DashboardService
             ->take(5)
             ->get()
             ->toArray();
+
+        $referralStatusDistribution = $this->buildStatusDistribution($agencyReferrals, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED']);
+        $referralAgingBands = $this->buildReferralAgingBands($agencyReferrals);
+        $priorityReferrals = $this->buildPriorityReferrals($agencyReferrals, 8, false);
+        $serviceDemand = $this->buildAgencyServiceDemand($agencyId);
+        $feedbackPulse = $this->buildFeedbackPulse($agencyId);
+        $overdueReferrals = $agencyReferrals
+            ->filter(fn ($referral) => in_array($referral->status, self::ACTIVE_REFERRAL_STATUSES, true) && $this->ageInDays($referral->created_at) >= self::OVERDUE_DAYS)
+            ->count();
+
+        $workQueue = [
+            $this->queueItem('newReferrals', 'New referrals', $agencyReferrals->filter(fn ($referral) => $this->ageInDays($referral->created_at) <= 2)->count(), 'Received in the last two days.', 'blue', 'move_to_inbox', '/referrals'),
+            $this->queueItem('pendingReferrals', 'Pending', $pendingReferrals, 'Needs acknowledgement or first action.', 'amber', 'schedule', '/referrals'),
+            $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals'),
+            $this->queueItem('processingReferrals', 'Processing', $processingReferrals, 'Currently being handled.', 'cyan', 'sync', '/referrals'),
+            $this->queueItem('overdueReferrals', 'Overdue', $overdueReferrals, 'Active referrals older than five days.', 'rose', 'warning', '/referrals'),
+            $this->queueItem('returnedReferrals', 'Returned', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals'),
+        ];
 
         $pendingNotifications = $user
             ? $user->notifications()->latest()->take(3)->get()->map(fn ($n) => [
@@ -382,12 +436,19 @@ class DashboardService
             'totalReferrals' => $totalReferrals,
             'pendingReferrals' => $pendingReferrals,
             'processingReferrals' => $processingReferrals,
+            'forComplianceReferrals' => $forComplianceReferrals,
             'completedReferrals' => $completedReferrals,
             'rejectedReferrals' => $rejectedReferrals,
             'recentReferrals' => $recentReferrals,
             'recentActivity' => $recentActivity,
             'dashboardNotifications' => $pendingNotifications,
             'casesByCategory' => $casesByCategory,
+            'workQueue' => $workQueue,
+            'referralStatusDistribution' => $referralStatusDistribution,
+            'referralAgingBands' => $referralAgingBands,
+            'priorityReferrals' => $priorityReferrals,
+            'serviceDemand' => $serviceDemand,
+            'feedbackPulse' => $feedbackPulse,
         ];
     }
 
@@ -630,5 +691,295 @@ class DashboardService
         }
 
         return $summary;
+    }
+
+    private function queueItem(string $key, string $label, int $count, string $note, string $tone, string $icon, string $href): array
+    {
+        return compact('key', 'label', 'count', 'note', 'tone', 'icon', 'href');
+    }
+
+    private function buildStatusDistribution($referrals, array $statuses): array
+    {
+        $total = max($referrals->count(), 1);
+
+        $items = collect($statuses)
+            ->map(function (string $status) use ($referrals, $total) {
+                $count = $referrals->where('status', $status)->count();
+
+                return [
+                    'status' => $status,
+                    'label' => $this->statusLabel($status),
+                    'count' => $count,
+                    'percent' => (int) round(($count / $total) * 100),
+                    'tone' => $this->statusTone($status),
+                ];
+            });
+
+        $knownCount = $items->sum('count');
+        $otherCount = max($referrals->count() - $knownCount, 0);
+        if ($otherCount > 0) {
+            $items->push([
+                'status' => 'OTHER',
+                'label' => 'Other',
+                'count' => $otherCount,
+                'percent' => (int) round(($otherCount / $total) * 100),
+                'tone' => 'slate',
+            ]);
+        }
+
+        return $items->filter(fn ($item) => $item['count'] > 0)->values()->toArray();
+    }
+
+    private function buildReferralAgingBands($referrals): array
+    {
+        $active = $referrals->filter(fn ($referral) => in_array($referral->status, self::ACTIVE_REFERRAL_STATUSES, true));
+        $bands = [
+            ['key' => '0-2', 'label' => '0-2 days', 'min' => 0, 'max' => 2, 'tone' => 'emerald'],
+            ['key' => '3-5', 'label' => '3-5 days', 'min' => 3, 'max' => 5, 'tone' => 'amber'],
+            ['key' => '6-10', 'label' => '6-10 days', 'min' => 6, 'max' => 10, 'tone' => 'orange'],
+            ['key' => '11+', 'label' => '11+ days', 'min' => 11, 'max' => null, 'tone' => 'rose'],
+        ];
+        $total = max($active->count(), 1);
+
+        return collect($bands)->map(function (array $band) use ($active, $total) {
+            $count = $active->filter(function ($referral) use ($band) {
+                $age = $this->ageInDays($referral->created_at);
+
+                return $age >= $band['min'] && ($band['max'] === null || $age <= $band['max']);
+            })->count();
+
+            return [
+                'key' => $band['key'],
+                'label' => $band['label'],
+                'count' => $count,
+                'percent' => (int) round(($count / $total) * 100),
+                'tone' => $band['tone'],
+            ];
+        })->toArray();
+    }
+
+    private function buildPriorityReferrals($referrals, int $limit, bool $includeAgency): array
+    {
+        return $referrals
+            ->map(function ($referral) use ($includeAgency) {
+                $age = $this->ageInDays($referral->created_at);
+                $priority = match ($referral->status) {
+                    'REJECTED' => 100 + $age,
+                    'FOR_COMPLIANCE' => 80 + $age,
+                    'PENDING' => 60 + $age,
+                    'PROCESSING' => $age >= self::OVERDUE_DAYS ? 40 + $age : 0,
+                    default => 0,
+                };
+
+                if ($priority === 0 && in_array($referral->status, self::ACTIVE_REFERRAL_STATUSES, true) && $age >= self::OVERDUE_DAYS) {
+                    $priority = 30 + $age;
+                }
+
+                return [
+                    'id' => $referral->id,
+                    'caseId' => $referral->case_id,
+                    'caseNo' => $referral->caseFile?->case_number ?? 'N/A',
+                    'clientName' => $this->clientName($referral->caseFile?->client),
+                    'service' => $referral->required_services ?: 'Service not specified',
+                    'agencyName' => $includeAgency ? ($referral->agency?->name ?? 'N/A') : null,
+                    'status' => $referral->status,
+                    'ageDays' => $age,
+                    'href' => '/referrals/'.$referral->id,
+                    'priority' => $priority,
+                ];
+            })
+            ->filter(fn ($item) => $item['priority'] > 0)
+            ->sortByDesc('priority')
+            ->take($limit)
+            ->map(fn ($item) => collect($item)->except('priority')->toArray())
+            ->values()
+            ->toArray();
+    }
+
+    private function buildPriorityCases(array $cases, $referrals, int $limit): array
+    {
+        $referralsByCase = $referrals->groupBy('case_id');
+
+        return collect($cases)
+            ->map(function (array $case) use ($referralsByCase) {
+                $caseReferrals = $referralsByCase->get($case['id'], collect());
+                $age = $this->ageInDays($case['createdAt'] ?? null);
+                $latestReferral = $caseReferrals->sortByDesc('updated_at')->first();
+                $hasRejected = $caseReferrals->contains(fn ($referral) => $referral->status === 'REJECTED');
+                $hasNoReferral = ($case['status'] ?? null) === 'OPEN' && $caseReferrals->isEmpty();
+                $isAging = ($case['status'] ?? null) === 'OPEN' && $age >= 7;
+                $priority = ($hasRejected ? 100 : 0) + ($hasNoReferral ? 80 : 0) + ($isAging ? 40 + $age : 0);
+
+                return [
+                    'id' => $case['id'],
+                    'caseNo' => $case['caseNo'] ?? 'N/A',
+                    'trackerNumber' => $case['trackerNumber'] ?? null,
+                    'clientName' => $case['clientName'] ?? 'N/A',
+                    'status' => $case['status'] ?? 'UNKNOWN',
+                    'latestReferralStatus' => $latestReferral?->status,
+                    'ageDays' => $age,
+                    'reason' => $hasRejected ? 'Returned referral' : ($hasNoReferral ? 'No referral yet' : 'Aging open case'),
+                    'href' => '/cases/'.$case['id'],
+                    'priority' => $priority,
+                ];
+            })
+            ->filter(fn ($item) => $item['priority'] > 0)
+            ->sortByDesc('priority')
+            ->take($limit)
+            ->map(fn ($item) => collect($item)->except('priority')->toArray())
+            ->values()
+            ->toArray();
+    }
+
+    private function buildAgencyResponseScorecard($referrals): array
+    {
+        return $referrals
+            ->groupBy('agcy_id')
+            ->map(function ($items) {
+                $agency = $items->first()?->agency;
+                $active = $items->whereIn('status', self::ACTIVE_REFERRAL_STATUSES);
+                $completed = $items->where('status', 'COMPLETED');
+                $overdue = $active->filter(fn ($referral) => $this->ageInDays($referral->created_at) >= self::OVERDUE_DAYS)->count();
+                $completionDays = $completed
+                    ->map(fn ($referral) => $this->daysBetween($referral->created_at, $referral->updated_at))
+                    ->filter(fn ($days) => $days !== null)
+                    ->values();
+
+                return [
+                    'agencyId' => $agency?->id,
+                    'agencyName' => $agency?->name ?? 'Unassigned agency',
+                    'activeCount' => $active->count(),
+                    'overdueCount' => $overdue,
+                    'completedCount' => $completed->count(),
+                    'averageCompletionDays' => $completionDays->isNotEmpty() ? round($completionDays->avg(), 1) : null,
+                    'completionRate' => $items->count() > 0 ? (int) round(($completed->count() / $items->count()) * 100) : 0,
+                    'href' => '/referrals',
+                ];
+            })
+            ->sortByDesc(fn ($item) => ($item['overdueCount'] * 10) + $item['activeCount'])
+            ->take(6)
+            ->values()
+            ->toArray();
+    }
+
+    private function buildAgencyServiceDemand(?string $agencyId): array
+    {
+        if (! $agencyId) {
+            return [];
+        }
+
+        $activeStatuses = self::ACTIVE_REFERRAL_STATUSES;
+
+        return Service::where('agcy_id', $agencyId)
+            ->where('is_deleted', false)
+            ->orderBy('name')
+            ->get()
+            ->map(function (Service $service) use ($agencyId, $activeStatuses) {
+                $base = Referral::where('agcy_id', $agencyId)->where('required_services', $service->name);
+                $total = (clone $base)->count();
+                $active = (clone $base)->whereIn('status', $activeStatuses)->count();
+                $completed = (clone $base)->where('status', 'COMPLETED')->count();
+
+                return [
+                    'serviceId' => $service->id,
+                    'serviceName' => $service->name,
+                    'totalCount' => $total,
+                    'activeCount' => $active,
+                    'completedCount' => $completed,
+                    'completionRate' => $total > 0 ? (int) round(($completed / $total) * 100) : 0,
+                    'href' => '/referrals',
+                ];
+            })
+            ->filter(fn ($item) => $item['totalCount'] > 0)
+            ->sortByDesc('activeCount')
+            ->take(6)
+            ->values()
+            ->toArray();
+    }
+
+    private function buildFeedbackPulse(?string $agencyId): array
+    {
+        if (! $agencyId) {
+            return [
+                'hasData' => false,
+                'totalSent' => 0,
+                'totalSubmitted' => 0,
+                'responseRate' => 0,
+                'avgRating' => null,
+                'avgServqual' => null,
+                'href' => '/feedbacks',
+            ];
+        }
+
+        $totalSent = FeedbackInvitation::where('agency_id', $agencyId)->count();
+        $feedbackQuery = Feedback::where('agency_id', $agencyId);
+        $totalSubmitted = (clone $feedbackQuery)->count();
+        $avgRating = (clone $feedbackQuery)->whereNotNull('overall_rating')->avg('overall_rating');
+        $avgServqual = DB::table('feedback_servqual_responses')
+            ->join('feedback', 'feedback_servqual_responses.feedback_id', '=', 'feedback.id')
+            ->where('feedback.agency_id', $agencyId)
+            ->whereNotNull('feedback_servqual_responses.perception')
+            ->avg('feedback_servqual_responses.perception');
+
+        return [
+            'hasData' => $totalSubmitted > 0 || $totalSent > 0,
+            'totalSent' => $totalSent,
+            'totalSubmitted' => $totalSubmitted,
+            'responseRate' => $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0,
+            'avgRating' => $avgRating ? round((float) $avgRating, 2) : null,
+            'avgServqual' => $avgServqual ? round((float) $avgServqual, 2) : null,
+            'href' => '/feedbacks',
+        ];
+    }
+
+    private function ageInDays($timestamp): int
+    {
+        if (! $timestamp) {
+            return 0;
+        }
+
+        return max(0, (int) now()->startOfDay()->diffInDays($timestamp, false) * -1);
+    }
+
+    private function daysBetween($start, $end): ?int
+    {
+        if (! $start || ! $end) {
+            return null;
+        }
+
+        return max(0, (int) $start->startOfDay()->diffInDays($end->startOfDay(), false));
+    }
+
+    private function clientName($client): string
+    {
+        if (! $client) {
+            return 'N/A';
+        }
+
+        return trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: 'N/A';
+    }
+
+    private function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'PENDING' => 'Pending',
+            'PROCESSING' => 'Processing',
+            'FOR_COMPLIANCE' => 'For compliance',
+            'COMPLETED' => 'Completed',
+            'REJECTED' => 'Returned',
+            default => str($status)->replace('_', ' ')->title()->toString(),
+        };
+    }
+
+    private function statusTone(string $status): string
+    {
+        return match ($status) {
+            'PENDING' => 'amber',
+            'PROCESSING' => 'blue',
+            'FOR_COMPLIANCE' => 'orange',
+            'COMPLETED' => 'emerald',
+            'REJECTED' => 'rose',
+            default => 'slate',
+        };
     }
 }

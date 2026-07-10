@@ -1,39 +1,39 @@
-const content = `# Configuring System Settings and AI Chatbot
+const content = `# Configuring System Settings and the AI Chatbot
 
-Administrators manage application settings from the admin settings area. Settings can affect login behavior, notifications, integrations, and optional AI chatbot behavior, so changes should be planned and recorded.
+Administrators manage runtime settings on the **System Settings** page. The AI chatbot's model and provider are **deployment configuration** (environment settings), not something changed in the UI — this article covers both, and what each change affects.
 
 ![Admin settings](/assets/helpdesk/admin-settings.png)
 
-## Before changing settings
+## The System Settings page
 
-Confirm the purpose of the change, who requested it, and when it should take effect. Some sensitive settings are stored encrypted by the application. Do not paste secrets into tickets, screenshots, chat, or helpdesk articles.
+**System Settings** (admin only) contains:
 
-## Recommended change process
+- **Application Information** — read-only: application name, version, and region.
+- **Referral Overdue Threshold** — *Overdue after (days)*, 1–365 (default 7). Referrals exceeding this age without being completed or rejected are flagged overdue on referral pages and the Overdue Referrals view. Changing it immediately changes what counts as overdue everywhere.
+- **Login OTP Debug Mode** — auto-fills login OTP values on the verification screen, for testing only. The page itself warns: *"Exposes OTP values in login page responses. Disable in production."*
+- **Tracking OTP Debug Mode** — same as above for the public tracking portal. **Both debug toggles must stay off in production** — they bypass a security control for real users.
 
-1. Review the current value.
-2. Confirm the expected operational effect.
-3. Make the smallest necessary change.
-4. Save the setting.
-5. Test the affected workflow, such as login, case creation, referral notification, or chatbot response.
-6. Review the audit log for the settings change if confirmation is needed.
+Changes confirm with **"Settings updated successfully."** and are recorded in the audit log.
 
-## AI chatbot guidance
+> The SERVQUAL section on this page is informational. Feedback questionnaires are managed by each agency under **Feedback → SERVQUAL Configurations** — see *Building SERVQUAL feedback questionnaires*.
 
-If chatbot settings are enabled in your deployment, treat the chatbot as a support assistant, not a decision maker. It should help users find guidance, but official case action still belongs to authorized users in the case or referral workflow.
+## AI chatbot configuration (deployment-level)
 
-Good chatbot configuration practices:
+The public help chatbot's language model is set by the deployment's environment configuration, not the admin UI:
 
-- Keep prompts factual and aligned with current helpdesk articles.
-- Do not include credentials, private keys, or personal case details in prompts.
-- Test with common user questions before announcing a change.
-- Disable or revise responses that could be read as legal, medical, or final adjudication advice.
+- The **default provider is a hosted model** (OpenRouter free tier, requiring an API key in the server environment).
+- Deployments can switch to any configured provider, **including a local Ollama / llama.cpp model**, by changing the chatbot provider environment setting.
+- Answers are grounded in the helpdesk articles through retrieval — improving the articles improves the chatbot.
 
-## Security-related admin pages
+Practical guidance for administrators:
 
-Depending on your role and deployment, administrators may also use Security and ActiveSessions pages to review security configuration and active user sessions. Use these pages when investigating account access issues or enforcing operational security practices.
+1. Provider or key changes are infrastructure changes — coordinate with the technical team; they take effect on deployment, not per-request.
+2. After any provider change, test the common public questions (tracking, lost tracker number, OTP problems) before announcing.
+3. Treat the chatbot as a guide, not a decision maker — official case actions belong to authorized users in the case and referral workflows.
+4. Never place credentials or personal case details in prompts, articles, or tickets.
 
-## When to escalate
+## Related security pages
 
-Escalate before changing settings that affect authentication, data retention, storage, email delivery, or external integrations. These settings can interrupt work across DMW and partner agencies if misconfigured.
+Password policy, lockouts, mandatory MFA, the admin IP whitelist, and session termination live on separate pages — see *System security: settings, IP whitelist, and active sessions*.
 `;
 export default content;

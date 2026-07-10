@@ -6,7 +6,7 @@ Administrators use the maintenance and log pages to monitor background work and 
 
 ## Where to look
 
-Relevant admin areas include Maintenance, EmailLogs, LogViewer, ActiveSessions, and OverdueReferrals. The dashboard may also show operational summaries for cases, referrals, and workload.
+The relevant admin pages live under the **System** menu: **Maintenance**, **Email Logs**, **Logs** (the log viewer), and **Active Sessions**, plus the **Overdue Referrals** page. The dashboard also shows operational summaries for cases, referrals, and workload. Deep-dives: *Maintenance mode, system logs, and data export*, *Email logs and resending failed emails*, and *System security: settings, IP whitelist, and active sessions*.
 
 ![Admin dashboard](/assets/helpdesk/dashboard-admin.png)
 
@@ -14,10 +14,10 @@ Relevant admin areas include Maintenance, EmailLogs, LogViewer, ActiveSessions, 
 
 - Confirm that new cases and referrals can be created.
 - Confirm that referral status updates save correctly.
-- Review EmailLogs if users report missing messages.
-- Review LogViewer for repeated application errors.
-- Check OverdueReferrals for referrals that require follow-up.
-- Review ActiveSessions when investigating account access concerns.
+- Review **Email Logs** if users report missing messages (failed emails can be re-queued from there).
+- Review **System → Logs** for repeated application errors.
+- Check **Overdue Referrals** for referrals that require follow-up.
+- Review **Active Sessions** when investigating account access concerns.
 
 ## Queue and job symptoms
 
