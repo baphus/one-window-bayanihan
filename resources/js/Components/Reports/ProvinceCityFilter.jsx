@@ -19,7 +19,7 @@ export default function ProvinceCityFilter({
           onProvinceChange(e.target.value || null);
           onCityChange(null);
         }}
-        className="h-8 rounded-[2px] bg-white px-2 text-center text-[11px] font-semibold text-slate-600 shadow-none"
+        className="h-8 rounded-[2px] bg-white pl-2.5 pr-6 text-left text-[11px] font-semibold text-slate-600 shadow-none appearance-none"
         style={{ border: `1px solid ${COLORS.border}` }}
       >
         <option value="">All Provinces</option>
@@ -31,7 +31,7 @@ export default function ProvinceCityFilter({
       <select
         value={city || ''}
         onChange={(e) => onCityChange(e.target.value || null)}
-        className="h-8 rounded-[2px] bg-white px-2 text-center text-[11px] font-semibold text-slate-600 shadow-none"
+        className="h-8 rounded-[2px] bg-white pl-2.5 pr-6 text-left text-[11px] font-semibold text-slate-600 shadow-none appearance-none"
         style={{ border: `1px solid ${COLORS.border}` }}
       >
         <option value="">All Cities</option>
