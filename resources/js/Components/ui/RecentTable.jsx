@@ -1,6 +1,6 @@
 export default function RecentTable({ title, data, columns, keyExtractor, onViewAll }) {
   return (
-    <section className="bg-white rounded-md border border-slate-200 overflow-hidden">
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {onViewAll && (

@@ -83,8 +83,8 @@ export function categoricalColors(count, mode = 'light') {
 // Shared, dark-mode-aware class tokens.
 export const pageHeadingStyles = {
   pageTitle:
-    'text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900 dark:text-slate-100',
-  pageSubtitle: 'mt-1 text-[14px] leading-6 text-slate-600 dark:text-slate-400',
+    'text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900 dark:text-slate-100',
+  pageSubtitle: 'text-sm text-slate-400 font-body mt-0.5 dark:text-slate-400',
   sectionTitle:
     'text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#0b5a8c] dark:text-[#7fb3e0]',
   metricLabel:
@@ -93,4 +93,4 @@ export const pageHeadingStyles = {
 
 // Reusable card shell (light + dark). Compose with extra classes as needed.
 export const cardShell =
-  'rounded-[3px] border border-[#cbd5e1] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900';
+  'rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900';

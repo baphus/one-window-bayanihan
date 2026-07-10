@@ -9,7 +9,7 @@ export default function KpiCard({ title, value, accent, suffix = '', icon, trend
 
   if (trend || description) {
     return (
-      <div className="bg-white p-5 rounded-md border border-slate-200 flex flex-col justify-start relative">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-start relative">
         <div className="flex items-start justify-between mb-2">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{title}</p>
           {iconWrapper}
@@ -26,7 +26,7 @@ export default function KpiCard({ title, value, accent, suffix = '', icon, trend
   }
 
   return (
-    <div className="bg-white p-5 rounded-md border border-slate-200">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
       <div className="flex items-start justify-between mb-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{title}</p>
         {iconWrapper}

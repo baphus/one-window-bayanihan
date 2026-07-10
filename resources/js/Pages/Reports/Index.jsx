@@ -72,22 +72,24 @@ function ReportsDashboard({
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-4">
-      <header className="flex flex-col gap-4">
-        <div>
-          <h1 className={pageHeadingStyles.pageTitle}>Reports</h1>
-          <p className={pageHeadingStyles.pageSubtitle}>{roleSubtitle}</p>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <DateRangePicker
-            fromDateISO={fromDateISO}
-            toDateISO={toDateISO}
-            quickRange={quickRange}
-            onFromChange={setFromDateISO}
-            onToChange={setToDateISO}
-            onQuickRangeSelect={handleQuickRange}
-            onReset={resetDateRange}
-          />
+      <header className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
+              Reports
+            </h1>
+            <p className="text-sm text-slate-400 font-body mt-0.5">{roleSubtitle}</p>
+          </div>
           <div className="flex items-center gap-3">
+            <DateRangePicker
+              fromDateISO={fromDateISO}
+              toDateISO={toDateISO}
+              quickRange={quickRange}
+              onFromChange={setFromDateISO}
+              onToChange={setToDateISO}
+              onQuickRangeSelect={handleQuickRange}
+              onReset={resetDateRange}
+            />
             {role === 'CASE_MANAGER' && <DateScopeSelect value={dateScope} onChange={setDateScope} />}
             <ExportButtons
               fromDateISO={fromDateISO}
@@ -98,7 +100,7 @@ function ReportsDashboard({
             />
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {role === 'CASE_MANAGER' && (
             <ProvinceCityFilter
               provinceOptions={provinceOptions || []}
@@ -115,31 +117,31 @@ function ReportsDashboard({
 
       {/* ── KPI hero: primary "am I on track" tier ── */}
       <section className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
-        <MetricCard label="Active Caseload" value={`${suppressCount(kpis?.openCases ?? 0)}`} accent="border-l-[#0b5a8c]"
-          icon={<Users className="h-3.5 w-3.5 text-[#0b5a8c]" />}
+        <MetricCard label="Active Caseload" value={`${suppressCount(kpis?.openCases ?? 0)}`}
+          icon={<Users className="w-4 h-4 text-[#0b5a8c]" />}
           sparkline={<Sparkline data={caseSparkline} color={COLORS.primary} />} />
-        <MetricCard label="Completed This Period" value={`${suppressCount(kpis?.completedReferrals ?? 0)}`} accent="border-l-[#3f915f]"
-          icon={<CheckCircle2 className="h-3.5 w-3.5 text-[#3f915f]" />}
+        <MetricCard label="Completed This Period" value={`${suppressCount(kpis?.completedReferrals ?? 0)}`}
+          icon={<CheckCircle2 className="w-4 h-4 text-[#3f915f]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.completedReferrals} />} />
-        <MetricCard label="Completion Rate" value={`${kpis?.completionRate || 0}%`} accent="border-l-[#0b7a75]"
-          icon={<Target className="h-3.5 w-3.5 text-[#0b7a75]" />}
+        <MetricCard label="Completion Rate" value={`${kpis?.completionRate || 0}%`}
+          icon={<Target className="w-4 h-4 text-[#0b7a75]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.completionRate} />} />
-        <MetricCard label="Avg Resolution" value={`${kpis?.avgResolutionDays ?? 0}d`} accent="border-l-[#9b51b0]"
-          icon={<Hourglass className="h-3.5 w-3.5 text-[#9b51b0]" />}
+        <MetricCard label="Avg Resolution" value={`${kpis?.avgResolutionDays ?? 0}d`}
+          icon={<Hourglass className="w-4 h-4 text-[#9b51b0]" />}
           description="Time from case open to close" />
         <TopServiceRequestedCard role={role} />
       </section>
 
       {/* ── KPI hero: volume strip ── */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <MetricCard label="Total Referrals" value={`${suppressCount(kpis?.totalReferrals ?? 0)}`} accent="border-l-[#0b5a8c]"
-          icon={<GitFork className="h-3.5 w-3.5 text-[#0b5a8c]" />}
+        <MetricCard label="Total Referrals" value={`${suppressCount(kpis?.totalReferrals ?? 0)}`}
+          icon={<GitFork className="w-4 h-4 text-[#0b5a8c]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />} />
-        <MetricCard label="Pending" value={`${suppressCount(kpis?.pendingReferrals ?? 0)}`} accent="border-l-[#9a5b1a]" valueTone="text-[#9a5b1a] dark:text-amber-400"
-          icon={<Clock className="h-3.5 w-3.5 text-[#9a5b1a]" />}
+        <MetricCard label="Pending" value={`${suppressCount(kpis?.pendingReferrals ?? 0)}`} valueTone="text-[#9a5b1a] dark:text-amber-400"
+          icon={<Clock className="w-4 h-4 text-[#9a5b1a]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.pendingReferrals} />} />
-        <MetricCard label="For Compliance" value={`${suppressCount(kpis?.forComplianceReferrals ?? 0)}`} accent="border-l-[#d9663b]" valueTone="text-[#d9663b]"
-          icon={<ClipboardCheck className="h-3.5 w-3.5 text-[#d9663b]" />} />
+        <MetricCard label="For Compliance" value={`${suppressCount(kpis?.forComplianceReferrals ?? 0)}`} valueTone="text-[#d9663b]"
+          icon={<ClipboardCheck className="w-4 h-4 text-[#d9663b]" />} />
       </section>
 
       {activeTab === 'overview' && <OverviewBanner />}
