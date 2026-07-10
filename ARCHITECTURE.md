@@ -194,8 +194,8 @@ Role-based dashboards showing aggregated case and referral data.
 
 Public knowledge base with AI-powered chatbot.
 
-- **Public**: `/helpdesk` — searchable articles categorized and tagged
-- **Admin**: `/admin/helpdesk/articles/*` — full CRUD, featured articles, version history (revisions), image upload
+- **Public**: `/help` — searchable articles categorized and tagged
+- **Content source**: static TypeScript files in `resources/js/data/helpdesk/` (`articles.ts` index + `content/*.ts` bodies) — versioned in git, changed via code deploy (no admin CRUD UI)
 - **Chatbot grounding**: helpdesk article content (`resources/js/data/helpdesk/`) is parsed and indexed into the chatbot's SQLite FTS5 retrieval index (see §7) — no vector database
 - **Feedback**: Per-article helpfulness rating
 
@@ -209,7 +209,7 @@ Retrieval-grounded assistant ("Bayani") embedded on public and authenticated pag
 - **Retrieval**: `ChatbotRetrievalService` — standalone SQLite FTS5 index over helpdesk sections + guide topics, BM25 ranking, config-driven synonym expansion (Taglish/domain terms), audience-group filtering by user role; rebuilt via `php artisan chatbot:index` (auto-rebuilds on content-hash change)
 - **Content sources**: `ChatbotHelpdeskService` (parses helpdesk articles, persistently cached by content hash) and `ChatbotGuideService` (OFW case-tracking guide)
 - **Verbatim tier**: unambiguous single-source matches are answered with the curated section content directly — instant and hallucination-free (thresholds in `config/ai-chatbot.php`)
-- **LLM**: default Ollama `llama3.2:3b` (CPU-friendly); any provider in `config/ai.php` via env. On model failure the bot degrades to serving the top retrieved section verbatim (HTTP 200) instead of erroring
+- **LLM**: default OpenRouter free model (`openai/gpt-oss-120b:free`); any provider in `config/ai.php` via env, including local Ollama/llama.cpp. On model failure the bot degrades to serving the top retrieved section verbatim (HTTP 200) instead of erroring
 
 ### 8. Audit & Observability
 

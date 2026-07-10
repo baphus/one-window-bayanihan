@@ -13,15 +13,14 @@
 | Database | Supabase | PostgreSQL 17 | Pro plan (paid) |
 | Media Storage | Supabase Storage | Document uploads + CDN | Supabase plan (S3 storage) |
 | Email/SMTP | SendGrid / SMTP | OTP + notifications | Free tier sufficient |
-| AI Chatbot (optional) | Local model (Ollama / llama.cpp) | Answer generation only — retrieval is in-app SQLite FTS5 (no vector DB) | Self-hosted, no per-call cost |
+| AI Chatbot (optional) | OpenRouter (free models) | Answer generation only — retrieval is in-app SQLite FTS5 (no vector DB) | Free tier |
 
-**Chatbot model options** (answer generation is the only model-dependent step; the retrieval index is built in-app by `php artisan chatbot:index`, which the Docker entrypoint runs automatically when `AI_CHATBOT_ENABLED=true`):
+**Chatbot model options** (answer generation is the only model-dependent step; the retrieval index is built in-app by `php artisan chatbot:index`, which the Docker entrypoint runs automatically when `AI_CHATBOT_ENABLED=true`, and it also rebuilds itself whenever helpdesk content changes):
 
-1. **Ollama sidecar** (default): run `ollama` next to the app container, `ollama pull llama3.2:3b` (~2 GB RAM, CPU-only is fine), set `AI_CHATBOT_PROVIDER=ollama`, `AI_CHATBOT_MODEL=llama3.2:3b`, `OLLAMA_URL=http://ollama:11434`.
-2. **Single-container**: run `llama.cpp`'s `llama-server` with a GGUF model (OpenAI-compatible API) inside the same host; set `AI_CHATBOT_PROVIDER=openai` and `OPENAI_URL=http://127.0.0.1:8080/v1`.
-3. **Hosted API** (only if data-residency policy permits): any provider in `config/ai.php` via its env keys.
+1. **Hosted free model** (default): `AI_CHATBOT_PROVIDER=openrouter`, `AI_CHATBOT_MODEL=openai/gpt-oss-120b:free`, set `OPENROUTER_API_KEY`. Any other provider in `config/ai.php` (OpenAI, Gemini, Groq, etc.) works the same way via its env keys. No extra infrastructure.
+2. **Local model** (fully offline alternative): Ollama sidecar or `llama.cpp`'s `llama-server` (OpenAI-compatible) with a small model such as `llama3.2:3b`; point `AI_CHATBOT_PROVIDER`/URL envs at it.
 
-If the model backend is down, the chatbot degrades gracefully: it serves the top retrieved help-article section verbatim instead of erroring.
+Note: the user's chat message and the retrieved help-article excerpts are sent to the configured provider — no case data or PII is ever included in prompts, but confirm the provider choice against the project's data-handling policy. If the model backend is down or rate-limited, the chatbot degrades gracefully: it serves the top retrieved help-article section verbatim instead of erroring.
 
 ---
 

@@ -2,11 +2,12 @@
 
 return [
     'enabled' => env('AI_CHATBOT_ENABLED', false),
-    'provider' => env('AI_CHATBOT_PROVIDER', 'ollama'),
-    // Local provider — Ollama runs on localhost:11434 by default (config/ai.php).
-    // llama3.2:3b (~2 GB) is CPU-friendly; retrieval carries relevance, the model
-    // only rephrases grounded content. Raise to a larger model on stronger hardware.
-    'model' => env('AI_CHATBOT_MODEL', 'llama3.2:3b'),
+    // Hosted provider (default: OpenRouter free tier — needs OPENROUTER_API_KEY).
+    // Any provider in config/ai.php works, including local Ollama/llama.cpp.
+    // Retrieval carries relevance; the model only rephrases grounded content,
+    // so small/free models are adequate.
+    'provider' => env('AI_CHATBOT_PROVIDER', 'openrouter'),
+    'model' => env('AI_CHATBOT_MODEL', 'openai/gpt-oss-120b:free'),
     'temperature' => (float) env('AI_CHATBOT_TEMPERATURE', 0.7),
     'max_tokens' => (int) env('AI_CHATBOT_MAX_TOKENS', 500),
     'system_prompt' => env('AI_CHATBOT_SYSTEM_PROMPT', ''),
