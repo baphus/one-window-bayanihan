@@ -169,8 +169,8 @@ class ReportsController extends Controller
                 maxTokens: 1000,
             )->prompt(
                 prompt: 'Here is the report data: '.json_encode($summary)."\n\nProvide a concise business insight summary (max 3 paragraphs) highlighting key metrics, trends, and actionable recommendations.",
-                provider: config('ai-chatbot.provider', 'openai'),
-                model: config('ai-chatbot.model', 'gpt-4o-mini'),
+                provider: config('ai-chatbot.provider', 'gemini'),
+                model: config('ai-chatbot.model', 'gemini-2.5-flash-lite'),
             );
 
             return response()->json(['insight' => $response->text]);

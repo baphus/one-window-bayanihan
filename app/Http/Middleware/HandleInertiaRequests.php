@@ -68,7 +68,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'chatbot' => [
                 'enabled' => config('ai-chatbot.enabled', false),
-                'provider' => config('ai-chatbot.provider', 'openai'),
+                'provider' => config('ai-chatbot.provider', 'gemini'),
+                'assistant_name' => config('ai-chatbot.assistant_name', 'Bayani'),
             ],
             'turnstile' => [
                 'enabled' => (bool) config('turnstile.enabled', false),

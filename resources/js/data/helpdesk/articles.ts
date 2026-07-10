@@ -123,7 +123,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Using the Public Tracking Portal",
     slug: "using-public-tracking-portal",
     excerpt:
-      "Guide for OFWs on how to use the public tracking portal to monitor case status using a tracker number and OTP verification.",
+      "Guide for OFWs on how to access the public tracking portal to monitor case status using a tracker number and OTP verification, including color-coded status indicators and what to do if you lost or forgot your tracker number.",
     content: usingPublicTrackingPortal,
     categoryId: CATEGORY["case-submission"],
     tagIds: [TAG["tracking"], TAG["cases"]],
