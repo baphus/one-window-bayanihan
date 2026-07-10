@@ -6,21 +6,14 @@ const sizeMap = {
     lg: 'h-10 w-10 text-sm',
 };
 
-const imageClasses = 'rounded-full object-cover border border-slate-200';
-
-const initialsClasses = 'rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold';
+const imageClasses = 'rounded-circle object-cover border border-slate-200';
 
 const BAYANIHAN_LOGO = '/images/bayanihan-logo.svg';
-
-function getInitials(name) {
-    if (!name) return '?';
-    return name.charAt(0).toUpperCase();
-}
 
 /**
  * CaseManagerAvatar
  *
- * 3-level fallback: user avatar → Bayanihan logo → initials
+ * 3-level fallback: user avatar → Bayanihan logo → person icon
  *
  * @param {object|null} user - { name, avatar_url? }
  * @param {'sm'|'md'|'lg'} size
@@ -37,7 +30,7 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
                 <img
                     src={user.avatar_url}
                     alt={user.name || 'Avatar'}
-                    className="h-full w-full rounded-full object-cover border border-slate-200"
+                    className="h-full w-full rounded-circle object-cover border border-slate-200"
                     onError={() => setFallbackLevel(1)}
                 />
                 {user?.name && (
@@ -56,7 +49,7 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
                 <img
                     src={BAYANIHAN_LOGO}
                     alt="Bayanihan Logo"
-                    className="h-full w-full rounded-full object-contain border border-slate-200"
+                    className="h-full w-full rounded-circle object-contain border border-slate-200"
                     onError={() => setFallbackLevel(2)}
                 />
                 {user?.name && (
@@ -68,11 +61,13 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
         );
     }
 
-    // Level 2: initials fallback
+    // Level 2: person icon fallback
     return (
         <span className={`group relative inline-block ${sizeClass}`}>
-            <span className={`h-full w-full ${initialsClasses}`}>
-                {getInitials(user?.name)}
+            <span className="h-full w-full rounded-circle bg-indigo-100 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-indigo-400/50">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
             </span>
             {user?.name && (
                 <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900 px-2 py-1 text-[10px] text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100">

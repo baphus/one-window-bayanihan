@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -38,10 +38,38 @@ function toDoughnut(data) {
   };
 }
 
+/**
+ * Normalize chart data that may come in flat { labels, data } shape
+ * (from some backend endpoints) to the { labels, datasets: [{ data: [...] }] }
+ * shape that chart.js requires.
+ */
+function normalizeChartData(data, label) {
+  if (!data || !data.labels) return data;
+  // Already has the proper datasets shape
+  if (data.datasets && data.datasets.length > 0) return data;
+  // Flat shape: { labels, data: [...] } — wrap into a single dataset
+  if (Array.isArray(data.data)) {
+    return {
+      labels: data.labels,
+      datasets: [{
+        label: label || 'Trend',
+        data: data.data,
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+      }],
+    };
+  }
+  // Has labels but no usable data — return null to trigger empty state
+  return null;
+}
+
 export default function TrendChart({ title, data, options = {}, types = ['line', 'bar'] }) {
   const [chartView, setChartView] = useState(types[0] || 'line');
 
-  if (!data || !data.labels || data.labels.length === 0) {
+  // Normalize data to the shape chart.js requires (handles both flat and datasets shapes)
+  const chartData = useMemo(() => normalizeChartData(data, title), [data, title]);
+
+  if (!chartData || !chartData.labels || chartData.labels.length === 0) {
     return (
       <article className={`${cardShell} p-4`}>
         <h3 className={pageHeadingStyles.sectionTitle}>{title || 'Cases Over Time'}</h3>
@@ -66,9 +94,9 @@ export default function TrendChart({ title, data, options = {}, types = ['line',
         <ChartTypeToggle value={chartView} onChange={setChartView} types={types} />
       </div>
       <div className="h-[220px]">
-        {chartView === 'line' && <Line data={data} options={lineOpts} />}
-        {chartView === 'bar' && <Bar data={data} options={mergedOptions} />}
-        {(chartView === 'pie' || chartView === 'doughnut') && <Doughnut data={toDoughnut(data)} options={pieOpts} />}
+        {chartView === 'line' && <Line data={chartData} options={lineOpts} />}
+        {chartView === 'bar' && <Bar data={chartData} options={mergedOptions} />}
+        {(chartView === 'pie' || chartView === 'doughnut') && <Doughnut data={toDoughnut(chartData)} options={pieOpts} />}
       </div>
     </article>
   );

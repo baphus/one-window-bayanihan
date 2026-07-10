@@ -149,7 +149,6 @@ function TimelineEntry({ log }) {
     const style = ACTION_STYLES[log.action] || { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'info' };
 
     const actorName = log.actor || log.user?.name || '??';
-    const initials = actorName.substring(0, 2).toUpperCase();
 
     const displayMessage = log.message ?? log.description;
     const changes = log.changes || [];
@@ -166,8 +165,10 @@ function TimelineEntry({ log }) {
                 {/* Row 1 */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
                     <div className="flex items-center gap-3 flex-grow">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 text-blue-900 flex items-center justify-center text-xs font-bold">
-                            {initials}
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-blue-900/40">
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
                         </div>
                         <div className="flex-grow text-sm text-slate-900 font-medium leading-snug">
                             {displayMessage}

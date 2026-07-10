@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-07-09
+goal: "Quick-win report enhancements: show mostRequestedService, overview,
+  agencyWorkload, referralTrends, avgReferralCompletion, overdueReferrals count,
+  attention items from dashboard, client snapshot card, and a geographic map"

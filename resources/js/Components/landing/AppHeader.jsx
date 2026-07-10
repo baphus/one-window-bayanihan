@@ -21,18 +21,6 @@ function isActive(currentPath, link) {
   return currentPath.startsWith(link.href);
 }
 
-function getInitials(name) {
-  if (!name) return '?';
-
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
-
 export default function AppHeader({ onTrackCaseClick, minimal }) {
   const { url, props } = usePage();
   const user = props.auth?.user ?? null;
@@ -54,7 +42,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-full bg-white">
+          <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-circle bg-white">
             <img
               src="/logo.png"
               alt="Bayanihan Logo"
@@ -122,8 +110,10 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                     </Link>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-                      {getInitials(user.name)}
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-circle bg-primary">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-white/50">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
                     </span>
 
                     <div className="hidden flex-col md:flex">
@@ -247,7 +237,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               <button
                 type="button"
                 aria-label="Close menu"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-circle border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <svg

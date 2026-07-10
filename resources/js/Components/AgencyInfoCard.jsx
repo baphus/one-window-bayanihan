@@ -18,9 +18,9 @@ export default function AgencyInfoCard() {
             <div className="space-y-4">
                 <div className="flex items-center gap-3">
                     {agency.logo_url ? (
-                        <img src={agency.logo_url} alt={agency.name} className="h-10 w-10 rounded-full object-contain border border-slate-200" />
+                        <img src={agency.logo_url} alt={agency.name} className="h-10 w-10 rounded-circle object-contain border border-slate-200" />
                     ) : (
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-700">
+                        <div className="h-10 w-10 rounded-circle bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-700">
                             {agency.name?.charAt(0)?.toUpperCase() || 'A'}
                         </div>
                     )}

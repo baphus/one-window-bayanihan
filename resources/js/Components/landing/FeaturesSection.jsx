@@ -28,10 +28,10 @@ export default function FeaturesSection() {
         <div className="relative overflow-hidden border border-outline-variant/30 bg-surface-container-lowest shadow-md">
           <figure className="relative">
             <img src={photo.src} alt={photo.alt} className="h-[340px] w-full object-cover md:h-[520px]" loading="lazy" referrerPolicy="no-referrer" />
-            <button type="button" onClick={handlePrev} className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous photo">
+            <button type="button" onClick={handlePrev} className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-circle bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous photo">
               <span className="material-symbols-outlined" aria-hidden="true">chevron_left</span>
             </button>
-            <button type="button" onClick={handleNext} className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Next photo">
+            <button type="button" onClick={handleNext} className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-circle bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Next photo">
               <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
             </button>
             <figcaption className="absolute bottom-0 left-0 right-0 bg-black/60 px-5 py-4 text-sm text-white backdrop-blur-sm">

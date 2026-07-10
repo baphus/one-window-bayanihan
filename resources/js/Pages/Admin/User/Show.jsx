@@ -81,16 +81,16 @@ export default function AdminUserShow({ user }) {
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Profile</p>
           <div className="flex items-start gap-5">
-            <span className="inline-flex shrink-0 overflow-hidden rounded-full">
+            <span className="inline-flex shrink-0 overflow-hidden rounded-circle">
               {user.avatar_url ? (
                 <img
                   src={user.avatar_url}
                   alt={`${user.name} avatar`}
-                  className="h-16 w-16 rounded-full border border-slate-200 object-cover"
+                  className="h-16 w-16 rounded-circle border border-slate-200 object-cover"
                   onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }}
                 />
               ) : null}
-              <span className={`${user.avatar_url ? 'avatar-fallback hidden' : ''} h-16 w-16 rounded-full bg-blue-100 text-lg font-bold text-blue-900 flex items-center justify-center relative overflow-hidden`}>
+              <span className={`${user.avatar_url ? 'avatar-fallback hidden' : ''} h-16 w-16 rounded-circle bg-blue-100 text-lg font-bold text-blue-900 flex items-center justify-center relative overflow-hidden`}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-blue-300">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>

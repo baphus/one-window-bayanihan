@@ -112,7 +112,7 @@ export default function ProfilePictureUpload({
                 <button
                     type="button"
                     onClick={triggerFileInput}
-                    className={`${dimensions} rounded-full overflow-hidden flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ${
+                    className={`${dimensions} rounded-circle overflow-hidden flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ${
                         hasImage ? 'bg-transparent' : 'bg-indigo-100'
                     }`}
                     disabled={uploading}
@@ -147,7 +147,7 @@ export default function ProfilePictureUpload({
                 {/* Hover overlay */}
                 {!uploading && (
                     <div
-                        className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                        className="absolute inset-0 rounded-circle bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                         onClick={triggerFileInput}
                     >
                         <span className="text-white text-xs font-medium">Change</span>

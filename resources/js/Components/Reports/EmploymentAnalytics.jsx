@@ -38,8 +38,12 @@ export default function EmploymentAnalytics({
   }, [employmentDistribution]);
 
   const totalPositions = useMemo(() => {
-    if (!employmentPositionBreakdown?.data) return 0;
-    return employmentPositionBreakdown.data.reduce((s, v) => s + v, 0);
+    if (!employmentPositionBreakdown) return 0;
+    // Prefer the server-computed total_distinct (unlimited count) over
+    // labels.length which is capped at top 10 results in the chart.
+    return employmentPositionBreakdown.total_distinct
+      ?? employmentPositionBreakdown.labels?.length
+      ?? 0;
   }, [employmentPositionBreakdown]);
 
   return (

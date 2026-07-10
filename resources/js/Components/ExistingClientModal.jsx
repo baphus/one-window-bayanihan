@@ -18,7 +18,7 @@ function ClientCard({ client, onSelect }) {
             className="flex w-full items-start gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
             {/* Avatar */}
-            <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-indigo-100 relative">
+            <div className="h-12 w-12 shrink-0 rounded-circle overflow-hidden flex items-center justify-center bg-indigo-100 relative">
                 {client.avatar_url ? (
                     <img
                         src={client.avatar_url}
@@ -27,7 +27,7 @@ function ClientCard({ client, onSelect }) {
                         onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }}
                     />
                 ) : null}
-                <span className={`${client.avatar_url ? 'avatar-fallback hidden' : ''} absolute inset-0 flex items-center justify-center bg-indigo-100 rounded-full`}>
+                <span className={`${client.avatar_url ? 'avatar-fallback hidden' : ''} absolute inset-0 flex items-center justify-center bg-indigo-100 rounded-circle`}>
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-indigo-300">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                     </svg>

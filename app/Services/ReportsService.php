@@ -92,6 +92,9 @@ class ReportsService
                 : [],
             'categoryDistribution' => $this->categoryDistribution(),
             'caseStatusDistribution' => $this->getCaseStatusDistribution(),
+            'genderDistribution' => $this->getGenderDistribution(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
+            'ageGroupDistribution' => $this->getAgeGroupDistribution(null, 'AGENCY', $fromDate, $toDate, $dateScope, $province, $city),
+            'clientTypeDistribution' => $this->getClientTypeDistribution(null, 'AGENCY'),
         ];
     }
 
@@ -117,6 +120,9 @@ class ReportsService
             'caseStatusDistribution' => $this->getCaseStatusDistribution(),
             'caseIssueDistribution' => $this->getCaseIssueDistribution(null, null, $from, $to, $dateScope, $province, $city),
             'vulnerabilityDistribution' => $this->getVulnerabilityDistribution(),
+            'genderDistribution' => $this->getGenderDistribution(null, null, $from, $to, $dateScope, $province, $city),
+            'ageGroupDistribution' => $this->getAgeGroupDistribution(null, null, $from, $to, $dateScope, $province, $city),
+            'referralAgencyDistribution' => $this->getReferralAgencyDistribution(null, null, $from, $to, $dateScope, $province, $city),
         ];
     }
 
@@ -846,9 +852,26 @@ class ReportsService
             ->limit(10)
             ->get();
 
+        // Total distinct positions (unlimited) for the metric card.
+        // Clone the base query before groupBy/orderBy/limit — the cloned
+        // query already has the whereIn filter applied above.
+        $totalDistinct = DB::table('client_employments')
+            ->whereNotNull('last_position')
+            ->where('is_deleted', false);
+
+        if ($role === 'CASE_MANAGER' && $userId) {
+            $totalDistinct->whereIn('client_id', function ($q) use ($userId) {
+                $q->select('client_id')
+                    ->from('cases')
+                    ->where('user_id', $userId)
+                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+            });
+        }
+
         return [
             'labels' => $results->pluck('last_position')->toArray(),
             'data' => $results->pluck('total')->toArray(),
+            'total_distinct' => (int) $totalDistinct->distinct()->count('last_position'),
         ];
     }
 

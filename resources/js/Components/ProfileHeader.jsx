@@ -27,7 +27,7 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className={`h-20 w-20 rounded-full overflow-hidden flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition disabled:opacity-50 ${hasNewFile ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
+                    className={`h-20 w-20 rounded-circle overflow-hidden flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition disabled:opacity-50 ${hasNewFile ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
                     disabled={saving}
                     aria-label="Change profile picture"
                 >
@@ -55,7 +55,7 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
                     )}
 
                     {saving && (
-                        <div className="absolute inset-0 rounded-full bg-white/60 flex items-center justify-center">
+                        <div className="absolute inset-0 rounded-circle bg-white/60 flex items-center justify-center">
                             <svg className="animate-spin h-6 w-6 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -66,7 +66,7 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
 
                 {!saving && (
                     <div
-                        className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                        className="absolute inset-0 rounded-circle bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                         onClick={() => fileInputRef.current?.click()}
                     >
                         <span className="text-white text-[11px] font-semibold">

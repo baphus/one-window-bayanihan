@@ -24,6 +24,9 @@ export const barOptionsHorizontal = {
     plugins: { legend: { display: false } },
     scales: {
         x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
-        y: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: {
+            ticks: { font: { size: 10 }, autoSkip: false },
+            grid: { display: false },
+        },
     },
 };

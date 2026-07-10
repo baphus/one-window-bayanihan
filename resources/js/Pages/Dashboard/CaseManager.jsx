@@ -142,7 +142,6 @@ export default function CaseManagerDashboard({ dashboard }) {
             data: agencyBreakdown.map((a) => a.count),
             backgroundColor: ['#1e3a8a', '#0f766e', '#ea580c', '#6d28d9', '#be123c'],
             borderRadius: 3,
-            barThickness: 20,
         }],
     }), [agencyBreakdown])
 

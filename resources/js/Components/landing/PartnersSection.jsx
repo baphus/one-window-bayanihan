@@ -7,7 +7,7 @@ function AgencyLogo({ agency }) {
 
   if (hasError || !agency.logo_url) {
     return (
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+      <div className="flex h-14 w-14 items-center justify-center rounded-circle bg-primary/10">
         <span className="text-lg font-bold text-primary">{agency.short?.charAt(0)}</span>
       </div>
     );
@@ -39,7 +39,7 @@ export default function PartnersSection({ agencies }) {
           {agencies.map((agency) => (
             <div key={agency.id} className="border border-outline-variant/30 bg-surface-container-lowest p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-circle bg-white shadow-sm">
                   <AgencyLogo agency={agency} />
                 </div>
                 <div>

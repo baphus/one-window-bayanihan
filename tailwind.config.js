@@ -95,6 +95,7 @@ export default {
                 lg: '0.25rem',
                 xl: '0.5rem',
                 full: '0.75rem',
+                circle: '50%',
             },
         },
     },
