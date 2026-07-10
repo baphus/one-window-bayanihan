@@ -12,6 +12,15 @@ The public tracking portal lets a client check progress without signing in. It i
 
 The tracker number is different from the staff case number. Case numbers use **CASE-YYYYMMDD-XXXX**. Give clients the tracker number for public updates.
 
+## Lost Your Tracker Number?
+
+If you've lost or forgotten your tracker number, here's how to find it:
+
+1. **Check your email** — search your inbox for "Bayanihan One Window — Case Confirmation" or "OWBAP-". The tracker number was sent in the confirmation email when your case was submitted.
+2. **Check your SMS** — the tracker number was also sent via text message to your registered mobile number.
+3. **Check your acknowledgment receipt** — if you received a printed or digital acknowledgment receipt, the tracker number is printed there.
+4. **Ask the Case Manager** — contact the DMW Region VII office and provide your full name, date of submission, and the email address you used. They can look up your case and provide the tracker number.
+
 ## Steps
 
 1. Open the tracking page.
