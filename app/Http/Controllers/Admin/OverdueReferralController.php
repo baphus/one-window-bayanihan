@@ -19,15 +19,19 @@ class OverdueReferralController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
-        $overdueReferrals = $this->referralService->getOverdueReferrals(
-            $overdueDays,
-            $request->user()->agcy_id,
-            $request->user()->role,
+
+        $dashboardData = $this->referralService->getOverdueReferralsDashboard(
+            userRole: $user->role,
+            userId: $user->id,
+            userAgencyId: $user->agcy_id,
+            overdueDays: $overdueDays,
+            filters: $request->only(['sort_by', 'status_filter', 'per_page']),
         );
 
-        return Inertia::render('Admin/OverdueReferrals/Index', [
-            'overdueReferrals' => $overdueReferrals,
+        return Inertia::render('Admin/OverdueReferrals/Index', $dashboardData + [
+            'userRole' => $user->role,
             'overdueDays' => $overdueDays,
         ]);
     }

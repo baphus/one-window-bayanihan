@@ -8,9 +8,9 @@ import InputError from '@/Components/InputError';
 import FileUpload from '@/Components/FileUpload';
 import { CardSection, InfoCell } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import UserAvatar from '@/Components/ui/UserAvatar';
+import UserAvatar, { getAvatarColor } from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
-import { formatDisplayDateTime } from '@/lib/utils';
+import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 
@@ -33,12 +33,25 @@ function formatAddress(address) {
     return formatResolvedAddress(address, 'N/A');
 }
 
+function getClientAge(dob) {
+    if (!dob) return '\u2014';
+    const birth = new Date(dob);
+    if (Number.isNaN(birth.getTime())) return '\u2014';
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+}
+
 export default function ReferralShow({ referral, overdueDays = 7, timeline = [] }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
     const isAdmin = auth.user.role === 'ADMIN';
-    const canAddMilestone = isAgency || isCaseManager || isAdmin;
+    const canAddMilestone = (isAgency || isCaseManager || isAdmin) && referral.status !== 'COMPLETED';
     const canUpdateStatus = isAgency || isCaseManager;
 
     const caseFile = referral.case_file;
@@ -236,19 +249,136 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
                             <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
                             <InfoCell label="Issue / Concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
                         </div>
-                        <div className="px-3 py-2 border-x border-b border-slate-200">
-                            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Case Summary</p>
-                            <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{caseFile?.summary ?? 'N/A'}</p>
-                        </div>
                     </CardSection>
 
                     <CardSection title="Client Details" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
-                            <InfoCell label="Client Name" value={formatFullName(client)} />
-                            <InfoCell label="Client Type" value={caseFile?.client_type ?? 'N/A'} />
-                            <InfoCell label="Phone / Contact" value={client?.contact_number ?? 'N/A'} />
-                            <InfoCell label="Email" value={client?.email ?? 'N/A'} />
-                            <InfoCell label="Address" value={formatAddress(clientAddress)} />
+                        <div className="space-y-4 p-4">
+                            {/* Avatar + Name row */}
+                            <div className="flex items-start gap-4 pb-4 border-b border-slate-200">
+                                {client?.avatar_url ? (
+                                    <img src={client.avatar_url} alt="" className="h-14 w-14 rounded-circle object-cover border border-slate-200 shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                                ) : (
+                                    <span className={`h-14 w-14 inline-flex items-center justify-center rounded-circle shrink-0 ${getAvatarColor(formatFullName(client))}`}>
+                                        <span className="material-symbols-outlined text-[24px] text-white/60">person</span>
+                                    </span>
+                                )}
+                                <div className="min-w-0 flex-1 self-center">
+                                    <p className="text-[16px] font-bold text-slate-900 break-words">
+                                        {formatFullName(client)}
+                                    </p>
+                                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                        <span className="inline-flex items-center rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700 uppercase tracking-wider">
+                                            {caseFile?.client_type ?? 'N/A'}
+                                        </span>
+                                        {client?.sex && (
+                                            <span className="inline-flex items-center rounded-md bg-slate-50 border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                                {client.sex}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Personal Info grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div>
+                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Date of Birth</p>
+                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Age</p>
+                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'}</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Email</p>
+                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.email || 'N/A'}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Contact Number</p>
+                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.contact_number || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
+                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{formatAddress(clientAddress)}</p>
+                                </div>
+                            </div>
+
+                            {/* Employment History */}
+                            {client?.employments?.length > 0 && (
+                                <>
+                                    <hr className="border-slate-200" />
+                                    <div>
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">
+                                            Employment History
+                                            <span className="ml-1.5 text-slate-400 font-normal normal-case">({client.employments.length} record{client.employments.length !== 1 ? 's' : ''})</span>
+                                        </p>
+                                        <div className="space-y-2">
+                                            {client.employments.map((emp, idx) => (
+                                                <div key={emp.id} className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <p className="text-[12px] font-semibold text-slate-800">
+                                                                {emp.last_position || emp.position || 'N/A'}
+                                                            </p>
+                                                            <p className="text-[11px] text-slate-600 mt-0.5">
+                                                                {emp.employer_name && <>{emp.employer_name} &middot; </>}
+                                                                {emp.last_country || emp.country || ''}
+                                                            </p>
+                                                        </div>
+                                                        {emp.date_of_arrival && (
+                                                            <span className="shrink-0 text-[10px] text-slate-400 whitespace-nowrap">
+                                                                Arrived in PH {formatDisplayDate(emp.date_of_arrival)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {(emp.start_date || emp.end_date) && (
+                                                        <p className="mt-1 text-[10px] text-slate-400">
+                                                            {emp.start_date ? formatDisplayDate(emp.start_date) : '?'} &ndash; {emp.end_date ? formatDisplayDate(emp.end_date) : 'Present'}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Next of Kin */}
+                            {client?.nextOfKin?.length > 0 && (
+                                <>
+                                    <hr className="border-slate-200" />
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
+                                                Next of Kin
+                                                <span className="ml-1.5 text-slate-400 font-normal normal-case">({client.nextOfKin.length} record{client.nextOfKin.length !== 1 ? 's' : ''})</span>
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {client.nextOfKin.map((nok, idx) => (
+                                                <div key={nok.id} className={`rounded-md border border-slate-100 px-3 py-2 ${idx > 0 ? 'bg-white' : 'bg-blue-50/50 border-blue-100'}`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[13px] font-bold text-slate-800">
+                                                            {[nok.first_name, nok.last_name].filter(Boolean).join(' ')}
+                                                        </span>
+                                                        {nok.is_primary && (
+                                                            <span className="inline-flex items-center rounded-full bg-indigo-600 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white">Primary</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
+                                                        {nok.relationship && <span>{nok.relationship}</span>}
+                                                        {nok.phone_number && <span>{nok.phone_number}</span>}
+                                                        {nok.email && <span className="break-all">{nok.email}</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </CardSection>
                     {referral.compliance_requirements?.length > 0 && (

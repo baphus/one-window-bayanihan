@@ -28,10 +28,12 @@ class ReportsController extends Controller
         $dateScope = $request->query('date_scope', 'case_created_at');
         $province = $request->query('province');
         $city = $request->query('city');
+        $agencyId = $user?->role === 'AGENCY' ? $user?->agency?->id : null;
 
         $data = $this->reportsService->getAll(
             userId: $user->id,
             role: $user->role,
+            agencyId: $agencyId,
             fromDate: $fromDate,
             toDate: $toDate,
             dateScope: $dateScope,
@@ -43,6 +45,7 @@ class ReportsController extends Controller
         $provinceOptions = $this->reportsService->getProvinceOptions(
             userId: $user->id,
             role: $user->role,
+            agencyId: $agencyId,
         );
 
         $cityOptions = $province
@@ -50,6 +53,7 @@ class ReportsController extends Controller
                 province: $province,
                 userId: $user->id,
                 role: $user->role,
+                agencyId: $agencyId,
             )
             : [];
 
@@ -104,10 +108,12 @@ class ReportsController extends Controller
         $user = $request->user();
         $fromDate = $request->input('from');
         $toDate = $request->input('to');
+        $agencyId = $user?->role === 'AGENCY' ? $user?->agency?->id : null;
 
         $data = $this->reportsService->getAll(
             userId: $user->id,
             role: $user->role,
+            agencyId: $agencyId,
             fromDate: $fromDate,
             toDate: $toDate,
         );

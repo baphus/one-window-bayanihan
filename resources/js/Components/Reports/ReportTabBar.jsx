@@ -1,19 +1,37 @@
+import { useEffect } from 'react';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
 
-const TABS = [
+const ALL_TABS = [
   { value: 'overview', label: 'Overview' },
   { value: 'performance', label: 'Performance' },
   { value: 'agencies', label: 'Agencies & Services' },
   { value: 'clients', label: 'Caseload & Clients' },
 ];
 
-export default function ReportTabBar({ value = 'overview', onChange }) {
+const AGENCY_TABS = ALL_TABS.filter(
+  (tab) => tab.value === 'overview' || tab.value === 'performance',
+);
+
+function getTabsForRole(role) {
+  return role === 'AGENCY' ? AGENCY_TABS : ALL_TABS;
+}
+
+export default function ReportTabBar({ value = 'overview', onChange, role }) {
+  const tabs = getTabsForRole(role);
+
+  useEffect(() => {
+    const isValid = tabs.some((tab) => tab.value === value);
+    if (!isValid) {
+      onChange('overview');
+    }
+  }, [value, tabs, onChange]);
+
   return (
     <div
       className="inline-flex overflow-hidden rounded-[2px] divide-x divide-slate-300 dark:divide-slate-700"
       style={{ border: `1px solid ${COLORS.border}` }}
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const isActive = value === tab.value;
         return (
           <button

@@ -109,7 +109,7 @@ function ReportsDashboard({
               onCityChange={setCity}
             />
           )}
-          <ReportTabBar value={activeTab} onChange={setActiveTab} />
+          <ReportTabBar value={activeTab} onChange={setActiveTab} role={role} />
         </div>
       </header>
 
@@ -157,7 +157,7 @@ function ReportsDashboard({
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <LazyTrendChart lazyKey="casesOverTime" title="Cases Over Time" />
-            <AgencyScorecardSection />
+            <AgencyScorecardSection role={role} />
           </section>
         </>
       )}
@@ -190,7 +190,7 @@ function ReportsDashboard({
       {activeTab === 'agencies' && (
         <>
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <AgencyScorecardSection />
+            <AgencyScorecardSection role={role} />
             <CategorySection />
           </section>
 

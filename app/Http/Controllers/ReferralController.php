@@ -153,6 +153,13 @@ class ReferralController extends Controller
     {
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
+
+        if ($referral->status === 'COMPLETED') {
+            return redirect()
+                ->back()
+                ->with('error', 'Cannot add milestones to a completed referral.');
+        }
+
         $milestone = $this->referralService->addMilestone(
             $id,
             $request->input('title'),

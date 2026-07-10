@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Events\ReferralCompleted;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -129,6 +130,8 @@ class ReferralService
     {
         return Referral::with([
             'caseFile.client.addresses',
+            'caseFile.client.employments',
+            'caseFile.client.nextOfKin',
             'caseFile.user',
             'caseFile.category',
             'caseFile.caseIssue',
@@ -210,6 +213,12 @@ class ReferralService
     public function addMilestone(string $referralId, string $title, ?string $description, string $userId): Milestone
     {
         return DB::transaction(function () use ($referralId, $title, $description, $userId) {
+            $referral = Referral::findOrFail($referralId);
+
+            if ($referral->status === 'COMPLETED') {
+                throw new \InvalidArgumentException('Cannot add milestones to a completed referral.');
+            }
+
             $milestone = Milestone::create([
                 'title' => $title,
                 'description' => $description,
@@ -219,8 +228,7 @@ class ReferralService
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
-            // Dispatch notifications for the milestone
-            $referral = $milestone->referral ?? Referral::find($referralId);
+            // Dispatch notifications for the milestone (already loaded above)
             if ($referral && $referral->caseFile) {
                 $caseManager = User::find($referral->caseFile->user_id);
                 $agencyUsers = User::where('agcy_id', $referral->agcy_id)
@@ -270,6 +278,153 @@ class ReferralService
         }
 
         return $query->orderBy('created_at')->paginate(15);
+    }
+
+    /**
+     * Get overdue referrals for the unified dashboard — used by all roles.
+     *
+     * Uses inactivity-based overdue (time since last milestone, status change, or creation).
+     * Returns enriched data with severity bands, compliance progress, and aggregate stats.
+     */
+    public function getOverdueReferralsDashboard(
+        string $userRole,
+        ?string $userId,
+        ?string $userAgencyId,
+        int $overdueDays = 7,
+        array $filters = [],
+    ): array {
+        $query = Referral::with([
+            'caseFile.client:id,first_name,last_name',
+            'caseFile.user:id,name',
+            'agency:id,name',
+            'milestones' => fn ($q) => $q->latest()->limit(1),
+        ])
+            ->withCount([
+                'complianceRequirements as compliance_total',
+                'complianceRequirements as compliance_fulfilled' => fn ($q) => $q->where('status', 'COMPLIED'),
+            ])
+            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
+                (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
+                GREATEST(referrals.updated_at, referrals.created_at)
+            ))) / 86400 > ?', [$overdueDays]);
+
+        // Role-scoping
+        match ($userRole) {
+            'ADMIN' => null,
+            'CASE_MANAGER' => $query->whereIn(
+                'case_id', CaseFile::where('user_id', $userId)->select('id'),
+            ),
+            'AGENCY' => $query->where('agcy_id', $userAgencyId),
+        };
+
+        // Status filter
+        $statusFilter = $filters['status_filter'] ?? 'all';
+        if ($statusFilter !== 'all') {
+            $query->where('status', strtoupper($statusFilter));
+        }
+
+        // Sort
+        $sortBy = $filters['sort_by'] ?? 'most_stale';
+        $query->orderBy(
+            match ($sortBy) {
+                'status' => 'status',
+                'client_name' => DB::raw('(SELECT CONCAT(first_name, \' \', last_name) FROM clients WHERE clients.id = (SELECT client_id FROM cases WHERE cases.id = referrals.case_id))'),
+                default => DB::raw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
+                    (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
+                    GREATEST(referrals.updated_at, referrals.created_at)
+                )))'),
+            },
+            match ($sortBy) {
+                'status' => 'asc',
+                default => 'desc',
+            },
+        );
+
+        $perPage = (int) ($filters['per_page'] ?? 15);
+        $referrals = $query->paginate($perPage);
+
+        // Transform each referral to enrich with computed attributes
+        $now = now();
+        $transformed = $referrals->getCollection()->map(function (Referral $referral) use ($now) {
+            $latestMilestone = $referral->milestones->first();
+            $lastActivityDate = $latestMilestone
+                ? $latestMilestone->created_at
+                : ($referral->updated_at ?? $referral->created_at);
+            $daysSinceLastActivity = (int) $lastActivityDate->diffInDays($now);
+
+            // Last activity description
+            if ($latestMilestone) {
+                $lastActivityDesc = 'Milestone: '.$latestMilestone->title.' — '.$daysSinceLastActivity.'d ago';
+            } elseif ($referral->updated_at && $referral->updated_at->ne($referral->created_at)) {
+                $lastActivityDesc = 'Status update — '.$daysSinceLastActivity.'d ago';
+            } else {
+                $lastActivityDesc = 'No activity yet';
+            }
+
+            // Severity
+            $severity = match (true) {
+                $daysSinceLastActivity >= 30 => 'severe',
+                $daysSinceLastActivity >= 15 => 'moderate',
+                default => 'mild',
+            };
+
+            // Compliance progress (only for FOR_COMPLIANCE)
+            $complianceTotal = $referral->compliance_total ?? 0;
+            $complianceFulfilled = $referral->compliance_fulfilled ?? 0;
+            $complianceProgress = $referral->status === 'FOR_COMPLIANCE' && $complianceTotal > 0
+                ? $complianceFulfilled.'/'.$complianceTotal
+                : null;
+
+            return [
+                'id' => $referral->id,
+                'case_number' => $referral->caseFile?->case_number,
+                'client_name' => $referral->caseFile?->client
+                    ? trim(($referral->caseFile->client->first_name ?? '').' '.($referral->caseFile->client->last_name ?? ''))
+                    : 'N/A',
+                'required_services' => $referral->required_services,
+                'status' => $referral->status,
+                'agency_name' => $referral->agency?->name ?? 'N/A',
+                'days_since_last_activity' => $daysSinceLastActivity,
+                'severity' => $severity,
+                'last_activity_description' => $lastActivityDesc,
+                'last_activity_date' => $lastActivityDate->toIso8601String(),
+                'compliance_progress' => $complianceProgress,
+                'compliance_total' => $complianceTotal,
+                'compliance_fulfilled' => $complianceFulfilled,
+                'case_manager_name' => $referral->caseFile?->user?->name ?? 'System',
+                'created_at' => $referral->created_at->toIso8601String(),
+            ];
+        });
+
+        $referrals->setCollection($transformed);
+
+        // Aggregate stats
+        $allItems = $transformed;
+        $total = $allItems->count();
+        $stats = [
+            'total' => $total,
+            'mild_count' => $allItems->where('severity', 'mild')->count(),
+            'moderate_count' => $allItems->where('severity', 'moderate')->count(),
+            'severe_count' => $allItems->where('severity', 'severe')->count(),
+            'pending_count' => $allItems->where('status', 'PENDING')->count(),
+            'processing_count' => $allItems->where('status', 'PROCESSING')->count(),
+            'for_compliance_count' => $allItems->where('status', 'FOR_COMPLIANCE')->count(),
+        ];
+
+        // Determine bottleneck
+        $statusCounts = [
+            'pending' => $stats['pending_count'],
+            'processing' => $stats['processing_count'],
+            'for_compliance' => $stats['for_compliance_count'],
+        ];
+        arsort($statusCounts);
+        $stats['bottleneck'] = array_key_first($statusCounts);
+
+        return [
+            'stats' => $stats,
+            'referrals' => $referrals,
+        ];
     }
 
     public function getAgenciesWithServices()
