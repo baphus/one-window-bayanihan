@@ -56,6 +56,16 @@ export const categories: HelpdeskCategory[] = [
     icon: "help",
     sortOrder: 4,
   },
+  {
+    id: "cat-14",
+    name: "Account & Security",
+    slug: "account-security",
+    description:
+      "Signing in, protecting your account with MFA, and staying on top of notifications.",
+    parentId: null,
+    icon: "lock",
+    sortOrder: 5,
+  },
 
   // ── Child categories (under OFW Assistance) ──────────────────────────────
   {
@@ -117,6 +127,17 @@ export const categories: HelpdeskCategory[] = [
     parentId: "cat-3",
     icon: "forum",
     sortOrder: 1,
+  },
+
+  {
+    id: "cat-15",
+    name: "Service Quality & Feedback",
+    slug: "service-quality-feedback",
+    description:
+      "SERVQUAL questionnaires, client feedback collection, and feedback dashboards.",
+    parentId: "cat-3",
+    icon: "reviews",
+    sortOrder: 2,
   },
 
   // ── Child categories (under System Administration) ───────────────────────

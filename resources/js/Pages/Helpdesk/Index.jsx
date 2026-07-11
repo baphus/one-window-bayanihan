@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { Link, usePage } from '@inertiajs/react';
-import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
-import ArticleCard from '@/Components/Helpdesk/ArticleCard';
-import TagBadge from '@/Components/Helpdesk/TagBadge';
+import { Link, router, usePage } from '@inertiajs/react';
+import HelpdeskLayout, { SearchBar } from '@/Layouts/HelpdeskLayout';
+import ArticleListRow from '@/Components/Helpdesk/ArticleListRow';
+import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
 import EmptyState from '@/Components/Helpdesk/EmptyState';
 
 import { articles as allArticles } from '@/data/helpdesk/articles';
@@ -11,112 +11,273 @@ import {
   buildCategoryTree,
   getDescendantCategoryIds,
 } from '@/data/helpdesk/categories';
-import { tags as allTags } from '@/data/helpdesk/tags';
+import { resolvePopularArticles } from '@/data/helpdesk/popular';
+import { audienceEntries } from '@/data/helpdesk/audiences';
 
 function sortByPublishedDesc(a, b) {
   return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-}
-
-function groupByCategory(articles) {
-  return articles.reduce((acc, article) => {
-    if (!acc[article.categoryId]) {
-      acc[article.categoryId] = [];
-    }
-    acc[article.categoryId].push(article);
-    return acc;
-  }, {});
 }
 
 function findCategoryBySlug(slug) {
   return allCategories.find((category) => category.slug === slug);
 }
 
-function scopeTree(tree, selectedCategory) {
-  if (!selectedCategory) return tree;
+function handleSearch(q) {
+  router.visit('/help/search?q=' + encodeURIComponent(q));
+}
 
-  if (!selectedCategory.parentId) {
-    return tree.filter((parent) => parent.id === selectedCategory.id);
-  }
+// ---------------------------------------------------------------------------
+// Landing view (/help with no category) — a router, not a library:
+// search hero, audience row, topic cards, curated popular list.
+// The single contact CTA is the layout footer.
+// ---------------------------------------------------------------------------
+function LandingView({ categoryTree }) {
+  const popular = useMemo(() => resolvePopularArticles(allArticles), []);
 
-  return tree
-    .filter((parent) => parent.id === selectedCategory.parentId)
-    .map((parent) => ({
-      ...parent,
-      children: parent.children.filter((child) => child.id === selectedCategory.id),
-    }));
+  return (
+    <div className="mx-auto max-w-5xl">
+      <div className="flex flex-col items-center pb-10 pt-6 text-center">
+        <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+          Help Center
+        </p>
+        <h1 className="mt-2 font-headline text-3xl font-bold text-slate-900 sm:text-4xl">
+          How can we help you?
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm text-slate-500 sm:text-base">
+          Search our guides, or browse by topic below.
+        </p>
+        <div className="mt-6 flex w-full justify-center">
+          <SearchBar onSearch={handleSearch} large />
+        </div>
+      </div>
+
+      <section aria-labelledby="audience-heading" className="mb-10">
+        <h2 id="audience-heading" className="mb-3 font-headline text-lg font-bold text-slate-900">
+          Find help for you
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {audienceEntries.map((entry) => (
+            <Link
+              key={entry.key}
+              href={entry.href}
+              className="group flex items-start gap-3 border border-slate-200 bg-white p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center border border-slate-200 bg-surface-container-low text-primary"
+                aria-hidden="true"
+              >
+                <span className="material-symbols-outlined text-[20px]">{entry.icon}</span>
+              </span>
+              <span className="min-w-0">
+                <span className="block font-headline text-sm font-bold text-slate-900 group-hover:text-primary">
+                  {entry.label}
+                </span>
+                <span className="mt-1 block text-sm leading-relaxed text-slate-500">
+                  {entry.description}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="topics-heading" className="mb-10">
+        <h2 id="topics-heading" className="mb-3 font-headline text-lg font-bold text-slate-900">
+          Browse topics
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {categoryTree.map((category) => (
+            <Link
+              key={category.id}
+              href={`/help?category=${category.slug}`}
+              className="group border border-slate-200 bg-white p-5 transition-colors hover:border-primary/40 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <div className="flex items-center gap-3">
+                {category.icon && (
+                  <span className="material-symbols-outlined text-2xl text-primary" aria-hidden="true">
+                    {category.icon}
+                  </span>
+                )}
+                <span className="font-headline text-base font-bold text-slate-900 group-hover:text-primary">
+                  {category.name}
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500 line-clamp-2">
+                {category.description}
+              </p>
+              <p className="mt-3 text-xs font-semibold text-slate-400">
+                {category.articleCount} article{category.articleCount === 1 ? '' : 's'}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {popular.length > 0 && (
+        <section aria-labelledby="popular-heading" className="mb-6">
+          <h2 id="popular-heading" className="mb-3 font-headline text-lg font-bold text-slate-900">
+            Popular articles
+          </h2>
+          <ul className="border border-slate-200 bg-white px-4 py-1">
+            {popular.map((article) => (
+              <ArticleListRow key={article.id} article={article} />
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Category view (/help?category=slug) — header + plain grouped article lists.
+// ---------------------------------------------------------------------------
+function ArticleList({ articles }) {
+  return (
+    <ul className="border border-slate-200 bg-white px-4 py-1">
+      {articles.map((article) => (
+        <ArticleListRow key={article.id} article={article} />
+      ))}
+    </ul>
+  );
+}
+
+function CategoryView({ category, categoryTree }) {
+  const isSubcategory = Boolean(category.parentId);
+  const parent = isSubcategory
+    ? allCategories.find((c) => c.id === category.parentId)
+    : null;
+
+  const breadcrumbItems = isSubcategory
+    ? [
+        { label: parent?.name || 'Category', href: `/help?category=${parent?.slug}` },
+        { label: category.name },
+      ]
+    : [{ label: category.name }];
+
+  const descendantIds = useMemo(
+    () => new Set([category.id, ...getDescendantCategoryIds(allCategories, category.id)]),
+    [category.id]
+  );
+
+  const totalCount = useMemo(
+    () => allArticles.filter((a) => descendantIds.has(a.categoryId)).length,
+    [descendantIds]
+  );
+
+  const directArticles = useMemo(
+    () => allArticles.filter((a) => a.categoryId === category.id).sort(sortByPublishedDesc),
+    [category.id]
+  );
+
+  const subcategories = useMemo(() => {
+    if (isSubcategory) return [];
+    const node = categoryTree.find((c) => c.id === category.id);
+    return node?.children || [];
+  }, [categoryTree, category.id, isSubcategory]);
+
+  const articlesForSubcategory = (subcategoryId) =>
+    allArticles.filter((a) => a.categoryId === subcategoryId).sort(sortByPublishedDesc);
+
+  return (
+    <div>
+      <Breadcrumbs items={breadcrumbItems} />
+
+      <header className="mb-8">
+        <div className="flex items-center gap-3">
+          {category.icon && (
+            <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">
+              {category.icon}
+            </span>
+          )}
+          <h1 className="font-headline text-2xl font-bold text-slate-900 sm:text-3xl">
+            {category.name}
+          </h1>
+        </div>
+        {category.description && (
+          <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">{category.description}</p>
+        )}
+        <p className="mt-2 text-xs font-semibold text-slate-400">
+          {totalCount} article{totalCount === 1 ? '' : 's'}
+        </p>
+      </header>
+
+      {totalCount === 0 ? (
+        <EmptyState
+          icon="library_books"
+          title="No articles here yet"
+          description="Articles for this topic will appear here once published."
+          action={
+            <div className="flex flex-col items-center gap-3 sm:flex-row">
+              <Link
+                href={route('helpdesk.search')}
+                className="rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Search help center
+              </Link>
+              <Link
+                href={route('contact')}
+                className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Contact support
+              </Link>
+            </div>
+          }
+        />
+      ) : (
+        <div className="space-y-8">
+          {directArticles.length > 0 && <ArticleList articles={directArticles} />}
+
+          {subcategories.map((sub) => {
+            const subArticles = articlesForSubcategory(sub.id);
+
+            return (
+              <section key={sub.id} aria-labelledby={`subcategory-${sub.id}`}>
+                <div className="mb-3 flex items-baseline justify-between gap-3">
+                  <h2 id={`subcategory-${sub.id}`} className="font-headline text-lg font-bold text-slate-900">
+                    <Link
+                      href={`/help?category=${sub.slug}`}
+                      className="transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      {sub.name}
+                    </Link>
+                  </h2>
+                  <span className="text-xs text-slate-400">
+                    {subArticles.length} article{subArticles.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                {sub.description && (
+                  <p className="mb-3 text-sm text-slate-500">{sub.description}</p>
+                )}
+                {subArticles.length > 0 ? (
+                  <ArticleList articles={subArticles} />
+                ) : (
+                  <p className="border border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">
+                    No published articles yet.
+                  </p>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Index() {
-  const { auth, category: categorySlug } = usePage().props;
-  const user = auth?.user;
+  const { category: categorySlug } = usePage().props;
 
-  const categoryTree = useMemo(
-    () => buildCategoryTree(allCategories, allArticles),
-    []
-  );
+  const categoryTree = useMemo(() => buildCategoryTree(allCategories, allArticles), []);
   const selectedCategory = useMemo(
     () => (categorySlug ? findCategoryBySlug(categorySlug) : null),
     [categorySlug]
   );
 
-  const selectedCategoryIds = useMemo(() => {
-    if (!selectedCategory) return null;
-
-    return new Set([
-      selectedCategory.id,
-      ...getDescendantCategoryIds(allCategories, selectedCategory.id),
-    ]);
-  }, [selectedCategory]);
-
-  const visibleArticles = useMemo(() => {
-    if (!selectedCategoryIds) return allArticles;
-    return allArticles.filter((article) => selectedCategoryIds.has(article.categoryId));
-  }, [selectedCategoryIds]);
-
-  const visibleTree = useMemo(() => scopeTree(categoryTree, selectedCategory), [
-    categoryTree,
-    selectedCategory,
-  ]);
-
-  const articlesByCategory = useMemo(
-    () => groupByCategory(visibleArticles),
-    [visibleArticles]
-  );
-
-  const quickTasks = [
-    {
-      title: 'Track your case',
-      description: 'Open the public tracking portal for case updates and status checks.',
-      href: route('track.index'),
-      icon: 'confirmation_number',
-      emphasis: true,
-    },
-    {
-      title: 'Browse help topics',
-      description: 'Jump to the help center topics and browse by category.',
-      href: `${route('helpdesk.index')}#topics`,
-      icon: 'topic',
-    },
-    {
-      title: 'Contact support',
-      description: 'Send a message if you need help finding the right guide.',
-      href: route('contact'),
-      icon: 'support_agent',
-    },
-  ];
-
-  const roleGreeting = {
-    OFW: { title: 'OFW Resources', icon: 'badge' },
-    CASE_MANAGER: { title: 'Case Manager Guides', icon: 'folder' },
-    AGENCY: { title: 'Agency Partner Guides', icon: 'handshake' },
-    ADMIN: { title: 'Administration', icon: 'settings' },
-  };
-
-  const roleInfo = user ? roleGreeting[user.role] : null;
-
+  // Unknown category slug → not-found state within the browse layout.
   if (categorySlug && !selectedCategory) {
     return (
-      <HelpdeskLayout title="Help Center" activeSlug={categorySlug} showSearchHero>
+      <HelpdeskLayout title="Help Center" activeSlug={categorySlug}>
         <EmptyState
           icon="folder_off"
           title="Category not found"
@@ -125,13 +286,13 @@ export default function Index() {
             <div className="flex flex-col items-center gap-3 sm:flex-row">
               <Link
                 href={route('helpdesk.index')}
-                className="rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white"
+                className="rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                Browse all articles
+                Back to Help Center
               </Link>
               <Link
                 href={route('contact')}
-                className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 Contact support
               </Link>
@@ -142,270 +303,19 @@ export default function Index() {
     );
   }
 
+  // Landing page: no sidebar, no compact search — the hero search is the
+  // single entry point. Density here never grows with article count.
+  if (!selectedCategory) {
+    return (
+      <HelpdeskLayout title="Help Center" showSidebar={false} showCompactSearch={false}>
+        <LandingView categoryTree={categoryTree} />
+      </HelpdeskLayout>
+    );
+  }
+
   return (
-    <HelpdeskLayout title="Help Center" activeSlug={categorySlug} showSearchHero>
-      <div className="mb-8 space-y-6">
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr] lg:items-end">
-            <div>
-              <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                Help Center
-              </p>
-              <h1 className="mt-2 font-headline text-3xl font-bold text-slate-900">
-                How can we help you?
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm text-slate-500">
-                Browse the full help center by category, subcategory, and article, or use search to
-                find the exact guide you need.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2 lg:justify-end">
-              <Link
-                href={route('helpdesk.search')}
-                className="inline-flex items-center gap-2 rounded-none border border-primary bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f]"
-              >
-                <span className="material-symbols-outlined text-sm">search</span>
-                Search articles
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {!selectedCategory && (
-          <div className="grid gap-3 md:grid-cols-3">
-            {quickTasks.map((task) => (
-              <Link
-                key={task.title}
-                href={task.href}
-                className={`group rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-primary/30 hover:bg-surface-container-low ${
-                  task.emphasis ? 'border-primary bg-primary/5' : ''
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`flex h-11 w-11 items-center justify-center border ${task.emphasis ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-surface-container-low text-primary'}`}>
-                    <span className="material-symbols-outlined text-[20px]">{task.icon}</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-headline text-sm font-bold text-slate-900">{task.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{task.description}</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {roleInfo && (
-          <div className="border-l-4 border-primary bg-primary/10 p-4">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-2xl text-primary">{roleInfo.icon}</span>
-              <div>
-                <p className="font-headline text-sm font-bold text-slate-900">{roleInfo.title}</p>
-                <p className="text-xs text-slate-500">Quick access to guides tailored for your role.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {selectedCategory && (
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                  Browsing category
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  {selectedCategory.icon && (
-                    <span className="material-symbols-outlined text-xl text-slate-500">
-                      {selectedCategory.icon}
-                    </span>
-                  )}
-                  <h2 className="font-headline text-lg font-bold text-slate-900">{selectedCategory.name}</h2>
-                </div>
-                {selectedCategory.description && (
-                  <p className="mt-1 text-sm text-slate-500">{selectedCategory.description}</p>
-                )}
-              </div>
-
-              <Link
-                href={route('helpdesk.index')}
-                className="inline-flex items-center justify-center rounded-none border border-slate-200 px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
-              >
-                Clear filter
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {visibleTree.length > 0 ? (
-        <div id="topics" className="space-y-10 scroll-mt-28">
-          {visibleTree.map((parent) => {
-            const parentArticles = (articlesByCategory[parent.id] || []).sort(sortByPublishedDesc);
-
-            return (
-              <section
-                key={parent.id}
-                className="overflow-hidden rounded-lg border border-slate-200 bg-white"
-              >
-                <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-3">
-                        {parent.icon && (
-                          <span className="material-symbols-outlined text-2xl text-primary">
-                            {parent.icon}
-                          </span>
-                        )}
-                        <div>
-                          <h2 className="font-headline text-xl font-bold text-slate-900">{parent.name}</h2>
-                          <p className="mt-1 max-w-3xl text-sm text-slate-500">{parent.description}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Link
-                        href={`/help?category=${parent.slug}`}
-                        className="rounded-none border border-slate-200 px-3 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
-                      >
-                        Open category
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-6 p-5 sm:p-6">
-                  {parentArticles.length > 0 && (
-                    <div>
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <h3 className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Category articles</h3>
-                      </div>
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        {parentArticles.map((article) => (
-                          <ArticleCard key={article.id} article={article} variant="compact" />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {parent.children.length > 0 ? (
-                    <div className="grid gap-4 xl:grid-cols-2">
-                      {parent.children.map((child) => {
-                        const childArticles = (articlesByCategory[child.id] || []).sort(
-                          sortByPublishedDesc
-                        );
-
-                        return (
-                          <div key={child.id} className="rounded-lg border border-slate-200 bg-surface-container-low p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  {child.icon && (
-                                    <span className="material-symbols-outlined text-lg text-primary">
-                                      {child.icon}
-                                    </span>
-                                  )}
-                                  <h3 className="font-headline text-sm font-bold text-slate-900">{child.name}</h3>
-                                </div>
-                                {child.description && (
-                                  <p className="mt-1 text-xs text-slate-500">{child.description}</p>
-                                )}
-                              </div>
-
-                              <Link
-                                href={`/help?category=${child.slug}`}
-                                className="rounded-none border border-slate-200 bg-white px-2.5 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:border-primary/30 hover:text-primary"
-                              >
-                                Open
-                              </Link>
-                            </div>
-
-                            <div className="mt-4 bg-white px-3">
-                              {childArticles.length > 0 ? (
-                                childArticles.map((article) => (
-                                  <ArticleCard
-                                    key={article.id}
-                                    article={article}
-                                    variant="compact"
-                                  />
-                                ))
-                              ) : (
-                                <div className="py-4 text-xs text-slate-500">
-                                  No published articles yet.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <EmptyState
-                      icon="library_books"
-                      title="No subcategories yet"
-                      description="This category will appear here once subcategories and articles are added."
-                      action={
-                        <div className="flex flex-col items-center gap-3 sm:flex-row">
-                          <Link
-                            href={route('helpdesk.search')}
-                            className="rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white"
-                          >
-                            Search help center
-                          </Link>
-                          <Link
-                            href={route('contact')}
-                            className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
-                          >
-                            Contact support
-                          </Link>
-                        </div>
-                      }
-                    />
-                  )}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      ) : (
-        <EmptyState
-          icon="menu_book"
-          title="Help center is being set up"
-          description="Articles will appear here once published. Check back soon!"
-          action={
-            <div className="flex flex-col items-center gap-3 sm:flex-row">
-              <Link
-                href={route('helpdesk.search')}
-                className="rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white"
-              >
-                Search help center
-              </Link>
-              <Link
-                href={route('contact')}
-                className="rounded-none border border-slate-200 bg-white px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
-              >
-                Contact support
-              </Link>
-            </div>
-          }
-        />
-      )}
-
-      {allTags.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-3 font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-            Browse by Tag
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {allTags.map((tag) => (
-              <TagBadge key={tag.id} tag={tag} />
-            ))}
-          </div>
-        </section>
-      )}
-
+    <HelpdeskLayout title={selectedCategory.name} activeSlug={categorySlug}>
+      <CategoryView category={selectedCategory} categoryTree={categoryTree} />
     </HelpdeskLayout>
   );
 }

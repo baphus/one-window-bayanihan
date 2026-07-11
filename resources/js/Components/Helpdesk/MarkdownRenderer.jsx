@@ -1,6 +1,40 @@
 import MDEditor from '@uiw/react-md-editor';
 import rehypeSanitize from 'rehype-sanitize';
 
+// The article page renders its own h1 (the article title), so the markdown
+// body must not introduce another one: drop a leading `# Title` line (it
+// duplicates the title) and demote any other `# ` heading to `## `.
+// Fenced code blocks are left untouched.
+export function normalizeHeadings(markdown) {
+  let inFence = false;
+  let leadingH1Dropped = false;
+  let seenContent = false;
+
+  return markdown
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inFence = !inFence;
+        seenContent = true;
+        return line;
+      }
+      if (inFence) return line;
+
+      if (/^#\s/.test(line)) {
+        if (!seenContent && !leadingH1Dropped) {
+          leadingH1Dropped = true;
+          return null;
+        }
+        return '#' + line;
+      }
+
+      if (line.trim() !== '') seenContent = true;
+      return line;
+    })
+    .filter((line) => line !== null)
+    .join('\n');
+}
+
 export default function MarkdownRenderer({ content }) {
   if (!content) {
     return (
@@ -13,7 +47,7 @@ export default function MarkdownRenderer({ content }) {
   return (
     <div className="md-renderer">
       <MDEditor.Markdown
-        source={content}
+        source={normalizeHeadings(content)}
         rehypePlugins={[rehypeSanitize]}
         wrapperElement={{
           'data-color-mode': 'light',

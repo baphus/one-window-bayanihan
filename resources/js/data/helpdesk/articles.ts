@@ -31,6 +31,21 @@ import adminCaseCategoriesIssuesStatuses from "./content/admin-case-categories-i
 import userManagementGuide from "./content/user-management-guide";
 import agencyServiceManagementGuide from "./content/agency-service-management-guide";
 import referralStatusReference from "./content/referral-status-reference";
+import buildingServqualFeedbackQuestionnaires from "./content/building-servqual-feedback-questionnaires";
+import readingYourAgencyFeedbackDashboard from "./content/reading-your-agency-feedback-dashboard";
+import feedbackDashboardsForCaseManagersAndAdmins from "./content/feedback-dashboards-for-case-managers-and-admins";
+import securingYourAccountPasswordAndMfa from "./content/securing-your-account-password-and-mfa";
+import notificationsStayingOnTopOfUpdates from "./content/notifications-staying-on-top-of-updates";
+import yourCaseJourneyFromIntakeToResolution from "./content/your-case-journey-from-intake-to-resolution";
+import findingPartnerAgenciesAndTheirServices from "./content/finding-partner-agencies-and-their-services";
+import askingTheHelpChatbot from "./content/asking-the-help-chatbot";
+import managingClientRecords from "./content/managing-client-records";
+import usingTheStakeholderDirectory from "./content/using-the-stakeholder-directory";
+import creatingAReferralChoosingAgencyAndService from "./content/creating-a-referral-choosing-agency-and-service";
+import referralDocumentsAndComplianceUploads from "./content/referral-documents-and-compliance-uploads";
+import systemSecuritySettingsIpWhitelistAndSessions from "./content/system-security-settings-ip-whitelist-and-sessions";
+import emailLogsAndResendingFailedEmails from "./content/email-logs-and-resending-failed-emails";
+import maintenanceModeSystemLogsAndDataExport from "./content/maintenance-mode-system-logs-and-data-export";
 
 // ---------------------------------------------------------------------------
 // Category slug → ID mapping (from categories.ts)
@@ -41,6 +56,8 @@ const CATEGORY: Record<string, string> = {
   "agency-partnership": "cat-3",
   "system-administration": "cat-4",
   faq: "cat-5",
+  "account-security": "cat-14",
+  "service-quality-feedback": "cat-15",
   "case-submission": "cat-6",
   "ofw-rights": "cat-7",
   "cm-workflow": "cat-8",
@@ -71,6 +88,10 @@ const TAG: Record<string, string> = {
   dashboard: "tag-14",
   feedback: "tag-15",
   glossary: "tag-16",
+  servqual: "tag-17",
+  security: "tag-18",
+  notifications: "tag-19",
+  clients: "tag-20",
 };
 
 // ---------------------------------------------------------------------------
@@ -480,5 +501,203 @@ export const articles: HelpdeskArticle[] = [
     tagIds: [TAG["referrals"], TAG["tracking"], TAG["compliance"]],
     featured: false,
     publishedAt: "2026-07-09T00:00:00.000Z",
+  },
+
+  // ======== Service Quality & Feedback (33–35) ========
+
+  {
+    id: "article-33",
+    title: "Building SERVQUAL Feedback Questionnaires",
+    slug: "building-servqual-feedback-questionnaires",
+    excerpt:
+      "How agencies create feedback forms, manage the agency default and per-service overrides, and customize the 22 standard SERVQUAL questions.",
+    content: buildingServqualFeedbackQuestionnaires,
+    categoryId: CATEGORY["service-quality-feedback"],
+    tagIds: [TAG["servqual"], TAG["feedback"], TAG["training"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-34",
+    title: "Reading Your Agency Feedback Dashboard",
+    slug: "reading-your-agency-feedback-dashboard",
+    excerpt:
+      "What the summary cards, rating distribution, SERVQUAL dimensions, and service breakdown mean — and how agencies act on them.",
+    content: readingYourAgencyFeedbackDashboard,
+    categoryId: CATEGORY["service-quality-feedback"],
+    tagIds: [TAG["servqual"], TAG["feedback"], TAG["dashboard"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-35",
+    title: "Feedback Dashboards for Case Managers and Admins",
+    slug: "feedback-dashboards-for-case-managers-and-admins",
+    excerpt:
+      "The cross-agency feedback views: the case manager dashboard and the admin Feedback Overview with agency summary and filterable submissions.",
+    content: feedbackDashboardsForCaseManagersAndAdmins,
+    categoryId: CATEGORY["service-quality-feedback"],
+    tagIds: [TAG["servqual"], TAG["feedback"], TAG["dashboard"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+
+  // ======== Account & Security (36–37) ========
+
+  {
+    id: "article-36",
+    title: "Securing Your Account: Password and MFA",
+    slug: "securing-your-account-password-and-mfa",
+    excerpt:
+      "Signing in with email OTP, changing your password or email, and enabling two-factor authentication with an authenticator app and recovery codes.",
+    content: securingYourAccountPasswordAndMfa,
+    categoryId: CATEGORY["account-security"],
+    tagIds: [TAG["security"], TAG["onboarding"], TAG["troubleshooting"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-37",
+    title: "Notifications: Staying on Top of Updates",
+    slug: "notifications-staying-on-top-of-updates",
+    excerpt:
+      "How the in-app notification feed works, what triggers emails, and how to tune notification preferences on your profile.",
+    content: notificationsStayingOnTopOfUpdates,
+    categoryId: CATEGORY["account-security"],
+    tagIds: [TAG["notifications"], TAG["training"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+
+  // ======== Public / OFW (38–40) ========
+
+  {
+    id: "article-38",
+    title: "Your Case Journey: From Intake to Resolution",
+    slug: "your-case-journey-from-intake-to-resolution",
+    excerpt:
+      "What happens after you ask DMW for help: intake, your tracker number, referrals to partner agencies, milestones, closure, and feedback.",
+    content: yourCaseJourneyFromIntakeToResolution,
+    categoryId: CATEGORY["ofw-assistance"],
+    tagIds: [TAG["tracking"], TAG["cases"], TAG["onboarding"]],
+    featured: true,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-39",
+    title: "Finding Partner Agencies and Their Services",
+    slug: "finding-partner-agencies-and-their-services",
+    excerpt:
+      "How to browse the public Partner Agencies directory, read service requirements and processing targets, and prepare before visiting.",
+    content: findingPartnerAgenciesAndTheirServices,
+    categoryId: CATEGORY["ofw-assistance"],
+    tagIds: [TAG["tracking"], TAG["documents"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-40",
+    title: "Asking the Help Chatbot",
+    slug: "asking-the-help-chatbot",
+    excerpt:
+      "What the AI chat assistant can answer, the Quick help shortcuts, and what it can't do (like seeing your case).",
+    content: askingTheHelpChatbot,
+    categoryId: CATEGORY["faq"],
+    tagIds: [TAG["chatbot"], TAG["troubleshooting"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+
+  // ======== Case manager workflows (41–43) ========
+
+  {
+    id: "article-41",
+    title: "Managing Client Records",
+    slug: "managing-client-records",
+    excerpt:
+      "Searching and filtering the Clients registry, what the client details page contains, and role-based visibility rules.",
+    content: managingClientRecords,
+    categoryId: CATEGORY["cm-workflow"],
+    tagIds: [TAG["clients"], TAG["cases"], TAG["privacy"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-42",
+    title: "Using the Stakeholder Directory",
+    slug: "using-the-stakeholder-directory",
+    excerpt:
+      "The internal directory of partner agencies: services, requirements, and referral statistics that help you pick the right agency.",
+    content: usingTheStakeholderDirectory,
+    categoryId: CATEGORY["cm-workflow"],
+    tagIds: [TAG["referrals"], TAG["training"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-43",
+    title: "Creating a Referral: Choosing Agency and Service",
+    slug: "creating-a-referral-choosing-agency-and-service",
+    excerpt:
+      "The three-step referral wizard: selecting an OPEN case, avoiding duplicate agency referrals, and attaching or deferring required documents.",
+    content: creatingAReferralChoosingAgencyAndService,
+    categoryId: CATEGORY["referrals-escalations"],
+    tagIds: [TAG["referrals"], TAG["documents"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+
+  // ======== Admin system operations (44–46) ========
+
+  {
+    id: "article-44",
+    title: "System Security: Settings, IP Whitelist, and Active Sessions",
+    slug: "system-security-settings-ip-whitelist-and-sessions",
+    excerpt:
+      "Password policy, lockout rules, mandatory MFA, the admin IP whitelist (and its lock-out risk), and terminating active sessions.",
+    content: systemSecuritySettingsIpWhitelistAndSessions,
+    categoryId: CATEGORY["system-config"],
+    tagIds: [TAG["security"], TAG["audit"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-45",
+    title: "Email Logs and Resending Failed Emails",
+    slug: "email-logs-and-resending-failed-emails",
+    excerpt:
+      "Diagnosing 'I never got the email': reading the email log, resending failed deliveries, and a troubleshooting checklist.",
+    content: emailLogsAndResendingFailedEmails,
+    categoryId: CATEGORY["system-config"],
+    tagIds: [TAG["troubleshooting"], TAG["notifications"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+  {
+    id: "article-46",
+    title: "Maintenance Mode, System Logs, and Data Export",
+    slug: "maintenance-mode-system-logs-and-data-export",
+    excerpt:
+      "Planned downtime with a bypass secret, filtering and downloading system logs, and the full multi-sheet Excel export.",
+    content: maintenanceModeSystemLogsAndDataExport,
+    categoryId: CATEGORY["system-config"],
+    tagIds: [TAG["troubleshooting"], TAG["audit"], TAG["privacy"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
+  },
+
+  // ======== Case manager workflows, continued (47) ========
+
+  {
+    id: "article-47",
+    title: "Referral Documents and Compliance Uploads",
+    slug: "referral-documents-and-compliance-uploads",
+    excerpt:
+      "The two ways documents reach a referral: attaching files in the creation wizard, and fulfilling deferred compliance requirements later.",
+    content: referralDocumentsAndComplianceUploads,
+    categoryId: CATEGORY["referrals-escalations"],
+    tagIds: [TAG["referrals"], TAG["documents"], TAG["compliance"]],
+    featured: false,
+    publishedAt: "2026-07-11T00:00:00.000Z",
   },
 ];

@@ -57,5 +57,22 @@ const content = `# Glossary of Terms
 **Supabase/PostgreSQL** — Database platform used by the project deployment.
 
 **Temporary URL** — Time-limited storage link used for controlled file access where supported.
+
+## Feedback & security terms
+
+> [!NOTE] Pending human review
+> The definitions below were added with the feedback and account-security features and are awaiting terminology sign-off.
+
+**SERVQUAL** — A standard service-quality survey model measuring five dimensions: Tangibles, Reliability, Responsiveness, Assurance, and Empathy. Client feedback forms are built on it.
+
+**Feedback Invitation** — The personal, expiring link emailed to a client after a service is completed, used to submit feedback without logging in. The questions are snapshotted into the invitation when it is sent.
+
+**Expectation / Perception** — The two ratings a client gives per SERVQUAL question: the minimum service level they expected, and the level they actually experienced.
+
+**Response Rate** — Submitted feedback divided by invitations sent, shown on feedback dashboards.
+
+**MFA (Multi-Factor Authentication)** — An extra sign-in step using a 6-digit code from an authenticator app, enabled per user on the Profile page.
+
+**Recovery Code** — A backup code generated when MFA is enabled, used to sign in if the authenticator device is unavailable.
 `;
 export default content;

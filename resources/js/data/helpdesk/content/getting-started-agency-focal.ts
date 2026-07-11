@@ -135,6 +135,12 @@ If you cannot edit a needed agency setting, coordinate with a System Administrat
 5. Upload official outputs before marking work **COMPLETED**.
 6. Review comments so Case Managers receive timely responses.
 
+## 11. Where to go deeper
+
+- **Service quality**: *Building SERVQUAL feedback questionnaires* and *Reading your agency feedback dashboard* — how clients rate your completed work.
+- **Compliance**: *Managing compliance requirements*.
+- **Your account**: *Securing your account: password and MFA* and *Notifications: staying on top of updates*.
+
 Using the referral record consistently keeps DMW Region VII and partner agencies aligned on each client's progress.
 `;
 export default content;

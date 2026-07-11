@@ -131,6 +131,13 @@ Check referrals regularly. If a referral is **FOR_COMPLIANCE**, coordinate with 
 5. Update case notes and documents after every meaningful action.
 6. Use **Reports** when you need a wider workload or performance view.
 
+## 9. Where to go deeper
+
+- **Referrals**: *Creating a referral: choosing agency and service* and *Referral status reference*.
+- **Clients & partners**: *Managing client records* and *Using the stakeholder directory*.
+- **Client feedback**: *Feedback dashboards for case managers and admins*.
+- **Your account**: *Securing your account: password and MFA* and *Notifications: staying on top of updates*.
+
 > **Reminder:** The system keeps an audit trail. Use your own account only, and record actions in a way another authorized user can understand later.
 `;
 export default content;

@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import MarkdownRenderer from '@/Components/Helpdesk/MarkdownRenderer';
+import ArticleFeedback from '@/Components/Helpdesk/ArticleFeedback';
 import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
 import RelatedArticles from '@/Components/Helpdesk/RelatedArticles';
 import TagBadge from '@/Components/Helpdesk/TagBadge';
@@ -61,9 +62,9 @@ export default function Show() {
           </p>
           <Link
             href="/help"
-            className="mt-4 inline-flex px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors"
+            className="mt-4 inline-flex rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            &larr; Back to Help Center
+            Back to Help Center
           </Link>
         </div>
       </HelpdeskLayout>
@@ -134,9 +135,11 @@ export default function Show() {
         )}
 
         {/* Markdown content */}
-        <div className="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <MarkdownRenderer content={content} />
         </div>
+
+        <ArticleFeedback slug={article.slug} />
       </article>
 
       {/* Related articles */}

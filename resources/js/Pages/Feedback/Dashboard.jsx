@@ -219,8 +219,8 @@ export default function FeedbackDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {service_breakdown.map((row) => (
-                    <tr key={row.service_name} className="hover:bg-slate-50">
+                  {service_breakdown.map((row, index) => (
+                    <tr key={row.service_id ?? `${row.service_name}-${index}`} className="hover:bg-slate-50">
                       <td className="px-4 py-4 text-sm font-semibold text-slate-900">{row.service_name}</td>
                       <td className="px-4 py-4 text-right text-sm text-slate-600">{toNumber(row.invitations_sent ?? 0)}</td>
                       <td className="px-4 py-4 text-right text-sm text-slate-600">{toNumber(row.count)}</td>

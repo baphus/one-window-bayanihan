@@ -20,4 +20,8 @@ export const tags: HelpdeskTag[] = [
   { id: "tag-14", name: "dashboard" },
   { id: "tag-15", name: "feedback" },
   { id: "tag-16", name: "glossary" },
+  { id: "tag-17", name: "servqual" },
+  { id: "tag-18", name: "security" },
+  { id: "tag-19", name: "notifications" },
+  { id: "tag-20", name: "clients" },
 ];

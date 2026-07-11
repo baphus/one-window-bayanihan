@@ -152,6 +152,13 @@ Follow your office's change-control process for production maintenance. Avoid ma
 5. Coordinate with technical support for maintenance, failed jobs, storage, or deployment issues.
 6. Document user-facing changes so Case Managers and Agency users know what changed.
 
+## 10. Where to go deeper
+
+- **Security**: *System security: settings, IP whitelist, and active sessions* and *Securing your account: password and MFA*.
+- **Operations**: *Maintenance mode, system logs, and data export* and *Email logs and resending failed emails*.
+- **Settings**: *Configuring system settings and the AI chatbot*.
+- **Feedback oversight**: *Feedback dashboards for case managers and admins*.
+
 Good administration keeps the platform reliable without interrupting day-to-day case and referral work.
 `;
 export default content;
