@@ -94,6 +94,9 @@ export const navByRole = {
       { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
       { name: 'Security & Auth', href: '/admin/system/security', icon: 'security' },
     ]},
+    { label: 'Resources', items: [
+      { name: 'Help Center', href: '/help', icon: 'help', external: true },
+    ]},
   ],
 };
 
@@ -122,9 +125,17 @@ export default function AppSidebar() {
   const handleReplayTour = async () => {
     try {
       await replayOnboarding();
-      const role = user?.role;
-      const config = getTourConfig(role);
-      if (config) startTour(config);
+      const config = getTourConfig(user?.role);
+      if (!config) return;
+
+      // The tour only overlays pages in its config — navigate to its first
+      // page before starting so replay works from anywhere in the app.
+      const firstPath = new URL(route(config.pages[0].route), window.location.origin).pathname;
+      if (window.location.pathname === firstPath) {
+        startTour(config);
+      } else {
+        router.visit(firstPath, { onSuccess: () => startTour(config) });
+      }
     } catch {
       // silently fail — API error shouldn't break the UI
     }

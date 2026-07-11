@@ -69,7 +69,7 @@ describe('page guide registry coverage', () => {
     it('every guide has 3-6 steps with data-tour selectors and content', () => {
         for (const [routeName, guide] of Object.entries(pageGuides)) {
             expect(guide.title, `${routeName} needs a title`).toBeTruthy();
-            expect(guide.steps.length, `${routeName} should have 3-6 steps (has ${guide.steps.length})`).toBeGreaterThanOrEqual(2);
+            expect(guide.steps.length, `${routeName} should have 3-6 steps (has ${guide.steps.length})`).toBeGreaterThanOrEqual(3);
             expect(guide.steps.length, `${routeName} should have 3-6 steps (has ${guide.steps.length})`).toBeLessThanOrEqual(6);
             for (const step of guide.steps) {
                 expect(step.element, `${routeName}: step elements must target data-tour anchors`).toMatch(/^\[data-tour="[a-z0-9-]+"\]$/);

@@ -66,6 +66,15 @@ export function useOnboarding(): OnboardingContextValue {
     return ctx;
 }
 
+/**
+ * Non-throwing variant for leaf components (PageGuideButton, TourManager,
+ * visit tracking) that may render in layouts tested without the app shell.
+ * Returns null when no provider is present; callers no-op.
+ */
+export function useOnboardingOptional(): OnboardingContextValue | null {
+    return useContext(OnboardingContext);
+}
+
 const EMPTY_PROGRESS: ChecklistProgress = { items: {}, dismissed_at: null };
 
 export default function OnboardingProvider({
@@ -91,13 +100,16 @@ export default function OnboardingProvider({
     const [localItems, setLocalItems] = useState<Record<string, string>>({});
     const [localDismissedAt, setLocalDismissedAt] = useState<string | null>(null);
 
-    // On mount, check sessionStorage and onboarding_required prop
+    // On mount, check sessionStorage and onboarding_required prop.
+    // Only enter 'welcome' from idle — during a replayed tour the shared
+    // prop flips false→true mid-tour (replay resets completed_at), and the
+    // modal must not tear down the active tour.
     useEffect(() => {
         const dismissed = sessionStorage.getItem('onboarding_dismissed') === 'true';
         if (dismissed) return;
 
         if (onboardingRequired) {
-            setPhase('welcome');
+            setPhase((prev) => (prev === 'idle' ? 'welcome' : prev));
         }
     }, [onboardingRequired]);
 

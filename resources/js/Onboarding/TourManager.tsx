@@ -3,7 +3,7 @@ import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { router, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
-import { useOnboarding } from './OnboardingProvider';
+import { useOnboardingOptional } from './OnboardingProvider';
 import { useToast } from '@/Hooks/useToast';
 import { completeOnboarding, skipOnboarding, updateStep } from './api';
 import { TourStep } from './types';
@@ -63,20 +63,30 @@ const BASE_DRIVER_OPTIONS = {
     prevBtnText: 'Previous',
 };
 
+const noop = () => {};
+
 export default function TourManager(): null {
-    const {
-        phase,
-        tourConfig,
-        endTour,
-        currentPageIndex,
-        setCurrentPageIndex,
-        resumeStepIndex,
-        clearResumeStep,
-        activePageGuide,
-        endPageGuide,
-    } = useOnboarding();
+    // Optional so layouts rendered without the app shell (tests) no-op.
+    const onboarding = useOnboardingOptional();
+    const phase = onboarding?.phase ?? 'idle';
+    const tourConfig = onboarding?.tourConfig ?? null;
+    const endTour = onboarding?.endTour ?? noop;
+    const currentPageIndex = onboarding?.currentPageIndex ?? 0;
+    const setCurrentPageIndex = onboarding?.setCurrentPageIndex ?? noop;
+    const resumeStepIndex = onboarding?.resumeStepIndex ?? null;
+    const clearResumeStep = onboarding?.clearResumeStep ?? noop;
+    const activePageGuide = onboarding?.activePageGuide ?? null;
+    const endPageGuide = onboarding?.endPageGuide ?? noop;
     const driverRef = useRef<ReturnType<typeof driver> | null>(null);
-    const toast = useToast();
+    // Toast is a nice-to-have on tour completion; layouts rendered without
+    // the app shell (Helpdesk pages in tests) have no ToastProvider.
+    let toastSafe: { success: (msg: string) => void };
+    try {
+        toastSafe = useToast();
+    } catch {
+        toastSafe = { success: noop };
+    }
+    const toast = toastSafe;
     const cleaningUpRef = useRef(false);
     const { url } = usePage();
 
@@ -221,12 +231,32 @@ export default function TourManager(): null {
 
             cleaningUpRef.current = false;
         };
-    }, [phase, tourConfig, endTour, toast, currentPageIndex, setCurrentPageIndex, resumeStepIndex, clearResumeStep, url]);
+        // resumeStepIndex/clearResumeStep are intentionally NOT dependencies:
+        // consuming the one-shot resume index inside the effect must not
+        // re-run it (the re-run would rebuild the driver at step 0 and undo
+        // the resume). startTour changes phase/pageIndex, which re-runs the
+        // effect when a new resume position is set.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [phase, tourConfig, endTour, toast, currentPageIndex, setCurrentPageIndex, url]);
 
     // ── Layer 2: per-page guide ──────────────────────────────────────
     useEffect(() => {
         // The welcome tour owns the overlay while it is active.
         if (!activePageGuide || phase === 'touring') {
+            return;
+        }
+
+        // Page guides are scoped to the page they were opened on. If the
+        // user navigated away (back/forward, link) while one was active,
+        // close it instead of re-driving its steps on a foreign page.
+        let currentRoute: string | null = null;
+        try {
+            currentRoute = route().current() ?? null;
+        } catch {
+            currentRoute = null;
+        }
+        if (currentRoute !== activePageGuide.route) {
+            endPageGuide();
             return;
         }
 
@@ -296,7 +326,7 @@ export default function TourManager(): null {
 
             cleaningUpRef.current = false;
         };
-    }, [activePageGuide, phase, endPageGuide]);
+    }, [activePageGuide, phase, endPageGuide, url]);
 
     return null;
 }

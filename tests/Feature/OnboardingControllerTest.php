@@ -162,6 +162,24 @@ class OnboardingControllerTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_guide_seen_rejects_malformed_route_names(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('onboarding.guide-seen'), ['route' => 'not a route <script>'])
+            ->assertStatus(422);
+    }
+
+    public function test_checklist_mark_rejects_malformed_item_ids(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('onboarding.checklist.mark'), ['item' => 'UPPER CASE!!'])
+            ->assertStatus(422);
+    }
+
     public function test_checklist_mark_and_dismiss(): void
     {
         $user = User::factory()->create(['checklist_progress' => null]);

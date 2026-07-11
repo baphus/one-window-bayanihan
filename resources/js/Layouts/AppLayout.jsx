@@ -32,6 +32,28 @@ export default function AppLayout({ title, children }) {
 
   useChecklistVisitTracking();
 
+  // Start (or resume) the welcome tour. The tour only renders an overlay on
+  // pages in its config, so launching from anywhere else must navigate to
+  // the target page first — otherwise nothing visible happens and the app
+  // is stuck in a silent 'touring' state.
+  const launchTour = (at) => {
+    if (!tourConfig) return;
+    const targetRoute = tourConfig.pages[at?.page ?? 0].route;
+    let targetPath;
+    try {
+      targetPath = new URL(route(targetRoute), window.location.origin).pathname;
+    } catch {
+      return;
+    }
+    if (window.location.pathname === targetPath) {
+      startTour(tourConfig, at ?? undefined);
+    } else {
+      router.visit(targetPath, {
+        onSuccess: () => startTour(tourConfig, at ?? undefined),
+      });
+    }
+  };
+
   useEffect(() => {
     const onBefore = () => {
       navIdCounter += 1;
@@ -91,25 +113,8 @@ export default function AppLayout({ title, children }) {
       <WelcomeModal
         show={phase === 'welcome'}
         canResume={savedPosition !== null}
-        onStartTour={() => {
-          if (tourConfig) startTour(tourConfig);
-        }}
-        onResumeTour={() => {
-          if (!tourConfig || !savedPosition) return;
-          const targetRoute = tourConfig.pages[savedPosition.page].route;
-          // Navigate to the saved tour page first, then enter touring so
-          // TourManager never matches the wrong page mid-transition.
-          const targetPath = route(targetRoute);
-          const currentPath = window.location.pathname;
-          const samePage = targetPath.endsWith(currentPath) || currentPath === targetPath;
-          if (samePage) {
-            startTour(tourConfig, savedPosition);
-          } else {
-            router.visit(targetPath, {
-              onSuccess: () => startTour(tourConfig, savedPosition),
-            });
-          }
-        }}
+        onStartTour={() => launchTour(null)}
+        onResumeTour={() => launchTour(savedPosition)}
         onSkipTour={() => {
           skipOnboarding().then(() => endTour()).catch(() => endTour());
         }}

@@ -98,13 +98,22 @@ class OnboardingService
     // ─────────────────────────────────────────────
 
     /**
-     * Mark a page guide as seen for the user. Idempotent.
+     * Hard caps preventing unbounded growth of the UX-state JSON columns —
+     * ~30 real route names and ~4 checklist ids exist; anything beyond the
+     * cap is a client bug or abuse and is silently ignored.
+     */
+    public const MAX_SEEN_GUIDES = 100;
+
+    public const MAX_CHECKLIST_ITEMS = 50;
+
+    /**
+     * Mark a page guide as seen for the user. Idempotent and capped.
      * $route is the Ziggy route name of the guided page.
      */
     public function markGuideSeen(User $user, string $route): void
     {
         $seen = $user->seen_page_guides ?? [];
-        if (in_array($route, $seen, true)) {
+        if (in_array($route, $seen, true) || count($seen) >= self::MAX_SEEN_GUIDES) {
             return;
         }
 
@@ -126,7 +135,7 @@ class OnboardingService
         $progress = $user->checklist_progress ?? ['items' => [], 'dismissed_at' => null];
         $items = $progress['items'] ?? [];
 
-        if (isset($items[$itemId])) {
+        if (isset($items[$itemId]) || count($items) >= self::MAX_CHECKLIST_ITEMS) {
             return;
         }
 

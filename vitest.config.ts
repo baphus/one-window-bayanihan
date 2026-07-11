@@ -19,6 +19,10 @@ export default defineConfig({
             '**/vendor/**',
             '**/e2e/**',
             '.omo/**',
+            // Other sessions' git worktrees — their test copies import '@/'
+            // which aliases into THIS tree's resources/js, so running them
+            // here tests a mixed franken-state.
+            '.claude/**',
         ],
     },
     resolve: {

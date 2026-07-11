@@ -216,6 +216,33 @@ class OnboardingServiceTest extends TestCase
         $this->assertArrayHasKey('visit-reports', $user->checklist_progress['items']);
     }
 
+    public function test_mark_guide_seen_is_capped(): void
+    {
+        $seen = array_map(fn ($i) => "route.$i", range(1, OnboardingService::MAX_SEEN_GUIDES));
+        $user = User::factory()->create(['seen_page_guides' => $seen]);
+
+        app(OnboardingService::class)->markGuideSeen($user, 'one.more');
+        $user->refresh();
+
+        $this->assertCount(OnboardingService::MAX_SEEN_GUIDES, $user->seen_page_guides);
+        $this->assertNotContains('one.more', $user->seen_page_guides);
+    }
+
+    public function test_mark_checklist_item_is_capped(): void
+    {
+        $items = [];
+        foreach (range(1, OnboardingService::MAX_CHECKLIST_ITEMS) as $i) {
+            $items["item-$i"] = '2026-07-11T00:00:00Z';
+        }
+        $user = User::factory()->create(['checklist_progress' => ['items' => $items, 'dismissed_at' => null]]);
+
+        app(OnboardingService::class)->markChecklistItem($user, 'one-more');
+        $user->refresh();
+
+        $this->assertCount(OnboardingService::MAX_CHECKLIST_ITEMS, $user->checklist_progress['items']);
+        $this->assertArrayNotHasKey('one-more', $user->checklist_progress['items']);
+    }
+
     public function test_get_onboarding_state_defaults_new_fields(): void
     {
         $user = User::factory()->create([

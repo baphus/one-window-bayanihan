@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 import { route } from 'ziggy-js';
-import { useOnboarding } from '@/Onboarding/OnboardingProvider';
+import { useOnboardingOptional } from '@/Onboarding/OnboardingProvider';
 import { getPageGuide } from '@/Onboarding/registry';
 
 /**
@@ -10,8 +10,9 @@ import { getPageGuide } from '@/Onboarding/registry';
  * first visit (guide not yet seen) — never auto-opens.
  */
 export default function PageGuideButton() {
-    const { url } = usePage();
-    const { startPageGuide, seenGuides, phase, activePageGuide } = useOnboarding();
+    const { url, props } = usePage();
+    const onboarding = useOnboardingOptional();
+    const isGuest = !props?.auth?.user;
 
     // Resolve the current Ziggy route name; url is a dependency so the
     // lookup re-runs on every Inertia navigation.
@@ -25,12 +26,16 @@ export default function PageGuideButton() {
     }, [url]);
 
     const guide = currentRoute ? getPageGuide(currentRoute) : null;
-    if (!guide) return null;
+    if (!guide || !onboarding) return null;
+
+    const { startPageGuide, seenGuides, phase, activePageGuide } = onboarding;
 
     // Keep the button visible during the welcome tour so its intro step can
     // highlight it, but don't launch a guide on top of an active overlay.
     const overlayActive = phase === 'touring' || activePageGuide !== null;
-    const unseen = !seenGuides.includes(currentRoute) && !overlayActive;
+    // Guests (public Helpdesk pages) have no persisted seen-state, so never
+    // pulse for them — a nudge that can't be dismissed permanently is noise.
+    const unseen = !isGuest && !seenGuides.includes(currentRoute) && !overlayActive;
 
     return (
         <button

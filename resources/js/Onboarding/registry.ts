@@ -19,6 +19,7 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="dashboard-header"]', title: 'Your Daily Start', description: 'The dashboard is your starting point every day — a summary of the work that needs attention, scoped to your role.', side: 'bottom' },
             { element: '[data-tour="getting-started-checklist"]', title: 'Getting Started', description: 'Your first key actions live in this checklist. Items tick off automatically as you complete them, and you can dismiss the card once you feel at home.', side: 'bottom' },
             { element: '[data-tour="dashboard-stats"]', title: 'Key Numbers', description: 'These tiles summarize your workload. Most are clickable and jump straight to the filtered list behind the number.', side: 'bottom' },
+            { element: '[data-tour="dashboard-work-queue"]', title: 'Your Work Queue', description: 'The dispatch board: the cases and referrals that need movement first, ordered by urgency. Click any tile to jump to the filtered list.', side: 'bottom' },
             { element: '[data-tour="dashboard-work-queues"]', title: 'Work Queues', description: 'Where to look first: open cases, pending and processing referrals, compliance items, and overdue referrals across the system.', side: 'bottom' },
             { element: '[data-tour="dashboard-admin-tools"]', title: 'Admin Tools', description: 'Quick access to Users, Agencies, Services, Reports, Audit Logs, and Sessions.', side: 'left' },
         ],

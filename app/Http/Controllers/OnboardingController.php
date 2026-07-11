@@ -71,7 +71,7 @@ class OnboardingController extends Controller
     public function markGuideSeen(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'route' => 'required|string|max:120',
+            'route' => ['required', 'string', 'max:120', 'regex:/^[a-zA-Z0-9._-]+$/'],
         ]);
 
         $this->service->markGuideSeen($request->user(), $validated['route']);
@@ -85,7 +85,7 @@ class OnboardingController extends Controller
     public function markChecklistItem(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'item' => 'required|string|max:64',
+            'item' => ['required', 'string', 'max:64', 'regex:/^[a-z0-9-]+$/'],
         ]);
 
         $this->service->markChecklistItem($request->user(), $validated['item']);

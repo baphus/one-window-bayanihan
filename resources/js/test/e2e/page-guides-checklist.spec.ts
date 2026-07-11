@@ -109,12 +109,17 @@ test.describe('Page guides', () => {
         await launcher.click();
         await page.waitForSelector('.driver-popover', { timeout: 5000 });
 
-        // Walk to the final step (bounded)
-        for (let i = 0; i < 10; i++) {
-            const readmore = page.locator('.driver-popover-readmore a');
-            if ((await readmore.count()) > 0) break;
-            await page.locator('.driver-popover-next-btn').click();
-            await page.waitForTimeout(400);
+        // Walk to the final step: wait for the read-more link on each step
+        // before advancing, so a slow popover re-render can't cause an extra
+        // click past the final step (which would close the guide).
+        let found = false;
+        for (let i = 0; i < 12 && !found; i++) {
+            try {
+                await page.waitForSelector('.driver-popover-readmore a', { timeout: 1500 });
+                found = true;
+            } catch {
+                await page.locator('.driver-popover-next-btn').click();
+            }
         }
 
         const readmore = page.locator('.driver-popover-readmore a');

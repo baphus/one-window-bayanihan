@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
-import { useOnboarding } from './OnboardingProvider';
+import { useOnboardingOptional } from './OnboardingProvider';
 import { getChecklist } from './checklist';
 
 interface AuthProps {
@@ -17,9 +17,14 @@ interface AuthProps {
 export default function useChecklistVisitTracking(): void {
     const { url, props } = usePage();
     const role = (props as AuthProps).auth?.user?.role;
-    const { checklistProgress, markChecklistItem } = useOnboarding();
+    // Optional so layouts rendered without the app shell (tests) no-op.
+    const onboarding = useOnboardingOptional();
+    const checklistProgress = onboarding?.checklistProgress;
+    const markChecklistItem = onboarding?.markChecklistItem;
 
     useEffect(() => {
+        if (!checklistProgress || !markChecklistItem) return;
+
         let current: string | null = null;
         try {
             current = route().current() ?? null;

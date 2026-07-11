@@ -19,7 +19,8 @@ export const adminTour: TourConfig = {
                 { element: '[data-tour="getting-started-checklist"]', title: 'Getting-Started Checklist', description: 'Your first key actions — add a user, register an agency, review System Settings. Items tick off automatically as you complete them.', side: 'bottom' as const },
                 { element: '[data-tour="sidebar-nav"]', title: 'The Full Map', description: 'Everything is in the sidebar: case operations, agency management, system health logs, taxonomies, data export, maintenance, and security settings.', side: 'right' as const },
                 { element: '[data-tour="page-guide-button"]', title: 'Every Page Has a Guide', description: 'With ~20 admin pages, this ? button is your friend — click it on any page for a quick walkthrough. It pulses on pages you haven\'t explored yet.', side: 'bottom' as const, align: 'end' as const },
-                { element: '[data-tour="chatbot-launcher"]', title: 'Ask Bayani Anytime', description: 'The AI assistant answers questions about system behavior and procedures. The Help Center has in-depth articles, including admin guides.', side: 'left' as const },
+                { element: '[data-tour="sidebar-help"]', title: 'The Help Center', description: 'In-depth articles including admin guides — system settings, user management, taxonomies, and monitoring. It opens in a new tab.', side: 'right' as const },
+                { element: '[data-tour="chatbot-launcher"]', title: 'Ask Bayani Anytime', description: 'The AI assistant answers questions about system behavior and procedures — right from any page.', side: 'left' as const },
             ],
         },
         {

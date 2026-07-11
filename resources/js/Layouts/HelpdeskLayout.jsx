@@ -3,6 +3,9 @@ import { useState, useMemo, useEffect } from 'react';
 
 import ChatBot from '@/Components/ChatBot';
 import AppHeader from '@/Components/landing/AppHeader';
+import PageGuideButton from '@/Components/PageGuideButton';
+import TourManager from '@/Onboarding/TourManager';
+import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
 import { categories as categoryData, buildCategoryTree } from '@/data/helpdesk/categories';
 import { articles } from '@/data/helpdesk/articles';
 import { searchArticles } from '@/data/helpdesk/search';
@@ -251,6 +254,10 @@ export default function HelpdeskLayout({
   // Always compute sidebar from the flat data module, not from page props.
   const parentCategories = useMemo(() => buildCategoryTree(categoryData, articles), []);
 
+  // Helpdesk pages live outside AppLayout, so the page-guide system and
+  // checklist visit tracking (marks "open-help-center") mount here too.
+  useChecklistVisitTracking();
+
   const handleSearch = (q) => {
     router.visit('/help/search?q=' + encodeURIComponent(q));
   };
@@ -269,15 +276,17 @@ export default function HelpdeskLayout({
       <AppHeader onTrackCaseClick={() => router.visit(route('track.index'))} />
 
       <ChatBot />
+      <TourManager />
 
       <div className="mx-auto max-w-7xl px-4 pb-8 pt-24 sm:px-6 lg:px-8">
-        {showCompactSearch && (
-          <div className="mb-4 flex justify-end pt-3">
+        <div className={`flex items-center justify-end gap-3 pt-3 ${showCompactSearch ? 'mb-4' : 'mb-2'}`}>
+          {showCompactSearch && (
             <div className="w-full max-w-xs">
               <SearchBar query={query} onSearch={handleSearch} />
             </div>
-          </div>
-        )}
+          )}
+          <PageGuideButton />
+        </div>
 
         {showSidebar && <MobileTopicsDisclosure categories={parentCategories} activeSlug={activeSlug} />}
 

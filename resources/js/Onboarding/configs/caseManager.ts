@@ -17,7 +17,8 @@ export const caseManagerTour: TourConfig = {
                 { element: '[data-tour="getting-started-checklist"]', title: 'Getting-Started Checklist', description: 'Your first key actions live here — create your first case, send a referral, and explore Reports. Items tick off automatically as you complete them.', side: 'bottom' as const },
                 { element: '[data-tour="sidebar-nav"]', title: 'Everything Lives Here', description: 'Cases, Drafts, Clients, Referrals, Overdue Referrals, Stakeholders, Reports, and Audit Logs — the sidebar is your map of the whole workspace.', side: 'right' as const },
                 { element: '[data-tour="page-guide-button"]', title: 'Every Page Has a Guide', description: 'Click this ? button on any page for a quick walkthrough of what\'s on it. It pulses on pages you haven\'t explored yet.', side: 'bottom' as const, align: 'end' as const },
-                { element: '[data-tour="chatbot-launcher"]', title: 'Ask Bayani Anytime', description: 'The AI assistant answers questions about procedures, statuses, and where to find things. The Help Center in the sidebar has in-depth articles too.', side: 'left' as const },
+                { element: '[data-tour="sidebar-help"]', title: 'The Help Center', description: 'In-depth articles on every workflow — case documentation, referrals, reports, and more. It opens in a new tab so you never lose your place.', side: 'right' as const },
+                { element: '[data-tour="chatbot-launcher"]', title: 'Ask Bayani Anytime', description: 'The AI assistant answers questions about procedures, statuses, and where to find things — right from any page.', side: 'left' as const },
             ],
         },
         {
