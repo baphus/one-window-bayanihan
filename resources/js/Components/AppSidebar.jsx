@@ -2,6 +2,7 @@ import { Link, usePage, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import NotificationPanel from '@/Components/ui/NotificationPanel';
+import PageGuideButton from '@/Components/PageGuideButton';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import { useOnboarding } from '@/Onboarding/OnboardingProvider';
 import { replayOnboarding } from '@/Onboarding/api';
@@ -220,6 +221,7 @@ export default function AppSidebar() {
                 {roleLabels[user?.role] || user?.role}
               </span>
             </div>
+            <PageGuideButton />
             <NotificationPanel />
           </div>
 

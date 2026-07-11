@@ -5,7 +5,7 @@ import { useOnboardingOptional } from '@/Onboarding/OnboardingProvider';
 import { getPageGuide } from '@/Onboarding/registry';
 
 /**
- * The [?] page-guide launcher, rendered once in the AppLayout header.
+ * The [?] page-guide launcher, rendered once in the app sidebar.
  * Visible only when the current route has a registered guide. Pulses on
  * first visit (guide not yet seen) — never auto-opens.
  */
