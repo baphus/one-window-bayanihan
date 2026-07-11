@@ -1,25 +1,200 @@
 # Bayanihan One Window
 
-Laravel project for the Bayanihan One Window system. The codebase follows Laravel conventions and uses Eloquent as the primary model and schema workflow.
+A centralized inter-agency case management system for distressed Overseas Filipino Workers (OFWs) in Region VII, built by the Department of Migrant Workers (DMW).
 
-## Stack
-- Laravel (Eloquent-first)
-- PostgreSQL (Supabase managed DB)
-- Inertia.js + React + Tailwind CSS
-- Supabase Storage (S3-compatible) for file uploads
-- Redis for cache/queues
-- Pusher (or laravel-websockets) for realtime
-- UUID primary keys and audit columns
-- RBAC via `users.role` column (CheckRole middleware)
+**"One OFW, One Entry"**
 
-## Quick start
-1. Copy `.env.example` to `.env` and fill DB, Supabase, Pusher, Redis values.
-2. Generate app key: `php artisan key:generate`
-3. Run migrations: `php artisan migrate`
-4. Install frontend: `npm install` then `npm run dev`
+## What It Does
 
-## Notes
-- Models use UUID primary keys via a shared `UsesUuid` trait.
-- Soft delete audit fields (`is_deleted`, `deleted_at`, `deleted_by`) are required on case/referral tables.
+Bayanihan One Window coordinates case management across multiple government agencies (OWWA, DOLE, TESDA, DSWD, DOH, Law Center, and LGUs). DMW Case Managers create unified case files, then refer them to partner agencies — each agency works in their own lane while the system tracks progress, milestones, and closure.
 
-If you want the Inertia + React scaffolding installed, ask me to run Breeze setup.
+### Key Features
+
+- **Case Management** — Intake, drafting, publishing, and lifecycle tracking
+- **Referral System** — Parallel referrals to multiple agencies with independent status tracking
+- **Public OFW Tracking** — OTP-verified portal for case progress visibility
+- **AI Chatbot** — Interactive helpdesk for OFW inquiries
+- **Reporting & Analytics** — Dashboards, PDF/CSV exports, AI-powered insights
+- **Helpdesk Knowledge Base** — Categorized articles with search and feedback
+- **Audit Trail** — Immutable append-only audit log for compliance
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Laravel 13, PHP 8.3 |
+| Frontend | React 18, Inertia.js, Tailwind CSS 3 |
+| Database | PostgreSQL 17 (Supabase) |
+| File Storage | Supabase Storage (S3-compatible) |
+| Build Tool | Vite 8 |
+| Auth | Custom OTP MFA (email-based) |
+| RBAC | Spatie Laravel Permission |
+| Queue | Database-driven |
+| Hosting | Render |
+
+## Quick Start
+
+### Prerequisites
+
+- PHP 8.3+
+- Node.js 18+
+- PostgreSQL 17 (or Supabase account)
+- Composer
+
+### Setup
+
+```bash
+# Clone and install
+git clone <repo-url>
+cd one-window-bayanihan
+composer run setup
+```
+
+This runs: `composer install` → copy `.env` → keygen → migrate → `npm install` → build.
+
+### Development
+
+```bash
+composer run dev
+```
+
+Starts three processes concurrently:
+- **Laravel server** (`php artisan serve`)
+- **Queue worker** (`php artisan queue:listen`)
+- **Vite dev server** (`npm run dev` at `127.0.0.1:5173`)
+
+### Environment Variables
+
+Key `.env` settings:
+
+```env
+# Database
+DB_CONNECTION=pgsql
+DB_HOST=your-supabase-host
+DB_DATABASE=postgres
+DB_USERNAME=your-user
+DB_PASSWORD=your-password
+
+# Storage (Supabase S3-compatible)
+FILESYSTEM_DISK=supabase
+SUPABASE_URL=your-supabase-url
+SUPABASE_KEY=your-service-role-key
+
+# Cache/Queue/Session (all database-backed)
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+SESSION_DRIVER=database
+
+# Mail
+MAIL_MAILER=log  # or smtp in production
+```
+
+## Testing
+
+```bash
+# Run all tests
+composer run test
+
+# Run specific test file
+php artisan test tests/Feature/CaseControllerTest.php
+
+# Run specific test method
+php artisan test --filter test_case_manager_can_create_case
+
+# Frontend tests
+npm run test:run
+
+# E2E tests (auto-starts server on port 8000)
+npm run test:e2e
+```
+
+## Project Structure
+
+```
+one-window-bayanihan/
+├── app/
+│   ├── Console/Commands/       # Artisan commands
+│   ├── DTOs/                   # Data transfer objects
+│   ├── Events/                 # Event classes
+│   ├── Exceptions/             # Error codes, custom exceptions
+│   ├── Helpers/                # Utility helpers
+│   ├── Http/
+│   │   ├── Controllers/        # Thin controllers → Services
+│   │   ├── Middleware/          # Auth, RBAC, security, CSP
+│   │   └── Requests/           # Form validation
+│   ├── Listeners/              # Event subscribers
+│   ├── Mail/                   # Mailable classes
+│   ├── Models/                 # Eloquent models (UUID PKs)
+│   ├── Notifications/          # Database notifications
+│   ├── Observers/              # Audit logging
+│   ├── Providers/              # Service providers
+│   └── Services/               # Business logic layer
+├── database/
+│   ├── factories/              # Model factories
+│   ├── migrations/             # Schema migrations
+│   └── seeders/                # Data seeders
+├── docs/                       # Project documentation
+├── resources/
+│   ├── css/                    # Tailwind entry
+│   └── js/
+│       ├── Components/         # Reusable React components
+│       ├── Hooks/              # Custom React hooks
+│       ├── Layouts/            # Page layouts
+│       ├── Pages/              # Inertia page components
+│       ├── Schemas/            # Zod validation schemas
+│       ├── Onboarding/         # Onboarding system
+│       ├── lib/                # Utility functions
+│       └── data/               # Static data (helpdesk articles, addresses)
+├── routes/
+│   ├── auth.php                # Authentication routes
+│   └── web.php                 # Application routes
+├── tests/
+│   ├── Feature/                # Controller/middleware tests
+│   └── Unit/                   # Service/model tests
+└── docker/                     # Docker configuration
+```
+
+## Architecture
+
+```
+Browser → HTTPS → Laravel (Middleware) → Controller → Service → Model → PostgreSQL
+         ← Inertia.js ← React Component ←
+```
+
+- **Middleware stack:** Session → Auth → CSRF → Role → IP Whitelist (admin)
+- **RBAC:** `CASE_MANAGER`, `AGENCY`, `ADMIN` roles via `users.role`
+- **Lane isolation:** Agencies see only their referrals (application + RLS enforcement)
+- **Audit:** Immutable append-only log for all critical actions
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design.
+
+## Key Conventions
+
+| Area | Convention |
+|---|---|
+| Primary Keys | UUID v4 via `UsesUuid` trait |
+| Soft Deletes | Flag-based: `is_deleted` + `deleted_at` + `deleted_by` |
+| Controllers | Thin — delegate to `app/Services/*` |
+| Validation | Form Request classes in `app/Http/Requests/` |
+| Frontend | Default exports in PascalCase `.jsx` (or `.tsx` if existing) |
+| Forms | Inertia `useForm()` + `useUnsavedChanges(dirty)` |
+| Styling | Tailwind utilities only — no custom CSS |
+| Icons | Material Symbols |
+| State | Inertia props + local React state (no Redux) |
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [Architecture](docs/ARCHITECTURE.md) | System design, deployment topology |
+| [Project Rules](docs/PROJECT_RULES.md) | Business rules, conventions, decisions |
+| [Data Model](docs/DATA_MODEL.md) | Database schema, 39 tables |
+| [Testing Strategy](docs/TESTING_STRATEGY.md) | Test approach, patterns, coverage |
+| [API Contracts](docs/API_CONTRACTS.md) | Route definitions, request/response |
+| [Security](docs/SECURITY_REQUIREMENTS.md) | Security controls and compliance |
+| [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Build, deploy, release procedure |
+| [Audit Strategy](docs/AUDIT_STRATEGY.md) | Audit log design and retention |
+
+## License
+
+MIT
