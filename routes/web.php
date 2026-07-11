@@ -23,6 +23,7 @@ use App\Http\Controllers\CaseDocumentController;
 use App\Http\Controllers\CaseIssueController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
@@ -35,8 +36,6 @@ use App\Http\Controllers\StakeholderController;
 use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
 use App\Models\Agency;
-use App\Services\DashboardService;
-use App\Services\ReportsService;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -61,23 +60,7 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', function () {
-        $service = app(DashboardService::class);
-        $reportsService = app(ReportsService::class);
-        $user = request()->user();
-
-        $data = match ($user->role) {
-            'AGENCY' => $service->getAgencyData($user),
-            'ADMIN' => $service->getAdminData(),
-            default => $service->getCaseManagerData($user),
-        };
-
-        $data['role'] = $user->role;
-        $data['caseTrends'] = $reportsService->getCaseTrends();
-        $data['referralStatusDistribution'] = $reportsService->getReferralStatusDistribution();
-
-        return Inertia::render('Dashboard', $data);
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

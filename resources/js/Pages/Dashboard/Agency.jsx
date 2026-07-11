@@ -1,128 +1,160 @@
-import { router } from '@inertiajs/react';
-import DashboardBanner from '@/Components/DashboardBanner';
-import KpiCard from '@/Components/ui/KpiCard';
+import { usePage } from '@inertiajs/react';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import RecentTable from '@/Components/ui/RecentTable';
-import ActivityItem from '@/Components/Dashboard/ActivityItem';
-import { Send, FolderCheck, Eye, TrendingUp, ChevronRight } from 'lucide-react';
+import {
+    ActivityFeed,
+    BarList,
+    EmptyState,
+    EntityList,
+    EntityRow,
+    PageHeader,
+    QuickActions,
+    SectionCard,
+    StatRow,
+    StatusDonut,
+    TriageStrip,
+    ViewAllLink,
+    formatCount,
+    safeArray,
+} from '@/Components/Dashboard/primitives';
 
-export default function AgencyDashboard({ dashboard }) {
-    const { stats, recentReferrals = [], recentActivity = [], dashboardNotifications = [] } = dashboard || {};
+function formatAge(days) {
+    const parsed = Number(days ?? 0);
+    return parsed > 0 ? `${parsed}d` : 'New';
+}
+
+function PulseStat({ label, value }) {
+    return (
+        <div className="rounded-lg bg-slate-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+            <p className="mt-0.5 text-lg font-black text-slate-900">{value}</p>
+        </div>
+    );
+}
+
+export default function AgencyDashboard({ dashboard = {} }) {
+    const { auth } = usePage().props;
+    const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
+
+    const priorityReferrals = safeArray(dashboard.priorityReferrals).slice(0, 8);
+    const serviceDemand = safeArray(dashboard.serviceDemand).slice(0, 6);
+    const agingBands = safeArray(dashboard.referralAgingBands);
+    const pulse = dashboard.feedbackPulse ?? {};
+    const hasPulse = Boolean(pulse.hasData);
 
     return (
-        <div className="max-w-7xl mx-auto pb-6">
-            <DashboardBanner />
-            <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Agency Dashboard</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Overview of your agency's referrals and performance.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                </div>
-            </header>
+        <div className="mx-auto max-w-7xl pb-8">
+            <PageHeader
+                eyebrow="Agency focal"
+                title={`Welcome back, ${firstName}`}
+                subtitle="Referrals assigned to your agency, ordered by what needs action first."
+            >
+                <QuickActions
+                    actions={[
+                        { href: '/referrals', label: 'Open referrals', icon: 'send', primary: true },
+                        { href: '/overdue-referrals', label: 'Overdue', icon: 'warning' },
+                        { href: '/feedbacks', label: 'Feedback', icon: 'reviews' },
+                        { href: '/reports', label: 'Reports', icon: 'bar_chart' },
+                    ]}
+                />
+            </PageHeader>
 
-            <section data-tour="dashboard-stats" className="mb-6">
-                <div data-tour="dashboard-agency-metrics" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <KpiCard title="Total Referrals" value={stats.totalReferrals} icon="send" iconBg="bg-amber-50" iconColor="text-amber-600" />
-                    <KpiCard title="Pending" value={stats.pendingReferrals} icon="hourglass" iconBg="bg-yellow-50" iconColor="text-yellow-600" />
-                    <KpiCard title="Processing" value={stats.processingReferrals} icon="sync" iconBg="bg-blue-50" iconColor="text-blue-600" />
-                    <KpiCard title="Completed" value={stats.completedReferrals} icon="check_circle" iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+            <StatRow
+                dataTour="dashboard-agency-metrics"
+                stats={[
+                    { title: 'Pending', value: dashboard.pendingReferrals, icon: 'schedule', iconBg: 'bg-amber-50', iconColor: 'text-amber-700' },
+                    { title: 'Processing', value: dashboard.processingReferrals, icon: 'sync', iconBg: 'bg-cyan-50', iconColor: 'text-cyan-700' },
+                    { title: 'For compliance', value: dashboard.forComplianceReferrals, icon: 'fact_check', iconBg: 'bg-orange-50', iconColor: 'text-orange-700' },
+                    { title: 'Completed', value: dashboard.completedReferrals, icon: 'task_alt', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-700' },
+                ]}
+            />
+
+            <TriageStrip items={dashboard.workQueue} dataTour="dashboard-work-queue" />
+
+            <div className="grid gap-6 xl:grid-cols-12">
+                <div className="space-y-6 xl:col-span-8">
+                    <SectionCard
+                        title="Priority referrals"
+                        dataTour="dashboard-agency-referrals"
+                        action={<ViewAllLink href="/referrals" />}
+                        bodyClassName=""
+                    >
+                        <EntityList empty={<EmptyState message="No referrals need action right now." href="/referrals" actionLabel="Open referrals" />}>
+                            {priorityReferrals.map((item) => (
+                                <EntityRow
+                                    key={item.id}
+                                    href={item.href ?? `/referrals/${item.id}`}
+                                    pill={item.caseNo}
+                                    title={item.clientName}
+                                    note={item.service}
+                                    age={formatAge(item.ageDays)}
+                                    right={<StatusBadge status={item.status} />}
+                                />
+                            ))}
+                        </EntityList>
+                    </SectionCard>
+
+                    <SectionCard title="Recent activity" action={<ViewAllLink href="/audit-logs" />}>
+                        <ActivityFeed items={dashboard.recentActivity} limit={6} />
+                    </SectionCard>
                 </div>
-            </section>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-                <div data-tour="dashboard-agency-referrals" className="lg:col-span-8">
-                    <RecentTable
-                        title="Recent Referrals"
-                        data={recentReferrals ?? []}
-                        columns={[
-                            { key: 'case_number', title: 'Case #', render: (row) => row.case_file?.case_number ?? 'N/A' },
-                            { key: 'client', title: 'Client', render: (row) => row.case_file?.client ? `${row.case_file.client.first_name} ${row.case_file.client.last_name}` : 'N/A' },
-                            { key: 'service', title: 'Service', render: (row) => row.required_services },
-                            { key: 'status', title: 'Status', render: (row) => (
-                                <StatusBadge status={row.status} />
-                            )},
-                        ]}
-                        keyExtractor={(row) => row.id}
-                        onViewAll={() => router.visit(route('referrals.index'))}
-                    />
-                </div>
+                <div className="space-y-6 xl:col-span-4">
+                    <SectionCard title="Referral status">
+                        {safeArray(dashboard.referralStatusDistribution).length > 0 ? (
+                            <StatusDonut items={dashboard.referralStatusDistribution} />
+                        ) : (
+                            <p className="text-sm text-slate-500">Status distribution appears once referrals arrive.</p>
+                        )}
+                    </SectionCard>
 
-                <div className="lg:col-span-4 space-y-3">
-                    <div data-tour="dashboard-quick-actions" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Quick Actions</h3>
-                        <div className="space-y-2">
-                            <button
-                                onClick={() => router.visit(route('referrals.index'))}
-                                className="w-full py-2.5 px-3.5 bg-blue-900 text-white rounded-lg flex items-center justify-between hover:bg-blue-800 active:scale-[0.98] transition-all shadow-sm"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <Send className="w-3.5 h-3.5" /> View Referrals
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-                            </button>
-                            <button
-                                onClick={() => router.visit(route('agency.services.index'))}
-                                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <FolderCheck className="w-3.5 h-3.5 text-slate-400" /> Manage Services
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                            </button>
-                            <button
-                                onClick={() => router.visit(route('audit-logs.index'))}
-                                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <Eye className="w-3.5 h-3.5 text-slate-400" /> Activity Logs
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                            </button>
-                            <button
-                                onClick={() => router.visit(route('reports.index'))}
-                                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <TrendingUp className="w-3.5 h-3.5 text-slate-400" /> Reports
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                            </button>
-                        </div>
-                    </div>
+                    <SectionCard title="Referral aging">
+                        {agingBands.length > 0 ? (
+                            <BarList
+                                items={agingBands.map((item) => ({
+                                    key: item.key,
+                                    label: item.label,
+                                    count: item.count,
+                                    percent: item.percent,
+                                    tone: item.tone,
+                                }))}
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">Aging bands appear once active referrals are present.</p>
+                        )}
+                    </SectionCard>
 
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-100">
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Activity</h3>
-                        </div>
-                        <div className="p-4">
-                            <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
-                                {(recentActivity ?? []).length === 0 ? (
-                                    <p className="text-xs text-slate-400 py-2">No recent activity.</p>
-                                ) : (
-                                    (recentActivity ?? []).slice(0, 5).map((activity) => (
-                                        <ActivityItem
-                                            key={activity.id}
-                                            title={activity.title}
-                                            desc={activity.desc}
-                                            time={activity.time?.toUpperCase() ?? ''}
-                                            logoSrc={activity.logoSrc ?? '/logo.png'}
-                                            actionType={activity.actionType}
-                                            actor={activity.actor}
-                                            message={activity.message}
-                                            detail={activity.detail}
-                                        />
-                                    ))
-                                )}
+                    <SectionCard title="Service demand">
+                        {serviceDemand.length > 0 ? (
+                            <BarList
+                                items={serviceDemand.map((item) => ({
+                                    key: item.serviceId ?? item.serviceName,
+                                    label: item.serviceName,
+                                    count: item.totalCount,
+                                    detail: `${item.activeCount} active · ${item.completionRate}% completion`,
+                                    tone: 'blue',
+                                }))}
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">Demand appears once referrals request your services.</p>
+                        )}
+                    </SectionCard>
+
+                    <SectionCard title="Client feedback" action={<ViewAllLink href="/feedbacks" />}>
+                        {hasPulse ? (
+                            <div className="space-y-3">
+                                <div className="grid grid-cols-3 gap-2">
+                                    <PulseStat label="Response" value={`${formatCount(pulse.responseRate)}%`} />
+                                    <PulseStat label="Rating" value={pulse.avgRating ?? '—'} />
+                                    <PulseStat label="SERVQUAL" value={pulse.avgServqual ?? '—'} />
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    {formatCount(pulse.totalSubmitted)} of {formatCount(pulse.totalSent)} invitations answered.
+                                </p>
                             </div>
-                            <button
-                                onClick={() => router.visit(route('audit-logs.index'))}
-                                className="w-full mt-3 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors text-center"
-                            >
-                                VIEW ALL ACTIVITY
-                            </button>
-                        </div>
-                    </div>
+                        ) : (
+                            <p className="text-sm text-slate-500">Feedback signals appear once clients respond to invitations.</p>
+                        )}
+                    </SectionCard>
                 </div>
             </div>
         </div>

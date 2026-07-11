@@ -43,7 +43,9 @@ class DashboardController extends Controller
             $data['caseTrends'] = $reportsService->getCaseTrends();
         }
 
-        $data['referralStatusDistribution'] = $reportsService->getReferralStatusDistribution();
+        // referralStatusDistribution comes role-scoped from DashboardService;
+        // overwriting it with the global ReportsService version would leak
+        // system-wide numbers onto agency dashboards.
 
         return $data;
     }
