@@ -1,12 +1,4 @@
-import { router } from '@inertiajs/react';
-import { useMemo } from 'react';
-import { Doughnut, Bar } from 'react-chartjs-2';
-import {
-    Chart as ChartJS,
-    CategoryScale, LinearScale, BarElement,
-    ArcElement, Title, Tooltip, Legend,
-} from 'chart.js';
-import { FolderCheck, Users, ArrowRightLeft, Plus, Send, Eye, ChevronRight, AlertTriangle, Clock, CheckCircle2, TrendingUp, TrendingDown, NotepadText } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatCaseAge, getCaseAgeInDays, formatStatusLabel } from '@/lib/utils';
@@ -293,280 +285,55 @@ export default function CaseManagerDashboard({ dashboard }) {
                     <p className="text-[10px] text-slate-400 mt-0.5">Overseas Filipino Workers / Next of Kin</p>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-start justify-between mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Referrals</p>
-                        <span className="p-1.5 bg-amber-50 rounded-lg"><ArrowRightLeft className="w-4 h-4 text-amber-600" /></span>
-                    </div>
-                    <p className="text-2xl font-black text-slate-900">{pendingCount}</p>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                        {pendingCount > 0 ? (
-                            <><AlertTriangle className="w-3 h-3 text-amber-500" /><span className="text-[11px] font-bold text-amber-600">Needs attention</span></>
+                <div className="space-y-6 xl:col-span-4">
+                    <SectionCard title="Referral status" dataTour="dashboard-chart">
+                        {safeArray(dashboard.referralStatusDistribution).length > 0 ? (
+                            <StatusDonut items={dashboard.referralStatusDistribution} />
                         ) : (
-                            <><CheckCircle2 className="w-3 h-3 text-emerald-500" /><span className="text-[11px] font-bold text-emerald-600">All clear</span></>
+                            <p className="text-sm text-slate-500">Status distribution appears once referrals are in play.</p>
                         )}
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{processingCount} processing · {rejectedCount} rejected</p>
-                </div>
+                    </SectionCard>
 
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-start justify-between mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Avg Resolution Time</p>
-                        <span className="p-1.5 bg-teal-50 rounded-lg"><Clock className="w-4 h-4 text-teal-600" /></span>
-                    </div>
-                    <p className="text-2xl font-black text-slate-900">{Number(stats.averageCaseDaysToClose ?? 0).toFixed(1)} <span className="text-sm font-bold text-slate-400">days</span></p>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                        <TrendingDown className="w-3 h-3 text-emerald-500" />
-                        <span className="text-[11px] font-bold text-emerald-600">{completedReferralsCount} completed referrals</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{averageReferralCompletionRate}% completion rate</p>
-                </div>
-            </section>
+                    <SectionCard title="Cases per month">
+                        {safeArray(caseTrends.labels).length > 0 ? (
+                            <TrendBar labels={caseTrends.labels} data={caseTrends.data} />
+                        ) : (
+                            <p className="text-sm text-slate-500">The trend appears as case activity accumulates.</p>
+                        )}
+                    </SectionCard>
 
-            {attentionItems.length > 0 && (
-                <section className="mb-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        <AlertTriangle className="w-4 h-4 text-amber-500" />
-                        <h2 className="text-[13px] font-bold font-headline text-slate-700">Attention Required</h2>
-                        <span className="text-[10px] font-bold text-white bg-amber-500 px-1.5 py-0.5 rounded-full">{attentionItems.length}</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {attentionItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={item.action}
-                                className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-300/50 transition-all text-left group"
-                            >
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.type === 'error' ? 'bg-rose-500' : item.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
-                                    <span className="text-[11px] font-bold text-slate-700 group-hover:text-blue-900 transition-colors">{item.title}</span>
-                                </div>
-                                <p className="text-[11px] text-slate-500 leading-relaxed pl-3.5">{item.desc}</p>
-                            </button>
-                        ))}
-                    </div>
-                </section>
-            )}
+                    <SectionCard title="Agency responsiveness">
+                        {scorecard.length > 0 ? (
+                            <BarList
+                                items={scorecard.map((item) => ({
+                                    key: item.agencyId ?? item.agencyName,
+                                    label: item.agencyName,
+                                    count: item.activeCount,
+                                    detail: `${item.overdueCount ?? 0} overdue · ${item.completionRate ?? 0}% completion`,
+                                    tone: (item.overdueCount ?? 0) > 0 ? 'rose' : 'blue',
+                                }))}
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">A scorecard appears once referrals span multiple agencies.</p>
+                        )}
+                    </SectionCard>
 
-            <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-12 lg:col-span-8 space-y-4">
-                    <div data-tour="dashboard-recent">
-                        <RecentTable
-                            title="Active Cases"
-                            data={recentCaseRows}
-                            columns={activeCasesColumns}
-                            keyExtractor={(row) => row.rowId}
-                            onViewAll={() => router.visit('/cases')}
-                        />
-                    </div>
-
-                    {stats?.myRecentDrafts?.length > 0 && (
-                        <RecentTable
-                            title="Recent Drafts"
-                            data={stats.myRecentDrafts}
-                            columns={[
-                                { key: 'case_number', title: 'Case #', render: (row) => (
-                                    <button onClick={() => router.visit(`/cases/${row.id}`)} className="text-xs font-bold text-blue-900 hover:underline">{row.case_number}</button>
-                                )},
-                                { key: 'client_name', title: 'Client', render: (row) => (
-                                    <span className="text-xs text-slate-700">{row.client_name}</span>
-                                )},
-                                { key: 'created_at', title: 'Created', render: (row) => (
-                                    <span className="text-xs text-slate-500">{row.created_at ? formatDisplayDate(row.created_at) : '—'}</span>
-                                )},
-                            ]}
-                            keyExtractor={(row) => row.id}
-                            onViewAll={() => router.visit('/cases/drafts')}
-                        />
-                    )}
-
-                    <div data-tour="dashboard-chart" className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Status</h3>
-                            <div className="flex items-center gap-4">
-                                <div className="w-20 h-20 shrink-0">
-                                    <Doughnut data={casesStatusPieChart} options={doughnutOptions} />
-                                </div>
-                                <div className="space-y-2 flex-1">
-                                    {casesStatusStats.filter((s) => s.count > 0).map((stat) => (
-                                        <div key={stat.label} className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`w-2 h-2 rounded-full shrink-0 ${stat.label === 'Open' ? 'bg-blue-900' : 'bg-slate-300'}`} />
-                                                <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
-                                            </div>
-                                            <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Referral Status</h3>
-                            <div className="flex items-center gap-4">
-                                <div className="w-20 h-20 shrink-0">
-                                    <Doughnut data={referralPieChart} options={doughnutOptions} />
-                                </div>
-                                <div className="space-y-2 flex-1">
-                                    {referralStatusStats.map((stat) => (
-                                        <div key={stat.label} className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stat.hex }} />
-                                                <span className="text-[11px] font-medium text-slate-600">{formatStatusLabel(stat.label)}</span>
-                                            </div>
-                                            <span className="text-[11px] font-bold text-slate-800">{stat.count} ({stat.percent}%)</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Province</h3>
-                            <div className="h-44">
-                                <Bar data={provinceChartData} options={barOptionsHorizontal} />
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Agency Referral Load</h3>
-                            <div className="h-44">
-                                <Bar data={agencyChartData} options={barOptionsHorizontal} />
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Cases by Category</h3>
-                            <div className="h-44">
-                                {categoryChartData ? (
-                                    <Bar data={categoryChartData} options={barOptionsHorizontal} />
-                                ) : (
-                                    <p className="text-xs text-slate-400 py-4 text-center">No cases across any category yet.</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="text-[13px] font-bold font-headline text-slate-700 mb-3">Case Creation Trend</h3>
-                        <div className="h-32">
-                            <Bar data={casesOverTimeChart} options={barOptions} />
-                        </div>
-                    </section>
-                </div>
-
-                <div className="col-span-12 lg:col-span-4 space-y-3">
-                    <div data-tour="dashboard-quick-actions" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Quick Actions</h3>
-                        <div className="space-y-2">
-                            <button
-                                onClick={() => router.visit('/cases/create')}
-                                className="w-full py-2.5 px-3.5 bg-blue-900 text-white rounded-lg flex items-center justify-between hover:bg-blue-800 active:scale-[0.98] transition-all shadow-sm"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <Plus className="w-3.5 h-3.5" /> New Case
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-                            </button>
-                            <button
-                                onClick={() => router.visit('/referrals')}
-                                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <Send className="w-3.5 h-3.5 text-slate-400" /> New Referral
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                            </button>
-                            {stats?.myDraftCount > 0 && (
-                                <button
-                                    onClick={() => router.visit('/cases/drafts')}
-                                    className="w-full py-2.5 px-3.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg flex items-center justify-between hover:bg-amber-100 active:scale-[0.98] transition-all shadow-sm"
-                                >
-                                    <span className="flex items-center gap-2 text-[12px] font-bold">
-                                        <NotepadText className="w-3.5 h-3.5" /> View Drafts ({stats.myDraftCount})
-                                    </span>
-                                    <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-                                </button>
-                            )}
-                            <button
-                                onClick={() => router.visit('/cases')}
-                                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <FolderCheck className="w-3.5 h-3.5 text-slate-400" /> All Cases
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                            </button>
-                            <button
-                                onClick={() => router.visit('/referrals')}
-                                className="w-full py-2.5 px-3.5 bg-white text-slate-700 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-all"
-                            >
-                                <span className="flex items-center gap-2 text-[12px] font-bold">
-                                    <Eye className="w-3.5 h-3.5 text-slate-400" /> All Referrals
-                                </span>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Client Snapshot</h3>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-slate-50 rounded-lg p-3">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">OFW</p>
-                                <p className="text-lg font-black text-slate-900">{stats.ofwCount ?? 0}</p>
-                            </div>
-                            <div className="bg-slate-50 rounded-lg p-3">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">NOK</p>
-                                <p className="text-lg font-black text-slate-900">{stats.nokCount ?? 0}</p>
-                            </div>
-                            <div className="bg-slate-50 rounded-lg p-3">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Processing</p>
-                                <p className="text-lg font-black text-amber-600">{processingCount}</p>
-                            </div>
-                            <div className="bg-slate-50 rounded-lg p-3">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Rejected</p>
-                                <p className="text-lg font-black text-rose-600">{rejectedCount}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-4 py-3 border-b border-slate-100">
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Activity</h3>
-                        </div>
-                        <div className="p-4">
-                            <div className="relative pl-4 border-l-2 border-slate-100 space-y-4">
-                                {recentActivity.length === 0 ? (
-                                    <p className="text-xs text-slate-400 py-2">No recent activity.</p>
-                                ) : (
-                                    recentActivity.slice(0, 5).map((activity) => (
-                                        <ActivityItem
-                                            key={activity.id}
-                                            title={activity.title}
-                                            desc={activity.desc}
-                                            time={activity.time?.toUpperCase() ?? ''}
-                                            logoSrc={activity.logoSrc ?? '/logo.png'}
-                                            actionType={activity.actionType}
-                                            actor={activity.actor}
-                                            message={activity.message}
-                                            detail={activity.detail}
-                                        />
-                                    ))
-                                )}
-                            </div>
-                            <button
-                                onClick={() => router.visit('/audit-logs')}
-                                className="w-full mt-3 text-[11px] font-bold font-label text-blue-900 hover:text-blue-700 transition-colors text-center"
-                            >
-                                VIEW ALL ACTIVITY
-                            </button>
-                        </div>
-                    </div>
+                    <SectionCard title="Case mix">
+                        {categories.length > 0 ? (
+                            <BarList
+                                items={categories.map((item) => ({
+                                    key: item.name,
+                                    label: item.name,
+                                    count: item.count,
+                                    hex: item.color,
+                                }))}
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">Category demand appears once cases are filed.</p>
+                        )}
+                    </SectionCard>
                 </div>
             </div>
         </div>
-    )
+    );
 }

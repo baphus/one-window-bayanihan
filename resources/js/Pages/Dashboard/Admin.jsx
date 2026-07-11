@@ -103,28 +103,34 @@ export default function AdminDashboard({ dashboard }) {
         overdueReferrals: 'overdue-referrals.index',
     };
 
-    const queueCards = (operationalQueues.length > 0 ? operationalQueues : [
-        { key: 'openCases', label: 'Open cases', count: stats.openCases ?? 0, note: 'Active case files that still need movement.', icon: 'folder_open' },
-        { key: 'pendingReferrals', label: 'Pending referrals', count: stats.pendingReferrals ?? 0, note: 'Waiting for first agency action.', icon: 'schedule' },
-        { key: 'processingReferrals', label: 'Processing', count: stats.processingReferrals ?? 0, note: 'Accepted and underway.', icon: 'sync' },
-        { key: 'forComplianceReferrals', label: 'For compliance', count: stats.forComplianceReferrals ?? 0, note: 'Missing documents or follow-up.', icon: 'fact_check' },
-        { key: 'overdueReferrals', label: 'Overdue referrals', count: stats.overdueReferrals ?? 0, note: 'Active referrals older than five days.', icon: 'warning' },
-    ]).map((item) => ({ ...item, route: queueRoutes[item.key] || 'referrals.index' }));
+const ADMIN_TOOLS = [
+    { label: 'Users', description: 'Roles, verification, access', route: 'admin.users.index', icon: 'group' },
+    { label: 'Agencies', description: 'Partner profiles and activation', route: 'admin.agencies.index', icon: 'business' },
+    { label: 'Services', description: 'Catalog and requirements', route: 'admin.services.index', icon: 'inventory_2' },
+    { label: 'Audit logs', description: 'Review system changes', route: 'audit-logs.index', icon: 'history' },
+    { label: 'Sessions', description: 'Monitor signed-in users', route: 'admin.system.active-sessions', icon: 'devices' },
+];
 
-    const adminActions = [
-        { label: 'Users', description: 'Roles, verification, access', route: 'admin.users.index', icon: 'group' },
-        { label: 'Agencies', description: 'Partner profiles and activation', route: 'admin.agencies.index', icon: 'business' },
-        { label: 'Services', description: 'Catalog and requirements', route: 'admin.services.index', icon: 'inventory_2' },
-        { label: 'Reports', description: 'Export trends and scorecards', route: 'reports.index', icon: 'bar_chart' },
-        { label: 'Audit logs', description: 'Review system changes', route: 'audit-logs.index', icon: 'history' },
-        { label: 'Sessions', description: 'Monitor signed-in users', route: 'admin.system.active-sessions', icon: 'devices' },
-    ];
+export default function AdminDashboard({ dashboard = {} }) {
+    const { auth } = usePage().props;
+    const firstName = auth?.user?.name?.split(' ')[0] ?? 'Administrator';
 
-    const recentCaseRows = recentCases.slice(0, 6);
-    const recentActivityRows = recentLogs.slice(0, 6);
-    const topAgencyRows = topAgencies.slice(0, 5);
-    const roleRows = usersByRole.slice(0, 4);
-    const categoryRows = casesByCategory.slice(0, 5);
+    const stats = dashboard.stats ?? dashboard;
+    const queues = safeArray(dashboard.operationalQueues).map((item) => ({
+        ...item,
+        href: QUEUE_ROUTES[item.key] ?? '/referrals',
+    }));
+    const recentCases = safeArray(dashboard.recentCases).slice(0, 6);
+    const recentLogs = safeArray(dashboard.recentLogs).slice(0, 6).map((log) => ({
+        ...log,
+        actionType: log.action ?? log.actionType,
+        title: log.message ?? log.description,
+        desc: log.detail ?? '',
+        time: log.timestamp ? formatDisplayDateTime(log.timestamp) : '',
+    }));
+    const topAgencies = safeArray(dashboard.topAgencies).slice(0, 5);
+    const usersByRole = safeArray(dashboard.usersByRole);
+    const categories = safeArray(dashboard.casesByCategory).slice(0, 5);
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
@@ -189,45 +195,23 @@ export default function AdminDashboard({ dashboard }) {
                         dataTour="dashboard-recent-cases"
                         eyebrow="Cases"
                         title="Recent case movement"
-                        action={<TextLink href={route('cases.index')}>View all cases</TextLink>}
-                        className="overflow-hidden"
+                        dataTour="admin-recent-cases"
+                        action={<ViewAllLink href={route('cases.index')}>View all cases</ViewAllLink>}
+                        bodyClassName=""
                     >
-                        <div className="divide-y divide-slate-100">
-                            {recentCaseRows.length === 0 ? (
-                                <p className="px-5 py-6 text-sm text-slate-500 sm:px-6">No recent cases yet.</p>
-                            ) : (
-                                recentCaseRows.map((item) => (
-                                    <Link
-                                        key={item.id}
-                                        href={route('cases.show', item.id)}
-                                        className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between sm:px-6"
-                                    >
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
-                                                    {item.case_number}
-                                                </span>
-                                                {item.client_type ? (
-                                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                                        {item.client_type === 'Overseas Filipino Worker' ? 'OFW' : 'NOK'}
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                            <p className="mt-2 truncate text-sm font-bold text-slate-900">{item.client_name}</p>
-                                            <p className="mt-1 text-xs text-slate-500">
-                                                {item.category ? `${item.category} · ` : ''}{item.case_owner ? `${item.case_owner} · ` : ''}Created {formatDisplayDate(item.created_at)}
-                                            </p>
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-3">
-                                            <StatusBadge status={item.status} />
-                                            <span className="hidden text-xs text-slate-500 sm:inline">Updated {formatDisplayDate(item.updated_at)}</span>
-                                            <MaterialSymbol name="chevron_right" className="text-[18px] text-slate-400" />
-                                        </div>
-                                    </Link>
-                                ))
-                            )}
-                        </div>
-                    </SectionShell>
+                        <EntityList empty={<EmptyState message="No recent cases yet." href={route('cases.index')} actionLabel="Open cases" />}>
+                            {recentCases.map((item) => (
+                                <EntityRow
+                                    key={item.id}
+                                    href={route('cases.show', item.id)}
+                                    pill={item.case_number}
+                                    title={item.client_name}
+                                    note={[item.category, item.case_owner, `Created ${formatDisplayDate(item.created_at)}`].filter(Boolean).join(' · ')}
+                                    right={<StatusBadge status={item.status} />}
+                                />
+                            ))}
+                        </EntityList>
+                    </SectionCard>
 
                     <SectionShell
                         dataTour="dashboard-recent-activity"
@@ -272,100 +256,80 @@ export default function AdminDashboard({ dashboard }) {
                         <div className="grid gap-2 p-5 sm:p-6">
                             {adminActions.map((item) => (
                                 <Link
-                                    key={item.route}
-                                    href={route(item.route)}
-                                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 transition-colors hover:border-primary/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                    key={tool.route}
+                                    href={route(tool.route)}
+                                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 >
-                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                        <MaterialSymbol name={item.icon} className="text-[20px]" />
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                        <MaterialSymbol name={tool.icon} className="text-[18px]" />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                        <span className="block text-sm font-bold text-slate-900">{item.label}</span>
-                                        <span className="block text-xs leading-5 text-slate-500">{item.description}</span>
+                                        <span className="block text-sm font-bold text-slate-900">{tool.label}</span>
+                                        <span className="block truncate text-xs text-slate-500">{tool.description}</span>
                                     </span>
-                                    <MaterialSymbol name="chevron_right" className="text-[18px] text-slate-400" />
+                                    <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
                                 </Link>
                             ))}
                         </div>
-                    </SectionShell>
+                    </SectionCard>
 
-                    <SectionShell eyebrow="Agencies" title="Partner load">
-                        <div className="grid grid-cols-2 gap-3 px-5 pt-5 sm:px-6">
-                            <SoftMetric label="Active" value={stats.activeAgencies ?? 0} icon="check_circle" tone="emerald" />
-                            <SoftMetric label="Inactive" value={stats.inactiveAgencies ?? 0} icon="pause_circle" tone="slate" />
-                        </div>
-                        <div className="space-y-3 p-5 sm:p-6">
-                            {topAgencyRows.length === 0 ? (
-                                <p className="text-sm text-slate-500">No agency load data yet.</p>
-                            ) : (
-                                topAgencyRows.map((agency) => {
-                                    const maxLoad = Math.max(...topAgencyRows.map((row) => Number(row.activeReferrals ?? row.totalReferrals ?? 0)), 1);
-                                    const width = Math.max(((agency.activeReferrals ?? agency.totalReferrals ?? 0) / maxLoad) * 100, 8);
+                    <SectionCard title="Referral status">
+                        {safeArray(dashboard.referralStatusDistribution).length > 0 ? (
+                            <StatusDonut items={dashboard.referralStatusDistribution} />
+                        ) : (
+                            <p className="text-sm text-slate-500">Status distribution appears once referrals exist.</p>
+                        )}
+                    </SectionCard>
 
-                                    return (
-                                        <div key={agency.id}>
-                                            <div className="flex items-center justify-between gap-3 text-sm">
-                                                <span className="truncate font-semibold text-slate-900">{agency.name}</span>
-                                                <span className="shrink-0 text-xs text-slate-500">{formatCount(agency.activeReferrals ?? 0)} active</span>
-                                            </div>
-                                            <div className="mt-2 h-2 rounded-full bg-slate-100">
-                                                <div className="h-2 rounded-full bg-primary" style={{ width: `${width}%` }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </SectionShell>
+                    <SectionCard title="Agency load">
+                        {topAgencies.length > 0 ? (
+                            <BarList
+                                items={topAgencies.map((agency) => ({
+                                    key: agency.id,
+                                    label: agency.name,
+                                    count: agency.activeReferrals,
+                                    detail: `${formatCount(agency.totalReferrals)} total referrals`,
+                                    tone: 'blue',
+                                }))}
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">Agency load appears once referrals are assigned.</p>
+                        )}
+                    </SectionCard>
 
-                    <SectionShell eyebrow="Users" title="Access overview">
-                        <div className="grid grid-cols-2 gap-3 px-5 pt-5 sm:px-6">
-                            <SoftMetric label="Users" value={stats.totalUsers ?? 0} icon="groups" />
-                            <SoftMetric label="Verified" value={stats.verifiedUsers ?? 0} icon="verified_user" tone="cyan" />
-                        </div>
-                        <div className="space-y-2 p-5 sm:p-6">
-                            {roleRows.length === 0 ? (
-                                <p className="text-sm text-slate-500">No role data yet.</p>
-                            ) : (
-                                roleRows.map((role) => (
-                                    <div key={role.role} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-900">{role.label}</p>
-                                            <p className="text-xs text-slate-500">{role.role}</p>
-                                        </div>
-                                        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">{formatCount(role.count)}</span>
+                    <SectionCard title="Users by role">
+                        {usersByRole.length > 0 ? (
+                            <div className="space-y-2">
+                                {usersByRole.map((role) => (
+                                    <div key={role.role} className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="font-semibold text-slate-800">{role.label}</span>
+                                        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">{formatCount(role.count)}</span>
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </SectionShell>
+                                ))}
+                                <p className="pt-1 text-xs text-slate-400">
+                                    {formatCount(stats.verifiedUsers)} of {formatCount(stats.totalUsers)} users verified.
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-500">No role data yet.</p>
+                        )}
+                    </SectionCard>
 
-                    <SectionShell eyebrow="Categories" title="Case mix">
-                        <div className="space-y-3 p-5 sm:p-6">
-                            {categoryRows.length === 0 ? (
-                                <p className="text-sm text-slate-500">No category data yet.</p>
-                            ) : (
-                                categoryRows.map((category) => {
-                                    const count = Number(category.count ?? 0);
-                                    const maxCount = Math.max(...categoryRows.map((item) => Number(item.count ?? 0)), 1);
-                                    const width = Math.max((count / maxCount) * 100, 10);
-
-                                    return (
-                                        <div key={category.name}>
-                                            <div className="flex items-center justify-between gap-3 text-sm">
-                                                <span className="truncate font-semibold text-slate-900">{category.name}</span>
-                                                <span className="shrink-0 text-xs text-slate-500">{formatCount(category.count)}</span>
-                                            </div>
-                                            <div className="mt-2 h-2 rounded-full bg-slate-100">
-                                                <div className="h-2 rounded-full" style={{ width: `${width}%`, backgroundColor: category.color || '#005288' }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </SectionShell>
-                </aside>
+                    <SectionCard title="Case mix">
+                        {categories.length > 0 ? (
+                            <BarList
+                                items={categories.map((category) => ({
+                                    key: category.name,
+                                    label: category.name,
+                                    count: category.count,
+                                    hex: category.color,
+                                }))}
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">Category mix appears once cases are filed.</p>
+                        )}
+                    </SectionCard>
+                </div>
             </div>
         </div>
     );

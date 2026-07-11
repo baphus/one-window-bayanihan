@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Feedback;
 use App\Models\FeedbackInvitation;
 use App\Models\Referral;
@@ -24,22 +23,6 @@ class DashboardService
         $formatter = app(AuditLogFormatter::class);
 
         $myDraftCount = $user ? CaseFile::where('status', 'DRAFT')->where('user_id', $user->id)->count() : 0;
-
-        $myRecentDrafts = $user
-            ? CaseFile::with('client')
-                ->where('status', 'DRAFT')
-                ->where('user_id', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->take(3)
-                ->get()
-                ->map(fn ($d) => [
-                    'id' => $d->id,
-                    'case_number' => $d->case_number,
-                    'client_name' => $d->client ? trim(($d->client->first_name ?? '').' '.($d->client->last_name ?? '')) : 'N/A',
-                    'created_at' => $d->created_at?->toISOString(),
-                ])
-                ->toArray()
-            : [];
 
         $totalCases = CaseFile::where('status', '!=', 'DRAFT')->count();
         $openCases = CaseFile::where('status', 'OPEN')->count();
@@ -61,86 +44,6 @@ class DashboardService
             ->map(fn ($pair) => implode(' ', array_filter($pair->toArray())))
             ->unique()
             ->count();
-
-        $ofwCount = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
-        $nokCount = CaseFile::where('client_type', 'NEXT_OF_KIN')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
-
-        $maleCount = Client::whereHas('caseFiles', fn ($q) => $q->whereNotIn('status', ['DRAFT', 'ARCHIVED']))
-            ->where('sex', 'MALE')
-            ->count();
-
-        $femaleCount = Client::whereHas('caseFiles', fn ($q) => $q->whereNotIn('status', ['DRAFT', 'ARCHIVED']))
-            ->where('sex', 'FEMALE')
-            ->count();
-
-        $pwdCount = Client::whereHas('caseFiles', fn ($q) => $q
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->where(fn ($q2) => $q2
-                ->where('vulnerability_indicator', 'PWD')
-                ->orWhere('nok_vulnerability_indicator', 'PWD')
-            )
-        )->count();
-
-        $seniorCount = Client::whereHas('caseFiles', fn ($q) => $q
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->where(fn ($q2) => $q2
-                ->where('vulnerability_indicator', 'Senior Citizen')
-                ->orWhere('nok_vulnerability_indicator', 'Senior Citizen')
-            )
-        )->count();
-
-        $singleParentCount = Client::whereHas('caseFiles', fn ($q) => $q
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->where(fn ($q2) => $q2
-                ->where('vulnerability_indicator', 'Solo Parent')
-                ->orWhere('nok_vulnerability_indicator', 'Solo Parent')
-            )
-        )->count();
-
-        $rawProvinces = CaseFile::select('ca.province', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
-            ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
-            ->whereNotNull('ca.province')
-            ->where('ca.province', '!=', '')
-            ->groupBy('ca.province')
-            ->orderByDesc('total')
-            ->get();
-
-        $resolver = app(AddressNameResolver::class);
-        $aggregated = [];
-        foreach ($rawProvinces as $row) {
-            $name = $resolver->resolve($row->province);
-            $aggregated[$name] = ($aggregated[$name] ?? 0) + (int) $row->total;
-        }
-        arsort($aggregated);
-
-        $casesByProvince = collect($aggregated)
-            ->map(fn ($count, $province) => ['province' => $province, 'count' => $count])
-            ->values()
-            ->toArray();
-
-        $agencyBreakdown = Agency::withCount('referrals')
-            ->orderByDesc('referrals_count')
-            ->get()
-            ->map(fn ($a) => [
-                'agencyName' => $a->name,
-                'count' => (int) $a->referrals_count,
-                'logoUrl' => $a->logo_url ?? '/logo.png',
-            ])
-            ->toArray();
-
-        $casesOverTime = CaseFile::select(
-            DB::raw("to_char(created_at, 'YYYY-MM') as month"),
-            DB::raw('count(*) as total')
-        )
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->where('created_at', '>=', now()->subMonths(6))
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->map(fn ($row) => ['key' => $row->month, 'label' => $row->month, 'count' => (int) $row->total])
-            ->toArray();
 
         $recentActivity = AuditLog::with('user')
             ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
@@ -183,22 +86,6 @@ class DashboardService
             })
             ->toArray();
 
-        $recentCases = CaseFile::with(['client', 'user'])
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get()
-            ->map(fn ($c) => [
-                'id' => $c->id,
-                'case_number' => $c->case_number,
-                'client_name' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
-                'client_type' => $c->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
-                'created_at' => $c->created_at?->toISOString() ?? now()->toISOString(),
-                'status' => $c->status,
-            ])
-            ->values()
-            ->toArray();
-
         $allCases = CaseFile::with(['client', 'user'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->orderBy('created_at', 'desc')
@@ -216,30 +103,6 @@ class DashboardService
             ])
             ->values()
             ->toArray();
-
-        $referralsData = $allReferrals->map(fn ($r) => [
-            'id' => $r->id,
-            'caseId' => $r->case_id,
-            'caseNo' => $r->caseFile?->case_number ?? 'N/A',
-            'clientName' => $r->caseFile?->client ? trim(($r->caseFile->client->first_name ?? '').' '.($r->caseFile->client->last_name ?? '')) : 'N/A',
-            'service' => $r->required_services,
-            'agencyId' => $r->agcy_id,
-            'agencyName' => $r->agency?->name ?? 'N/A',
-            'status' => $r->status,
-            'createdAt' => $r->created_at?->toISOString() ?? now()->toISOString(),
-            'updatedAt' => $r->updated_at?->toISOString() ?? now()->toISOString(),
-        ])->values()->toArray();
-
-        $recentNotifications = $user
-            ? $user->notifications()->latest()->take(3)->get()->map(fn ($n) => [
-                'id' => $n->id,
-                'title' => $n->data['message'] ?? 'Notification',
-                'message' => $n->data['message'] ?? '',
-                'time' => $n->created_at->diffForHumans(),
-                'read' => $n->read_at !== null,
-                'type' => $n->data['type'] ?? 'info',
-            ])
-            : collect();
 
         $closedCaseDays = CaseFile::where('status', 'CLOSED')
             ->selectRaw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days')
@@ -270,8 +133,9 @@ class DashboardService
         $priorityReferrals = $this->buildPriorityReferrals($allReferrals, 8, true);
         $priorityCases = $this->buildPriorityCases($allCases, $allReferrals, 8);
         $agencyResponseScorecard = $this->buildAgencyResponseScorecard($allReferrals);
+        $caseIdsWithReferrals = $allReferrals->pluck('case_id')->filter()->flip();
         $casesWithoutReferrals = collect($allCases)
-            ->filter(fn ($case) => ($case['status'] ?? null) === 'OPEN' && $allReferrals->where('case_id', $case['id'])->isEmpty())
+            ->filter(fn ($case) => ($case['status'] ?? null) === 'OPEN' && ! $caseIdsWithReferrals->has($case['id']))
             ->count();
 
         $workQueue = [
@@ -293,20 +157,7 @@ class DashboardService
             'totalReferrals' => $totalReferrals,
             'activeAgencies' => $activeAgencies,
             'uniqueClientCount' => $uniqueClientCount,
-            'ofwCount' => $ofwCount,
-            'nokCount' => $nokCount,
-            'maleCount' => $maleCount,
-            'femaleCount' => $femaleCount,
-            'pwdCount' => $pwdCount,
-            'seniorCount' => $seniorCount,
-            'singleParentCount' => $singleParentCount,
-            'recentCases' => $recentCases,
-            'allCases' => $allCases,
-            'allReferrals' => $referralsData,
-            'casesByProvince' => $casesByProvince,
             'casesByCategory' => $casesByCategory,
-            'agencyBreakdown' => $agencyBreakdown,
-            'casesOverTime' => $casesOverTime,
             'referralStatusDistribution' => $referralStatusDistribution,
             'referralAgingBands' => $referralAgingBands,
             'priorityReferrals' => $priorityReferrals,
@@ -314,10 +165,8 @@ class DashboardService
             'agencyResponseScorecard' => $agencyResponseScorecard,
             'workQueue' => $workQueue,
             'recentActivity' => $recentActivity,
-            'dashboardNotifications' => $recentNotifications->toArray(),
             'averageCaseDaysToClose' => $averageCaseDaysToClose,
             'myDraftCount' => $myDraftCount,
-            'myRecentDrafts' => $myRecentDrafts,
         ];
     }
 
@@ -339,13 +188,6 @@ class DashboardService
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $recentReferrals = Referral::with(['caseFile.client', 'agency'])
-            ->where('agcy_id', $agencyId)
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get()
-            ->toArray();
-
         $referralStatusDistribution = $this->buildStatusDistribution($agencyReferrals, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED']);
         $referralAgingBands = $this->buildReferralAgingBands($agencyReferrals);
         $priorityReferrals = $this->buildPriorityReferrals($agencyReferrals, 8, false);
@@ -364,33 +206,7 @@ class DashboardService
             $this->queueItem('returnedReferrals', 'Returned', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals'),
         ];
 
-        $pendingNotifications = $user
-            ? $user->notifications()->latest()->take(3)->get()->map(fn ($n) => [
-                'id' => $n->id,
-                'title' => $n->data['message'] ?? 'Notification',
-                'message' => $n->data['message'] ?? '',
-                'time' => $n->created_at->diffForHumans(),
-                'read' => $n->read_at !== null,
-                'type' => $n->data['type'] ?? 'info',
-            ])
-                ->toArray()
-            : [];
-
-        $referralIds = Referral::where('agcy_id', $agencyId)->pluck('id');
-        $casesByCategory = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
-            ->join('referrals', 'referrals.case_id', '=', 'cases.id')
-            ->where('referrals.agcy_id', $agencyId)
-            ->groupBy('case_categories.name', 'case_categories.color')
-            ->orderBy('count', 'desc')
-            ->get()
-            ->map(fn ($row) => [
-                'name' => $row->name,
-                'color' => $row->color,
-                'count' => (int) $row->count,
-            ])
-            ->toArray();
+        $referralIds = $agencyReferrals->pluck('id');
 
         $recentActivity = AuditLog::whereIn('entity_id', $referralIds)
             ->whereIn('module', ['referral', 'referrals'])
@@ -439,10 +255,7 @@ class DashboardService
             'forComplianceReferrals' => $forComplianceReferrals,
             'completedReferrals' => $completedReferrals,
             'rejectedReferrals' => $rejectedReferrals,
-            'recentReferrals' => $recentReferrals,
             'recentActivity' => $recentActivity,
-            'dashboardNotifications' => $pendingNotifications,
-            'casesByCategory' => $casesByCategory,
             'workQueue' => $workQueue,
             'referralStatusDistribution' => $referralStatusDistribution,
             'referralAgingBands' => $referralAgingBands,
@@ -467,9 +280,35 @@ class DashboardService
         $pendingReferrals = Referral::where('status', 'PENDING')->count();
         $processingReferrals = Referral::where('status', 'PROCESSING')->count();
         $forComplianceReferrals = Referral::where('status', 'FOR_COMPLIANCE')->count();
+        $completedReferrals = Referral::where('status', 'COMPLETED')->count();
+        $rejectedReferrals = Referral::where('status', 'REJECTED')->count();
         $overdueReferrals = Referral::whereIn('status', $activeReferralStatuses)
             ->where('created_at', '<', $dashboardWindow)
             ->count();
+
+        $statusCounts = [
+            'PENDING' => $pendingReferrals,
+            'PROCESSING' => $processingReferrals,
+            'FOR_COMPLIANCE' => $forComplianceReferrals,
+            'COMPLETED' => $completedReferrals,
+            'REJECTED' => $rejectedReferrals,
+        ];
+        $otherCount = max($totalReferrals - array_sum($statusCounts), 0);
+        if ($otherCount > 0) {
+            $statusCounts['OTHER'] = $otherCount;
+        }
+        $statusTotal = max($totalReferrals, 1);
+        $referralStatusDistribution = collect($statusCounts)
+            ->map(fn (int $count, string $status) => [
+                'status' => $status,
+                'label' => $this->statusLabel($status),
+                'count' => $count,
+                'percent' => (int) round(($count / $statusTotal) * 100),
+                'tone' => $this->statusTone($status),
+            ])
+            ->filter(fn (array $item) => $item['count'] > 0)
+            ->values()
+            ->toArray();
 
         $totalUsers = User::count();
         $activeUsers = User::where('is_active', true)->count();
@@ -663,6 +502,7 @@ class DashboardService
             'activeAgencies' => $activeAgencies,
             'inactiveAgencies' => $inactiveAgencies,
             'operationalQueues' => $operationalQueues,
+            'referralStatusDistribution' => $referralStatusDistribution,
             'usersByRole' => $usersByRole,
             'topAgencies' => $topAgencies,
             'recentCases' => $recentCases,

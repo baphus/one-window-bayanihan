@@ -1,3 +1,4 @@
+import { Head, Deferred, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo } from 'react';
@@ -13,6 +14,18 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatDisplayDateTime, formatStatusLabel } from '@/lib/utils';
 import DashboardBanner from '@/Components/DashboardBanner';
+import { DashboardSkeleton } from '@/Components/Dashboard/primitives';
+import AdminDashboard from './Dashboard/Admin';
+import AgencyDashboard from './Dashboard/Agency';
+import CaseManagerDashboard from './Dashboard/CaseManager';
+import TourPrototype from './__TourPrototype';
+
+function DashboardContent({ role }) {
+    const { dashboard } = usePage().props;
+
+    if (role === 'ADMIN') {
+        return <AdminDashboard dashboard={dashboard ?? {}} />;
+    }
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import AdminDispatchDashboard from './Dashboard/Admin';
 
@@ -1287,55 +1300,26 @@ export default function Dashboard(props) {
     } = dashboardProps;
 
     if (role === 'AGENCY') {
-        return (
-            <AppLayout title="Dashboard">
-                <Head title="Dashboard" />
-                <AgencyDashboard
-                    stats={stats}
-                    recentReferrals={recentReferrals}
-                    recentActivity={recentActivity}
-                    dashboardNotifications={dashboardNotifications}
-                    workQueue={dashboardProps.workQueue}
-                    referralStatusDistribution={dashboardProps.referralStatusDistribution}
-                    referralAgingBands={dashboardProps.referralAgingBands}
-                    priorityReferrals={dashboardProps.priorityReferrals}
-                    serviceDemand={dashboardProps.serviceDemand}
-                    feedbackPulse={dashboardProps.feedbackPulse}
-                    casesByCategory={dashboardProps.casesByCategory}
-                />
-            </AppLayout>
-        );
+        return <AgencyDashboard dashboard={dashboard ?? {}} />;
     }
 
-    if (role === 'ADMIN') {
-        return (
-            <AppLayout title="Dashboard">
-                <Head title="Dashboard" />
-                <AdminDispatchDashboard dashboard={dashboardProps} />
-            </AppLayout>
-        );
-    }
+    return <CaseManagerDashboard dashboard={dashboard ?? {}} />;
+}
+
+export default function Dashboard({ role }) {
+    const showTourPrototype = typeof window !== 'undefined'
+        && new URLSearchParams(window.location.search).get('__TOUR_PROTO__') === '1';
 
     return (
         <AppLayout title="Dashboard">
             <Head title="Dashboard" />
-            <CaseManagerDashboard
-                stats={stats}
-                allCases={allCases ?? []}
-                allReferrals={allReferrals ?? []}
-                casesByProvince={casesByProvince ?? []}
-                agencyBreakdown={agencyBreakdown ?? []}
-                casesByCategory={casesByCategory ?? []}
-                casesOverTime={casesOverTime ?? []}
-                recentActivity={recentActivity ?? []}
-                dashboardNotifications={dashboardNotifications ?? []}
-                workQueue={dashboardProps.workQueue}
-                referralStatusDistribution={dashboardProps.referralStatusDistribution}
-                referralAgingBands={dashboardProps.referralAgingBands}
-                priorityReferrals={dashboardProps.priorityReferrals}
-                priorityCases={dashboardProps.priorityCases}
-                agencyResponseScorecard={dashboardProps.agencyResponseScorecard}
-            />
+            <div className="mx-auto max-w-7xl">
+                <DashboardBanner />
+            </div>
+            {showTourPrototype && <TourPrototype />}
+            <Deferred data="dashboard" fallback={<DashboardSkeleton />}>
+                <DashboardContent role={role} />
+            </Deferred>
         </AppLayout>
     );
 }
