@@ -38,12 +38,14 @@ class DashboardController extends Controller
 
         $data['role'] = $user->role;
 
-        // getCaseTrends() is heavy — only fetch for CASE_MANAGER and ADMIN
-        if ($user->role !== 'AGENCY') {
+        // getCaseTrends() is heavy — only the case manager dashboard renders it
+        if (! in_array($user->role, ['AGENCY', 'ADMIN'], true)) {
             $data['caseTrends'] = $reportsService->getCaseTrends();
         }
 
-        $data['referralStatusDistribution'] = $reportsService->getReferralStatusDistribution();
+        // referralStatusDistribution comes role-scoped from DashboardService;
+        // overwriting it with the global ReportsService version would leak
+        // system-wide numbers onto agency dashboards.
 
         return $data;
     }

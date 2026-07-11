@@ -159,6 +159,38 @@ class DashboardServiceTest extends TestCase
         $this->assertContains('6-10 days', array_column($data['referralAgingBands'], 'label'));
     }
 
+    #[Test]
+    public function case_manager_payload_omits_full_datasets(): void
+    {
+        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+
+        $data = app(DashboardService::class)->getCaseManagerData($caseManager);
+
+        $this->assertArrayNotHasKey('allCases', $data);
+        $this->assertArrayNotHasKey('allReferrals', $data);
+        $this->assertArrayHasKey('priorityCases', $data);
+        $this->assertArrayHasKey('workQueue', $data);
+        $this->assertArrayHasKey('referralStatusDistribution', $data);
+    }
+
+    #[Test]
+    public function admin_payload_includes_scoped_referral_status_distribution(): void
+    {
+        $agency = Agency::factory()->create();
+        $case = $this->createCaseForClient();
+        Referral::factory()->pending()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+        ]);
+
+        $data = app(DashboardService::class)->getAdminData();
+
+        $this->assertNotEmpty($data['referralStatusDistribution']);
+        $this->assertContains('PENDING', array_column($data['referralStatusDistribution'], 'status'));
+        $this->assertArrayHasKey('percent', $data['referralStatusDistribution'][0]);
+        $this->assertArrayHasKey('tone', $data['referralStatusDistribution'][0]);
+    }
+
     private function createCaseForClient(array $attributes = []): CaseFile
     {
         $client = Client::factory()->create();
