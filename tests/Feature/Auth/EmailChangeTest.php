@@ -64,14 +64,27 @@ class EmailChangeTest extends TestCase
 
     public function test_send_otp_requires_password_and_email(): void
     {
-        // Validation works in production but test env hits 500 from HandleInertiaRequests
-        // middleware querying shared props. The FormRequest correctly requires both fields.
-        $this->markTestSkipped('Skipped: HandleInertiaRequests share() triggers 500 on validation redirect in test env.');
+        $response = $this
+            ->actingAs($this->user)
+            ->from(route('profile.edit'))
+            ->post(route('profile.email-change.send-otp'), []);
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionHasErrors(['password', 'new_email']);
     }
 
     public function test_send_otp_rejects_wrong_password(): void
     {
-        $this->markTestSkipped('Skipped: HandleInertiaRequests share() triggers 500 on validation redirect in test env.');
+        $response = $this
+            ->actingAs($this->user)
+            ->from(route('profile.edit'))
+            ->post(route('profile.email-change.send-otp'), [
+                'password' => 'wrong-password',
+                'new_email' => 'new@example.com',
+            ]);
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionHasErrors(['password']);
     }
 
     public function test_verify_otp_requires_authentication(): void
@@ -117,10 +130,25 @@ class EmailChangeTest extends TestCase
 
     public function test_verify_otp_fails_with_invalid_otp(): void
     {
-        // The OtpService mock works but the ValidationException redirect triggers
-        // HandleInertiaRequests share() which hits a 500 in the test environment.
-        // The controller logic is verified by test_verify_otp_changes_email_and_logs_audit
-        // which proves the OTP verification path works end-to-end.
-        $this->markTestSkipped('Skipped: HandleInertiaRequests share() triggers 500 on validation redirect in test env.');
+        $this->actingAs($this->user);
+
+        $this->mock(OtpService::class, function ($mock) {
+            $mock->shouldReceive('verify')
+                ->once()
+                ->andReturn(false);
+        });
+
+        $response = $this
+            ->from(route('profile.edit'))
+            ->post(route('profile.email-change.verify-otp'), [
+                'new_email' => 'new@example.com',
+                'otp' => '000000',
+            ]);
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionHasErrors(['otp']);
+
+        $this->user->refresh();
+        $this->assertEquals('old@example.com', $this->user->email);
     }
 }
