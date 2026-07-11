@@ -1,38 +1,39 @@
-# Bayanihan One Window — Project Rules
+# Project Rules
 
-> **Source:** SRS v1.2 (May 19, 2026) — Bayanihan One Window: An Inter-Agency Referral and Tracking System for Distressed OFWs in Region VII
-> **Last Updated:** 2026-05-28
+> **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Verified against:** actual source code
 
 ---
 
 ## 1. Project Identity
 
-**Product:** Bayanihan One Window v1.0  
+**Product:** Bayanihan One Window  
 **Domain:** Inter-agency case coordination for distressed Overseas Filipino Workers (OFWs)  
 **Authority:** Department of Migrant Workers (DMW) Region VII  
 **Motto:** "One OFW, One Entry"  
 **Legal Basis:** RA 11641 (DMW Act), RA 10173 (Data Privacy Act), DICT Cloud First Policy  
 
-The system is a centralized inter-agency coordination platform — not a replacement for participating agencies' internal systems. It enables DMW Region VII to create and govern Unified Master Case Files shared with authorized partner agencies (OWWA, DOLE, TESDA, DSWD, DOH, Law Center Inc., and LGUs in Bohol, Cebu, Siquijor).
+The system is a centralized inter-agency coordination platform — not a replacement for participating agencies' internal systems. DMW Region VII creates Unified Master Case Files shared with authorized partner agencies (OWWA, DOLE, TESDA, DSWD, DOH, Law Center Inc., and LGUs in Bohol, Cebu, Siquijor).
 
 ---
 
 ## 2. Immutable Architecture Decisions
 
-These decisions SHALL NOT be changed without documented architectural review:
-
 | Decision | Choice | Rationale |
-|---|---|---|
-| Backend Framework | Laravel (PHP) | SRS §3.3.1 — authoritative application control layer |
-| Frontend Framework | React 18 | SRS §3.3.1 — dynamic UI rendering |
-| Frontend Integration | Inertia.js | SRS §3.3.1 — no separate API gateway |
-| Styling | Tailwind CSS 3 | SRS §3.1 — consistent visual language |
-| Database | PostgreSQL 17 (Supabase) | SRS §3.3.2 — managed ACID-compliant RDBMS |
-| Application Hosting | Render | SRS §3.3.3 — managed cloud hosting |
-| Media Storage | Supabase Storage | SRS §3.3.4 — secure object storage + CDN |
-| Auth | OTP-based MFA (email) | SRS §4.1 — custom login, not Breeze |
-| Queue | Database-driven | AGENTS.md — no Redis dependency |
-| Cache | Database-driven | SRS §2.4 — CACHE_STORE=database |
+|----------|--------|-----------|
+| Backend Framework | Laravel 13, PHP ^8.3 | Application control layer |
+| Frontend Framework | React 18 | Dynamic UI rendering |
+| Frontend Integration | Inertia.js v2 | SPA without API gateway |
+| Styling | Tailwind CSS 3 | Utility-first, no custom CSS |
+| Database | PostgreSQL 17 (Supabase) | Managed ACID-compliant RDBMS |
+| Application Hosting | Render (Docker) | Managed cloud hosting |
+| Media Storage | Supabase Storage (S3-compatible) | Secure object storage |
+| Auth | Custom OTP + TOTP MFA | Email OTP + Google Authenticator |
+| RBAC | Custom `CheckRole` middleware | `users.role` column, NOT Spatie |
+| CAPTCHA | Cloudflare Turnstile | Login protection |
+| Queue | Database-driven | No Redis dependency |
+| Cache | Database-driven | No Redis dependency |
+| Session | Database-driven | `sessions` table |
+| Build Tool | Vite 8 | Fast HMR, ESM native |
 
 ---
 
@@ -40,153 +41,184 @@ These decisions SHALL NOT be changed without documented architectural review:
 
 ### 3.1 PHP / Laravel
 
-- **Models:** Use UUID primary keys via `UsesUuid` trait. All PKs are `uuid` type.
-- **Soft deletes:** Flag-based (`is_deleted` boolean + `deleted_at` timestamp + `deleted_by` FK). Not Laravel's `SoftDeletes` trait.
-- **Validation:** Form Request classes (`app/Http/Requests/`) for all controller input.
-- **Services:** Business logic in `app/Services/*` — controllers delegate to services.
-- **Service naming:** PascalCase (e.g., `CaseService`, `ReferralService`).
-- **Routes:** Route model binding for all UUID PKs; no explicit `where('id', ...)` needed.
-- **Middleware:** Custom middleware in `app/Http/Middleware/`, registered in `bootstrap/app.php`.
-- **Auth:** Spatie `laravel-permission` for RBAC. Roles: `CASE_MANAGER`, `AGENCY`, `ADMIN`.
+| Area | Convention |
+|------|-----------|
+| Primary Keys | UUID v4 via `UsesUuid` trait on all models |
+| Soft Deletes | Flag-based: `is_deleted` + `deleted_at` + `deleted_by` (via `SoftDeleteFlag` trait) |
+| Controllers | Thin — delegate ALL business logic to `app/Services/*` |
+| Validation | Form Request classes in `app/Http/Requests/` |
+| Service Layer | `app/Services/` — one service per domain (CaseService, ReferralService, etc.) |
+| Audit Logging | Service layer calls `AuditLog::log(...)` or via `AuditObserver` on model events |
+| Route Binding | Route model binding with UUID strings — no explicit `where('id', ...)` |
+| Middleware | Custom middleware in `app/Http/Middleware/`, registered in `bootstrap/app.php` |
+| RBAC | `CheckRole` middleware: `role:CASE_MANAGER,ADMIN` checks `users.role` column |
+| Date Functions | PostgreSQL functions: `to_char`, `EXTRACT`, `age` — NOT SQLite-compatible |
+| Encryption | PII uses `EncryptedString` / `EncryptedDate` casts (Laravel encrypted at-rest) |
+| Naming | PascalCase services, snake_case DB columns, camelCase PHP variables |
 
-### 3.2 JavaScript / React / Inertia
+### 3.2 React / Frontend
 
-- **Components:** PascalCase filenames and component names.
-- **Pages:** One file per route in `resources/js/Pages/`, organized by module folder.
-- **Layouts:** `AppLayout.jsx` (sidebar), `AuthenticatedLayout.jsx` (top nav), `GuestLayout.jsx` (auth).
-- **Path alias:** `@/` → `resources/js/` (configured in `tsconfig.json`).
-- **Forms:** Use Laravel's Inertia `useForm` for form state management.
-- **Unsaved changes:** Every form page MUST use `useUnsavedChanges(dirty)` hook + `<UnsavedChangesModal>`.
-- **Toast/flash:** Universal auto-toast via `HandleInertiaRequests.php` → `usePage().props.flash`. Do NOT add `seenRef`.
-- **State management:** No Redux/Zustand. Props from Inertia + local React state.
+| Area | Convention |
+|------|-----------|
+| Components | Default exports, PascalCase filenames, `.jsx` extension (unless existing `.tsx`) |
+| Path Alias | `@/` → `resources/js/` (configured in vite.config.js, tsconfig.json, vitest.config.ts) |
+| Forms | `useForm()` from `@inertiajs/react` for all mutations |
+| Navigation | `Link` / `router` from Inertia; `route()` helper (Ziggy) for URL generation |
+| Styling | Tailwind utility classes ONLY — no CSS modules, no styled-components |
+| Icons | Material Symbols (primary) + lucide-react (supplementary) |
+| State | Inertia props (primary), React useState (UI), TanStack Query (async/polling) |
+| Flash Messages | Backend sends `redirect()->with('flash', [...])` → auto-toasted by `FlashMessageWatcher` |
+| Unsaved Changes | `useUnsavedChanges(dirty)` + `UnsavedChangesModal` on form pages |
+| Charts | Chart.js + react-chartjs-2 |
+| Validation | Zod schemas in `resources/js/Schemas/` for client-side validation |
 
-### 3.3 Database
+### 3.3 File Organization
 
-- **Naming:** Snake case tables (`cases`, `referral_attachments`). Singular model names.
-- **PKs:** UUID v4 (generated by PHP, not DB).
-- **Timestamps:** Standard Laravel `created_at` / `updated_at`.
-- **Soft delete columns:** `is_deleted` (boolean, default false), `deleted_at` (nullable timestamp), `deleted_by` (nullable UUID FK → users).
-- **Audit columns:** `audit_logs` table with action, module, entity_id, old_value, new_value, user_id.
-- **JSON/JSONB:** Used for structured data in `audit_logs.old_value` / `new_value`.
-- **Constraints:** Check constraints for enum-like columns (e.g., `action IN ('CREATE','UPDATE','DELETE','VIEW','LOGIN','LOGOUT')`).
+```
+app/
+├── Http/Controllers/       # Thin controllers (route → service → response)
+├── Http/Middleware/         # Auth, RBAC, security, CSP
+├── Http/Requests/           # Form validation classes
+├── Services/               # Business logic (the "fat" layer)
+├── Models/                 # Eloquent models (UUID PKs, flag soft-deletes)
+├── Observers/              # AuditObserver for automatic audit logging
+├── Events/ + Listeners/    # Async events (email, notifications)
+├── DTOs/                   # Data transfer objects
+├── Mail/                   # Mailable classes
+├── Notifications/          # Database notification classes
+└── Helpers/                # Utility functions
 
-### 3.4 Testing
-
-- **Framework:** PHPUnit with Laravel test helpers.
-- **Database:** SQLite in-memory (test-specific), NOT PostgreSQL.
-- **Gotcha:** PostgreSQL-specific functions (`to_char`, `EXTRACT`, `age`) will fail in tests.
-- **Factories:** `UserFactory` MUST set `role` explicitly (no default in factory).
-- **Queue:** Overridden to `sync` in `phpunit.xml`.
-- **Cache:** Overridden to `array` in `phpunit.xml`.
+resources/js/
+├── Pages/                  # Inertia page components (resolved from routes)
+├── Components/             # Reusable React components
+├── Hooks/                  # Custom React hooks
+├── Layouts/                # AppLayout, HelpdeskLayout, GuestLayout
+├── Schemas/                # Zod validation schemas
+├── Onboarding/             # Tour system (OnboardingProvider, TourManager)
+├── lib/                    # Utility functions (dates, addresses, etc.)
+└── data/                   # Static data (countries, addresses, helpdesk)
+```
 
 ---
 
-## 4. Business Rules (from SRS §5.5)
+## 4. Business Rules
 
-| ID | Rule | Enforcement |
-|---|---|---|
-| BR-001 | Only DMW creates official case records | `role:CASE_MANAGER` gate |
-| BR-002 | Single Unified Master Case File per OFW | Auto-generated Case/Tracker Numbers |
-| BR-003 | Parallel referrals to multiple agencies | One `referrals` row per agency per case |
-| BR-004 | Referrals to established partner network only | Agency registry + FK constraint |
-| BR-005 | Lane-based data isolation (RLS) | PostgreSQL Row-Level Security |
-| BR-006 | Mandatory comment for referral decisions | Validation in ReferralController |
-| BR-007 | Append-only milestones & audit logs | Milestones + AuditLogs are INSERT-only |
-| BR-008 | Only DMW closes cases | `role:CASE_MANAGER` + terminal-state check |
-| BR-009 | OTP MFA for all access | OtpService — 6-digit, 5-min TTL |
-| BR-010 | IP whitelist for admin backend | `ip.whitelist` middleware |
-| BR-011 | Privacy-safe public tracking | Public portal hides internal comments |
-| BR-012 | Duplicate flagging on intake | Name + birthdate matching |
+### 4.1 Case Lifecycle
+
+1. **Draft** → Case Manager creates case with client data (can auto-save)
+2. **Published** → Case is active, referrals can be created
+3. **Open** → Active case with at least one referral in progress
+4. **Closed** → All referrals completed or manually closed
+5. **Archived** → Soft-removed from active views
+
+- Each case has a unique `case_number` (auto-generated) and `tracker_number` (public)
+- Cases belong to one `client` (OFW profile)
+- Cases have one `case_manager` (user_id)
+- Cases can have multiple referrals to different agencies
+
+### 4.2 Referral Lifecycle
+
+```
+PENDING → PROCESSING → FOR_COMPLIANCE → COMPLETED
+                    → REJECTED (terminal)
+```
+
+- One referral = one case + one agency
+- Agency can ACCEPT (→ PROCESSING) or REJECT (→ REJECTED)
+- `FOR_COMPLIANCE` = agency requested additional documents
+- `COMPLETED` triggers `ReferralCompleted` event → sends feedback invitation
+- Milestones track progress within a referral
+- Comments support threaded replies with visibility control
+- Attachments support versioning (replaces_id chain)
+
+### 4.3 Tracking Portal (Public)
+
+- OFW enters `tracker_number` + email on `/track`
+- System sends OTP to registered email
+- After OTP verification, OFW sees case status, referral progress, milestones
+- No authentication required (token-based session)
+
+### 4.4 Feedback (SERVQUAL)
+
+- When referral → COMPLETED, invitation is auto-emailed to client
+- Token-based form (no auth needed)
+- SERVQUAL questionnaire: expectation vs. perception (1-7 scale) per dimension
+- Each agency can configure their own questionnaire
+- One feedback per case+agency+referral (unique constraint)
+
+### 4.5 Role Rules
+
+| Rule | CASE_MANAGER | AGENCY | ADMIN |
+|------|:---:|:---:|:---:|
+| Create cases | ✅ | ❌ | ✅ |
+| Create referrals | ✅ | ❌ | ✅ |
+| Accept/reject referrals | ❌ | ✅ (own agency) | ❌ |
+| Add milestones | ❌ | ✅ (own referral) | ❌ |
+| View all cases | ✅ | ❌ (only cases with own referral) | ✅ |
+| View all referrals | ✅ | ❌ (own agency only) | ✅ |
+| Manage agencies/users | ❌ | ❌ | ✅ |
+| View audit logs | ✅ | ❌ | ✅ |
+| Export data | ✅ | ✅ (own data) | ✅ |
 
 ---
 
 ## 5. Security Principles
 
-- **RBAC** enforced server-side (Spatie). Not client-side.
-- **Least Privilege:** Application DB credentials have minimum required permissions.
-- **All DB access through application layer.** No direct client-to-DB communication.
-- **TLS 1.2+** required for all external communications.
-- **CSRF protection** enabled on all state-changing routes.
-- **Input validation** server-side for all forms. Client-side validation is secondary.
-- **Rate limiting** on login (`6/min`), OTP (`3/min`), tracking (`5/min`).
-- **Sensitive fields** (passport, address, emergency contact) encrypted at application layer.
+| Principle | Implementation |
+|-----------|----------------|
+| Defense in depth | Global middleware → route middleware → controller auth → service checks |
+| Least privilege | Role-based routes + lane isolation for agencies |
+| PII encryption | Client data encrypted at-rest via Laravel encrypted casts |
+| Immutable audit | Append-only audit_logs with PostgreSQL trigger blocking UPDATE/DELETE |
+| Hash chain integrity | SHA-256 prev_hash links audit entries |
+| Rate limiting | Per-endpoint limits on auth, OTP, API, reports |
+| CSP | Dynamic Content-Security-Policy with nonces |
+| MFA | Optional TOTP (can be policy-enforced) |
+| IP Whitelist | Admin routes restricted to configured IPs |
+| Session security | Database sessions, PostgreSQL RLS context |
 
 ---
 
-## 6. UI/UX Principles
+## 6. Testing Requirements
 
-- **Desktop-first** for administrative interfaces; **mobile-responsive** for OFW tracking portal.
-- **WCAG 2.1 Level AA** compliance mandatory.
-- **"One OFW, One Entry"** visual philosophy — single case file per OFW, lane-column tracker.
-- **Append-only interface** for milestones — no edit/delete once submitted.
-- **Confirmation dialogs** before critical actions (referral, closure, deactivation).
-- **Color NOT the only indicator** — also use icons, text labels, patterns.
+| Area | Tool | Database |
+|------|------|----------|
+| PHP Feature Tests | PHPUnit 12 | PostgreSQL (`bayanihan_test`) |
+| PHP Unit Tests | PHPUnit 12 | PostgreSQL (`bayanihan_test`) |
+| Frontend Unit Tests | Vitest + Testing Library | JSDOM |
+| E2E Tests | Playwright | Live server (port 8000) |
 
----
-
-## 7. Audit & Compliance
-
-- **Append-only audit log** for all critical actions (FR-AUD-001–008).
-- **Audited events:** auth attempts, case/referral CRUD, milestone entries, document access, admin config changes.
-- **VIEW events** tracked for case and referral access.
-- **Audit log access** itself is auditable.
-- **Corrections** recorded as new entries, not edits.
+**Important:** Tests use PostgreSQL, NOT SQLite. The `phpunit.xml` explicitly sets `DB_CONNECTION=pgsql` and `DB_DATABASE=bayanihan_test`. PostgreSQL-specific functions (`to_char`, `EXTRACT`, `age`) are used throughout.
 
 ---
 
-## 8. Documentation Standards
+## 7. Naming Conventions
 
-All documentation in `docs/`:
-
-| File | Purpose |
-|---|---|
-| `PROJECT_RULES.md` | This file — conventions, decisions, principles |
-| `ARCHITECTURE.md` | System architecture, deployment topology |
-| `DATA_MODEL.md` | ERD, table definitions, relationships |
-| `API_CONTRACTS.md` | Route definitions, request/response shapes |
-| `UI_PATTERNS.md` | Component library, layout patterns, states |
-| `SECURITY_REQUIREMENTS.md` | SRS §5.3 requirements mapped to controls |
-| `ACCESSIBILITY_REQUIREMENTS.md` | WCAG 2.1 AA compliance matrix |
-| `REQUIREMENTS_TRACEABILITY.md` | Full SRS req → implementation mapping |
-| `IMPLEMENTATION_BACKLOG.md` | Deferred features, known gaps |
-| `TESTING_STRATEGY.md` | Test approach, coverage targets |
-| `DEPLOYMENT_GUIDE.md` | Build, deploy, release procedure |
-| `AUDIT_STRATEGY.md` | Audit log design, retention, review |
+| Entity | Pattern | Example |
+|--------|---------|---------|
+| Controller | `PascalCaseController` | `CaseController`, `AdminUserController` |
+| Service | `PascalCaseService` | `CaseService`, `ReportsService` |
+| Model | `PascalCase` (singular) | `CaseFile`, `Referral`, `Agency` |
+| Migration | `yyyy_mm_dd_HHMMSS_description` | `2026_06_01_000001_create_core_reference_tables` |
+| Route Name | `dot.notation` | `cases.index`, `admin.users.store` |
+| React Page | `PascalCase/PascalCase.jsx` | `Case/Index.jsx`, `Admin/User/Show.jsx` |
+| React Component | `PascalCase.jsx` | `StatusBadge.jsx`, `UnifiedTable.jsx` |
+| Custom Hook | `useCamelCase.js` | `useUnsavedChanges.jsx`, `useToast.jsx` |
+| DB Table | `snake_case` (plural) | `cases`, `referral_attachments` |
+| DB Column | `snake_case` | `created_at`, `agcy_id`, `is_deleted` |
+| API Route | `kebab-case` | `/referrals/export-excel`, `/mark-all-read` |
 
 ---
 
-## 9. Actor Definitions (from SRS §2.3)
+## 8. Key Gotchas
 
-| Actor | Privilege | Responsibilities |
-|---|---|---|
-| **SYSTEM ADMINISTRATOR** | Highest | User/agency management, system config, audit review |
-| **DMW CASE MANAGER** | Case governance | Intake, referral dispatch, monitoring, closure |
-| **AGENCY/LGU FOCAL PERSON** | Lane-restricted | Accept/reject referrals, record milestones |
-| **OFW TRACKING USER** | Public (OTP) | View case progress, submit feedback |
-
----
-
-## 10. SRS Requirement Prefixes
-
-| Prefix | Category | Source |
-|---|---|---|
-| FR-AUTH | Authentication | SRS §4.1 |
-| FR-ADM | Administration | SRS §4.2 |
-| FR-INT | Intake/Case | SRS §4.3 |
-| FR-DOC | Documents | SRS §4.4 |
-| FR-REF | Referrals | SRS §4.5 |
-| FR-TRK | Tracking/Monitoring | SRS §4.6 |
-| FR-PORT | OFW Portal | SRS §4.7 |
-| FR-AI | AI Chatbot | SRS §4.8 |
-| FR-ANA | Analytics | SRS §4.9 |
-| FR-AUD | Audit | SRS §4.10 |
-| FR-FBK | Feedback | SRS §4.11 |
-| NFR-PERF | Performance | SRS §5.1 |
-| NFR-SAFE | Safety | SRS §5.2 |
-| NFR-SEC | Security | SRS §5.3 |
-| NFR-QUAL | Quality | SRS §5.4 |
-| BR | Business Rules | SRS §5.5 |
-| LEGAL | Legal/Regulatory | SRS §6.1 |
-| DB | Database | SRS §6.2 |
-| ACC | Accessibility | SRS §6.5 |
-| COM | Communications | SRS §3.4 |
+1. **No Spatie package** — RBAC is a simple `CheckRole` middleware reading `users.role`, not the Spatie laravel-permission package
+2. **No SQLite** — All tests require PostgreSQL; PostgreSQL-specific SQL is used everywhere
+3. **No Kernel.php** — Middleware is configured in `bootstrap/app.php` (Laravel 13 style)
+4. **No SoftDeletes trait** — Use `SoftDeleteFlag` trait instead
+5. **UUID route binding** — All model route parameters are UUID strings
+6. **Database for everything** — Queue, cache, and sessions all use the database driver
+7. **Inertia events** — `router.on('before')` receives `CustomEvent`; read `event.detail.visit`
+8. **Flash deduplication** — Do NOT add seenRef/dedupe state; `FlashMessageWatcher` handles it
+9. **Vite util stub** — `resources/js/vendor-stubs/util-stub.js` is required for Vite 8 builds
+10. **Windows dev** — `composer run dev` omits `php artisan pail` because `pcntl` is unavailable

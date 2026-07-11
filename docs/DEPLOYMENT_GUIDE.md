@@ -1,330 +1,325 @@
-# Bayanihan One Window — Deployment Guide
+# Deployment Guide
 
-> **Source:** SRS v1.2 (May 19, 2026) — §2.4 Operating Environment, §3.3 Cloud Hosting
-> **Last Updated:** 2026-05-28
+> **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Source:** `Dockerfile`, `docker-compose.yml`, `composer.json`
 
----
+## Deployment Options
 
-## 1. Infrastructure Overview
-
-| Service | Provider | Purpose | Plan |
-|---|---|---|---|
-| Application Hosting | Render | Laravel + Vite runtime | Web Service (paid) |
-| Database | Supabase | PostgreSQL 17 | Pro plan (paid) |
-| Media Storage | Supabase Storage | Document uploads + CDN | Supabase plan (S3 storage) |
-| Email/SMTP | SendGrid / SMTP | OTP + notifications | Free tier sufficient |
-| AI Chatbot (optional) | OpenRouter (free models) | Answer generation only — retrieval is in-app SQLite FTS5 (no vector DB) | Free tier |
-
-**Chatbot model options** (answer generation is the only model-dependent step; the retrieval index is built in-app by `php artisan chatbot:index`, which the Docker entrypoint runs automatically when `AI_CHATBOT_ENABLED=true`, and it also rebuilds itself whenever helpdesk content changes):
-
-1. **Hosted free model** (default): `AI_CHATBOT_PROVIDER=openrouter`, `AI_CHATBOT_MODEL=openai/gpt-oss-120b:free`, set `OPENROUTER_API_KEY`. Any other provider in `config/ai.php` (OpenAI, Gemini, Groq, etc.) works the same way via its env keys. No extra infrastructure.
-2. **Local model** (fully offline alternative): Ollama sidecar or `llama.cpp`'s `llama-server` (OpenAI-compatible) with a small model such as `llama3.2:3b`; point `AI_CHATBOT_PROVIDER`/URL envs at it.
-
-Note: the user's chat message and the retrieved help-article excerpts are sent to the configured provider — no case data or PII is ever included in prompts, but confirm the provider choice against the project's data-handling policy. If the model backend is down or rate-limited, the chatbot degrades gracefully: it serves the top retrieved help-article section verbatim instead of erroring.
+| Environment | Method | Database |
+|-------------|--------|----------|
+| Production | Render (Docker) | Supabase PostgreSQL 17 |
+| Staging | Docker Compose | Local PostgreSQL 15 |
+| Local Dev | `composer run dev` | Local PostgreSQL |
 
 ---
 
-## 2. Prerequisites
+## 1. Local Development Setup
 
-### 2.1 Local Development
+### Prerequisites
 
-- PHP 8.2+
-- Composer 2.x
-- Node.js 18+
-- npm 9+
-- PostgreSQL 15+ (local, or connect to Supabase remote)
+- PHP 8.3+
+- Node.js 22+ (for Vite build)
+- PostgreSQL (local or Supabase)
+- Composer 2
 
-### 2.2 Production
+### Quick Start
 
-- Render account (with billing configured)
-- Supabase account (with project created)
-- Supabase Storage enabled (S3-compatible storage in Supabase project)
-- SMTP provider (SendGrid, Mailgun, or any SMTP)
-- Domain name (optional, Render provides `*.onrender.com`)
+```bash
+# Clone and install
+git clone <repo-url>
+cd one-window-bayanihan
 
----
+# Full setup (install, env, keygen, migrate, npm install, build)
+composer run setup
+```
 
-## 3. Environment Configuration
+The `setup` script runs:
+1. `composer install`
+2. Copy `.env.example` → `.env`
+3. `php artisan key:generate`
+4. `php artisan migrate --force`
+5. `npm install --ignore-scripts`
+6. `npm run build`
 
-### 3.1 `.env` Key Variables
+### Development Server
 
-```ini
-APP_NAME="Bayanihan One Window"
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://your-app.onrender.com
+```bash
+composer run dev
+```
 
-# Database (Supabase)
+Starts three concurrent processes:
+- **Laravel server:** `php artisan serve` (port 8000)
+- **Queue worker:** `php artisan queue:listen --tries=1 --timeout=0`
+- **Vite dev server:** `npm run dev` (port 5173)
+
+### Environment Variables (.env)
+
+```env
+# Application
+APP_NAME="One Window Bayanihan"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+# Database (PostgreSQL required)
 DB_CONNECTION=pgsql
-DB_HOST=aws-0-ap-southeast-1.pooler.supabase.com
+DB_HOST=127.0.0.1
 DB_PORT=5432
-DB_DATABASE=postgres
-DB_USERNAME=project.XXXXXXXXXX
-DB_PASSWORD=your-supabase-password
+DB_DATABASE=one_window
+DB_USERNAME=postgres
+DB_PASSWORD=secret
 
-# Cache / Queue / Session (all database-driven)
+# Storage (Supabase S3-compatible)
+FILESYSTEM_DISK=supabase
+SUPABASE_URL=your-supabase-url
+SUPABASE_KEY=your-service-role-key
+SUPABASE_S3_ACCESS_KEY=your-access-key
+SUPABASE_S3_SECRET_KEY=your-secret-key
+SUPABASE_S3_REGION=ap-southeast-1
+SUPABASE_S3_BUCKET=your-bucket
+SUPABASE_S3_ENDPOINT=https://your-project.supabase.co/storage/v1/s3
+
+# Cache/Queue/Session (all database-backed)
 CACHE_STORE=database
 QUEUE_CONNECTION=database
 SESSION_DRIVER=database
 
-# Supabase Storage (S3-compatible)
-FILESYSTEM_DISK=supabase
-SUPABASE_S3_ACCESS_KEY=your-access-key
-SUPABASE_S3_SECRET_KEY=your-secret-key
-SUPABASE_S3_REGION=ap-southeast-1
-SUPABASE_S3_ENDPOINT=your-supabase-storage-endpoint
-SUPABASE_S3_BUCKET=case-files
-
 # Mail
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.sendgrid.net
+MAIL_MAILER=log        # Use 'smtp' in production
+MAIL_HOST=smtp.example.com
 MAIL_PORT=587
-MAIL_USERNAME=apikey
-MAIL_PASSWORD=your-sendgrid-api-key
-MAIL_FROM_ADDRESS=noreply@bayanihan-onewindow.gov.ph
-MAIL_FROM_NAME="Bayanihan One Window"
 
-# OTP
-OTP_EXPIRY_MINUTES=5
-OTP_DEBUG_MODE=false
+# Security
+TURNSTILE_SECRET_KEY=your-turnstile-secret
+TURNSTILE_SITE_KEY=your-turnstile-site-key
 
-# IP Whitelist (comma-separated CIDR)
-ALLOWED_IPS=203.0.113.0/24,198.51.100.0/24
+# AI (OpenAI)
+OPENAI_API_KEY=your-key
+OPENAI_MODEL=gpt-4o-mini
 
-# App Key (generate via: php artisan key:generate)
-APP_KEY=base64:xxxxxxxxxxxxxxxxxxxxxxxx
+# Cloudinary (avatars)
+CLOUDINARY_URL=cloudinary://key:secret@cloud-name
+
+# Sentry (error tracking)
+SENTRY_LARAVEL_DSN=your-sentry-dsn
+
+# Trusted Proxies
+TRUSTED_PROXIES=10.0.0.0/8
 ```
 
 ---
 
-## 4. Build & Deploy
+## 2. Docker Deployment
 
-### 4.1 Local Build
+### Architecture
+
+```
+docker-compose.yml
+  ├── nginx (1.27-alpine) ─── port 80 → reverse proxy to app:9000
+  ├── app (PHP 8.4-fpm) ──── Laravel + queue worker + scheduler
+  ├── db (postgres:15-alpine) ── local database
+  └── redis (optional) ──── caching (not currently used)
+```
+
+### Build & Run
 
 ```bash
-# Install dependencies
-composer install --no-dev --optimize-autoloader
-npm install
-npm run build
-
-# Generate app key
-php artisan key:generate
+# Build and start all services
+docker compose up -d
 
 # Run migrations
-php artisan migrate
-
-# Create storage link (for local file serving)
-php artisan storage:link
+docker compose exec app php artisan migrate
 
 # Seed database
-php artisan db:seed
+docker compose exec app php artisan db:seed
+
+# View logs
+docker compose logs -f app
 ```
 
-### 4.2 Render Deployment
+### Dockerfile (Multi-stage)
 
-**Web Service Configuration:**
+1. **Stage 1 (node-build):** Node.js 22 — runs `npm ci && npm run build` for Vite assets
+2. **Stage 2 (app):** PHP 8.4-fpm + nginx + supervisord
 
-| Setting | Value |
-|---|---|
-| Build Command | `composer install --no-dev --optimize-autoloader && npm install && npm run build && php artisan key:generate` |
-| Start Command | `php artisan serve --host=0.0.0.0 --port=$PORT` |
-| Health Check Path | `/` |
-| Environment Variables | All `.env` values set via Render Dashboard |
+Production container includes:
+- PHP extensions: pdo_pgsql, bcmath, gd, intl, opcache, pcntl, exif, mbstring, zip
+- Nginx reverse proxy (port 8080 internal)
+- Supervisord managing nginx + php-fpm + queue worker
+- Healthcheck: `curl http://127.0.0.1:8080/up`
 
-**Cron Job Service:**
+### Container Security
 
-| Setting | Value |
-|---|---|
-| Command | `php artisan schedule:run` |
-| Schedule | Every 10 minutes (Render cron minimum) |
+- `security_opt: no-new-privileges`
+- `cap_drop: ALL` + minimal `cap_add: FOWNER, SETGID, SETUID`
+- `www-data` user for PHP-FPM
+- Build-time `composer audit` for dependency vulnerability scanning
+- Source files (JS, CSS, configs) removed from production image
 
-**Queue Worker (Background Worker):**
+### Docker Entrypoint
 
-| Setting | Value |
-|---|---|
-| Command | `php artisan queue:listen --tries=3 --sleep=3` |
-| Start Command | `php artisan queue:listen --tries=3 --sleep=3` |
-| Replicas | 1 (adjust based on queue volume) |
+The `docker/php/docker-entrypoint.sh` handles:
+1. Storage directory permissions
+2. Config/route/view caching
+3. Migration execution (if enabled)
+4. Starting supervisord
 
-### 4.3 Supabase Configuration
+---
 
-| Setting | Value |
-|---|---|
-| Region | ap-southeast-1 (Singapore) |
-| SSL Mode | Required |
-| Connection Pooling | Enabled (for Render connections) |
-| Auto-backups | Enabled (daily, 7-day retention) |
-| Point-in-time recovery | Enabled (pro plan) |
+## 3. Render Deployment (Production)
 
-**Post-Deployment SQL:**
+### Setup
 
-```sql
--- Enable Row-Level Security on key tables
-ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
-ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE milestones ENABLE ROW LEVEL SECURITY;
-ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+1. **Web Service:** Docker deployment from GitHub repo
+2. **Build Command:** Docker image build (Dockerfile handles everything)
+3. **Start Command:** Handled by supervisord in container
+4. **Port:** 8080 (exposed by container)
+5. **Health Check:** `GET /up`
 
--- Create RLS policies (per agency isolation)
-CREATE POLICY agency_lane_isolation ON referrals
-    FOR ALL
-    USING (agcy_id = current_setting('app.agency_id')::uuid);
+### Environment Variables (Render Dashboard)
+
+Set all variables from `.env.example` plus:
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_URL=https://your-domain.onrender.com`
+- Database credentials pointing to Supabase
+
+### Deployment Flow
+
+```
+GitHub push → Render detects → Docker build → Health check → Route traffic
 ```
 
-### 4.4 Supabase Storage Setup
+### Scaling
 
-| Setting | Value |
-|---|---|
-| Bucket name | `case-files` |
-| S3 endpoint | `https://<project>.supabase.co/storage/v1/s3` |
-| Region | `ap-southeast-1` |
-| Allowed file types | PDF, DOC, DOCX, JPG, PNG, JPEG |
-| Max file size | 10 MB |
-| Delivery | Signed (authenticated) URLs |
+- **Horizontal:** Render supports multiple instances (stateless app)
+- **Database:** Supabase handles connection pooling
+- **Queue:** Each container runs its own queue worker
+- **Sessions:** Database-backed (shared across instances)
 
 ---
 
-## 5. Deployment Checklist
+## 4. Supabase Configuration
 
-### Pre-Deployment
+### Database (PostgreSQL 17)
 
-- [ ] All migrations run successfully against PostgreSQL
-- [ ] `APP_DEBUG=false` in production
-- [ ] `APP_ENV=production`
-- [ ] App key generated (`php artisan key:generate`)
-- [ ] Rate limiting configured in `bootstrap/app.php`
-- [ ] IP whitelist configured (admin routes)
-- [ ] OTP debug mode disabled
-- [ ] Storage linked (`php artisan storage:link`)
-- [ ] Queue table migrated (`php artisan queue:table`)
-- [ ] Cache table migrated (`php artisan cache:table`)
-- [ ] Sessions table migrated (`php artisan session:table`)
-- [ ] Tests pass (`php artisan test`)
+1. Create project in Supabase dashboard
+2. Note connection string from Settings → Database
+3. Enable required extensions: `pgcrypto`, `pg_trgm`
+4. Run migrations: `php artisan migrate`
 
-### Post-Deployment
+### Storage (S3-compatible)
 
-- [ ] `php artisan migrate` run on production DB
-- [ ] `php artisan db:seed` run (roles, agencies, services, system settings)
-- [ ] Queue worker running
-- [ ] Cron worker running
-- [ ] Health check endpoint responds 200
-- [ ] Login flow works (email + OTP)
-- [ ] Public pages accessible
-- [ ] Admin routes accessible from whitelisted IP
-- [ ] OTP emails delivered
-- [ ] Document uploads working (Supabase Storage)
-- [ ] SSL certificate valid (Render auto-provisions)
+1. Create bucket in Supabase Storage
+2. Set bucket policies (authenticated access)
+3. Get S3 credentials from Settings → Storage → S3
+4. Configure in `.env`:
+   ```
+   FILESYSTEM_DISK=supabase
+   SUPABASE_S3_ENDPOINT=https://project.supabase.co/storage/v1/s3
+   SUPABASE_S3_ACCESS_KEY=...
+   SUPABASE_S3_SECRET_KEY=...
+   SUPABASE_S3_BUCKET=uploads
+   SUPABASE_S3_REGION=ap-southeast-1
+   ```
 
 ---
 
-## 6. Production Gotchas
+## 5. Build Process
 
-| Gotcha | Detail |
-|---|---|
-| Cache/store | `CACHE_STORE=database` — no Redis dependency in v1.0 |
-| Queue | `QUEUE_CONNECTION=database` — queue worker MUST be running for async notifications |
-| OTP delivery | Requires working SMTP configuration — test with `MAIL_MAILER=log` first |
-| Storage link | Required for local file serving — Supabase Storage handles production storage |
-| Windows dev | `php artisan pail` requires `pcntl` (Unix-only) — use `error_log` or file logging |
-| Route caching | `php artisan route:cache` — only if no closure-based routes; current codebase has closures in web.php |
-| Config caching | `php artisan config:cache` — run after every `.env` change |
-
----
-
-## 7. Scaling Considerations
-
-| Bottleneck | Solution |
-|---|---|
-| DB connections | Supabase connection pooling + Render connection limits |
-| Queue throughput | Increase queue worker replicas |
-| Media delivery | Supabase Storage handles scaling automatically |
-| App concurrency | Render auto-scaling (enabled on paid plans) |
-| Session storage | Database driver — add session table index if slow |
-
----
-
-## 8. Monitoring & Logging
-
-| Aspect | Tool | Notes |
-|---|---|---|
-| App logs | Render Dashboard | `stdout`/`stderr` capture |
-| DB performance | Supabase Query Performance | Slow query identification |
-| Error tracking | Laravel log (`storage/logs/`) | Configure daily rotation |
-| Uptime | Render status page | `status.render.com` |
-| Audit events | App AuditLog table | For security review |
-| Queue health | `php artisan queue:monitor` | Alert on failed jobs |
-
----
-
-## 9. Backup & Recovery
-
-| Asset | Backup Method | Recovery |
-|---|---|---|
-| PostgreSQL | Supabase auto-backup (daily) | Point-in-time recovery |
-| Application code | Git repository | `git clone && deploy` |
-| Uploaded documents | Supabase Storage auto-backup | Supabase Storage |
-| Environment config | Render environment variables | Export before changes |
-
-### Recovery Procedure
-
-1. **Application failure:** Restart Render web service
-2. **Database corruption:** Restore from Supabase backup (PITR)
-3. **Full disaster:** Deploy from Git, restore DB, restore storage assets
-4. **Queue data:** `jobs` and `failed_jobs` tables backed up with DB
-
----
-
-## 10. Backup & Restore
-
-### Automated Backups
-
-The project includes two scripts for database backup management:
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/backup.sh` | Creates encrypted PostgreSQL dump with optional offsite upload |
-| `scripts/restore-test.sh` | Verifies backup integrity by restoring to a temporary database |
-
-### Backup Schedule
-
-Recommended: Automated daily backup via cron:
+### Production Build
 
 ```bash
-# Daily at 1 AM — dump, encrypt, upload to offsite storage
-0 1 * * * cd /opt/bayanihan && ./scripts/backup.sh >> /var/log/bayanihan-backup.log 2>&1
+# Frontend (Vite)
+npm ci --ignore-scripts
+npm run build
+# Outputs to public/build/
+
+# Backend (Composer)
+composer install --no-dev --optimize-autoloader
+
+# Laravel optimization
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan event:cache
 ```
 
-### Retention Policy
+### Asset Fingerprinting
 
-| Tier | Retention | Storage |
-|------|-----------|---------|
-| Local | 7 days | Server disk (`storage/backups/`) |
-| Offsite | 90 days | S3-compatible object storage |
-| Monthly | 12 months | Archived to cold storage |
+Vite automatically fingerprints all assets (CSS, JS) for cache busting. The `public/build/manifest.json` maps logical names to hashed filenames.
 
-### Restore Procedure
+---
 
-1. Locate the backup file (local or offsite)
-2. Run the restore test:
-   ```bash
-   ./scripts/restore-test.sh storage/backups/bayanihan-db-20250101-120000.sql.gz.enc
-   ```
-3. For production restore:
-   ```bash
-   # Stop the app
-   # Drop and recreate the database
-   # Decrypt and decompress
-   gpg --decrypt backup.sql.gz.enc | gunzip | psql -d production_db
-   ```
-4. Verify data integrity with the restore test script
+## 6. Operations
 
-### Recovery Point Objective (RPO)
+### Maintenance Mode
 
-- **Target:** 24 hours (daily backup)
-- **Current:** Manual (automation via cron planned)
-- **Measurement:** Time since last successful backup
+```bash
+# Enable (via admin UI or CLI)
+php artisan down --secret="bypass-token"
 
-### Recovery Time Objective (RTO)
+# Disable
+php artisan up
+```
 
-- **Target:** 4 hours
-- **Current:** Dependent on database size and network speed for offsite retrieval
+Admin UI: `/admin/system/maintenance` (toggle button)
+
+### Log Management
+
+- **Storage:** `storage/logs/laravel.log`
+- **Rotation:** Daily (default Laravel)
+- **Admin UI:** `/admin/system/logs` (viewer + download)
+- **Sentry:** Automatic exception reporting in production
+
+### Queue Monitoring
+
+```bash
+# Check queue status
+php artisan queue:monitor database
+
+# Retry failed jobs
+php artisan queue:retry all
+
+# Clear failed jobs
+php artisan queue:flush
+```
+
+### Database Backup
+
+Scripts available in `scripts/`:
+- `scripts/backup.sh` — pg_dump with timestamped filename
+- `scripts/restore-test.sh` — Restore from backup file
+- `scripts/load-test.sh` — Load testing utility
+
+### Artisan Commands
+
+| Command | Purpose |
+|---------|---------|
+| `php artisan migrate` | Run pending migrations |
+| `php artisan db:seed` | Seed reference data |
+| `php artisan config:cache` | Cache configuration |
+| `php artisan route:cache` | Cache routes |
+| `php artisan queue:listen` | Start queue worker |
+| `php artisan chatbot:index` | Build chatbot search index |
+
+---
+
+## 7. Monitoring Checklist
+
+- [ ] Sentry DSN configured and receiving errors
+- [ ] Health check endpoint (`/up`) responding
+- [ ] Queue worker running (check `jobs` table for stuck jobs)
+- [ ] Email delivery working (check `email_logs` table)
+- [ ] Storage accessible (test file upload)
+- [ ] Database connections healthy
+- [ ] SSL certificate valid
+- [ ] Turnstile CAPTCHA functional on login
+
+---
+
+## 8. Rollback Procedure
+
+1. Render: Deploy previous Docker image from deployment history
+2. Database: If migration is destructive, restore from Supabase point-in-time recovery
+3. Verify health check passes
+4. Monitor error rates in Sentry

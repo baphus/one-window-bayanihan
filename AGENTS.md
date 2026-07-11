@@ -59,6 +59,8 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 ## Docs worth checking
 
 - `docs/PROJECT_RULES.md` for domain/business constraints and role rules.
-- `docs/ARCHITECTURE.md` / root `ARCHITECTURE.md` for system flow and deployment diagrams.
+- `docs/ARCHITECTURE.md` for system flow and deployment topology.
 - `docs/TESTING_STRATEGY.md` for focused test commands and coverage expectations.
+- `docs/API_CONTRACTS.md` for all ~164 routes with middleware.
+- `docs/DATA_MODEL.md` for complete database schema (31 tables).
 - `instructions.md` is stale Copilot-era guidance; prefer executable config and current `docs/` files.

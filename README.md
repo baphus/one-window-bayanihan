@@ -16,21 +16,22 @@ Bayanihan One Window coordinates case management across multiple government agen
 - **AI Chatbot** — Interactive helpdesk for OFW inquiries
 - **Reporting & Analytics** — Dashboards, PDF/CSV exports, AI-powered insights
 - **Helpdesk Knowledge Base** — Categorized articles with search and feedback
-- **Audit Trail** — Immutable append-only audit log for compliance
+- **SERVQUAL Feedback** — Agency service quality measurement
+- **Audit Trail** — Immutable append-only audit log with hash chain integrity
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Backend | Laravel 13, PHP 8.3 |
-| Frontend | React 18, Inertia.js, Tailwind CSS 3 |
+| Frontend | React 18, Inertia.js v2, Tailwind CSS 3 |
 | Database | PostgreSQL 17 (Supabase) |
 | File Storage | Supabase Storage (S3-compatible) |
 | Build Tool | Vite 8 |
-| Auth | Custom OTP MFA (email-based) |
-| RBAC | Spatie Laravel Permission |
+| Auth | Custom OTP + TOTP MFA |
+| RBAC | Custom CheckRole middleware (`users.role` column) |
 | Queue | Database-driven |
-| Hosting | Render |
+| Hosting | Render (Docker) |
 
 ## Quick Start
 
@@ -92,7 +93,7 @@ MAIL_MAILER=log  # or smtp in production
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests (PostgreSQL required — bayanihan_test database)
 composer run test
 
 # Run specific test file
@@ -133,7 +134,7 @@ one-window-bayanihan/
 │   ├── factories/              # Model factories
 │   ├── migrations/             # Schema migrations
 │   └── seeders/                # Data seeders
-├── docs/                       # Project documentation
+├── docs/                       # 📚 Project documentation (single source of truth)
 ├── resources/
 │   ├── css/                    # Tailwind entry
 │   └── js/
@@ -162,9 +163,9 @@ Browser → HTTPS → Laravel (Middleware) → Controller → Service → Model 
 ```
 
 - **Middleware stack:** Session → Auth → CSRF → Role → IP Whitelist (admin)
-- **RBAC:** `CASE_MANAGER`, `AGENCY`, `ADMIN` roles via `users.role`
+- **RBAC:** `CASE_MANAGER`, `AGENCY`, `ADMIN` roles via `users.role` + `CheckRole` middleware
 - **Lane isolation:** Agencies see only their referrals (application + RLS enforcement)
-- **Audit:** Immutable append-only log for all critical actions
+- **Audit:** Immutable append-only log with SHA-256 hash chain
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design.
 
@@ -179,20 +180,20 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design.
 | Frontend | Default exports in PascalCase `.jsx` (or `.tsx` if existing) |
 | Forms | Inertia `useForm()` + `useUnsavedChanges(dirty)` |
 | Styling | Tailwind utilities only — no custom CSS |
-| Icons | Material Symbols |
+| Icons | Material Symbols + lucide-react |
 | State | Inertia props + local React state (no Redux) |
 
 ## Documentation
 
 | Document | Description |
 |---|---|
-| [Architecture](docs/ARCHITECTURE.md) | System design, deployment topology |
+| [Architecture](docs/ARCHITECTURE.md) | System design, middleware, deployment topology |
 | [Project Rules](docs/PROJECT_RULES.md) | Business rules, conventions, decisions |
-| [Data Model](docs/DATA_MODEL.md) | Database schema, 39 tables |
+| [Data Model](docs/DATA_MODEL.md) | Database schema — 31 tables, all columns |
+| [API Contracts](docs/API_CONTRACTS.md) | All ~164 routes with middleware |
 | [Testing Strategy](docs/TESTING_STRATEGY.md) | Test approach, patterns, coverage |
-| [API Contracts](docs/API_CONTRACTS.md) | Route definitions, request/response |
-| [Security](docs/SECURITY_REQUIREMENTS.md) | Security controls and compliance |
-| [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Build, deploy, release procedure |
+| [Security](docs/SECURITY_REQUIREMENTS.md) | Auth, RBAC, MFA, encryption, rate limiting |
+| [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Docker, Render, Supabase setup |
 | [Audit Strategy](docs/AUDIT_STRATEGY.md) | Audit log design and retention |
 
 ## License

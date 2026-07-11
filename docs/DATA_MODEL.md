@@ -1,458 +1,552 @@
-# Bayanihan One Window — Data Model
+# Data Model
 
-> **Source:** SRS v1.2 (May 19, 2026) — Database migrations, Models directory
-> **Last Updated:** 2026-05-28
+> **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Source:** `database/migrations/` (21 migration files)
 
----
+## Overview
 
-## 1. Entity Relationship Overview
+- **Database:** PostgreSQL 17 (Supabase production) / 15 (Docker local)
+- **Primary Keys:** UUID v4 (via `UsesUuid` trait)
+- **Soft Deletes:** Flag-based (`is_deleted`, `deleted_at`, `deleted_by`) — NOT Laravel's `SoftDeletes`
+- **Timestamps:** `created_at`, `updated_at` (Laravel standard)
+- **Extensions:** `pg_trgm` (trigram search), `pgcrypto` (UUID generation)
+- **Row-Level Security:** Enabled on core tables via migrations
 
-The database consists of **39 tables** organized across 10 functional domains. All primary keys use UUID v4. All entities with soft delete use the flag-based pattern (`is_deleted`, `deleted_at`, `deleted_by`) rather than Laravel's `SoftDeletes` trait.
+## Table Summary
 
----
-
-## 2. Core Domain: Case Management
-
-### 2.1 `cases` — Unified Master Case File
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | Primary identifier |
-| `case_number` | varchar(255) | UNIQUE, NOT NULL | System-generated case number |
-| `tracker_number` | varchar(255) | UNIQUE, NOT NULL | Public-facing tracker number |
-| `client_type` | enum | 'OFW', 'NEXT_OF_KIN' | Type of beneficiary |
-| `summary` | text | nullable | Case narrative |
-| `status` | enum | 'OPEN', 'CLOSED', default 'OPEN' | Case lifecycle status |
-| `user_id` | uuid | FK → users, NOT NULL | DMW Case Manager who created the case |
-| `is_deleted` | boolean | default false | Soft delete flag |
-| `deleted_at` | timestamp | nullable | Soft delete timestamp |
-| `deleted_by` | uuid | FK → users, nullable | Who deleted |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-**Relationships:**
-- Belongs to `User` (creator)
-- Has many `Client` (case participants)
-- Has many `Referral` (inter-agency referrals)
-- Has many `CaseDocument` (supporting documents)
-- Has many `Feedback` (post-closure evaluation)
-
-### 2.2 `clients` — OFW / Next-of-Kin Profiles
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `first_name` | varchar(255) | NOT NULL | |
-| `last_name` | varchar(255) | NOT NULL | |
-| `middle_initial` | varchar(1) | nullable | |
-| `suffix` | varchar(255) | nullable | e.g., Jr., III |
-| `date_of_birth` | date | nullable | |
-| `sex` | varchar(255) | CHECK (MALE/FEMALE), nullable | |
-| `contact_number` | varchar(255) | nullable | Renamed from `contact` |
-| `case_id` | uuid | FK → cases, NOT NULL | Linked case |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-**Relationships:**
-- Belongs to `Case`
-- Has one `ClientAddress`
-- Has one `ClientEmployment`
-- Has one `NextOfKin`
-
-### 2.3 `client_addresses` — Client Address Data
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `client_id` | uuid | FK → clients | |
-| `house_street` | varchar(255) | nullable | |
-| `barangay` | varchar(255) | nullable | |
-| `city_municipality` | varchar(255) | nullable | |
-| `province` | varchar(255) | nullable | |
-| `region` | varchar(255) | nullable | |
-| `country` | varchar(255) | nullable | |
-
-### 2.4 `client_employments` — OFW Employment History
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `client_id` | uuid | FK → clients | |
-| `employer_name` | varchar(255) | nullable | |
-| `position` | varchar(255) | nullable | |
-| `country` | varchar(255) | nullable | OFW destination country |
-| `date_hired` | date | nullable | |
-| `date_separated` | date | nullable | |
-
-### 2.5 `next_of_kin` — Emergency Contact
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `client_id` | uuid | FK → clients | |
-| `full_name` | varchar(255) | nullable | |
-| `relationship` | varchar(255) | nullable | |
-| `full_address` | varchar(255) | nullable | Renamed from `address` |
-| `email` | varchar(255) | nullable | |
-| `contact_number` | varchar(255) | nullable | |
+| # | Table | Purpose | Migration |
+|---|-------|---------|-----------|
+| 1 | `users` | System users (all roles) | Framework |
+| 2 | `password_reset_tokens` | Password reset tokens | Framework |
+| 3 | `sessions` | Database sessions | Framework |
+| 4 | `cache` / `cache_locks` | Database cache | Framework |
+| 5 | `jobs` / `job_batches` / `failed_jobs` | Queue system | Framework |
+| 6 | `notifications` | Laravel notifications | Framework |
+| 7 | `agencies` | Partner agencies | Core Reference |
+| 8 | `services` | Agency services catalog | Core Reference |
+| 9 | `service_requirements` | Documents needed per service | Core Reference |
+| 10 | `case_statuses` | Case/referral status definitions | Core Reference |
+| 11 | `case_categories` | Case classification categories | Core Reference |
+| 12 | `case_issues` | Case issue types | Core Reference |
+| 13 | `system_settings` | Key-value system config | Core Reference |
+| 14 | `clients` | OFW client profiles | Case |
+| 15 | `cases` | Case files | Case |
+| 16 | `client_addresses` | Client addresses | Case |
+| 17 | `client_employments` | Client employment history | Case |
+| 18 | `next_of_kin` | Client emergency contacts | Case |
+| 19 | `referrals` | Referrals to agencies | Referral |
+| 20 | `milestones` | Referral progress milestones | Referral |
+| 21 | `referral_attachments` | Referral file attachments (versioned) | Referral |
+| 22 | `referral_comments` | Referral discussion threads | Referral |
+| 23 | `case_documents` | Case file uploads | Referral |
+| 24 | `referral_compliance_requirements` | Compliance tracking per referral | Referral |
+| 25 | `case_notifications` | Client-facing notifications | Referral |
+| 26 | `feedback` | SERVQUAL feedback responses | Feedback |
+| 27 | `feedback_servqual_responses` | Individual SERVQUAL question responses | Feedback |
+| 28 | `servqual_configs` | Agency feedback form configurations | Feedback |
+| 29 | `feedback_invitations` | Token-based feedback invitations | Feedback |
+| 30 | `audit_logs` | Immutable audit trail | Monitoring |
+| 31 | `email_logs` | Email delivery tracking | Monitoring |
 
 ---
 
-## 3. Domain: Referral System
+## Detailed Schema
 
-### 3.1 `referrals` — Inter-Agency Referrals
+### users
 
-| Column | Type | Constraints | Description |
-|---|---|---|---|
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
 | `id` | uuid | PK | |
-| `required_services` | text | NOT NULL | Services requested |
-| `notes` | text | nullable | Additional instructions |
-| `status` | enum | 'PENDING','PROCESSING','COMPLETED','REJECTED','FOR COMPLIANCE', default 'PENDING' | Current status |
-| `decision` | varchar(255) | CHECK (ACCEPT/REJECT), nullable | Agency decision |
-| `decision_reason` | text | nullable | Mandatory justification |
-| `case_id` | uuid | FK → cases, NOT NULL | Parent case |
-| `agcy_id` | uuid | FK → agencies, NOT NULL | Target agency |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-**Relationships:**
-- Belongs to `Case`
-- Belongs to `Agency`
-- Has many `Milestone`
-- Has many `ReferralAttachment`
-- Has many `ReferralComment`
-
-### 3.2 `milestones` — Append-Only Progress Records
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `title` | varchar(255) | NOT NULL | Milestone title |
-| `description` | text | nullable | Detailed update |
-| `refr_id` | uuid | FK → referrals, NOT NULL | Linked referral |
-| `user_id` | uuid | FK → users, NOT NULL | Who recorded |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-**Note:** Milestones are **append-only** (BR-007). The application MUST NOT provide update/delete routes for milestones.
-
-### 3.3 `referral_attachments` — Referral Documents
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `referral_id` | uuid | FK → referrals | |
-| `file_name` | varchar(255) | NOT NULL | Original filename |
-| `file_path` | text | NOT NULL | Storage URL/path (renamed from `file_url`) |
-| `file_type` | varchar(255) | nullable | MIME type (renamed from `mime_type`) |
-| `size` | bigint | nullable | File size in bytes |
-| `user_id` | uuid | FK → users | Uploader (renamed from `uploaded_by`) |
-| `version_group_id` | uuid | nullable | Groups file versions |
-| `version_number` | int | default 1 | Sequential version |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-### 3.4 `referral_comments` — Inter-Agency Communication
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `referral_id` | uuid | FK → referrals | |
-| `user_id` | uuid | FK → users | |
-| `comment` | text | NOT NULL | |
-| `parent_id` | uuid | FK → self (nullable) | For threaded replies |
-| `is_deleted` | boolean | default false | |
-
----
-
-## 4. Domain: Agency & Service Registry
-
-### 4.1 `agencies` — Partner Agencies
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `name` | varchar(255) | NOT NULL | Agency name |
-| `description` | text | nullable | |
-| `contact_info` | varchar(255) | nullable | |
-| `map_link` | text | nullable | Google Maps link |
-| `is_active` | boolean | default true | For public listing |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-### 4.2 `services` — Service Categories
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `name` | varchar(255) | NOT NULL | |
-| `description` | text | nullable | |
-| `processing_days` | int | CHECK (0-365), nullable | SLA target |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-### 4.3 `agency_service` — Agency-Service Mapping
-
-| Column | Type | Constraints |
-|---|---|---|
-| `agency_id` | uuid | FK → agencies |
-| `service_id` | uuid | FK → services |
-
-### 4.4 `service_requirements` — Service Documentation Needs
-
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `service_id` | uuid | FK → services |
-| `name` | varchar(255) | NOT NULL |
-| `is_required` | boolean | default false |
-
----
-
-## 5. Domain: Auth & Users
-
-### 5.1 `users` — System Users
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `name` | varchar(255) | NOT NULL | |
-| `email` | varchar(255) | UNIQUE, NOT NULL | |
-| `password` | varchar(255) | NOT NULL | Bcrypt hashed |
-| `role` | varchar(255) | NOT NULL | CASE_MANAGER, AGENCY, ADMIN |
-| `agcy_id` | uuid | FK → agencies, nullable | Agency affiliation |
-| `position` | varchar(255) | nullable | Job title |
-| `contact_number` | varchar(255) | nullable | |
-| `is_active` | boolean | default true | |
+| `name` | string | NOT NULL | |
+| `email` | string | UNIQUE, NOT NULL | |
+| `password` | string | NOT NULL | Hashed |
+| `role` | string(50) | NOT NULL | CASE_MANAGER, AGENCY, ADMIN |
+| `agcy_id` | uuid | FK → agencies.id, nullable | Agency assignment |
+| `is_active` | boolean | default: true | |
+| `contact_number` | string | nullable | |
+| `avatar_url` | text | nullable | Cloudinary URL |
+| `position` | string | nullable | |
+| `department` | string | nullable | |
+| `office_location` | string | nullable | |
+| `bio` | text | nullable | |
+| `emergency_contact` | text | nullable | |
+| `timezone` | string | default: 'Asia/Manila' | |
+| `mfa_secret` | text | nullable | Encrypted TOTP secret |
+| `mfa_recovery_codes` | json | nullable | Encrypted recovery codes |
+| `mfa_enabled_at` | timestamp | nullable | |
+| `notifications_config` | json | nullable | Notification preferences |
+| `onboarding_completed_at` | timestamp | nullable | |
+| `onboarding_step` | string(100) | nullable | Current onboarding progress |
+| `seen_page_guides` | json | nullable | Page guides already shown |
+| `checklist_progress` | json | nullable | Getting-started checklist state |
+| `profile_completed_at` | timestamp | nullable | |
 | `email_verified_at` | timestamp | nullable | |
-| `remember_token` | varchar(100) | nullable | |
+| `remember_token` | string | nullable | |
+| `is_deleted` | boolean | default: false | Soft delete flag |
+| `deleted_at` | timestamp | nullable | |
+| `deleted_by` | uuid | FK → users.id, nullable | |
+| `created_at` | timestamp | | |
+| `updated_at` | timestamp | | |
 
-Spatie permissions tables: `permissions`, `roles`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`.
+### agencies
 
----
-
-## 6. Domain: Audit
-
-### 6.1 `audit_logs` — Immutable Action Log
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
 | `id` | uuid | PK | |
-| `action` | enum | 'CREATE','UPDATE','DELETE','VIEW','LOGIN','LOGOUT' | Performed action |
-| `module` | varchar(255) | NOT NULL | Affected module |
-| `entity_id` | uuid | nullable | Affected record |
-| `description` | text | nullable | Human-readable summary |
+| `name` | string | NOT NULL | |
+| `short` | string | nullable | Abbreviation (e.g., OWWA) |
+| `slug` | string | UNIQUE, nullable | URL slug |
+| `description` | text | nullable | |
+| `contact_info` | string(255) | nullable | |
+| `map_link` | text | nullable | Google Maps embed URL |
+| `logo_url` | text | nullable | Cloudinary URL |
+| `location_query` | text | nullable | Map search query |
+| `is_active` | boolean | default: true | |
+| `is_default` | boolean | default: false | |
+| `latitude` | decimal(10,7) | nullable | |
+| `longitude` | decimal(10,7) | nullable | |
+| `is_deleted` | boolean | default: false | |
+| `deleted_at` | timestamp | nullable | |
+| `deleted_by` | uuid | FK → users.id | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### services
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `name` | string | NOT NULL | |
+| `description` | text | nullable | |
+| `agcy_id` | uuid | FK → agencies.id, nullable | |
+| `processing_days` | integer | CHECK(0–365), nullable | Expected SLA days |
+| `is_deleted` | boolean | default: false | |
+| `deleted_at` / `deleted_by` | timestamp/uuid | nullable | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### service_requirements
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `name` | string | NOT NULL | Document name |
+| `description` | text | nullable | |
+| `is_required` | boolean | NOT NULL | |
+| `service_id` | uuid | FK → services.id | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### case_statuses
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `name` | string | NOT NULL | Display name |
+| `slug` | string | UNIQUE | Machine name |
+| `type` | string | NOT NULL | 'case' or 'referral' |
+| `color` | string(7) | nullable | Hex color code |
+| `sort_order` | integer | default: 0 | |
+| `is_system` | boolean | default: false | Cannot be deleted |
+| `is_active` | boolean | default: true | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+
+**Seeded system statuses:**
+- Case: OPEN, CLOSED
+- Referral: PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED
+
+### case_categories
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `name` | string | UNIQUE | |
+| `description` | text | nullable | |
+| `color` | string(7) | nullable | |
+| `sort_order` | integer | default: 0 | |
+| `is_active` | boolean | default: true | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+
+### case_issues
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `name` | string | UNIQUE | |
+| `description` | text | nullable | |
+| `sort_order` | integer | default: 0 | |
+| `is_active` | boolean | default: true | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+
+### system_settings
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `key` | string | PK | Setting identifier |
+| `category` | string | nullable | |
+| `value` | text | nullable | |
+| `description` | text | nullable | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### clients
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `first_name` | string | NOT NULL | Encrypted (EncryptedString cast) |
+| `last_name` | string | NOT NULL | Encrypted |
+| `middle_initial` | string(1) | nullable | |
+| `suffix` | string | nullable | |
+| `date_of_birth` | date | nullable | Encrypted (EncryptedDate cast) |
+| `sex` | string(10) | CHECK('MALE','FEMALE'), nullable | |
+| `email` | string | nullable | Encrypted |
+| `contact_number` | string | nullable | Encrypted |
+| `avatar_url` | string | nullable | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### cases
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `case_number` | string | UNIQUE | Auto-generated |
+| `client_type` | string(20) | NOT NULL | e.g., 'OFW', 'NOK' |
+| `vulnerability_indicator` | string | nullable | |
+| `nok_vulnerability_indicator` | string | nullable | |
+| `tracker_number` | string | UNIQUE | Public tracking code |
+| `summary` | text | nullable | |
+| `status` | string(50) | default: 'OPEN' | |
+| `closed_at` | timestamp | nullable | |
+| `consent_given_at` | timestamp | nullable | Data consent timestamp |
+| `user_id` | uuid | FK → users.id | Case manager |
+| `client_id` | uuid | FK → clients.id, nullable | |
+| `category_id` | uuid | FK → case_categories.id, nullable | |
+| `case_issue_id` | uuid | FK → case_issues.id, nullable | |
+| `draft_client_data` | jsonb | nullable | Unpublished draft data |
+| `escalated_at` | timestamp | nullable | (dropped in later migration) |
+| `escalation_reason` | string | nullable | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### client_addresses
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `client_id` | uuid | FK → clients.id | |
+| `region` | string | nullable | Name (converted from code) |
+| `province` | string | nullable | Name |
+| `city_municipality` | string | nullable | Name |
+| `barangay` | string | nullable | Name |
+| `street` | text | nullable | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### client_employments
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `client_id` | uuid | FK → clients.id | |
+| `employer_name` | string | nullable | |
+| `position` | string | nullable | Current position |
+| `last_position` | string | nullable | Previous position |
+| `country` | string | nullable | Current country |
+| `last_country` | string | nullable | Previous country |
+| `start_date` | date | nullable | |
+| `end_date` | date | nullable | |
+| `date_of_arrival` | date | nullable | Return to PH |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### next_of_kin
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `client_id` | uuid | FK → clients.id | |
+| `first_name` | string | nullable | |
+| `last_name` | string | nullable | |
+| `middle_initial` | string(1) | nullable | |
+| `relationship` | string | nullable | |
+| `is_primary` | boolean | default: false | |
+| `phone_number` | string(50) | nullable | |
+| `email` | string | nullable | |
+| `full_address` | text | nullable | |
+| `region` / `province` / `city_municipality` / `barangay` | string | nullable | |
+| `street` | text | nullable | |
+| `sort_order` | integer | default: 0 | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### referrals
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `required_services` | text | NOT NULL | Service names |
+| `notes` | text | nullable | |
+| `status` | string(50) | default: 'PENDING' | |
+| `decision` | string(20) | CHECK('ACCEPT','REJECT'), nullable | |
+| `decision_comment` | text | nullable | |
+| `case_id` | uuid | FK → cases.id | |
+| `agcy_id` | uuid | FK → agencies.id | |
+| `type` | string(20) | default: 'standard' | (dropped in later migration) |
+| `first_action_at` | timestamp | nullable | SLA tracking |
+| `referral_assigned_at` | timestamp | nullable | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### milestones
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `title` | string | NOT NULL | |
+| `description` | text | nullable | |
+| `refr_id` | uuid | FK → referrals.id | |
+| `user_id` | uuid | FK → users.id | Who added it |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### referral_attachments
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `referral_id` | uuid | FK → referrals.id | |
+| `file_name` | string | NOT NULL | |
+| `file_path` | text | NOT NULL | Supabase storage path |
+| `file_type` | string(50) | nullable | MIME type |
+| `size` | bigint unsigned | nullable | Bytes |
+| `user_id` | uuid | FK → users.id, nullable | Uploader |
+| `replaces_id` | uuid | FK → self, nullable | Version chain |
+| `version_group_id` | uuid | nullable | Groups versions |
+| `is_archived` | boolean | default: false | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### referral_comments
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `refr_id` | uuid | FK → referrals.id | |
+| `parent_id` | uuid | FK → self, nullable | Threading |
+| `content` | text | NOT NULL | |
+| `visibility` | string(50) | NOT NULL | e.g., 'all', 'internal' |
+| `is_edited` | boolean | default: false | |
+| `user_id` | uuid | FK → users.id | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### case_documents
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `file_name` | string | NOT NULL | |
+| `file_path` | text | NOT NULL | |
+| `file_type` | string(50) | nullable | |
+| `size` | bigint unsigned | nullable | |
+| `case_id` | uuid | FK → cases.id | |
+| `user_id` | uuid | FK → users.id | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+### referral_compliance_requirements
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `referral_id` | uuid | FK → referrals.id | |
+| `service_name` | string(255) | NOT NULL | |
+| `requirement_name` | string(255) | NOT NULL | |
+| `status` | string(20) | default: 'PENDING' | |
+| `fulfilled_by` | uuid | FK → users.id, nullable | |
+| `completed_at` | timestamp | nullable | |
+| `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
+| `created_at` / `updated_at` | timestamp | | |
+
+**Indexes:** `(referral_id, status)`, `(status)`
+
+### case_notifications
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `case_id` | uuid | FK → cases.id (CASCADE) | |
+| `client_email` | string | NOT NULL | |
+| `type` | string | NOT NULL | |
+| `title` | string | NOT NULL | |
+| `message` | text | NOT NULL | |
+| `data` | json | nullable | |
+| `related_url` | string | nullable | |
+| `read_at` | timestamp | nullable | |
+| `created_at` / `updated_at` | timestamp | | |
+
+**Indexes:** `(case_id, client_email)`, `(read_at)`
+
+### feedback
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `case_id` | uuid | FK → cases.id | |
+| `agency_id` | uuid | FK → agencies.id, nullable | |
+| `referral_id` | uuid | FK → referrals.id, nullable | |
+| `service_id` | uuid | FK → services.id, nullable | |
+| `service_name` | string | nullable | Denormalized |
+| `overall_rating` | integer | nullable | |
+| `comments` | text | nullable | |
+| `created_at` / `updated_at` | timestamp | | |
+
+**Unique:** `(case_id, agency_id, referral_id)`
+
+### feedback_servqual_responses
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `feedback_id` | uuid | FK → feedback.id (CASCADE) | |
+| `question_id` | string | NOT NULL | |
+| `question_text` | text | NOT NULL | Snapshot |
+| `dimension` | string | NOT NULL | SERVQUAL dimension |
+| `expectation` | integer | nullable | 1-7 scale |
+| `perception` | integer | nullable | 1-7 scale |
+| `created_at` / `updated_at` | timestamp | | |
+
+### servqual_configs
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `agency_id` | uuid | FK → agencies.id | |
+| `service_id` | uuid | FK → services.id, nullable | |
+| `name` | string | nullable | Config display name |
+| `service_name` | string | NOT NULL | Legacy name field |
+| `questions` | json | NOT NULL | Question definitions |
+| `is_active` | boolean | default: false | |
+| `activated_at` | timestamp | nullable | |
+| `created_at` / `updated_at` | timestamp | | |
+
+**Partial unique indexes:**
+- `(agency_id) WHERE service_id IS NULL` — one default config per agency
+- `(agency_id, service_id) WHERE service_id IS NOT NULL` — one config per agency+service
+
+### feedback_invitations
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `case_id` | uuid | FK → cases.id | |
+| `agency_id` | uuid | FK → agencies.id | |
+| `referral_id` | uuid | FK → referrals.id | |
+| `service_id` | uuid | FK → services.id, nullable | |
+| `client_email` | string | nullable | |
+| `token_prefix` | string(16) | NOT NULL | URL-safe prefix |
+| `token_hash` | string(64) | NOT NULL | SHA-256 hash |
+| `service_name` | string | nullable | |
+| `snapshot_source` | string(32) | default: 'agency_active_form' | |
+| `form_snapshot` | json | NOT NULL | Frozen form at invite time |
+| `rating_labels` | json | NOT NULL | Scale labels |
+| `expires_at` | timestamp | NOT NULL | |
+| `submitted_at` | timestamp | nullable | |
+| `used_feedback_id` | uuid | FK → feedback.id, UNIQUE, nullable | |
+| `created_at` / `updated_at` | timestamp | | |
+
+**Unique:** `(case_id, agency_id, referral_id)`
+
+### audit_logs
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK | |
+| `action` | string(50) | CHECK(CREATE,UPDATE,DELETE,LOGIN,LOGOUT,ARCHIVE,UNARCHIVE,PUBLISH) | |
+| `module` | string | NOT NULL | e.g., 'case', 'referral', 'auth' |
+| `entity_id` | uuid | nullable | Related entity |
+| `description` | text | nullable | Human-readable |
 | `old_value` | jsonb | nullable | Previous state |
 | `new_value` | jsonb | nullable | New state |
-| `user_id` | uuid | FK → users, nullable | Who performed |
-| `timestamp` | timestamp | default CURRENT_TIMESTAMP | When |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
+| `user_id` | uuid | FK → users.id, nullable | |
+| `ip_address` | string(45) | nullable | Request IP |
+| `user_agent` | text | nullable | Browser UA |
+| `request_id` | uuid | nullable | Correlation ID |
+| `prev_hash` | string(64) | nullable | SHA-256 chain link |
+| `timestamp` | timestamp | default: now() | |
+| `is_deleted` | boolean | default: false | |
+| `deleted_at` / `deleted_by` | — | nullable | |
 
-**Key constraint:** `action IN ('CREATE','UPDATE','DELETE','VIEW','LOGIN','LOGOUT')`
+**Indexes:**
+- `(module, entity_id, timestamp DESC)` — entity lookup
+- `(action, timestamp DESC)` — action filtering
+- `(user_id, action, timestamp DESC)` — user activity
+- `(timestamp DESC)` — chronological
+- GIN `(description gin_trgm_ops)` — text search
+- GIN `(old_value jsonb_path_ops)` — JSON queries
+- GIN `(new_value jsonb_path_ops)` — JSON queries
 
----
+**Append-only trigger:** `trg_audit_logs_append_only` prevents UPDATE/DELETE.
 
-## 7. Domain: Feedback
+### email_logs
 
-### 7.1 `feedback` — Case Satisfaction
-
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `case_id` | uuid | FK → cases |
-| `agency_id` | uuid | FK → agencies, nullable |
-| `service_name` | varchar(255) | nullable |
-| `overall_rating` | int | nullable |
-| `comments` | text | nullable |
-
-### 7.2 `feedback_servqual_responses` — SERVQUAL Dimensions
-
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `feedback_id` | uuid | FK → feedback (CASCADE) |
-| `question_id` | varchar(255) | |
-| `question_text` | text | |
-| `dimension` | varchar(255) | |
-| `expectation` | int | nullable |
-| `perception` | int | nullable |
-
-### 7.3 `servqual_configs` — Survey Configuration
-
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `agency_id` | uuid | FK → agencies |
-| `service_name` | varchar(255) | |
-| `questions` | json | |
-
-Unique constraint on `(agency_id, service_name)`.
-
----
-
-## 8. Domain: System & Configuration
-
-### 8.1 `system_settings` — Key-Value Config
-
-| Column | Type |
-|---|---|
-| `id` | uuid PK |
-| `key` | varchar(255) UNIQUE |
-| `value` | text |
-
-### 8.2 `case_statuses` — Dynamic Case Statuses
-
-| Column | Type |
-|---|---|
-| `id` | uuid PK |
-| `name` | varchar(255) NOT NULL |
-| `slug` | varchar(255) UNIQUE |
-| `type` | varchar(255) |
-| `color` | varchar(255) nullable |
-| `sort_order` | int default 0 |
-| `is_system` | boolean default false |
-| `is_active` | boolean default true |
-| `is_deleted` | boolean default false |
-| `deleted_at` | timestamp nullable |
-| `deleted_by` | uuid nullable |
-
-### 8.3 `case_documents` — Case-Level Documents
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
 | `id` | uuid | PK | |
-| `file_name` | varchar(255) | NOT NULL | |
-| `file_path` | text | NOT NULL | Storage URL |
-| `file_type` | varchar(50) | nullable | |
-| `case_id` | uuid | FK → cases | |
-| `user_id` | uuid | FK → users | Uploader |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users, nullable | |
-| `created_at` | timestamp | | |
-| `updated_at` | timestamp | | |
-
-### 8.4 `notifications` — Database Notifications
-
-Standard Laravel notifications table with JSON `data` column.
+| `to_email` | string | NOT NULL | |
+| `subject` | string | NOT NULL | |
+| `mailable_type` | string | NOT NULL | Laravel mailable class |
+| `status` | string | NOT NULL | sent, failed, etc. |
+| `job_uuid` | uuid | nullable | Queue job reference |
+| `error_message` | text | nullable | |
+| `sent_at` | timestamp | nullable | |
+| `created_at` / `updated_at` | timestamp | | |
 
 ---
 
-## 9. Domain: Helpdesk
+## Relationship Diagram
 
-### 9.1 `helpdesk_articles` — Knowledge Base Articles
+```
+users ─┬── agencies (agcy_id)
+       ├── cases (user_id)
+       ├── milestones (user_id)
+       ├── referral_comments (user_id)
+       ├── referral_attachments (user_id)
+       └── audit_logs (user_id)
 
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `title` | varchar(255) | NOT NULL | |
-| `slug` | varchar(255) | UNIQUE, NOT NULL | |
-| `content_markdown` | text | NOT NULL | |
-| `excerpt` | text | nullable | |
-| `category_id` | uuid | FK → helpdesk_categories | |
-| `status` | enum | 'draft', 'published' | |
-| `featured` | boolean | default false | |
-| `visibility` | enum | 'public', 'authenticated', 'role_restricted' | |
-| `target_roles` | jsonb | nullable | |
-| `author_id` | uuid | FK → users | |
-| `published_at` | timestamp | nullable | |
-| `is_deleted` | boolean | default false | |
-| `deleted_at` | timestamp | nullable | |
-| `deleted_by` | uuid | FK → users | |
+agencies ─┬── services (agcy_id)
+           ├── referrals (agcy_id)
+           ├── feedback (agency_id)
+           ├── servqual_configs (agency_id)
+           └── feedback_invitations (agency_id)
 
-### 9.2 `helpdesk_categories`
+services ──── service_requirements (service_id)
 
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | uuid | PK | |
-| `name` | varchar(255) | NOT NULL | |
-| `slug` | varchar(255) | UNIQUE, NOT NULL | |
-| `description` | text | nullable | |
-| `parent_id` | uuid | FK → self | |
-| `icon` | varchar(255) | nullable | |
-| `sort_order` | int | default 0 | |
-| `is_active` | boolean | default true | |
+clients ─┬── cases (client_id)
+          ├── client_addresses (client_id)
+          ├── client_employments (client_id)
+          └── next_of_kin (client_id)
 
-### 9.3 `helpdesk_tags`
+cases ─┬── referrals (case_id)
+       ├── case_documents (case_id)
+       ├── case_notifications (case_id)
+       └── feedback (case_id)
 
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `name` | varchar(255) | |
-| `slug` | varchar(255) | UNIQUE |
+referrals ─┬── milestones (refr_id)
+            ├── referral_attachments (referral_id)
+            ├── referral_comments (refr_id)
+            ├── referral_compliance_requirements (referral_id)
+            └── feedback_invitations (referral_id)
+```
 
-### 9.4 `helpdesk_article_revisions`
+## Design Patterns
 
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `article_id` | uuid | FK → helpdesk_articles |
-| `title` | varchar(255) | |
-| `content_markdown` | text | |
-| `edited_by` | uuid | FK → users |
-| `edit_notes` | varchar(255) | |
+### Soft Delete (Flag-based)
+All business tables use `is_deleted` + `deleted_at` + `deleted_by` instead of Laravel's built-in `SoftDeletes` trait. The `SoftDeleteFlag` trait provides `scopeNotDeleted()` and auto-filters queries.
 
-### 9.5 `helpdesk_article_feedback`
+### UUID Primary Keys
+All business tables use UUID v4 primary keys via the `UsesUuid` model trait. This prevents enumeration attacks and supports distributed ID generation.
 
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | uuid | PK |
-| `article_id` | uuid | FK → helpdesk_articles |
-| `helpful` | boolean | |
-| `comment` | text | nullable |
-| `user_id` | uuid | FK → users, nullable |
+### PII Encryption
+Client PII fields (`first_name`, `last_name`, `email`, `contact_number`, `date_of_birth`) use Laravel's `encrypted` cast for at-rest encryption. Migration `2026_07_09_000001_encrypt_pii_fields.php` converts existing plaintext to encrypted format.
 
----
-
-## 10. Common Column Patterns
-
-All tables follow these conventions:
-
-| Pattern | Implementation |
-|---|---|
-| UUID PK | `$table->uuid('id')->primary();` |
-| Created/Updated | `$table->timestamps();` |
-| Soft Delete (flag) | `$table->boolean('is_deleted')->default(false);` |
-| | `$table->timestamp('deleted_at')->nullable();` |
-| | `$table->uuid('deleted_by')->nullable();` |
-| | Foreign key on `deleted_by → users.id` |
-| Foreign Keys | `$table->foreign('col')->references('id')->on('table')->onDelete('restrict');` |
-
----
-
-## 11. Key Indexes
-
-| Table | Index | Type |
-|---|---|---|
-| `cases` | `case_number` | UNIQUE |
-| `cases` | `tracker_number` | UNIQUE |
-| `cases` | `user_id` | Foreign key |
-| `clients` | `case_id` | Foreign key |
-| `referrals` | `case_id` | Foreign key |
-| `referrals` | `agcy_id` | Foreign key |
-| `audit_logs` | `user_id` | Foreign key |
-| `audit_logs` | `module` + `action` | Performance |
-| `notifications` | `notifiable_type` + `notifiable_id` | Polymorphic |
-| `helpdesk_articles` | `slug` | UNIQUE |
-| `helpdesk_categories` | `slug` | UNIQUE |
-| `helpdesk_tags` | `slug` | UNIQUE |
+### Audit Hash Chain
+Each audit log entry stores `prev_hash` — the SHA-256 hash of the previous entry — creating a tamper-evident chain. Verified via the `AuditObserver`.

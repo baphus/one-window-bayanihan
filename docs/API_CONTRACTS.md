@@ -1,387 +1,378 @@
-# Bayanihan One Window — API Contracts
+# API Contracts
 
-> **Source:** SRS v1.2 (May 19, 2026) — `routes/web.php`, Controllers
-> **Last Updated:** 2026-05-28
+> **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Source:** `routes/web.php`, `routes/auth.php`, `routes/api.php`
 
-All routes use Inertia.js — responses are server-rendered page visits, not JSON API responses. The exceptions are the analytics API endpoint and the chatbot endpoint which return JSON.
+## Overview
 
----
+All routes are defined in three files:
+- `routes/web.php` — Application routes (session-authenticated)
+- `routes/auth.php` — Authentication routes (included at end of web.php)
+- `routes/api.php` — Public stateless API routes (address lookup, CSP reports)
 
-## 1. Route Conventions
-
-| Convention | Standard |
-|---|---|
-| Base URL | `https://{app-domain}` |
-| Auth | Session-based (Laravel) + OTP MFA |
-| CSRF | Required for all `POST/PATCH/DELETE` via `_token` or `X-CSRF-TOKEN` |
-| Response Format | Inertia page render (HTML) or JSON for API endpoints |
-| Error Format | Inertia flash `$errors` + `$props.flash` for toast |
-| Pagination | Laravel LengthAwarePaginator → Inertia pagination props |
+**Important:** Session-authenticated API-style endpoints (`/api/clients`) are in `web.php`, not `api.php`.
 
 ---
 
-## 2. Authentication Routes (`routes/auth.php`)
+## Public Routes (No Authentication)
 
-| Method | URI | Name | Controller | Middleware | Description |
-|---|---|---|---|---|---|
-| GET | `/login` | login | LoginOtpController@create | guest | Show login form |
-| POST | `/login` | login.attempt | LoginOtpController@store | guest, throttle:login | Submit credentials |
-| POST | `/login/verify-otp` | login.otp | LoginOtpController@verify | guest, throttle:otp | Verify OTP code |
-| POST | `/logout` | logout | LoginOtpController@destroy | auth | Logout |
-| GET | `/register` | register | RegisteredUserController@create | guest | Show register form |
-| POST | `/register` | register | RegisteredUserController@store | guest | Submit registration |
-| GET | `/forgot-password` | password.request | PasswordResetController@create | guest | Show forgot password (not implemented) |
-| POST | `/forgot-password` | password.email | PasswordResetController@store | guest, throttle:login | Send reset link (not implemented) |
-| GET | `/reset-password/{token}` | password.reset | PasswordResetController@create | guest | Show reset form (not implemented) |
-| POST | `/reset-password` | password.store | PasswordResetController@store | guest | Submit reset (not implemented) |
+### Landing & Info Pages
 
-**Rate Limits:**
-- Login: 6 attempts/minute (`throttle:login`)
-- OTP: 3 attempts/minute (`throttle:otp`)
+| Method | URI | Controller/Handler | Name | Notes |
+|--------|-----|-------------------|------|-------|
+| GET | `/` | Closure → `Welcome` | — | Landing page with active agencies |
+| GET | `/partners` | Closure → `PublicAgencies/Index` | `partners` | Agency directory |
+| GET | `/partners/{agency}` | Closure → `PublicAgencies/Show` | `partners.show` | Agency detail (by slug or UUID) |
+| GET | `/contact` | Closure → `Contact/Index` | `contact` | Contact page |
+| GET | `/privacy` | Closure → `Legal/PrivacyPolicy` | `privacy` | |
+| GET | `/terms` | Closure → `Legal/TermsOfService` | `terms` | |
 
----
+### Case Tracking Portal
 
-## 3. Authenticated Routes — Dashboard
+| Method | URI | Controller | Name | Middleware |
+|--------|-----|-----------|------|------------|
+| GET | `/track` | `TrackController@index` | `track.index` | — |
+| POST | `/track/send-otp` | `TrackController@sendOtp` | `track.send-otp` | `throttle:tracking` |
+| POST | `/track/verify-otp` | `TrackController@verifyOtp` | `track.verify-otp` | `throttle:tracking` |
+| GET | `/track/case` | `TrackController@show` | `track.show` | — |
+| GET | `/track/case/{tracker}/referrals/{referral}/milestones` | `TrackController@milestones` | `track.milestones` | — |
 
-| Method | URI | Name | Controller | Description |
-|---|---|---|---|---|
-| GET | `/dashboard` | dashboard | Closure | Role-based dashboard (CaseManager/Agency/Admin) |
+### Helpdesk (Knowledge Base)
 
-**Response:** Inertia `Dashboard.jsx` with:
-- `stats` — role-specific KPIs
-- `recentCases` — recent case list
-- `pendingReferrals` — pending referral count
-- `agencyPerformance` — agency metrics (admin)
-- `caseTrends` — monthly trend data
-- `referralStatusDistribution` — pie chart data
-- `role` — current user role
+| Method | URI | Handler | Name | Notes |
+|--------|-----|---------|------|-------|
+| GET | `/help` | Closure → `Helpdesk/Index` | `helpdesk.index` | `?category=` filter |
+| GET | `/help/search` | Closure → `Helpdesk/Search` | `helpdesk.search` | `?q=` query |
+| GET | `/help/{slug}` | Closure → `Helpdesk/Show` | `helpdesk.show` | Article by slug |
 
----
+### Public Feedback
 
-## 4. Case Management Routes
+| Method | URI | Controller | Name | Middleware |
+|--------|-----|-----------|------|------------|
+| GET | `/feedback/{token}` | `PublicFeedbackController@showForm` | `feedbacks.submit-page` | `throttle:30,1` |
+| POST | `/feedback/{token}` | `PublicFeedbackController@submit` | `feedbacks.submit` | `throttle:10,1` |
 
-| Method | URI | Name | Controller | Description |
-|---|---|---|---|---|
-| GET | `/cases` | cases.index | CaseController@index | List cases (paginated, filterable) |
-| GET | `/cases/create` | cases.create | CaseController@create | Show intake form |
-| POST | `/cases` | cases.store | CaseController@store | Create new case |
-| GET | `/cases/{case}` | cases.show | CaseController@show | View case detail |
-| PATCH | `/cases/{case}` | cases.update | CaseController@update | Update case |
-| POST | `/cases/{case}/publish` | cases.publish | CaseController@publish | Publish draft case |
-| POST | `/cases/{case}/archive` | cases.archive | CaseController@archive | Soft-delete case |
-| POST | `/cases/{case}/unarchive` | cases.unarchive | CaseController@unarchive | Restore archived case |
-| POST | `/cases/{case}/toggle-status` | cases.toggle-status | CaseController@toggleStatus | Toggle case status |
+### Chatbot
 
-### 4.1 Case Document Routes
+| Method | URI | Controller | Name | Middleware |
+|--------|-----|-----------|------|------------|
+| POST | `/chatbot/message` | `ChatbotController@message` | `chatbot.message` | `throttle:30,1` |
 
-| Method | URI | Name | Controller | Description |
-|---|---|---|---|---|
-| GET | `/cases/{case}/documents` | cases.documents.index | CaseDocumentController@index | List case documents |
-| POST | `/cases/{case}/documents` | cases.documents.store | CaseDocumentController@store | Upload new document |
-| GET | `/cases/{case}/documents/{document}` | cases.documents.show | CaseDocumentController@show | View document detail |
-| GET | `/cases/{case}/documents/{document}/download` | cases.documents.download | CaseDocumentController@download | Download document file |
-| DELETE | `/cases/{case}/documents/{document}` | cases.documents.destroy | CaseDocumentController@destroy | Delete document |
+### Public API (`routes/api.php`)
 
-### Case Index (`GET /cases`)
-
-**Query Parameters:**
-| Param | Type | Description |
-|---|---|---|
-| `search` | string | Text search (case number, client name) |
-| `status` | string | Filter: OPEN, CLOSED |
-| `agency` | uuid | Filter by referred agency |
-| `date_from` | date | Date range start |
-| `date_to` | date | Date range end |
-| `per_page` | int | Pagination (default 15) |
-
-### Case Show (`GET /cases/{case}`)
-
-**Response Data:**
-```php
-[
-    'case' => Case resource with: clients, referrals, documents, milestones
-    'availableStatuses' => CaseStatus[] for workflow transitions
-    'agencies' => Agency[] for referral creation
-]
-```
-
-### Case Store (`POST /cases`)
-
-**Validation Rules:**
-| Field | Rules |
-|---|---|
-| `first_name` | required, string, max:255 |
-| `last_name` | required, string, max:255 |
-| `middle_initial` | nullable, string |
-| `suffix` | nullable, string |
-| `date_of_birth` | nullable, date |
-| `sex` | nullable, in:MALE,FEMALE |
-| `client_type` | required, in:OFW,NEXT_OF_KIN |
-| `summary` | nullable, string |
-| `status` | nullable, in:DRAFT,OPEN |
-
-**Note:** `case_number` and `tracker_number` are system-generated (not user-inputtable per SRS COM-DATA-003).
+| Method | URI | Controller | Middleware |
+|--------|-----|-----------|------------|
+| GET | `/api/address/regions` | `PhilippineAddressController@regions` | `throttle:60,1` |
+| GET | `/api/address/provinces` | `PhilippineAddressController@provinces` | `throttle:60,1` |
+| GET | `/api/address/cities` | `PhilippineAddressController@cities` | `throttle:60,1` |
+| GET | `/api/address/barangays` | `PhilippineAddressController@barangays` | `throttle:60,1` |
+| GET | `/api/address/resolve` | `PhilippineAddressController@resolve` | `throttle:60,1` |
+| POST | `/api/csp/report` | `CspViolationController@report` | `throttle:120,1` |
 
 ---
 
-## 5. Referral Routes
+## Authentication Routes (`routes/auth.php`)
 
-| Method | URI | Name | Controller | Description |
-|---|---|---|---|---|
-| GET | `/referrals` | referrals.index | ReferralController@index | List referrals (paginated) |
-| GET | `/referrals/create` | referrals.create | ReferralController@create | Show referral form |
-| POST | `/referrals` | referrals.store | ReferralController@store | Create referral |
-| GET | `/referrals/{referral}` | referrals.show | ReferralController@show | View referral detail |
-| PATCH | `/referrals/{referral}/status` | referrals.update-status | ReferralController@updateStatus | Update referral status |
-| POST | `/referrals/{referral}/milestones` | referrals.milestones.store | ReferralController@addMilestone | Add milestone |
-| POST | `/referrals/{referral}/comments` | referrals.comments.store | ReferralController@addComment | Add comment |
-| POST | `/referrals/{referral}/comments/{comment}/reply` | referrals.comments.reply | ReferralController@replyToComment | Reply to comment |
-| POST | `/referrals/{referral}/attachments` | referrals.attachments.store | ReferralController@addAttachment | Upload attachment |
-| POST | `/referrals/{referral}/attachments/{attachment}/replace` | referrals.attachments.replace | ReferralController@replaceAttachment | Replace attachment (versioning) |
-| GET | `/referrals/{referral}/attachments/{versionGroupId}/versions` | referrals.attachments.versions | ReferralController@getAttachmentVersions | List attachment versions |
+### Guest-Only (Unauthenticated)
 
-### Referral Status Update (`PATCH /referrals/{referral}/status`)
+| Method | URI | Controller | Name | Middleware |
+|--------|-----|-----------|------|------------|
+| GET | `/login` | Closure → `Auth/Login` | `login` | `guest` |
+| POST | `/login` | `LoginOtpController@init` | `login.init` | `guest`, `turnstile`, `throttle:login` |
+| POST | `/login/verify-otp` | `LoginOtpController@verifyOtp` | `login.verify-otp` | `guest`, `throttle:otp` |
+| POST | `/login/resend-otp` | `LoginOtpController@resendOtp` | `login.resend-otp` | `guest`, `throttle:otp` |
+| POST | `/login/verify-totp` | `LoginOtpController@verifyTotp` | `login.verify-totp` | `guest`, `throttle:totp-challenge` |
+| POST | `/login/verify-recovery-code` | `LoginOtpController@verifyRecoveryCode` | `login.verify-recovery-code` | `guest`, `throttle:recovery-code` |
+| GET | `/register` | `RegisteredUserController@create` | `register` | `guest` |
+| POST | `/register` | `RegisteredUserController@store` | — | `guest` |
+| GET | `/forgot-password` | `PasswordResetLinkController@create` | `password.request` | `guest` |
+| POST | `/forgot-password` | `PasswordResetLinkController@store` | `password.email` | `guest` |
+| GET | `/reset-password/{token}` | `NewPasswordController@create` | `password.reset` | `guest` |
+| POST | `/reset-password` | `NewPasswordController@store` | `password.store` | `guest` |
+| GET | `/forgot-email` | Closure → `Auth/ForgotEmail` | `forgot-email` | `guest` |
 
-**Validation:**
-| Field | Rules |
-|---|---|
-| `status` | required, in:PROCESSING,COMPLETED,REJECTED,FOR_COMPLIANCE |
-| `decision` | required_if:status,COMPLETED,REJECTED, in:ACCEPT,REJECT |
-| `decision_reason` | required, string (mandatory comment per BR-006) |
+### Authenticated
 
-### Add Milestone (`POST /referrals/{referral}/milestones`)
-
-**Validation:**
-| Field | Rules |
-|---|---|
-| `title` | required, string, max:255 |
-| `description` | nullable, string |
-
-**Note:** Milestones are append-only. No update/delete endpoints exist.
-
----
-
-## 6. Reports Routes
-
-| Method | URI | Name | Controller | Description |
-|---|---|---|---|---|
-| GET | `/reports` | reports.index | ReportsController@index | Show reports page |
-| GET | `/reports/export-pdf` | reports.export-pdf | ReportsController@exportPdf | Export PDF report |
-
-**GET `/reports/export-pdf`**
-| Param | Type | Description |
-|---|---|---|
-| `date_from` | date, nullable | Report start date |
-| `date_to` | date, nullable | Report end date |
-
-Returns: PDF file download (application/pdf).
+| Method | URI | Controller | Name | Middleware |
+|--------|-----|-----------|------|------------|
+| GET | `/confirm-password` | `ConfirmablePasswordController@show` | `password.confirm` | `auth` |
+| POST | `/confirm-password` | `ConfirmablePasswordController@store` | — | `auth` |
+| GET | `/verify-email` | `EmailVerificationPromptController` | `verification.notice` | `auth` |
+| GET | `/verify-email/{id}/{hash}` | `VerifyEmailController` | `verification.verify` | `auth`, `signed`, `throttle:6,1` |
+| POST | `/email/verification-notification` | `EmailVerificationNotificationController@store` | `verification.send` | `auth`, `throttle:6,1` |
+| PUT | `/password` | `PasswordController@update` | `password.update` | `auth` |
+| GET | `/profile/email-change` | `EmailChangeController@init` | `profile.email-change.init` | `auth` |
+| POST | `/profile/email-change/send-otp` | `EmailChangeController@sendOtp` | `profile.email-change.send-otp` | `auth`, `throttle:otp` |
+| POST | `/profile/email-change/verify-otp` | `EmailChangeController@verifyOtp` | `profile.email-change.verify-otp` | `auth`, `throttle:otp` |
+| POST | `/logout` | Closure (audit + logout) | `logout` | `auth` |
 
 ---
 
-## 7. Client & Stakeholder Routes
+## Authenticated Routes (All Roles)
 
-| Method | URI | Name | Controller | Description |
-|---|---|---|---|---|
-| GET | `/clients` | clients.index | ClientController@index | List clients |
-| GET | `/clients/{client}` | clients.show | ClientController@show | Client detail with case history |
-| GET | `/stakeholders` | stakeholders.index | StakeholderController@index | List stakeholders |
-| GET | `/stakeholders/{stakeholder}` | stakeholders.show | StakeholderController@show | Stakeholder detail |
+All routes below require `auth` middleware (session-based).
 
----
+### Dashboard & Profile
 
-## 8. Administrative Routes (Admin-only + IP Whitelist)
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/dashboard` | `DashboardController@index` | `dashboard` |
+| GET | `/profile` | `ProfileController@edit` | `profile.edit` |
+| PATCH | `/profile` | `ProfileController@update` | `profile.update` |
+| DELETE | `/profile` | `ProfileController@destroy` | `profile.destroy` |
 
-All routes in this section require `auth`, `verified`, `role:ADMIN` + `ip.whitelist` middleware.
+### MFA Management
 
-### 8.1 Agency Management (`/admin/agencies`)
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/profile/mfa/status` | `MfaController@status` | `profile.mfa.status` |
+| POST | `/profile/mfa/generate` | `MfaController@generateSecret` | `profile.mfa.generate` |
+| POST | `/profile/mfa/verify` | `MfaController@verifyAndEnable` | `profile.mfa.verify` |
+| POST | `/profile/mfa/disable` | `MfaController@disable` | `profile.mfa.disable` |
+| GET | `/profile/mfa/recovery-codes` | `MfaController@getRecoveryCodes` | `profile.mfa.recovery-codes` |
+| POST | `/profile/mfa/recovery-codes/regenerate` | `MfaController@regenerateRecoveryCodes` | `profile.mfa.recovery-codes.regenerate` |
 
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/admin/agencies` | admin.agencies.index | List agencies |
-| POST | `/admin/agencies` | admin.agencies.store | Create agency |
-| PATCH | `/admin/agencies/{agency}` | admin.agencies.update | Update agency |
-| DELETE | `/admin/agencies/{agency}` | admin.agencies.destroy | Delete agency |
+### Referrals (All Roles)
 
-### 8.2 Service Management (`/admin/services`)
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/referrals` | `ReferralController@index` | `referrals.index` |
+| GET | `/referrals/create` | `ReferralController@create` | `referrals.create` |
+| POST | `/referrals` | `ReferralController@store` | `referrals.store` |
+| GET | `/referrals/export-excel` | `ReferralController@exportExcel` | `referrals.export-excel` |
+| GET | `/referrals/{referral}` | `ReferralController@show` | `referrals.show` |
+| PATCH | `/referrals/{referral}/status` | `ReferralController@updateStatus` | `referrals.update-status` |
+| POST | `/referrals/{referral}/milestones` | `ReferralController@addMilestone` | `referrals.milestones.store` |
+| POST | `/referrals/{referral}/comments` | `ReferralController@addComment` | `referrals.comments.store` |
+| POST | `/referrals/{referral}/comments/{comment}/reply` | `ReferralController@replyToComment` | `referrals.comments.reply` |
+| POST | `/referrals/{referral}/attachments` | `ReferralController@addAttachment` | `referrals.attachments.store` |
+| POST | `/referrals/{referral}/attachments/{attachment}/replace` | `ReferralController@replaceAttachment` | `referrals.attachments.replace` |
+| GET | `/referrals/{referral}/attachments/{attachment}/download` | `ReferralController@downloadAttachment` | `referrals.attachments.download` |
+| GET | `/referrals/{referral}/attachments/{versionGroupId}/versions` | `ReferralController@getAttachmentVersions` | `referrals.attachments.versions` |
+| POST | `/referrals/{referral}/compliance/{compliance}/fulfill` | `ReferralController@fulfillCompliance` | `referrals.compliance.fulfill` |
 
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/admin/services` | admin.services.index | List services |
-| POST | `/admin/services` | admin.services.store | Create service |
-| PATCH | `/admin/services/{service}` | admin.services.update | Update service |
-| DELETE | `/admin/services/{service}` | admin.services.destroy | Delete service |
+### Reports
 
-### 8.3 User Management (`/admin/users`)
+| Method | URI | Controller | Name | Middleware |
+|--------|-----|-----------|------|------------|
+| GET | `/reports` | `ReportsController@index` | `reports.index` | `throttle:60,1` |
+| POST | `/reports/ai-insight` | `ReportsController@aiInsight` | `reports.ai-insight` | `throttle:10,1` |
+| GET | `/reports/export-pdf` | `ReportsController@exportPdf` | `reports.export-pdf` | |
+| GET | `/reports/export-excel` | `ReportsController@exportExcel` | `reports.export-excel` | |
 
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/admin/users` | admin.users.index | List users |
-| POST | `/admin/users` | admin.users.store | Create user |
-| PATCH | `/admin/users/{user}` | admin.users.update | Update user |
-| DELETE | `/admin/users/{user}` | admin.users.destroy | Deactivate user |
+### Notifications
 
-### 8.4 System Settings (`/admin/system-settings`)
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/notifications` | `NotificationController@index` | `notifications.index` |
+| GET | `/notifications/unread-count` | `NotificationController@unreadCount` | `notifications.unread-count` |
+| PATCH | `/notifications/{id}/read` | `NotificationController@markAsRead` | `notifications.mark-as-read` |
+| PATCH | `/notifications/mark-all-read` | `NotificationController@markAllAsRead` | `notifications.mark-all-read` |
+| GET | `/notifications/page` | Closure → `Notifications/Index` | `notifications.page` |
 
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/admin/system-settings` | admin.system-settings.index | List settings |
-| POST | `/admin/system-settings` | admin.system-settings.update | Update settings |
+### Onboarding
 
-### 8.5 Helpdesk CMS (`/admin/helpdesk/*`)
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/onboarding/state` | `OnboardingController@state` | `onboarding.state` |
+| POST | `/onboarding/skip` | `OnboardingController@skip` | `onboarding.skip` |
+| POST | `/onboarding/complete` | `OnboardingController@complete` | `onboarding.complete` |
+| POST | `/onboarding/replay` | `OnboardingController@replay` | `onboarding.replay` |
+| POST | `/onboarding/step` | `OnboardingController@updateStep` | `onboarding.step` |
+| POST | `/onboarding/guide-seen` | `OnboardingController@markGuideSeen` | `onboarding.guide-seen` |
+| POST | `/onboarding/checklist/mark` | `OnboardingController@markChecklistItem` | `onboarding.checklist.mark` |
+| POST | `/onboarding/checklist/dismiss` | `OnboardingController@dismissChecklist` | `onboarding.checklist.dismiss` |
+| POST | `/onboarding/skip-profile` | `OnboardingController@skipProfile` | `onboarding.skip-profile` |
 
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET/POST | `/admin/helpdesk/articles` | CRUD | Article management |
-| GET/POST | `/admin/helpdesk/categories` | CRUD | Category management |
-| GET/POST | `/admin/helpdesk/tags` | CRUD | Tag management |
+### Session-Authenticated API
 
-### 8.6 Case Statuses (`/admin/case-statuses`)
-
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/admin/case-statuses` | admin.case-statuses.index | List statuses |
-| POST | `/admin/case-statuses` | admin.case-statuses.store | Create status |
-| PATCH | `/admin/case-statuses/{caseStatus}` | admin.case-statuses.update | Update status |
-| DELETE | `/admin/case-statuses/{caseStatus}` | admin.case-statuses.destroy | Delete status |
-
-### 8.7 Helpdesk Admin
-
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/admin/helpdesk/articles` | admin.helpdesk.articles.index | List articles |
-| GET | `/admin/helpdesk/articles/create` | admin.helpdesk.articles.create | Create article form |
-| POST | `/admin/helpdesk/articles` | admin.helpdesk.articles.store | Save new article |
-| GET | `/admin/helpdesk/articles/{article}/edit` | admin.helpdesk.articles.edit | Edit article form |
-| PATCH | `/admin/helpdesk/articles/{article}` | admin.helpdesk.articles.update | Update article |
-| DELETE | `/admin/helpdesk/articles/{article}` | admin.helpdesk.articles.destroy | Delete article |
-| POST | `/admin/helpdesk/articles/{article}/restore` | admin.helpdesk.articles.restore | Restore deleted article |
-| POST | `/admin/helpdesk/articles/{article}/toggle-featured` | admin.helpdesk.articles.toggle-featured | Toggle featured flag |
-| GET | `/admin/helpdesk/articles/{article}/versions` | admin.helpdesk.articles.versions | View article versions |
-| POST | `/admin/helpdesk/articles/upload-image` | admin.helpdesk.articles.upload-image | Image upload for editor |
-| GET | `/admin/helpdesk/categories` | admin.helpdesk.categories.index | List categories |
-| POST | `/admin/helpdesk/categories` | admin.helpdesk.categories.store | Save new category |
-| PATCH | `/admin/helpdesk/categories/{category}` | admin.helpdesk.categories.update | Update category |
-| DELETE | `/admin/helpdesk/categories/{category}` | admin.helpdesk.categories.destroy | Delete category |
-| GET | `/admin/helpdesk/tags` | admin.helpdesk.tags.index | List tags |
-| POST | `/admin/helpdesk/tags` | admin.helpdesk.tags.store | Save new tag |
-| PATCH | `/admin/helpdesk/tags/{tag}` | admin.helpdesk.tags.update | Update tag |
-| DELETE | `/admin/helpdesk/tags/{tag}` | admin.helpdesk.tags.destroy | Delete tag |
-
-### 8.8 Overdue Referrals
-
-| Method | URI | Name | Middleware | Description |
-|---|---|---|---|---|
-| GET | `/overdue-referrals` | overdue-referrals.index | auth, verified | List overdue referrals |
-| POST | `/overdue-referrals/send-reminders` | overdue-referrals.send-reminders | auth, verified | Send reminder notifications |
+| Method | URI | Controller | Middleware |
+|--------|-----|-----------|------------|
+| GET | `/api/clients` | `ClientSelectController@search` | `auth`, `verified`, `throttle:api-global` |
+| GET | `/api/clients/{client}` | `ClientSelectController@show` | `auth`, `verified`, `throttle:api-global` |
 
 ---
 
-## 9. Public Routes
+## Role-Gated Routes
 
-| Method | URI | Name | Middleware | Description |
-|---|---|---|---|---|
-| GET | `/` | — | guest | Welcome page |
-| GET | `/partners` | partners | — | Public agency listing |
-| GET | `/contact` | contact | — | Contact page |
-| GET | `/track` | track.index | — | OFW tracking form |
-| POST | `/track/send-otp` | track.send-otp | throttle:tracking | Send OTP for tracking |
-| POST | `/track/verify-otp` | track.verify-otp | throttle:tracking | Verify tracking OTP |
-| GET | `/track/case` | track.show | — | Show case tracking progress |
+### CASE_MANAGER + ADMIN
 
-### 9.1 Helpdesk Public Routes
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/cases` | `CaseController@index` | `cases.index` |
+| GET | `/cases/create` | `CaseController@create` | `cases.create` |
+| POST | `/cases` | `CaseController@store` | `cases.store` |
+| GET | `/cases/drafts` | `CaseController@drafts` | `cases.drafts` |
+| GET | `/cases/export-excel` | `CaseController@exportExcel` | `cases.export-excel` |
+| DELETE | `/cases/{case}/destroy-draft` | `CaseController@destroyDraft` | `cases.drafts.destroy` |
+| GET | `/cases/{case}/edit-draft` | `CaseController@editDraft` | `cases.edit-draft` |
+| PUT | `/cases/{case}/save-draft` | `CaseController@updateDraft` | `cases.save-draft` |
+| POST | `/cases/{case}/publish` | `CaseController@publish` | `cases.publish` |
+| POST | `/cases/{case}/archive` | `CaseController@archive` | `cases.archive` |
+| POST | `/cases/{case}/unarchive` | `CaseController@unarchive` | `cases.unarchive` |
+| PATCH | `/cases/{case}` | `CaseController@update` | `cases.update` |
+| POST | `/cases/{case}/toggle-status` | `CaseController@toggleStatus` | `cases.toggle-status` |
+| POST | `/case-issues/quick` | `CaseIssueController@quickStore` | `case-issues.quick` |
+| GET | `/stakeholders` | `StakeholderController@index` | `stakeholders.index` |
+| GET | `/stakeholders/{stakeholder}` | `StakeholderController@show` | `stakeholders.show` |
+| GET | `/audit-logs` | `AuditLogController@index` | `audit-logs.index` |
 
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/helpdesk` | helpdesk.index | Public helpdesk home |
-| GET | `/helpdesk/search` | helpdesk.search | Search articles |
-| GET | `/helpdesk/{slug}` | helpdesk.show | Article detail |
-| POST | `/helpdesk/feedback` | helpdesk.feedback | Article feedback |
+### CASE_MANAGER + ADMIN + AGENCY
 
-### 9.2 AI Chatbot Route
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/cases/{case}` | `CaseController@show` | `cases.show` |
+| GET | `/cases/{case}/documents` | `CaseDocumentController@index` | `cases.documents.index` |
+| GET | `/cases/{case}/documents/{document}` | `CaseDocumentController@show` | `cases.documents.show` |
+| GET | `/cases/{case}/documents/{document}/download` | `CaseDocumentController@download` | `cases.documents.download` |
+| GET | `/clients` | `ClientController@index` | `clients.index` |
+| GET | `/clients/export-excel` | `ClientController@exportExcel` | `clients.export-excel` |
+| GET | `/clients/{client}` | `ClientController@show` | `clients.show` |
+| POST | `/clients/{client}/avatar` | `ClientController@storeAvatar` | `clients.avatar.store` |
+| DELETE | `/clients/{client}/avatar` | `ClientController@destroyAvatar` | `clients.avatar.destroy` |
+| GET | `/feedbacks` | `FeedbackController@dashboard` | `feedbacks.index` |
+| GET | `/feedbacks/servqual-config` | `FeedbackController@servqualConfig` | `feedbacks.servqual-config` |
+| GET | `/feedbacks/export-excel` | `FeedbackController@exportExcel` | `feedbacks.export-excel` |
+| GET | `/feedbacks/{feedback}` | `FeedbackController@show` | `feedbacks.show` |
+| GET | `/overdue-referrals` | `OverdueReferralController@index` | `overdue-referrals.index` |
+| POST | `/overdue-referrals/send-reminders` | `OverdueReferralController@sendReminders` | `overdue-referrals.send-reminders` |
 
-| Method | URI | Name | Description |
-|---|---|---|---|
-| POST | `/chatbot/message` | chatbot.message | Send/receive chat message |
+### CASE_MANAGER Only
 
-**Request:** `{ "message": "string" }`  
-**Response:** `{ "reply": "string" }` (JSON)
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| POST | `/cases/{case}/documents` | `CaseDocumentController@store` | `cases.documents.store` |
+| DELETE | `/cases/{case}/documents/{document}` | `CaseDocumentController@destroy` | `cases.documents.destroy` |
 
-### Tracking OTP Rate Limit: 5 attempts/minute (`throttle:tracking`)
+### AGENCY Only
 
----
-
-## 10. Profile Routes
-
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/profile` | profile.edit | Show profile form |
-| PATCH | `/profile` | profile.update | Update profile |
-| DELETE | `/profile` | profile.destroy | Delete account |
-
----
-
-## 11. Audit Log Routes
-
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/audit-logs` | audit-logs.index | List/Filter audit logs |
-
-**Query Parameters:** `search`, `action`, `module`, `date_from`, `date_to`, `user_id`
-
----
-
-## 12. Feedback Routes
-
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/feedbacks` | feedbacks.index | List feedback submissions |
-
----
-
-## 13. Agency Self-Service Routes (`role:AGENCY`)
-
-| Method | URI | Name | Description |
-|---|---|---|---|
-| GET | `/services` | agency.services.index | List agency services |
-| POST | `/services` | agency.services.store | Add service |
-| PATCH | `/services/{service}` | agency.services.update | Update service |
-| DELETE | `/services/{service}` | agency.services.destroy | Remove service |
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/services` | `AgencyServiceController@index` | `agency.services.index` |
+| POST | `/services` | `AgencyServiceController@store` | `agency.services.store` |
+| PATCH | `/services/{service}` | `AgencyServiceController@update` | `agency.services.update` |
+| DELETE | `/services/{service}` | `AgencyServiceController@destroy` | `agency.services.destroy` |
+| GET | `/servqual-configs` | `AgencyServqualConfigController@index` | `servqual-configs.index` |
+| GET | `/servqual-configs/create` | `AgencyServqualConfigController@create` | `servqual-configs.create` |
+| POST | `/servqual-configs` | `AgencyServqualConfigController@store` | `servqual-configs.store` |
+| GET | `/servqual-configs/{config}/edit` | `AgencyServqualConfigController@edit` | `servqual-configs.edit` |
+| PATCH | `/servqual-configs/{config}` | `AgencyServqualConfigController@update` | `servqual-configs.update` |
+| PATCH | `/servqual-configs/{config}/activate` | `AgencyServqualConfigController@activate` | `servqual-configs.activate` |
+| POST | `/servqual-configs/{config}/assign-service` | `AgencyServqualConfigController@assignService` | `servqual-configs.assign-service` |
+| POST | `/servqual-configs/{config}/unassign-service` | `AgencyServqualConfigController@unassignService` | `servqual-configs.unassign-service` |
+| DELETE | `/servqual-configs/{config}` | `AgencyServqualConfigController@destroy` | `servqual-configs.destroy` |
 
 ---
 
-## 14. Response Format Convention
+## Admin Routes (ADMIN + IP Whitelist)
 
-### Inertia Page Response (default)
-```php
-return Inertia::render('PageName', [
-    'data' => $data,
-    'filters' => $request->only(['search', 'status', ...]),
-]);
-```
+All prefixed with `/admin`, named with `admin.` prefix.
 
-### Flash Messages (auto-toast)
-```php
-return redirect()->route('route.name')
-    ->with('success', 'Operation completed successfully.')
-    ->with('error', 'Operation failed.');
-```
+### User Management
 
-Accessible in React via `usePage().props.flash`.
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/users` | `AdminUserController@index` | `admin.users.index` |
+| POST | `/admin/users` | `AdminUserController@store` | `admin.users.store` |
+| GET | `/admin/users/{user}` | `AdminUserController@show` | `admin.users.show` |
+| PATCH | `/admin/users/{user}` | `AdminUserController@update` | `admin.users.update` |
+| DELETE | `/admin/users/{user}` | `AdminUserController@destroy` | `admin.users.destroy` |
+| PATCH | `/admin/users/{user}/verify` | `AdminUserController@verify` | `admin.users.verify` |
+| POST | `/admin/users/{user}/email-change/send-otp` | `AdminUserController@sendEmailChangeOtp` | `admin.users.email-change.send-otp` |
+| POST | `/admin/users/{user}/email-change/verify-otp` | `AdminUserController@verifyEmailChangeOtp` | `admin.users.email-change.verify-otp` |
 
-### Error Responses
-- **Validation Errors:** Inertia `$errors` prop (keyed by field name)
-- **Authorization Errors:** `abort(403)` — caught by `HandleInertiaRequests.php`
-- **Not Found:** `abort(404)` — caught by `HandleInertiaRequests.php`
-- **Rate Limit:** `abort(429)` with Retry-After header
+### Agency Management
+
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/agencies` | `AdminAgencyController@index` | `admin.agencies.index` |
+| GET | `/admin/agencies/{agency}` | `AdminAgencyController@show` | `admin.agencies.show` |
+| POST | `/admin/agencies` | `AdminAgencyController@store` | `admin.agencies.store` |
+| PATCH | `/admin/agencies/{agency}` | `AdminAgencyController@update` | `admin.agencies.update` |
+| DELETE | `/admin/agencies/{agency}` | `AdminAgencyController@destroy` | `admin.agencies.destroy` |
+
+### Service Management
+
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/services` | `AdminServiceController@index` | `admin.services.index` |
+| POST | `/admin/services` | `AdminServiceController@store` | `admin.services.store` |
+| PATCH | `/admin/services/{service}` | `AdminServiceController@update` | `admin.services.update` |
+| DELETE | `/admin/services/{service}` | `AdminServiceController@destroy` | `admin.services.destroy` |
+
+### Case Configuration
+
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/case-categories` | `AdminCaseCategoryController@index` | `admin.case-categories.index` |
+| POST | `/admin/case-categories` | `AdminCaseCategoryController@store` | `admin.case-categories.store` |
+| PATCH | `/admin/case-categories/{caseCategory}` | `AdminCaseCategoryController@update` | `admin.case-categories.update` |
+| DELETE | `/admin/case-categories/{caseCategory}` | `AdminCaseCategoryController@destroy` | `admin.case-categories.destroy` |
+| GET | `/admin/case-statuses` | `AdminCaseStatusController@index` | `admin.case-statuses.index` |
+| POST | `/admin/case-statuses` | `AdminCaseStatusController@store` | `admin.case-statuses.store` |
+| PATCH | `/admin/case-statuses/{caseStatus}` | `AdminCaseStatusController@update` | `admin.case-statuses.update` |
+| DELETE | `/admin/case-statuses/{caseStatus}` | `AdminCaseStatusController@destroy` | `admin.case-statuses.destroy` |
+| GET | `/admin/case-issues` | `AdminCaseIssueController@index` | `admin.case-issues.index` |
+| POST | `/admin/case-issues` | `AdminCaseIssueController@store` | `admin.case-issues.store` |
+| PATCH | `/admin/case-issues/{caseIssue}` | `AdminCaseIssueController@update` | `admin.case-issues.update` |
+| DELETE | `/admin/case-issues/{caseIssue}` | `AdminCaseIssueController@destroy` | `admin.case-issues.destroy` |
+
+### System Settings
+
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/system-settings` | `SystemSettingsController@index` | `admin.system-settings.index` |
+| POST | `/admin/system-settings` | `SystemSettingsController@update` | `admin.system-settings.update` |
+
+### Data Export
+
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/data-export` | `DataExportController@index` | `admin.data-export.index` |
+| GET | `/admin/data-export/export` | `DataExportController@export` | `admin.data-export.export` |
+
+### System Administration
+
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/system/logs` | `LogViewerController@index` | `admin.system.logs` |
+| GET | `/admin/system/logs/entries` | `LogViewerController@entries` | `admin.system.logs.entries` |
+| GET | `/admin/system/logs/download` | `LogViewerController@download` | `admin.system.logs.download` |
+| GET | `/admin/system/maintenance` | `MaintenanceController@index` | `admin.system.maintenance` |
+| POST | `/admin/system/maintenance/toggle` | `MaintenanceController@toggle` | `admin.system.maintenance.toggle` |
+| GET | `/admin/system/security` | `SecuritySettingsController@index` | `admin.system.security` |
+| POST | `/admin/system/security` | `SecuritySettingsController@update` | `admin.system.security.update` |
+| GET | `/admin/system/active-sessions` | `ActiveSessionsController@index` | `admin.system.active-sessions` |
+| POST | `/admin/system/active-sessions/{session}/terminate` | `ActiveSessionsController@terminate` | `admin.system.active-sessions.terminate` |
+| GET | `/admin/system/email-logs` | `EmailLogController@index` | `admin.system.email-logs.index` |
+| POST | `/admin/system/email-logs/{emailLog}/resend` | `EmailLogController@resend` | `admin.system.email-logs.resend` |
+
+### Admin Feedback
+
+| Method | URI | Controller | Name |
+|--------|-----|-----------|------|
+| GET | `/admin/feedbacks` | `AdminFeedbackController@dashboard` | `admin.feedbacks.dashboard` |
 
 ---
 
-## 15. Middleware Stack by Route Group
+## Health Check
 
-| Route Group | Middleware |
-|---|---|
-| Public | `web` |
-| Authenticated | `web`, `auth`, `verified` |
-| Admin | `web`, `auth`, `verified`, `role:ADMIN`, `ip.whitelist` |
-| Agency | `web`, `auth`, `verified`, `role:AGENCY` |
-| Tracking | `web`, `throttle:tracking` |
+| Method | URI | Notes |
+|--------|-----|-------|
+| GET | `/up` | Laravel built-in health endpoint (configured in bootstrap/app.php) |
+
+---
+
+## Route Count Summary
+
+| Category | Count |
+|----------|-------|
+| Public (unauthenticated) | 22 |
+| Authentication (guest) | 13 |
+| Authentication (auth) | 10 |
+| Authenticated (all roles) | 37 |
+| Case Manager + Admin | 17 |
+| All roles (with role middleware) | 15 |
+| Case Manager only | 2 |
+| Agency only | 13 |
+| Admin (IP whitelisted) | 35 |
+| **Total** | **~164** |

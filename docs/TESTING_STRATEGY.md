@@ -1,250 +1,251 @@
-# Bayanihan One Window — Testing Strategy
+# Testing Strategy
 
-> **Source:** SRS v1.2 (May 19, 2026), AGENTS.md, Wave 3 test implementation
-> **Last Updated:** 2026-05-28
+> **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Source:** `phpunit.xml`, `vitest.config.ts`, `playwright.config.ts`, `tests/`
 
----
+## Overview
 
-## 1. Testing Philosophy
+| Layer | Tool | Test DB | Config |
+|-------|------|---------|--------|
+| PHP Feature Tests | PHPUnit 12 | PostgreSQL `bayanihan_test` | `phpunit.xml` |
+| PHP Unit Tests | PHPUnit 12 | PostgreSQL `bayanihan_test` | `phpunit.xml` |
+| Frontend Unit Tests | Vitest 4 + Testing Library | JSDOM (no DB) | `vitest.config.ts` |
+| E2E Tests | Playwright | Live server (port 8000) | `playwright.config.ts` |
 
-**Tests-After** — implement first, then write tests. Unit tests for services, feature tests for controllers and middleware. Database-heavy tests use SQLite in-memory with documented exceptions for PostgreSQL-specific features.
+## Commands
 
----
+```bash
+# PHP tests (all)
+composer run test              # Clears config cache, then runs php artisan test
 
-## 2. Test Stack
+# PHP tests (focused)
+php artisan test tests/Feature/CaseServiceTest.php
+php artisan test --filter test_case_manager_can_create_case
 
-| Tool | Version | Purpose |
-|---|---|---|
-| PHPUnit | 11.x | Backend testing framework |
-| Laravel test helpers | — | HTTP assertions, DB transactions, auth |
-| SQLite (in-memory) | — | Test database (via `phpunit.xml` override) |
-| `RefreshDatabase` | — | Reset DB between tests |
-| Jest/Vitest | — | Frontend component testing (planned) |
+# Frontend unit tests
+npm run test:run               # Vitest one-shot
+npm test                       # Vitest watch mode
 
----
+# E2E tests
+npm run test:e2e               # Playwright (auto-starts server on :8000)
 
-## 3. Test Database Configuration
-
-From `phpunit.xml`:
-
-```xml
-<server name="DB_CONNECTION" value="sqlite"/>
-<server name="DB_DATABASE" value=":memory:"/>
-<server name="CACHE_STORE" value="array"/>
-<server name="QUEUE_CONNECTION" value="sync"/>
+# Code style
+./vendor/bin/pint --test       # Check PHP style (Laravel Pint)
+./vendor/bin/pint              # Fix PHP style
 ```
 
-**Implications:**
-- All tests run against SQLite, NOT PostgreSQL
-- PostgreSQL-specific functions (`to_char`, `EXTRACT`, `age`) will fail
-- Check constraints are defined differently — use `if (DB::getDriverName() !== 'sqlite')` guards in migrations
-- Tests that exercise PostgreSQL-specific logic are skipped or tested at the unit level with mocked data
+## Test Database Configuration
 
----
+**CRITICAL:** Tests use PostgreSQL, NOT SQLite. The `phpunit.xml` explicitly configures:
 
-## 4. Test Categories
+```xml
+<env name="DB_CONNECTION" value="pgsql"/>
+<env name="DB_DATABASE" value="bayanihan_test"/>
+```
 
-### 4.1 Unit Tests
+### Prerequisites
 
-| Target | Location | Coverage |
-|---|---|---|
-| Services | `tests/Unit/Services/` | Business logic in isolation |
-| Models | `tests/Unit/Models/` | Scope, accessors, relationships |
-| Form Requests | `tests/Unit/Requests/` | Validation rules |
+1. A PostgreSQL database named `bayanihan_test` must exist locally
+2. The database user must have full DDL/DML privileges
+3. Run migrations against the test database: `php artisan migrate --database=pgsql --env=testing`
 
-**Current status:** Unit tests not yet written. All current tests are feature/integration tests.
+### Why PostgreSQL (not SQLite)
 
-### 4.2 Feature Tests (Implemented)
+- Application uses PostgreSQL-specific functions: `to_char()`, `EXTRACT()`, `age()`
+- JSONB columns with `jsonb_path_ops` GIN indexes
+- Partial unique indexes (`WHERE` clause)
+- CHECK constraints
+- `pg_trgm` extension for text search
+- Row-Level Security policies
+- Append-only triggers on `audit_logs`
 
-| Test File | Tests | Coverage |
-|---|---|---|
-| `IpWhitelistMiddlewareTest.php` | 5 | IP allow, block, CIDR, disabled bypass |
-| `CaseReferralGuardTest.php` | 11 | canClose, toggle, archive, audit logging |
-| `AuditEventViewTest.php` | 5 | VIEW audit on case/referral show, dedup, user attribution |
-| `PdfExportTest.php` | 3 | Auth guard, route exists, date params |
+### Test Environment Overrides (phpunit.xml)
 
-**Total: 29 tests, all passing.**
+| Setting | Test Value | Notes |
+|---------|-----------|-------|
+| `APP_ENV` | `testing` | |
+| `CACHE_STORE` | `array` | In-memory, no DB cache table |
+| `QUEUE_CONNECTION` | `sync` | Jobs execute immediately |
+| `SESSION_DRIVER` | `array` | In-memory sessions |
+| `MAIL_MAILER` | `array` | No real emails sent |
+| `SUPABASE_S3_DRIVER` | `local` | Fake local storage |
+| `SUPABASE_S3_ACCESS_KEY` | `fake-access-key` | |
+| `BCRYPT_ROUNDS` | `4` | Faster password hashing |
+| `memory_limit` | `512M` | Large test data sets |
 
-### 4.3 Integration Tests
+## Test Structure
 
-| Scenario | What It Validates |
-|---|---|
-| Full case lifecycle | Create → draft → publish → refer → track milestones → close |
-| Parallel referrals | Single case referred to 2+ agencies simultaneously |
-| Auth flow | Login → OTP → session → logout |
-| Lane isolation | Agency A cannot access Agency B's referrals |
+```
+tests/
+├── TestCase.php                          # Base test class
+├── Feature/                              # Integration tests (HTTP + DB)
+│   ├── Auth/                             # Authentication flow tests
+│   │   ├── AuthenticationTest.php
+│   │   ├── OtpSessionBindingTest.php
+│   │   ├── OtpResendAuthTest.php
+│   │   ├── EmailChangeTest.php
+│   │   ├── ForgotEmailTest.php
+│   │   ├── RegistrationTest.php
+│   │   ├── PasswordUpdateTest.php
+│   │   ├── PasswordResetTest.php
+│   │   ├── PasswordConfirmationTest.php
+│   │   └── EmailVerificationTest.php
+│   ├── Security/                         # Security control tests
+│   │   ├── SecurityHeadersTest.php
+│   │   ├── CspHeadersTest.php
+│   │   ├── TurnstileValidationTest.php
+│   │   ├── RateLimitingApiTest.php
+│   │   ├── MfaDisablePasswordTest.php
+│   │   ├── MalwareScannerTest.php
+│   │   ├── ReferralAccessTest.php
+│   │   ├── OverdueReferralsAccessTest.php
+│   │   ├── FileExtensionValidationTest.php
+│   │   ├── CaseDocumentUploadValidationTest.php
+│   │   ├── StorageServiceMimeValidationTest.php
+│   │   ├── AvatarAccessorTest.php
+│   │   ├── UserModelHiddenTest.php
+│   │   ├── UserMassAssignmentTest.php
+│   │   ├── ApiVerifiedMiddlewareTest.php
+│   │   ├── ErrorHandlerTest.php
+│   │   └── TrustProxiesTest.php
+│   ├── Admin/                            # Admin CRUD tests
+│   │   └── AdminUserVerifyTest.php
+│   ├── TrackController/                  # Public tracking tests
+│   │   ├── IndexTest.php
+│   │   ├── SendOtpTest.php
+│   │   ├── VerifyOtpTest.php
+│   │   ├── ShowTest.php
+│   │   └── MilestonesTest.php
+│   ├── TrackingService/                  # Tracking service integration
+│   │   ├── FullLifecycleIntegrationTest.php
+│   │   ├── ReferralLifecycleIntegrationTest.php
+│   │   ├── BuildMilestoneTimelineTest.php
+│   │   ├── BuildAgencyStepsTest.php
+│   │   ├── CaseStatusAuditTrailTest.php
+│   │   ├── FindCaseByTrackerTest.php
+│   │   ├── EdgeCasesTest.php
+│   │   └── AuditLogFormatterTest.php
+│   ├── Export/                           # Export tests
+│   │   ├── PageExportTest.php
+│   │   └── DataExportTest.php
+│   ├── Case*Test.php                     # Case management tests (9 files)
+│   ├── Referral*Test.php                 # Referral tests (6 files)
+│   ├── Feedback*Test.php                 # Feedback/SERVQUAL tests (4 files)
+│   ├── Chatbot*Test.php                  # AI chatbot tests (4 files)
+│   ├── AuditLog*Test.php                 # Audit logging tests (4 files)
+│   ├── Reports*Test.php                  # Reports/analytics tests (4 files)
+│   ├── Mfa*Test.php                      # MFA tests (2 files)
+│   ├── Client*Test.php                   # Client management tests (4 files)
+│   └── (other feature tests)            # ~20 additional files
+└── Unit/                                 # Isolated unit tests
+    ├── Services/
+    │   ├── StorageServiceTest.php
+    │   ├── NotificationServiceTest.php
+    │   └── IncidentIdServiceTest.php
+    ├── Exceptions/
+    │   ├── SafeExceptionTest.php
+    │   └── ErrorCodesTest.php
+    ├── Notifications/
+    │   ├── MilestoneAddedTest.php
+    │   ├── CaseUpdatedTest.php
+    │   └── CaseStatusUpdatedTest.php
+    ├── Models/
+    │   └── CaseNotificationTest.php
+    ├── SecurityHelperTest.php
+    ├── ReportsDataExportServiceTest.php
+    └── OtpServiceTest.php
+```
 
-### 4.4 Frontend Tests (Planned)
+## Test Count (Approximate)
 
-| Tool | Scope |
-|---|---|
-| Vitest | Unit tests for utility functions and hooks |
-| React Testing Library | Component rendering, form interactions |
-| Playwright | E2E browser tests for critical paths |
+| Category | Files | Estimated Tests |
+|----------|-------|----------------|
+| Feature/Auth | 10 | ~30 |
+| Feature/Security | 17 | ~50 |
+| Feature/Cases | 9 | ~60 |
+| Feature/Referrals | 6 | ~35 |
+| Feature/Feedback | 4 | ~40 |
+| Feature/Chatbot | 4 | ~25 |
+| Feature/Tracking | 13 | ~70 |
+| Feature/Reports | 4 | ~25 |
+| Feature/Audit | 4 | ~30 |
+| Feature/Other | ~20 | ~60 |
+| Unit | ~12 | ~40 |
+| **Total** | **~103** | **~465** |
 
----
+## Test Patterns
 
-## 5. Testing Patterns
-
-### 5.1 Feature Test Pattern
+### Feature Test Pattern
 
 ```php
-<?php
-
-namespace Tests\Feature;
-
-use Tests\TestCase;
-use App\Models\User;
-use App\Models\Case as CaseModel;
-
-class ExampleFeatureTest extends TestCase
+class CaseServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     public function test_case_manager_can_create_case(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
-
-        $response = $this->actingAs($user)
-            ->post(route('cases.store'), [
-                'first_name' => 'Juan',
-                'last_name' => 'Dela Cruz',
-                'client_type' => 'OFW',
-                'summary' => 'Test case',
-            ]);
-
-        $response->assertRedirect();
-        $this->assertDatabaseHas('cases', ['summary' => 'Test case']);
+        $user = User::factory()->caseManager()->create();
+        
+        $this->actingAs($user)
+            ->post(route('cases.store'), [...])
+            ->assertRedirect(route('cases.show', $case));
+        
+        $this->assertDatabaseHas('cases', [...]);
     }
 }
 ```
 
-### 5.2 Auth Test Pattern
+### Key Testing Patterns
 
-```php
-public function test_unauthenticated_user_cannot_access_cases(): void
-{
-    $response = $this->get(route('cases.index'));
-    $response->assertRedirect(route('login'));
-}
+1. **RefreshDatabase trait** — Wraps each test in a transaction (rolled back)
+2. **Model factories** — `User::factory()->caseManager()`, `->agency()`, `->admin()`
+3. **actingAs($user)** — Simulates authenticated user
+4. **assertDatabaseHas/Missing** — Verifies data state
+5. **Inertia assertions** — `assertInertia(fn ($page) => $page->component('X'))`
+6. **Notification fakes** — `Notification::fake()` for email verification
+7. **Storage fakes** — `Storage::fake('supabase')` for file upload tests
+8. **Queue sync** — All jobs run synchronously in tests
 
-public function test_agency_user_cannot_create_case(): void
-{
-    $user = User::factory()->create(['role' => 'AGENCY']);
-    
-    $response = $this->actingAs($user)
-        ->post(route('cases.store'), [...]);
+## Frontend Test Configuration
 
-    $response->assertForbidden();
-}
+### Vitest (`vitest.config.ts`)
+
+```typescript
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./resources/js/test-setup.ts'],
+    globals: true,
+  },
+  resolve: {
+    alias: { '@': '/resources/js' }
+  }
+});
 ```
 
-### 5.3 IP Whitelist Test Pattern
+### Playwright (`playwright.config.ts`)
 
-```php
-public function test_request_from_allowed_ip_succeeds(): void
-{
-    Config::set('app.allowed_ips', ['192.168.1.1']);
-    
-    $response = $this->withServerVariables(['REMOTE_ADDR' => '192.168.1.1'])
-        ->get(route('admin.agencies.index'));
-    
-    $response->assertOk();
-}
-```
+- Runs on port 8000 (auto-starts `php artisan serve --port=8000`)
+- Browser: Chromium (headless)
+- Timeout: 30 seconds per test
 
-**Note:** Use `withServerVariables(['REMOTE_ADDR' => $ip])` — NOT `withHeader('X-Forwarded-For')`, because `$request->ip()` reads `$_SERVER['REMOTE_ADDR']` directly.
+## CI/CD Integration
 
-### 5.4 Exception Code Pattern
-
-When testing `abort(422)`, the thrown `HttpException` has `getCode()=0`, not 422:
-
-```php
-// CORRECT:
-try {
-    $response = $this->actingAs($user)->post(...);
-    $this->fail('Expected HttpException');
-} catch (HttpException $e) {
-    $this->assertEquals(422, $e->getStatusCode());
-}
-
-// WRONG (fails):
-$this->expectExceptionCode(422);
-```
-
----
-
-## 6. Known Test Limitations
-
-| Limitation | Cause | Workaround |
-|---|---|---|
-| ReportsService tests fail | Uses `EXTRACT`, `to_char`, `age` PostgreSQL functions | Test auth guard + route existence only; skip full-stack PDF tests |
-| UserFactory no role | Factory doesn't set `role` column | Always pass `['role' => '...']` when creating test users |
-| PasswordReset tests fail | `/forgot-password` returns 404 | Known pre-existing issue |
-| ExampleTest fails | Missing `RefreshDatabase`, hits system_settings | Known pre-existing issue |
-| 8 pre-existing failures | Various auth/example tests | Documented in AGENTS.md |
-
----
-
-## 7. Pre-Existing Test Failures (Wave 3 verified)
-
-These test failures existed BEFORE Wave 3 changes and are unrelated:
-
-| Test | Failure Reason |
-|---|---|
-| Auth tests (4) | User factory missing `role` → NOT NULL constraint |
-| PasswordReset (2) | Route returns 404 |
-| ExampleTest (1) | Hits `SystemSetting::getValue()` without `system_settings` table |
-| Auth unit tests (1) | Missing auth scaffold assumptions |
-
-**Do NOT fix these unless the task explicitly requires it.** They are pre-existing conditions documented in AGENTS.md.
-
----
-
-## 8. Coverage Targets
-
-| Layer | Current | Target |
-|---|---|---|
-| Feature tests (controller + middleware) | 29 tests | 80% coverage of critical paths |
-| Service unit tests | 0 | 90% coverage of business logic |
-| Model tests | 0 | 70% of scopes/relationships |
-| Frontend component tests | 0 | 70% of components |
-| E2E (critical paths) | 0 | Login, create case, make referral, track case |
-
-### Critical Paths (Must Have E2E)
-
-1. Welcome page → Login → OTP → Dashboard
-2. Dashboard → Create Case → Fill intake → Publish
-3. Case Detail → Create Referral → Select Agency → Submit
-4. Login as Agency → View Referrals → Accept → Add Milestone
-5. Login as DMW → Case Detail → Verify all referrals terminal → Close case
-6. Public → OFW Tracking → Enter Tracker # → Receive OTP → View progress
-
----
-
-## 9. Running Tests
-
+Tests are run via:
 ```bash
-# Run all tests
-php artisan test
-
-# Run specific test file
-php artisan test tests/Feature/IpWhitelistMiddlewareTest.php
-
-# Run with coverage (requires Xdebug/PCOV)
-php artisan test --coverage
-
-# Run specific method
-php artisan test --filter test_case_manager_can_close_case
+# In CI pipeline
+composer run test              # PHP tests
+npm run test:run               # Frontend unit tests
+npm run test:e2e               # E2E tests (requires running server)
 ```
 
----
+## Coverage Expectations
 
-## 10. CI/CD Integration (Planned)
-
-| Stage | Command | Frequency |
-|---|---|---|
-| Lint | `./vendor/bin/pint --test` | Every PR |
-| Type check | `phpstan analyse` | Every PR |
-| Unit + Feature tests | `php artisan test` | Every PR |
-| Frontend build | `npm run build` | Every PR |
+| Area | Target | Notes |
+|------|--------|-------|
+| Auth/Security | High | Critical path — all flows tested |
+| Case CRUD | High | Core business logic |
+| Referral lifecycle | High | Core workflow |
+| Reports | Medium | Complex aggregations, harder to test |
+| Admin CRUD | Medium | Standard CRUD patterns |
+| Chatbot | Medium | Mocked AI responses |
+| UI Components | Low | Manual testing preferred for now |
