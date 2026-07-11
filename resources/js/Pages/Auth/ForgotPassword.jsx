@@ -35,7 +35,7 @@ export default function ForgotPassword({ status }) {
 
             <AppHeader minimal />
 
-            <main className="flex-1 flex flex-col">
+            <main className="flex-1 flex flex-col pt-[72px]">
                 <div className="bg-primary pt-16 pb-32">
                     <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/95 to-primary-container/30" />
@@ -172,8 +172,8 @@ function AppHeader({ minimal }) {
                         <Link href={route('contact')} className="font-label text-[14px] font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary">Contact</Link>
                     </div>
                 )}
-                <Link href={route('register')}>
-                    <button className="font-label text-sm font-semibold text-primary hover:underline bg-transparent border-none cursor-pointer">Create Account</button>
+                <Link href={route('login')}>
+                    <button className="font-label text-sm font-semibold text-primary hover:underline bg-transparent border-none cursor-pointer">Sign In</button>
                 </Link>
             </div>
         </nav>
