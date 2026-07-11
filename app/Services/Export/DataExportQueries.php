@@ -9,7 +9,9 @@ use App\Models\NextOfKin;
 use App\Models\User;
 use App\Services\AddressNameResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
 class DataExportQueries
@@ -17,6 +19,24 @@ class DataExportQueries
     private function addresses(): AddressNameResolver
     {
         return app(AddressNameResolver::class);
+    }
+
+    /**
+     * Decrypt a field value that may be stored encrypted.
+     * Returns the decrypted string, or the original value if it's plaintext.
+     */
+    private function decryptField(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        try {
+            return Crypt::decryptString($value);
+        } catch (DecryptException) {
+            // Value is already plaintext (pre-encryption migration data)
+            return $value;
+        }
     }
 
     private function isAdmin(?User $user): bool
@@ -179,6 +199,20 @@ class DataExportQueries
             // Convert stdClass to a mutable object we can add properties to
             $row = (object) $row;
 
+            // --- Decrypt encrypted PII fields from raw subqueries ---
+            $row->ofw_date_of_birth = $this->decryptField($row->ofw_date_of_birth ?? null);
+            $row->ofw_contact_number = $this->decryptField($row->ofw_contact_number ?? null);
+            $row->ofw_email = $this->decryptField($row->ofw_email ?? null);
+            $row->nok_contact_number = $this->decryptField($row->nok_contact_number ?? null);
+            $row->nok_email = $this->decryptField($row->nok_email ?? null);
+            // Employment subquery fields
+            if (isset($row->previous_country)) {
+                $row->previous_country = $this->decryptField($row->previous_country);
+            }
+            if (isset($row->work_position)) {
+                $row->work_position = $this->decryptField($row->work_position);
+            }
+
             // --- OFW Full Name: "Last, First Middle" ---
             $firstName = $row->client_first_name ?? '';
             $lastName = $row->client_last_name ?? '';
@@ -189,9 +223,7 @@ class DataExportQueries
             $row->ofw_age = '';
             if (! empty($row->ofw_date_of_birth)) {
                 try {
-                    $dob = $row->ofw_date_of_birth instanceof \DateTimeInterface
-                        ? $row->ofw_date_of_birth
-                        : new \DateTimeImmutable($row->ofw_date_of_birth);
+                    $dob = new \DateTimeImmutable($row->ofw_date_of_birth);
                     $row->ofw_age = (string) CarbonImmutable::parse($dob)->age;
                 } catch (\Exception) {
                     $row->ofw_age = '';
@@ -223,11 +255,6 @@ class DataExportQueries
             $row->municipality = $addressResolver->resolve($row->municipality ?? null);
             $row->province = $addressResolver->resolve($row->province ?? null);
             $row->region = $addressResolver->resolve($row->region ?? null);
-
-            // NOTE: Encrypted PII fields from subqueries (ofw_date_of_birth, ofw_contact_number,
-            // ofw_email, nok_contact_number, nok_email) will appear as ciphertext in this enriched
-            // export until this query is refactored from raw SQL to Eloquent.
-            // The simple table exports (getClients, getNextOfKins, etc.) handle decryption correctly.
 
             return $row;
         });
@@ -442,6 +469,22 @@ class DataExportQueries
         return $query->get()->map(function ($row) {
             $row = (object) $row;
 
+            // --- Decrypt encrypted PII fields from raw subqueries ---
+            $row->date_of_birth = $this->decryptField($row->date_of_birth ?? null);
+            $row->contact_number = $this->decryptField($row->contact_number ?? null);
+            $row->email = $this->decryptField($row->email ?? null);
+            $row->nok_contact_number = $this->decryptField($row->nok_contact_number ?? null);
+            $row->nok_email = $this->decryptField($row->nok_email ?? null);
+            // Address street is encrypted
+            $row->street = $this->decryptField($row->street ?? null);
+            // Employment subquery fields
+            if (isset($row->previous_country)) {
+                $row->previous_country = $this->decryptField($row->previous_country);
+            }
+            if (isset($row->work_position)) {
+                $row->work_position = $this->decryptField($row->work_position);
+            }
+
             // --- Full Name: "Last, First Middle" ---
             $firstName = $row->first_name ?? '';
             $lastName = $row->last_name ?? '';
@@ -452,9 +495,7 @@ class DataExportQueries
             $row->age = '';
             if (! empty($row->date_of_birth)) {
                 try {
-                    $dob = $row->date_of_birth instanceof \DateTimeInterface
-                        ? $row->date_of_birth
-                        : new \DateTimeImmutable($row->date_of_birth);
+                    $dob = new \DateTimeImmutable($row->date_of_birth);
                     $row->age = (string) CarbonImmutable::parse($dob)->age;
                 } catch (\Exception) {
                     $row->age = '';
@@ -576,8 +617,13 @@ class DataExportQueries
                 // Agency
                 'a.name AS referred_agency',
                 // Referral info
+                'r.required_services',
                 'r.created_at AS date_referred',
                 'r.status AS referral_status',
+                // Latest update — most recent milestone title, or fallback to status change
+                DB::raw('(SELECT m.title FROM milestones m WHERE m.refr_id = r.id AND m.is_deleted = false ORDER BY m.created_at DESC LIMIT 1) AS latest_milestone_title'),
+                DB::raw('(SELECT m.created_at FROM milestones m WHERE m.refr_id = r.id AND m.is_deleted = false ORDER BY m.created_at DESC LIMIT 1) AS latest_milestone_date'),
+                'r.updated_at AS referral_updated_at',
                 // Issue/Concern
                 'ci.name AS issue_concern',
             ])
@@ -625,6 +671,22 @@ class DataExportQueries
         return $query->get()->map(function ($row) {
             $row = (object) $row;
 
+            // --- Decrypt encrypted PII fields from raw subqueries ---
+            $row->client_date_of_birth = $this->decryptField($row->client_date_of_birth ?? null);
+            $row->client_contact_number = $this->decryptField($row->client_contact_number ?? null);
+            $row->client_email = $this->decryptField($row->client_email ?? null);
+            $row->nok_contact_number = $this->decryptField($row->nok_contact_number ?? null);
+            $row->nok_email = $this->decryptField($row->nok_email ?? null);
+            // Address street is encrypted
+            $row->street = $this->decryptField($row->street ?? null);
+            // Employment subquery fields
+            if (isset($row->previous_country)) {
+                $row->previous_country = $this->decryptField($row->previous_country);
+            }
+            if (isset($row->work_position)) {
+                $row->work_position = $this->decryptField($row->work_position);
+            }
+
             // --- Client Full Name: "Last, First Middle" ---
             $firstName = $row->client_first_name ?? '';
             $lastName = $row->client_last_name ?? '';
@@ -635,9 +697,7 @@ class DataExportQueries
             $row->client_age = '';
             if (! empty($row->client_date_of_birth)) {
                 try {
-                    $dob = $row->client_date_of_birth instanceof \DateTimeInterface
-                        ? $row->client_date_of_birth
-                        : new \DateTimeImmutable($row->client_date_of_birth);
+                    $dob = new \DateTimeImmutable($row->client_date_of_birth);
                     $row->client_age = (string) CarbonImmutable::parse($dob)->age;
                 } catch (\Exception) {
                     $row->client_age = '';
@@ -670,6 +730,45 @@ class DataExportQueries
                 : (($row->date_referred && str_contains((string) $row->date_referred, ' '))
                     ? substr((string) $row->date_referred, 0, 10)
                     : (string) ($row->date_referred ?? ''));
+
+            // --- Latest Update: milestone title + date, or meaningful status description ---
+            $statusDescription = match ($row->referral_status ?? '') {
+                'PENDING' => 'Sent to agency — awaiting response',
+                'PROCESSING' => 'Accepted — now processing',
+                'FOR_COMPLIANCE' => 'Set as For Compliance',
+                'COMPLETED' => 'Completed',
+                'REJECTED' => 'Rejected',
+                default => 'Status: '.($row->referral_status ?? 'Unknown'),
+            };
+
+            if (! empty($row->latest_milestone_title)) {
+                $milestoneDate = $row->latest_milestone_date ?? '';
+                if ($milestoneDate && str_contains((string) $milestoneDate, ' ')) {
+                    $milestoneDate = substr((string) $milestoneDate, 0, 16);
+                }
+                // If milestone is newer than updated_at, use milestone; otherwise use status
+                $usesMilestone = true;
+                if (! empty($row->referral_updated_at) && ! empty($row->latest_milestone_date)) {
+                    $usesMilestone = $row->latest_milestone_date >= $row->referral_updated_at;
+                }
+                if ($usesMilestone) {
+                    $row->latest_update = $row->latest_milestone_title.' ('.$milestoneDate.')';
+                } else {
+                    $updatedAt = str_contains((string) $row->referral_updated_at, ' ')
+                        ? substr((string) $row->referral_updated_at, 0, 16)
+                        : (string) $row->referral_updated_at;
+                    $row->latest_update = $statusDescription.' ('.$updatedAt.')';
+                }
+            } elseif (! empty($row->referral_updated_at) && (string) $row->referral_updated_at !== (string) $row->date_referred) {
+                $updatedAt = str_contains((string) $row->referral_updated_at, ' ')
+                    ? substr((string) $row->referral_updated_at, 0, 16)
+                    : (string) $row->referral_updated_at;
+                $row->latest_update = $statusDescription.' ('.$updatedAt.')';
+            } else {
+                $dateReferred = $row->date_referred ?? '';
+                $row->latest_update = 'Sent to agency ('.$dateReferred.')';
+            }
+            unset($row->latest_milestone_title, $row->latest_milestone_date, $row->referral_updated_at);
 
             // Strip raw intermediate fields
             unset(

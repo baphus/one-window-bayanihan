@@ -20,8 +20,12 @@ export const userFormSchema = z.object({
     .refine((val) => ['CASE_MANAGER', 'AGENCY', 'ADMIN'].includes(val), {
       message: 'Please select a valid role.',
     }),
-  agcy_id: z.string().uuid().nullable().optional(),
-  contact_number: z.string().optional(),
+  agcy_id: z.string().uuid('Please select a valid agency.').or(z.literal('')).nullable().optional(),
+  contact_number: z.string().optional().or(z.literal('')),
+  position: z.string().max(255, 'Position must not exceed 255 characters.').optional().or(z.literal('')),
+  department: z.string().max(255, 'Department must not exceed 255 characters.').optional().or(z.literal('')),
+  office_location: z.string().max(500, 'Office location must not exceed 500 characters.').optional().or(z.literal('')),
+  bio: z.string().max(2000, 'Bio must not exceed 2000 characters.').optional().or(z.literal('')),
 });
 
 /**
@@ -45,8 +49,12 @@ export const createUserFormSchema = z.object({
     .refine((val) => ['CASE_MANAGER', 'AGENCY', 'ADMIN'].includes(val), {
       message: 'Please select a valid role.',
     }),
-  agcy_id: z.string().uuid().nullable().optional(),
-  contact_number: z.string().optional(),
+  agcy_id: z.string().uuid('Please select a valid agency.').or(z.literal('')).nullable().optional(),
+  contact_number: z.string().optional().or(z.literal('')),
+  position: z.string().max(255, 'Position must not exceed 255 characters.').optional().or(z.literal('')),
+  department: z.string().max(255, 'Department must not exceed 255 characters.').optional().or(z.literal('')),
+  office_location: z.string().max(500, 'Office location must not exceed 500 characters.').optional().or(z.literal('')),
+  bio: z.string().max(2000, 'Bio must not exceed 2000 characters.').optional().or(z.literal('')),
 });
 
 export const serviceFormSchema = z.object({

@@ -8,15 +8,15 @@ import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 
 const COLUMN_DEFS = [
-    { key: 'referral_id', label: 'Referral #', default: true },
     { key: 'case_number', label: 'Case #', default: true },
     { key: 'client', label: 'Client', default: true },
-    { key: 'client_contact', label: 'Client Contact', default: true },
+    { key: 'client_contact', label: 'Client Contact', default: false },
     { key: 'case_summary', label: 'Case Summary', default: true },
     { key: 'case_issue', label: 'Issue / Concern', default: false },
     { key: 'agency', label: 'Agency', default: true },
     { key: 'required_services', label: 'Service', default: true },
     { key: 'status', label: 'Status', default: true },
+    { key: 'latest_update', label: 'Latest Update', default: true },
     { key: 'id', label: 'Actions', default: true },
 ];
 
@@ -147,14 +147,6 @@ export default function ReferralIndex({ referrals, filters }) {
             .map((col) => {
                 const base = { key: col.key, title: col.label, sortable: true };
                 switch (col.key) {
-                    case 'referral_id':
-                        return {
-                            ...base,
-                            sortable: false,
-                            render: (row) => (
-                                <span className="font-mono text-xs font-bold text-slate-700">{row.id.slice(0, 8)}</span>
-                            ),
-                        };
                     case 'case_number':
                         return {
                             ...base,
@@ -216,6 +208,21 @@ export default function ReferralIndex({ referrals, filters }) {
                             render: (row) => (
                                 <StatusBadge status={row.status} />
                             ),
+                        };
+                    case 'latest_update':
+                        return {
+                            ...base,
+                            sortable: false,
+                            render: (row) => {
+                                const update = row.latest_update;
+                                if (!update) return <span className="text-slate-400 text-[11px]">—</span>;
+                                return (
+                                    <div className="max-w-[200px]">
+                                        <div className="text-[11px] font-medium text-slate-700 truncate">{update.description}</div>
+                                        <div className="text-[10px] text-slate-400">{update.date}</div>
+                                    </div>
+                                );
+                            },
                         };
                     case 'id':
                         return {

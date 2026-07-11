@@ -9,20 +9,19 @@ use Illuminate\Support\Str;
 class AgencySeeder extends Seeder
 {
     /**
-     * Official agency logo paths stored locally in public/images/agencies/.
+     * Official agency logo URLs hosted on Cloudinary.
      * Sourced from Wikimedia Commons (public domain Philippine government works).
-     * These resolve to /images/agencies/{slug}.png via Laravel's asset() helper.
      */
     private const LOGO_PATHS = [
-        'owwa' => '/images/agencies/owwa.png',
-        'dmw' => '/images/agencies/dmw.png',
-        'doh' => '/images/agencies/doh.png',
-        'dole' => '/images/agencies/dole.png',
-        'dswd' => '/images/agencies/dswd.png',
-        'tesda' => '/images/agencies/tesda.png',
+        'owwa' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801443/bayanihan/agencies/owwa.png',
+        'dmw' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801446/bayanihan/agencies/dmw.png',
+        'doh' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801448/bayanihan/agencies/doh.png',
+        'dole' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801450/bayanihan/agencies/dole.png',
+        'dswd' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801451/bayanihan/agencies/dswd.png',
+        'tesda' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801453/bayanihan/agencies/tesda.png',
         'law-center-inc' => null, // Small NGO — no publicly available official logo
-        'province-cebu' => '/images/agencies/province-cebu.png',
-        'city-cebu' => '/images/agencies/city-cebu.png',
+        'province-cebu' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801455/bayanihan/agencies/province-cebu.png',
+        'city-cebu' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801456/bayanihan/agencies/city-cebu.png',
     ];
 
     /**

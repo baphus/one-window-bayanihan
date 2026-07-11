@@ -19,6 +19,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [showUserForm, setShowUserForm] = useState(false);
 
   // Agency inline editor (ADMIN only)
   const [isEditing, setIsEditing] = useState(false);
@@ -27,7 +28,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
   const [editErrors, setEditErrors] = useState({});
   const [logoFile, setLogoFile] = useState(null);
 
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm || isEditing);
+  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm || showUserForm || isEditing);
 
   // ── Agency editor handlers (ADMIN only) ──
 
@@ -100,9 +101,9 @@ export default function AdminAgencyShow({ agency, referrals }) {
 
   function openAddService()    { setEditingService({ agcy_id: agency.id }); setShowForm(true); }
   function openEditService(s)  { setEditingService(s); setShowForm(true); }
-  function openAddUser()       { setEditingUser({ role: 'AGENCY', agcy_id: agency.id }); setShowForm(true); }
-  function openEditUser(u)     { setEditingUser(u); setShowForm(true); }
-  function closeForm()         { setShowForm(false); setEditingService(null); setEditingUser(null); }
+  function openAddUser()       { setEditingUser(null); setShowUserForm(true); }
+  function openEditUser(u)     { setEditingUser(u); setShowUserForm(true); }
+  function closeForm()         { setShowForm(false); setShowUserForm(false); setEditingService(null); setEditingUser(null); }
 
   // ── Referral Pagination ──
 
@@ -127,7 +128,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
       {showForm && editingService && (
         <ServiceFormModal service={editingService} allAgencies={[agency]} onClose={closeForm} onBypass={bypassNext} selectedAgencyId={!editingService?.id ? agency.id : undefined} />
       )}
-      {showForm && editingUser && (
+      {showUserForm && (
         <UserFormModal user={editingUser} agencies={[agency]} onClose={closeForm} onBypass={bypassNext} selectedAgencyId={!editingUser?.id ? agency.id : undefined} />
       )}
       <Head title={agency.name} />

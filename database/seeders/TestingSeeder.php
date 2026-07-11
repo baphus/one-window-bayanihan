@@ -539,6 +539,7 @@ class TestingSeeder extends Seeder
         $cases = [];
         $caseIds = [];
         $caseClientMap = []; // case_id => client_id
+        $caseCreatedDates = []; // case_id => Carbon
 
         DB::beginTransaction();
 
@@ -562,17 +563,17 @@ class TestingSeeder extends Seeder
             if ($clientId) {
                 $caseClientMap[$caseId] = $clientId;
             }
+            $caseCreatedDates[$caseId] = $caseCreatedAt;
 
             $hasCategory = rand(0, 100) < 80;
             $hasIssue = rand(0, 100) < 70;
 
-            // Always include ALL columns so every row in a batch has identical keys (required by PostgreSQL)
+            // Chronological: cases created between 180 and 5 days ago, distributed evenly
+            $caseCreatedAt = now()->subDays(180 - intval($i * 175 / $casesToCreate))->addHours(rand(0, 12));
             $closedAt = null;
 
             if ($status === 'CLOSED') {
-                $closedAt = now()->subDays(rand(1, 90));
-            } elseif ($status === 'ARCHIVED') {
-                // no special handling
+                $closedAt = $caseCreatedAt->copy()->addDays(rand(7, 60));
             }
 
             $cases[] = [
@@ -590,8 +591,8 @@ class TestingSeeder extends Seeder
                 'client_id' => $clientId,
                 'category_id' => $hasCategory ? $categoryIds[array_rand($categoryIds)] : null,
                 'case_issue_id' => $hasIssue ? $issueIds[array_rand($issueIds)] : null,
-                'created_at' => now()->subDays(rand(0, 180)),
-                'updated_at' => $now,
+                'created_at' => $caseCreatedAt,
+                'updated_at' => $closedAt ?? $caseCreatedAt->copy()->addDays(rand(0, 14)),
             ];
         }
 
@@ -645,6 +646,8 @@ class TestingSeeder extends Seeder
                 continue;
             }
 
+            $caseCreated = $caseCreatedDates[$caseId] ?? Carbon::parse($caseInsert->created_at);
+
             for ($r = 0; $r < 2; $r++) {
                 $refId = (string) Str::uuid();
                 $referralIds[] = $refId;
@@ -654,17 +657,22 @@ class TestingSeeder extends Seeder
                 $serviceName = $firstServicePerAgency[$agencyId] ?? 'General Assistance';
                 $refStatus = $referralStatusPool[array_rand($referralStatusPool)];
 
-                // Determine conditional fields (set all to avoid PostgreSQL column count mismatch in batches)
+                // Referral created 1–3 days after the case
+                $refCreatedAt = $caseCreated->copy()->addDays(rand(1, 3))->addHours(rand(0, 8));
+
+                // Determine conditional fields
                 $decision = null;
                 $decisionComment = null;
                 $firstActionAt = null;
                 $referralAssignedAt = null;
+                $refUpdatedAt = $refCreatedAt->copy();
 
                 if ($refStatus === 'COMPLETED') {
                     $decision = 'ACCEPT';
                     $decisionComment = null;
-                    $firstActionAt = now()->subDays(rand(1, 90));
-                    $referralAssignedAt = now()->subDays(rand(1, 90));
+                    $firstActionAt = $refCreatedAt->copy()->addDays(rand(1, 5));
+                    $referralAssignedAt = $refCreatedAt->copy()->addDays(rand(1, 3));
+                    $refUpdatedAt = $firstActionAt->copy()->addDays(rand(7, 30));
 
                     $completedReferralIds[] = $refId;
                     $completedReferralInfo[$refId] = [
@@ -674,10 +682,16 @@ class TestingSeeder extends Seeder
                 } elseif ($refStatus === 'REJECTED') {
                     $decision = 'REJECT';
                     $decisionComment = 'Requirements not met';
+                    $refUpdatedAt = $refCreatedAt->copy()->addDays(rand(1, 7));
                 } elseif ($refStatus === 'PROCESSING') {
-                    $firstActionAt = now()->subDays(rand(1, 30));
+                    $firstActionAt = $refCreatedAt->copy()->addDays(rand(1, 5));
+                    $refUpdatedAt = $firstActionAt->copy()->addDays(rand(1, 10));
                 } elseif ($refStatus === 'FOR_COMPLIANCE') {
-                    $firstActionAt = now()->subDays(rand(1, 30));
+                    $firstActionAt = $refCreatedAt->copy()->addDays(rand(1, 5));
+                    $refUpdatedAt = $firstActionAt->copy()->addDays(rand(3, 14));
+                } else {
+                    // PENDING — no status change yet
+                    $refUpdatedAt = $refCreatedAt->copy();
                 }
 
                 $referrals[] = [
@@ -691,8 +705,8 @@ class TestingSeeder extends Seeder
                     'agcy_id' => $agencyId,
                     'first_action_at' => $firstActionAt,
                     'referral_assigned_at' => $referralAssignedAt,
-                    'created_at' => now()->subDays(rand(0, 180)),
-                    'updated_at' => $now,
+                    'created_at' => $refCreatedAt,
+                    'updated_at' => $refUpdatedAt,
                 ];
             }
         }
@@ -711,107 +725,118 @@ class TestingSeeder extends Seeder
         //    COMPLETED: 4, REJECTED: 1
         // =====================================================================
 
-        $allReferrals = DB::table('referrals')->select('id', 'status')->get();
+        $allReferrals = DB::table('referrals')->select('id', 'status', 'created_at')->get();
         $milestones = [];
 
         DB::beginTransaction();
 
         foreach ($allReferrals as $ref) {
+            $refCreated = Carbon::parse($ref->created_at);
+
             switch ($ref->status) {
                 case 'PROCESSING':
+                    $ms1Date = $refCreated->copy()->addDays(rand(1, 3))->addHours(rand(1, 12));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Referral Received',
                         'description' => 'Referral received by the agency.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms1Date,
+                        'updated_at' => $ms1Date,
                     ];
+                    $ms2Date = $ms1Date->copy()->addDays(rand(2, 7))->addHours(rand(1, 8));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Documents Submitted',
                         'description' => 'Required documents have been submitted.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms2Date,
+                        'updated_at' => $ms2Date,
                     ];
                     break;
 
                 case 'FOR_COMPLIANCE':
+                    $ms1Date = $refCreated->copy()->addDays(rand(1, 3))->addHours(rand(1, 12));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Referral Received',
                         'description' => 'Referral received by the agency.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms1Date,
+                        'updated_at' => $ms1Date,
                     ];
+                    $ms2Date = $ms1Date->copy()->addDays(rand(3, 10))->addHours(rand(1, 8));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Compliance Check',
                         'description' => 'Compliance requirements have been checked.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms2Date,
+                        'updated_at' => $ms2Date,
                     ];
                     break;
 
                 case 'COMPLETED':
+                    $ms1Date = $refCreated->copy()->addDays(rand(1, 2))->addHours(rand(1, 8));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Referral Received',
                         'description' => 'Referral received by the agency.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms1Date,
+                        'updated_at' => $ms1Date,
                     ];
+                    $ms2Date = $ms1Date->copy()->addDays(rand(2, 5))->addHours(rand(1, 8));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Documents Submitted',
                         'description' => 'Required documents have been submitted.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms2Date,
+                        'updated_at' => $ms2Date,
                     ];
+                    $ms3Date = $ms2Date->copy()->addDays(rand(3, 10))->addHours(rand(1, 8));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Services Rendered',
                         'description' => 'All required services have been provided.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms3Date,
+                        'updated_at' => $ms3Date,
                     ];
+                    $ms4Date = $ms3Date->copy()->addDays(rand(1, 5))->addHours(rand(1, 8));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Case Closed',
                         'description' => 'Case successfully closed.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms4Date,
+                        'updated_at' => $ms4Date,
                     ];
                     break;
 
                 case 'REJECTED':
+                    $ms1Date = $refCreated->copy()->addDays(rand(1, 3))->addHours(rand(1, 8));
                     $milestones[] = [
                         'id' => (string) Str::uuid(),
                         'title' => 'Referral Received',
-                        'description' => 'Referral received by the agency.',
+                        'description' => 'Referral received and reviewed by the agency.',
                         'refr_id' => $ref->id,
                         'user_id' => $userIds[array_rand($userIds)],
-                        'created_at' => now()->subDays(rand(0, 180)),
-                        'updated_at' => $now,
+                        'created_at' => $ms1Date,
+                        'updated_at' => $ms1Date,
                     ];
                     break;
 
-                    // PENDING: 0 milestones — no break needed
+                    // PENDING: 0 milestones
             }
         }
 

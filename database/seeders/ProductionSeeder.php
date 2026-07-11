@@ -31,5 +31,11 @@ class ProductionSeeder extends Seeder
                 'created_at' => $now,
             ]
         );
+
+        // ────────────────────────────────────────────
+        // 2. Seed agencies (idempotent — uses updateOrInsert by slug)
+        // ────────────────────────────────────────────
+
+        $this->call(AgencySeeder::class);
     }
 }
