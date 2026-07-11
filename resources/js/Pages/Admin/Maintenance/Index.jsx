@@ -22,13 +22,13 @@ export default function Index({ status }) {
       <Head title="Maintenance Mode" />
 
       <div className="max-w-3xl space-y-6">
-        <div>
+        <div data-tour="maintenance-header">
           <h1 className="text-2xl font-bold text-slate-900">Maintenance Mode</h1>
           <p className="mt-1 text-sm text-slate-500">Control site downtime for planned maintenance.</p>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
+          <div data-tour="maintenance-status" className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-slate-500">Current Status</p>
               <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${isActive ? 'border-red-200 bg-red-100 text-red-800' : 'border-green-200 bg-green-100 text-green-800'}`}>
@@ -41,7 +41,7 @@ export default function Index({ status }) {
           </div>
 
           {isActive ? (
-            <div className="mt-6 space-y-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div data-tour="maintenance-toggle" className="mt-6 space-y-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <p className="font-semibold">Warning: disabling maintenance mode will reopen the site.</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div><span className="font-medium">Secret:</span> {status?.secret ?? 'None'}</div>
@@ -55,7 +55,7 @@ export default function Index({ status }) {
               </button>
             </div>
           ) : (
-            <div className="mt-6 space-y-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div data-tour="maintenance-toggle" className="mt-6 space-y-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <p className="font-semibold">Warning: enabling maintenance mode will make the site unavailable to most users.</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">

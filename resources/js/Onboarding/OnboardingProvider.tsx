@@ -1,35 +1,56 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { TourConfig } from './types';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { ChecklistProgress, PageGuide, TourConfig, TourState } from './types';
+import { getPageGuide } from './registry';
+import * as api from './api';
 
 export type Phase = 'idle' | 'welcome' | 'touring' | 'complete';
+
+export interface ActivePageGuide {
+    /** Route name the guide belongs to */
+    route: string;
+    /** The guide config being driven */
+    guide: PageGuide;
+}
 
 export interface OnboardingContextValue {
     /** Whether any onboarding UI should be visible */
     isOpen: boolean;
-    /** Zero-based index into the flattened step list across all pages */
-    currentStep: number;
-    /** The active tour configuration */
+    /** The active welcome-tour configuration */
     tourConfig: TourConfig | null;
-    /** Current phase of the onboarding state machine */
+    /** Current phase of the welcome-tour state machine */
     phase: Phase;
     /** Zero-based index of the current page in the tour (persists across Inertia navigations) */
     currentPageIndex: number;
-    /** Begin a tour with the given config, starting at step 0 */
-    startTour: (config: TourConfig) => void;
+    /** One-shot step index to resume at when the tour next drives (consumed by TourManager) */
+    resumeStepIndex: number | null;
+    /** Begin a welcome tour, optionally resuming at a position */
+    startTour: (config: TourConfig, at?: { page: number; step: number }) => void;
     /** End the current tour and reset to idle */
     endTour: () => void;
-    /** Advance to the next step (clamped to bounds) */
-    nextStep: () => void;
-    /** Retreat to the previous step (clamped to bounds) */
-    prevStep: () => void;
-    /** Jump directly to a specific step index */
-    goToStep: (n: number) => void;
     /** Set the current page index directly */
     setCurrentPageIndex: (n: number) => void;
-    /** Advance to the next page in the tour */
-    advancePage: () => void;
+    /** Clear the one-shot resume step index after it is consumed */
+    clearResumeStep: () => void;
     /** Dismiss onboarding for the remainder of this session */
     dismissRemindLater: () => void;
+
+    /** The page guide currently being driven, or null */
+    activePageGuide: ActivePageGuide | null;
+    /** Launch the registered guide for a route (marks it seen) */
+    startPageGuide: (route: string) => void;
+    /** End the active page guide */
+    endPageGuide: () => void;
+    /** Route names whose guides the user has seen */
+    seenGuides: string[];
+    /** Mark a page guide seen (optimistic + persisted) without opening it */
+    markGuideSeen: (route: string) => void;
+
+    /** Getting-started checklist progress (merged server + optimistic) */
+    checklistProgress: ChecklistProgress;
+    /** Mark a checklist item complete (optimistic + persisted) */
+    markChecklistItem: (itemId: string) => void;
+    /** Dismiss the checklist (optimistic + persisted) */
+    dismissChecklist: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -45,20 +66,30 @@ export function useOnboarding(): OnboardingContextValue {
     return ctx;
 }
 
-/**
- * Returns the total number of steps across all pages in a tour config.
- */
-function totalSteps(config: TourConfig | null): number {
-    if (!config) return 0;
-    return config.pages.reduce((acc, page) => acc + page.steps.length, 0);
-}
+const EMPTY_PROGRESS: ChecklistProgress = { items: {}, dismissed_at: null };
 
-export default function OnboardingProvider({ children, onboardingRequired }: { children: ReactNode; onboardingRequired?: unknown }) {
-
+export default function OnboardingProvider({
+    children,
+    onboardingRequired,
+    onboardingState,
+}: {
+    children: ReactNode;
+    onboardingRequired?: unknown;
+    onboardingState?: TourState | null;
+}) {
     const [phase, setPhase] = useState<Phase>('idle');
-    const [currentStep, setCurrentStep] = useState<number>(0);
     const [tourConfig, setTourConfig] = useState<TourConfig | null>(null);
     const [currentPageIndex, setCurrentPageIndexState] = useState<number>(0);
+    const [resumeStepIndex, setResumeStepIndex] = useState<number | null>(null);
+
+    const [activePageGuide, setActivePageGuide] = useState<ActivePageGuide | null>(null);
+
+    // Optimistic local copies of persisted UX state. Server state (from the
+    // shared Inertia prop) refreshes on every navigation; local marks are
+    // merged in so the UI never flickers back while a request is in flight.
+    const [localSeen, setLocalSeen] = useState<string[]>([]);
+    const [localItems, setLocalItems] = useState<Record<string, string>>({});
+    const [localDismissedAt, setLocalDismissedAt] = useState<string | null>(null);
 
     // On mount, check sessionStorage and onboarding_required prop
     useEffect(() => {
@@ -74,37 +105,22 @@ export default function OnboardingProvider({ children, onboardingRequired }: { c
         setCurrentPageIndexState(n);
     }, []);
 
-    const advancePage = useCallback(() => {
-        setCurrentPageIndexState((prev) => prev + 1);
-    }, []);
-
-    const startTour = useCallback((config: TourConfig) => {
+    const startTour = useCallback((config: TourConfig, at?: { page: number; step: number }) => {
         setTourConfig(config);
-        setCurrentStep(0);
-        setCurrentPageIndexState(0);
+        setCurrentPageIndexState(at?.page ?? 0);
+        setResumeStepIndex(at?.step ?? null);
         setPhase('touring');
     }, []);
 
     const endTour = useCallback(() => {
         setPhase('idle');
         setTourConfig(null);
-        setCurrentStep(0);
         setCurrentPageIndexState(0);
+        setResumeStepIndex(null);
     }, []);
 
-    const nextStep = useCallback(() => {
-        setCurrentStep((prev) => {
-            const max = totalSteps(tourConfig) - 1;
-            return Math.min(prev + 1, max);
-        });
-    }, [tourConfig]);
-
-    const prevStep = useCallback(() => {
-        setCurrentStep((prev) => Math.max(prev - 1, 0));
-    }, []);
-
-    const goToStep = useCallback((n: number) => {
-        setCurrentStep(n);
+    const clearResumeStep = useCallback(() => {
+        setResumeStepIndex(null);
     }, []);
 
     const dismissRemindLater = useCallback(() => {
@@ -112,22 +128,72 @@ export default function OnboardingProvider({ children, onboardingRequired }: { c
         setPhase('idle');
     }, []);
 
-    const isOpen = phase === 'welcome' || phase === 'touring';
+    const seenGuides = useMemo(() => {
+        const server = onboardingState?.seen_page_guides ?? [];
+        return Array.from(new Set([...server, ...localSeen]));
+    }, [onboardingState, localSeen]);
+
+    const markGuideSeen = useCallback((routeName: string) => {
+        setLocalSeen((prev) => (prev.includes(routeName) ? prev : [...prev, routeName]));
+        api.markGuideSeen(routeName).catch(() => {
+            // Non-critical UX state — never surface an error for this.
+        });
+    }, []);
+
+    const startPageGuide = useCallback((routeName: string) => {
+        const guide = getPageGuide(routeName);
+        if (!guide) return;
+        markGuideSeen(routeName);
+        setActivePageGuide({ route: routeName, guide });
+    }, [markGuideSeen]);
+
+    const endPageGuide = useCallback(() => {
+        setActivePageGuide(null);
+    }, []);
+
+    const checklistProgress = useMemo<ChecklistProgress>(() => {
+        const server = onboardingState?.checklist_progress ?? EMPTY_PROGRESS;
+        return {
+            items: { ...(server.items ?? {}), ...localItems },
+            dismissed_at: server.dismissed_at ?? localDismissedAt,
+        };
+    }, [onboardingState, localItems, localDismissedAt]);
+
+    const markChecklistItem = useCallback((itemId: string) => {
+        setLocalItems((prev) => (prev[itemId] ? prev : { ...prev, [itemId]: new Date().toISOString() }));
+        api.markChecklistItem(itemId).catch(() => {
+            // Non-critical UX state.
+        });
+    }, []);
+
+    const dismissChecklist = useCallback(() => {
+        setLocalDismissedAt(new Date().toISOString());
+        api.dismissChecklist().catch(() => {
+            // Non-critical UX state.
+        });
+    }, []);
+
+    const isOpen = phase === 'welcome' || phase === 'touring' || activePageGuide !== null;
 
     const value: OnboardingContextValue = {
         isOpen,
-        currentStep,
         tourConfig,
         phase,
         currentPageIndex,
+        resumeStepIndex,
         startTour,
         endTour,
-        nextStep,
-        prevStep,
-        goToStep,
         setCurrentPageIndex,
-        advancePage,
+        clearResumeStep,
         dismissRemindLater,
+        activePageGuide,
+        startPageGuide,
+        endPageGuide,
+        seenGuides,
+        markGuideSeen,
+        checklistProgress,
+        markChecklistItem,
+        dismissChecklist,
     };
 
     return (

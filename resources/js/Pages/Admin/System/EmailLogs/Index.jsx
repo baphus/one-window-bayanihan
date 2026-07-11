@@ -48,12 +48,12 @@ export default function Index({ logs, filters }) {
     <AppLayout title="Email Logs">
       <Head title="Email Logs" />
 
-      <div className="mb-8">
+      <div data-tour="email-logs-header" className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Email Logs</h1>
         <p className="mt-1 text-sm text-slate-500">Monitor all outbound emails and resend failed ones.</p>
       </div>
 
-      <div className="mb-6 flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm w-fit">
+      <div data-tour="email-logs-tabs" className="mb-6 flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm w-fit">
         {STATUS_TABS.map((tab) => {
           const active = (tab.value === '' && !filters.status) || filters.status === tab.value;
           return (
@@ -72,7 +72,7 @@ export default function Index({ logs, filters }) {
         })}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div data-tour="email-logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>

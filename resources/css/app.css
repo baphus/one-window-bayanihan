@@ -94,3 +94,30 @@ body {
 .driver-popover-skip-btn:hover {
     color: rgb(71 85 105) !important; /* slate-600 */
 }
+
+/* "Read more" Helpdesk link appended to a page guide's final step */
+.driver-popover-readmore {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgb(226 232 240); /* slate-200 */
+}
+.driver-popover-readmore a {
+    color: rgb(79 70 229); /* indigo-600 */
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+}
+.driver-popover-readmore a:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* Pulse nudge on the [?] page-guide launcher for unseen guides */
+@keyframes owb-guide-pulse {
+    0% { box-shadow: 0 0 0 0 rgb(79 70 229 / 0.45); }
+    70% { box-shadow: 0 0 0 8px rgb(79 70 229 / 0); }
+    100% { box-shadow: 0 0 0 0 rgb(79 70 229 / 0); }
+}
+.owb-guide-nudge {
+    animation: owb-guide-pulse 2s ease-out infinite;
+}

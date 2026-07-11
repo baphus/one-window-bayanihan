@@ -43,6 +43,9 @@ class AgencyServiceController extends Controller
             $request->user()->id,
         );
 
+        app(\App\Services\OnboardingService::class)
+            ->markChecklistItemQuietly($request->user(), 'add-first-service');
+
         return redirect()
             ->route('agency.services.index')
             ->with('success', 'Service created successfully.');

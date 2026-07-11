@@ -47,8 +47,12 @@ const DevTools = lazy(() =>
  * global 'success' event to pick up the value from each page navigation.
  */
 function AppWithOnboarding({ App, appProps }) {
+    const initialProps = appProps.initialPage.props as Record<string, unknown>;
     const [onboardingRequired, setOnboardingRequired] = useState(
-        (appProps.initialPage.props as Record<string, unknown>).onboarding_required,
+        initialProps.onboarding_required,
+    );
+    const [onboardingState, setOnboardingState] = useState<import('@/Onboarding/types').TourState | null>(
+        (initialProps.onboarding ?? null) as import('@/Onboarding/types').TourState | null,
     );
 
     useEffect(() => {
@@ -56,6 +60,9 @@ function AppWithOnboarding({ App, appProps }) {
             const page = event.detail?.page;
             if (page?.props?.onboarding_required !== undefined) {
                 setOnboardingRequired(page.props.onboarding_required);
+            }
+            if (page?.props?.onboarding !== undefined) {
+                setOnboardingState(page.props.onboarding as import('@/Onboarding/types').TourState | null);
             }
         });
         return () => {
@@ -77,7 +84,7 @@ function AppWithOnboarding({ App, appProps }) {
     }, []);
 
     return (
-        <OnboardingProvider onboardingRequired={onboardingRequired}>
+        <OnboardingProvider onboardingRequired={onboardingRequired} onboardingState={onboardingState}>
             <QueryClientProvider client={queryClient}>
                 <ToastProvider>
                     <App {...appProps} />

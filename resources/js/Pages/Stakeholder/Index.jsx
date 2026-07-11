@@ -29,14 +29,14 @@ export default function StakeholderIndex({ agencies }) {
   return (
     <AppLayout title="Stakeholders">
       <Head title="Stakeholders" />
-      <div className="mb-8">
+      <div data-tour="stakeholders-header" className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Stakeholders</h1>
         <p className="text-sm text-slate-500 mt-1">Partner agencies and organizations involved in the One Window Bayanihan system.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div data-tour="stakeholders-grid" className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {agencies.map((agency) => (
-          <div key={agency.id} className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+          <div key={agency.id} data-tour="stakeholders-card" className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
             <div className="flex items-center gap-4 mb-4">
               <AgencyLogo agency={agency} />
               <div>

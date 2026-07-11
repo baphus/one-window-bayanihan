@@ -90,7 +90,7 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
       <Head title="Feedback Overview" />
 
       <div className="space-y-6">
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section data-tour="feedbacks-header" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="px-5 py-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Feedback</p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Feedback Overview</h1>
@@ -98,7 +98,7 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section data-tour="feedbacks-filters" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Filters</h2>
             <p className="mt-1 text-sm text-slate-500">Narrow the list by agency, service, date, rating, or time window.</p>
@@ -160,7 +160,7 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section data-tour="feedbacks-kpis" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Agency summary</h2>
             <p className="mt-1 text-sm text-slate-500">Response totals and averages by agency.</p>
@@ -199,7 +199,7 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section data-tour="feedbacks-list" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Feedback records</h2>
             <p className="mt-1 text-sm text-slate-500">Detailed responses matching the selected filters.</p>

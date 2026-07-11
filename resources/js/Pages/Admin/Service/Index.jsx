@@ -83,16 +83,17 @@ export default function AdminServiceIndex({ services, allAgencies }) {
     <AppLayout title="Manage Services">
       {showForm && <ServiceFormModal service={editingService} allAgencies={allAgencies} onClose={() => { setShowForm(false); setEditingService(null); }} onBypass={bypassNext} />}
       <Head title="Manage Services" />
-      <div className="mb-8 flex items-center justify-between">
+      <div data-tour="admin-services-header" className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Services</h1>
           <p className="text-sm text-slate-500 mt-1">Manage all services offered through the system.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
+        <button data-tour="admin-services-new" onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Service
         </button>
       </div>
 
+      <div data-tour="admin-services-table">
       <UnifiedTable
         columns={columns}
         data={services.data}
@@ -100,6 +101,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
         {...paginatorProps(services)}
         onRowContextMenu={handleRowContextMenu}
       />
+      </div>
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
       {contextMenu && (
         <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>

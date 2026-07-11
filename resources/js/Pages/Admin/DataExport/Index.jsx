@@ -24,7 +24,7 @@ export default function DataExportIndex({ tables }) {
         <AppLayout title="Data Export">
             <Head title="Data Export" />
 
-            <div className="mb-8 flex items-center justify-between">
+            <div data-tour="data-export-header" className="mb-8 flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Data Export</h1>
                     <p className="text-sm text-slate-500 mt-1">
@@ -32,6 +32,7 @@ export default function DataExportIndex({ tables }) {
                     </p>
                 </div>
                 <button
+                    data-tour="data-export-button"
                     onClick={() => window.open(route('admin.data-export.export'))}
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors"
                 >
@@ -40,7 +41,7 @@ export default function DataExportIndex({ tables }) {
                 </button>
             </div>
 
-            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            <div data-tour="data-export-sheets" className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100">
                     <h2 className="text-sm font-semibold text-slate-700">
                         Included Sheets ({tables.length})

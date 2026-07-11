@@ -77,7 +77,7 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
     <div>
       {/* Mark All Read */}
       {hasUnread && (
-        <div className="flex items-center justify-end mb-4">
+        <div data-tour="notifications-mark-all" className="flex items-center justify-end mb-4">
           <button
             onClick={() => markAllReadMutation.mutate()}
             disabled={markAllReadMutation.isPending}
@@ -255,23 +255,25 @@ export default function NotificationsIndex() {
       <Head title="Notifications" />
       <div className="mx-auto max-w-5xl">
         {/* Page Header */}
-        <div className="mb-8">
+        <div data-tour="notifications-header" className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
           <p className="text-sm text-slate-500 mt-1">
             Stay updated on cases, referrals, and updates.
           </p>
         </div>
 
-        <NotificationsTab
-          data={notifData}
-          isLoading={notifLoading}
-          error={notifError}
-          page={notifPage}
-          onPageChange={goToPage}
-          queryClient={queryClient}
-          markReadMutation={markReadMutation}
-          markAllReadMutation={markAllReadMutation}
-        />
+        <div data-tour="notifications-list">
+          <NotificationsTab
+            data={notifData}
+            isLoading={notifLoading}
+            error={notifError}
+            page={notifPage}
+            onPageChange={goToPage}
+            queryClient={queryClient}
+            markReadMutation={markReadMutation}
+            markAllReadMutation={markAllReadMutation}
+          />
+        </div>
       </div>
     </AppLayout>
   );

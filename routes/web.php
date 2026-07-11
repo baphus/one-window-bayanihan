@@ -213,6 +213,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
     Route::post('/onboarding/replay', [OnboardingController::class, 'replay'])->name('onboarding.replay');
     Route::post('/onboarding/step', [OnboardingController::class, 'updateStep'])->name('onboarding.step');
+    Route::post('/onboarding/guide-seen', [OnboardingController::class, 'markGuideSeen'])->name('onboarding.guide-seen');
+    Route::post('/onboarding/checklist/mark', [OnboardingController::class, 'markChecklistItem'])->name('onboarding.checklist.mark');
+    Route::post('/onboarding/checklist/dismiss', [OnboardingController::class, 'dismissChecklist'])->name('onboarding.checklist.dismiss');
     Route::post('/onboarding/skip-profile', [OnboardingController::class, 'skipProfile'])->name('onboarding.skip-profile');
 
     Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {

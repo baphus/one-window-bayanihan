@@ -72,7 +72,7 @@ function ReportsDashboard({
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-4">
-      <header className="flex flex-col gap-4 mb-6">
+      <header data-tour="reports-header" className="flex flex-col gap-4 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
@@ -80,7 +80,7 @@ function ReportsDashboard({
             </h1>
             <p className="text-sm text-slate-400 font-body mt-0.5">{roleSubtitle}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div data-tour="reports-filters" className="flex items-center gap-3">
             <DateRangePicker
               fromDateISO={fromDateISO}
               toDateISO={toDateISO}
@@ -100,7 +100,7 @@ function ReportsDashboard({
             />
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div data-tour="reports-tabs" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {role === 'CASE_MANAGER' && (
             <ProvinceCityFilter
               provinceOptions={provinceOptions || []}
@@ -116,7 +116,7 @@ function ReportsDashboard({
       </header>
 
       {/* ── KPI hero: primary "am I on track" tier ── */}
-      <section className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
+      <section data-tour="reports-kpis" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
         <MetricCard label="Active Caseload" value={`${suppressCount(kpis?.openCases ?? 0)}`}
           icon={<Users className="w-4 h-4 text-[#0b5a8c]" />}
           sparkline={<Sparkline data={caseSparkline} color={COLORS.primary} />} />
@@ -150,7 +150,7 @@ function ReportsDashboard({
       {/* ── OVERVIEW ── */}
       {activeTab === 'overview' && (
         <>
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <section data-tour="reports-charts" className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             <div className="xl:col-span-2">
               <ReferralFunnelSection referralStatuses={referralStatuses} />
             </div>

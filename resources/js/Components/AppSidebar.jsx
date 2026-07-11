@@ -6,7 +6,7 @@ import { useOnboarding } from '@/Onboarding/OnboardingProvider';
 import { replayOnboarding } from '@/Onboarding/api';
 import { getTourConfig } from '@/Onboarding/index';
 
-const navByRole = {
+export const navByRole = {
   CASE_MANAGER: [
     { label: 'Overview', items: [
       { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
@@ -144,7 +144,7 @@ export default function AppSidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4">
+      <nav data-tour="sidebar-nav" className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4">
           {navigation.map((group) => (
             <div key={group.label} className="mb-3">
               <p className="px-8 pb-2 text-[10px] font-bold font-label uppercase tracking-[0.09em] text-slate-500">
@@ -176,6 +176,7 @@ export default function AppSidebar() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={linkClass}
+                        {...(item.name === 'Help Center' ? { 'data-tour': 'sidebar-help' } : {})}
                       >
                         {content}
                       </a>
@@ -211,6 +212,7 @@ export default function AppSidebar() {
 
           {user?.onboarding_completed_at && (
             <button
+              data-tour="sidebar-tour-replay"
               onClick={handleReplayTour}
               className="flex items-center gap-2 px-4 py-2 mt-3 text-[12px] font-bold text-slate-500 hover:text-indigo-600 hover:bg-slate-50 transition-colors w-full rounded-md"
             >

@@ -480,7 +480,7 @@ export default function ChatBot() {
 
             {/* ── Trigger button ── */}
             {!open && (
-                <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+                <div data-tour="chatbot-launcher" className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
                     <div className="animate-in fade-in slide-in-from-bottom-1 rounded-full bg-primary/70 px-4 py-1.5 text-xs font-medium text-on-primary shadow-lg shadow-primary/20 backdrop-blur-sm duration-300">
                         Need help?
                     </div>

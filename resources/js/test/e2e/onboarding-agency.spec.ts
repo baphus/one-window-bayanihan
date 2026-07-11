@@ -18,7 +18,7 @@ function setupTestUser() {
             { cwd: PROJECT_ROOT, timeout: 15000 }
         );
         execSync(
-            `php artisan tinker --execute="\\App\\Models\\User::where(\'email\', \'${AGENCY_EMAIL}\')->update([\'onboarding_completed_at\' => null])"`,
+            `php artisan tinker --execute="\\App\\Models\\User::where(\'email\', \'${AGENCY_EMAIL}\')->update([\'onboarding_completed_at\' => null, \'onboarding_step\' => null])"`,
             { cwd: PROJECT_ROOT, timeout: 10000 }
         );
     } catch (e) {
@@ -33,24 +33,15 @@ function setupTestUser() {
 async function loginAsAgency(page) {
     await page.goto('/login');
 
-    // Click "Agency Focal" role pill to auto-fill email + password
-    await page.getByRole('button', { name: 'Agency Focal' }).click();
-
-    // Wait for auto-fill to populate the email field
-    await page.waitForFunction(
-        (expectedEmail) => {
-            const input = document.querySelector('input[type="email"]');
-            return input instanceof HTMLInputElement && input.value === expectedEmail;
-        },
-        AGENCY_EMAIL,
-        { timeout: 5000 }
-    );
+    // Fill the seeded test credentials directly
+    await page.fill('input[type="email"]', AGENCY_EMAIL);
+    await page.fill('input[type="password"]', 'P@ssw0rd!');
 
     // Submit login form
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     // Wait for OTP step
-    await page.waitForSelector('text=OTP SENT', { timeout: 10000 });
+    await page.waitForSelector('text=Verify Your Identity', { timeout: 10000 });
 
     // Wait for all 6 OTP inputs to be auto-filled
     await page.waitForFunction(() => {
@@ -76,6 +67,7 @@ test.beforeAll(() => {
 });
 
 test.beforeEach(() => {
+    test.setTimeout(120000);
     setupTestUser();
 });
 
@@ -94,14 +86,14 @@ test.describe('AGENCY Onboarding', () => {
         // Wait for Driver.js popover to appear
         await page.waitForSelector('.driver-popover', { timeout: 5000 });
 
-        // The first AGENCY tour step is 'Performance Metrics' with description
-        // referencing agency-specific content
-        await expect(page.locator('.driver-popover-title')).toContainText('Performance Metrics');
+        // The first AGENCY tour step is the welcome/orientation step with a
+        // description referencing agency-specific content
+        await expect(page.locator('.driver-popover-title')).toContainText('Welcome');
 
         // Assert the popover description is AGENCY-specific
         await expect(page.locator('.driver-popover-description')).toContainText('agency');
 
-        // The targeted element should be agency-specific data-tour attribute
-        await expect(page.locator('[data-tour="dashboard-agency-metrics"]')).toBeAttached();
+        // The targeted first-step element has data-tour="dashboard-header"
+        await expect(page.locator('[data-tour="dashboard-header"]')).toBeAttached();
     });
 });

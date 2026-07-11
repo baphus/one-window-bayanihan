@@ -124,6 +124,9 @@ class AgencyServqualConfigController extends Controller
             'activated_at' => ($isOverride || ! $hasActiveDefault) ? now() : null,
         ]);
 
+        app(\App\Services\OnboardingService::class)
+            ->markChecklistItemQuietly($user, 'configure-servqual');
+
         return redirect()->back()->with(
             'success',
             $hasActiveDefault || $isOverride

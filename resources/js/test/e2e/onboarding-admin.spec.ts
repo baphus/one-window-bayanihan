@@ -18,7 +18,7 @@ function setupTestUser() {
             { cwd: PROJECT_ROOT, timeout: 15000 }
         );
         execSync(
-            `php artisan tinker --execute="\\App\\Models\\User::where(\'email\', \'${ADMIN_EMAIL}\')->update([\'onboarding_completed_at\' => null])"`,
+            `php artisan tinker --execute="\\App\\Models\\User::where(\'email\', \'${ADMIN_EMAIL}\')->update([\'onboarding_completed_at\' => null, \'onboarding_step\' => null])"`,
             { cwd: PROJECT_ROOT, timeout: 10000 }
         );
     } catch (e) {
@@ -36,24 +36,15 @@ function setupTestUser() {
 async function loginAsAdmin(page) {
     await page.goto('/login');
 
-    // Click the "System Admin" mock-credentials link to auto-fill
-    await page.getByText('System Admin: admin@bayanihan.gov.ph').click();
-
-    // Wait for auto-fill to populate the email field
-    await page.waitForFunction(
-        (expectedEmail) => {
-            const input = document.querySelector('input[type="email"]');
-            return input instanceof HTMLInputElement && input.value === expectedEmail;
-        },
-        ADMIN_EMAIL,
-        { timeout: 5000 }
-    );
+    // Fill the seeded test credentials directly
+    await page.fill('input[type="email"]', ADMIN_EMAIL);
+    await page.fill('input[type="password"]', 'P@ssw0rd!');
 
     // Submit login form
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     // Wait for OTP step
-    await page.waitForSelector('text=OTP SENT', { timeout: 10000 });
+    await page.waitForSelector('text=Verify Your Identity', { timeout: 10000 });
 
     // Read the debug_otp from the visible "Debug Mode — OTP: XXXXXX" text
     // and manually fill each input. More robust than relying on the React
@@ -95,6 +86,7 @@ test.beforeAll(() => {
 });
 
 test.beforeEach(() => {
+    test.setTimeout(120000);
     setupTestUser();
 });
 

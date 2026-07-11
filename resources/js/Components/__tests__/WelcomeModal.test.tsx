@@ -74,4 +74,37 @@ describe('WelcomeModal', () => {
         fireEvent.click(screen.getByText('Remind Me Later'));
         expect(onRemindLater).toHaveBeenCalledTimes(1);
     });
+
+    it('shows Resume Tour and Restart when a saved position exists', () => {
+        const onResumeTour = vi.fn();
+        const onStartTour = vi.fn();
+        render(
+            <WelcomeModal
+                canResume
+                onStartTour={onStartTour}
+                onResumeTour={onResumeTour}
+                onSkipTour={() => {}}
+                onRemindLater={() => {}}
+            />,
+        );
+
+        expect(screen.queryByText('Start Tour')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByText('Resume Tour'));
+        expect(onResumeTour).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(screen.getByText('Restart'));
+        expect(onStartTour).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not show Resume Tour without a saved position', () => {
+        render(
+            <WelcomeModal
+                onStartTour={() => {}}
+                onSkipTour={() => {}}
+                onRemindLater={() => {}}
+            />,
+        );
+        expect(screen.queryByText('Resume Tour')).not.toBeInTheDocument();
+        expect(screen.queryByText('Restart')).not.toBeInTheDocument();
+    });
 });

@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import DashboardBanner from '@/Components/DashboardBanner';
+import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
 import { actionConfig } from '@/Components/Dashboard/activityConfig';
@@ -20,9 +21,9 @@ function formatCount(value) {
     return numberFormatter.format(Number.isFinite(parsed) ? parsed : 0);
 }
 
-function SectionShell({ eyebrow, title, action, children, className = '' }) {
+function SectionShell({ eyebrow, title, action, children, className = '', dataTour }) {
     return (
-        <section className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
+        <section data-tour={dataTour} className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
             <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
                     <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">{eyebrow}</p>
@@ -128,6 +129,7 @@ export default function AdminDashboard({ dashboard }) {
     return (
         <div className="mx-auto max-w-7xl pb-8">
             <DashboardBanner />
+            <GettingStartedChecklist />
 
             <header data-tour="dashboard-header" className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-8">
                 <div className="max-w-3xl">
@@ -148,7 +150,7 @@ export default function AdminDashboard({ dashboard }) {
                 </div>
             </header>
 
-            <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section data-tour="dashboard-stats" className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <SoftMetric label="Total cases" value={stats.totalCases ?? 0} icon="folder" helper="All non-draft case files in the system." />
                 <SoftMetric label="Total referrals" value={stats.totalReferrals ?? 0} icon="send" helper="Referrals sent to partner agencies." tone="amber" />
                 <SoftMetric label="Active agencies" value={stats.activeAgencies ?? stats.totalAgencies ?? 0} icon="account_balance" helper={`${formatCount(stats.inactiveAgencies ?? 0)} inactive agency records.`} tone="emerald" />
@@ -158,6 +160,7 @@ export default function AdminDashboard({ dashboard }) {
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.8fr)]">
                 <div className="space-y-6">
                     <SectionShell
+                        dataTour="dashboard-work-queues"
                         eyebrow="Work queues"
                         title="Where admins should look first"
                         action={<TextLink href={route('overdue-referrals.index')}>Open overdue referrals</TextLink>}
@@ -183,6 +186,7 @@ export default function AdminDashboard({ dashboard }) {
                     </SectionShell>
 
                     <SectionShell
+                        dataTour="dashboard-recent-cases"
                         eyebrow="Cases"
                         title="Recent case movement"
                         action={<TextLink href={route('cases.index')}>View all cases</TextLink>}
@@ -226,6 +230,7 @@ export default function AdminDashboard({ dashboard }) {
                     </SectionShell>
 
                     <SectionShell
+                        dataTour="dashboard-recent-activity"
                         eyebrow="Activity"
                         title="Recent administrative changes"
                         action={<TextLink href={route('audit-logs.index')}>View audit logs</TextLink>}
@@ -263,7 +268,7 @@ export default function AdminDashboard({ dashboard }) {
                 </div>
 
                 <aside className="space-y-6">
-                    <SectionShell eyebrow="Admin tools" title="Manage the system">
+                    <SectionShell dataTour="dashboard-admin-tools" eyebrow="Admin tools" title="Manage the system">
                         <div className="grid gap-2 p-5 sm:p-6">
                             {adminActions.map((item) => (
                                 <Link

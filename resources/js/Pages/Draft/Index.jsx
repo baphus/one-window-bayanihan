@@ -122,14 +122,14 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
       <Head title="My Drafts" />
 
       <div className="pb-6">
-        <header className="flex items-center justify-between mb-6">
+        <header data-tour="drafts-header" className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">My Drafts</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Draft cases saved but not yet submitted. Only visible to you.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div data-tour="drafts-new-case" className="flex items-center gap-3">
             <button
               onClick={() => router.visit(route('cases.create'))}
               className="h-[40px] px-5 bg-blue-900 text-white text-[14px] font-bold rounded-[3px] flex items-center gap-2 hover:bg-blue-800 transition-colors shadow-sm"
@@ -141,7 +141,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
 
         <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
           {/* Filter bar */}
-          <div className="p-4 bg-slate-50 border-b border-slate-300 space-y-3">
+          <div data-tour="drafts-filters" className="p-4 bg-slate-50 border-b border-slate-300 space-y-3">
             <div className="flex flex-wrap items-end gap-3">
                   <div className="relative flex-1 min-w-[200px]">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">
@@ -199,6 +199,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
             )}
           </div>
 
+          <div data-tour="drafts-table">
           {drafts.data.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
@@ -307,6 +308,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
               )}
             </>
           )}
+          </div>
         </div>
       </div>
 

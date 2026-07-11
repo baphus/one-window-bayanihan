@@ -69,9 +69,9 @@ function StatCard({ label, value, hint, icon }) {
   );
 }
 
-function SectionCard({ title, description, children }) {
+function SectionCard({ title, description, children, dataTour }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section data-tour={dataTour} className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-5 py-4">
         <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">{title}</h2>
         {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
@@ -116,7 +116,7 @@ export default function FeedbackDashboard({
       <Head title="Feedback Dashboard" />
 
       <div className="space-y-6">
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section data-tour="feedbacks-header" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-4 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Feedback</p>
@@ -124,7 +124,7 @@ export default function FeedbackDashboard({
               <p className="mt-1 text-sm text-slate-500">Response volume, satisfaction ratings, and recent submissions for the selected period.</p>
             </div>
 
-            <div className="w-full max-w-xs">
+            <div data-tour="feedbacks-filters" className="w-full max-w-xs">
               <label htmlFor="feedback-window" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Time window</label>
               <select
                 id="feedback-window"
@@ -140,7 +140,7 @@ export default function FeedbackDashboard({
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section data-tour="feedbacks-kpis" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard label="Total Sent" value={toNumber(stats.total_sent)} hint="Invitations issued" icon="send" />
           <StatCard label="Responses" value={totalResponses} hint="Submitted feedback" icon="rate_review" />
           <StatCard label="Response Rate" value={`${roundToTwo(stats.response_rate) ?? 0}%`} hint="Responses ÷ sent" icon="query_stats" />
@@ -148,7 +148,7 @@ export default function FeedbackDashboard({
           <StatCard label="Avg SERVQUAL" value={roundToTwo(stats.avg_servqual) ?? '—'} hint="Average dimension score" icon="insights" />
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div data-tour="feedbacks-breakdown" className="grid gap-6 xl:grid-cols-2">
           <SectionCard title="Rating distribution" description="Overall ratings by count.">
             {!hasDistribution ? (
               <EmptyState title="No ratings yet" description="Ratings will appear once clients start submitting feedback." />
@@ -236,7 +236,7 @@ export default function FeedbackDashboard({
           )}
         </SectionCard>
 
-        <SectionCard title="Recent feedback" description="Latest submissions from clients.">
+        <SectionCard dataTour="feedbacks-list" title="Recent feedback" description="Latest submissions from clients.">
           {recent_feedback.length === 0 ? (
             <EmptyState title="No recent feedback" description="Recent submissions will appear here once clients respond." />
           ) : (

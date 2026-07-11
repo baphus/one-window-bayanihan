@@ -60,9 +60,25 @@ class OnboardingService
     }
 
     /**
+     * Parse a persisted onboarding step key of the form "<pageIndex>:<stepIndex>".
+     * Returns ['page' => int, 'step' => int] or null when the value is
+     * missing, malformed, or negative. Legacy/corrupt values fall back to null
+     * so callers treat them as "no saved progress".
+     */
+    public function parseStep(?string $step): ?array
+    {
+        if ($step === null || ! preg_match('/^(\d+):(\d+)$/', $step, $m)) {
+            return null;
+        }
+
+        return ['page' => (int) $m[1], 'step' => (int) $m[2]];
+    }
+
+    /**
      * Get the current onboarding state for a user.
      * Returns an array with 'required', 'step', 'completed_at',
-     * 'profile_incomplete', and 'profile_completed_at' keys.
+     * 'profile_incomplete', 'profile_completed_at', 'seen_page_guides',
+     * and 'checklist_progress' keys.
      */
     public function getOnboardingState(User $user): array
     {
@@ -72,7 +88,78 @@ class OnboardingService
             'completed_at' => $user->onboarding_completed_at?->toISOString(),
             'profile_incomplete' => $this->isProfileIncomplete($user),
             'profile_completed_at' => $user->profile_completed_at?->toISOString(),
+            'seen_page_guides' => $user->seen_page_guides ?? [],
+            'checklist_progress' => $user->checklist_progress ?? ['items' => [], 'dismissed_at' => null],
         ];
+    }
+
+    // ─────────────────────────────────────────────
+    //  Page Guides (per-page contextual help)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Mark a page guide as seen for the user. Idempotent.
+     * $route is the Ziggy route name of the guided page.
+     */
+    public function markGuideSeen(User $user, string $route): void
+    {
+        $seen = $user->seen_page_guides ?? [];
+        if (in_array($route, $seen, true)) {
+            return;
+        }
+
+        $seen[] = $route;
+        $user->update(['seen_page_guides' => array_values($seen)]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  Getting-Started Checklist
+    // ─────────────────────────────────────────────
+
+    /**
+     * Mark a checklist item complete for the user. Idempotent — the first
+     * completion timestamp wins. Never throws on persistence failure when
+     * called via markChecklistItemQuietly().
+     */
+    public function markChecklistItem(User $user, string $itemId): void
+    {
+        $progress = $user->checklist_progress ?? ['items' => [], 'dismissed_at' => null];
+        $items = $progress['items'] ?? [];
+
+        if (isset($items[$itemId])) {
+            return;
+        }
+
+        $items[$itemId] = now()->toISOString();
+        $progress['items'] = $items;
+        $user->update(['checklist_progress' => $progress]);
+    }
+
+    /**
+     * Best-effort checklist marking for use inside domain action success
+     * paths — a marking failure must never break the primary action.
+     */
+    public function markChecklistItemQuietly(?User $user, string $itemId): void
+    {
+        if (! $user) {
+            return;
+        }
+
+        try {
+            $this->markChecklistItem($user, $itemId);
+        } catch (\Throwable) {
+            // Swallow — checklist marking is non-critical UX state.
+        }
+    }
+
+    /**
+     * Dismiss the getting-started checklist for the user.
+     */
+    public function dismissChecklist(User $user): void
+    {
+        $progress = $user->checklist_progress ?? ['items' => [], 'dismissed_at' => null];
+        $progress['dismissed_at'] = now()->toISOString();
+        $user->update(['checklist_progress' => $progress]);
     }
 
     /**

@@ -143,4 +143,89 @@ class OnboardingServiceTest extends TestCase
         $this->assertNull($state['step']);
         $this->assertNotNull($state['completed_at']);
     }
+
+    public function test_parse_step_accepts_valid_key(): void
+    {
+        $service = app(OnboardingService::class);
+
+        $this->assertEquals(['page' => 2, 'step' => 1], $service->parseStep('2:1'));
+        $this->assertEquals(['page' => 0, 'step' => 0], $service->parseStep('0:0'));
+    }
+
+    public function test_parse_step_rejects_corrupt_values(): void
+    {
+        $service = app(OnboardingService::class);
+
+        $this->assertNull($service->parseStep(null));
+        $this->assertNull($service->parseStep('legacy-step-3'));
+        $this->assertNull($service->parseStep('1:'));
+        $this->assertNull($service->parseStep(':2'));
+        $this->assertNull($service->parseStep('-1:2'));
+        $this->assertNull($service->parseStep('1:2:3'));
+    }
+
+    public function test_mark_guide_seen_is_idempotent(): void
+    {
+        $user = User::factory()->create(['seen_page_guides' => null]);
+        $service = app(OnboardingService::class);
+
+        $service->markGuideSeen($user, 'cases.index');
+        $service->markGuideSeen($user, 'cases.index');
+        $service->markGuideSeen($user, 'reports.index');
+        $user->refresh();
+
+        $this->assertEquals(['cases.index', 'reports.index'], $user->seen_page_guides);
+    }
+
+    public function test_mark_checklist_item_first_timestamp_wins(): void
+    {
+        $user = User::factory()->create(['checklist_progress' => null]);
+        $service = app(OnboardingService::class);
+
+        $service->markChecklistItem($user, 'create-first-case');
+        $user->refresh();
+        $first = $user->checklist_progress['items']['create-first-case'];
+
+        $service->markChecklistItem($user, 'create-first-case');
+        $user->refresh();
+
+        $this->assertEquals($first, $user->checklist_progress['items']['create-first-case']);
+    }
+
+    public function test_mark_checklist_item_quietly_swallows_failures(): void
+    {
+        $service = app(OnboardingService::class);
+
+        // Null user is a no-op, not an error
+        $service->markChecklistItemQuietly(null, 'create-first-case');
+
+        $this->assertTrue(true);
+    }
+
+    public function test_dismiss_checklist_preserves_items(): void
+    {
+        $user = User::factory()->create([
+            'checklist_progress' => ['items' => ['visit-reports' => '2026-07-11T00:00:00Z'], 'dismissed_at' => null],
+        ]);
+        $service = app(OnboardingService::class);
+
+        $service->dismissChecklist($user);
+        $user->refresh();
+
+        $this->assertNotNull($user->checklist_progress['dismissed_at']);
+        $this->assertArrayHasKey('visit-reports', $user->checklist_progress['items']);
+    }
+
+    public function test_get_onboarding_state_defaults_new_fields(): void
+    {
+        $user = User::factory()->create([
+            'seen_page_guides' => null,
+            'checklist_progress' => null,
+        ]);
+
+        $state = app(OnboardingService::class)->getOnboardingState($user);
+
+        $this->assertEquals([], $state['seen_page_guides']);
+        $this->assertEquals(['items' => [], 'dismissed_at' => null], $state['checklist_progress']);
+    }
 }

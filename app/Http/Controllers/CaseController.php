@@ -79,6 +79,9 @@ class CaseController extends Controller
         if (! $isDraft) {
             $case = $this->caseService->publishDraft($case->id, $request->user()->id);
 
+            app(\App\Services\OnboardingService::class)
+                ->markChecklistItemQuietly($request->user(), 'create-first-case');
+
             return redirect()
                 ->route('cases.show', $case)
                 ->with('success', 'Case created successfully.')
@@ -185,6 +188,9 @@ class CaseController extends Controller
         $this->authorizeCaseAccess($case, $request->user());
 
         $case = $this->caseService->publishDraft($case->id, $request->user()->id);
+
+        app(\App\Services\OnboardingService::class)
+            ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
         return redirect()
             ->route('cases.show', $case)

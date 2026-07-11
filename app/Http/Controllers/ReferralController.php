@@ -111,6 +111,9 @@ class ReferralController extends Controller
             }
         }
 
+        app(\App\Services\OnboardingService::class)
+            ->markChecklistItemQuietly($request->user(), 'send-first-referral');
+
         return redirect()
             ->route('referrals.show', $referral)
             ->with('success', 'Referral created successfully.');
@@ -143,6 +146,11 @@ class ReferralController extends Controller
             $request->input('decision_comment'),
             $request->user()->id,
         );
+
+        if ($request->user()->role === 'AGENCY') {
+            app(\App\Services\OnboardingService::class)
+                ->markChecklistItemQuietly($request->user(), 'act-on-referral');
+        }
 
         return redirect()
             ->back()

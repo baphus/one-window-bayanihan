@@ -64,18 +64,18 @@ export default function Index({ dates = [] }) {
     <AppLayout title="System Logs">
       <Head title="System Logs" />
 
-      <div className="mb-8 flex items-center justify-between">
+      <div data-tour="logs-header" className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">System Logs</h1>
           <p className="mt-1 text-sm text-slate-500">Browse and export filtered application logs.</p>
         </div>
 
-        <a href={downloadHref} className="rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700">
+        <a data-tour="logs-download" href={downloadHref} className="rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700">
           Download Filtered
         </a>
       </div>
 
-      <div className="mb-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-4">
+      <div data-tour="logs-filters" className="mb-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-4">
         <select value={filters.date_from} onChange={(e) => updateFilter('date_from', e.target.value)} className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none">
           <option value="">From date</option>
           {dates.map((date) => <option key={date} value={date}>{date}</option>)}
@@ -94,7 +94,7 @@ export default function Index({ dates = [] }) {
         <input value={filters.search} onChange={(e) => updateFilter('search', e.target.value)} placeholder="Search messages..." className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div data-tour="logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>

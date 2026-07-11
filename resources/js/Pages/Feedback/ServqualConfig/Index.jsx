@@ -55,28 +55,28 @@ export default function ServqualConfigIndex({ configs = [], hasMultipleConfigs, 
       <Head title="SERVQUAL Configurations" />
 
       <div className="space-y-6">
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section data-tour="servqual-header" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Feedback</p>
               <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">SERVQUAL Configurations</h1>
               <p className="mt-1 text-sm text-slate-500">Manage the default form and any service-specific overrides.</p>
             </div>
-            <Link href={route('servqual-configs.create')} className="inline-flex h-10 items-center rounded-md bg-blue-900 px-4 text-sm font-semibold text-white hover:bg-blue-800">
+            <Link data-tour="servqual-create" href={route('servqual-configs.create')} className="inline-flex h-10 items-center rounded-md bg-blue-900 px-4 text-sm font-semibold text-white hover:bg-blue-800">
               + Add New
             </Link>
           </div>
         </section>
 
         {configs.length === 0 ? (
-          <section className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <section data-tour="servqual-list" className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <p className="text-sm text-slate-500">No SERVQUAL configurations yet.</p>
             <Link href={route('servqual-configs.create')} className="mt-3 inline-flex h-10 items-center rounded-md bg-blue-900 px-4 text-sm font-semibold text-white hover:bg-blue-800">
               Create configuration
             </Link>
           </section>
         ) : (
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <section data-tour="servqual-list" className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Configuration list</h2>
             </div>

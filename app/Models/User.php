@@ -21,6 +21,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'password', 'remember_token', 'id', 'created_at', 'updated_at',
         'email_verified_at', 'mfa_secret', 'mfa_recovery_codes', 'mfa_enabled_at',
         'email', 'contact_number',
+        'onboarding_step', 'seen_page_guides', 'checklist_progress',
     ];
 
     public function getAuditModuleName(): string
@@ -51,6 +52,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'mfa_enabled_at',
         'onboarding_completed_at',
         'onboarding_step',
+        'seen_page_guides',
+        'checklist_progress',
         'profile_completed_at',
     ];
 
@@ -79,6 +82,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'notifications_config' => 'array',
             'mfa_enabled_at' => 'datetime',
             'onboarding_completed_at' => 'datetime',
+            'seen_page_guides' => 'array',
+            'checklist_progress' => 'array',
             'profile_completed_at' => 'datetime',
         ];
     }

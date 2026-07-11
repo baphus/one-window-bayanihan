@@ -98,7 +98,7 @@ export default function SystemSettings({
                     </p>
                 </div>
 
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+                <div data-tour="settings-overdue-threshold" className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
                     <h3 className="text-base font-semibold text-slate-900 mb-4">Referral Overdue Threshold</h3>
                     <p className="text-sm text-slate-600 mb-4">
                         Referrals are marked overdue when they exceed this number of days without being completed or rejected.
@@ -131,7 +131,7 @@ export default function SystemSettings({
                     </p>
                 </div>
 
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+                <div data-tour="settings-otp-debug" className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-base font-semibold text-slate-900">Login OTP Debug Mode</h3>

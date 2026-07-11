@@ -1,5 +1,10 @@
 import { TourConfig } from '../types';
 
+/**
+ * System Admin welcome tour — a short orientation pass. Depth lives in the
+ * per-page guides behind the [?] button; the admin sidebar alone has ~20
+ * destinations, so this tour deliberately stays at the map level.
+ */
 export const adminTour: TourConfig = {
     role: 'ADMIN',
     pages: [
@@ -7,42 +12,22 @@ export const adminTour: TourConfig = {
             route: 'dashboard',
             title: 'Dashboard',
             steps: [
-                { element: '[data-tour="dashboard-header"]', title: 'Welcome', description: 'Your admin dashboard with system-wide overview and monitoring capabilities.', side: 'bottom' as const },
-                { element: '[data-tour="dashboard-admin-system"]', title: 'System Health', description: 'Monitor overall system status, active alerts, and health checks across services.', side: 'bottom' as const },
-                { element: '[data-tour="admin-recent-cases"]', title: 'Recent Cases', description: 'View the most recently created cases across the system. Click through to the full case directory for detailed management.', side: 'bottom' as const },
-                { element: '[data-tour="admin-recent-activity"]', title: 'Recent Activity', description: 'Track system-wide activity including case creation, updates, user logins, and referrals in real time.', side: 'left' as const },
-            ],
-        },
-        {
-            route: 'cases.index',
-            title: 'Cases',
-            steps: [
-                { element: '[data-tour="cases-header"]', title: 'Case Management', description: 'Review and manage all client cases across the entire system.', side: 'bottom' as const },
-                { element: '[data-tour="cases-table"]', title: 'Case Directory', description: 'Browse, search, and filter the complete case list. View case details, track progress, and manage referrals.', side: 'top' as const },
-            ],
-        },
-        {
-            route: 'admin.agencies.index',
-            title: 'Agencies',
-            steps: [
-                { element: '[data-tour="agencies-header"]', title: 'Agency Management', description: 'Manage all partner agencies, their contact information, and service capabilities.', side: 'bottom' as const },
-                { element: '[data-tour="agencies-table"]', title: 'Agency Directory', description: 'View, search, and manage agencies. Add new agencies, edit details, or deactivate as needed.', side: 'top' as const },
+                { element: '[data-tour="dashboard-header"]', title: 'Welcome to One Window Bayanihan', description: 'Your admin overview — system-wide queues, referral movement, and administrative activity in one place.', side: 'bottom' as const },
+                { element: '[data-tour="dashboard-stats"]', title: 'System Pulse', description: 'Total cases, referrals, active agencies, and overdue referrals across the whole system.', side: 'bottom' as const },
+                { element: '[data-tour="dashboard-work-queues"]', title: 'Work Queues', description: 'Where admins should look first: open cases, pending and processing referrals, compliance items, and overdue referrals. Each tile links to the filtered view.', side: 'bottom' as const },
+                { element: '[data-tour="dashboard-admin-tools"]', title: 'Admin Tools', description: 'Quick access to Users, Agencies, Services, Reports, Audit Logs, and Sessions — the day-to-day management surfaces.', side: 'left' as const },
+                { element: '[data-tour="getting-started-checklist"]', title: 'Getting-Started Checklist', description: 'Your first key actions — add a user, register an agency, review System Settings. Items tick off automatically as you complete them.', side: 'bottom' as const },
+                { element: '[data-tour="sidebar-nav"]', title: 'The Full Map', description: 'Everything is in the sidebar: case operations, agency management, system health logs, taxonomies, data export, maintenance, and security settings.', side: 'right' as const },
+                { element: '[data-tour="page-guide-button"]', title: 'Every Page Has a Guide', description: 'With ~20 admin pages, this ? button is your friend — click it on any page for a quick walkthrough. It pulses on pages you haven\'t explored yet.', side: 'bottom' as const, align: 'end' as const },
+                { element: '[data-tour="chatbot-launcher"]', title: 'Ask Bayani Anytime', description: 'The AI assistant answers questions about system behavior and procedures. The Help Center has in-depth articles, including admin guides.', side: 'left' as const },
             ],
         },
         {
             route: 'admin.users.index',
             title: 'Users',
             steps: [
-                { element: '[data-tour="users-header"]', title: 'User Management', description: 'Manage all system users, assign roles, and control agency access permissions.', side: 'bottom' as const },
-                { element: '[data-tour="users-table"]', title: 'User Directory', description: 'View and manage user accounts. Create new users, edit profiles, assign roles, and control account status.', side: 'top' as const },
-            ],
-        },
-        {
-            route: 'admin.system-settings.index',
-            title: 'System Settings',
-            steps: [
-                { element: '[data-tour="settings-header"]', title: 'System Configuration', description: 'Manage global system settings including application info, referral thresholds, OTP debug modes, and AI chatbot configuration.', side: 'bottom' as const },
-                { element: '[data-tour="settings-form"]', title: 'Configuration Panel', description: 'Adjust system parameters such as referral overdue thresholds, OTP debug toggles, and chatbot provider settings.', side: 'top' as const },
+                { element: '[data-tour="users-header"]', title: 'User Management', description: 'Create accounts, assign roles (Admin, Case Manager, Agency Focal), and control access — usually the first place a new admin works.', side: 'bottom' as const },
+                { element: '[data-tour="users-table"]', title: 'You\'re All Set!', description: 'Manage accounts, reset passwords, and deactivate users from this directory. Remember the ? button on each page for a deeper walkthrough.', side: 'top' as const },
             ],
         },
     ],

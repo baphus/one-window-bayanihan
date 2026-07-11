@@ -3,6 +3,7 @@ import { Head, usePage } from '@inertiajs/react';
 import ChatBot from '@/Components/ChatBot';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import NotificationPanel from '@/Components/ui/NotificationPanel';
+import PageGuideButton from '@/Components/PageGuideButton';
 import { useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import WelcomeModal from '@/Components/WelcomeModal';
@@ -10,6 +11,9 @@ import TourManager from '@/Onboarding/TourManager';
 import { useOnboarding } from '@/Onboarding/OnboardingProvider';
 import { skipOnboarding } from '@/Onboarding/api';
 import { getTourConfig } from '@/Onboarding/index';
+import { parseStepKey } from '@/Onboarding/types';
+import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
+import { route } from 'ziggy-js';
 
 // Module-level variables persist across AppLayout instances (which remount on every navigation)
 let savedScrollTop = 0;
@@ -17,8 +21,16 @@ let navIdCounter = 0;
 
 export default function AppLayout({ title, children }) {
   const mainRef = useRef(null);
-  const { auth } = usePage().props;
-  const { isOpen, phase, startTour, endTour, dismissRemindLater } = useOnboarding();
+  const { auth, onboarding } = usePage().props;
+  const { phase, startTour, endTour, dismissRemindLater } = useOnboarding();
+
+  // Saved welcome-tour position ("<pageIndex>:<stepIndex>"), validated
+  // against the role's config bounds. Corrupt or legacy keys resolve to
+  // null and the modal falls back to a fresh Start Tour.
+  const tourConfig = getTourConfig(auth.user?.role);
+  const savedPosition = parseStepKey(onboarding?.step, tourConfig);
+
+  useChecklistVisitTracking();
 
   useEffect(() => {
     const onBefore = () => {
@@ -59,7 +71,10 @@ export default function AppLayout({ title, children }) {
           <div>
             {/* Subtle branding / breadcrumb placeholder */}
           </div>
-          <NotificationPanel />
+          <div className="flex items-center gap-3">
+            <PageGuideButton />
+            <NotificationPanel />
+          </div>
         </header>
 
         {/* Scrollable main content */}
@@ -67,19 +82,36 @@ export default function AppLayout({ title, children }) {
           {children}
         </main>
       </div>
-      {/* Hide ChatBot during welcome/tour to avoid z-index conflicts */}
-      {!isOpen && <ChatBot />}
+      {/* Hide ChatBot only while the welcome modal is up; during tours it
+          stays mounted so tour steps can highlight its launcher (the tour
+          overlay renders above it). */}
+      {phase !== 'welcome' && <ChatBot />}
 
       {/* Onboarding UI — use show prop so Headless UI Dialog properly cleans up on close */}
       <WelcomeModal
         show={phase === 'welcome'}
+        canResume={savedPosition !== null}
         onStartTour={() => {
-          const role = auth.user?.role;
-          const config = getTourConfig(role);
-          if (config) startTour(config);
+          if (tourConfig) startTour(tourConfig);
+        }}
+        onResumeTour={() => {
+          if (!tourConfig || !savedPosition) return;
+          const targetRoute = tourConfig.pages[savedPosition.page].route;
+          // Navigate to the saved tour page first, then enter touring so
+          // TourManager never matches the wrong page mid-transition.
+          const targetPath = route(targetRoute);
+          const currentPath = window.location.pathname;
+          const samePage = targetPath.endsWith(currentPath) || currentPath === targetPath;
+          if (samePage) {
+            startTour(tourConfig, savedPosition);
+          } else {
+            router.visit(targetPath, {
+              onSuccess: () => startTour(tourConfig, savedPosition),
+            });
+          }
         }}
         onSkipTour={() => {
-          skipOnboarding().then(() => endTour());
+          skipOnboarding().then(() => endTour()).catch(() => endTour());
         }}
         onRemindLater={dismissRemindLater}
       />

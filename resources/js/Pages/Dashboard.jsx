@@ -12,8 +12,8 @@ import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatDisplayDateTime, formatStatusLabel } from '@/lib/utils';
-import TourPrototype from './__TourPrototype';
 import DashboardBanner from '@/Components/DashboardBanner';
+import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import AdminDispatchDashboard from './Dashboard/Admin';
 
 ChartJS.register(
@@ -477,6 +477,7 @@ function AgencyDashboard({
     return (
         <div className="max-w-7xl mx-auto pb-6">
             <DashboardBanner />
+            <GettingStartedChecklist />
             <header data-tour="dashboard-header" className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Agency focal</p>
@@ -967,7 +968,7 @@ function CaseManagerDashboard({
     return (
         <div className="max-w-7xl mx-auto pb-6">
             <DashboardBanner />
-            {typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('__TOUR_PROTO__') === '1' && <TourPrototype />}
+            <GettingStartedChecklist />
             <header data-tour="dashboard-header" className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Case manager</p>

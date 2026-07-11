@@ -203,17 +203,17 @@ export default function CaseStatusIndex({ statuses }) {
     <AppLayout title="Case Statuses">
       {showForm && <StatusForm status={editingStatus} onClose={() => { setShowForm(false); setEditingStatus(null); }} onBypass={bypassNext} />}
       <Head title="Case Statuses" />
-      <div className="mb-8 flex items-center justify-between">
+      <div data-tour="case-statuses-header" className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Case Statuses</h1>
           <p className="text-sm text-slate-500 mt-1">Manage configurable statuses for cases and referrals.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
+        <button data-tour="case-statuses-new" onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Status
         </button>
       </div>
 
-      <div className="space-y-8">
+      <div data-tour="case-statuses-list" className="space-y-8">
         {renderSection('Case Statuses', caseStatuses)}
         {renderSection('Referral Statuses', referralStatuses)}
       </div>

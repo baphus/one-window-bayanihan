@@ -7,9 +7,9 @@ import InputError from '@/Components/InputError';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
 
-function Section({ title, description, children }) {
+function Section({ title, description, children, tour }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <div data-tour={tour} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-6">
         <h2 className="text-base font-semibold text-slate-900">{title}</h2>
         {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
@@ -77,13 +77,13 @@ export default function Index({ settings }) {
     <AppLayout title="Security Settings">
       <Head title="Security Settings" />
 
-      <div className="mb-8">
+      <div data-tour="security-header" className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Security Settings</h1>
         <p className="mt-1 text-sm text-slate-500">Manage password, session, and access control policies.</p>
       </div>
 
       <form onSubmit={submit} className="space-y-6 max-w-3xl">
-        <Section title="Password Policy" description="Define password complexity and expiration rules.">
+        <Section tour="security-password-policy" title="Password Policy" description="Define password complexity and expiration rules.">
           <div>
             <label className="block text-sm font-medium text-slate-700">Minimum length</label>
             <input type="number" min="6" max="64" value={data.password_min_length} onChange={(e) => setData('password_min_length', parseInt(e.target.value) || 6)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
@@ -117,7 +117,7 @@ export default function Index({ settings }) {
           </div>
         </Section>
 
-        <Section title="Session Security" description="Control session duration and account lockout behavior.">
+        <Section tour="security-session" title="Session Security" description="Control session duration and account lockout behavior.">
           <div>
             <label className="block text-sm font-medium text-slate-700">Session lifetime (minutes)</label>
             <input type="number" min="15" max="1440" value={data.session_lifetime_minutes} onChange={(e) => setData('session_lifetime_minutes', parseInt(e.target.value) || 15)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
@@ -137,7 +137,7 @@ export default function Index({ settings }) {
           </div>
         </Section>
 
-        <Section title="Access Control" description="Restrict access with IP whitelisting and two-factor authentication.">
+        <Section tour="security-access-control" title="Access Control" description="Restrict access with IP whitelisting and two-factor authentication.">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-slate-700">Enable IP whitelist</p>
@@ -169,7 +169,7 @@ export default function Index({ settings }) {
         </Section>
 
         <div className="flex justify-end">
-          <button type="submit" disabled={processing} className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50">Save Changes</button>
+          <button data-tour="security-save" type="submit" disabled={processing} className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50">Save Changes</button>
         </div>
       </form>
 

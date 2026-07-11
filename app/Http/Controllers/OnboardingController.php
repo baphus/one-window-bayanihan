@@ -8,66 +8,99 @@ use Illuminate\Http\Request;
 
 class OnboardingController extends Controller
 {
+    public function __construct(private OnboardingService $service)
+    {
+    }
+
     /**
      * Get the current onboarding state for the authenticated user.
      */
     public function state(Request $request): JsonResponse
     {
-        $service = app(OnboardingService::class);
-        $state = $service->getOnboardingState($request->user());
-
-        return response()->json($state);
+        return response()->json($this->service->getOnboardingState($request->user()));
     }
 
     /**
      * Mark onboarding as skipped.
-     * Returns a redirect (not JSON) so Inertia v2 router.post() fires
-     * onSuccess after the follow-up GET completes, unblocking the promise
-     * that endTour() depends on.
      */
-    public function skip(Request $request)
+    public function skip(Request $request): JsonResponse
     {
-        $service = app(OnboardingService::class);
-        $service->skipOnboarding($request->user());
+        $this->service->skipOnboarding($request->user());
 
-        return redirect()->back()->with('success', 'Onboarding skipped.');
+        return response()->json(['ok' => true]);
     }
 
     /**
      * Mark onboarding as complete.
      */
-    public function complete(Request $request)
+    public function complete(Request $request): JsonResponse
     {
-        $service = app(OnboardingService::class);
-        $service->markOnboardingComplete($request->user());
+        $this->service->markOnboardingComplete($request->user());
 
-        return redirect()->back()->with('success', 'Onboarding completed.');
+        return response()->json(['ok' => true]);
     }
 
     /**
      * Reset onboarding state for replay.
      */
-    public function replay(Request $request)
+    public function replay(Request $request): JsonResponse
     {
-        $service = app(OnboardingService::class);
-        $service->resetOnboarding($request->user());
+        $this->service->resetOnboarding($request->user());
 
-        return redirect()->back()->with('success', 'Onboarding reset for replay.');
+        return response()->json(['ok' => true]);
     }
 
     /**
      * Track the current step during the onboarding tour.
+     * Step keys use the "<pageIndex>:<stepIndex>" format.
      */
-    public function updateStep(Request $request)
+    public function updateStep(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'step' => 'required|string',
+            'step' => 'required|string|max:32',
         ]);
 
-        $service = app(OnboardingService::class);
-        $service->updateStep($request->user(), $validated['step']);
+        $this->service->updateStep($request->user(), $validated['step']);
 
-        return redirect()->back()->with('success', 'Step updated.');
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Mark a page guide as seen for the authenticated user.
+     */
+    public function markGuideSeen(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'route' => 'required|string|max:120',
+        ]);
+
+        $this->service->markGuideSeen($request->user(), $validated['route']);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Mark a getting-started checklist item complete.
+     */
+    public function markChecklistItem(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'item' => 'required|string|max:64',
+        ]);
+
+        $this->service->markChecklistItem($request->user(), $validated['item']);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Dismiss the getting-started checklist.
+     */
+    public function dismissChecklist(Request $request): JsonResponse
+    {
+        $this->service->dismissChecklist($request->user());
+
+        return response()->json(['ok' => true]);
     }
 
     // ─────────────────────────────────────────────
@@ -76,11 +109,11 @@ class OnboardingController extends Controller
 
     /**
      * Skip the profile info prompt without filling in details.
+     * Still Inertia-driven (DashboardBanner uses router.post).
      */
     public function skipProfile(Request $request)
     {
-        $service = app(OnboardingService::class);
-        $service->skipProfile($request->user());
+        $this->service->skipProfile($request->user());
 
         return redirect()->back()->with('success', 'Profile setup skipped.');
     }

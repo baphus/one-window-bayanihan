@@ -32,8 +32,8 @@ vi.mock('@/Components/DashboardBanner', () => ({
     default: () => <div data-testid="dashboard-banner" />,
 }));
 
-vi.mock('../Pages/__TourPrototype', () => ({
-    default: () => <div data-testid="tour-prototype" />,
+vi.mock('@/Components/GettingStartedChecklist', () => ({
+    default: () => <div data-testid="getting-started-checklist" />,
 }));
 
 vi.mock('../Pages/Dashboard/Admin', () => ({

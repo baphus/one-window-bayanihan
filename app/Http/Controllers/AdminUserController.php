@@ -130,6 +130,9 @@ class AdminUserController extends Controller
             'email_verified_at' => now(),
         ]);
 
+        app(\App\Services\OnboardingService::class)
+            ->markChecklistItemQuietly($request->user(), 'add-first-user');
+
         return redirect()->route('admin.users.index')
             ->with('success', 'User created successfully.');
     }

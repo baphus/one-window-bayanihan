@@ -37,3 +37,6 @@ interview
 .slim/deepwork/
 cookies.txt
 openspec
+# Playwright artifacts
+/test-results
+/playwright-report

@@ -328,6 +328,7 @@ export default function ReferralIndex({ referrals, filters }) {
                         <p className="text-sm text-slate-500 mt-1">Track and manage all referrals across agencies.</p>
                     </div>
                     <button
+                        data-tour="referrals-export"
                         type="button"
                         onClick={handleExport}
                         disabled={isExporting}

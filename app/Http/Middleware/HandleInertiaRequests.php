@@ -58,6 +58,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'just_published' => $request->session()->get('just_published'),
             'onboarding_required' => fn () => $this->getOnboardingRequired($request),
+            'onboarding' => fn () => $request->user()
+                ? app(OnboardingService::class)->getOnboardingState($request->user())
+                : null,
             'profile_incomplete' => fn () => $this->getProfileIncomplete($request),
             'flash' => [
                 'success' => $request->session()->get('success'),

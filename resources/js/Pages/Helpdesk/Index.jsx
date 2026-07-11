@@ -36,7 +36,7 @@ function LandingView({ categoryTree }) {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="flex flex-col items-center pb-10 pt-6 text-center">
+      <div data-tour="helpdesk-header" className="flex flex-col items-center pb-10 pt-6 text-center">
         <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
           Help Center
         </p>
@@ -46,12 +46,12 @@ function LandingView({ categoryTree }) {
         <p className="mt-3 max-w-2xl text-sm text-slate-500 sm:text-base">
           Search our guides, or browse by topic below.
         </p>
-        <div className="mt-6 flex w-full justify-center">
+        <div data-tour="helpdesk-search" className="mt-6 flex w-full justify-center">
           <SearchBar onSearch={handleSearch} large />
         </div>
       </div>
 
-      <section aria-labelledby="audience-heading" className="mb-10">
+      <section data-tour="helpdesk-audiences" aria-labelledby="audience-heading" className="mb-10">
         <h2 id="audience-heading" className="mb-3 font-headline text-lg font-bold text-slate-900">
           Find help for you
         </h2>
@@ -81,7 +81,7 @@ function LandingView({ categoryTree }) {
         </div>
       </section>
 
-      <section aria-labelledby="topics-heading" className="mb-10">
+      <section data-tour="helpdesk-categories" aria-labelledby="topics-heading" className="mb-10">
         <h2 id="topics-heading" className="mb-3 font-headline text-lg font-bold text-slate-900">
           Browse topics
         </h2>
@@ -114,7 +114,7 @@ function LandingView({ categoryTree }) {
       </section>
 
       {popular.length > 0 && (
-        <section aria-labelledby="popular-heading" className="mb-6">
+        <section data-tour="helpdesk-popular" aria-labelledby="popular-heading" className="mb-6">
           <h2 id="popular-heading" className="mb-3 font-headline text-lg font-bold text-slate-900">
             Popular articles
           </h2>

@@ -35,21 +35,23 @@ export default function AuditLogIndex({ logs, availableActions, availableModules
     <AppLayout title="Audit Logs">
       <Head title="Audit Logs" />
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
+        <div data-tour="audit-header" className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Audit Logs</h1>
           <p className="text-sm text-slate-500 mt-1">Track all system activities and changes.</p>
         </div>
 
-        <AuditTimeline
-          logs={logs.data}
-          availableActions={availableActions ?? []}
-          availableModules={availableModules ?? []}
-          availableModulesLabels={availableModulesLabels ?? {}}
-          filterValues={filterValues ?? {}}
-          onFilterChange={handleFilterChange}
-          pagination={pagination}
-          onPageChange={handlePageChange}
-        />
+        <div data-tour="audit-timeline">
+          <AuditTimeline
+            logs={logs.data}
+            availableActions={availableActions ?? []}
+            availableModules={availableModules ?? []}
+            availableModulesLabels={availableModulesLabels ?? {}}
+            filterValues={filterValues ?? {}}
+            onFilterChange={handleFilterChange}
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
+        </div>
       </div>
     </AppLayout>
   );

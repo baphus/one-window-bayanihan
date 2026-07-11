@@ -138,7 +138,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
 
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between flex-wrap gap-4">
+        <div data-tour="overdue-header" className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Overdue Referrals</h1>
             <p className="text-sm text-slate-500 mt-1">
@@ -162,7 +162,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
         </div>
 
         {/* Section 1: KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div data-tour="overdue-kpis" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             title="Total Overdue"
             value={total}
@@ -195,7 +195,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
 
         {/* Section 2: Status Breakdown */}
         {total > 0 && (
-          <section className="bg-white rounded-md border border-slate-200 p-5">
+          <section data-tour="overdue-breakdown" className="bg-white rounded-md border border-slate-200 p-5">
             <h2 className="text-sm font-bold text-slate-700 mb-3">Status Breakdown</h2>
             <div className="space-y-2.5">
               {statusBreakdown.map((item) => (
@@ -234,7 +234,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
         {total > 0 && (
           <>
             {/* Sort/Filter bar */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div data-tour="overdue-filters" className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                   Sort by
@@ -293,7 +293,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
             )}
 
             {/* Card list */}
-            <div className="space-y-2.5">
+            <div data-tour="overdue-list" className="space-y-2.5">
               {/* Select all checkbox (admin/cm only) */}
               {canRemind && referrals?.data?.length > 0 && (
                 <label className="flex items-center gap-2 px-1 text-xs text-slate-400 cursor-pointer select-none">

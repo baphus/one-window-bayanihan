@@ -84,6 +84,9 @@ class AdminAgencyController extends Controller
             $agency->save();
         }
 
+        app(\App\Services\OnboardingService::class)
+            ->markChecklistItemQuietly($request->user(), 'register-agency');
+
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency created successfully.');
     }

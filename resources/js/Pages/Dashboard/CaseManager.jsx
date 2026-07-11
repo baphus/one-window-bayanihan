@@ -12,7 +12,6 @@ import RecentTable from '@/Components/ui/RecentTable';
 import { formatDisplayDate, formatCaseAge, getCaseAgeInDays, formatStatusLabel } from '@/lib/utils';
 import { doughnutOptions, barOptions, barOptionsHorizontal } from '@/Components/Dashboard/chartConfig';
 import ActivityItem from '@/Components/Dashboard/ActivityItem';
-import TourPrototype from '../__TourPrototype';
 import DashboardBanner from '@/Components/DashboardBanner';
 
 ChartJS.register(
@@ -199,9 +198,6 @@ export default function CaseManagerDashboard({ dashboard }) {
         weekday: 'long', month: 'long', day: '2-digit', year: 'numeric',
     }).format(new Date())
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const showTour = urlParams.get('__TOUR_PROTO__') === '1';
-
     const activeCasesColumns = [
         {
             key: 'trackerNumber',
@@ -249,7 +245,6 @@ export default function CaseManagerDashboard({ dashboard }) {
     return (
         <div className="max-w-7xl mx-auto pb-6">
             <DashboardBanner />
-            {showTour && <TourPrototype />}
             <header data-tour="dashboard-header" className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900 flex items-center gap-2">

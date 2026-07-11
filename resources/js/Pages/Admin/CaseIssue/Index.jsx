@@ -73,21 +73,23 @@ export default function AdminCaseIssueIndex({ issues }) {
         />
       )}
       <Head title="Manage Case Issues" />
-      <div className="mb-8 flex items-center justify-between">
+      <div data-tour="case-issues-header" className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Case Issues</h1>
           <p className="text-sm text-slate-500 mt-1">Manage issues used to classify client cases.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
+        <button data-tour="case-issues-new" onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Issue
         </button>
       </div>
 
+      <div data-tour="case-issues-table">
       <UnifiedTable
         columns={columns}
         data={issues}
         keyExtractor={(row) => row.id}
       />
+      </div>
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
     </AppLayout>
   );
