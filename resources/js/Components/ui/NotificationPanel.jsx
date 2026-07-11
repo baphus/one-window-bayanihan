@@ -116,9 +116,9 @@ export default function NotificationPanel() {
         )}
       </button>
 
-      {/* Dropdown panel */}
+      {/* Flyout panel — anchored to the sidebar bell, opens up and to the right */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-slate-200 shadow-lg z-50 overflow-hidden">
+        <div className="absolute bottom-0 left-full ml-4 w-80 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-700">
@@ -131,8 +131,8 @@ export default function NotificationPanel() {
             )}
           </div>
 
-          {/* Body */}
-          <div className="max-h-96 overflow-y-auto">
+          {/* Body — capped by viewport height so the flyout never clips off-screen on short windows */}
+          <div className="max-h-[min(24rem,calc(100vh-14rem))] overflow-y-auto">
             {isLoading && mergedItems.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Loader2 className="w-6 h-6 animate-spin text-slate-300 mx-auto" />
