@@ -126,6 +126,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+        Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
     });
 
     // Feedback dashboard: routes to different controller methods based on role

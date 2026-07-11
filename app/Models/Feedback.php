@@ -10,6 +10,13 @@ class Feedback extends Model
 {
     use HasFactory, UsesUuid;
 
+    public static array $auditExclude = ['id', 'created_at', 'updated_at'];
+
+    public function getAuditModuleName(): string
+    {
+        return 'feedback';
+    }
+
     protected $fillable = [
         'case_id',
         'agency_id',

@@ -70,8 +70,10 @@ class AuditLogControllerTest extends TestCase
 
         $response->assertStatus(200);
         $data = $response->json('props.logs.data');
-        // Two CREATE entries: one from user factory creation in setUp, one from this test
-        $this->assertCount(2, $data);
+        // One CREATE entry from this test. The user-factory CREATE from setUp
+        // is unattributed console activity (category: system) and is excluded
+        // by the viewer's default category filter.
+        $this->assertCount(1, $data);
         $this->assertEquals('CREATE', $data[0]['action']);
     }
 

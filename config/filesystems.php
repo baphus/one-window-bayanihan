@@ -95,6 +95,28 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Immutable audit log archive bundles (audit:archive / audit:prune).
+         * Production must point this at S3-compatible object storage via
+         * AUDIT_ARCHIVE_DRIVER=s3 (+ AUDIT_ARCHIVE_* or STORAGE_* credentials);
+         * local/testing default to an on-disk root.
+         */
+        'audit-archives' => [
+            'driver' => env('AUDIT_ARCHIVE_DRIVER', 'local'),
+            'root' => env('AUDIT_ARCHIVE_DRIVER', 'local') === 'local'
+                ? storage_path('app/audit-archives')
+                : env('AUDIT_ARCHIVE_ROOT', 'audit-archives'),
+            'key' => env('AUDIT_ARCHIVE_ACCESS_KEY', env('STORAGE_ACCESS_KEY')),
+            'secret' => env('AUDIT_ARCHIVE_SECRET_KEY', env('STORAGE_SECRET_KEY')),
+            'region' => env('AUDIT_ARCHIVE_REGION', env('STORAGE_REGION', 'ap-southeast-1')),
+            'bucket' => env('AUDIT_ARCHIVE_BUCKET', env('STORAGE_BUCKET')),
+            'endpoint' => env('AUDIT_ARCHIVE_ENDPOINT', env('STORAGE_ENDPOINT')),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

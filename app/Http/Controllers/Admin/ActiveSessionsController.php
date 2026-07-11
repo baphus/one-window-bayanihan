@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\SecurityAuditLogger;
 use App\Services\SessionService;
 use Inertia\Inertia;
 
@@ -22,6 +23,13 @@ class ActiveSessionsController extends Controller
         }
 
         $service->terminate($session);
+
+        SecurityAuditLogger::log(
+            'session',
+            sprintf('%s terminated an active session (…%s)', auth()->user()->name, substr($session, -6)),
+            null,
+            'DELETE'
+        );
 
         return back()->with('success', 'Session terminated.');
     }

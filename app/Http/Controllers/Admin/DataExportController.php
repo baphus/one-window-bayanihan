@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -51,6 +52,19 @@ class DataExportController extends Controller
         }
 
         $filename = 'bayanihan-full-export-'.now()->format('Ymd-His').'.xlsx';
+
+        AuditLog::create([
+            'action' => 'EXPORT',
+            'module' => 'data_export',
+            'entity_id' => $user->id,
+            'description' => sprintf('%s exported the full data workbook (%d tables)', $user->name, count(ColumnMaps::getAllTables())),
+            'new_value' => ['tables' => ColumnMaps::getAllTables(), 'filename' => $filename],
+            'user_id' => $user->id,
+            'timestamp' => now(),
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'request_id' => request()->attributes->get('correlation_id') ?? request()->header('X-Request-ID') ?? (string) \Illuminate\Support\Str::uuid(),
+        ]);
 
         return (new DataExportService)->generateMultiSheet($sheets, $filename);
     }

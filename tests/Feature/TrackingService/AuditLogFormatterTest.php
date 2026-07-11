@@ -232,7 +232,8 @@ class AuditLogFormatterTest extends TestCase
 
         $this->assertStringNotContainsString('first_name', $result);
         $this->assertStringNotContainsString('last_name', $result);
-        $this->assertStringNotContainsString('email', $result);
+        // Raw field name is gone; the human label appears instead
+        $this->assertStringContainsString('email address', $result);
         $this->assertStringContainsString('first name', $result);
     }
 }

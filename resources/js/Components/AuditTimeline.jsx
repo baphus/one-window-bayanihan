@@ -21,6 +21,8 @@ export function AuditTimeline({
     availableActions = [],
     availableModules = [],
     availableModulesLabels = {},
+    availableCategories = [],
+    activeCategories = [],
     filterValues = {},
     pagination,
     onPageChange = () => {},
@@ -52,10 +54,12 @@ export function AuditTimeline({
     return (
         <div className="audit-timeline-container w-full">
             {showFilters && (
-                <FilterBar 
+                <FilterBar
                     availableActions={availableActions}
                     availableModules={availableModules}
                     availableModulesLabels={availableModulesLabels}
+                    availableCategories={availableCategories}
+                    activeCategories={activeCategories}
                     filterValues={filterValues}
                     onFilterChange={onFilterChange}
                 />
@@ -107,6 +111,16 @@ const ACTION_STYLES = {
     DELETE: { dot: 'bg-red-500', badge: 'bg-red-100 text-red-700', icon: 'delete' },
     LOGIN: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'login' },
     LOGOUT: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'logout' },
+    LOGIN_FAILED: { dot: 'bg-amber-500', badge: 'bg-amber-100 text-amber-800', icon: 'gpp_maybe' },
+    EXPORT: { dot: 'bg-violet-500', badge: 'bg-violet-100 text-violet-700', icon: 'download' },
+    PUBLISH: { dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', icon: 'publish' },
+};
+
+const CATEGORY_LABELS = {
+    security: 'Security',
+    data: 'Data',
+    admin: 'Admin',
+    system: 'System',
 };
 
 function ChangesTable({ changes, compact }) {
@@ -229,13 +243,22 @@ function TimelineEntry({ log }) {
     );
 }
 
-function FilterBar({ availableActions, availableModules, availableModulesLabels, filterValues, onFilterChange }) {
+function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange }) {
     const handleActionToggle = (action) => {
         const currentActions = (filterValues.action || '').split(',').filter(Boolean);
         const newActions = currentActions.includes(action)
             ? currentActions.filter(a => a !== action)
             : [...currentActions, action];
         onFilterChange({ ...filterValues, action: newActions.join(',') });
+    };
+
+    const handleCategoryToggle = (category) => {
+        const current = activeCategories || [];
+        const next = current.includes(category)
+            ? current.filter(c => c !== category)
+            : [...current, category];
+        // Never allow an empty selection — fall back to the server default.
+        onFilterChange({ ...filterValues, category: next.length > 0 ? next.join(',') : '' });
     };
 
     const handleModuleChange = (e) => {
@@ -307,6 +330,33 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                 </div>
             </div>
             
+            {/* Category multi-select — defaults exclude system noise */}
+            {availableCategories.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium text-slate-700 mr-2">Showing:</span>
+                    {availableCategories.map(category => {
+                        const isActive = (activeCategories || []).includes(category);
+                        return (
+                            <button
+                                key={category}
+                                onClick={() => handleCategoryToggle(category)}
+                                title={category === 'system' ? 'Automated and maintenance activity (hidden by default)' : undefined}
+                                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                    isActive
+                                    ? 'bg-indigo-100 border-indigo-200 text-indigo-800'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                                }`}
+                            >
+                                {CATEGORY_LABELS[category] || category}
+                            </button>
+                        );
+                    })}
+                    {!(activeCategories || []).includes('system') && (
+                        <span className="text-xs text-slate-400">System activity hidden</span>
+                    )}
+                </div>
+            )}
+
             {/* Actions multi-select */}
             <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-sm font-medium text-slate-700 mr-2">Actions:</span>

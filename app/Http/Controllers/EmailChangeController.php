@@ -99,6 +99,8 @@ class EmailChangeController extends Controller
         AuditLog::create([
             'action' => 'UPDATE',
             'module' => 'user',
+            // Account-credential change: must appear in the Security view
+            'category' => \App\Services\AuditCategory::SECURITY,
             'entity_id' => $user->id,
             'old_value' => ['email' => $oldEmail],
             'new_value' => ['email' => $newEmail],

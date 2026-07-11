@@ -6,6 +6,7 @@ use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AuditLog extends Model
@@ -17,6 +18,7 @@ class AuditLog extends Model
     protected $fillable = [
         'action',
         'module',
+        'category',
         'entity_id',
         'description',
         'old_value',
@@ -77,32 +79,74 @@ class AuditLog extends Model
             if ($auditLog->description) {
                 $auditLog->description = str_replace(["\r", "\n"], ' ', $auditLog->description);
             }
+
+            // Stamp the event category once, centrally, for every write path
+            // (observer and manual creates alike).
+            if (! $auditLog->category && $auditLog->module && $auditLog->action) {
+                $auditLog->category = \App\Services\AuditCategory::for(
+                    (string) $auditLog->module,
+                    (string) $auditLog->action,
+                    $auditLog->user_id
+                );
+            }
         });
 
         // Global SHA-256 hash chain for audit integrity verification.
         // Each row stores the hash of the PREVIOUS row's content, forming
         // a tamper-evident chain: any modification to a past row breaks
-        // the chain for all subsequent rows.
+        // the chain for all subsequent rows. Runs under the advisory lock
+        // taken in save(), so the predecessor cannot change before insert.
         static::creating(function (self $auditLog) {
-            $lastLog = AuditLog::orderBy('timestamp', 'desc')->first();
+            // chain_seq is the insertion-order key (timestamps are only
+            // second-precision and UUIDs don't sort by time).
+            $lastLog = AuditLog::orderBy('chain_seq', 'desc')->first();
 
             if ($lastLog) {
-                $content = implode('|', [
-                    $lastLog->id,
-                    $lastLog->action,
-                    $lastLog->module,
-                    $lastLog->entity_id ?? '',
-                    $lastLog->user_id ?? '',
-                    $lastLog->timestamp?->toIso8601String() ?? '',
-                    json_encode($lastLog->old_value, JSON_UNESCAPED_SLASHES),
-                    json_encode($lastLog->new_value, JSON_UNESCAPED_SLASHES),
-                    $lastLog->ip_address ?? '',
-                    $lastLog->prev_hash ?? '',
-                ]);
-
-                $auditLog->prev_hash = hash('sha256', $content);
+                $auditLog->prev_hash = $lastLog->chainDigest();
             }
             // First row: prev_hash remains null
+        });
+    }
+
+    /**
+     * SHA-256 digest of this row's chain-relevant content; the next row's
+     * prev_hash must equal this value. Field list and format are frozen —
+     * changing them invalidates verification of all existing rows.
+     */
+    public function chainDigest(): string
+    {
+        $content = implode('|', [
+            $this->id,
+            $this->action,
+            $this->module,
+            $this->entity_id ?? '',
+            $this->user_id ?? '',
+            $this->timestamp?->toIso8601String() ?? '',
+            json_encode($this->old_value, JSON_UNESCAPED_SLASHES),
+            json_encode($this->new_value, JSON_UNESCAPED_SLASHES),
+            $this->ip_address ?? '',
+            $this->prev_hash ?? '',
+        ]);
+
+        return hash('sha256', $content);
+    }
+
+    /**
+     * Serialize chain construction: concurrent inserts must not both read
+     * the same predecessor. The transactional advisory lock releases at
+     * commit; inside an outer transaction it is held until that commits,
+     * which is acceptable at this write volume.
+     */
+    public function save(array $options = [])
+    {
+        if ($this->exists) {
+            return parent::save($options);
+        }
+
+        return DB::transaction(function () use ($options) {
+            DB::statement("SELECT pg_advisory_xact_lock(hashtext('audit_log_chain'))");
+
+            return parent::save($options);
         });
     }
 

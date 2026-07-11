@@ -138,9 +138,9 @@ class AuditLogFormatterTest extends TestCase
 
         $result = $formatter->format($log);
 
-        $this->assertStringContainsString('Case status changed to', $result);
-        $this->assertStringContainsString('Completed', $result);
-        $this->assertStringContainsString('(+1 more)', $result);
+        $this->assertStringContainsString('Case updated:', $result);
+        $this->assertStringContainsString('status', $result);
+        $this->assertStringContainsString('active status', $result);
     }
 
     #[DataProvider('actionProvider')]

@@ -442,11 +442,12 @@ class AuditLogFormatter
             return sprintf('%s %s changed to %s', $entityPrefix, $change['fieldLabel'], $change['new'] ?? 'not set');
         }
 
-        // Multi-field: use first change + count
-        $firstChange = $changes[0];
-        $suffix = ' (+'.(count($changes) - 1).' more)';
+        // Multi-field: name the changed fields (up to 3) instead of
+        // collapsing to "first field +N more"
+        $labels = array_map(fn ($c) => $c['fieldLabel'], array_slice($changes, 0, 3));
+        $suffix = count($changes) > 3 ? sprintf(' and %d more field%s', count($changes) - 3, count($changes) - 3 === 1 ? '' : 's') : '';
 
-        return sprintf('%s %s changed to %s%s', $entityPrefix, $firstChange['fieldLabel'], $firstChange['new'] ?? 'not set', $suffix);
+        return sprintf('%s updated: %s%s', $entityPrefix, implode(', ', $labels), $suffix);
     }
 
     private function formatDelete(string $userName, AuditLog $log, string $module): string
@@ -501,17 +502,19 @@ class AuditLogFormatter
 
     private function resolveUserName(AuditLog $log): string
     {
-        if (! $log->relationLoaded('user')) {
-            return 'System';
+        // Prefer the eager-loaded relation; fall back to a cached lookup so
+        // human actions are never mislabeled "System" just because a caller
+        // didn't eager-load the user.
+        $user = $log->relationLoaded('user') ? $log->getRelation('user') : null;
+        $name = $user?->name;
+
+        if ($name === null && $log->user_id !== null && \Illuminate\Support\Str::isUuid((string) $log->user_id)) {
+            $name = cache()->remember(
+                "audit_actor_name:{$log->user_id}",
+                now()->addMinutes(10),
+                fn () => User::find($log->user_id)?->name ?? ''
+            );
         }
-
-        $user = $log->getRelation('user');
-
-        if ($user === null) {
-            return 'System';
-        }
-
-        $name = $user->name ?? null;
 
         return is_string($name) && $name !== '' ? $name : 'System';
     }

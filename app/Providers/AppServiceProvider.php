@@ -4,23 +4,30 @@ namespace App\Providers;
 
 use App\Events\ReferralCompleted;
 use App\Listeners\EmailEventSubscriber;
+use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
 use App\Listeners\SendFeedbackRequest;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\CaseIssue;
+use App\Models\CaseStatus;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
+use App\Models\Feedback;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\Service;
+use App\Models\ServiceRequirement;
 use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Services\Contracts\MalwareScannerInterface;
 use App\Services\Malware\ClamAvScanner;
 use App\Services\Malware\NullScanner;
 use Cloudinary\Configuration\Configuration;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -73,6 +80,11 @@ class AppServiceProvider extends ServiceProvider
             Agency::class,
             User::class,
             Service::class,
+            ServiceRequirement::class,
+            CaseCategory::class,
+            CaseIssue::class,
+            CaseStatus::class,
+            Feedback::class,
         ];
 
         foreach ($auditableModels as $model) {
@@ -114,6 +126,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
+        Event::listen(Failed::class, LogFailedLogin::class);
         Event::listen(ReferralCompleted::class, SendFeedbackRequest::class);
 
         Event::subscribe(EmailEventSubscriber::class);

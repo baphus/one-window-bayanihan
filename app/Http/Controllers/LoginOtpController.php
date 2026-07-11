@@ -34,10 +34,10 @@ class LoginOtpController extends Controller
 
         if (! $user || ! Hash::check($request->input('password'), $user->password)) {
             AuditLog::create([
-                'action' => 'UPDATE',
+                'action' => 'LOGIN_FAILED',
                 'module' => 'auth',
                 'entity_id' => $user?->id,
-                'description' => 'Failed login attempt: invalid credentials',
+                'description' => 'Failed sign-in attempt for '.$request->input('email').': invalid credentials',
                 'user_id' => null,
                 'timestamp' => now(),
                 'ip_address' => $request->ip(),
@@ -52,10 +52,10 @@ class LoginOtpController extends Controller
 
         if (! $user->is_active || $user->is_deleted) {
             AuditLog::create([
-                'action' => 'UPDATE',
+                'action' => 'LOGIN_FAILED',
                 'module' => 'auth',
                 'entity_id' => $user->id,
-                'description' => 'Failed login attempt: inactive or deleted account',
+                'description' => 'Failed sign-in attempt for '.$request->input('email').': inactive or deleted account',
                 'user_id' => null,
                 'timestamp' => now(),
                 'ip_address' => $request->ip(),
@@ -148,7 +148,7 @@ class LoginOtpController extends Controller
 
         if (! $verified) {
             AuditLog::create([
-                'action' => 'UPDATE',
+                'action' => 'LOGIN_FAILED',
                 'module' => 'auth',
                 'entity_id' => null,
                 'description' => 'Invalid OTP entered for '.$request->input('email'),
@@ -240,7 +240,7 @@ class LoginOtpController extends Controller
 
         if (! $valid) {
             AuditLog::create([
-                'action' => 'UPDATE',
+                'action' => 'LOGIN_FAILED',
                 'module' => 'mfa',
                 'entity_id' => $user->id,
                 'description' => 'Invalid TOTP code during login',
@@ -306,7 +306,7 @@ class LoginOtpController extends Controller
 
         if (! $mfaService->verifyRecoveryCode($request->input('recovery_code'), $recoveryCodes)) {
             AuditLog::create([
-                'action' => 'UPDATE',
+                'action' => 'LOGIN_FAILED',
                 'module' => 'mfa',
                 'entity_id' => $user->id,
                 'description' => 'Invalid recovery code used during login',

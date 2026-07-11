@@ -11,6 +11,13 @@ class CaseIssue extends Model
 {
     use HasFactory, SoftDeleteFlag, UsesUuid;
 
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
+
+    public function getAuditModuleName(): string
+    {
+        return 'case_issue';
+    }
+
     protected $table = 'case_issues';
 
     protected $fillable = [

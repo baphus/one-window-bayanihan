@@ -170,7 +170,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 'UPDATE', 'case_files',
                 ['status' => 'OPEN', 'summary' => 'Old summary', 'client_type' => 'OFW'],
                 ['status' => 'CLOSED', 'summary' => 'New summary', 'client_type' => 'NON-OFW'],
-                ['(+2 more)'], // multi-change indicator (3 changes total)
+                ['updated: status, summary, client type'], // multi-change: fields are named
             ],
             'UPDATE / case (no changes)' => [
                 'UPDATE', 'case', ['status' => 'OPEN'], ['status' => 'OPEN'],

@@ -6,7 +6,20 @@ The audit log is the system record of important activity in One Window Bayanihan
 
 ## Who can see audit logs
 
-Administrators can review the full audit log from the admin area. Non-admin users may see audit information only for records within their allowed scope: their own cases, referrals related to their work, or referrals assigned to their agency. This protects sensitive case data while still allowing operational traceability.
+Administrators can review the full audit log. Case managers see only entries for their own cases and those cases' referrals. Agency accounts do not have access to the audit log. This protects sensitive case data while still allowing operational traceability.
+
+## Activity categories
+
+Every audit entry belongs to one category, and the page opens showing the relevant ones by default:
+
+| Category | Covers | Shown by default |
+|---|---|---|
+| Security | Sign-ins, failed sign-in attempts, MFA changes, session actions | Yes |
+| Data | Case, client, referral, milestone, attachment, and feedback changes | Yes |
+| Admin | User, agency, service, category/status configuration, exports | Yes |
+| System | Automated and maintenance activity | No — enable it with the System chip |
+
+Use the category chips above the timeline to widen or narrow the view. A note appears when system activity is hidden.
 
 ## Available filters
 
@@ -14,8 +27,9 @@ The audit log page supports these filters:
 
 | Filter | Use |
 |---|---|
-| action | Narrow results to a specific action type. |
+| action | Narrow results to a specific action type (including LOGIN_FAILED and EXPORT). |
 | module | Show activity for a system area such as cases, referrals, users, or settings. |
+| category | Limit to security, data, admin, or system activity. |
 | user_id | Review activity performed by one user account. |
 | date_from | Start of the activity date range. |
 | date_to | End of the activity date range. |
@@ -43,11 +57,17 @@ Module aliases are normalized by the system. For example, searches using \`case_
 
 Audit entries show who performed an action and when the system recorded it. They should be interpreted with the related case, referral, user, or admin record. A log entry may confirm that an action occurred, but it does not always explain the business reason. Use case notes, referral milestones, and agency communications for context.
 
+## Exporting audit logs
+
+Administrators can export the current filter selection as a CSV file using the Export button. An explicit date range is required — the dialog pre-fills the last 30 days, and the range cannot exceed the retention window. Every export (including rejected attempts) is itself recorded in the audit log, so extraction of audit data is always attributable.
+
+Entries older than the retention window are archived to immutable monthly bundles before being removed from the live log; contact the system administrator if you need archived history.
+
 ## Good practices
 
 - Use the smallest date range that answers the question.
 - Search by exact tracker number, case number, or user when available.
-- Do not export or share audit details unless there is an operational need.
-- Escalate suspicious activity to the system administrator promptly.
+- Do not export or share audit details unless there is an operational need — exports are themselves logged.
+- Escalate suspicious activity (for example repeated failed sign-in attempts) to the system administrator promptly.
 `;
 export default content;
