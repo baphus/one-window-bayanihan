@@ -2,18 +2,23 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import TurnstileWidget from '@/Components/TurnstileWidget';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { registerSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import { useState } from 'react';
 
 
 export default function Register() {
+    const { turnstile } = usePage().props;
+    const [turnstileToken, setTurnstileToken] = useState('');
     const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
         name: '',
         email: '',
         password: '',
         password_confirmation: '',
+        cf_turnstile_response: '',
     });
 
     const { validate } = useClientValidation(registerSchema, data, setError);
@@ -23,8 +28,9 @@ export default function Register() {
         clearErrors();
         if (!validate()) return;
 
+        data.cf_turnstile_response = turnstileToken;
         post(route('register'), {
-            onFinish: () => reset('password', 'password_confirmation'),
+            onFinish: () => { reset('password', 'password_confirmation'); },
         });
     };
 
@@ -120,10 +126,20 @@ export default function Register() {
                         Already registered?
                     </Link>
 
-                    <PrimaryButton className="ms-4" disabled={processing}>
+                    <PrimaryButton className="ms-4" disabled={processing || (turnstile?.enabled && !turnstileToken)}>
                         Register
                     </PrimaryButton>
                 </div>
+
+                {turnstile?.enabled && (
+                    <div className="mt-4">
+                        <TurnstileWidget
+                            onToken={setTurnstileToken}
+                            onExpire={() => setTurnstileToken('')}
+                        />
+                        <InputError message={errors.captcha} className="mt-2" />
+                    </div>
+                )}
             </form>
         </GuestLayout>
     );

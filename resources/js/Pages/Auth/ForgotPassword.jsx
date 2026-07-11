@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import TurnstileWidget from '@/Components/TurnstileWidget';
 import AppFooter from '@/Components/landing/AppFooter';
 
 export default function ForgotPassword({ status }) {
-    const { errors: pageErrors } = usePage().props;
+    const { errors: pageErrors, turnstile } = usePage().props;
     const [email, setEmail] = useState('');
     const [processing, setProcessing] = useState(false);
     const [successMsg, setSuccessMsg] = useState(status || '');
     const [errorMsg, setErrorMsg] = useState(pageErrors?.email || '');
+    const [turnstileToken, setTurnstileToken] = useState('');
 
 
     const handleSubmit = (e) => {
@@ -15,14 +17,14 @@ export default function ForgotPassword({ status }) {
         setErrorMsg('');
         setProcessing(true);
 
-        router.post(route('password.email'), { email }, {
+        router.post(route('password.email'), { email, cf_turnstile_response: turnstileToken }, {
             onSuccess: () => {
                 setProcessing(false);
                 setSuccessMsg('We have emailed your password reset link. Please check your inbox.');
             },
             onError: (err) => {
                 setProcessing(false);
-                setErrorMsg(err.email || 'Unable to send reset link. Please try again.');
+                setErrorMsg(err.captcha || err.email || 'Unable to send reset link. Please try again.');
             },
         });
     };
@@ -114,9 +116,18 @@ export default function ForgotPassword({ status }) {
                                         </div>
                                     </div>
 
+                                    {turnstile?.enabled && (
+                                        <div>
+                                            <TurnstileWidget
+                                                onToken={setTurnstileToken}
+                                                onExpire={() => setTurnstileToken('')}
+                                            />
+                                        </div>
+                                    )}
+
                                     <button
                                         type="submit"
-                                        disabled={processing}
+                                        disabled={processing || (turnstile?.enabled && !turnstileToken)}
                                         className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
                                     >
                                         {processing ? 'Sending...' : 'Send Password Reset Link'}
