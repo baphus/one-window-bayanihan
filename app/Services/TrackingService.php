@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
+use App\Models\Milestone;
 use App\Models\Referral;
 use Carbon\Carbon;
 
@@ -175,13 +176,15 @@ class TrackingService
         $timeline = $timeline->sortBy([['date', 'asc'], ['_sort_index', 'asc']])->values()->toArray();
 
         // Agency cards with 4-step progress model
-        $agencyCards = $referrals->map(function ($ref) {
+        $agencyCards = $referrals->map(function ($ref) use ($case) {
             $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
 
             return [
+                'referralId' => $ref->id,
                 'name' => $ref->agency?->name ?? 'Unknown',
                 'note' => $ref->notes ?? '',
                 'status' => $ref->status,
+                'milestoneCount' => $ref->milestones->count(),
                 'statusTone' => match ($ref->status) {
                     'PENDING' => 'bg-amber-100 text-amber-800',
                     'PROCESSING' => 'bg-blue-100 text-blue-800',
@@ -216,6 +219,10 @@ class TrackingService
                 },
                 'steps' => $this->buildAgencySteps($ref),
                 'latestMilestoneLabel' => $latestMilestone?->title,
+                'milestonesUrl' => route('track.milestones', [
+                    'tracker_number' => $case->tracker_number,
+                    'referral' => $ref->id,
+                ]),
                 'compliance_requirements' => $ref->complianceRequirements->map(fn ($cr) => [
                     'id' => $cr->id,
                     'service_name' => $cr->service_name,
@@ -291,6 +298,78 @@ class TrackingService
             'caseNotifications' => [
                 'unread_count' => $unreadCount,
                 'items' => $caseNotifications,
+            ],
+        ];
+    }
+
+    public function buildAgencyMilestonesData(CaseFile $case, Referral $referral): array
+    {
+        $case->loadMissing(['client.addresses', 'client.employments']);
+        $referral->loadMissing(['agency', 'milestones.user']);
+
+        $agencyName = $referral->agency?->name ?? 'Unknown agency';
+        $latestMilestone = $referral->milestones->sortByDesc('created_at')->first();
+        $referralStatusTitle = match ($referral->status) {
+            'PROCESSING' => $agencyName.' is now processing your referral',
+            'FOR_COMPLIANCE' => 'Additional documents may be needed for '.$agencyName,
+            'COMPLETED' => 'Your referral with '.$agencyName.' has been completed',
+            'REJECTED' => $agencyName.' was unable to process your referral',
+            default => 'Referral received by '.$agencyName,
+        };
+        $referralStatusDescription = match ($referral->status) {
+            'PROCESSING' => 'The agency is actively reviewing your request.',
+            'FOR_COMPLIANCE' => 'Please prepare any additional requirements the agency may request.',
+            'COMPLETED' => 'The agency has finished its part of the referral workflow.',
+            'REJECTED' => 'This referral was not accepted for processing.',
+            default => $referral->required_services
+                ? 'Requested services: '.$referral->required_services
+                : 'Your referral is waiting for the first milestone update.',
+        };
+        $milestones = $referral->milestones
+            ->sortBy('created_at')
+            ->values()
+            ->map(fn (Milestone $milestone) => [
+                'date' => $milestone->created_at->toISOString(),
+                'title' => $milestone->title,
+                'description' => $milestone->description ?? '',
+                'by' => $milestone->user?->name ?? 'System',
+            ])
+            ->toArray();
+
+        return [
+            'trackingId' => $case->tracker_number,
+            'trackedCase' => [
+                'caseNo' => $case->case_number,
+                'clientName' => $case->client ? trim("{$case->client->first_name} {$case->client->last_name}") : 'Unknown',
+                'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'status' => match ($case->status) {
+                    'OPEN' => 'IN_PROGRESS',
+                    'CLOSED' => 'RESOLVED',
+                    'ARCHIVED' => 'ARCHIVED',
+                    'DRAFT' => 'BEING_PREPARED',
+                    default => 'UNKNOWN',
+                },
+            ],
+            'agencyMilestones' => [
+                'agencyName' => $agencyName,
+                'status' => $referral->status,
+                'requiredServices' => $referral->required_services ?? '',
+                'notes' => $referral->notes ?? '',
+                'milestoneCount' => $referral->milestones->count(),
+                'latestUpdate' => $latestMilestone
+                    ? [
+                        'date' => $latestMilestone->created_at->toISOString(),
+                        'title' => $latestMilestone->title,
+                        'description' => $latestMilestone->description ?? '',
+                        'by' => $latestMilestone->user?->name ?? 'System',
+                    ]
+                    : [
+                        'date' => $referral->updated_at?->toISOString() ?? $referral->created_at->toISOString(),
+                        'title' => $referralStatusTitle,
+                        'description' => $referralStatusDescription,
+                        'by' => $agencyName,
+                    ],
+                'milestones' => $milestones,
             ],
         ];
     }

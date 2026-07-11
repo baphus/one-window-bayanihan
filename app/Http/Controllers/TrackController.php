@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Referral;
 use App\Models\SystemSetting;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
@@ -92,5 +93,18 @@ class TrackController extends Controller
         $data = $this->trackingService->buildTrackingData($case);
 
         return Inertia::render('Tracking/Show', $data);
+    }
+
+    public function milestones(Request $request, string $tracker_number, Referral $referral)
+    {
+        $case = $this->trackingService->findCaseByTracker($tracker_number);
+
+        if (! $case || $referral->case_id !== $case->id) {
+            abort(404);
+        }
+
+        $data = $this->trackingService->buildAgencyMilestonesData($case, $referral);
+
+        return Inertia::render('Tracking/AgencyMilestones', $data);
     }
 }

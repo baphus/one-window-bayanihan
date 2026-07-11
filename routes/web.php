@@ -319,6 +319,8 @@ Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
     ->name('track.verify-otp')
     ->middleware('throttle:tracking');
 Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
+Route::get('/track/case/{tracker_number}/referrals/{referral}/milestones', [TrackController::class, 'milestones'])
+    ->name('track.milestones');
 
 Route::prefix('help')->name('helpdesk.')->group(function () {
     Route::get('/', function (Request $request) {

@@ -56,7 +56,7 @@ function formatHumanDate(dateStr) {
   });
 }
 
-function AgencyCard({ name, note, status, steps = [], latestMilestoneLabel, compliance_requirements }) {
+function AgencyCard({ name, note, status, steps = [], latestMilestoneLabel, compliance_requirements, milestonesUrl }) {
   const completedCount = steps.filter(s => s.state === 'complete').length;
   const activeIndex = steps.findIndex(s => s.state === 'active');
   const isRejected = status === 'REJECTED';
@@ -175,6 +175,18 @@ function AgencyCard({ name, note, status, steps = [], latestMilestoneLabel, comp
               </div>
             )}
           </>
+        )}
+
+        {milestonesUrl && (
+          <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
+            <Link
+              href={milestonesUrl}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+            >
+              View milestones
+              <span className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
+            </Link>
+          </div>
         )}
       </div>
     </article>

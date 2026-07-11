@@ -47,6 +47,19 @@ class TrackingServiceTest extends TestCase
         $this->assertTrue(array_key_exists('caseTimeline', $data));
     }
 
+    public function test_agency_cards_include_public_milestones_link(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        $referral = Referral::factory()->create(['case_id' => $case->id]);
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case);
+
+        $this->assertArrayHasKey('milestonesUrl', $data['trackingAgencies'][0]);
+        $this->assertStringContainsString('/track/case/'.$case->tracker_number.'/referrals/'.$referral->id.'/milestones', $data['trackingAgencies'][0]['milestonesUrl']);
+    }
+
     public function test_milestone_timeline_excludes_raw_audit_log_entries(): void
     {
         $service = app(TrackingService::class);
