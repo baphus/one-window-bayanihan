@@ -98,13 +98,13 @@ function ServqualRadioColumn({ selected, onChange, label, ratingLabels }) {
   const labels = ratingLabels || DEFAULT_RATING_LABELS;
 
   return (
-    <div className="flex items-center gap-1 sm:gap-1.5">
+    <div className="flex items-start justify-center gap-1 sm:gap-1">
       {[1, 2, 3, 4, 5].map((rating) => (
         <button
           key={rating}
           type="button"
           onClick={() => onChange(rating === selected ? null : rating)}
-          className={`flex flex-col items-center gap-0.5 p-0.5 sm:p-1 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${
+          className={`flex flex-col items-center gap-0.5 p-0.5 sm:p-0.5 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${
             selected === rating
               ? 'text-primary'
               : 'text-gray-400 hover:text-gray-600'
@@ -112,7 +112,7 @@ function ServqualRadioColumn({ selected, onChange, label, ratingLabels }) {
           aria-label={`${label}: ${rating} - ${labels[rating]}`}
         >
           <span
-            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
               selected === rating
                 ? 'bg-primary text-white border-primary shadow-sm'
                 : 'border-gray-300 bg-white hover:border-gray-400'
@@ -120,7 +120,7 @@ function ServqualRadioColumn({ selected, onChange, label, ratingLabels }) {
           >
             {rating}
           </span>
-          <span className="text-[9px] sm:text-[10px] leading-tight text-center whitespace-nowrap">
+          <span className="text-[9px] leading-tight text-center sm:hidden">
             {labels[rating]}
           </span>
         </button>
@@ -433,14 +433,14 @@ export default function FeedbackSubmit({
                 </div>
 
                 {/* Column headers — visible only on sm+ */}
-                <div className="hidden sm:grid sm:grid-cols-[1fr_minmax(14rem,auto)_minmax(14rem,auto)] sm:gap-4 mb-2 px-3">
+                <div className="hidden sm:grid sm:grid-cols-[minmax(12rem,1fr)_minmax(10rem,auto)_minmax(10rem,auto)] sm:gap-4 mb-2 px-3">
                   <div />
-                  <div className="flex items-center justify-center gap-1 sm:gap-1.5 w-full">
+                  <div className="flex flex-col items-center">
                     <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider leading-tight text-center">
                       Minimum<br />Expectation
                     </span>
                   </div>
-                  <div className="flex items-center justify-center gap-1 sm:gap-1.5 w-full">
+                  <div className="flex flex-col items-center">
                     <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider leading-tight text-center">
                       Actual<br />Experience
                     </span>
@@ -468,7 +468,7 @@ export default function FeedbackSubmit({
                     return (
                       <div
                         key={globalIdx}
-                        className="sm:grid sm:grid-cols-[1fr_minmax(14rem,auto)_minmax(14rem,auto)] sm:gap-4 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="sm:grid sm:grid-cols-[minmax(12rem,1fr)_minmax(10rem,auto)_minmax(10rem,auto)] sm:gap-4 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors"
                       >
                         {/* Question text */}
                         <div className="text-sm text-gray-700 mb-2 sm:mb-0 sm:pt-1.5">
