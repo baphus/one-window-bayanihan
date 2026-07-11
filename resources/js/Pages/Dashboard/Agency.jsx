@@ -93,7 +93,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                         </EntityList>
                     </SectionCard>
 
-                    <SectionCard title="Recent activity" action={<ViewAllLink href="/audit-logs" />}>
+                    <SectionCard title="Recent activity">
                         <ActivityFeed items={dashboard.recentActivity} limit={6} />
                     </SectionCard>
                 </div>

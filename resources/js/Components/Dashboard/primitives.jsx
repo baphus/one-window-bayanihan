@@ -1,5 +1,4 @@
 import { Link } from '@inertiajs/react';
-import { useMemo } from 'react';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -176,7 +175,7 @@ export function TriageStrip({ items, dataTour }) {
 
     return (
         <section data-tour={dataTour} className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className={`grid grid-cols-2 sm:grid-cols-3 ${STRIP_COLS[Math.min(queues.length, 6)]}`}>
+            <div className={`grid grid-cols-2 gap-px bg-slate-100 sm:grid-cols-3 ${STRIP_COLS[Math.min(queues.length, 6)]}`}>
                 {queues.map((item, index) => {
                     const count = Number(item.count ?? 0);
                     const urgent = count > 0 && (item.tone === 'rose' || item.tone === 'orange');
@@ -185,7 +184,7 @@ export function TriageStrip({ items, dataTour }) {
                         <Link
                             key={item.key ?? index}
                             href={item.href ?? '#'}
-                            className={`group flex flex-col gap-1 px-4 py-3.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${index > 0 ? 'border-l border-slate-100' : ''}`}
+                            className="group flex flex-col gap-1 bg-white px-4 py-3.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                         >
                             <span className="flex items-center gap-1.5">
                                 <span className={`h-1.5 w-1.5 rounded-circle ${toneDot(item.tone)}`} />
@@ -277,7 +276,9 @@ const doughnutOptions = {
 export function StatusDonut({ items }) {
     const rows = safeArray(items);
 
-    const chartData = useMemo(() => ({
+    if (rows.length === 0) return null;
+
+    const chartData = {
         labels: rows.map((item) => item.label),
         datasets: [
             {
@@ -286,9 +287,7 @@ export function StatusDonut({ items }) {
                 borderWidth: 0,
             },
         ],
-    }), [rows]);
-
-    if (rows.length === 0) return null;
+    };
 
     return (
         <div className="flex items-center gap-5">

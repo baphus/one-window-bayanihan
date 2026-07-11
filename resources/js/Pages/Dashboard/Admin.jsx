@@ -50,7 +50,7 @@ export default function AdminDashboard({ dashboard = {} }) {
         actionType: log.action ?? log.actionType,
         title: log.message ?? log.description,
         desc: log.detail ?? '',
-        time: formatDisplayDateTime(log.timestamp),
+        time: log.timestamp ? formatDisplayDateTime(log.timestamp) : '',
     }));
     const topAgencies = safeArray(dashboard.topAgencies).slice(0, 5);
     const usersByRole = safeArray(dashboard.usersByRole);
