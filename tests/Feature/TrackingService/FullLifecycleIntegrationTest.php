@@ -2,13 +2,13 @@
 
 namespace Tests\Feature\TrackingService;
 
-use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
+use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
@@ -37,6 +37,11 @@ class FullLifecycleIntegrationTest extends TestCase
         return $case;
     }
 
+    private function recorder(): CaseEventRecorder
+    {
+        return app(CaseEventRecorder::class);
+    }
+
     public function test_full_lifecycle_from_case_intake_to_tracking_output(): void
     {
         // ARRANGE — simulate the full case lifecycle: DRAFT → OPEN → referral → milestone → CLOSED
@@ -50,21 +55,25 @@ class FullLifecycleIntegrationTest extends TestCase
         // Open the case
         $case->update(['status' => 'OPEN']);
         $case->refresh();
+        $this->recorder()->caseOpened($case, $user->id);
 
         // Add a PENDING referral
         $referral = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'PENDING',
         ]);
+        $this->recorder()->referralSent($referral, $user->id);
 
         // Add a milestone
-        Milestone::factory()->create([
+        $milestone = Milestone::factory()->create([
             'refr_id' => $referral->id,
         ]);
+        $this->recorder()->milestoneAdded($referral, $milestone, $user->id);
 
         // Close the case
         $case->update(['status' => 'CLOSED', 'closed_at' => now()]);
         $case->refresh();
+        $this->recorder()->caseClosed($case, $user->id);
 
         $this->loadRelations($case);
         $service = app(TrackingService::class);
@@ -90,12 +99,14 @@ class FullLifecycleIntegrationTest extends TestCase
         $expectedFullName = trim("{$client->first_name} {$client->middle_initial} {$client->last_name} {$client->suffix}");
         $this->assertEquals($expectedFullName, $data['caseOverview']['ofw']['fullName']);
 
-        // ASSERT — caseTimeline is populated
-        $this->assertNotEmpty($data['caseTimeline']);
+        // ASSERT — the legacy audit-log timeline is gone from the payload
+        $this->assertArrayNotHasKey('caseTimeline', $data);
 
-        // ASSERT — milestoneTimeline is populated and starts with case_opened
-        $this->assertNotEmpty($data['milestoneTimeline']);
-        $this->assertEquals('case_opened', $data['milestoneTimeline'][0]['type']);
+        // ASSERT — milestoneTimeline covers the full journey in order
+        $this->assertEquals(
+            ['case_opened', 'referral_sent', 'milestone_added', 'case_closed'],
+            array_column($data['milestoneTimeline'], 'type')
+        );
         $this->assertEquals('Your case has been opened', $data['milestoneTimeline'][0]['title']);
 
         // ASSERT — trackingAgencies has exactly 1 entry (one referral)
@@ -106,7 +117,7 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertArrayHasKey('items', $data['caseNotifications']);
     }
 
-    public function test_multiple_referrals_agency_tone_classes_per_status(): void
+    public function test_multiple_referrals_agency_cards_carry_status_not_presentation(): void
     {
         // ARRANGE
         $user = User::factory()->create();
@@ -127,32 +138,19 @@ class FullLifecycleIntegrationTest extends TestCase
         // ACT
         $data = $service->buildTrackingData($case);
 
-        // ASSERT — 3 agency cards
+        // ASSERT — 3 agency cards, one per referral status
         $this->assertCount(3, $data['trackingAgencies']);
+        $statuses = array_column($data['trackingAgencies'], 'status');
+        sort($statuses);
+        $this->assertEquals(['COMPLETED', 'PENDING', 'PROCESSING'], $statuses);
 
-        // Build a lookup by status for easier assertions
-        $byStatus = [];
+        // Styling is the frontend's job — the payload carries state, not CSS.
         foreach ($data['trackingAgencies'] as $agency) {
-            $byStatus[$agency['status']] = $agency;
+            $this->assertArrayNotHasKey('statusTone', $agency);
+            $this->assertArrayNotHasKey('borderTone', $agency);
+            $this->assertArrayNotHasKey('textTone', $agency);
+            $this->assertArrayNotHasKey('lineTone', $agency);
         }
-
-        // PENDING tones
-        $this->assertEquals('bg-amber-100 text-amber-800', $byStatus['PENDING']['statusTone']);
-        $this->assertEquals('border-amber-300', $byStatus['PENDING']['borderTone']);
-        $this->assertEquals('text-amber-700', $byStatus['PENDING']['textTone']);
-        $this->assertEquals('bg-amber-400', $byStatus['PENDING']['lineTone']);
-
-        // PROCESSING tones
-        $this->assertEquals('bg-blue-100 text-blue-800', $byStatus['PROCESSING']['statusTone']);
-        $this->assertEquals('border-blue-300', $byStatus['PROCESSING']['borderTone']);
-        $this->assertEquals('text-blue-700', $byStatus['PROCESSING']['textTone']);
-        $this->assertEquals('bg-blue-400', $byStatus['PROCESSING']['lineTone']);
-
-        // COMPLETED tones
-        $this->assertEquals('bg-green-100 text-green-800', $byStatus['COMPLETED']['statusTone']);
-        $this->assertEquals('border-green-300', $byStatus['COMPLETED']['borderTone']);
-        $this->assertEquals('text-green-700', $byStatus['COMPLETED']['textTone']);
-        $this->assertEquals('bg-green-400', $byStatus['COMPLETED']['lineTone']);
     }
 
     public function test_milestone_timeline_event_types_in_full_case_with_referrals(): void
@@ -162,9 +160,17 @@ class FullLifecycleIntegrationTest extends TestCase
         $case = $result['case'];
         $referrals = $result['referrals'];
 
-        // First referral stays PENDING; second becomes PROCESSING to trigger a referral_status event
-        $referrals[0]->update(['status' => 'PENDING']);
+        $this->recorder()->caseOpened($case);
+        foreach ($referrals as $referral) {
+            $this->recorder()->referralSent($referral);
+            foreach ($referral->milestones as $milestone) {
+                $this->recorder()->milestoneAdded($referral, $milestone);
+            }
+        }
+
+        // Second referral becomes PROCESSING
         $referrals[1]->update(['status' => 'PROCESSING']);
+        $this->recorder()->referralStatusChanged($referrals[1], 'PENDING', 'PROCESSING');
 
         // Add an audit log with internal data — should NOT leak into milestoneTimeline
         $this->createAuditLog(
@@ -177,6 +183,7 @@ class FullLifecycleIntegrationTest extends TestCase
         // Close the case
         $case->update(['status' => 'CLOSED', 'closed_at' => now()]);
         $case->refresh();
+        $this->recorder()->caseClosed($case);
 
         $this->loadRelations($case);
         $service = app(TrackingService::class);
@@ -194,8 +201,8 @@ class FullLifecycleIntegrationTest extends TestCase
         $types = array_column($timeline, 'type');
         $this->assertContains('case_opened', $types);
         $this->assertContains('referral_sent', $types);
-        $this->assertContains('referral_status', $types);
-        $this->assertContains('milestone', $types);
+        $this->assertContains('referral_status_changed', $types);
+        $this->assertContains('milestone_added', $types);
         $this->assertContains('case_closed', $types);
 
         // ASSERT — case_closed is the last event
@@ -214,11 +221,13 @@ class FullLifecycleIntegrationTest extends TestCase
         }
     }
 
-    public function test_case_timeline_contains_audit_events_milestone_timeline_excludes(): void
+    public function test_audit_events_never_reach_tracking_payload(): void
     {
         // ARRANGE
         $result = $this->createCompleteCase();
         $case = $result['case'];
+        $this->recorder()->caseOpened($case);
+        $this->recorder()->referralSent($result['referrals']->first());
 
         // Create audit log entries for the case
         $this->createAuditLog(
@@ -240,37 +249,22 @@ class FullLifecycleIntegrationTest extends TestCase
         // ACT
         $data = $service->buildTrackingData($case);
 
-        // ASSERT — caseTimeline includes audit events with proper icons
-        $auditIcons = [];
-        foreach ($data['caseTimeline'] as $event) {
-            if (in_array($event['icon'] ?? '', ['create', 'update', 'delete', 'auth', 'system'])) {
-                $auditIcons[] = $event['icon'];
-            }
-        }
-        $this->assertContains('create', $auditIcons, 'caseTimeline should contain CREATE audit events');
-        $this->assertContains('update', $auditIcons, 'caseTimeline should contain UPDATE audit events');
+        // ASSERT — no legacy audit-log timeline in the payload
+        $this->assertArrayNotHasKey('caseTimeline', $data);
 
-        // ASSERT — caseTimeline events have expected structure
-        foreach ($data['caseTimeline'] as $event) {
-            $this->assertArrayHasKey('title', $event);
-            $this->assertArrayHasKey('icon', $event);
-            $this->assertArrayHasKey('date', $event);
-            $this->assertArrayHasKey('agency', $event);
-            $this->assertArrayHasKey('detail', $event);
-        }
-
-        // ASSERT — milestoneTimeline does NOT contain audit CRUD types
-        $msTypes = array_column($data['milestoneTimeline'], 'type');
-        $this->assertNotContains('create', $msTypes, 'milestoneTimeline should not have audit CRUD type');
-        $this->assertNotContains('update', $msTypes);
-
-        // ASSERT — milestoneTimeline events are human-readable client-facing types
+        // ASSERT — milestoneTimeline carries only client-facing event types
         foreach ($data['milestoneTimeline'] as $event) {
             $this->assertContains($event['type'], [
-                'case_opened', 'referral_sent', 'referral_status', 'milestone', 'case_closed',
+                'case_opened', 'referral_sent', 'referral_status_changed',
+                'milestone_added', 'compliance_fulfilled', 'case_closed', 'case_reopened',
             ]);
             $this->assertStringNotContainsStringIgnoringCase('set ', $event['title']);
         }
+
+        // ASSERT — audit descriptions do not appear anywhere in the payload
+        $payload = json_encode($data);
+        $this->assertStringNotContainsString('Case intake initiated', $payload);
+        $this->assertStringNotContainsString('Case status updated to OPEN', $payload);
     }
 
     public function test_tracking_data_field_level_consistency(): void
@@ -315,6 +309,7 @@ class FullLifecycleIntegrationTest extends TestCase
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
         ]);
+        $this->recorder()->caseOpened($case);
 
         $this->loadRelations($case);
         $service = app(TrackingService::class);
@@ -330,14 +325,12 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertEquals('case_opened', $data['milestoneTimeline'][0]['type']);
         $this->assertEquals('Your case has been opened', $data['milestoneTimeline'][0]['title']);
 
-        // ASSERT — caseTimeline has 1 event (the auto-generated case creation audit from AuditObserver)
-        // Even with no manual audit logs, the AuditObserver creates one on CaseFile creation.
-        $this->assertCount(1, $data['caseTimeline']);
-
         // Also test a CLOSED case with no referrals
         $closedCase = CaseFile::factory()->closed()->create([
             'client_id' => $client->id,
         ]);
+        $this->recorder()->caseOpened($closedCase);
+        $this->recorder()->caseClosed($closedCase);
         $this->loadRelations($closedCase);
         $data = $service->buildTrackingData($closedCase);
 
@@ -345,8 +338,6 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertCount(2, $data['milestoneTimeline']);
         $this->assertEquals('case_opened', $data['milestoneTimeline'][0]['type']);
         $this->assertEquals('case_closed', $data['milestoneTimeline'][1]['type']);
-        // CLOSED case also has the case creation audit event (AuditObserver fires on create)
-        $this->assertCount(1, $data['caseTimeline']);
     }
 
     public function test_referral_with_compliance_agency_card_structure(): void
@@ -418,191 +409,5 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertEquals('pending', $agencyCard['steps'][4]['state']);
         $this->assertEquals('Completed', $agencyCard['steps'][5]['label']);
         $this->assertEquals('pending', $agencyCard['steps'][5]['state']);
-    }
-
-    public function test_case_timeline_events_sorted_ascending(): void
-    {
-        // ARRANGE — create events with intentionally non-chronological timestamps
-        // to verify the sortBy('date') in buildTrackingData works correctly.
-        $user = User::factory()->create();
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'client_id' => $client->id,
-            'created_at' => now()->subDays(10),
-        ]);
-
-        // Create referral (date: 5 days ago) — will be pushed first in the timeline loop
-        $referral = Referral::factory()->create([
-            'case_id' => $case->id,
-            'created_at' => now()->subDays(5),
-        ]);
-
-        // Create milestone (date: 3 days ago) — will be pushed second (inside referral loop)
-        Milestone::factory()->create([
-            'refr_id' => $referral->id,
-            'created_at' => now()->subDays(3),
-        ]);
-
-        // Create audit log with manual timestamp (date: 7 days ago) — will be pushed third
-        AuditLog::create([
-            'entity_id' => $case->id,
-            'action' => 'UPDATE',
-            'module' => 'case',
-            'description' => 'Initial case review completed',
-            'user_id' => null,
-            'timestamp' => now()->subDays(7),
-        ]);
-
-        $this->loadRelations($case);
-        $service = app(TrackingService::class);
-
-        // ACT
-        $data = $service->buildTrackingData($case);
-
-        // ASSERT — caseTimeline sorted by date ascending
-        $dates = array_map(fn (array $event): string => $event['date'], $data['caseTimeline']);
-        $sorted = $dates;
-        sort($sorted);
-        $this->assertEquals($sorted, $dates, 'caseTimeline events must be sorted by date in ascending order');
-
-        // ASSERT — the manual audit log (7 days ago) is the earliest event and should sort first
-        $this->assertStringContainsString(
-            'review',
-            $data['caseTimeline'][0]['title'],
-            'First caseTimeline event should be the manual audit log which has the earliest timestamp (7 days ago)',
-        );
-    }
-
-    public function test_case_timeline_no_duplicate_referral_sent(): void
-    {
-        // ARRANGE — create a case with 2 referrals and 1 milestone per referral
-        $result = $this->createCompleteCase(referralCount: 2, milestonesPerReferral: 1);
-        $case = $result['case'];
-        $referrals = $result['referrals'];
-
-        // Create referral CREATE audit logs for both referrals.
-        // These would normally be created by AuditObserver/CaseService.
-        foreach ($referrals as $referral) {
-            $this->createAuditLog(
-                entityId: $referral->id,
-                action: 'CREATE',
-                module: 'referral',
-            );
-        }
-
-        $this->loadRelations($case);
-        $service = app(TrackingService::class);
-
-        // ACT
-        $data = $service->buildTrackingData($case);
-        $timeline = $data['caseTimeline'];
-
-        // ASSERT — caseTimeline contains exactly 2 referral_sent events (one per referral)
-        $sentEvents = array_values(array_filter(
-            $timeline,
-            fn (array $event): bool => $event['icon'] === 'send'
-        ));
-        $this->assertCount(2, $sentEvents);
-
-        // The referral CREATE audit logs should have been deduped —
-        // they match the inline referral_sent events (action=CREATE, module=referral,
-        // entity_id matches a referral ID, timestamp within ±5s).
-    }
-
-    public function test_case_timeline_same_timestamp_tie_breaking(): void
-    {
-        // ARRANGE — create events at the same timestamp to verify _sort_index tie-breaking
-        $now = now();
-        $user = User::factory()->create();
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'client_id' => $client->id,
-            'created_at' => $now->subDay(),
-        ]);
-        $referral = Referral::factory()->create([
-            'case_id' => $case->id,
-            'created_at' => $now,
-        ]);
-
-        // Create an audit log at the EXACT same timestamp as the referral
-        AuditLog::create([
-            'entity_id' => $case->id,
-            'action' => 'UPDATE',
-            'module' => 'case',
-            'description' => 'Same timestamp audit event',
-            'timestamp' => $now,
-        ]);
-
-        $this->loadRelations($case);
-        $service = app(TrackingService::class);
-
-        // ACT
-        $data = $service->buildTrackingData($case);
-        $timeline = $data['caseTimeline'];
-
-        // ASSERT — referral_sent (icon='send') sorts before the audit event
-        // (icon='update') because inline events get lower _sort_index values
-        // than audit logs while sharing the same date.
-        $sendIndex = null;
-        $updateIndex = null;
-        foreach ($timeline as $i => $event) {
-            if ($event['icon'] === 'send' && $sendIndex === null) {
-                $sendIndex = $i;
-            }
-            if ($event['icon'] === 'update' && $updateIndex === null) {
-                $updateIndex = $i;
-            }
-        }
-        $this->assertNotNull($sendIndex, 'Should have a send event');
-        $this->assertNotNull($updateIndex, 'Should have an update event');
-        $this->assertLessThan($updateIndex, $sendIndex, 'send event should appear before update event');
-    }
-
-    public function test_case_timeline_preserves_non_duplicate_audit_logs(): void
-    {
-        // ARRANGE — create a case with one referral
-        $result = $this->createCompleteCase();
-        $case = $result['case'];
-        $referral = $result['referrals']->first();
-
-        // Create a CaseFile UPDATE audit log (entity_id = case->id).
-        // This does NOT match dedup criteria (action=UPDATE, not CREATE), so it stays in caseTimeline.
-        $this->createAuditLog(
-            entityId: $case->id,
-            action: 'UPDATE',
-            module: 'case_files',
-            description: 'Case status updated to OPEN',
-        );
-
-        // Create a referral CREATE audit log (entity_id = referral->id).
-        // This DOES match dedup criteria so should be removed from caseTimeline.
-        $this->createAuditLog(
-            entityId: $referral->id,
-            action: 'CREATE',
-            module: 'referral',
-        );
-
-        $this->loadRelations($case);
-        $service = app(TrackingService::class);
-
-        // ACT
-        $data = $service->buildTrackingData($case);
-        $timeline = $data['caseTimeline'];
-
-        // ASSERT — The CaseFile UPDATE audit log (icon='update') is preserved in caseTimeline
-        $updateEvents = array_values(array_filter(
-            $timeline,
-            fn (array $event): bool => $event['icon'] === 'update'
-        ));
-        $this->assertNotEmpty($updateEvents, 'CaseFile UPDATE audit log should appear in caseTimeline');
-
-        // ASSERT — Only 1 referral_sent event exists (the inline one, no extra from failed dedup)
-        $sentEvents = array_values(array_filter(
-            $timeline,
-            fn (array $event): bool => $event['icon'] === 'send'
-        ));
-        $this->assertCount(1, $sentEvents, 'Should have exactly 1 referral_sent event (referral CREATE audit log deduped)');
     }
 }

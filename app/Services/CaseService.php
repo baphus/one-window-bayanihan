@@ -24,6 +24,7 @@ class CaseService
         private readonly NotificationService $notificationService,
         private readonly ReferralService $referralService,
         private readonly PhilippineAddressService $addressService,
+        private readonly CaseEventRecorder $eventRecorder,
     ) {}
 
     public function createCase(array $data, string $userId): CaseFile
@@ -476,6 +477,8 @@ class CaseService
                 'status' => 'OPEN',
             ]);
 
+            $this->eventRecorder->caseOpened($case, $userId);
+
             $description = 'Case '.$case->case_number.' published';
             if (! empty($case->summary)) {
                 $description .= ' — '.$case->summary;
@@ -713,6 +716,7 @@ class CaseService
             'referrals.milestones',
             'referrals.agency',
             'referrals.attachments.user',
+            'referrals.complianceRequirements',
             'user',
             'category',
             'caseIssue',
@@ -758,6 +762,15 @@ class CaseService
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             if ($case->wasChanged('status')) {
+                // Case edits can close or reopen a case just like toggleCaseStatus —
+                // record the same client-facing events. (Archive transitions are
+                // administrative and intentionally not client-visible.)
+                if ($case->status === 'CLOSED') {
+                    $this->eventRecorder->caseClosed($case, $userId);
+                } elseif ($case->status === 'OPEN' && $oldStatus === 'CLOSED') {
+                    $this->eventRecorder->caseReopened($case, $userId);
+                }
+
                 $this->dispatchStatusChangeNotification($case, $oldStatus ?? 'UNKNOWN', $case->status, $userId);
             }
 
@@ -878,6 +891,12 @@ class CaseService
                 $case->update(['closed_at' => now()]);
             }
 
+            if ($case->status === 'CLOSED') {
+                $this->eventRecorder->caseClosed($case, $userId);
+            } else {
+                $this->eventRecorder->caseReopened($case, $userId);
+            }
+
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
             // Dispatch status change notification
@@ -924,15 +943,18 @@ class CaseService
 
         $clientEmail = $this->resolveClientNotificationEmail($case) ?? '';
 
-        $this->notificationService->notifyAll(
+        // Staff notification keeps the actor and field-level diff (internal).
+        $this->notificationService->notifyUsers($notifyUsers, new CaseUpdated($case, $updatedBy, $changes));
+
+        // The client-visible record is shipped on the public tracking payload —
+        // it must carry no staff names and no field-level change data.
+        $this->notificationService->notifyOfw(
             $case,
-            $notifyUsers,
             $clientEmail,
-            new CaseUpdated($case, $updatedBy, $changes),
             'case_updated',
             'Case Updated',
-            "Case #{$case->case_number} updated by {$updatedBy}",
-            ['changes' => $changes],
+            "The details of case #{$case->case_number} have been updated by the Bayanihan team.",
+            [],
             route('cases.show', $case->id),
         );
     }

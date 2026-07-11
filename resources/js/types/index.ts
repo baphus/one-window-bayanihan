@@ -188,26 +188,42 @@ export type AgencyStep = {
     icon?: string;
 };
 
-export type TrackingAgencyCardData = {
-    name: string;
-    note: string;
+export type TrackingComplianceRequirement = {
+    id: string;
+    service_name: string;
+    requirement_name: string;
     status: string;
-    statusTone: string;
-    borderTone: string;
-    textTone: string;
-    lineTone: string;
-    steps: AgencyStep[];
-    latestMilestoneLabel?: string;
-    latestMilestonePath?: string;
+    completed_at: string | null;
 };
 
-export type CaseTimelineItem = {
+export type TrackingAgencyCardData = {
+    referralId: string;
+    name: string;
+    note: string;
+    status: ReferralStatus;
+    milestoneCount: number;
+    steps: AgencyStep[];
+    latestMilestoneLabel?: string;
+    milestonesUrl: string;
+    compliance_requirements: TrackingComplianceRequirement[];
+};
+
+export type CaseEventType =
+    | 'case_opened'
+    | 'referral_sent'
+    | 'referral_status_changed'
+    | 'milestone_added'
+    | 'compliance_fulfilled'
+    | 'case_closed'
+    | 'case_reopened';
+
+export type CaseEventItem = {
     date: string;
-    agency: string;
+    type: CaseEventType;
+    agency: string | null;
+    referralId: string | null;
     title: string;
-    detail: string;
-    icon: string;
-    logoUrl: string;
+    description: string;
 };
 
 export type CaseOverviewData = {
@@ -261,7 +277,9 @@ export type TrackCasePageData = {
     trackingId: string;
     trackedCase: SharedReferralCase;
     caseOverview: CaseOverviewData;
-    caseTimeline: CaseTimelineItem[];
+    milestoneTimeline: CaseEventItem[];
+    completionPercentage: number;
+    rejectedCount: number;
     trackingAgencies: TrackingAgencyCardData[];
 };
 

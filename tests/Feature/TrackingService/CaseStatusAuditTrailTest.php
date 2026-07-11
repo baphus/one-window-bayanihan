@@ -236,11 +236,11 @@ class CaseStatusAuditTrailTest extends TestCase
     }
 
     /**
-     * Verify that audit log entries are visible in the caseTimeline returned
-     * by TrackingService::buildTrackingData() and that their titles are
-     * human-readable (no UUIDs, no raw field names).
+     * The public tracking payload must NOT expose audit-log content. Audit
+     * logs remain an internal-only record; the client-facing history comes
+     * exclusively from case_events (milestoneTimeline).
      */
-    public function test_audit_trail_visible_in_tracking_data(): void
+    public function test_audit_trail_not_exposed_in_tracking_data(): void
     {
         // ARRANGE
         $result = $this->createCompleteCase();
@@ -278,44 +278,19 @@ class CaseStatusAuditTrailTest extends TestCase
         $this->loadRelations($case);
         $data = $service->buildTrackingData($case);
 
-        // ASSERT
-        $this->assertArrayHasKey('caseTimeline', $data);
-        $this->assertNotEmpty($data['caseTimeline']);
+        // ASSERT — the legacy audit-log timeline is gone from the payload
+        $this->assertArrayNotHasKey('caseTimeline', $data);
 
-        // The caseTimeline includes referral events AND audit log entries.
-        // At least one entry should have an audit icon.
-        $auditIcons = ['create', 'update', 'delete', 'auth', 'system'];
-        $auditEntries = array_values(array_filter(
-            $data['caseTimeline'],
-            fn (array $item) => in_array($item['icon'] ?? '', $auditIcons, true)
-        ));
+        // The audit logs still exist internally — they just never reach
+        // the public payload.
+        $this->assertGreaterThanOrEqual(2, AuditLog::where('entity_id', $case->id)->count());
 
-        $this->assertNotEmpty($auditEntries);
-
-        // Every audit entry should have a human-readable title
-        foreach ($auditEntries as $entry) {
-            $this->assertArrayHasKey('title', $entry);
-            $this->assertIsString($entry['title']);
-            $this->assertNotEmpty($entry['title']);
-            // No UUIDs in titles
-            $this->assertDoesNotMatchRegularExpression(
-                '/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/',
-                $entry['title']
-            );
-            // No internal field names
-            $this->assertStringNotContainsString('old_value', $entry['title']);
-            $this->assertStringNotContainsString('new_value', $entry['title']);
-        }
-
-        // Verify at least one CREATE and one UPDATE entry exists
-        $this->assertNotEmpty(
-            array_filter($auditEntries, fn (array $e) => $e['icon'] === 'create'),
-            'Expected at least one create audit entry in timeline'
-        );
-        $this->assertNotEmpty(
-            array_filter($auditEntries, fn (array $e) => $e['icon'] === 'update'),
-            'Expected at least one update audit entry in timeline'
-        );
+        // Nothing in the payload may carry audit-log vocabulary or the
+        // acting user's name.
+        $payload = json_encode($data);
+        $this->assertStringNotContainsString('old_value', $payload);
+        $this->assertStringNotContainsString('new_value', $payload);
+        $this->assertStringNotContainsString($user->name, $payload);
     }
 
     /**

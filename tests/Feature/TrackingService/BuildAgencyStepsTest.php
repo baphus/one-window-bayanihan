@@ -4,6 +4,7 @@ namespace Tests\Feature\TrackingService;
 
 use App\Models\CaseFile;
 use App\Models\Milestone;
+use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -32,13 +33,15 @@ class BuildAgencyStepsTest extends TestCase
     }
 
     /**
-     * DataProvider returning 10 combinations of referral status × compliance path.
+     * DataProvider returning combinations of referral status × compliance path.
      *
      * Each case: [status, complianceTrigger, expectedCount, activeIndex]
      *
      * - status: the referral status to set
-     * - complianceTrigger: false = no compliance; true = add milestone with "compli";
-     *   string = add milestone with that text as title (must contain "compli")
+     * - complianceTrigger: false = no compliance history; 'event' = record a
+     *   referral_status_changed event with meta.to = FOR_COMPLIANCE;
+     *   'milestone-title' = only add a milestone whose title mentions compliance
+     *   (must NOT trigger the compliance path — titles are not state)
      * - expectedCount: expected number of steps
      * - activeIndex: expected active step index, or null if no step should be active
      *
@@ -52,12 +55,14 @@ class BuildAgencyStepsTest extends TestCase
             'COMPLETED standard' => ['COMPLETED',       false,              5,  4],
             'REJECTED standard' => ['REJECTED',        false,              3,  null],
             'FOR_COMPLIANCE via status' => ['FOR_COMPLIANCE',  false,              6,  3],
-            'PROCESSING with compliance history' => ['PROCESSING',      true,               6,  4],
-            'COMPLETED with compliance history' => ['COMPLETED',       true,               6,  5],
-            // NOTE: REJECTED has an early return before the compliance check (line 334),
+            'PROCESSING with compliance history' => ['PROCESSING',      'event',            6,  4],
+            'COMPLETED with compliance history' => ['COMPLETED',       'event',            6,  5],
+            // NOTE: REJECTED has an early return before the compliance check,
             // so it always produces 3 steps regardless of compliance history.
-            'REJECTED with compliance history' => ['REJECTED',        true,               3,  null],
-            'PROCESSING with compli milestone' => ['PROCESSING',      'compli-title',     6,  4],
+            'REJECTED with compliance history' => ['REJECTED',        'event',            3,  null],
+            // A milestone merely titled "Compliance ..." must NOT flip the step
+            // machine into the compliance path — history comes from events only.
+            'PROCESSING with compli milestone title' => ['PROCESSING', 'milestone-title',  5,  3],
             // UNKNOWN falls through to the else branch which sets all steps to 'pending'.
             'UNKNOWN status fallback' => ['UNKNOWN',         false,              5,  null],
         ];
@@ -86,7 +91,9 @@ class BuildAgencyStepsTest extends TestCase
         $referral->refresh();
 
         // Trigger compliance history when required
-        if ($complianceTrigger === true || is_string($complianceTrigger)) {
+        if ($complianceTrigger === 'event') {
+            app(CaseEventRecorder::class)->referralStatusChanged($referral, 'PROCESSING', 'FOR_COMPLIANCE');
+        } elseif ($complianceTrigger === 'milestone-title') {
             Milestone::factory()->create([
                 'refr_id' => $referral->id,
                 'title' => 'Compliance check completed',

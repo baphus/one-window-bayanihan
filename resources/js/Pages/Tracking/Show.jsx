@@ -1,266 +1,273 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TrackingNotFoundState from '@/Components/TrackingNotFoundState';
 import ChatBot from '@/Components/ChatBot';
 
-const STATUS_CONFIG = {
-  IN_PROGRESS:    { label: 'In Progress',       icon: 'radio_button_checked', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
-  RESOLVED:       { label: 'Resolved',          icon: 'check_circle',    bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  BEING_PREPARED: { label: 'Under Preparation',  icon: 'layers',          bg: 'bg-blue-50 text-blue-700 border-blue-200' },
-  ARCHIVED:       { label: 'Archived',          icon: 'archive',         bg: 'bg-slate-100 text-slate-600 border-slate-200' },
-  UNKNOWN:        { label: 'Status Unavailable', icon: 'help_outline',    bg: 'bg-slate-100 text-slate-600 border-slate-200' },
+/**
+ * Track Your Case — results page.
+ *
+ * Reads as an official case logbook: a navy record header answers "where is
+ * my case right now", then one chapter per partner office shows what that
+ * office has done, in ledger form. The complete chronological record sits
+ * behind a disclosure at the end.
+ */
+
+const REFERRAL_STAMP = {
+  PENDING:        { label: 'Awaiting receipt',  border: 'border-outline',            text: 'text-on-surface-variant' },
+  PROCESSING:     { label: 'In process',        border: 'border-primary',            text: 'text-primary' },
+  FOR_COMPLIANCE: { label: 'Needs documents',   border: 'border-on-tertiary-fixed-variant', text: 'text-on-tertiary-fixed-variant' },
+  COMPLETED:      { label: 'Completed',         border: 'border-secondary',          text: 'text-secondary' },
+  REJECTED:       { label: 'Unable to assist',  border: 'border-error',              text: 'text-error' },
 };
 
-const EVENT_CONFIG = {
-  case_opened:     { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
-  referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
-  referral_status: { dot: 'bg-amber-50 border-amber-200 text-amber-600',       icon: 'sync_alt' },
-  milestone:       { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
-  case_closed:     { dot: 'bg-slate-100 border-slate-200 text-slate-600',     icon: 'lock' },
+const EVENT_ICON = {
+  case_opened: 'folder_open',
+  referral_sent: 'send',
+  referral_status_changed: 'sync_alt',
+  milestone_added: 'flag',
+  compliance_fulfilled: 'task_alt',
+  case_closed: 'verified',
+  case_reopened: 'restart_alt',
 };
 
-const EVENT_TYPE_OPTIONS = [
-  { value: 'ALL',          label: 'All Events' },
-  { value: 'case_opened',  label: 'Case Opened' },
-  { value: 'referral',     label: 'Referrals' },
-  { value: 'referral_status', label: 'Status Updates' },
-  { value: 'milestone',    label: 'Milestones' },
-  { value: 'case_closed',  label: 'Case Closed' },
-];
-
-function formatEventDate(dateStr) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) {
-    return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+function formatLongDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-PH', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
-function formatHumanDate(dateStr) {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-PH', {
-    year: 'numeric',
+function formatShortDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-PH', {
+    day: '2-digit',
     month: 'short',
-    day: 'numeric',
-  }) + ' at ' + date.toLocaleTimeString('en-PH', {
+    year: 'numeric',
+  });
+}
+
+function formatTime(dateStr) {
+  return new Date(dateStr).toLocaleTimeString('en-PH', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
 }
 
-function AgencyCard({ name, note, status, steps = [], latestMilestoneLabel, compliance_requirements, milestonesUrl }) {
-  const completedCount = steps.filter(s => s.state === 'complete').length;
-  const activeIndex = steps.findIndex(s => s.state === 'active');
-  const isRejected = status === 'REJECTED';
+function relativeDays(dateStr) {
+  const diffDays = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (diffDays <= 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 30) return `${diffDays} days ago`;
+  const months = Math.floor(diffDays / 30);
+  return months === 1 ? 'about a month ago' : `about ${months} months ago`;
+}
 
-  const progressPercent = useMemo(() => {
-    if (steps.length <= 1) return 0;
-    if (activeIndex !== -1) {
-      return (activeIndex / (steps.length - 1)) * 100;
-    }
-    return (completedCount / steps.length) * 100;
-  }, [steps, completedCount, activeIndex]);
-
-  const statusColor = {
-    PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
-    PROCESSING: 'bg-blue-50 text-blue-700 border-blue-200',
-    FOR_COMPLIANCE: 'bg-orange-50 text-orange-700 border-orange-200',
-    COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    REJECTED: 'bg-red-50 text-red-700 border-red-100',
-  }[status] || 'bg-slate-100 text-slate-700 border-slate-200';
-
+/** Two-column ledger row: fixed date column, entry on the right. */
+function EventRow({ item }) {
   return (
-    <article className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 flex items-center justify-between gap-4 bg-slate-50/70 border-b border-slate-200">
-        <div className="min-w-0 flex items-center gap-3">
-          <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${
-            status === 'COMPLETED' ? 'bg-emerald-500' :
-            status === 'REJECTED' ? 'bg-red-500' :
-            status === 'PROCESSING' ? 'bg-blue-500' :
-            status === 'FOR_COMPLIANCE' ? 'bg-orange-500' :
-            'bg-slate-400'
-          }`} />
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 leading-none">{name}</h3>
-            {note && <p className="text-xs text-slate-500 mt-1 leading-normal max-w-md">{note}</p>}
+    <li className="grid grid-cols-1 gap-x-5 gap-y-0.5 border-t border-outline-variant/60 py-3 first:border-t-0 sm:grid-cols-[7.5rem_1fr]">
+      <div className="pt-0.5">
+        <p className="font-mono text-xs tabular-nums text-on-surface-variant">{formatShortDate(item.date)}</p>
+        <p className="hidden font-mono text-[11px] tabular-nums text-on-surface-variant/60 sm:block">{formatTime(item.date)}</p>
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-start gap-2">
+          <span aria-hidden="true" className="material-symbols-outlined mt-px text-[16px] text-on-surface-variant/70">
+            {EVENT_ICON[item.type] ?? 'flag'}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-snug text-on-surface">{item.title}</p>
+            {item.description && (
+              <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-on-surface-variant">{item.description}</p>
+            )}
+            <p className="mt-0.5 text-[11px] text-on-surface-variant/60">{relativeDays(item.date)}</p>
           </div>
         </div>
-        <span className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-full border ${statusColor}`}>
-          {isRejected ? 'Not Accepted' : status.replace(/_/g, ' ')}
-        </span>
       </div>
-
-      <div className="p-5">
-        {isRejected ? (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-xs text-red-700 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
-            This agency was unable to process your case.
-          </div>
-        ) : (
-          <>
-            <div className="relative px-1 mt-2 mb-4">
-              <div className="absolute left-0 right-0 top-[10px] h-[2px] bg-slate-100 rounded-full" />
-              <div
-                className="absolute left-0 top-[10px] h-[2px] bg-blue-600 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-
-              <div
-                className="relative z-10 grid"
-                style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
-              >
-                {steps.map((step, idx) => {
-                  const isComplete = step.state === 'complete';
-                  const isActive = step.state === 'active';
-
-                  return (
-                    <div key={step.label} className="flex flex-col items-center">
-                      <div className={`flex h-5 w-5 items-center justify-center rounded-full transition-all duration-300 ${
-                        isComplete ? 'bg-blue-600 text-white ring-4 ring-white shadow-sm' :
-                        isActive   ? 'bg-white border-2 border-blue-600 ring-4 ring-white shadow-sm' :
-                        'bg-slate-100 text-slate-400 ring-4 ring-white'
-                      }`}>
-                        {isComplete && (
-                          <span className="material-symbols-outlined text-[12px] font-bold">check</span>
-                        )}
-                        {isActive && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
-                        )}
-                      </div>
-                      <span className={`mt-2 text-[10px] font-semibold text-center tracking-tight px-1 max-w-[85px] truncate ${
-                        isActive ? 'text-blue-600' : isComplete ? 'text-slate-800' : 'text-slate-400'
-                      }`}>
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {latestMilestoneLabel && (
-              <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-                <span className="material-symbols-outlined text-[14px] text-emerald-600">flag</span>
-                <span>Latest Update: <span className="font-semibold text-slate-800">{latestMilestoneLabel}</span></span>
-              </div>
-            )}
-
-            {compliance_requirements?.length > 0 && (
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <span className="material-symbols-outlined text-[15px] text-amber-700">assignment_late</span>
-                  <span className="text-[11px] font-bold tracking-wide uppercase text-amber-800">Action Required</span>
-                </div>
-                <div className="space-y-2.5">
-                  {compliance_requirements.map((cr) => (
-                    <div key={cr.id} className="flex items-start justify-between gap-3 pt-2.5 border-t border-amber-100/60 first:border-t-0 first:pt-0">
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-amber-700/80 font-semibold">{cr.service_name}</p>
-                        <p className="text-xs font-bold text-amber-900 mt-0.5">{cr.requirement_name}</p>
-                      </div>
-                      <span className="shrink-0 px-2 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-200/60">
-                        Pending Submission
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {milestonesUrl && (
-          <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end">
-            <Link
-              href={milestonesUrl}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-100 hover:border-blue-300 transition-colors"
-            >
-              View milestones
-              <span className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
-            </Link>
-          </div>
-        )}
-      </div>
-    </article>
+    </li>
   );
 }
 
-function StatCard({ icon, label, value, iconBg }) {
+function StepBar({ steps }) {
+  const activeIndex = steps.findIndex((s) => s.state === 'active');
+  const activeLabel = steps[activeIndex]?.label
+    ?? (steps.length && steps.every((s) => s.state === 'complete') ? steps[steps.length - 1].label : null);
+  const completedCount = steps.filter((s) => s.state === 'complete').length;
+  const progressPercent = steps.length <= 1
+    ? 0
+    : activeIndex !== -1
+      ? (activeIndex / (steps.length - 1)) * 100
+      : (completedCount / steps.length) * 100;
+
   return (
-    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
-        <span className={`p-1.5 rounded-lg ${iconBg}`}>
-          <span className="material-symbols-outlined text-[18px]">{icon}</span>
-        </span>
-      </div>
-      <p className="text-lg font-bold text-slate-900">{value}</p>
+    <div className="relative px-1">
+      <div className="absolute left-0 right-0 top-[9px] h-px bg-outline-variant" />
+      <div
+        className="absolute left-0 top-[9px] h-px bg-primary transition-all duration-500 ease-out"
+        style={{ width: `${progressPercent}%` }}
+      />
+      <ol
+        className="relative z-10 grid"
+        style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+      >
+        {steps.map((step) => {
+          const isComplete = step.state === 'complete';
+          const isActive = step.state === 'active';
+
+          return (
+            <li key={step.label} className="flex flex-col items-center">
+              <span
+                className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ring-4 ring-surface-container-lowest ${
+                  isComplete ? 'bg-primary text-white' :
+                  isActive ? 'border-2 border-primary bg-white' :
+                  'bg-surface-container-high'
+                }`}
+              >
+                {isComplete && <span aria-hidden="true" className="material-symbols-outlined text-[11px] font-bold">check</span>}
+                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" />}
+              </span>
+              <span
+                className={`mt-1.5 hidden max-w-[90px] px-1 text-center text-[10px] font-semibold leading-tight tracking-tight sm:line-clamp-2 ${
+                  isActive ? 'text-primary' : isComplete ? 'text-on-surface' : 'text-on-surface-variant/70'
+                }`}
+                title={step.label}
+              >
+                {step.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {/* Labels collide at phone widths — name only the current step there. */}
+      {activeLabel && (
+        <p className="mt-2 text-center text-[11px] font-semibold text-primary sm:hidden">
+          Current step: {activeLabel}
+        </p>
+      )}
     </div>
   );
 }
 
-export default function TrackingShow({ trackingId, trackedCase, caseOverview, caseTimeline, milestoneTimeline, trackingAgencies, caseNotifications, completionPercentage }) {
-  const [timelineAgencyFilter, setTimelineAgencyFilter] = useState('ALL');
-  const [timelineTypeFilter, setTimelineTypeFilter] = useState('ALL');
+/** One chapter per partner office: stamp, step bar, that office's ledger. */
+function AgencyChapter({ agency, events }) {
+  const stamp = REFERRAL_STAMP[agency.status] ?? REFERRAL_STAMP.PENDING;
+  const isRejected = agency.status === 'REJECTED';
+  // Only unresolved requirements warrant an action block — fulfilled ones
+  // already appear in the ledger as compliance_fulfilled entries.
+  const pendingRequirements = (agency.compliance_requirements ?? []).filter((cr) => cr.status === 'PENDING');
 
-  const involvedAgencyCount = trackingAgencies.length;
-  const config = STATUS_CONFIG[trackedCase?.status] ?? STATUS_CONFIG.UNKNOWN;
+  return (
+    <section className="border border-outline-variant bg-surface-container-lowest">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-5 py-3.5">
+        <h3 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{agency.name}</h3>
+        <span className={`border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${stamp.border} ${stamp.text}`}>
+          {stamp.label}
+        </span>
+      </header>
 
-  const clientFirstName = useMemo(() => {
-    if (!trackedCase?.clientName) return '';
-    return trackedCase.clientName.split(' ')[0];
-  }, [trackedCase]);
+      <div className="px-5 py-5">
+        <StepBar steps={agency.steps ?? []} />
+        {isRejected && (
+          <p className="mt-4 text-[13px] leading-relaxed text-on-surface-variant">
+            This office was unable to process the referral. Your case manager will advise you on the next steps.
+          </p>
+        )}
 
-  const caseAgeInDays = useMemo(() => {
-    if (!trackedCase?.createdAt) return 0;
-    const created = new Date(trackedCase.createdAt);
-    return Math.max(1, Math.round((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24)));
-  }, [trackedCase]);
+        {pendingRequirements.length > 0 && (
+          <div className="mt-5 border border-on-tertiary-fixed-variant/30 bg-tertiary-fixed/30 p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-tertiary-fixed-variant">
+              Action needed — documents to prepare
+            </p>
+            <ul className="mt-2.5 space-y-2">
+              {pendingRequirements.map((cr) => (
+                <li key={cr.id} className="flex items-baseline justify-between gap-3 text-[13px]">
+                  <span className="min-w-0">
+                    <span className="font-semibold text-on-surface">{cr.requirement_name}</span>
+                    <span className="text-on-surface-variant"> · {cr.service_name}</span>
+                  </span>
+                  <span className="shrink-0 text-[11px] font-semibold text-on-tertiary-fixed-variant">To submit</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-  const caseAgeText = useMemo(() => {
-    if (!trackedCase?.createdAt) return '';
-    return trackedCase.status === 'RESOLVED'
-      ? `Resolved in ${caseAgeInDays} day${caseAgeInDays !== 1 ? 's' : ''}`
-      : `Opened ${caseAgeInDays} day${caseAgeInDays !== 1 ? 's' : ''} ago`;
-  }, [trackedCase, caseAgeInDays]);
+        {events.length > 0 && (
+          <ul className="mt-5">
+            {events.map((item, index) => (
+              <EventRow key={`${item.date}-${index}`} item={item} />
+            ))}
+          </ul>
+        )}
 
-  const timelineAgencyNames = useMemo(() => {
-    const names = milestoneTimeline
-      ? milestoneTimeline.map(i => i.agency).filter((a, i, arr) => a && arr.indexOf(a) === i)
-      : [];
-    return names.sort((a, b) => a.localeCompare(b));
+        {agency.status === 'PENDING' && (
+          <p className="mt-5 border-t border-outline-variant/60 pt-3 text-[13px] text-on-surface-variant">
+            Waiting for {agency.name} to receive your referral. Updates will appear here.
+          </p>
+        )}
+
+        {agency.milestonesUrl && (
+          <div className="mt-4 flex justify-end border-t border-outline-variant/60 pt-3">
+            <Link
+              href={agency.milestonesUrl}
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+            >
+              View all updates from {agency.name}
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
+            </Link>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export default function TrackingShow({
+  trackingId,
+  trackedCase,
+  caseOverview,
+  milestoneTimeline = [],
+  trackingAgencies = [],
+  caseNotifications,
+  completionPercentage = 0,
+  rejectedCount = 0,
+}) {
+  const totalAgencies = trackingAgencies.length;
+  const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
+
+  const statusLine = useMemo(() => {
+    const rejectedNote = rejectedCount > 0
+      ? ` ${rejectedCount} ${rejectedCount === 1 ? 'office was' : 'offices were'} unable to assist.`
+      : '';
+
+    switch (trackedCase?.status) {
+      case 'RESOLVED':
+        return `This case has been resolved.${rejectedNote}`;
+      case 'BEING_PREPARED':
+        return 'This case is still being prepared by the Bayanihan team.';
+      case 'ARCHIVED':
+        return 'This case has been archived.';
+      case 'IN_PROGRESS':
+        if (totalAgencies === 0) {
+          return 'Your case is being reviewed. Referrals to partner offices will appear here.';
+        }
+        return `In progress — ${completedAgencies} of ${totalAgencies} partner ${totalAgencies === 1 ? 'office has' : 'offices have'} completed their part.${rejectedNote}`;
+      default:
+        return 'Case status is currently unavailable.';
+    }
+  }, [trackedCase, totalAgencies, completedAgencies, rejectedCount]);
+
+  const eventsByReferral = useMemo(() => {
+    const map = {};
+    for (const item of milestoneTimeline) {
+      if (!item.referralId) continue;
+      (map[item.referralId] ??= []).push(item);
+    }
+    return map;
   }, [milestoneTimeline]);
-
-  const timelineEventCount = milestoneTimeline?.length ?? 0;
-
-  const filteredTimeline = useMemo(() => {
-    if (!milestoneTimeline) return [];
-    let items = [...milestoneTimeline];
-    if (timelineAgencyFilter !== 'ALL') {
-      items = items.filter(i => i.agency === timelineAgencyFilter || i.agency === null);
-    }
-    if (timelineTypeFilter === 'referral') {
-      items = items.filter(i => i.type === 'referral_sent' || i.type === 'referral_status');
-    } else if (timelineTypeFilter !== 'ALL') {
-      items = items.filter(i => i.type === timelineTypeFilter);
-    }
-    return items.reverse();
-  }, [milestoneTimeline, timelineAgencyFilter, timelineTypeFilter]);
-
-  const hasActiveFilters = timelineAgencyFilter !== 'ALL' || timelineTypeFilter !== 'ALL';
-
-  const clearFilters = () => {
-    setTimelineAgencyFilter('ALL');
-    setTimelineTypeFilter('ALL');
-  };
 
   if (!trackedCase) {
     return (
@@ -276,200 +283,106 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
     );
   }
 
+  const feedbackNtfn = caseNotifications?.items?.find((n) => n.type === 'feedback_request');
+  const showFeedback = completedAgencies > 0 && feedbackNtfn;
+
   return (
     <div className="min-h-screen bg-surface font-body text-on-surface">
-      <Head title={`Tracking — ${trackingId}`} />
+      <Head title={`Case Record — ${trackingId}`} />
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-5xl px-4 pt-24 pb-12 sm:px-6 lg:px-8 space-y-8">
+      <main className="mx-auto w-full max-w-4xl px-4 pt-24 pb-16 sm:px-6">
 
-        {/* Greeting */}
-        {clientFirstName && (
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-3xl text-blue-600">waving_hand</span>
-            <div>
-              <h1 className="text-2xl font-extrabold text-slate-900 font-headline tracking-tight">
-                Hello, {clientFirstName}!
-              </h1>
-              <p className="text-sm text-slate-500">Here&apos;s the latest on your case.</p>
-              <p className="text-xs text-slate-400 font-mono mt-0.5">Ref: {trackingId}</p>
+        {/* Case record header */}
+        <header className="bg-primary px-6 py-8 text-white shadow-2xl sm:px-10 sm:py-10">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Case record</p>
+          <h1 className="mt-2 font-headline font-mono text-2xl font-extrabold tracking-tight sm:text-3xl">
+            {trackingId}
+          </h1>
+          <p className="mt-1.5 text-sm text-primary-fixed/90">
+            {trackedCase.clientName} · Case opened {formatLongDate(trackedCase.createdAt)}
+          </p>
+
+          <p className="mt-6 max-w-2xl font-headline text-lg font-bold leading-snug sm:text-xl">
+            {statusLine}
+          </p>
+
+          {totalAgencies > 0 && (
+            <div className="mt-5">
+              <div className="flex h-1.5 gap-1" role="img" aria-label={`${completionPercentage}% of processing complete`}>
+                {trackingAgencies.map((a) => (
+                  <span
+                    key={a.referralId ?? a.name}
+                    title={`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}
+                    className={`flex-1 ${
+                      a.status === 'COMPLETED' ? 'bg-secondary-fixed-dim' :
+                      a.status === 'REJECTED' ? 'bg-white/20' :
+                      'bg-primary-fixed-dim/40'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-primary-fixed-dim/80">
+                Last updated {formatLongDate(trackedCase.updatedAt)} · {completionPercentage}% of processing complete
+              </p>
             </div>
-            <div className="ml-auto">
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold shadow-sm ${config.bg}`}>
-                <span className="material-symbols-outlined text-[16px]">{config.icon}</span>
-                {config.label}
-              </span>
-            </div>
-          </div>
-        )}
+          )}
+        </header>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard
-            icon="calendar_today"
-            label="Case Age"
-            value={caseAgeText || '—'}
-            iconBg="bg-blue-50 text-blue-900"
-          />
-          <StatCard
-            icon="business"
-            label="Agencies"
-            value={`${involvedAgencyCount}`}
-            iconBg="bg-purple-50 text-purple-600"
-          />
-          <StatCard
-            icon="timeline"
-            label="Events"
-            value={`${timelineEventCount}`}
-            iconBg="bg-emerald-50 text-emerald-600"
-          />
-          <StatCard
-            icon={completionPercentage === 100 ? 'check_circle' : 'donut_large'}
-            label="Progress"
-            value={`${completionPercentage}% Complete`}
-            iconBg={completionPercentage === 100 ? 'bg-emerald-50 text-emerald-600' : completionPercentage >= 50 ? 'bg-blue-50 text-blue-900' : 'bg-amber-50 text-amber-700'}
-          />
-        </div>
-
-        {/* Case Narrative */}
+        {/* Overview narrative */}
         {caseOverview?.narrative && (
-          <section className="space-y-3">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px] text-blue-600">description</span>
-              Overview Narrative
-            </h2>
-            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-              <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{caseOverview.narrative}</p>
-            </article>
+          <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-4">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Case summary</h2>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{caseOverview.narrative}</p>
           </section>
         )}
 
-        {/* Agency Workflows */}
-        <section className="space-y-3">
-          <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] text-purple-600">account_tree</span>
-            Involved Workflows
-            <span className="ml-1.5 text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{trackingAgencies.length}</span>
+        {/* Agency chapters */}
+        <section className="mt-8">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+            What each office has done
           </h2>
-          {trackingAgencies.length > 0 ? (
-            <div className="space-y-4">
+          {totalAgencies > 0 ? (
+            <div className="mt-3 space-y-5">
               {trackingAgencies.map((agency) => (
-                <AgencyCard key={agency.name} {...agency} />
+                <AgencyChapter
+                  key={agency.referralId ?? agency.name}
+                  agency={agency}
+                  events={eventsByReferral[agency.referralId] ?? []}
+                />
               ))}
             </div>
           ) : (
-            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 text-center">
-              <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">hourglass_empty</span>
-              <h3 className="text-sm font-bold text-slate-900">No agencies assigned yet</h3>
-              <p className="mt-1 text-sm text-slate-500 max-w-xs mx-auto">Your case manager is processing the initial assessments.</p>
-            </article>
-          )}
-        </section>
-
-        {/* Activity Timeline */}
-        <section className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px] text-emerald-600">history</span>
-              Activity Timeline
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Agency filter */}
-              {timelineAgencyNames.length > 0 && (
-                <select
-                  value={timelineAgencyFilter}
-                  onChange={e => setTimelineAgencyFilter(e.target.value)}
-                  className="text-xs font-semibold text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                  <option value="ALL">All Agencies</option>
-                  {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-              )}
-              {/* Type filter */}
-              <select
-                value={timelineTypeFilter}
-                onChange={e => setTimelineTypeFilter(e.target.value)}
-                className="text-xs font-semibold text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
-              >
-                {EVENT_TYPE_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              {/* Clear filters */}
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-800 px-2 py-1.5 transition-colors"
-                >
-                  Clear
-                </button>
-              )}
+            <div className="mt-3 border border-outline-variant bg-surface-container-lowest px-5 py-8 text-center">
+              <p className="text-sm font-semibold text-on-surface">No partner offices assigned yet</p>
+              <p className="mx-auto mt-1 max-w-xs text-[13px] text-on-surface-variant">
+                Your case manager is reviewing the case. Referrals will appear here once they are sent.
+              </p>
             </div>
-          </div>
-
-          {/* Filter results count */}
-          {milestoneTimeline && milestoneTimeline.length > 0 && (
-            <p className="text-[11px] text-slate-400 font-medium px-0.5">
-              Showing {filteredTimeline.length} of {milestoneTimeline.length} events
-            </p>
-          )}
-
-          {filteredTimeline.length === 0 ? (
-            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 text-center">
-              <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">history</span>
-              <p className="text-sm text-slate-500">No activity matches your filters.</p>
-              {hasActiveFilters && (
-                <button onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
-                  Clear filters
-                </button>
-              )}
-            </article>
-          ) : (
-            <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="relative">
-                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
-                <div className="space-y-6">
-                  {filteredTimeline.map((item, index) => {
-                    const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone;
-                    return (
-                      <div key={`${item.date}-${index}`} className="relative flex gap-4 items-start group">
-                        <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white ${cfg.dot} shadow-sm shrink-0`}>
-                          <span className="material-symbols-outlined text-[14px]">{cfg.icon}</span>
-                        </div>
-                        <div className="min-w-0 pt-0.5 flex-1">
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
-                              {formatEventDate(item.date)}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                              {formatHumanDate(item.date)}
-                            </span>
-                            {item.agency && (
-                              <span className="text-[11px] font-semibold text-slate-400 border-l border-slate-200 pl-2">
-                                {item.agency}
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="text-sm font-bold text-slate-900 mt-1 leading-snug">{item.title}</h4>
-                          {item.description && (
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-prose">{item.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </article>
           )}
         </section>
 
-        {/* Feedback Request */}
-        {(() => {
-          const isCompleted = trackingAgencies.some(a => a.status === 'COMPLETED');
-          const feedbackNtfn = caseNotifications?.items?.find(n => n.type === 'feedback_request');
-          if (!isCompleted || !feedbackNtfn) return null;
+        {/* Complete record */}
+        {milestoneTimeline.length > 0 && (
+          <details className="group mt-8 border border-outline-variant bg-surface-container-lowest">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                Complete case history ({milestoneTimeline.length} {milestoneTimeline.length === 1 ? 'entry' : 'entries'})
+              </span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-variant transition-transform group-open:rotate-180">
+                expand_more
+              </span>
+            </summary>
+            <ul className="border-t border-outline-variant px-5 pb-4 pt-1">
+              {milestoneTimeline.map((item, index) => (
+                <EventRow key={`${item.date}-${index}`} item={item} />
+              ))}
+            </ul>
+          </details>
+        )}
 
+        {/* Feedback request */}
+        {showFeedback && (() => {
           const d = feedbackNtfn.data || {};
           const params = new URLSearchParams({
             tracking_token: d.tracking_token || '',
@@ -480,29 +393,18 @@ export default function TrackingShow({ trackingId, trackedCase, caseOverview, ca
           }).toString();
 
           return (
-            <section className="space-y-3">
-              <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px] text-blue-600">rate_review</span>
-                Feedback
-              </h2>
-              <div className="bg-white rounded-xl border border-blue-200 shadow-sm p-5 flex items-start gap-4">
-                <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
-                  <span className="material-symbols-outlined text-lg">rate_review</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-bold text-slate-900">Share your feedback</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Your input helps us improve our services.
-                  </p>
-                  <Link
-                    href={`/feedbacks/submit-page?${params}`}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-blue-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-800 transition-colors"
-                  >
-                    Provide Feedback
-                    <span className="material-symbols-outlined text-[14px] text-blue-300">arrow_right_alt</span>
-                  </Link>
-                </div>
-              </div>
+            <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-5">
+              <h2 className="text-sm font-bold text-on-surface">How was the service?</h2>
+              <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-on-surface-variant">
+                An office has completed its part of your case. Your feedback helps us improve the assistance program.
+              </p>
+              <Link
+                href={`/feedbacks/submit-page?${params}`}
+                className="mt-3 inline-flex items-center gap-1.5 bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-container"
+              >
+                Give feedback
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
+              </Link>
             </section>
           );
         })()}

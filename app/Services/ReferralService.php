@@ -23,11 +23,12 @@ class ReferralService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
+        private readonly CaseEventRecorder $eventRecorder,
     ) {}
 
     public function createReferral(array $data, string $userId): Referral
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $userId) {
             $services = ! empty($data['services']) && is_array($data['services'])
                 ? implode(', ', $data['services'])
                 : ($data['required_services'] ?? '');
@@ -40,6 +41,8 @@ class ReferralService
                 'agcy_id' => $data['agcy_id'],
             ]);
 
+            $this->eventRecorder->referralSent($referral, $userId);
+
             if (! empty($data['compliance_requirements'])) {
                 foreach ($data['compliance_requirements'] as $req) {
                     ReferralComplianceRequirement::create([
@@ -51,6 +54,7 @@ class ReferralService
                 }
                 $referral->update(['status' => 'FOR_COMPLIANCE']);
                 $referral->refresh();
+                $this->eventRecorder->referralStatusChanged($referral, 'PENDING', 'FOR_COMPLIANCE', $userId);
             }
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
@@ -162,7 +166,7 @@ class ReferralService
 
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
     {
-        return DB::transaction(function () use ($id, $status, $decision, $decisionComment) {
+        return DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId) {
             $referral = Referral::findOrFail($id);
             $oldStatus = $referral->status;
 
@@ -172,6 +176,10 @@ class ReferralService
                 'decision_comment' => $decisionComment ?? $referral->decision_comment,
             ]);
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
+
+            if ($oldStatus !== $status) {
+                $this->eventRecorder->referralStatusChanged($referral, $oldStatus, $status, $userId);
+            }
 
             // Notify case manager about the status change
             if ($referral->caseFile) {
@@ -225,6 +233,8 @@ class ReferralService
                 'refr_id' => $referralId,
                 'user_id' => $userId,
             ]);
+
+            $this->eventRecorder->milestoneAdded($referral, $milestone, $userId);
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
@@ -496,6 +506,8 @@ class ReferralService
                 'fulfilled_by' => $userId,
                 'completed_at' => now(),
             ]);
+
+            $this->eventRecorder->complianceFulfilled($requirement->referral, $requirement, $userId);
 
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 

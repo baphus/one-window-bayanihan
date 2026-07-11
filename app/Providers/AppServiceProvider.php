@@ -2,11 +2,9 @@
 
 namespace App\Providers;
 
-use App\Events\ReferralCompleted;
 use App\Listeners\EmailEventSubscriber;
 use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
-use App\Listeners\SendFeedbackRequest;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -127,7 +125,9 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
         Event::listen(Failed::class, LogFailedLogin::class);
-        Event::listen(ReferralCompleted::class, SendFeedbackRequest::class);
+        // SendFeedbackRequest is auto-discovered (handle() type-hints ReferralCompleted);
+        // registering it here as well made it run twice per completion and violate
+        // the feedback_invitations unique constraint.
 
         Event::subscribe(EmailEventSubscriber::class);
 

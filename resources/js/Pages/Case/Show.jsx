@@ -52,19 +52,22 @@ function formatNokAddress(nok) {
 
 export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [] }) {
   const EVENT_CONFIG = {
-    case_opened:     { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
-    referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
-    referral_status: { dot: 'bg-amber-50 border-amber-200 text-amber-600',       icon: 'sync_alt' },
-    milestone:       { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
-    case_closed:     { dot: 'bg-slate-100 border-slate-200 text-slate-600',     icon: 'lock' },
+    case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
+    referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
+    referral_status_changed: { dot: 'bg-amber-50 border-amber-200 text-amber-600',       icon: 'sync_alt' },
+    milestone_added:         { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
+    compliance_fulfilled:    { dot: 'bg-teal-50 border-teal-200 text-teal-600',        icon: 'task_alt' },
+    case_closed:             { dot: 'bg-slate-100 border-slate-200 text-slate-600',     icon: 'lock' },
+    case_reopened:           { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'lock_open' },
   };
 
   const EVENT_TYPE_OPTIONS = [
     { value: 'ALL',          label: 'All Events' },
     { value: 'case_opened',  label: 'Case Opened' },
     { value: 'referral',     label: 'Referrals' },
-    { value: 'referral_status', label: 'Status Updates' },
-    { value: 'milestone',    label: 'Milestones' },
+    { value: 'referral_status_changed', label: 'Status Updates' },
+    { value: 'milestone_added',    label: 'Milestones' },
+    { value: 'compliance_fulfilled', label: 'Compliance' },
     { value: 'case_closed',  label: 'Case Closed' },
   ];
 
@@ -111,7 +114,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       items = items.filter(i => i.agency === timelineAgencyFilter);
     }
     if (timelineTypeFilter === 'referral') {
-      items = items.filter(i => i.type === 'referral_sent' || i.type === 'referral_status');
+      items = items.filter(i => i.type === 'referral_sent' || i.type === 'referral_status_changed');
     } else if (timelineTypeFilter !== 'ALL') {
       items = items.filter(i => i.type === timelineTypeFilter);
     }
@@ -607,7 +610,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
                 <div className="space-y-6">
                   {filteredTimeline.map((item, index) => {
-                    const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone;
+                    const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone_added;
                     return (
                       <div key={`${item.date}-${index}`} className="relative flex gap-4 items-start group">
                         <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white ${cfg.dot} shadow-sm shrink-0`}>

@@ -187,7 +187,7 @@ class ReferralController extends Controller
 
         $validated = $request->validate([
             'content' => 'required|string|max:5000',
-            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY,CLIENT_VISIBLE',
+            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY',
         ]);
 
         $comment = $this->referralService->addComment(
@@ -209,7 +209,7 @@ class ReferralController extends Controller
 
         $validated = $request->validate([
             'content' => 'required|string|max:5000',
-            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY,CLIENT_VISIBLE',
+            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY',
         ]);
 
         $reply = $this->referralService->replyToComment(

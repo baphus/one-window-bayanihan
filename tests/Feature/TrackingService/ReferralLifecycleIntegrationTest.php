@@ -9,6 +9,7 @@ use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
+use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
@@ -58,7 +59,7 @@ class ReferralLifecycleIntegrationTest extends TestCase
     //  1. Agency card tones per status
     // ----------------------------------------------------------------
 
-    public function test_agency_card_tones_per_status(): void
+    public function test_agency_card_structure_per_status(): void
     {
         // Arrange
         $service = $this->app->make(TrackingService::class);
@@ -79,25 +80,22 @@ class ReferralLifecycleIntegrationTest extends TestCase
         $data = $service->buildTrackingData($case);
         $agencies = $data['trackingAgencies'];
 
-        // Assert
-        $expectedTones = [
-            'PENDING' => ['statusTone' => 'bg-amber-100 text-amber-800', 'borderTone' => 'border-amber-300', 'textTone' => 'text-amber-700', 'lineTone' => 'bg-amber-400'],
-            'PROCESSING' => ['statusTone' => 'bg-blue-100 text-blue-800',   'borderTone' => 'border-blue-300',  'textTone' => 'text-blue-700', 'lineTone' => 'bg-blue-400'],
-            'FOR_COMPLIANCE' => ['statusTone' => 'bg-orange-100 text-orange-800', 'borderTone' => 'border-orange-300', 'textTone' => 'text-orange-700', 'lineTone' => 'bg-orange-400'],
-            'COMPLETED' => ['statusTone' => 'bg-green-100 text-green-800', 'borderTone' => 'border-green-300', 'textTone' => 'text-green-700', 'lineTone' => 'bg-green-400'],
-            'REJECTED' => ['statusTone' => 'bg-red-100 text-red-800',     'borderTone' => 'border-red-300',   'textTone' => 'text-red-700',  'lineTone' => 'bg-red-400'],
-        ];
-
+        // Assert — one card per referral, each carrying the state the UI needs
         $this->assertCount(5, $agencies);
 
         foreach ($agencies as $agency) {
-            $status = $agency['status'];
-            $this->assertArrayHasKey($status, $expectedTones, "Unexpected status '$status' in tracking agencies");
-            $expected = $expectedTones[$status];
-            $this->assertSame($expected['statusTone'], $agency['statusTone'], "statusTone mismatch for $status");
-            $this->assertSame($expected['borderTone'], $agency['borderTone'], "borderTone mismatch for $status");
-            $this->assertSame($expected['textTone'], $agency['textTone'], "textTone mismatch for $status");
-            $this->assertSame($expected['lineTone'], $agency['lineTone'], "lineTone mismatch for $status");
+            $this->assertContains($agency['status'], $statuses, "Unexpected status '{$agency['status']}' in tracking agencies");
+            $this->assertArrayHasKey('referralId', $agency);
+            $this->assertArrayHasKey('name', $agency);
+            $this->assertArrayHasKey('steps', $agency);
+            $this->assertArrayHasKey('milestonesUrl', $agency);
+            $this->assertArrayHasKey('compliance_requirements', $agency);
+
+            // Styling is the frontend's job — the payload carries state, not CSS.
+            $this->assertArrayNotHasKey('statusTone', $agency);
+            $this->assertArrayNotHasKey('borderTone', $agency);
+            $this->assertArrayNotHasKey('textTone', $agency);
+            $this->assertArrayNotHasKey('lineTone', $agency);
         }
     }
 
@@ -238,40 +236,36 @@ class ReferralLifecycleIntegrationTest extends TestCase
     {
         // Arrange
         $service = $this->app->make(TrackingService::class);
+        $recorder = $this->app->make(CaseEventRecorder::class);
         $setup = $this->createCaseWithClient();
         $case = $setup['case'];
 
-        // milestoneTimeline shows referral_status events for each non-PENDING referral.
-        // Create one referral per non-PENDING status to produce distinct events.
-        // Also include a PENDING referral (referral_sent covers it — no referral_status event).
+        // The timeline shows one referral_status_changed event per recorded
+        // transition. Record transitions at distinct times for three referrals;
+        // a fourth referral stays PENDING with no status event.
 
         $refProcessing = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'PROCESSING',
-            'created_at' => now()->subDays(5),
-            'updated_at' => now()->subDays(5),
         ]);
+        $this->travelTo(now()->subDays(5), fn () => $recorder->referralStatusChanged($refProcessing, 'PENDING', 'PROCESSING'));
 
         $refForCompliance = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'FOR_COMPLIANCE',
-            'created_at' => now()->subDays(3),
-            'updated_at' => now()->subDays(3),
         ]);
+        $this->travelTo(now()->subDays(3), fn () => $recorder->referralStatusChanged($refForCompliance, 'PENDING', 'FOR_COMPLIANCE'));
 
         $refCompleted = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'COMPLETED',
-            'created_at' => now()->subDay(),
-            'updated_at' => now()->subDay(),
         ]);
+        $this->travelTo(now()->subDay(), fn () => $recorder->referralStatusChanged($refCompleted, 'PROCESSING', 'COMPLETED'));
 
-        // Also add a PENDING referral to test that it does NOT generate referral_status
+        // Also add a PENDING referral — no status transition, no status event
         Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'PENDING',
-            'created_at' => now()->subDays(7),
-            'updated_at' => now()->subDays(7),
         ]);
 
         $this->loadRelations($case);
@@ -280,39 +274,36 @@ class ReferralLifecycleIntegrationTest extends TestCase
         $data = $service->buildTrackingData($case);
         $milestoneTimeline = $data['milestoneTimeline'];
 
-        // Assert — collect referral_status events in chronological order
+        // Assert — collect referral_status_changed events in chronological order
         $statusEvents = array_values(array_filter(
             $milestoneTimeline,
-            fn ($event) => $event['type'] === 'referral_status'
+            fn ($event) => $event['type'] === 'referral_status_changed'
         ));
 
-        $this->assertCount(3, $statusEvents, 'Expected 3 referral_status events');
+        $this->assertCount(3, $statusEvents, 'Expected 3 referral_status_changed events');
 
         // Chronological order: PROCESSING (oldest), FOR_COMPLIANCE, COMPLETED (newest)
         $this->assertStringContainsString(
-            'processing your case',
+            'processing your referral',
             $statusEvents[0]['title'],
-            'First referral_status should be PROCESSING'
+            'First status event should be PROCESSING'
         );
 
         $this->assertStringContainsString(
-            'Additional documents',
+            'needs additional requirements',
             $statusEvents[1]['title'],
-            'Second referral_status should be FOR_COMPLIANCE'
+            'Second status event should be FOR_COMPLIANCE'
         );
 
         $this->assertStringContainsString(
             'has been completed',
             $statusEvents[2]['title'],
-            'Third referral_status should be COMPLETED'
+            'Third status event should be COMPLETED'
         );
 
         // Assert dates are in ascending order
         $this->assertLessThan($statusEvents[1]['date'], $statusEvents[0]['date']);
         $this->assertLessThan($statusEvents[2]['date'], $statusEvents[1]['date']);
-
-        // PENDING referral does NOT generate a referral_status event
-        // (proven by count: 4 referrals, 3 non-PENDING → 3 events)
     }
 
     // ----------------------------------------------------------------
@@ -409,77 +400,71 @@ class ReferralLifecycleIntegrationTest extends TestCase
     {
         // Arrange
         $service = $this->app->make(TrackingService::class);
+        $recorder = $this->app->make(CaseEventRecorder::class);
         $setup = $this->createCaseWithClient();
         $case = $setup['case'];
 
-        // milestoneTimeline per-referral:
-        //   referral_sent  (always)
-        //   referral_status(COMPLETED) when final status is COMPLETED
-        //
-        // To exercise both PROCESSING and COMPLETED status events we need two referrals:
-        //   Ref A — PROCESSING with milestone -> produces: referral_sent,
-        //            referral_status(PROCESSING), milestone
-        //   Ref B — COMPLETED                 -> produces: referral_sent,
-        //            referral_status(COMPLETED)
+        // Two referral journeys recorded as events:
+        //   Ref A — sent, moved to PROCESSING, milestone added
+        //   Ref B — sent, moved to COMPLETED
         $refProcessing = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'PROCESSING',
-            'created_at' => now()->subDays(5),
-            'updated_at' => now()->subDays(5),
         ]);
+        $this->travelTo(now()->subDays(5), function () use ($recorder, $refProcessing) {
+            $recorder->referralSent($refProcessing);
+            $recorder->referralStatusChanged($refProcessing, 'PENDING', 'PROCESSING');
+        });
 
         $milestone = Milestone::factory()->create([
             'refr_id' => $refProcessing->id,
             'title' => 'Background check initiated',
-            'created_at' => now()->subDays(4),
         ]);
+        $this->travelTo(now()->subDays(4), fn () => $recorder->milestoneAdded($refProcessing, $milestone));
 
         $refCompleted = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'COMPLETED',
-            'created_at' => now()->subDays(2),
-            'updated_at' => now()->subDays(2),
         ]);
+        $this->travelTo(now()->subDays(2), function () use ($recorder, $refCompleted) {
+            $recorder->referralSent($refCompleted);
+            $recorder->referralStatusChanged($refCompleted, 'PROCESSING', 'COMPLETED');
+        });
 
         $this->loadRelations($case);
 
         // Act
         $data = $service->buildTrackingData($case);
 
-        // Assert — caseTimeline has referral_sent
-        $caseTimelineSent = array_values(array_filter(
-            $data['caseTimeline'],
-            fn ($entry) => isset($entry['icon']) && $entry['icon'] === 'send'
-        ));
-        $this->assertNotEmpty($caseTimelineSent, 'caseTimeline should contain referral_sent entries');
+        // Assert — the legacy audit-log timeline is gone from the payload
+        $this->assertArrayNotHasKey('caseTimeline', $data);
 
         // Assert — milestoneTimeline event presence
         $milestoneTimeline = $data['milestoneTimeline'];
         $eventTypes = array_column($milestoneTimeline, 'type');
-        $eventTitles = array_column($milestoneTimeline, 'title');
 
         $this->assertContains('referral_sent', $eventTypes, 'milestoneTimeline should have referral_sent');
 
-        $processingEvent = collect($milestoneTimeline)->firstWhere('type', 'referral_status');
+        $processingEvent = collect($milestoneTimeline)->firstWhere('type', 'referral_status_changed');
         $this->assertNotNull($processingEvent);
         $this->assertStringContainsString(
-            'processing your case',
+            'processing your referral',
             $processingEvent['title'] ?? ''
         );
 
         $milestoneEvents = array_values(array_filter(
             $milestoneTimeline,
-            fn ($event) => $event['type'] === 'milestone'
+            fn ($event) => $event['type'] === 'milestone_added'
         ));
         $this->assertNotEmpty($milestoneEvents, 'milestoneTimeline should have milestone events');
         $this->assertSame('Background check initiated', $milestoneEvents[0]['title']);
 
-        // Find the COMPLETED referral_status event
+        // Find the COMPLETED status event
         $completedStatusEvent = collect($milestoneTimeline)->firstWhere(
-            fn ($event) => $event['type'] === 'referral_status'
+            fn ($event) => $event['type'] === 'referral_status_changed'
                 && str_contains($event['title'] ?? '', 'completed')
         );
-        $this->assertNotNull($completedStatusEvent, 'milestoneTimeline should have COMPLETED referral_status');
+        $this->assertNotNull($completedStatusEvent, 'milestoneTimeline should have a COMPLETED status event');
 
         // Assert — trackingAgencies
         $this->assertNotEmpty($data['trackingAgencies']);
@@ -487,9 +472,6 @@ class ReferralLifecycleIntegrationTest extends TestCase
         // Find entry for the COMPLETED referral
         $completedAgencyEntry = collect($data['trackingAgencies'])->firstWhere('status', 'COMPLETED');
         $this->assertNotNull($completedAgencyEntry, 'Should have a trackingAgency with COMPLETED status');
-
-        // Verify final status tones are applied to the COMPLETED entry
-        $this->assertSame('bg-green-100 text-green-800', $completedAgencyEntry['statusTone']);
         $this->assertSame('COMPLETED', $completedAgencyEntry['status']);
 
         // Verify PROCESSING referral has its own entry with correct status

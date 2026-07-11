@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -44,7 +45,8 @@ class TrackingServiceTest extends TestCase
         $data = $service->buildTrackingData($case);
 
         $this->assertTrue(array_key_exists('milestoneTimeline', $data));
-        $this->assertTrue(array_key_exists('caseTimeline', $data));
+        // The legacy audit-log timeline must no longer be shipped to the client.
+        $this->assertArrayNotHasKey('caseTimeline', $data);
     }
 
     public function test_agency_cards_include_public_milestones_link(): void
@@ -87,6 +89,7 @@ class TrackingServiceTest extends TestCase
     {
         $service = app(TrackingService::class);
         $case = CaseFile::factory()->create();
+        app(CaseEventRecorder::class)->caseOpened($case);
         $this->loadRelations($case);
 
         $data = $service->buildTrackingData($case);
@@ -101,7 +104,8 @@ class TrackingServiceTest extends TestCase
     {
         $service = app(TrackingService::class);
         $case = CaseFile::factory()->create();
-        Referral::factory()->create(['case_id' => $case->id, 'status' => 'PENDING']);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'status' => 'PENDING']);
+        app(CaseEventRecorder::class)->referralSent($referral);
         $this->loadRelations($case);
 
         $data = $service->buildTrackingData($case);
@@ -121,12 +125,13 @@ class TrackingServiceTest extends TestCase
         $case = CaseFile::factory()->create();
         $referral = Referral::factory()->create(['case_id' => $case->id]);
         $milestone = Milestone::factory()->create(['refr_id' => $referral->id]);
+        app(CaseEventRecorder::class)->milestoneAdded($referral, $milestone);
         $this->loadRelations($case);
 
         $data = $service->buildTrackingData($case);
         $msItems = array_values(array_filter(
             $data['milestoneTimeline'],
-            fn ($item) => $item['type'] === 'milestone'
+            fn ($item) => $item['type'] === 'milestone_added'
         ));
 
         $this->assertNotEmpty($msItems);
@@ -136,15 +141,16 @@ class TrackingServiceTest extends TestCase
     public function test_milestone_timeline_sorted_chronologically(): void
     {
         $service = app(TrackingService::class);
+        $recorder = app(CaseEventRecorder::class);
         $case = CaseFile::factory()->create(['created_at' => now()->subDays(5)]);
-        $referral = Referral::factory()->create([
-            'case_id' => $case->id,
-            'created_at' => now()->subDays(3),
-        ]);
-        Milestone::factory()->create([
-            'refr_id' => $referral->id,
-            'created_at' => now()->subDay(),
-        ]);
+        $referral = Referral::factory()->create(['case_id' => $case->id]);
+        $milestone = Milestone::factory()->create(['refr_id' => $referral->id]);
+
+        // Record out of order — the timeline must sort by occurred_at.
+        $this->travelTo(now()->subDay(), fn () => $recorder->milestoneAdded($referral, $milestone));
+        $this->travelTo(now()->subDays(5), fn () => $recorder->caseOpened($case));
+        $this->travelTo(now()->subDays(3), fn () => $recorder->referralSent($referral));
+
         $this->loadRelations($case);
 
         $data = $service->buildTrackingData($case);
@@ -153,6 +159,7 @@ class TrackingServiceTest extends TestCase
         $sorted = $dates;
         sort($sorted);
         $this->assertEquals($sorted, $dates);
+        $this->assertCount(3, $dates);
     }
 
     public function test_case_status_mapping_open_returns_in_progress(): void
@@ -316,7 +323,7 @@ class TrackingServiceTest extends TestCase
         $this->assertEquals(52, $data['completionPercentage']);
     }
 
-    public function test_completion_percentage_all_completed(): void
+    public function test_completion_percentage_excludes_rejected_referrals(): void
     {
         $service = app(TrackingService::class);
         $case = CaseFile::factory()->create();
@@ -326,7 +333,47 @@ class TrackingServiceTest extends TestCase
 
         $data = $service->buildTrackingData($case);
 
-        // 3 referrals × 100 each = 300/300 = 100%
-        $this->assertEquals(100, $data['completionPercentage']);
+        // Rejection is an outcome, not progress: (100 + 100 + 0) / 300 = 67%
+        $this->assertEquals(67, $data['completionPercentage']);
+        $this->assertEquals(1, $data['rejectedCount']);
+    }
+
+    public function test_all_rejected_case_reports_zero_progress(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        Referral::factory()->count(3)->create(['case_id' => $case->id, 'status' => 'REJECTED']);
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case);
+
+        $this->assertEquals(0, $data['completionPercentage']);
+        $this->assertEquals(3, $data['rejectedCount']);
+    }
+
+    public function test_timeline_uses_one_event_query_and_never_touches_audit_logs(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->create();
+        // Several non-pending referrals — the old implementation issued one
+        // audit-log query per non-pending referral.
+        Referral::factory()->count(3)->create(['case_id' => $case->id, 'status' => 'PROCESSING']);
+        $this->loadRelations($case);
+
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $service->buildTrackingData($case);
+        $queries = collect(\Illuminate\Support\Facades\DB::getQueryLog())->pluck('query');
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+
+        $this->assertEquals(
+            1,
+            $queries->filter(fn ($sql) => str_contains($sql, 'case_events'))->count(),
+            'Timeline construction must issue exactly one case_events query'
+        );
+        $this->assertEquals(
+            0,
+            $queries->filter(fn ($sql) => str_contains($sql, 'audit_logs'))->count(),
+            'The public tracking payload must never be built from audit logs'
+        );
     }
 }

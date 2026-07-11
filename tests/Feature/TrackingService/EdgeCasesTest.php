@@ -5,6 +5,7 @@ namespace Tests\Feature\TrackingService;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,8 +73,9 @@ class EdgeCasesTest extends TestCase
         $this->assertNull($data['caseOverview']['nextOfKin']);
         $this->assertEquals('Unknown', $data['trackedCase']['clientName']);
 
-        // Verify no exceptions are thrown during the call
-        $this->assertArrayHasKey('caseTimeline', $data);
+        // Verify no exceptions are thrown during the call, and the legacy
+        // audit-log timeline is no longer part of the payload
+        $this->assertArrayNotHasKey('caseTimeline', $data);
         $this->assertArrayHasKey('milestoneTimeline', $data);
         $this->assertArrayHasKey('trackingAgencies', $data);
     }
@@ -87,6 +89,7 @@ class EdgeCasesTest extends TestCase
             'status' => 'OPEN',
             'client_id' => null,
         ]);
+        app(CaseEventRecorder::class)->caseOpened($openCase);
         $this->loadRelations($openCase);
 
         // ACT
@@ -103,6 +106,8 @@ class EdgeCasesTest extends TestCase
         $closedCase = CaseFile::factory()->closed()->create([
             'client_id' => null,
         ]);
+        app(CaseEventRecorder::class)->caseOpened($closedCase);
+        app(CaseEventRecorder::class)->caseClosed($closedCase);
         $this->loadRelations($closedCase);
 
         // ACT
@@ -217,6 +222,7 @@ class EdgeCasesTest extends TestCase
             'title' => '',
             'description' => null,
         ]);
+        app(CaseEventRecorder::class)->milestoneAdded($referral, $milestone);
 
         $this->loadRelations($case);
         $service = app(TrackingService::class);
@@ -227,7 +233,7 @@ class EdgeCasesTest extends TestCase
         // ASSERT — milestone event appears with empty/null values
         $msItems = array_values(array_filter(
             $data['milestoneTimeline'],
-            fn (array $item) => $item['type'] === 'milestone'
+            fn (array $item) => $item['type'] === 'milestone_added'
         ));
         $this->assertNotEmpty($msItems);
         $this->assertSame('', $msItems[0]['title']);

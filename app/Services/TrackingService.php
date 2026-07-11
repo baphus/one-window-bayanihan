@@ -2,43 +2,19 @@
 
 namespace App\Services;
 
-use App\Models\AuditLog;
+use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Milestone;
 use App\Models\Referral;
-use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class TrackingService
 {
     public function __construct(
         private readonly OtpService $otpService,
-        private readonly AuditLogFormatter $auditFormatter,
         private readonly AddressNameResolver $addressResolver,
     ) {}
-
-    /**
-     * Query the audit log for the actual status-change timestamp of a referral.
-     * Falls back gracefully when no status-change audit log exists.
-     *
-     * Two code paths create referral audit logs with different module casing:
-     * - ReferralService::updateStatus() uses 'REFERRAL' (uppercase)
-     * - AuditObserver::updated() uses 'referral' (lowercase)
-     *
-     * Must match BOTH to find the status-change event reliably.
-     */
-    private function getStatusChangeTimestamp(Referral $referral): ?Carbon
-    {
-        $logs = AuditLog::whereIn('module', ['REFERRAL', 'referral'])
-            ->where('entity_id', $referral->id)
-            ->where('action', 'UPDATE')
-            ->orderBy('timestamp', 'desc')
-            ->get()
-            ->filter(fn (AuditLog $log) => ($log->old_value['status'] ?? null) !== ($log->new_value['status'] ?? null)
-            );
-
-        return $logs->first()?->timestamp;
-    }
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
     {
@@ -104,80 +80,25 @@ class TrackingService
             ] : null,
         ];
 
-        // Legacy caseTimeline (kept for backward compatibility — includes raw audit logs)
-        $timeline = collect();
-        $_sortIndex = 0;
-        foreach ($referrals as $ref) {
-            $agencyLogo = $ref->agency?->logo_url ?? '';
-            $timeline->push([
-                'date' => $ref->created_at->toISOString(),
-                'agency' => $ref->agency?->name ?? 'Unknown',
-                'title' => "Referral sent to {$ref->agency?->name}",
-                'detail' => $ref->required_services,
-                'icon' => 'send',
-                'logoUrl' => $agencyLogo,
-                '_sort_index' => $_sortIndex++,
-            ]);
-
-            foreach ($ref->milestones as $ms) {
-                $timeline->push([
-                    'date' => $ms->created_at->toISOString(),
-                    'agency' => $ref->agency?->name ?? 'Unknown',
-                    'title' => $ms->title,
-                    'detail' => $ms->description ?? '',
-                    'icon' => 'milestone',
-                    'logoUrl' => $agencyLogo,
-                    '_sort_index' => $_sortIndex++,
-                ]);
-            }
-        }
-
-        $auditLogs = AuditLog::with('user')->where('entity_id', $case->id)
-            ->orWhereIn('entity_id', $referrals->pluck('id'))
-            ->orderBy('timestamp')
+        // Single read of the append-only client-facing event log. Everything the
+        // timeline and step machines need derives from this one query.
+        $events = CaseEvent::where('case_id', $case->id)
+            ->orderBy('occurred_at')
+            ->orderBy('sequence')
             ->get();
 
-        // Build lookup: referral ID → timestamp of inline referral_sent event
-        $referralSentDates = [];
-        foreach ($referrals as $ref) {
-            $referralSentDates[$ref->id] = $ref->created_at->timestamp;
-        }
+        // Referral IDs that ever entered FOR_COMPLIANCE, per the event record.
+        $complianceReferralIds = $events
+            ->where('type', CaseEvent::TYPE_REFERRAL_STATUS_CHANGED)
+            ->filter(fn (CaseEvent $event) => ($event->meta['to'] ?? null) === 'FOR_COMPLIANCE')
+            ->pluck('referral_id')
+            ->unique()
+            ->all();
 
-        foreach ($auditLogs as $log) {
-            // Skip referral CREATE audit logs that duplicate inline referral_sent events
-            if (
-                $log->action === 'CREATE'
-                && in_array($log->module, ['referral', 'REFERRAL'], true)
-                && isset($referralSentDates[$log->entity_id])
-                && abs($log->timestamp->timestamp - $referralSentDates[$log->entity_id]) <= 5
-            ) {
-                continue;
-            }
-            $display = $this->auditFormatter->formatForDisplay($log);
-
-            $timeline->push([
-                'date' => $display['timestamp'] ?? $log->timestamp->toISOString(),
-                'agency' => $display['actor'] ?? 'System',
-                'title' => $display['message'],
-                'detail' => $display['detail'],
-                'changes' => $display['changes'] ?? [],
-                'icon' => match ($display['action']) {
-                    'CREATE' => 'create',
-                    'UPDATE' => 'update',
-                    'DELETE' => 'delete',
-                    'LOGIN', 'LOGOUT' => 'auth',
-                    default => 'system',
-                },
-                'logoUrl' => '',
-                '_sort_index' => $_sortIndex++,
-            ]);
-        }
-
-        $timeline = $timeline->sortBy([['date', 'asc'], ['_sort_index', 'asc']])->values()->toArray();
-
-        // Agency cards with 4-step progress model
-        $agencyCards = $referrals->map(function ($ref) use ($case) {
+        // Agency cards with dynamic step progress
+        $agencyCards = $referrals->map(function ($ref) use ($case, $complianceReferralIds) {
             $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
+            $hasCompliance = $ref->status === 'FOR_COMPLIANCE' || in_array($ref->id, $complianceReferralIds, true);
 
             return [
                 'referralId' => $ref->id,
@@ -185,39 +106,7 @@ class TrackingService
                 'note' => $ref->notes ?? '',
                 'status' => $ref->status,
                 'milestoneCount' => $ref->milestones->count(),
-                'statusTone' => match ($ref->status) {
-                    'PENDING' => 'bg-amber-100 text-amber-800',
-                    'PROCESSING' => 'bg-blue-100 text-blue-800',
-                    'FOR_COMPLIANCE' => 'bg-orange-100 text-orange-800',
-                    'COMPLETED' => 'bg-green-100 text-green-800',
-                    'REJECTED' => 'bg-red-100 text-red-800',
-                    default => 'bg-slate-100 text-slate-700',
-                },
-                'borderTone' => match ($ref->status) {
-                    'PENDING' => 'border-amber-300',
-                    'PROCESSING' => 'border-blue-300',
-                    'FOR_COMPLIANCE' => 'border-orange-300',
-                    'COMPLETED' => 'border-green-300',
-                    'REJECTED' => 'border-red-300',
-                    default => 'border-slate-200',
-                },
-                'textTone' => match ($ref->status) {
-                    'PENDING' => 'text-amber-700',
-                    'PROCESSING' => 'text-blue-700',
-                    'FOR_COMPLIANCE' => 'text-orange-700',
-                    'COMPLETED' => 'text-green-700',
-                    'REJECTED' => 'text-red-700',
-                    default => 'text-slate-600',
-                },
-                'lineTone' => match ($ref->status) {
-                    'PENDING' => 'bg-amber-400',
-                    'PROCESSING' => 'bg-blue-400',
-                    'FOR_COMPLIANCE' => 'bg-orange-400',
-                    'COMPLETED' => 'bg-green-400',
-                    'REJECTED' => 'bg-red-400',
-                    default => 'bg-slate-300',
-                },
-                'steps' => $this->buildAgencySteps($ref),
+                'steps' => $this->buildAgencySteps($ref, $hasCompliance),
                 'latestMilestoneLabel' => $latestMilestone?->title,
                 'milestonesUrl' => route('track.milestones', [
                     'tracker_number' => $case->tracker_number,
@@ -233,13 +122,14 @@ class TrackingService
             ];
         })->toArray();
 
-        // Calculate overall completion percentage from referral statuses
+        // Overall completion percentage. Rejection is an outcome, not progress —
+        // REJECTED weighs 0 and is surfaced separately via rejectedCount.
         $totalWeight = 0;
         $maxWeight = 0;
         foreach ($referrals as $ref) {
             $maxWeight += 100;
             $totalWeight += match ($ref->status) {
-                'COMPLETED', 'REJECTED' => 100,
+                'COMPLETED' => 100,
                 'PROCESSING' => 66,
                 'FOR_COMPLIANCE' => 33,
                 'PENDING' => 10,
@@ -247,6 +137,7 @@ class TrackingService
             };
         }
         $completionPercentage = $maxWeight > 0 ? (int) round(($totalWeight / $maxWeight) * 100) : 0;
+        $rejectedCount = $referrals->where('status', 'REJECTED')->count();
 
         $unreadCount = 0;
         $caseNotifications = [];
@@ -291,9 +182,9 @@ class TrackingService
                 'updatedAt' => $case->updated_at->toISOString(),
             ],
             'caseOverview' => $caseOverview,
-            'caseTimeline' => $timeline,
-            'milestoneTimeline' => $this->buildMilestoneTimeline($case),
+            'milestoneTimeline' => $this->buildMilestoneTimeline($case, $events),
             'completionPercentage' => $completionPercentage,
+            'rejectedCount' => $rejectedCount,
             'trackingAgencies' => $agencyCards,
             'caseNotifications' => [
                 'unread_count' => $unreadCount,
@@ -325,6 +216,7 @@ class TrackingService
                 ? 'Requested services: '.$referral->required_services
                 : 'Your referral is waiting for the first milestone update.',
         };
+        // Public page — attribute updates to the agency, never to staff names.
         $milestones = $referral->milestones
             ->sortBy('created_at')
             ->values()
@@ -332,7 +224,7 @@ class TrackingService
                 'date' => $milestone->created_at->toISOString(),
                 'title' => $milestone->title,
                 'description' => $milestone->description ?? '',
-                'by' => $milestone->user?->name ?? 'System',
+                'by' => $agencyName,
             ])
             ->toArray();
 
@@ -361,7 +253,7 @@ class TrackingService
                         'date' => $latestMilestone->created_at->toISOString(),
                         'title' => $latestMilestone->title,
                         'description' => $latestMilestone->description ?? '',
-                        'by' => $latestMilestone->user?->name ?? 'System',
+                        'by' => $agencyName,
                     ]
                     : [
                         'date' => $referral->updated_at?->toISOString() ?? $referral->created_at->toISOString(),
@@ -375,98 +267,41 @@ class TrackingService
     }
 
     /**
-     * Build a clean, client-facing milestone timeline.
-     * Contains ONLY human-readable events — no raw audit logs, no UUIDs, no field names.
+     * Map the case's recorded events to the client-facing timeline.
+     *
+     * The event log is the single source of truth — no reconstruction from
+     * current state, audit logs, or milestone-title matching. Agency names
+     * resolve through the (eager-loaded) referral relation at read time so
+     * renames stay consistent.
      */
-    private function buildMilestoneTimeline(CaseFile $case): array
+    private function buildMilestoneTimeline(CaseFile $case, Collection $events): array
     {
-        $events = collect();
-        $referrals = $case->referrals;
+        $agencyNames = $case->referrals->mapWithKeys(
+            fn ($ref) => [$ref->id => $ref->agency?->name ?? 'a partner agency']
+        );
 
-        $_sortIndex = 0;
-
-        // 1. Case opened — always first
-        $events->push([
-            'date' => $case->created_at->toISOString(),
-            'type' => 'case_opened',
-            'agency' => null,
-            'title' => 'Your case has been opened',
-            'description' => 'Your case is now being reviewed by the Bayanihan team.',
-            '_sort_index' => $_sortIndex++,
-        ]);
-
-        foreach ($referrals as $ref) {
-            $agencyName = $ref->agency?->name ?? 'an agency';
-
-            // 2. Referral sent
-            $events->push([
-                'date' => $ref->created_at->toISOString(),
-                'type' => 'referral_sent',
-                'agency' => $agencyName,
-                'title' => 'Referred to '.$agencyName,
-                'description' => $ref->required_services
-                    ? 'Services requested: '.$ref->required_services
-                    : '',
-                '_sort_index' => $_sortIndex++,
-            ]);
-
-            // 3. Referral status (only if past PENDING — PENDING is already covered by referral_sent)
-            if (! in_array($ref->status, ['PENDING'], true)) {
-                $statusTitle = match ($ref->status) {
-                    'PROCESSING' => $agencyName.' is now processing your case',
-                    'FOR_COMPLIANCE' => 'Additional documents may be needed for '.$agencyName,
-                    'COMPLETED' => 'Your referral with '.$agencyName.' has been completed',
-                    'REJECTED' => $agencyName.' was unable to process your referral',
-                    default => $agencyName.' updated your referral',
-                };
-
-                $events->push([
-                    'date' => ($this->getStatusChangeTimestamp($ref) ?? $ref->updated_at)->toISOString(),
-                    'type' => 'referral_status',
-                    'agency' => $agencyName,
-                    'title' => $statusTitle,
-                    'description' => '',
-                    '_sort_index' => $_sortIndex++,
-                ]);
-            }
-
-            // 4. Milestones
-            foreach ($ref->milestones->sortBy('created_at') as $ms) {
-                $events->push([
-                    'date' => $ms->created_at->toISOString(),
-                    'type' => 'milestone',
-                    'agency' => $agencyName,
-                    'title' => $ms->title,
-                    'description' => $ms->description ?? '',
-                    '_sort_index' => $_sortIndex++,
-                ]);
-            }
-        }
-
-        // 5. Case closed — only if CLOSED
-        if ($case->status === 'CLOSED') {
-            $events->push([
-                'date' => ($case->closed_at ?? $case->updated_at)->toISOString(),
-                'type' => 'case_closed',
-                'agency' => null,
-                'title' => 'Your case has been resolved',
-                'description' => 'All referrals have been processed and your case is now closed.',
-                '_sort_index' => $_sortIndex++,
-            ]);
-        }
-
-        return $events->sortBy([['date', 'asc'], ['_sort_index', 'asc']])->values()->toArray();
+        return $events
+            ->map(fn (CaseEvent $event) => [
+                'date' => $event->occurred_at->toISOString(),
+                'type' => $event->type,
+                'agency' => $event->referral_id ? ($agencyNames[$event->referral_id] ?? null) : null,
+                'referralId' => $event->referral_id,
+                'title' => $event->title,
+                'description' => $event->description ?? '',
+            ])
+            ->values()
+            ->toArray();
     }
 
     /**
      * Build dynamic agency progress steps based on the referral's current status
-     * and compliance history. Returns 3–6 steps with label and state keys.
+     * and compliance history (derived from recorded status-change events).
+     * Returns 3–6 steps with label and state keys.
      */
-    private function buildAgencySteps(Referral $referral): array
+    private function buildAgencySteps(Referral $referral, bool $hasCompliance): array
     {
         $agencyName = $referral->agency?->name ?? 'Agency';
         $status = $referral->status;
-        $hasCompliance = $this->hasComplianceHistory($referral);
 
         $steps = [];
 
@@ -498,10 +333,6 @@ class TrackingService
                 $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
                 $steps[] = ['label' => 'Processing after compliance', 'state' => 'complete'];
                 $steps[] = ['label' => 'Completed', 'state' => 'active'];
-            } elseif ($status === 'REJECTED') {
-                $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
-                $steps[] = ['label' => 'Processing after compliance', 'state' => 'complete'];
-                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
             } else {
                 // PROCESSING (after having been in compliance)
                 $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
@@ -524,50 +355,6 @@ class TrackingService
         }
 
         return $steps;
-    }
-
-    /**
-     * Determine whether the referral has ever entered a compliance-related state.
-     * Returns true if status is FOR_COMPLIANCE or any milestone title contains "compli".
-     */
-    private function hasComplianceHistory(Referral $referral): bool
-    {
-        if ($referral->status === 'FOR_COMPLIANCE') {
-            return true;
-        }
-
-        return $referral->milestones->contains(function ($ms) {
-            return mb_stripos($ms->title, 'compli') !== false;
-        });
-    }
-
-    /**
-     * Determine the visual state of a step given the current referral status.
-     * Returns 'complete', 'active', or 'pending'.
-     */
-    private function stepState(string $currentStatus, string $stepStatus): string
-    {
-        $order = [
-            'PENDING' => 0,
-            'PROCESSING' => 1,
-            'FOR_COMPLIANCE' => 2,
-            'COMPLETED' => 3,
-            'REJECTED' => 4,
-        ];
-
-        // REJECTED: only the first step (Received) is complete, rest are pending
-        if ($currentStatus === 'REJECTED') {
-            return $stepStatus === 'PENDING' ? 'complete' : 'pending';
-        }
-
-        $current = $order[$currentStatus] ?? 0;
-        $step = $order[$stepStatus] ?? 0;
-
-        if ($current === $step) {
-            return 'active';
-        }
-
-        return $current > $step ? 'complete' : 'pending';
     }
 
     private function formatAddressParts($address): array
