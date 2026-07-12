@@ -23,6 +23,7 @@ use App\Http\Controllers\CaseDocumentController;
 use App\Http\Controllers\CaseIssueController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\MfaController;
@@ -307,6 +308,10 @@ Route::get('/partners/{agency}', function (string $agency) {
 Route::get('/contact', function () {
     return Inertia::render('Contact/Index');
 })->name('contact');
+
+Route::post('/contact', [ContactController::class, 'store'])
+    ->name('contact.store')
+    ->middleware(['turnstile', 'throttle:5,1']);
 
 Route::get('/privacy', function () {
     return Inertia::render('Legal/PrivacyPolicy');

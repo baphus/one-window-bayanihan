@@ -1,9 +1,36 @@
-import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
+import InputError from '@/Components/InputError';
+import TurnstileWidget from '@/Components/TurnstileWidget';
 
 export default function Contact() {
+  const { turnstile } = usePage().props;
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const { data, setData, post, processing, errors, reset } = useForm({
+    name: '',
+    email: '',
+    message: '',
+    cf_turnstile_response: '',
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    data.cf_turnstile_response = turnstileToken;
+    post(route('contact.store'), {
+      preserveScroll: true,
+      onSuccess: () => {
+        setSubmitted(true);
+        reset();
+        setTurnstileToken('');
+      },
+    });
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface">
       <Head title="Contact Us" />
@@ -85,34 +112,109 @@ export default function Contact() {
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-                <h2 className="text-xl font-bold text-slate-900 mb-6">Send a Message</h2>
-                <p className="text-sm text-slate-600 mb-6">
-                  For case-specific inquiries, please use the{" "}
-                  <a href={route('track.index')} className="text-[#0b5c92] font-semibold hover:underline">
-                    Track Your Case
-                  </a>{" "}
-                  feature to check the status of your application.
-                </p>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Your Name</label>
-                    <input type="text" className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm" placeholder="Enter your name" />
+                {submitted ? (
+                  <div className="text-center py-8">
+                    <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-green-600 text-3xl">check_circle</span>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Message Sent!</h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                      Thank you for reaching out. We'll get back to you as soon as possible.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSubmitted(false)}
+                      className="text-sm font-semibold text-[#0b5c92] hover:underline"
+                    >
+                      Send another message
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                    <input type="email" className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm" placeholder="Enter your email" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Message</label>
-                    <textarea rows={5} className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm" placeholder="Describe your concern..." />
-                  </div>
-                  <button
-                    type="button"
-                    className="w-full rounded-md bg-[#0b5c92] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0a4d7a] transition-colors"
-                  >
-                    Send Message
-                  </button>
-                </div>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-bold text-slate-900 mb-6">Send a Message</h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                      For case-specific inquiries, please use the{" "}
+                      <a href={route('track.index')} className="text-[#0b5c92] font-semibold hover:underline">
+                        Track Your Case
+                      </a>{" "}
+                      feature to check the status of your application.
+                    </p>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div>
+                        <label htmlFor="contact-name" className="block text-sm font-medium text-slate-700 mb-1">
+                          Your Name
+                        </label>
+                        <input
+                          id="contact-name"
+                          type="text"
+                          value={data.name}
+                          onChange={(e) => setData('name', e.target.value)}
+                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm"
+                          placeholder="Enter your name"
+                          required
+                        />
+                        <InputError message={errors.name} className="mt-1" />
+                      </div>
+                      <div>
+                        <label htmlFor="contact-email" className="block text-sm font-medium text-slate-700 mb-1">
+                          Email Address
+                        </label>
+                        <input
+                          id="contact-email"
+                          type="email"
+                          value={data.email}
+                          onChange={(e) => setData('email', e.target.value)}
+                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm"
+                          placeholder="Enter your email"
+                          required
+                        />
+                        <InputError message={errors.email} className="mt-1" />
+                      </div>
+                      <div>
+                        <label htmlFor="contact-message" className="block text-sm font-medium text-slate-700 mb-1">
+                          Message
+                        </label>
+                        <textarea
+                          id="contact-message"
+                          rows={5}
+                          value={data.message}
+                          onChange={(e) => setData('message', e.target.value)}
+                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm"
+                          placeholder="Describe your concern..."
+                          maxLength={2000}
+                          required
+                        />
+                        <div className="flex justify-between items-start mt-1">
+                          <InputError message={errors.message} />
+                          <span className="text-xs text-slate-400">{data.message.length}/2000</span>
+                        </div>
+                      </div>
+                      {turnstile?.enabled && (
+                        <div>
+                          <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+                          <InputError message={errors.captcha} className="mt-1" />
+                        </div>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={processing}
+                        className="w-full rounded-md bg-[#0b5c92] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0a4d7a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {processing ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            Sending...
+                          </>
+                        ) : (
+                          'Send Message'
+                        )}
+                      </button>
+                    </form>
+                  </>
+                )}
               </div>
             </div>
           </div>
