@@ -14,12 +14,12 @@ export default function useUnsavedChanges(dirty) {
   // Intercept Inertia SPA navigation
   useEffect(() => {
     const handler = (event) => {
+      const visit = event.detail.visit;
+      if (!visit || visit.method !== 'GET') return;
       if (bypassRef.current) {
         bypassRef.current = false;
         return;
       }
-      const visit = event.detail.visit;
-      if (!visit || visit.method !== 'GET') return;
       if (dirtyRef.current) {
         event.preventDefault();
         pendingVisitRef.current = visit;
@@ -38,6 +38,8 @@ export default function useUnsavedChanges(dirty) {
   useEffect(() => {
     if (!dirty) return;
     const handler = (e) => {
+      // Skip when a form submission or SPA visit is already in progress
+      if (bypassRef.current) return;
       e.preventDefault();
       e.returnValue = '';
     };

@@ -56,7 +56,7 @@ const surveySchema = z.object({
       }),
     )
     .min(1),
-  overall_rating: z.number().min(1).max(5).nullable().optional(),
+  overall_rating: z.number({ required_error: 'Please rate your overall experience', invalid_type_error: 'Please rate your overall experience' }).min(1).max(5),
   comments: z.string().max(1000).optional(),
 });
 
@@ -130,9 +130,26 @@ function ServqualRadioColumn({ selected, onChange, label, ratingLabels }) {
   );
 }
 
+/** Stable layout wrapper — defined at module scope so React never unmounts the tree on parent re-render. */
+function PageWrapper({ children }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center bg-slate-50 pt-8 sm:justify-center sm:pt-0">
+      <FlashMessageWatcher />
+      <Link href="/" className="mb-6 block">
+        <img src="/logo.png" alt="One Window Bayanihan" className="h-16 w-auto" />
+      </Link>
+      <div className="w-full max-w-2xl bg-white px-6 py-6 sm:px-8 sm:py-8 shadow-sm border border-slate-200 sm:rounded-xl">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function FeedbackSubmit({
   invitation,
   client_name: clientName,
+  alreadySubmitted,
+  expired,
   // Old-style fallback props
   tracking_token: oldTrackingToken,
   case_id,
@@ -141,8 +158,8 @@ export default function FeedbackSubmit({
   service_name,
   questions,
 }) {
-  const { url, props: { turnstile } } = usePage();
-  const [submitted, setSubmitted] = useState(false);
+  const { url, props: { turnstile, flash } } = usePage();
+  const [submitted, setSubmitted] = useState(!!flash?.success);
   const [turnstileToken, setTurnstileToken] = useState('');
 
   // Resolve the token from invitation (new) or old-style prop or URL
@@ -230,7 +247,7 @@ export default function FeedbackSubmit({
     return !(sameServqual && sameOverall && sameComments);
   }, [data]);
 
-  const { UnsavedModal } = useUnsavedChanges(isDirty);
+  const { bypassNext, UnsavedModal } = useUnsavedChanges(isDirty && !processing);
 
   // Helpers
   const updateServqual = useCallback(
@@ -275,10 +292,10 @@ export default function FeedbackSubmit({
     data.cf_turnstile_response = turnstileToken;
     const submitUrl = token ? `/feedback/${encodeURIComponent(token)}` : '/feedbacks/submit';
 
+    bypassNext(); // suppress beforeunload while Inertia handles the POST + redirect
     post(submitUrl, {
       preserveScroll: true,
       onSuccess: () => {
-        toast.success('Thank you for your feedback!');
         setSubmitted(true);
       },
       onError: (errs) => {
@@ -289,6 +306,7 @@ export default function FeedbackSubmit({
 
   // Validation helpers
   const hasIncompleteQuestions =
+    data.overall_rating == null ||
     data.servqual_responses.length > 0 &&
     data.servqual_responses.some(
       (r) => r.expectation == null || r.perception == null,
@@ -296,19 +314,7 @@ export default function FeedbackSubmit({
 
   // ====================== RENDER ======================
 
-  function PageWrapper({ children }) {
-    return (
-      <div className="flex min-h-screen flex-col items-center bg-slate-50 pt-8 sm:justify-center sm:pt-0">
-        <FlashMessageWatcher />
-        <Link href="/" className="mb-6 block">
-          <img src="/logo.png" alt="One Window Bayanihan" className="h-16 w-auto" />
-        </Link>
-        <div className="w-full max-w-2xl bg-white px-6 py-6 sm:px-8 sm:py-8 shadow-sm border border-slate-200 sm:rounded-xl">
-          {children}
-        </div>
-      </div>
-    );
-  }
+
 
 
 
@@ -340,6 +346,74 @@ export default function FeedbackSubmit({
           <p className="text-slate-500 max-w-sm mx-auto text-sm leading-relaxed">
             Your responses have been recorded and will help us improve the
             quality of services we provide.
+          </p>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  // Link already used — show info screen
+  if (alreadySubmitted) {
+    return (
+      <PageWrapper>
+        <Head title="Feedback Already Submitted" />
+
+        <div className="text-center py-8 px-4">
+          <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
+            Feedback Already Submitted
+          </h2>
+          <p className="text-sm text-slate-500 max-w-xs mx-auto">
+            You have already submitted your feedback using this link. Thank you
+            for your time.
+          </p>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  // Link expired
+  if (expired) {
+    return (
+      <PageWrapper>
+        <Head title="Feedback Link Expired" />
+
+        <div className="text-center py-8 px-4">
+          <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-amber-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
+            Feedback Link Expired
+          </h2>
+          <p className="text-sm text-slate-500 max-w-xs mx-auto">
+            This feedback link has expired. Please contact the agency to
+            request a new one.
           </p>
         </div>
       </PageWrapper>
@@ -630,7 +704,9 @@ export default function FeedbackSubmit({
 
           {hasIncompleteQuestions && (
             <p className="text-xs text-amber-600 text-center mt-2">
-              Please rate all questions before submitting.
+              {data.overall_rating == null
+                ? 'Please provide an overall rating before submitting.'
+                : 'Please rate all questions before submitting.'}
             </p>
           )}
         </div>
