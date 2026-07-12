@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { router } from '@inertiajs/react';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
-export default function useUnsavedChanges(dirty) {
+export default function useUnsavedChanges(dirty, { onDiscard, onSaveDraft } = {}) {
   const [showModal, setShowModal] = useState(false);
   const dirtyRef = useRef(dirty);
   const pendingVisitRef = useRef(null);
@@ -14,12 +14,12 @@ export default function useUnsavedChanges(dirty) {
   // Intercept Inertia SPA navigation
   useEffect(() => {
     const handler = (event) => {
+      const visit = event.detail.visit;
+      if (!visit || visit.method !== 'get') return;
       if (bypassRef.current) {
         bypassRef.current = false;
         return;
       }
-      const visit = event.detail.visit;
-      if (!visit || visit.method !== 'GET') return;
       if (dirtyRef.current) {
         event.preventDefault();
         pendingVisitRef.current = visit;
@@ -38,6 +38,8 @@ export default function useUnsavedChanges(dirty) {
   useEffect(() => {
     if (!dirty) return;
     const handler = (e) => {
+      // Skip when a form submission or SPA visit is already in progress
+      if (bypassRef.current) return;
       e.preventDefault();
       e.returnValue = '';
     };
@@ -51,12 +53,13 @@ export default function useUnsavedChanges(dirty) {
     bypassRef.current = true;
     setShowModal(false);
     pendingVisitRef.current = null;
+    onDiscard?.();
     router.visit(visit.url, {
       method: visit.method,
       data: visit.data,
       replace: visit.replace,
     });
-  }, []);
+  }, [onDiscard]);
 
   const cancelNavigation = useCallback(() => {
     setShowModal(false);
@@ -74,6 +77,7 @@ export default function useUnsavedChanges(dirty) {
           show={showModal}
           onConfirm={confirmNavigation}
           onCancel={cancelNavigation}
+          onSaveDraft={onSaveDraft}
         />,
         document.body,
       )

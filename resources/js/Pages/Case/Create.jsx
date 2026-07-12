@@ -169,23 +169,22 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
                     )}
                 </div>
 
-                <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50"
+                        className="h-9 px-2 text-[12px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
                     >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
                         Go Back &amp; Edit
                     </button>
                     <button
                         type="button"
                         onClick={onConfirm}
                         disabled={processing}
-                        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-2 h-9 rounded-[3px] bg-indigo-600 px-5 text-[12px] font-bold text-white hover:bg-indigo-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                        {processing ? (isDraft ? 'Publishing...' : 'Creating...') : 'Confirm &amp; Create Case'}
+                        {processing ? (isDraft ? 'Publishing...' : 'Creating...') : 'Confirm & Create Case'}
                     </button>
                 </div>
             </div>
@@ -325,7 +324,6 @@ export default function CaseCreate() {
         return !formDataEqual(data, initialFormRef.current.formData)
             || clientSource !== initialFormRef.current.clientSource;
     }, [data, clientSource]);
-    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
 
     const { autoSaveStatus, draftId: autoSaveDraftId, cancelPendingSave } = useAutoSave({
         formData: data,
@@ -337,6 +335,8 @@ export default function CaseCreate() {
         userId: auth.user?.id,
         enabled: !existingDraft && clientSource === 'new',
     });
+
+    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty, { onDiscard: clearLocalBackup, onSaveDraft: handleSaveDraft });
 
     async function handleQuickAddIssue() {
         const name = newIssueName.trim();
@@ -360,28 +360,8 @@ export default function CaseCreate() {
         if (!hasLocalBackup || existingDraft || !localBackup?.data || restoredRef.current) return;
         restoredRef.current = true;
 
-        const backupData = localBackup.data;
-
-        if (backupData.client) setData('client', { ...backupData.client });
-        if (backupData.address) setData('address', { ...backupData.address });
-        if (backupData.employment) setData('employment', { ...backupData.employment });
-        if (backupData.next_of_kin) {
-            const nok = Array.isArray(backupData.next_of_kin) ? backupData.next_of_kin : [backupData.next_of_kin];
-            setData('next_of_kin', [...nok]);
-        }
-        setData('client_type', backupData.client_type || 'OFW');
-        setData('category_id', backupData.category_id || '');
-        setData('selected_nok_index', backupData.selected_nok_index ?? '');
-        setData('vulnerability_indicator', backupData.vulnerability_indicator || 'None');
-        setData('nok_vulnerability_indicator', backupData.nok_vulnerability_indicator || 'None');
-        setData('summary', backupData.summary || '');
-        setData('consent', backupData.consent ?? false);
-        if (backupData.case_issue_id !== undefined) setData('case_issue_id', backupData.case_issue_id);
-
-        initialFormRef.current = {
-            formData: backupData,
-            clientSource: 'new',
-        };
+        // Always discard stale localStorage backups — "Create Case" starts fresh.
+        clearLocalBackup();
     }, [hasLocalBackup, existingDraft, localBackup, setData]);
 
     useEffect(() => {
@@ -1205,35 +1185,28 @@ export default function CaseCreate() {
     }
 
     function handleSaveDraft(e) {
-        e.preventDefault();
+        e?.preventDefault();
         bypassNext();
 
-        const submitData = {
-            ...data,
-            is_draft: true,
+        // Inertia v2's useForm.post/put ignores options.data and always sends the
+        // form's internal dataRef. Set is_draft on the form state so it reaches
+        // the backend, which uses it to switch validation to nullable rules.
+        setData('is_draft', true);
+
+        const onError = (errors) => {
+            const msgs = Object.values(errors);
+            toast.error(msgs[0] || 'Validation failed.');
         };
 
         if (existingDraft) {
             put(route('cases.save-draft', existingDraft.id), {
-                data: submitData,
-                onSuccess: () => { },
-                onError: (errors) => {
-                    const msgs = Object.values(errors);
-                    toast.error(msgs[0] || 'Validation failed.');
-                },
-                preserveState: false,
                 preserveScroll: true,
+                onError,
             });
         } else {
             post(route('cases.store'), {
-                data: submitData,
-                onSuccess: () => { },
-                onError: (errors) => {
-                    const msgs = Object.values(errors);
-                    toast.error(msgs[0] || 'Validation failed.');
-                },
-                preserveState: false,
                 preserveScroll: true,
+                onError,
             });
         }
     }
@@ -1262,8 +1235,11 @@ export default function CaseCreate() {
             return;
         }
 
+        // Inertia v2's useForm.post ignores options.data — set is_draft directly
+        // on the form state so the backend receives the correct flag.
+        setData('is_draft', false);
+
         post(route('cases.store'), {
-            data: { ...data, is_draft: false },
             onSuccess: () => { clearLocalBackup(); },
             onError: (errors) => {
                 const msgs = Object.values(errors);
@@ -2271,7 +2247,7 @@ function handleConfirmClient(client) {
                                     <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
                                 </button>
                                 <div className="flex items-center gap-2">
-                                    <button type="button" onClick={handleSaveDraft} disabled={processing || autoSaveStatus === 'saving'}
+                                    <button type="button" onClick={handleSaveDraft} disabled={processing || autoSaveStatus === 'saving' || !hasDirty}
                                         className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-5 py-2.5 text-[13px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
                                         <span className="material-symbols-outlined text-[18px]">save</span>
                                         {processing ? (existingDraft ? 'Updating...' : 'Saving...') : (existingDraft ? 'Update Draft' : 'Save as Draft')}
