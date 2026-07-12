@@ -276,28 +276,23 @@ class FeedbackController extends Controller
         ]);
     }
 
-    public function submit(FeedbackSubmitRequest $request): JsonResponse
+    public function submit(FeedbackSubmitRequest $request): RedirectResponse
     {
         $validated = $request->validated();
 
         try {
-            $feedback = $this->feedbackService->submitFeedback(
+            $this->feedbackService->submitFeedback(
                 trackingToken: $validated['tracking_token'],
                 servqualResponses: $validated['servqual_responses'],
                 overallRating: $validated['overall_rating'] ?? null,
                 comments: $validated['comments'] ?? null,
             );
 
-            return response()->json([
-                'message' => 'Feedback submitted successfully',
-                'feedback_id' => $feedback->id,
-            ], 201);
+            return back()->with('success', 'Feedback submitted successfully. Thank you!');
         } catch (\RuntimeException $e) {
             Log::error('Feedback submission failed', ['message' => $e->getMessage(), 'exception' => $e]);
 
-            return response()->json([
-                'message' => 'Unable to submit feedback at this time.',
-            ], 400);
+            return back()->with('error', 'Unable to submit feedback at this time. Please try again later.');
         }
     }
 

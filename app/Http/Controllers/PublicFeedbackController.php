@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\PublicFeedbackSubmitRequest;
 use App\Models\CaseNotification;
 use App\Models\Feedback;
+use App\Models\FeedbackInvitation;
 use App\Models\FeedbackServqualResponse;
 use App\Services\FeedbackInvitationService;
 use App\Services\FeedbackService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -59,7 +60,29 @@ class PublicFeedbackController extends Controller
                 ],
                 'client_name' => $clientName,
             ]);
-        } catch (\RuntimeException) {
+        } catch (\RuntimeException $e) {
+            // The invitation exists but is expired or already submitted.
+            // If already submitted: the redirect from a successful POST lands
+            // here (flash.success is in the session → thank-you screen).
+            // If revisited manually: no flash → show "already submitted" screen.
+            $rawPrefix = substr($token, 0, 10);
+            $rawHash = hash('sha256', $token);
+            $invitation = FeedbackInvitation::where('token_prefix', $rawPrefix)
+                ->where('token_hash', $rawHash)
+                ->first();
+
+            if ($invitation && $invitation->isSubmitted()) {
+                return Inertia::render('Feedback/Submit', [
+                    'alreadySubmitted' => true,
+                ]);
+            }
+
+            if ($invitation) {
+                return Inertia::render('Feedback/Submit', [
+                    'expired' => true,
+                ]);
+            }
+
             // Fall back to old CaseNotification token lookup
             return $this->renderWithOldToken($request, $token);
         }
@@ -70,49 +93,47 @@ class PublicFeedbackController extends Controller
      *
      * Supports both new FeedbackInvitation tokens and old CaseNotification tokens.
      */
-    public function submit(PublicFeedbackSubmitRequest $request, string $token): JsonResponse
+    public function submit(PublicFeedbackSubmitRequest $request, string $token): RedirectResponse
     {
         $validated = $request->validated();
 
         // Try new-style FeedbackInvitation token first
         try {
             $invitation = $this->invitationService->validatePublicToken($token);
-
-            $feedback = DB::transaction(function () use ($invitation, $validated) {
-                $feedback = Feedback::create([
-                    'case_id' => $invitation->case_id,
-                    'agency_id' => $invitation->agency_id,
-                    'referral_id' => $invitation->referral_id,
-                    'service_id' => $invitation->service_id,
-                    'service_name' => $invitation->service_name,
-                    'overall_rating' => $validated['overall_rating'] ?? null,
-                    'comments' => $validated['comments'] ?? null,
-                ]);
-
-                foreach ($validated['servqual_responses'] as $response) {
-                    FeedbackServqualResponse::create([
-                        'feedback_id' => $feedback->id,
-                        'dimension' => $response['dimension'],
-                        'question_id' => $response['question_id'] ?? '',
-                        'question_text' => $response['question_text'],
-                        'expectation' => $response['expectation'],
-                        'perception' => $response['perception'],
-                    ]);
-                }
-
-                $this->invitationService->markSubmitted($invitation, $feedback);
-
-                return $feedback;
-            });
-
-            return response()->json([
-                'message' => 'Feedback submitted successfully',
-                'feedback_id' => $feedback->id,
-            ], 201);
         } catch (\RuntimeException $e) {
             // Fall back to old CaseNotification token
             return $this->submitWithOldToken($request, $token, $validated);
         }
+
+        $feedback = DB::transaction(function () use ($invitation, $validated) {
+            $feedback = Feedback::create([
+                'case_id' => $invitation->case_id,
+                'agency_id' => $invitation->agency_id,
+                'referral_id' => $invitation->referral_id,
+                'service_id' => $invitation->service_id,
+                'service_name' => $invitation->service_name,
+                'overall_rating' => $validated['overall_rating'] ?? null,
+                'comments' => $validated['comments'] ?? null,
+            ]);
+
+            foreach ($validated['servqual_responses'] as $response) {
+                FeedbackServqualResponse::create([
+                    'feedback_id' => $feedback->id,
+                    'dimension' => $response['dimension'],
+                    'question_id' => $response['question_id'] ?? '',
+                    'question_text' => $response['question_text'],
+                    'expectation' => $response['expectation'],
+                    'perception' => $response['perception'],
+                ]);
+            }
+
+            $this->invitationService->markSubmitted($invitation, $feedback);
+
+            return $feedback;
+        });
+
+        return redirect()->route('feedbacks.submit-page', $token)
+            ->with('success', 'Feedback submitted successfully. Thank you!');
     }
 
     /**
@@ -174,29 +195,25 @@ class PublicFeedbackController extends Controller
      * Submit feedback using old CaseNotification token.
      * Uses FeedbackService::submitFeedback which handles old-style tokens.
      */
-    private function submitWithOldToken(Request $request, string $token, array $validated): JsonResponse
+    private function submitWithOldToken(Request $request, string $token, array $validated): RedirectResponse
     {
         try {
-            $feedback = $this->feedbackService->submitFeedback(
+            $this->feedbackService->submitFeedback(
                 trackingToken: $token,
                 servqualResponses: $validated['servqual_responses'],
                 overallRating: $validated['overall_rating'] ?? null,
                 comments: $validated['comments'] ?? null,
             );
 
-            return response()->json([
-                'message' => 'Feedback submitted successfully',
-                'feedback_id' => $feedback->id,
-            ], 201);
+            return redirect()->route('feedbacks.submit-page', $token)
+                ->with('success', 'Feedback submitted successfully. Thank you!');
         } catch (\RuntimeException $e) {
             Log::error('Public feedback submission failed', [
                 'token_prefix' => substr($token, 0, 10),
                 'message' => $e->getMessage(),
             ]);
 
-            return response()->json([
-                'message' => 'Unable to submit feedback at this time.',
-            ], 400);
+            return back()->with('error', 'Unable to submit feedback at this time. Please try again later.');
         }
     }
 }
