@@ -7,7 +7,7 @@ import FaqSection from '@/Components/landing/FaqSection';
 import ChatBot from '@/Components/ChatBot';
 import InputError from '@/Components/InputError';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
 
@@ -21,7 +21,7 @@ export default function TrackingPortal() {
     data.tracker_number !== initialRef.current.tracker_number
     || data.email !== initialRef.current.email
   ), [data]);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
 
   const localSchema = z.object({
     tracker_number: z.string().min(1, 'Please enter your Tracking ID.'),
@@ -137,7 +137,7 @@ export default function TrackingPortal() {
 
       <AppFooter />
       <ChatBot />
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
     </div>
   );
 }

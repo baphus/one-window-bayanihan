@@ -3,14 +3,14 @@ import { Head, router, Link } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import StatusBadge from '@/Components/ui/StatusBadge';
 import CaseCategoryFormModal from '@/Components/Admin/CaseCategoryFormModal';
 
 export default function AdminCaseCategoryIndex({ categories }) {
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { UnsavedModal } = useUnsavedChanges(showForm);
 
   const columns = useMemo(() => [
     {
@@ -104,7 +104,7 @@ export default function AdminCaseCategoryIndex({ categories }) {
         keyExtractor={(row) => row.id}
       />
       </div>
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
     </AppLayout>
   );
 }

@@ -2,7 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import { useToast } from '@/Hooks/useToast';
 import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
@@ -162,7 +162,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     || nokVulnerability !== initialEditRef.current.nokVulnerability
     || formSummary !== initialEditRef.current.summary
   ), [formStatus, formClientType, formVulnerability, nokVulnerability, formSummary]);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
   function openEditDetails() {
     const initial = {
@@ -982,7 +982,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         </div>
       )}
 
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
       <AuditLogModal
         show={showAuditLog}
         onClose={() => setShowAuditLog(false)}

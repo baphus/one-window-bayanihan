@@ -2,7 +2,7 @@ import { useState, useRef, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 
 export default function SystemSettings({ 
     debug_otp_enabled,
@@ -24,7 +24,7 @@ export default function SystemSettings({
         || debugTrackingOtp !== initialRef.current.debugTrackingOtp
         || overdueDays !== initialRef.current.overdueDays
     ), [debugOtp, debugTrackingOtp, overdueDays]);
-    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
+    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
 
     const toggleDebugOtp = () => {
         const next = !debugOtp;
@@ -177,7 +177,7 @@ export default function SystemSettings({
                     </div>
                 </div>
             </div>
-            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+            {UnsavedModal}
         </AppLayout>
     );
 }

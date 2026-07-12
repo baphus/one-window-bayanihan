@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, useForm } from '@inertiajs/react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import InputError from '@/Components/InputError';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
@@ -47,7 +47,7 @@ export default function Index({ settings }) {
   });
 
   const dirty = useMemo(() => JSON.stringify(data) !== JSON.stringify(initialRef.current), [data]);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(dirty);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(dirty);
 
   const localSchema = z.object({
     password_min_length: z.number().min(6, 'Minimum 6 characters').max(64, 'Maximum 64 characters'),
@@ -173,7 +173,7 @@ export default function Index({ settings }) {
         </div>
       </form>
 
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
     </AppLayout>
   );
 }

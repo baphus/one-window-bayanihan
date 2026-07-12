@@ -5,7 +5,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import LogoUpload from '@/Components/LogoUpload';
 import AgencyMapView from '@/Components/AgencyMapView';
 import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
@@ -31,7 +31,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
   const [logoFile, setLogoFile] = useState(null);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm || showUserForm || isEditing);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm || showUserForm || isEditing);
 
   // ── Agency editor handlers (ADMIN only) ──
 
@@ -524,7 +524,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
         </div>
       )}
 
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
     </AppLayout>
   );
 }

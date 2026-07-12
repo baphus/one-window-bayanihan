@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useAutoSave from '@/Hooks/useAutoSave';
 import useLocalStorageDraft from '@/Hooks/useLocalStorageDraft';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 import PhoneInput from '@/Components/PhoneInput';
@@ -325,7 +325,7 @@ export default function CaseCreate() {
         return !formDataEqual(data, initialFormRef.current.formData)
             || clientSource !== initialFormRef.current.clientSource;
     }, [data, clientSource]);
-    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
+    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
 
     const { autoSaveStatus, draftId: autoSaveDraftId, cancelPendingSave } = useAutoSave({
         formData: data,
@@ -2310,7 +2310,7 @@ function handleConfirmClient(client) {
                 </section>
             </form>
             <ClientProfileSummaryModal show={!!selectedClient} client={selectedClient} onConfirm={handleConfirmClient} onClose={() => setSelectedClient(null)} />
-            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+            {UnsavedModal}
             <CaseSummaryModal
                 show={showCreateModal}
                 data={data}

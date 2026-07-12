@@ -7,7 +7,7 @@ import { Building2, Users, CheckCircle, XCircle, Shield, MapPin, Phone } from 'l
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import AgencyFormModal from '@/Components/Admin/AgencyFormModal';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 
@@ -29,7 +29,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
 
   const [showForm, setShowForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { UnsavedModal } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
@@ -399,7 +399,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
       />
       </div>
 
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
       {contextMenu && (
         <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
           <RowContextMenuItem icon="visibility" label="View" onClick={() => {

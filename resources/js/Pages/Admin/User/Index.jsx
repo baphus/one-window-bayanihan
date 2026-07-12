@@ -8,7 +8,7 @@ import { Users, UserCheck, Briefcase, Building2, Shield } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
@@ -47,7 +47,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [peerProfileUser, setPeerProfileUser] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { UnsavedModal } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
@@ -544,7 +544,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
       />
       </div>
 
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
       <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
       {contextMenu && (
         <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>

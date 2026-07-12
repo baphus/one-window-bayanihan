@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
 import { Head, useForm, usePage, Link } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
@@ -227,8 +227,7 @@ export default function FeedbackSubmit({
     return !(sameServqual && sameOverall && sameComments);
   }, [data]);
 
-  const { showModal, confirmNavigation, cancelNavigation } =
-    useUnsavedChanges(isDirty);
+  const { UnsavedModal } = useUnsavedChanges(isDirty);
 
   // Helpers
   const updateServqual = useCallback(
@@ -383,11 +382,7 @@ export default function FeedbackSubmit({
     <PageWrapper>
       <Head title="Submit Feedback" />
 
-      <UnsavedChangesModal
-        show={showModal}
-        onConfirm={confirmNavigation}
-        onCancel={cancelNavigation}
-      />
+      {UnsavedModal}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* ── Header ── */}

@@ -3,14 +3,14 @@ import { Head, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import StatusBadge from '@/Components/ui/StatusBadge';
 import CaseIssueFormModal from '@/Components/Admin/CaseIssueFormModal';
 
 export default function AdminCaseIssueIndex({ issues }) {
   const [showForm, setShowForm] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { UnsavedModal } = useUnsavedChanges(showForm);
 
   const columns = useMemo(() => [
     {
@@ -90,7 +90,7 @@ export default function AdminCaseIssueIndex({ issues }) {
         keyExtractor={(row) => row.id}
       />
       </div>
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
     </AppLayout>
   );
 }

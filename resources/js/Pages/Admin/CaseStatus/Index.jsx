@@ -3,7 +3,7 @@ import { Head, useForm, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import StatusBadge from '@/Components/ui/StatusBadge';
 import InputError from '@/Components/InputError';
 import { caseStatusSchema } from '@/Schemas/adminSchemas';
@@ -126,7 +126,7 @@ function StatusForm({ status, onClose, onBypass }) {
 export default function CaseStatusIndex({ statuses }) {
   const [showForm, setShowForm] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { UnsavedModal } = useUnsavedChanges(showForm);
   const [contextMenu, setContextMenu] = useState(null);
 
   const handleRowContextMenu = (e, row) => {
@@ -217,7 +217,7 @@ export default function CaseStatusIndex({ statuses }) {
         {renderSection('Case Statuses', caseStatuses)}
         {renderSection('Referral Statuses', referralStatuses)}
       </div>
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
       {contextMenu && (
         <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
           <RowContextMenuItem icon="edit" label="Edit" onClick={() => {

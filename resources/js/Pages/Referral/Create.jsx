@@ -2,7 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import InputError from '@/Components/InputError';
 import FileUpload from '@/Components/FileUpload';
@@ -106,7 +106,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
         || notesValue !== ''
         || Object.keys(requirementUploads).length > 0
     ), [data.case_id, data.agcy_id, data.services, notesValue, requirementUploads]);
-    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(hasDirty);
+    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
     const selectedCase = useMemo(() => {
         if (!data.case_id) return null;
         return cases.find((c) => c.id === data.case_id) || selectedCaseRef.current;
@@ -961,7 +961,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                     </div>
                 </section>
             </form>
-            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+            {UnsavedModal}
         </AppLayout>
     );
 }

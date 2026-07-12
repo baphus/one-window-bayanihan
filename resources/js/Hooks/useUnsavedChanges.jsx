@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { router } from '@inertiajs/react';
+import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 
 export default function useUnsavedChanges(dirty) {
   const [showModal, setShowModal] = useState(false);
@@ -9,6 +11,7 @@ export default function useUnsavedChanges(dirty) {
 
   dirtyRef.current = dirty;
 
+  // Intercept Inertia SPA navigation
   useEffect(() => {
     const handler = (event) => {
       if (bypassRef.current) {
@@ -18,6 +21,7 @@ export default function useUnsavedChanges(dirty) {
       const visit = event.detail.visit;
       if (!visit || visit.method !== 'GET') return;
       if (dirtyRef.current) {
+        event.preventDefault();
         pendingVisitRef.current = visit;
         setShowModal(true);
         return false;
@@ -30,6 +34,7 @@ export default function useUnsavedChanges(dirty) {
     };
   }, []);
 
+  // Intercept browser tab close / hard reload
   useEffect(() => {
     if (!dirty) return;
     const handler = (e) => {
@@ -41,18 +46,16 @@ export default function useUnsavedChanges(dirty) {
   }, [dirty]);
 
   const confirmNavigation = useCallback(() => {
+    const visit = pendingVisitRef.current;
+    if (!visit) return; // Guard against double-click
     bypassRef.current = true;
     setShowModal(false);
-    const visit = pendingVisitRef.current;
     pendingVisitRef.current = null;
-    if (visit) {
-      router.visit(visit.url, {
-        method: visit.method,
-        data: visit.data,
-        replace: visit.replace,
-        preserveScroll: true,
-      });
-    }
+    router.visit(visit.url, {
+      method: visit.method,
+      data: visit.data,
+      replace: visit.replace,
+    });
   }, []);
 
   const cancelNavigation = useCallback(() => {
@@ -64,5 +67,17 @@ export default function useUnsavedChanges(dirty) {
     bypassRef.current = true;
   }, []);
 
-  return { showModal, confirmNavigation, cancelNavigation, bypassNext };
+  // Portal-rendered modal — pages just render {UnsavedModal} without importing the component
+  const UnsavedModal = showModal
+    ? createPortal(
+        <UnsavedChangesModal
+          show={showModal}
+          onConfirm={confirmNavigation}
+          onCancel={cancelNavigation}
+        />,
+        document.body,
+      )
+    : null;
+
+  return { showModal, confirmNavigation, cancelNavigation, bypassNext, UnsavedModal };
 }

@@ -5,14 +5,14 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 
 export default function AdminServiceIndex({ services, allAgencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
-  const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { UnsavedModal } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   function handleRowContextMenu(e, row) {
@@ -105,7 +105,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
         isLoading={tableLoading}
       />
       </div>
-      <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      {UnsavedModal}
       {contextMenu && (
         <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
           <RowContextMenuItem icon="edit" label="Edit" onClick={() => {

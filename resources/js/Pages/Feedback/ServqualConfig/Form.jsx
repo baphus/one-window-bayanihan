@@ -2,7 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import InputError from '@/Components/InputError';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
@@ -159,7 +159,7 @@ export default function ServqualConfigForm({ config, defaultQuestions, services 
     data.service_name !== initialRef.current.service_name ||
     questionsDirty;
 
-  const { showModal, confirmNavigation, cancelNavigation } = useUnsavedChanges(dirty);
+  const { UnsavedModal } = useUnsavedChanges(dirty);
 
   const questionsSchema = z.object({
     dimension: z.string().min(1, 'Dimension is required'),
@@ -381,7 +381,7 @@ export default function ServqualConfigForm({ config, defaultQuestions, services 
           </section>
         </form>
 
-        <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+        {UnsavedModal}
       </div>
     </AppLayout>
   );

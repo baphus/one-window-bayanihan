@@ -10,7 +10,7 @@ import NotificationPreferencesSection from '@/Components/NotificationPreferences
 import MfaSetup from '@/Components/MfaSetup';
 import PrimaryButton from '@/Components/PrimaryButton';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
+
 import { profileSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 import DashboardBanner from '@/Components/DashboardBanner';
@@ -46,7 +46,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
     const { avatar: _avatar, ...restData } = data;
     const initialRef = useRef(JSON.parse(JSON.stringify(restData)));
     const isDirty = avatarDirty || JSON.stringify(restData) !== JSON.stringify(initialRef.current);
-    const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(isDirty);
+    const { UnsavedModal, bypassNext } = useUnsavedChanges(isDirty);
 
     function handleAvatarSelect(file) {
         setData('avatar', file);
@@ -136,7 +136,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                 <DeleteUserForm onBypass={bypassNext} />
             </div>
 
-            <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+            {UnsavedModal}
         </AppLayout>
     );
 }
