@@ -16,7 +16,7 @@ class CaseFileFactory extends Factory
         return [
             'case_number' => 'CASE-'.now()->format('Ymd').'-'.$this->faker->unique()->randomNumber(4),
             'tracker_number' => 'OWBAP-'.strtoupper(Str::random(7)),
-            'client_type' => 'OFW',
+            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'vulnerability_indicator' => $this->faker->randomElement(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None', null]),
             'summary' => $this->faker->sentence(),
             'status' => 'OPEN',

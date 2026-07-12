@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\CaseFile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -70,9 +71,9 @@ class StoreCaseRequest extends FormRequest
 
         return [
             'is_draft' => ['nullable', 'boolean'],
-            'client_type' => [$r, 'string', Rule::in(['OFW', 'NEXT_OF_KIN'])],
+            'client_type' => [$r, 'string', Rule::in(CaseFile::CLIENT_TYPES)],
             'vulnerability_indicator' => [$r, 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
-            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,NEXT_OF_KIN' : 'nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
+            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'summary' => ['nullable', 'string', 'max:5000'],
             'category_id' => [$r, 'string', 'exists:case_categories,id'],
             'case_issue_id' => [$r, 'string', 'exists:case_issues,id'],

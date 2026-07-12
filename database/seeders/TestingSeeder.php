@@ -26,6 +26,7 @@ namespace Database\Seeders;
  * └─────────────────────────────────────────────────────────────────────────────
  */
 
+use App\Models\CaseFile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -89,6 +90,10 @@ class TestingSeeder extends Seeder
                     'agcy_id' => $agency->id,
                     'is_active' => true,
                     'email_verified_at' => $now,
+                    'onboarding_completed_at' => null,
+                    'onboarding_step' => null,
+                    'seen_page_guides' => null,
+                    'checklist_progress' => null,
                     'updated_at' => $now,
                     'created_at' => $now,
                 ]
@@ -107,6 +112,10 @@ class TestingSeeder extends Seeder
                 'agcy_id' => $dmwId,
                 'is_active' => true,
                 'email_verified_at' => $now,
+                'onboarding_completed_at' => null,
+                'onboarding_step' => null,
+                'seen_page_guides' => null,
+                'checklist_progress' => null,
                 'updated_at' => $now,
                 'created_at' => $now,
             ]
@@ -579,7 +588,7 @@ class TestingSeeder extends Seeder
             $cases[] = [
                 'id' => $caseId,
                 'case_number' => $caseNumber,
-                'client_type' => rand(0, 100) < 60 ? 'OFW' : (rand(0, 100) < 50 ? 'NEXT_OF_KIN' : 'NON-OFW'),
+                'client_type' => $this->randomClientType(),
                 'vulnerability_indicator' => $vulnerabilities[array_rand($vulnerabilities)],
                 'nok_vulnerability_indicator' => null,
                 'tracker_number' => $tracker,
@@ -1064,5 +1073,14 @@ class TestingSeeder extends Seeder
         DB::commit();
 
         unset($auditLogs);
+    }
+
+    private function randomClientType(): string
+    {
+        // Persist only the CaseFile model's supported client types:
+        // OFW or NOK (stored as NEXT_OF_KIN).
+        return rand(1, 100) <= 60
+            ? CaseFile::CLIENT_TYPE_OFW
+            : CaseFile::CLIENT_TYPE_NEXT_OF_KIN;
     }
 }

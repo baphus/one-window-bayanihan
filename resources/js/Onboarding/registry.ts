@@ -65,6 +65,16 @@ export const pageGuides: Record<string, PageGuide> = {
     },
 
     // ── Case operations ──────────────────────────────────────────────
+    'cases.create': {
+        title: 'Create a Case',
+        helpdeskSlug: 'creating-publishing-cases',
+        steps: [
+            { element: '[data-tour="case-create-steps"]', title: 'Step-by-Step Guide', description: 'The left panel tracks your progress through the three stages: Client Profile, Case Setup, and Case Narrative. You can move back and forth freely.', side: 'right' },
+            { element: '[data-tour="case-create-form"]', title: 'The Case Form', description: 'Fill in each section on the right. Required fields are marked with a red asterisk — the Next button stays disabled until they are complete.', side: 'left' },
+            { element: '[data-tour="case-create-client-selection"]', title: 'Pick or Create a Client', description: 'Start by selecting an existing client to pre-fill their details, or switch to New Client to enter everything from scratch.', side: 'bottom' },
+            { element: '[data-tour="case-create-actions"]', title: 'Save or Submit', description: 'Use Save as Draft at any time to come back later. When all three steps are complete, click Create Case to finalize and publish.', side: 'top' },
+        ],
+    },
     'cases.index': {
         title: 'Cases',
         helpdeskSlug: 'creating-publishing-cases',
@@ -124,6 +134,17 @@ export const pageGuides: Record<string, PageGuide> = {
     },
 
     // ── Agency operations ────────────────────────────────────────────
+    'referrals.show': {
+        title: 'Referral Detail',
+        helpdeskSlug: 'referral-status-reference',
+        steps: [
+            { element: '[data-tour="referral-info"]', title: 'Referral Overview', description: 'Key details at a glance: the receiving agency, current status, associated case number, and dates. Overdue warnings appear here when action is needed.', side: 'bottom' },
+            { element: '[data-tour="referral-actions"]', title: 'Take Action', description: 'Accept or reject pending referrals, update the status as work progresses, and view the full audit log for this referral.', side: 'bottom' },
+            { element: '[data-tour="referral-timeline"]', title: 'Track Progress', description: 'The timeline shows every event — when the referral was sent, status changes, and milestones. Add milestones to record progress toward completion.', side: 'left' },
+            { element: '[data-tour="referral-documents"]', title: 'Compliance Documents', description: 'Required documents are listed per service. Upload files, mark items as complied, or replace outdated uploads to keep the referral moving.', side: 'top' },
+            { element: '[data-tour="referral-comments"]', title: 'Collaborate', description: 'Use comments to coordinate with the case manager or other teams. Reply threads keep conversations organized.', side: 'left' },
+        ],
+    },
     'agency.services.index': {
         title: 'Agency Services',
         helpdeskSlug: 'managing-your-agency-services-profile',

@@ -13,6 +13,15 @@ class CaseFile extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
 
+    public const CLIENT_TYPE_OFW = 'OFW';
+
+    public const CLIENT_TYPE_NEXT_OF_KIN = 'NEXT_OF_KIN';
+
+    public const CLIENT_TYPES = [
+        self::CLIENT_TYPE_OFW,
+        self::CLIENT_TYPE_NEXT_OF_KIN,
+    ];
+
     public function getAuditModuleName(): string
     {
         return 'case';

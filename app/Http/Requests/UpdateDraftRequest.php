@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\CaseFile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -49,7 +50,7 @@ class UpdateDraftRequest extends FormRequest
     {
         return [
             'is_draft' => ['nullable', 'boolean'],
-            'client_type' => ['nullable', Rule::in(['OFW', 'NEXT_OF_KIN'])],
+            'client_type' => ['nullable', Rule::in(CaseFile::CLIENT_TYPES)],
             'vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'nok_vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'summary' => ['nullable', 'string', 'max:5000'],

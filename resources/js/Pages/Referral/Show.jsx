@@ -148,7 +148,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
             <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
                 <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Referral Details</h1>
-                <div className="flex items-center gap-2">
+                <div data-tour="referral-actions" className="flex items-center gap-2">
                     {canUpdateStatus && referral.status === 'PENDING' && (
                         <>
                             <button
@@ -192,6 +192,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                 <main className="xl:col-span-8 space-y-4">
+                    <div data-tour="referral-info">
                     <CardSection title="Referral Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {isOverdue && (
                             <div className="mb-3 rounded-md border border-red-200 bg-red-50">
@@ -252,6 +253,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             </div>
                         )}
                     </CardSection>
+                    </div>
 
                     <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
@@ -421,6 +423,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                     </CardSection>
                     {/* Uploaded Documents Section */}
                     {serviceRequirements.length > 0 && (
+                        <div data-tour="referral-documents">
                         <CardSection title="Uploaded Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                             <div className="mb-3 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
                                 <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
@@ -699,11 +702,13 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 );
                             })()}
                         </CardSection>
+                        </div>
                     )}
 
                 </main>
 
                 <aside className="xl:col-span-4 space-y-4">
+                    <div data-tour="referral-timeline">
                     <CardSection title="Referral Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {timeline.length > 0 ? (
                             <div className="mt-1 relative pl-4">
@@ -749,6 +754,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             </button>
                         )}
                     </CardSection>
+                    </div>
 
                     <CardSection title="Case Narrative" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {referral.case_file?.summary ? (
@@ -758,6 +764,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         )}
                     </CardSection>
 
+                    <div data-tour="referral-comments">
                     <CardSection title="Referral Comments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         <div className="max-h-[340px] overflow-y-auto space-y-3">
                             {topLevelComments.length > 0 ? (
@@ -857,6 +864,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             </div>
                         </div>
                     </CardSection>
+                    </div>
                 </aside>
             </div>
 
