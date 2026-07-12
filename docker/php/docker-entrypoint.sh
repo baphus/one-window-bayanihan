@@ -12,7 +12,9 @@ fi
 
 # ── Storage & cache: set permissions ──
 # Ensure framework directories are writable (Supabase Storage handles file storage).
-chmod -R 755 storage bootstrap/cache 2>/dev/null || true
+mkdir -p storage/logs storage/framework/cache/data storage/framework/sessions storage/framework/views
+touch storage/logs/laravel.log
+chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 
 # ── Cache: bootstrap Laravel once ──
