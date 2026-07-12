@@ -62,6 +62,8 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
         if (filters.category_id) params.set('category_id', filters.category_id);
         if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
+        if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
+        if (filters.age_max_days) params.set('age_max_days', filters.age_max_days);
 
         const qs = params.toString();
         const url = route('referrals.export-excel') + (qs ? '?' + qs : '');
@@ -138,6 +140,8 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             const issue = caseIssues.find(c => c.id === filters.case_issue_id);
             chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: issue?.name || filters.case_issue_id });
         }
+        if (filters?.age_min_days) chips.push({ key: 'age_min_days', label: 'Age', value: `${filters.age_min_days}+ days` });
+        if (filters?.age_max_days) chips.push({ key: 'age_max_days', label: 'Received', value: `within ${filters.age_max_days} days` });
         return chips;
     }, [filters, agencies, categories, caseIssues]);
 
@@ -148,7 +152,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     const handleClearFilters = () => {
         setSearchValue('');
         clearTimeout(searchTimeout.current);
-        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, case_issue_id: undefined, page: undefined });
+        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, case_issue_id: undefined, age_min_days: undefined, age_max_days: undefined, page: undefined });
     };
 
     const handleStatusQuickFilter = (status) => {

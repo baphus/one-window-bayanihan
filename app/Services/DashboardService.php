@@ -11,7 +11,7 @@ use App\Models\FeedbackInvitation;
 use App\Models\Referral;
 use App\Models\Service;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -19,6 +19,26 @@ class DashboardService
     private const ACTIVE_REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
 
     private const OVERDUE_DAYS = 5;
+
+    /**
+     * Generate a safe relative time string that never shows "from now".
+     * Handles timezone discrepancies by clamping future timestamps to "Just now".
+     */
+    private function safeRelativeTime(?Carbon $timestamp): string
+    {
+        if (! $timestamp) {
+            return 'N/A';
+        }
+
+        $now = Carbon::now();
+
+        // If the timestamp appears to be in the future (timezone mismatch), show "Just now"
+        if ($timestamp->isAfter($now)) {
+            return 'Just now';
+        }
+
+        return $timestamp->diffForHumans();
+    }
 
     public function getCaseManagerData(?User $user = null): array
     {
@@ -102,7 +122,7 @@ class DashboardService
                     'id' => $log->id,
                     'title' => $display['message'],
                     'desc' => $this->formatChangeSummary($changes),
-                    'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
+                    'time' => $this->safeRelativeTime($log->timestamp),
                     'logoSrc' => '/logo.png',
                     // enriched structured data for modern UI
                     'message' => $display['message'],
@@ -280,12 +300,12 @@ class DashboardService
             ->count();
 
         $workQueue = [
-            $this->queueItem('newReferrals', 'New referrals', $agencyReferrals->filter(fn ($referral) => $this->ageInDays($referral->created_at) <= 2)->count(), 'Received in the last two days.', 'blue', 'move_to_inbox', '/referrals'),
-            $this->queueItem('pendingReferrals', 'Pending', $pendingReferrals, 'Needs acknowledgement or first action.', 'amber', 'schedule', '/referrals'),
-            $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals'),
-            $this->queueItem('processingReferrals', 'Processing', $processingReferrals, 'Currently being handled.', 'cyan', 'sync', '/referrals'),
-            $this->queueItem('overdueReferrals', 'Overdue', $overdueReferrals, 'Active referrals older than five days.', 'rose', 'warning', '/referrals'),
-            $this->queueItem('returnedReferrals', 'Returned', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals'),
+            $this->queueItem('newReferrals', 'New referrals', $agencyReferrals->filter(fn ($referral) => $this->ageInDays($referral->created_at) <= 2)->count(), 'Received in the last two days.', 'blue', 'move_to_inbox', '/referrals?age_max_days=2'),
+            $this->queueItem('pendingReferrals', 'Pending', $pendingReferrals, 'Needs acknowledgement or first action.', 'amber', 'schedule', '/referrals?status=PENDING'),
+            $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals?status=FOR_COMPLIANCE'),
+            $this->queueItem('processingReferrals', 'Processing', $processingReferrals, 'Currently being handled.', 'cyan', 'sync', '/referrals?status=PROCESSING'),
+            $this->queueItem('overdueReferrals', 'Overdue', $overdueReferrals, 'Active referrals older than five days.', 'rose', 'warning', '/referrals?age_min_days=5'),
+            $this->queueItem('returnedReferrals', 'Returned', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
         ];
 
         $referralIds = $agencyReferrals->pluck('id');
@@ -317,7 +337,7 @@ class DashboardService
                     'id' => $log->id,
                     'title' => $display['message'],
                     'desc' => $this->formatChangeSummary($changes),
-                    'time' => $log->timestamp?->diffForHumans() ?? 'N/A',
+                    'time' => $this->safeRelativeTime($log->timestamp),
                     'logoSrc' => '/logo.png',
                     'message' => $display['message'],
                     'detail' => $display['detail'],
@@ -411,6 +431,7 @@ class DashboardService
                 'note' => 'Active case files on deck.',
                 'tone' => 'blue',
                 'icon' => 'folder_open',
+                'href' => '/cases?status=OPEN',
             ],
             [
                 'key' => 'pendingReferrals',
@@ -419,6 +440,7 @@ class DashboardService
                 'note' => 'Waiting for agency action.',
                 'tone' => 'amber',
                 'icon' => 'schedule',
+                'href' => '/referrals?status=PENDING',
             ],
             [
                 'key' => 'processingReferrals',
@@ -427,6 +449,7 @@ class DashboardService
                 'note' => 'Already in motion.',
                 'tone' => 'cyan',
                 'icon' => 'sync',
+                'href' => '/referrals?status=PROCESSING',
             ],
             [
                 'key' => 'forComplianceReferrals',
@@ -435,6 +458,7 @@ class DashboardService
                 'note' => 'Needs missing documents.',
                 'tone' => 'orange',
                 'icon' => 'fact_check',
+                'href' => '/referrals?status=FOR_COMPLIANCE',
             ],
             [
                 'key' => 'overdueReferrals',
@@ -443,6 +467,7 @@ class DashboardService
                 'note' => 'Older than five days.',
                 'tone' => 'rose',
                 'icon' => 'warning',
+                'href' => '/overdue-referrals',
             ],
         ];
 
@@ -497,7 +522,7 @@ class DashboardService
                 'updated_at' => $c->updated_at?->toISOString() ?? now()->toISOString(),
                 'case_owner' => $c->user?->name,
                 'category' => $c->category?->name,
-                'last_activity' => $c->updated_at?->diffForHumans(),
+                'last_activity' => $this->safeRelativeTime($c->updated_at),
             ])
             ->toArray();
 
@@ -927,5 +952,4 @@ class DashboardService
             ->values()
             ->toArray();
     }
-
 }

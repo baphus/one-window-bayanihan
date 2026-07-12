@@ -291,9 +291,9 @@ export default function TrackingShow({
       <Head title={`Case Record — ${trackingId}`} />
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-4xl px-4 pt-24 pb-16 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl px-4 pt-24 pb-16 sm:px-6">
 
-        {/* Case record header */}
+        {/* Case record header — full width */}
         <header className="bg-primary px-6 py-8 text-white shadow-2xl sm:px-10 sm:py-10">
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Case record</p>
           <h1 className="mt-2 font-headline font-mono text-2xl font-extrabold tracking-tight sm:text-3xl">
@@ -329,86 +329,95 @@ export default function TrackingShow({
           )}
         </header>
 
-        {/* Overview narrative */}
-        {caseOverview?.narrative && (
-          <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-4">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Case summary</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{caseOverview.narrative}</p>
-          </section>
-        )}
+        {/* Two-column layout: main content + case history sidebar */}
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
 
-        {/* Agency chapters */}
-        <section className="mt-8">
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-            What each office has done
-          </h2>
-          {totalAgencies > 0 ? (
-            <div className="mt-3 space-y-5">
-              {trackingAgencies.map((agency) => (
-                <AgencyChapter
-                  key={agency.referralId ?? agency.name}
-                  agency={agency}
-                  events={eventsByReferral[agency.referralId] ?? []}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="mt-3 border border-outline-variant bg-surface-container-lowest px-5 py-8 text-center">
-              <p className="text-sm font-semibold text-on-surface">No partner offices assigned yet</p>
-              <p className="mx-auto mt-1 max-w-xs text-[13px] text-on-surface-variant">
-                Your case manager is reviewing the case. Referrals will appear here once they are sent.
-              </p>
-            </div>
-          )}
-        </section>
+          {/* Left column — main content */}
+          <div className="min-w-0">
+            {/* Overview narrative */}
+            {caseOverview?.narrative && (
+              <section className="border border-outline-variant bg-surface-container-lowest px-5 py-4">
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Case summary</h2>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{caseOverview.narrative}</p>
+              </section>
+            )}
 
-        {/* Complete record */}
-        {milestoneTimeline.length > 0 && (
-          <details className="group mt-8 border border-outline-variant bg-surface-container-lowest">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-                Complete case history ({milestoneTimeline.length} {milestoneTimeline.length === 1 ? 'entry' : 'entries'})
-              </span>
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-variant transition-transform group-open:rotate-180">
-                expand_more
-              </span>
-            </summary>
-            <ul className="border-t border-outline-variant px-5 pb-4 pt-1">
-              {milestoneTimeline.map((item, index) => (
-                <EventRow key={`${item.date}-${index}`} item={item} />
-              ))}
-            </ul>
-          </details>
-        )}
-
-        {/* Feedback request */}
-        {showFeedback && (() => {
-          const d = feedbackNtfn.data || {};
-          const params = new URLSearchParams({
-            tracking_token: d.tracking_token || '',
-            case_id: trackedCase?.id || '',
-            agency_id: d.agency_id || '',
-            referral_id: d.referral_id || '',
-            service_name: d.service_name || '',
-          }).toString();
-
-          return (
-            <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-5">
-              <h2 className="text-sm font-bold text-on-surface">How was the service?</h2>
-              <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-on-surface-variant">
-                An office has completed its part of your case. Your feedback helps us improve the assistance program.
-              </p>
-              <Link
-                href={`/feedbacks/submit-page?${params}`}
-                className="mt-3 inline-flex items-center gap-1.5 bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-container"
-              >
-                Give feedback
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
-              </Link>
+            {/* Agency chapters */}
+            <section className="mt-8">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                What each office has done
+              </h2>
+              {totalAgencies > 0 ? (
+                <div className="mt-3 space-y-5">
+                  {trackingAgencies.map((agency) => (
+                    <AgencyChapter
+                      key={agency.referralId ?? agency.name}
+                      agency={agency}
+                      events={eventsByReferral[agency.referralId] ?? []}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 border border-outline-variant bg-surface-container-lowest px-5 py-8 text-center">
+                  <p className="text-sm font-semibold text-on-surface">No partner offices assigned yet</p>
+                  <p className="mx-auto mt-1 max-w-xs text-[13px] text-on-surface-variant">
+                    Your case manager is reviewing the case. Referrals will appear here once they are sent.
+                  </p>
+                </div>
+              )}
             </section>
-          );
-        })()}
 
+            {/* Feedback request */}
+            {showFeedback && (() => {
+              const d = feedbackNtfn.data || {};
+              const params = new URLSearchParams({
+                tracking_token: d.tracking_token || '',
+                case_id: trackedCase?.id || '',
+                agency_id: d.agency_id || '',
+                referral_id: d.referral_id || '',
+                service_name: d.service_name || '',
+              }).toString();
+
+              return (
+                <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-5">
+                  <h2 className="text-sm font-bold text-on-surface">How was the service?</h2>
+                  <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-on-surface-variant">
+                    An office has completed its part of your case. Your feedback helps us improve the assistance program.
+                  </p>
+                  <Link
+                    href={`/feedbacks/submit-page?${params}`}
+                    className="mt-3 inline-flex items-center gap-1.5 bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-container"
+                  >
+                    Give feedback
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
+                  </Link>
+                </section>
+              );
+            })()}
+          </div>
+
+          {/* Right column — Complete case history (sidebar on desktop) */}
+          {milestoneTimeline.length > 0 && (
+            <aside className="lg:sticky lg:top-24 lg:self-start">
+              <section className="border border-outline-variant bg-surface-container-lowest">
+                <header className="border-b border-outline-variant bg-surface-container-low px-4 py-3">
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                    Complete case history
+                  </h2>
+                  <p className="mt-0.5 text-[11px] text-on-surface-variant/60">
+                    {milestoneTimeline.length} {milestoneTimeline.length === 1 ? 'entry' : 'entries'}
+                  </p>
+                </header>
+                <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto px-4 pb-4 pt-2">
+                  {milestoneTimeline.map((item, index) => (
+                    <EventRow key={`${item.date}-${index}`} item={item} />
+                  ))}
+                </ul>
+              </section>
+            </aside>
+          )}
+
+        </div>
       </main>
 
       <AppFooter />

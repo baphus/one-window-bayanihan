@@ -84,6 +84,12 @@ class DashboardServiceTest extends TestCase
         $this->assertSame($service->name, $data['serviceDemand'][0]['serviceName']);
         $this->assertTrue($data['feedbackPulse']['hasData']);
         $this->assertLessThanOrEqual(8, count($data['priorityReferrals']));
+        $this->assertSame('/referrals?status=PENDING', collect($data['workQueue'])->firstWhere('key', 'pendingReferrals')['href']);
+        $this->assertSame('/referrals?status=REJECTED', collect($data['workQueue'])->firstWhere('key', 'returnedReferrals')['href']);
+        $this->assertSame('/referrals?age_max_days=2', collect($data['workQueue'])->firstWhere('key', 'newReferrals')['href']);
+        $this->assertSame('/referrals?age_min_days=5', collect($data['workQueue'])->firstWhere('key', 'overdueReferrals')['href']);
+        $this->assertSame('/referrals?status=FOR_COMPLIANCE', collect($data['workQueue'])->firstWhere('key', 'forComplianceReferrals')['href']);
+        $this->assertSame('/referrals?status=PROCESSING', collect($data['workQueue'])->firstWhere('key', 'processingReferrals')['href']);
     }
 
     #[Test]
@@ -209,7 +215,6 @@ class DashboardServiceTest extends TestCase
 
         $data = app(DashboardService::class)->getCaseManagerData($caseManager);
 
-        $this->assertArrayNotHasKey('allCases', $data);
         $this->assertArrayNotHasKey('allReferrals', $data);
         $this->assertArrayHasKey('priorityCases', $data);
         $this->assertArrayHasKey('workQueue', $data);
@@ -232,6 +237,12 @@ class DashboardServiceTest extends TestCase
         $this->assertContains('PENDING', array_column($data['referralStatusDistribution'], 'status'));
         $this->assertArrayHasKey('percent', $data['referralStatusDistribution'][0]);
         $this->assertArrayHasKey('tone', $data['referralStatusDistribution'][0]);
+
+        $this->assertSame('/cases?status=OPEN', collect($data['operationalQueues'])->firstWhere('key', 'openCases')['href']);
+        $this->assertSame('/referrals?status=PENDING', collect($data['operationalQueues'])->firstWhere('key', 'pendingReferrals')['href']);
+        $this->assertSame('/referrals?status=PROCESSING', collect($data['operationalQueues'])->firstWhere('key', 'processingReferrals')['href']);
+        $this->assertSame('/referrals?status=FOR_COMPLIANCE', collect($data['operationalQueues'])->firstWhere('key', 'forComplianceReferrals')['href']);
+        $this->assertSame('/overdue-referrals', collect($data['operationalQueues'])->firstWhere('key', 'overdueReferrals')['href']);
     }
 
     private function createCaseForClient(array $attributes = []): CaseFile

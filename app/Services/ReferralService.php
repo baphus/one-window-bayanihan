@@ -148,6 +148,14 @@ class ReferralService
             $query->whereHas('caseFile', fn ($q) => $q->where('case_issue_id', $filters['case_issue_id']));
         }
 
+        if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
+            $query->where('created_at', '<=', now()->subDays((int) $filters['age_min_days']));
+        }
+
+        if (! empty($filters['age_max_days']) && is_numeric($filters['age_max_days'])) {
+            $query->where('created_at', '>=', now()->subDays((int) $filters['age_max_days']));
+        }
+
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {

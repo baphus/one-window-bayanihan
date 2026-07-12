@@ -14,6 +14,7 @@ use App\Models\ReferralAttachment;
 use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
+use App\Services\OnboardingService;
 use App\Services\ReferralService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class ReferralController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id'];
+        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'age_max_days'];
 
         $referrals = $this->referralService->getReferrals(
             $request->only($filterKeys),
@@ -120,7 +121,7 @@ class ReferralController extends Controller
             }
         }
 
-        app(\App\Services\OnboardingService::class)
+        app(OnboardingService::class)
             ->markChecklistItemQuietly($request->user(), 'send-first-referral');
 
         return redirect()
@@ -157,7 +158,7 @@ class ReferralController extends Controller
         );
 
         if ($request->user()->role === 'AGENCY') {
-            app(\App\Services\OnboardingService::class)
+            app(OnboardingService::class)
                 ->markChecklistItemQuietly($request->user(), 'act-on-referral');
         }
 
@@ -367,7 +368,7 @@ class ReferralController extends Controller
         $queries = new DataExportQueries;
 
         $filters = $request->only([
-            'status', 'search',
+            'status', 'search', 'age_min_days', 'age_max_days',
         ]);
 
         $referrals = $queries->getReferralsExport($user, array_filter($filters));

@@ -59,20 +59,11 @@ export default function HeroSection({ title, description, onTrackAction, agencie
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        @keyframes marquee2 {
-          0% { transform: translateX(50%); }
-          100% { transform: translateX(0%); }
-        }
         .animate-marquee {
-          animation: marquee 60s linear infinite;
+          animation: marquee 30s linear infinite;
           will-change: transform;
         }
-        .animate-marquee2 {
-          animation: marquee2 60s linear infinite;
-          will-change: transform;
-        }
-        .group:hover .animate-marquee,
-        .group:hover .animate-marquee2 {
+        .group:hover .animate-marquee {
           animation-play-state: paused;
         }
         @keyframes fade-in-up {

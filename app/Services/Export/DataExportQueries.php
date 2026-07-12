@@ -666,6 +666,12 @@ class DataExportQueries
         if (! empty($filters['status'])) {
             $query->where('r.status', $filters['status']);
         }
+        if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
+            $query->where('r.created_at', '<=', now()->subDays((int) $filters['age_min_days']));
+        }
+        if (! empty($filters['age_max_days']) && is_numeric($filters['age_max_days'])) {
+            $query->where('r.created_at', '>=', now()->subDays((int) $filters['age_max_days']));
+        }
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {

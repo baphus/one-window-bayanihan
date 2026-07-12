@@ -34,27 +34,18 @@ function LogoImage({ src, alt }) {
 
 export default function LogoMarquee({ agencies }) {
   const logos = [...new Set(agencies.map((a) => a.logo_url).filter(Boolean))];
-  const marqueeLogos = [...logos, ...logos, ...logos, ...logos];
+  const marqueeLogos = [...logos, ...logos];
 
   if (logos.length === 0) return null;
 
   return (
     <div className="overflow-hidden select-none group">
-      <div className="relative flex overflow-x-hidden">
-        <div className="animate-marquee whitespace-nowrap flex items-center">
-          {marqueeLogos.map((logo, i) => (
-            <div key={i} className="mx-16 flex-shrink-0">
-              <LogoImage src={logo} alt="Partner Agency Logo" />
-            </div>
-          ))}
-        </div>
-        <div className="absolute top-0 animate-marquee2 whitespace-nowrap flex items-center">
-          {marqueeLogos.map((logo, i) => (
-            <div key={`dup-${i}`} className="mx-16 flex-shrink-0">
-              <LogoImage src={logo} alt="Partner Agency Logo" />
-            </div>
-          ))}
-        </div>
+      <div className="animate-marquee whitespace-nowrap flex items-center">
+        {marqueeLogos.map((logo, i) => (
+          <div key={i} className="mx-16 flex-shrink-0">
+            <LogoImage src={logo} alt="Partner Agency Logo" />
+          </div>
+        ))}
       </div>
     </div>
   );

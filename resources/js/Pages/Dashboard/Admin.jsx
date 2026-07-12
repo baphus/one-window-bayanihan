@@ -22,10 +22,10 @@ import {
 } from '@/Components/Dashboard/primitives';
 
 const QUEUE_ROUTES = {
-    openCases: '/cases',
-    pendingReferrals: '/referrals',
-    processingReferrals: '/referrals',
-    forComplianceReferrals: '/referrals',
+    openCases: '/cases?status=OPEN',
+    pendingReferrals: '/referrals?status=PENDING',
+    processingReferrals: '/referrals?status=PROCESSING',
+    forComplianceReferrals: '/referrals?status=FOR_COMPLIANCE',
     overdueReferrals: '/overdue-referrals',
 };
 
@@ -48,10 +48,10 @@ function buildQueueItems(dashboard, stats) {
     }
 
     return [
-        { key: 'openCases', label: 'Open cases', count: stats.openCases ?? stats.totalOpenCases ?? 0, note: 'Cases still being handled.', tone: 'blue', href: '/cases' },
-        { key: 'pendingReferrals', label: 'Pending referrals', count: stats.pendingReferrals ?? 0, note: 'Waiting for agency action.', tone: 'amber', href: '/referrals' },
-        { key: 'processingReferrals', label: 'Processing', count: stats.processingReferrals ?? 0, note: 'Currently being worked by agencies.', tone: 'cyan', href: '/referrals' },
-        { key: 'forComplianceReferrals', label: 'For compliance', count: stats.forComplianceReferrals ?? 0, note: 'Need missing requirements.', tone: 'orange', href: '/referrals' },
+        { key: 'openCases', label: 'Open cases', count: stats.openCases ?? stats.totalOpenCases ?? 0, note: 'Cases still being handled.', tone: 'blue', href: '/cases?status=OPEN' },
+        { key: 'pendingReferrals', label: 'Pending referrals', count: stats.pendingReferrals ?? 0, note: 'Waiting for agency action.', tone: 'amber', href: '/referrals?status=PENDING' },
+        { key: 'processingReferrals', label: 'Processing', count: stats.processingReferrals ?? 0, note: 'Currently being worked by agencies.', tone: 'cyan', href: '/referrals?status=PROCESSING' },
+        { key: 'forComplianceReferrals', label: 'For compliance', count: stats.forComplianceReferrals ?? 0, note: 'Need missing requirements.', tone: 'orange', href: '/referrals?status=FOR_COMPLIANCE' },
         { key: 'overdueReferrals', label: 'Overdue', count: stats.overdueReferrals ?? 0, note: 'Past the expected response window.', tone: 'rose', href: '/overdue-referrals' },
     ];
 }
