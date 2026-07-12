@@ -18,6 +18,10 @@ class StoreCaseRequest extends FormRequest
     {
         if ($this->boolean('is_draft')) {
             $this->merge(['is_draft' => true]);
+
+            // Inertia sends JSON — ConvertEmptyStringsToNull doesn't apply.
+            // For drafts, convert all empty strings to null so 'nullable' rules skip them.
+            $this->merge($this->convertEmptyStringsToNull($this->all()));
         }
 
         if ($this->has('category_id') && $this->category_id === '') {
@@ -45,25 +49,42 @@ class StoreCaseRequest extends FormRequest
         }
     }
 
+    private function convertEmptyStringsToNull(array $data): array
+    {
+        $result = [];
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $result[$key] = $this->convertEmptyStringsToNull($value);
+            } else {
+                $result[$key] = $value === '' ? null : $value;
+            }
+        }
+
+        return $result;
+    }
+
     public function rules(): array
     {
+        // Drafts require nothing — just save whatever progress exists
+        $r = $this->boolean('is_draft') ? 'nullable' : 'required';
+
         return [
             'is_draft' => ['nullable', 'boolean'],
-            'client_type' => ['required', Rule::in(['OFW', 'NEXT_OF_KIN'])],
-            'vulnerability_indicator' => ['required', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
-            'nok_vulnerability_indicator' => ['required_if:client_type,NEXT_OF_KIN', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
-            'summary' => ['required', 'string', 'max:5000'],
-            'category_id' => ['required', 'string', 'exists:case_categories,id'],
-            'case_issue_id' => ['required', 'string', 'exists:case_issues,id'],
+            'client_type' => [$r, 'string', Rule::in(['OFW', 'NEXT_OF_KIN'])],
+            'vulnerability_indicator' => [$r, 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
+            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,NEXT_OF_KIN' : 'nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
+            'summary' => ['nullable', 'string', 'max:5000'],
+            'category_id' => [$r, 'string', 'exists:case_categories,id'],
+            'case_issue_id' => [$r, 'string', 'exists:case_issues,id'],
 
-            'client.first_name' => ['required', 'string', 'max:255'],
-            'client.last_name' => ['required', 'string', 'max:255'],
+            'client.first_name' => [$r, 'string', 'max:255'],
+            'client.last_name' => [$r, 'string', 'max:255'],
             'client.middle_initial' => ['nullable', 'string', 'max:1'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
-            'client.date_of_birth' => ['required', 'date'],
-            'client.sex' => ['required', 'string', 'max:50'],
-            'client.email' => ['required', 'email', 'max:255'],
-            'client.contact_number' => ['required', 'string', 'max:50'],
+            'client.date_of_birth' => [$r, 'date'],
+            'client.sex' => [$r, 'string', 'max:50'],
+            'client.email' => [$r, 'email', 'max:255'],
+            'client.contact_number' => [$r, 'string', 'max:50'],
 
             'next_of_kin' => ['nullable', 'array'],
             'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
@@ -85,21 +106,21 @@ class StoreCaseRequest extends FormRequest
 
             'consent' => ['nullable', 'boolean'],
 
-            'address.region' => ['required', 'string', 'max:255'],
-            'address.province' => ['required', 'string', 'max:255'],
-            'address.city_municipality' => ['required', 'string', 'max:255'],
-            'address.barangay' => ['required', 'string', 'max:255'],
+            'address.region' => [$r, 'string', 'max:255'],
+            'address.province' => [$r, 'string', 'max:255'],
+            'address.city_municipality' => [$r, 'string', 'max:255'],
+            'address.barangay' => [$r, 'string', 'max:255'],
             'address.street' => ['nullable', 'string'],
 
-            'employment.employer_name' => ['required', 'string', 'max:255'],
+            'employment.employer_name' => [$r, 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => ['required', 'date'],
-            'employment.end_date' => ['required_unless:employment.is_present,true', 'nullable', 'date', 'after_or_equal:employment.start_date'],
+            'employment.start_date' => [$r, 'date'],
+            'employment.end_date' => [$r === 'required' ? 'required_unless:employment.is_present,true' : 'nullable', 'nullable', 'date', 'after_or_equal:employment.start_date'],
             'employment.is_present' => ['nullable', 'boolean'],
-            'employment.last_country' => ['required', 'string', 'max:255'],
-            'employment.last_position' => ['required', 'string', 'max:255'],
-            'employment.date_of_arrival' => ['required', 'date'],
+            'employment.last_country' => [$r, 'string', 'max:255'],
+            'employment.last_position' => [$r, 'string', 'max:255'],
+            'employment.date_of_arrival' => [$r, 'date'],
         ];
     }
 }

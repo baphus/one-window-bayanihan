@@ -32,33 +32,35 @@ export default function WelcomeModal({
                     <span className="font-bold text-indigo-600">?</span> button.
                 </p>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
+            <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
                 <button
                     onClick={onRemindLater}
                     className="h-9 px-2 text-[12px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
                 >
                     Remind Me Later
                 </button>
-                <button
-                    onClick={onSkipTour}
-                    className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                    Skip Tour
-                </button>
-                {canResume && (
+                <div className="flex items-center gap-3">
                     <button
-                        onClick={onStartTour}
-                        className="h-9 rounded-[3px] border border-indigo-200 px-4 text-[12px] font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        onClick={onSkipTour}
+                        className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                     >
-                        Restart
+                        Skip Tour
                     </button>
-                )}
-                <button
-                    onClick={canResume ? onResumeTour : onStartTour}
-                    className="h-9 rounded-[3px] bg-indigo-600 px-4 text-[12px] font-bold text-white hover:bg-indigo-700 transition-colors"
-                >
-                    {canResume ? 'Resume Tour' : 'Start Tour'}
-                </button>
+                    {canResume && (
+                        <button
+                            onClick={onStartTour}
+                            className="h-9 rounded-[3px] border border-indigo-200 px-4 text-[12px] font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        >
+                            Restart
+                        </button>
+                    )}
+                    <button
+                        onClick={canResume ? onResumeTour : onStartTour}
+                        className="h-9 rounded-[3px] bg-indigo-600 px-4 text-[12px] font-bold text-white hover:bg-indigo-700 transition-colors"
+                    >
+                        {canResume ? 'Resume Tour' : 'Start Tour'}
+                    </button>
+                </div>
             </div>
         </Modal>
     );
