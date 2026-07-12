@@ -657,7 +657,7 @@ export default function ChatBot() {
                         {/* ── Input + Footer ── */}
                         <div className="shrink-0 border-t border-outline-variant/60 bg-white px-4 pb-3 pt-3 md:rounded-b-lg">
                             {showTurnstile && !turnstileVerified && (
-                                <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                                <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-center">
                                     <p className="text-xs text-amber-800 mb-2 font-medium">Please verify you're human to continue chatting:</p>
                                     <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
                                 </div>

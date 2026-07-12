@@ -190,7 +190,7 @@ export default function Contact() {
                         </div>
                       </div>
                       {turnstile?.enabled && (
-                        <div>
+                        <div className="text-center">
                           <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
                           <InputError message={errors.captcha} className="mt-1" />
                         </div>

@@ -132,7 +132,7 @@ export default function Register() {
                 </div>
 
                 {turnstile?.enabled && (
-                    <div className="mt-4">
+                    <div className="mt-4 text-center">
                         <TurnstileWidget
                             onToken={setTurnstileToken}
                             onExpire={() => setTurnstileToken('')}

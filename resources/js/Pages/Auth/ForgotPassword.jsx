@@ -117,7 +117,7 @@ export default function ForgotPassword({ status }) {
                                     </div>
 
                                     {turnstile?.enabled && (
-                                        <div>
+                                        <div className="text-center">
                                             <TurnstileWidget
                                                 onToken={setTurnstileToken}
                                                 onExpire={() => setTurnstileToken('')}

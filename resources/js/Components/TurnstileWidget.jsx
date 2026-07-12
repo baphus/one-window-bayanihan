@@ -7,9 +7,9 @@ import { usePage } from '@inertiajs/react';
  * Reads `turnstile.enabled` and `turnstile.site_key` from Inertia shared props.
  * Returns null when disabled or when no site key is configured.
  *
- * @param {{ onToken: (token: string) => void, onExpire: () => void }} props
+ * @param {{ onToken: (token: string) => void, onExpire: () => void, className?: string }} props
  */
-export default function TurnstileWidget({ onToken, onExpire }) {
+export default function TurnstileWidget({ onToken, onExpire, className = '' }) {
     const { turnstile } = usePage().props;
     const containerRef = useRef(null);
     const widgetIdRef = useRef(null);
@@ -79,5 +79,5 @@ export default function TurnstileWidget({ onToken, onExpire }) {
         return null;
     }
 
-    return <div ref={containerRef} className="mt-2" />;
+    return <div ref={containerRef} className={`mt-2 flex justify-center [&>iframe]:max-w-full ${className}`.trim()} />;
 }

@@ -586,7 +586,7 @@ export default function FeedbackSubmit({
 
         {/* ── Turnstile Verification ── */}
         {turnstile?.enabled && (
-          <div className="border-t border-slate-200 pt-5">
+          <div className="border-t border-slate-200 pt-5 text-center">
             <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
             <InputError message={errors.captcha} className="mt-1" />
           </div>
