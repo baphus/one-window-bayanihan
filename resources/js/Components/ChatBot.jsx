@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import axios from 'axios';
 import { MessageCircle, X, Send } from 'lucide-react';
+import TurnstileWidget from '@/Components/TurnstileWidget';
 
 const CHAT_HISTORY_KEY = 'owb_chat_history';
 
@@ -204,7 +205,7 @@ function WelcomeCard({ onSuggestionClick, onClose }) {
 }
 
 export default function ChatBot() {
-    const { chatbot } = usePage().props;
+    const { chatbot, turnstile } = usePage().props;
     const assistantName = chatbot?.assistant_name || 'Bayani';
     if (!chatbot?.enabled) return null;
 
@@ -222,6 +223,9 @@ export default function ChatBot() {
     const [showScrollBtn, setShowScrollBtn] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [quickHelpVisible, setQuickHelpVisible] = useState(true);
+    const [turnstileToken, setTurnstileToken] = useState('');
+    const [turnstileVerified, setTurnstileVerified] = useState(false);
+    const [showTurnstile, setShowTurnstile] = useState(false);
 
     const scrollToBottom = useCallback((smooth = true) => {
         if (listRef.current) {
@@ -240,6 +244,10 @@ export default function ChatBot() {
         setShowClearConfirm(false);
         if (open && inputRef.current) {
             inputRef.current.focus();
+        }
+        // Show turnstile widget when chat opens if not yet verified
+        if (open && turnstile?.enabled && !turnstileVerified) {
+            setShowTurnstile(true);
         }
     }, [open]);
 
@@ -292,6 +300,19 @@ export default function ChatBot() {
         e?.preventDefault();
         const userMessage = (overrideMessage || input).trim();
         if (!userMessage || loading) return;
+
+        // If turnstile is enabled and not verified, require the token
+        const needsTurnstile = turnstile?.enabled && !turnstileVerified;
+        if (needsTurnstile && !turnstileToken) {
+            setShowTurnstile(true);
+            setMessages((prev) => [
+                ...prev,
+                { role: 'user', text: userMessage, time: new Date() },
+                { role: 'bot', text: 'Please complete the verification challenge below before sending messages.', time: new Date() },
+            ]);
+            return;
+        }
+
         setInput('');
         setMessages((prev) => [
             ...prev,
@@ -311,24 +332,43 @@ export default function ChatBot() {
                     role: msg.role,
                     text: msg.text,
                 }));
-            const { data } = await axios.post(route('chatbot.message'), {
+            const payload = {
                 message: userMessage,
                 history: recentHistory,
-            }, { signal: controller.signal });
+            };
+            // Include turnstile token on first (unverified) request
+            if (needsTurnstile && turnstileToken) {
+                payload.cf_turnstile_response = turnstileToken;
+            }
+            const { data } = await axios.post(route('chatbot.message'), payload, { signal: controller.signal });
+            // If we got here with a token, the session is now verified
+            if (needsTurnstile) {
+                setTurnstileVerified(true);
+                setShowTurnstile(false);
+            }
             setMessages((prev) => [
                 ...prev,
                 { role: 'bot', text: data.reply, time: new Date(), actions: data.actions || [] },
             ]);
         } catch (err) {
             if (axios.isCancel(err)) return;
-            setMessages((prev) => [
-                ...prev,
-                {
-                    role: 'bot',
-                    text: 'Sorry, I encountered an error. Please try again.',
-                    time: new Date(),
-                },
-            ]);
+            // Handle turnstile_required error from backend
+            if (err.response?.status === 422 && err.response?.data?.error === 'turnstile_required') {
+                setShowTurnstile(true);
+                setMessages((prev) => [
+                    ...prev,
+                    { role: 'bot', text: 'Please complete the verification challenge below to continue.', time: new Date() },
+                ]);
+            } else {
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        role: 'bot',
+                        text: 'Sorry, I encountered an error. Please try again.',
+                        time: new Date(),
+                    },
+                ]);
+            }
         } finally {
             if (abortRef.current === controller) abortRef.current = null;
             setLoading(false);
@@ -616,6 +656,12 @@ export default function ChatBot() {
 
                         {/* ── Input + Footer ── */}
                         <div className="shrink-0 border-t border-outline-variant/60 bg-white px-4 pb-3 pt-3 md:rounded-b-lg">
+                            {showTurnstile && !turnstileVerified && (
+                                <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                                    <p className="text-xs text-amber-800 mb-2 font-medium">Please verify you're human to continue chatting:</p>
+                                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+                                </div>
+                            )}
                             <form onSubmit={handleSend} className="flex items-end gap-2">
                                 <div className="relative flex-1">
                                     <textarea

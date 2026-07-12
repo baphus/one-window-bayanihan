@@ -48,7 +48,7 @@ Route::get('/feedback/{token}', [PublicFeedbackController::class, 'showForm'])
     ->middleware('throttle:30,1');
 Route::post('/feedback/{token}', [PublicFeedbackController::class, 'submit'])
     ->name('feedbacks.submit')
-    ->middleware('throttle:10,1');
+    ->middleware(['turnstile', 'throttle:10,1']);
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -319,7 +319,7 @@ Route::get('/terms', function () {
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
     ->name('track.send-otp')
-    ->middleware('throttle:tracking');
+    ->middleware(['turnstile', 'throttle:tracking']);
 Route::get('/track/verify-otp', function () {
     return redirect()->route('track.index');
 })->name('track.verify-otp.get');
@@ -356,6 +356,6 @@ Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->g
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
     ->name('chatbot.message')
-    ->middleware('throttle:30,1');
+    ->middleware(['turnstile.session', 'throttle:30,1']);
 
 require __DIR__.'/auth.php';

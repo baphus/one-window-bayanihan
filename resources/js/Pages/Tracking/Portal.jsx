@@ -1,5 +1,5 @@
-import { useRef, useMemo } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { useRef, useMemo, useState } from 'react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppButton from '@/Components/landing/AppButton';
@@ -7,14 +7,18 @@ import FaqSection from '@/Components/landing/FaqSection';
 import ChatBot from '@/Components/ChatBot';
 import InputError from '@/Components/InputError';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import TurnstileWidget from '@/Components/TurnstileWidget';
 
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
 
 export default function TrackingPortal() {
+  const { turnstile } = usePage().props;
+  const [turnstileToken, setTurnstileToken] = useState('');
   const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
     tracker_number: '',
     email: '',
+    cf_turnstile_response: '',
   });
   const initialRef = useRef({ tracker_number: '', email: '' });
   const hasDirty = useMemo(() => (
@@ -39,6 +43,7 @@ export default function TrackingPortal() {
     clearErrors();
     if (!validate()) return;
     bypassNext();
+    data.cf_turnstile_response = turnstileToken;
     post(route('track.send-otp'));
   };
 
@@ -109,6 +114,12 @@ export default function TrackingPortal() {
                   />
                   <InputError message={errors.email} className="mt-1" />
                 </div>
+                {turnstile?.enabled && (
+                  <div>
+                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+                    <InputError message={errors.captcha} className="mt-1" />
+                  </div>
+                )}
                 <button
                   type="submit"
                   disabled={processing}

@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
 import { Head, useForm, usePage, Link } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
+import TurnstileWidget from '@/Components/TurnstileWidget';
 
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useClientValidation from '@/Hooks/useClientValidation';
@@ -140,8 +141,9 @@ export default function FeedbackSubmit({
   service_name,
   questions,
 }) {
-  const { url } = usePage();
+  const { url, props: { turnstile } } = usePage();
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   // Resolve the token from invitation (new) or old-style prop or URL
   const token = useMemo(() => {
@@ -192,6 +194,7 @@ export default function FeedbackSubmit({
     servqual_responses: initialServqual,
     overall_rating: null,
     comments: '',
+    cf_turnstile_response: '',
   });
 
   const { validate } = useClientValidation(surveySchema, data, setError);
@@ -269,6 +272,7 @@ export default function FeedbackSubmit({
     clearErrors();
     if (!validate()) return;
 
+    data.cf_turnstile_response = turnstileToken;
     const submitUrl = token ? `/feedback/${encodeURIComponent(token)}` : '/feedbacks/submit';
 
     post(submitUrl, {
@@ -579,6 +583,14 @@ export default function FeedbackSubmit({
             </span>
           </div>
         </div>
+
+        {/* ── Turnstile Verification ── */}
+        {turnstile?.enabled && (
+          <div className="border-t border-slate-200 pt-5">
+            <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+            <InputError message={errors.captcha} className="mt-1" />
+          </div>
+        )}
 
         {/* ── Submit ── */}
         <div className="border-t border-slate-200 pt-5">
