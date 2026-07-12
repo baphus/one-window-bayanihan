@@ -236,6 +236,7 @@ export default function CaseCreate() {
             last_country: '',
             last_position: '',
             date_of_arrival: '',
+            is_present: false,
         },
         next_of_kin: [],
         selected_nok_index: '',
@@ -276,7 +277,7 @@ export default function CaseCreate() {
             summary: '',
             client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
             address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
-            employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
+            employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
             next_of_kin: [],
             selected_nok_index: '',
             consent: false,
@@ -1059,6 +1060,21 @@ export default function CaseCreate() {
                 isValid = false;
                 missing.push('Arrival Date');
             }
+            if (!data.employment.start_date) {
+                setError('employment.start_date', 'Employment start date is required.');
+                isValid = false;
+                missing.push('Employment Start Date');
+            }
+            if (!data.employment.end_date && !data.employment.is_present) {
+                setError('employment.end_date', 'Employment end date is required.');
+                isValid = false;
+                missing.push('Employment End Date');
+            }
+            if (data.employment.start_date && data.employment.end_date && !data.employment.is_present && data.employment.end_date < data.employment.start_date) {
+                setError('employment.end_date', 'End date must be on or after the start date.');
+                isValid = false;
+                missing.push('Employment End Date (invalid range)');
+            }
 
             data.next_of_kin.forEach((nok, idx) => {
                 if (!nok.first_name.trim()) {
@@ -1267,7 +1283,7 @@ export default function CaseCreate() {
         setData('selected_client_id', '');
         setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' });
         setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
-        setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' });
+        setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false });
         setData('next_of_kin', []);
         setData('consent', false);
         setSelectedClient(null);
@@ -1282,7 +1298,7 @@ export default function CaseCreate() {
                     summary: '',
                 client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
                 address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
-                employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '' },
+                employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
                 next_of_kin: [],
                 selected_nok_index: '',
                 consent: false,
@@ -1735,6 +1751,8 @@ function handleConfirmClient(client) {
                                                     <Field label="Sex" required>
                                                         <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} required />
                                                     </Field>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                                     <Field label="Contact Number" required>
                                                         <PhoneInput value={data.client.contact_number} onChange={(val) => handleClientChange('contact_number', val)} />
                                                     </Field>
@@ -1778,19 +1796,59 @@ function handleConfirmClient(client) {
                                         </div>
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <Subsection title="Work History">
-                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                    <Field label="Employer Name">
+                                            <Subsection title="Recent Work History">
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <Field label="Employer Name" required>
                                                         <Input value={data.employment.employer_name} onChange={(e) => handleEmploymentChange('employer_name', e.target.value)} />
                                                     </Field>
-                                                    <Field label="Last Country of Employment">
+                                                    <Field label="Last Country of Employment" required>
                                                         <CountrySelect value={data.employment.last_country} onChange={(v) => handleEmploymentChange('last_country', v)} placeholder="Select country..." />
                                                     </Field>
-                                                    <Field label="Last Job Position">
+                                                    <Field label="Last Job Position" required>
                                                         <Input value={data.employment.last_position} onChange={(e) => handleEmploymentChange('last_position', e.target.value)} />
                                                     </Field>
-                                                    <Field label="Arrival Date in Philippines">
-                                                        <Input type="date" value={data.employment.date_of_arrival} onChange={(e) => setData('employment.date_of_arrival', e.target.value)} />
+                                                    <Field label="Employment Period" required className="md:col-span-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="date"
+                                                                value={data.employment.start_date}
+                                                                onChange={(e) => handleEmploymentChange('start_date', e.target.value)}
+                                                                className="h-10 flex-1 min-w-0 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            />
+                                                            <span className="text-[11px] font-bold text-slate-400 shrink-0">to</span>
+                                                            {data.employment.is_present ? (
+                                                                <span className="h-10 flex-1 min-w-0 rounded-[3px] border border-slate-200 bg-slate-50 px-3 flex items-center text-[13px] font-medium text-emerald-700">
+                                                                    Present
+                                                                </span>
+                                                            ) : (
+                                                                <input
+                                                                    type="date"
+                                                                    value={data.employment.end_date}
+                                                                    onChange={(e) => handleEmploymentChange('end_date', e.target.value)}
+                                                                    min={data.employment.start_date || undefined}
+                                                                    className="h-10 flex-1 min-w-0 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                        <label className="mt-2 inline-flex items-center gap-2 cursor-pointer select-none">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!data.employment.is_present}
+                                                                onChange={(e) => {
+                                                                    const checked = e.target.checked;
+                                                                    setData('employment', {
+                                                                        ...data.employment,
+                                                                        is_present: checked,
+                                                                        end_date: checked ? '' : data.employment.end_date,
+                                                                    });
+                                                                }}
+                                                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                            />
+                                                            <span className="text-[12px] text-slate-600">Presently employed</span>
+                                                        </label>
+                                                    </Field>
+                                                    <Field label="Arrival Date in Philippines" required>
+                                                        <Input type="date" value={data.employment.date_of_arrival} onChange={(e) => handleEmploymentChange('date_of_arrival', e.target.value)} />
                                                     </Field>
                                                 </div>
                                             </Subsection>

@@ -22,8 +22,8 @@ class PhilippineAddressApiTest extends TestCase
         $response = $this->actingAs($user)->getJson('/api/address/regions');
 
         $response->assertOk();
-        // Should contain at least the 17 regions from the TS file
-        $response->assertJsonCount(17);
+        // Should contain at least the 18 regions (17 original + 1 Negros Island Region)
+        $response->assertJsonCount(18);
         $response->assertJsonFragment(['code' => '0700000000', 'name' => 'Region VII (Central Visayas)']);
     }
 
@@ -34,8 +34,8 @@ class PhilippineAddressApiTest extends TestCase
         $response = $this->actingAs($user)->getJson('/api/address/provinces?region=0700000000');
 
         $response->assertOk();
-        // Region VII has 4 provinces
-        $response->assertJsonCount(4);
+        // Region VII has 2 provinces (Bohol and Cebu)
+        $response->assertJsonCount(2);
         $response->assertJsonFragment(['code' => '0702200000', 'name' => 'Cebu']);
     }
 
@@ -86,7 +86,7 @@ class PhilippineAddressApiTest extends TestCase
         $response = $this->getJson('/api/address/regions');
 
         $response->assertOk();
-        $response->assertJsonCount(17);
+        $response->assertJsonCount(18);
         $response->assertJsonFragment(['code' => '0700000000', 'name' => 'Region VII (Central Visayas)']);
     }
 

@@ -17,6 +17,7 @@ use App\Models\Feedback;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
+use App\Models\ReferralComplianceRequirement;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
 use App\Models\User;
@@ -75,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
             Referral::class,
             Milestone::class,
             ReferralAttachment::class,
+            ReferralComplianceRequirement::class,
             Agency::class,
             User::class,
             Service::class,

@@ -321,7 +321,7 @@ class FeedbackController extends Controller
         $user = $request->user();
         $this->enforceAdminIpWhitelist($request);
 
-        $filters = $request->only(['agency_id', 'date_from', 'date_to']);
+        $filters = $request->only(['agency_id', 'date_from', 'date_to', 'window']);
 
         $queries = new DataExportQueries;
         $rows = $queries->getFeedbackWithServqual($user, $filters);

@@ -127,18 +127,28 @@ export default function FeedbackDashboard({
               <p className="mt-1 text-sm text-slate-500">Response volume, satisfaction ratings, and recent submissions for the selected period.</p>
             </div>
 
-            <div data-tour="feedbacks-filters" className="w-full max-w-xs">
-              <label htmlFor="feedback-window" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Time window</label>
-              <select
-                id="feedback-window"
-                value={selectedWindow}
-                onChange={(e) => handleWindowChange(e.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
+            <div className="flex items-end gap-3">
+              <div data-tour="feedbacks-filters" className="w-full max-w-xs">
+                <label htmlFor="feedback-window" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Time window</label>
+                <select
+                  id="feedback-window"
+                  value={selectedWindow}
+                  onChange={(e) => handleWindowChange(e.target.value)}
+                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
+                >
+                  {WINDOW_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <a
+                href={route('feedbacks.export-excel', { window: selectedWindow })}
+                className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
               >
-                {WINDOW_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+                <span className="material-symbols-outlined text-[18px] leading-none">download</span>
+                Export Excel
+              </a>
             </div>
           </div>
         </section>

@@ -21,16 +21,12 @@ const barOptions = {
 const REGION_VII = {
   cebu: { id: 'cebu', name: 'Cebu' },
   bohol: { id: 'bohol', name: 'Bohol' },
-  'negros-oriental': { id: 'negros-oriental', name: 'Negros Oriental' },
-  siquijor: { id: 'siquijor', name: 'Siquijor' },
 };
 
 function provinceMapId(nameOrId) {
   const text = String(nameOrId ?? '').toLowerCase();
-  if (text.includes('negros oriental')) return 'negros-oriental';
   if (text.includes('cebu')) return 'cebu';
   if (text.includes('bohol')) return 'bohol';
-  if (text.includes('siquijor')) return 'siquijor';
   return text.replace(/\s+/g, '-');
 }
 

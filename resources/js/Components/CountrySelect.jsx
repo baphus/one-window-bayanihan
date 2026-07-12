@@ -1,16 +1,16 @@
 import countries from '@/data/countries.json';
+import SearchableSelect from '@/Components/SearchableSelect';
 
-export default function CountrySelect({ value, onChange, placeholder, error }) {
+const countryOptions = countries.map((c) => ({ value: c.name, label: c.name }));
+
+export default function CountrySelect({ value, onChange, placeholder = 'Select country...', disabled }) {
     return (
-        <select
+        <SearchableSelect
             value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-        >
-            {placeholder && <option value="">{placeholder}</option>}
-            {countries.map((c) => (
-                <option key={c.code} value={c.name}>{c.name}</option>
-            ))}
-        </select>
+            onChange={onChange}
+            options={countryOptions}
+            placeholder={placeholder}
+            disabled={disabled}
+        />
     );
 }

@@ -87,13 +87,19 @@ class DashboardService
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Unique client count via DB query (avoids loading all clients into memory)
-        $uniqueClientCount = (int) DB::selectOne('
-            SELECT COUNT(DISTINCT c.client_id) AS cnt
+        // Unique client count + OFW/NOK split via DB query (avoids loading all clients into memory)
+        $clientCounts = DB::selectOne('
+            SELECT
+                COUNT(DISTINCT c.client_id) AS total,
+                COUNT(DISTINCT CASE WHEN c.client_type = \'OFW\' THEN c.client_id END) AS ofw,
+                COUNT(DISTINCT CASE WHEN c.client_type = \'NEXT_OF_KIN\' THEN c.client_id END) AS nok
             FROM referrals r
             JOIN cases c ON r.case_id = c.id AND c.is_deleted = false
             WHERE r.is_deleted = false AND c.client_id IS NOT NULL
-        ')->cnt;
+        ');
+        $uniqueClientCount = (int) $clientCounts->total;
+        $ofwCount = (int) $clientCounts->ofw;
+        $nokCount = (int) $clientCounts->nok;
 
         $recentActivity = AuditLog::with('user')
             ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
@@ -239,6 +245,8 @@ class DashboardService
             'totalReferrals' => $totalReferrals,
             'activeAgencies' => $activeAgencies,
             'uniqueClientCount' => $uniqueClientCount,
+            'ofwCount' => $ofwCount,
+            'nokCount' => $nokCount,
             'casesByCategory' => $casesByCategory,
             'referralStatusDistribution' => $referralStatusDistribution,
             'referralAgingBands' => $referralAgingBands,

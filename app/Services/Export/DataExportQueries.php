@@ -1013,29 +1013,27 @@ class DataExportQueries
      * ADMIN: all. CASE_MANAGER/AGENCY: scoped.
      * Uses the feedback_servqual_responses table for dimension calculations.
      *
-     * @param  array  $filters  Optional filters: agency_id, date_from, date_to
+     * @param  array  $filters  Optional filters: agency_id, date_from, date_to, window
      */
     public function getFeedbackWithServqual(?User $user = null, array $filters = []): Collection
     {
         // Base query joins feedback with referrals, cases, clients, agencies
         $query = DB::table('feedback')
             ->select([
-                'feedback.id',
-                'feedback.case_id',
-                'feedback.referral_id',
-                DB::raw("CONCAT(clients.first_name, ' ', clients.last_name) AS client_name"),
+                'cases.case_number',
+                DB::raw("COALESCE(CONCAT(clients.first_name, ' ', clients.last_name), 'Anonymous') AS client_name"),
                 'agencies.name AS agency_name',
-                'referrals.status AS referral_status',
                 'feedback.service_name',
+                'referrals.status AS referral_status',
                 'feedback.overall_rating',
-                'feedback.comments',
-                'feedback.created_at',
                 // SERVQUAL dimension averages (subquery approach)
                 DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Tangibles\') AS tangibles_avg'),
                 DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Reliability\') AS reliability_avg'),
                 DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Responsiveness\') AS responsiveness_avg'),
                 DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Assurance\') AS assurance_avg'),
                 DB::raw('(SELECT ROUND(AVG(perception::numeric), 2) FROM feedback_servqual_responses WHERE feedback_id = feedback.id AND dimension = \'Empathy\') AS empathy_avg'),
+                'feedback.comments',
+                'feedback.created_at AS submitted_at',
             ])
             ->leftJoin('referrals', 'feedback.referral_id', '=', 'referrals.id')
             ->leftJoin('cases', 'feedback.case_id', '=', 'cases.id')
@@ -1065,6 +1063,21 @@ class DataExportQueries
         }
         if (! empty($filters['date_to'])) {
             $query->whereDate('feedback.created_at', '<=', $filters['date_to']);
+        }
+
+        // Time window filter (matches dashboard)
+        if (! empty($filters['window']) && $filters['window'] !== 'all') {
+            $from = match ($filters['window']) {
+                '7d' => now()->subDays(7),
+                '30d' => now()->subDays(30),
+                '90d' => now()->subDays(90),
+                'quarter' => now()->startOfQuarter(),
+                'year' => now()->startOfYear(),
+                default => null,
+            };
+            if ($from) {
+                $query->where('feedback.created_at', '>=', $from);
+            }
         }
 
         return $query->orderBy('feedback.created_at', 'desc')->get();

@@ -149,11 +149,11 @@ class ReferralService
         }
 
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
-            $query->where('created_at', '<=', now()->subDays((int) $filters['age_min_days']));
+            $query->where('created_at', '<=', now()->subDays((int) $filters['age_min_days'])->endOfDay());
         }
 
         if (! empty($filters['age_max_days']) && is_numeric($filters['age_max_days'])) {
-            $query->where('created_at', '>=', now()->subDays((int) $filters['age_max_days']));
+            $query->where('created_at', '>=', now()->subDays((int) $filters['age_max_days'])->startOfDay());
         }
 
         if (! empty($filters['search'])) {
@@ -192,7 +192,7 @@ class ReferralService
             'attachments.user',
             'comments.user',
             'comments.replies.user',
-            'complianceRequirements',
+            'complianceRequirements.fulfilledBy',
         ])->findOrFail($id);
     }
 
@@ -563,6 +563,28 @@ class ReferralService
         });
     }
 
+    public function markComplianceAsComplied(string $complianceId, string $remark, string $userId): ReferralComplianceRequirement
+    {
+        return DB::transaction(function () use ($complianceId, $remark, $userId) {
+            $requirement = ReferralComplianceRequirement::findOrFail($complianceId);
+
+            if ($requirement->status !== 'PENDING') {
+                throw new \InvalidArgumentException('Compliance requirement is not pending.');
+            }
+
+            $requirement->update([
+                'status' => 'COMPLIED',
+                'fulfilled_by' => $userId,
+                'completed_at' => now(),
+                'remark' => $remark,
+            ]);
+
+            $this->eventRecorder->complianceFulfilled($requirement->referral, $requirement, $userId);
+
+            return $requirement;
+        });
+    }
+
     public function replaceAttachment(string $attachmentId, array $fileData, string $userId): ReferralAttachment
     {
         return DB::transaction(function () use ($attachmentId, $fileData, $userId) {
@@ -586,6 +608,39 @@ class ReferralService
             ]);
 
             return $newAttachment->load('user');
+        });
+    }
+
+    public function deleteAttachment(string $attachmentId, string $userId): void
+    {
+        DB::transaction(function () use ($attachmentId, $userId) {
+            $attachment = ReferralAttachment::findOrFail($attachmentId);
+
+            if ($attachment->user_id !== $userId) {
+                throw new \InvalidArgumentException('Only the uploader can remove this attachment.');
+            }
+
+            $fileName = $attachment->file_name;
+            $referralId = $attachment->referral_id;
+
+            $attachment->deleted_by = $userId;
+            $attachment->is_deleted = true;
+            $attachment->deleted_at = now();
+            $attachment->saveQuietly();
+
+            AuditLog::create([
+                'action' => 'DELETE',
+                'module' => 'referral_attachment',
+                'entity_id' => $attachmentId,
+                'old_value' => ['file_name' => $fileName, 'referral_id' => $referralId],
+                'new_value' => null,
+                'user_id' => $userId,
+                'timestamp' => now(),
+                'ip_address' => request()?->ip() ?? 'cli',
+                'user_agent' => request()?->userAgent() ?? 'cli',
+                'request_id' => request()?->attributes->get('correlation_id') ?? (string) Str::uuid(),
+                'description' => "Removed attachment: {$fileName}",
+            ]);
         });
     }
 

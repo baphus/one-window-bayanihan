@@ -726,7 +726,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
           type="button"
           onClick={handleExport}
           disabled={isExporting}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b5384] text-white hover:bg-[#09416a] text-[12px] font-bold rounded-md transition-colors border border-[#0b5384] disabled:opacity-60 disabled:cursor-not-allowed"
+          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
           {isExporting ? 'Exporting\u2026' : 'Export Excel'}

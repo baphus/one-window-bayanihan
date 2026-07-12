@@ -255,7 +255,9 @@ class ReferralController extends Controller
         $attachment = $this->referralService->addAttachment(
             $id,
             [
-                'name' => $result->originalName,
+                'name' => $request->input('document_label')
+                    ? str_replace('::', ' / ', $request->input('document_label')).' - '.$result->originalName
+                    : $result->originalName,
                 'path' => $result->path,
                 'type' => $result->type,
                 'size' => $result->size,
@@ -300,6 +302,68 @@ class ReferralController extends Controller
         return redirect()->back()->with('success', 'Compliance requirement fulfilled.');
     }
 
+    public function markComplianceAsComplied(Request $request, string $id, string $complianceId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        // Only agency users can mark as complied without upload
+        if ($request->user()->role !== 'AGENCY') {
+            abort(403, 'Only agency users can mark compliance as complied without uploading.');
+        }
+
+        $validated = $request->validate([
+            'remark' => 'required|string|max:2000',
+        ]);
+
+        $this->referralService->markComplianceAsComplied(
+            $complianceId,
+            $validated['remark'],
+            $request->user()->id,
+        );
+
+        return redirect()->back()->with('success', 'Compliance requirement marked as complied.');
+    }
+
+    public function markDocumentComplied(Request $request, string $id)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        if ($request->user()->role !== 'AGENCY') {
+            abort(403, 'Only agency users can mark compliance as complied without uploading.');
+        }
+
+        $validated = $request->validate([
+            'remark' => 'required|string|max:2000',
+            'service_name' => 'required|string|max:255',
+            'requirement_name' => 'required|string|max:255',
+        ]);
+
+        // Find or create the compliance requirement
+        $requirement = \App\Models\ReferralComplianceRequirement::firstOrCreate(
+            [
+                'referral_id' => $referral->id,
+                'service_name' => $validated['service_name'],
+                'requirement_name' => $validated['requirement_name'],
+                'is_deleted' => false,
+            ],
+            ['status' => 'PENDING']
+        );
+
+        if ($requirement->status !== 'PENDING') {
+            return redirect()->back()->with('info', 'This requirement has already been complied.');
+        }
+
+        $this->referralService->markComplianceAsComplied(
+            $requirement->id,
+            $validated['remark'],
+            $request->user()->id,
+        );
+
+        return redirect()->back()->with('success', 'Document marked as complied.');
+    }
+
     public function replaceAttachment(Request $request, string $id, string $attachmentId)
     {
         $referral = $this->referralService->getReferral($id);
@@ -321,7 +385,9 @@ class ReferralController extends Controller
         $attachment = $this->referralService->replaceAttachment(
             $attachmentId,
             [
-                'name' => $result->originalName,
+                'name' => $request->input('document_label')
+                    ? str_replace('::', ' / ', $request->input('document_label')).' - '.$result->originalName
+                    : $result->originalName,
                 'path' => $result->path,
                 'type' => $result->type,
                 'size' => $result->size,
@@ -332,6 +398,28 @@ class ReferralController extends Controller
         return redirect()
             ->back()
             ->with('success', 'Attachment replaced.');
+    }
+
+    public function deleteAttachment(Request $request, string $id, string $attachmentId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        $attachment = ReferralAttachment::where('referral_id', $id)
+            ->where('id', $attachmentId)
+            ->where('is_deleted', false)
+            ->firstOrFail();
+
+        // Only the uploader can remove their own attachment
+        if ($attachment->user_id !== $request->user()->id) {
+            abort(403, 'Only the uploader can remove this attachment.');
+        }
+
+        $this->referralService->deleteAttachment($attachmentId, $request->user()->id);
+
+        return redirect()
+            ->route('referrals.show', $id)
+            ->with('success', 'Attachment removed.');
     }
 
     public function downloadAttachment(Request $request, string $id, string $attachmentId)

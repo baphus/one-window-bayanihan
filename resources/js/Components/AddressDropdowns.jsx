@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import InputError from '@/Components/InputError';
+import SearchableSelect from '@/Components/SearchableSelect';
 import {
     getBarangaysByCity,
     getCitiesByProvince,
@@ -16,22 +17,6 @@ function Field({ label, required, children, className }) {
             </label>
             {children}
         </div>
-    );
-}
-
-function Select({ value, onChange, options, placeholder, disabled }) {
-    return (
-        <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            className={`h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${disabled ? 'bg-slate-50 text-slate-400' : ''}`}
-        >
-            {placeholder && <option value="">{placeholder}</option>}
-            {options.map((opt) => (
-                <option key={opt.code} value={opt.code}>{opt.name}</option>
-            ))}
-        </select>
     );
 }
 
@@ -91,39 +76,39 @@ export default function AddressDropdowns({ values, onChange, errors }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Region">
-                <Select
+                <SearchableSelect
                     value={values.region}
                     onChange={handleRegionChange}
-                    options={regions}
+                    options={regions.map((o) => ({ value: o.code, label: o.name }))}
                     placeholder="Select region..."
                 />
                 <InputError message={errors?.region} className="mt-1" />
             </Field>
             <Field label="Province">
-                <Select
+                <SearchableSelect
                     value={values.province}
                     onChange={handleProvinceChange}
-                    options={provinces}
+                    options={provinces.map((o) => ({ value: o.code, label: o.name }))}
                     placeholder={!values.region ? 'Select region first' : regionHasProvinces ? 'Select province...' : 'No province needed'}
                     disabled={!values.region || !regionHasProvinces}
                 />
                 <InputError message={errors?.province} className="mt-1" />
             </Field>
             <Field label="City/Municipality">
-                <Select
+                <SearchableSelect
                     value={values.city_municipality}
                     onChange={handleCityChange}
-                    options={cities}
+                    options={cities.map((o) => ({ value: o.code, label: o.name }))}
                     placeholder={!values.region ? 'Select region first' : regionHasProvinces && !values.province ? 'Select province first' : 'Select city/municipality...'}
                     disabled={!values.region || (regionHasProvinces && !values.province)}
                 />
                 <InputError message={errors?.city_municipality} className="mt-1" />
             </Field>
             <Field label="Barangay">
-                <Select
+                <SearchableSelect
                     value={values.barangay}
                     onChange={handleBarangayChange}
-                    options={barangays}
+                    options={barangays.map((o) => ({ value: o.code, label: o.name }))}
                     placeholder={!values.city_municipality ? 'Select city first' : 'Select barangay...'}
                     disabled={!values.city_municipality}
                 />

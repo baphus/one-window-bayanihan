@@ -6,6 +6,7 @@ use App\Helpers\CacheHelper;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
 use App\Services\AuditCategory;
 use App\Services\AuditLogFormatter;
 use Carbon\Carbon;
@@ -373,11 +374,22 @@ class AuditLogController extends Controller
 
         $referralModules = ['REFERRAL', 'referrals', 'referral'];
         $milestoneModules = ['milestone', 'milestones'];
+        $attachmentModules = ['referral_attachment', 'referral_attachments'];
+        $complianceModules = ['referral_compliance', 'referral_compliance_requirements'];
 
         // Get milestone IDs belonging to this referral
         $milestoneIds = $referral->milestones()->pluck('id')->toArray();
 
-        $query = AuditLog::where(function ($q) use ($id, $referralModules, $milestoneIds, $milestoneModules) {
+        // Get attachment IDs belonging to this referral (include soft-deleted for audit trail)
+        $attachmentIds = ReferralAttachment::withTrashed()
+            ->where('referral_id', $id)
+            ->pluck('id')
+            ->toArray();
+
+        // Get compliance requirement IDs belonging to this referral
+        $complianceIds = $referral->complianceRequirements()->pluck('id')->toArray();
+
+        $query = AuditLog::where(function ($q) use ($id, $referralModules, $milestoneIds, $milestoneModules, $attachmentIds, $attachmentModules, $complianceIds, $complianceModules) {
             // Referral logs
             $q->where(function ($sub) use ($id, $referralModules) {
                 $sub->where('entity_id', $id)->whereIn('module', $referralModules);
@@ -386,6 +398,18 @@ class AuditLogController extends Controller
             if (! empty($milestoneIds)) {
                 $q->orWhere(function ($sub) use ($milestoneIds, $milestoneModules) {
                     $sub->whereIn('entity_id', $milestoneIds)->whereIn('module', $milestoneModules);
+                });
+            }
+            // Related attachment logs
+            if (! empty($attachmentIds)) {
+                $q->orWhere(function ($sub) use ($attachmentIds, $attachmentModules) {
+                    $sub->whereIn('entity_id', $attachmentIds)->whereIn('module', $attachmentModules);
+                });
+            }
+            // Related compliance requirement logs
+            if (! empty($complianceIds)) {
+                $q->orWhere(function ($sub) use ($complianceIds, $complianceModules) {
+                    $sub->whereIn('entity_id', $complianceIds)->whereIn('module', $complianceModules);
                 });
             }
         });
