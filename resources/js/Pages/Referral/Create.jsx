@@ -90,12 +90,14 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
 
     const filteredAgencies = useMemo(() => {
         const q = agencyDebouncedSearch.trim().toLowerCase();
-        if (!q) return agencies;
-        return agencies.filter((a) => {
-            return (a.name?.toLowerCase() || '').includes(q)
-                || (a.short?.toLowerCase() || '').includes(q)
-                || (a.description?.toLowerCase() || '').includes(q);
-        });
+        const list = !q
+            ? agencies
+            : agencies.filter((a) => {
+                return (a.name?.toLowerCase() || '').includes(q)
+                    || (a.short?.toLowerCase() || '').includes(q)
+                    || (a.description?.toLowerCase() || '').includes(q);
+            });
+        return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [agencies, agencyDebouncedSearch]);
 
     const initialFormRef = useRef({ case_id: data.case_id, agcy_id: '', services: [] });
