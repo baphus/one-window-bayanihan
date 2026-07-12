@@ -60,8 +60,18 @@ export default function HeroSection({ title, description, onTrackAction, agencie
           100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-          animation: marquee 30s linear infinite;
+          animation: marquee 15s linear infinite;
           will-change: transform;
+        }
+        @media (min-width: 640px) {
+          .animate-marquee {
+            animation-duration: 25s;
+          }
+        }
+        @media (min-width: 1024px) {
+          .animate-marquee {
+            animation-duration: 30s;
+          }
         }
         .group:hover .animate-marquee {
           animation-play-state: paused;

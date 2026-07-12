@@ -8,7 +8,7 @@ function LogoImage({ src, alt }) {
 
   if (failed) {
     return (
-      <div className="flex h-20 w-32 items-center justify-center rounded bg-slate-100/20">
+      <div className="flex h-12 w-20 sm:h-20 sm:w-32 items-center justify-center rounded bg-slate-100/20">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Logo</span>
       </div>
     );
@@ -18,7 +18,7 @@ function LogoImage({ src, alt }) {
     <img
       src={imgSrc}
       alt={alt}
-      className="h-20 w-auto max-w-[160px] object-contain opacity-80 transition-opacity duration-300 hover:opacity-100"
+      className="h-12 sm:h-20 w-auto max-w-[100px] sm:max-w-[160px] object-contain opacity-80 transition-opacity duration-300 hover:opacity-100"
       referrerPolicy="no-referrer"
       loading="lazy"
       onError={() => {
@@ -42,7 +42,7 @@ export default function LogoMarquee({ agencies }) {
     <div className="overflow-hidden select-none group">
       <div className="animate-marquee whitespace-nowrap flex items-center">
         {marqueeLogos.map((logo, i) => (
-          <div key={i} className="mx-16 flex-shrink-0">
+          <div key={i} className="mx-4 sm:mx-10 md:mx-16 flex-shrink-0">
             <LogoImage src={logo} alt="Partner Agency Logo" />
           </div>
         ))}
