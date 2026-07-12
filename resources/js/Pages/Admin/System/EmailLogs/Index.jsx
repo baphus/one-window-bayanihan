@@ -1,5 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
+import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 
 const STATUS_TABS = [
   { label: 'All', value: '' },
@@ -14,12 +16,13 @@ const STATUS_BADGE = {
 
 export default function Index({ logs, filters }) {
   const { data, current_page, last_page, total } = logs;
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const switchTab = (status) => {
-    router.get(route('admin.system.email-logs.index'), { status }, {
+    router.get(route('admin.system.email-logs.index'), { status }, withLoading({
       preserveState: true,
       preserveScroll: true,
-    });
+    }));
   };
 
   const handleResend = (id) => {
@@ -32,10 +35,10 @@ export default function Index({ logs, filters }) {
   };
 
   const goPage = (page) => {
-    router.get(route('admin.system.email-logs.index'), { status: filters.status, page }, {
+    router.get(route('admin.system.email-logs.index'), { status: filters.status, page }, withLoading({
       preserveState: true,
       preserveScroll: true,
-    });
+    }));
   };
 
   const emptyMessage = () => {
@@ -72,8 +75,9 @@ export default function Index({ logs, filters }) {
         })}
       </div>
 
-      <div data-tour="email-logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
+      <div className="relative" aria-busy={tableLoading}>
+        <div data-tour="email-logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">To</th>
@@ -130,8 +134,8 @@ export default function Index({ logs, filters }) {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
 
       {last_page > 1 && (
         <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
@@ -156,6 +160,8 @@ export default function Index({ logs, filters }) {
           </div>
         </div>
       )}
+        {tableLoading && <TableLoadingOverlay variant="table" />}
+      </div>
     </AppLayout>
   );
 }

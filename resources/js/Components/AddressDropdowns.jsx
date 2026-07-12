@@ -25,7 +25,7 @@ function Select({ value, onChange, options, placeholder, disabled }) {
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
-            className={`h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${disabled ? 'bg-slate-50 text-slate-400' : ''}`}
+            className={`h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${disabled ? 'bg-slate-50 text-slate-400' : ''}`}
         >
             {placeholder && <option value="">{placeholder}</option>}
             {options.map((opt) => (

@@ -1,6 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { AuditTimeline } from '@/Components/AuditTimeline';
+import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import { useCallback, useMemo, useState } from 'react';
 
 function toDateInput(date) {
@@ -116,6 +118,7 @@ export default function AuditLogIndex({
   filterValues,
 }) {
   const [exportOpen, setExportOpen] = useState(false);
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const handleFilterChange = useCallback((filters) => {
     const url = new URL(window.location);
@@ -126,14 +129,14 @@ export default function AuditLogIndex({
         url.searchParams.set(key, value);
       }
     });
-    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['logs', 'filterValues', 'activeCategories'] });
-  }, []);
+    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs', 'filterValues', 'activeCategories'] }));
+  }, [withLoading]);
 
   const handlePageChange = useCallback((page) => {
     const url = new URL(window.location);
     url.searchParams.set('page', page);
-    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['logs'] });
-  }, []);
+    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs'] }));
+  }, [withLoading]);
 
   const pagination = {
     total: logs.total,
@@ -164,7 +167,7 @@ export default function AuditLogIndex({
           )}
         </div>
 
-        <div data-tour="audit-timeline">
+        <div data-tour="audit-timeline" className="relative" aria-busy={tableLoading}>
           <AuditTimeline
             logs={logs.data}
             availableActions={availableActions ?? []}
@@ -177,6 +180,7 @@ export default function AuditLogIndex({
             pagination={pagination}
             onPageChange={handlePageChange}
           />
+          {tableLoading && <TableLoadingOverlay variant="list" />}
         </div>
       </div>
 

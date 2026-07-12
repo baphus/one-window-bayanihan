@@ -14,7 +14,7 @@ export default function DateScopeSelect({ value = 'case_created_at', onChange })
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 rounded-[2px] bg-white pl-2.5 pr-6 text-left text-[11px] font-semibold text-slate-600 shadow-none appearance-none"
+        className="h-8 rounded-[2px] bg-white py-1 pl-2.5 pr-6 text-left text-[11px] font-semibold text-slate-600 shadow-none appearance-none"
         style={{ border: `1px solid ${COLORS.border}` }}
       >
         {SCOPE_OPTIONS.map((opt) => (

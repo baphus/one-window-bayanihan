@@ -6,6 +6,8 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import { formatDisplayDate } from '@/lib/utils';
 import { Delete } from 'lucide-react';
+import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—';
@@ -48,6 +50,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   const [searchValue, setSearchValue] = useState(initialFilters?.search ?? '');
   const [dateFrom, setDateFrom] = useState(initialFilters?.date_from ?? '');
   const [dateTo, setDateTo] = useState(initialFilters?.date_to ?? '');
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const searchTimeout = useRef(null);
 
@@ -62,7 +65,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
       else url.searchParams.delete(k);
     });
     url.searchParams.delete('page');
-    router.get(url.toString(), {}, { preserveState: true, replace: true });
+    router.get(url.toString(), {}, withLoading({ preserveState: true, replace: true }));
   }
 
   function handleSearchChange(value) {
@@ -89,7 +92,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   function goToPage(page) {
     const url = new URL(window.location);
     url.searchParams.set('page', page);
-    router.get(url.toString(), {}, { preserveState: true, replace: true });
+    router.get(url.toString(), {}, withLoading({ preserveState: true, replace: true }));
   }
 
   function handlePublish(id) {
@@ -199,7 +202,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
             )}
           </div>
 
-          <div data-tour="drafts-table">
+          <div data-tour="drafts-table" className="relative" aria-busy={tableLoading}>
           {drafts.data.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
@@ -308,6 +311,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
               )}
             </>
           )}
+            {tableLoading && <TableLoadingOverlay variant="table" />}
           </div>
         </div>
       </div>

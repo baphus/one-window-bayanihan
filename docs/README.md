@@ -33,6 +33,7 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 | Document | Description |
 |----------|-------------|
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Build, deploy, Docker, Render, environment configuration |
+| [EMAIL_DOMAIN_RESEND.md](EMAIL_DOMAIN_RESEND.md) | MVP requirement for domain purchase and Resend API-based email delivery |
 | [SECURITY_REQUIREMENTS.md](SECURITY_REQUIREMENTS.md) | Auth flow, RBAC, MFA, CSP, rate limiting, encryption |
 | [AUDIT_STRATEGY.md](AUDIT_STRATEGY.md) | Audit log design, append-only enforcement, hash chain |
 

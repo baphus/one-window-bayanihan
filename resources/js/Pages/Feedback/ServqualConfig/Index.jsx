@@ -172,7 +172,7 @@ export default function ServqualConfigIndex({ configs = [], hasMultipleConfigs, 
                 </p>
                 <div className="mt-4">
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Service</label>
-                  <select value={assignServiceId} onChange={(e) => setAssignServiceId(e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
+                  <select value={assignServiceId} onChange={(e) => setAssignServiceId(e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
                     <option value="">Select a service</option>
                     {services.map((service) => (
                       <option key={service.id} value={service.id}>{service.name}</option>

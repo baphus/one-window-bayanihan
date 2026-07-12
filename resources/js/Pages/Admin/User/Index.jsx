@@ -7,6 +7,7 @@ import UserAvatar from '@/Components/ui/UserAvatar';
 import { Users, UserCheck, Briefcase, Building2, Shield } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import PeerProfileModal from '@/Components/PeerProfileModal';
@@ -47,6 +48,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
   const [editingUser, setEditingUser] = useState(null);
   const [peerProfileUser, setPeerProfileUser] = useState(null);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [contextMenu, setContextMenu] = useState(null);
@@ -82,7 +84,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
       else url.searchParams.delete(k);
     });
     url.searchParams.delete('page');
-    router.get(url.toString(), {}, { preserveState: true, replace: true });
+    router.get(url.toString(), {}, withLoading({ preserveState: true, replace: true }));
   };
 
   const handleSearchChange = (value) => {
@@ -134,13 +136,13 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
       onPageChange: (page) => {
         const url = new URL(window.location);
         url.searchParams.set('page', page);
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['users'] });
+        router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['users'] }));
       },
       onRowsPerPageChange: (n) => {
         const url = new URL(window.location);
         url.searchParams.set('per_page', n);
         url.searchParams.delete('page');
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['users'] });
+        router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['users'] }));
       },
     };
   }
@@ -538,6 +540,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
         onRowContextMenu={handleRowContextMenu}
+        isLoading={tableLoading}
       />
       </div>
 

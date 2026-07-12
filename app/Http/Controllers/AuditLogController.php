@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -9,7 +10,6 @@ use App\Services\AuditCategory;
 use App\Services\AuditLogFormatter;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -43,7 +43,7 @@ class AuditLogController extends Controller
             return $log;
         });
 
-        $availableActions = Cache::remember(
+        $availableActions = CacheHelper::safeRemember(
             'audit_log_available_actions',
             now()->addHours(24),
             fn () => AuditLog::distinct()->pluck('action')->values()->toArray()
@@ -68,7 +68,7 @@ class AuditLogController extends Controller
             'helpdesk_articles' => 'helpdesk_article', 'helpdesk_article' => 'helpdesk_article',
         ];
 
-        $availableModulesRaw = Cache::remember(
+        $availableModulesRaw = CacheHelper::safeRemember(
             'audit_log_available_modules',
             now()->addHours(24),
             fn () => AuditLog::distinct()->pluck('module')->values()->toArray()
@@ -291,6 +291,124 @@ class AuditLogController extends Controller
             'user_agent' => $request->userAgent(),
             'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
         ]);
+    }
+
+    /**
+     * JSON endpoint: audit logs for a specific case and its referrals.
+     */
+    public function caseAuditLogs(string $id, Request $request)
+    {
+        $user = $request->user();
+        $case = CaseFile::where('is_deleted', false)->findOrFail($id);
+
+        // Authorization: Admin and Case Manager see all; Agency only if they have a referral for this case
+        if (! $user->isAdmin() && ! $user->isCaseManager()) {
+            $hasReferral = $case->referrals()
+                ->where('agcy_id', $user->agcy_id)
+                ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+                ->exists();
+
+            if (! $hasReferral) {
+                abort(403, 'You do not have access to this case.');
+            }
+        }
+
+        $caseModules = ['CASE', 'cases', 'case_files', 'case'];
+        $referralModules = ['REFERRAL', 'referrals', 'referral'];
+
+        // Get referral IDs belonging to this case
+        $referralIds = Referral::where('case_id', $id)
+            ->where('is_deleted', false)
+            ->pluck('id')
+            ->toArray();
+
+        $query = AuditLog::where(function ($q) use ($id, $caseModules, $referralIds, $referralModules) {
+            // Case logs
+            $q->where(function ($sub) use ($id, $caseModules) {
+                $sub->where('entity_id', $id)->whereIn('module', $caseModules);
+            });
+            // Related referral logs
+            if (! empty($referralIds)) {
+                $q->orWhere(function ($sub) use ($referralIds, $referralModules) {
+                    $sub->whereIn('entity_id', $referralIds)->whereIn('module', $referralModules);
+                });
+            }
+        });
+
+        $query->with('user')->orderBy('timestamp', 'desc');
+
+        $perPage = min((int) $request->input('per_page', 50), 100);
+        $logs = $query->cursorPaginate($perPage);
+
+        $formatter = app(AuditLogFormatter::class);
+        $logs->getCollection()->transform(function ($log) use ($formatter) {
+            $display = $formatter->formatForDisplay($log);
+            $log->message = $display['message'];
+            $log->detail = $display['detail'];
+            $log->actor = $display['actor'];
+            $log->hasChanges = $display['hasChanges'];
+            $log->formatted_module = $display['module'];
+            $log->changes = $display['changes'];
+
+            return $log;
+        });
+
+        return response()->json($logs);
+    }
+
+    /**
+     * JSON endpoint: audit logs for a specific referral and its milestones.
+     */
+    public function referralAuditLogs(string $id, Request $request)
+    {
+        $user = $request->user();
+        $referral = Referral::where('is_deleted', false)->findOrFail($id);
+
+        // Authorization: Admin and Case Manager see all; Agency only if agcy_id matches
+        if (! $user->isAdmin() && ! $user->isCaseManager()) {
+            if ($referral->agcy_id !== $user->agcy_id) {
+                abort(403, 'You do not have access to this referral.');
+            }
+        }
+
+        $referralModules = ['REFERRAL', 'referrals', 'referral'];
+        $milestoneModules = ['milestone', 'milestones'];
+
+        // Get milestone IDs belonging to this referral
+        $milestoneIds = $referral->milestones()->pluck('id')->toArray();
+
+        $query = AuditLog::where(function ($q) use ($id, $referralModules, $milestoneIds, $milestoneModules) {
+            // Referral logs
+            $q->where(function ($sub) use ($id, $referralModules) {
+                $sub->where('entity_id', $id)->whereIn('module', $referralModules);
+            });
+            // Related milestone logs
+            if (! empty($milestoneIds)) {
+                $q->orWhere(function ($sub) use ($milestoneIds, $milestoneModules) {
+                    $sub->whereIn('entity_id', $milestoneIds)->whereIn('module', $milestoneModules);
+                });
+            }
+        });
+
+        $query->with('user')->orderBy('timestamp', 'desc');
+
+        $perPage = min((int) $request->input('per_page', 50), 100);
+        $logs = $query->cursorPaginate($perPage);
+
+        $formatter = app(AuditLogFormatter::class);
+        $logs->getCollection()->transform(function ($log) use ($formatter) {
+            $display = $formatter->formatForDisplay($log);
+            $log->message = $display['message'];
+            $log->detail = $display['detail'];
+            $log->actor = $display['actor'];
+            $log->hasChanges = $display['hasChanges'];
+            $log->formatted_module = $display['module'];
+            $log->changes = $display['changes'];
+
+            return $log;
+        });
+
+        return response()->json($logs);
     }
 
     public static function moduleAliases(string $module): array

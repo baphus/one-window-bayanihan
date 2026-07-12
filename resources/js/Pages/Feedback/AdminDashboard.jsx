@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { formatDisplayDate } from '@/lib/utils';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
 
 const WINDOW_OPTIONS = [
   { value: 'all', label: 'All time' },
@@ -51,6 +53,7 @@ function Field({ label, children }) {
 }
 
 export default function AdminDashboard({ agencySummary = [], feedbacks, filters = {}, allAgencies = [], allServices = [] }) {
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
   const feedbackRows = feedbacks?.data ?? [];
 
   const defaultFilters = useMemo(
@@ -74,13 +77,18 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   const applyFilters = () => {
-    router.get(route('admin.feedbacks.dashboard'), cleanQuery(form), { preserveState: true, preserveScroll: true });
+    router.get(route('admin.feedbacks.dashboard'), cleanQuery(form), withLoading({ preserveState: true, preserveScroll: true }));
   };
 
   const clearFilters = () => {
     const cleared = { agency_id: '', service_id: '', date_from: '', date_to: '', min_rating: '', window: 'all' };
     setForm(cleared);
-    router.get(route('admin.feedbacks.dashboard'), cleanQuery(cleared), { preserveState: true, preserveScroll: true });
+    router.get(route('admin.feedbacks.dashboard'), cleanQuery(cleared), withLoading({ preserveState: true, preserveScroll: true }));
+  };
+
+  const goToFeedbackPage = (url) => {
+    if (!url) return;
+    router.get(url, {}, withLoading({ preserveState: true, preserveScroll: true }));
   };
 
   const hasPagination = feedbacks?.last_page > 1 && Array.isArray(feedbacks?.links);
@@ -106,7 +114,7 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
           <div className="px-5 py-5">
             <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-6">
               <Field label="Agency">
-                <select value={form.agency_id} onChange={(e) => updateField('agency_id', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
+                <select value={form.agency_id} onChange={(e) => updateField('agency_id', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
                   <option value="">All agencies</option>
                   {allAgencies.map((agency) => (
                     <option key={agency.id} value={agency.id}>{agency.name}</option>
@@ -115,7 +123,7 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
               </Field>
 
               <Field label="Service">
-                <select value={form.service_id} onChange={(e) => updateField('service_id', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
+                <select value={form.service_id} onChange={(e) => updateField('service_id', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
                   <option value="">All services</option>
                   {allServices.map((service) => (
                     <option key={service.id} value={service.id}>{service.name}</option>
@@ -124,15 +132,15 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
               </Field>
 
               <Field label="Date from">
-                <input type="date" value={form.date_from} onChange={(e) => updateField('date_from', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900" />
+                <input type="date" value={form.date_from} onChange={(e) => updateField('date_from', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900" />
               </Field>
 
               <Field label="Date to">
-                <input type="date" value={form.date_to} onChange={(e) => updateField('date_to', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900" />
+                <input type="date" value={form.date_to} onChange={(e) => updateField('date_to', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900" />
               </Field>
 
               <Field label="Minimum rating">
-                <select value={form.min_rating} onChange={(e) => updateField('min_rating', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
+                <select value={form.min_rating} onChange={(e) => updateField('min_rating', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
                   <option value="">Any rating</option>
                   {MIN_RATING_OPTIONS.filter(Boolean).map((rating) => (
                     <option key={rating} value={rating}>{rating} stars & up</option>
@@ -141,7 +149,7 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
               </Field>
 
               <Field label="Window">
-                <select value={form.window} onChange={(e) => updateField('window', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
+                <select value={form.window} onChange={(e) => updateField('window', e.target.value)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900">
                   {WINDOW_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -160,14 +168,17 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
           </div>
         </section>
 
-        <section data-tour="feedbacks-kpis" className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Agency summary</h2>
-            <p className="mt-1 text-sm text-slate-500">Response totals and averages by agency.</p>
-          </div>
-          <div className="px-5 py-5">
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              <table className="min-w-full divide-y divide-slate-200">
+        <div className="relative space-y-6" aria-busy={tableLoading}>
+          {tableLoading ? <TableLoadingOverlay variant="table" rows={8} columns={5} label="Loading updated feedback records…" /> : null}
+
+          <section data-tour="feedbacks-kpis" className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Agency summary</h2>
+              <p className="mt-1 text-sm text-slate-500">Response totals and averages by agency.</p>
+            </div>
+            <div className="px-5 py-5">
+              <div className="overflow-hidden rounded-lg border border-slate-200">
+                <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Agency</th>
@@ -194,12 +205,12 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
                     ))
                   )}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section data-tour="feedbacks-list" className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <section data-tour="feedbacks-list" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Feedback records</h2>
             <p className="mt-1 text-sm text-slate-500">Detailed responses matching the selected filters.</p>
@@ -252,9 +263,11 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
                     <p className="text-sm text-slate-600">Showing {feedbacks.from ?? 0} to {feedbacks.to ?? 0} of {feedbacks.total ?? 0}</p>
                     <div className="flex flex-wrap gap-2">
                       {feedbacks.links.map((link, index) => (
-                        <Link
+                        <button
+                          type="button"
                           key={`${link.label}-${index}`}
-                          href={link.url || '#'}
+                          onClick={() => goToFeedbackPage(link.url)}
+                          disabled={!link.url}
                           className={`inline-flex items-center rounded-md border px-3 py-2 text-sm ${link.active ? 'border-blue-900 bg-blue-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'} ${!link.url ? 'pointer-events-none opacity-40' : ''}`}
                           dangerouslySetInnerHTML={{ __html: link.label }}
                         />
@@ -265,7 +278,8 @@ export default function AdminDashboard({ agencySummary = [], feedbacks, filters 
               </>
             )}
           </div>
-        </section>
+          </section>
+        </div>
       </div>
     </AppLayout>
   );

@@ -63,7 +63,7 @@ function StatusForm({ status, onClose, onBypass }) {
             <select
               value={data.type}
               onChange={(e) => setData('type', e.target.value)}
-              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 text-sm"
               required
             >
               <option value="case">Case</option>

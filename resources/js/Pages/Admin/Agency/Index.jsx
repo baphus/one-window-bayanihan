@@ -6,6 +6,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { Building2, Users, CheckCircle, XCircle, Shield, MapPin, Phone } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import AgencyFormModal from '@/Components/Admin/AgencyFormModal';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
@@ -29,6 +30,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
   const [showForm, setShowForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState(null);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [contextMenu, setContextMenu] = useState(null);
@@ -61,7 +63,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
       else url.searchParams.delete(k);
     });
     url.searchParams.delete('page');
-    router.get(url.toString(), {}, { preserveState: true, replace: true });
+    router.get(url.toString(), {}, withLoading({ preserveState: true, replace: true }));
   };
 
   const handleSearchChange = (value) => {
@@ -101,13 +103,13 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
       onPageChange: (page) => {
         const url = new URL(window.location);
         url.searchParams.set('page', page);
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['agencies'] });
+        router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['agencies'] }));
       },
       onRowsPerPageChange: (n) => {
         const url = new URL(window.location);
         url.searchParams.set('per_page', n);
         url.searchParams.delete('page');
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['agencies'] });
+        router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['agencies'] }));
       },
     };
   }
@@ -393,6 +395,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
         onRowContextMenu={handleRowContextMenu}
+        isLoading={tableLoading}
       />
       </div>
 

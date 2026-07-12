@@ -48,12 +48,13 @@ class ReportsExportService
         }
 
         // Single source of truth: the exact same computed dataset as the
-        // on-screen report, honoring all five filters (date range, date scope,
-        // province, city, role). Summary/KPI/distribution sections are mapped
-        // from this so an export can never diverge from the screen.
+        // on-screen report, honoring all filters (date range, date scope,
+        // province, city, role, agency). Summary/KPI/distribution sections are
+        // mapped from this so an export can never diverge from the screen.
         $report = $this->reports->getAll(
             userId: $criteria['user']->id,
             role: $criteria['role'],
+            agencyId: $criteria['agency_id'],
             fromDate: $criteria['from']->toDateString(),
             toDate: $criteria['to']->toDateString(),
             dateScope: $criteria['dateScope'],
@@ -130,10 +131,19 @@ class ReportsExportService
             $dateScope = 'case_created_at';
         }
 
+        // Resolve effective agency scope: AGENCY users are locked to their own
+        // agency; ADMIN and CASE_MANAGER may select one via query param.
+        $agencyId = match ($user->role) {
+            'AGENCY' => $user->agcy_id,
+            'ADMIN', 'CASE_MANAGER' => $request->query('agency_id') ?: null,
+            default => null,
+        };
+
         return [
             'user' => $user,
             'role' => $user->role,
-            'agency_id' => $user->agcy_id,
+            'agency_id' => $agencyId,
+            'user_agcy_id' => $user->agcy_id,
             'from' => $from,
             'to' => $to,
             'fromInstant' => $from->startOfDay()->utc(),
@@ -167,8 +177,11 @@ class ReportsExportService
         if ($c['role'] === 'CASE_MANAGER') {
             $q->where('cases.user_id', $c['user']->id);
         }
-        if ($c['role'] === 'AGENCY') {
-            $c['agency_id'] ? $q->where('referrals.agcy_id', $c['agency_id']) : $q->whereRaw('1=0');
+        if ($c['agency_id']) {
+            $q->where('referrals.agcy_id', $c['agency_id']);
+        } elseif ($c['role'] === 'AGENCY') {
+            // Agency user without an assigned agency sees no data.
+            $q->whereRaw('1=0');
         }
 
         $this->applyGeo($q, $c);
@@ -190,10 +203,11 @@ class ReportsExportService
         if ($c['role'] === 'CASE_MANAGER') {
             $q->where('cases.user_id', $c['user']->id);
         }
-        if ($c['role'] === 'AGENCY') {
-            $c['agency_id']
-                ? $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->whereNull('referrals.deleted_at')->where('referrals.agcy_id', $c['agency_id']))
-                : $q->whereRaw('1=0');
+        if ($c['agency_id']) {
+            $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->whereNull('referrals.deleted_at')->where('referrals.agcy_id', $c['agency_id']));
+        } elseif ($c['role'] === 'AGENCY') {
+            // Agency user without an assigned agency sees no data.
+            $q->whereRaw('1=0');
         }
 
         $this->applyGeo($q, $c, 'cases');
@@ -338,6 +352,7 @@ class ReportsExportService
                 'date_scope' => $c['dateScope'],
                 'province' => $c['province'] ?? 'All',
                 'city' => $c['city'] ?? 'All',
+                'agency_id' => $c['agency_id'] ?? 'All',
             ],
             'row_counts' => $rowCounts,
             'row_cap' => $rowCap,

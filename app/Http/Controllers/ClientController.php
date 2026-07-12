@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Http\Requests\ProfilePictureRequest;
 use App\Models\Agency;
 use App\Models\AuditLog;
@@ -133,7 +134,7 @@ class ClientController extends Controller
     {
         $cacheKey = 'client_stats:'.$user?->id;
 
-        return Cache::remember($cacheKey, 30, function () use ($user) {
+        return CacheHelper::safeRemember($cacheKey, 30, function () use ($user) {
             // Single query with conditional aggregation — replaces 10 separate count queries
             $sql = "SELECT
                 (SELECT COUNT(*) FROM clients WHERE is_deleted = false) AS total_clients,

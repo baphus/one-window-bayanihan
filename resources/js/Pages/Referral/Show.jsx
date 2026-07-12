@@ -10,6 +10,7 @@ import { CardSection, InfoCell } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar, { getAvatarColor } from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
+import AuditLogModal from '@/Components/AuditLogModal';
 import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { formatResolvedAddress } from '@/lib/addressResolver';
@@ -76,6 +77,7 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
     const topLevelComments = comments.filter((c) => !c.parent_id);
     const [peerProfileUser, setPeerProfileUser] = useState(null);
     const [showOverdueInfo, setShowOverdueInfo] = useState(false);
+    const [showAuditLog, setShowAuditLog] = useState(false);
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
@@ -170,6 +172,14 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
                             Update Status
                         </button>
                     )}
+                    <button
+                        type="button"
+                        onClick={() => setShowAuditLog(true)}
+                        className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md inline-flex items-center gap-1.5 hover:bg-slate-50"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">history</span>
+                        Audit Log
+                    </button>
                     <Link
                         href={route('referrals.index')}
                         className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md inline-flex items-center hover:bg-slate-50"
@@ -612,7 +622,7 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
                                     <select
                                         value={pendingDecision.status}
                                         onChange={(e) => setPendingDecision({ ...pendingDecision, status: e.target.value })}
-                                        className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
                                     >
                                         <option value="PROCESSING">Processing</option>
                                         <option value="FOR_COMPLIANCE">For Compliance</option>
@@ -666,7 +676,7 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
                                 <select
                                     value={updateStatusValue}
                                     onChange={(e) => setUpdateStatusValue(e.target.value)}
-                                    className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
                                 >
                                     <option value="PROCESSING">Processing</option>
                                     <option value="FOR_COMPLIANCE">For Compliance</option>
@@ -762,6 +772,13 @@ export default function ReferralShow({ referral, overdueDays = 7, timeline = [] 
                     </div>
                 </div>
             )}
+            <AuditLogModal
+                show={showAuditLog}
+                onClose={() => setShowAuditLog(false)}
+                entityType="referral"
+                entityId={referral.id}
+                title={`Audit Log — ${referral.case_file?.case_number ?? 'Referral'}`}
+            />
             <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
         </AppLayout>
     );

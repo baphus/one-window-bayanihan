@@ -41,7 +41,7 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                 <select
                   value={question.dimension}
                   onChange={(e) => onChange('dimension', e.target.value)}
-                  className={`h-10 w-full rounded-md border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
+                  className={`h-10 w-full rounded-md border px-3 py-2 text-sm text-slate-700 outline-none focus:ring-1 ${
                     errors[`questions.${index}.dimension`]
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
                       : 'border-slate-300 focus:border-blue-900 focus:ring-blue-900'
@@ -282,7 +282,7 @@ export default function ServqualConfigForm({ config, defaultQuestions, services 
                   id="service_id"
                   value={data.service_id}
                   onChange={(e) => handleServiceChange(e.target.value)}
-                  className={`h-10 w-full rounded-md border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
+                  className={`h-10 w-full rounded-md border px-3 py-2 text-sm text-slate-700 outline-none focus:ring-1 ${
                     errors.service_id ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-blue-900 focus:ring-blue-900'
                   }`}
                 >

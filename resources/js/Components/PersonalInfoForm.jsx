@@ -76,7 +76,7 @@ export default function PersonalInfoForm({ data, setData, errors, onDirtyChange 
                     <FieldLabel>Timezone</FieldLabel>
                     <select
                         id="timezone"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary text-[13px]"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-[13px]"
                         value={data.timezone}
                         onChange={(e) => setData('timezone', e.target.value)}
                     >

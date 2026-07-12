@@ -685,6 +685,16 @@ class CaseService
             });
         }
 
+        if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
+            $query->where('created_at', '<=', now()->subDays((int) $filters['age_min_days']));
+        }
+
+        if (($filters['referral_state'] ?? null) === 'none') {
+            $query->whereDoesntHave('referrals', function ($q) {
+                $q->where('is_deleted', false);
+            });
+        }
+
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
@@ -1100,12 +1110,18 @@ class CaseService
 
     public function getCaseStats(): array
     {
-        $active = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
-        $open = CaseFile::where('status', 'OPEN')->count();
-        $closed = CaseFile::where('status', 'CLOSED')->count();
-        $archived = CaseFile::where('status', 'ARCHIVED')->count();
-        $ofw = CaseFile::where('client_type', 'OFW')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
-        $nok = CaseFile::where('client_type', 'NOK')->whereNotIn('status', ['DRAFT', 'ARCHIVED'])->count();
+        $counts = DB::selectOne("
+            SELECT
+                COUNT(*) FILTER (WHERE status NOT IN ('DRAFT','ARCHIVED')) AS active,
+                COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
+                COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed,
+                COUNT(*) FILTER (WHERE status = 'ARCHIVED') AS archived,
+                COUNT(*) FILTER (WHERE client_type = 'OFW' AND status NOT IN ('DRAFT','ARCHIVED')) AS ofw,
+                COUNT(*) FILTER (WHERE client_type = 'NEXT_OF_KIN' AND status NOT IN ('DRAFT','ARCHIVED')) AS nok
+            FROM cases
+            WHERE is_deleted = false
+        ");
+
         $totalReferrals = Referral::count();
 
         $categoryBreakdown = CaseFile::join('case_categories', 'cases.category_id', '=', 'case_categories.id')
@@ -1116,12 +1132,12 @@ class CaseService
             ->get();
 
         return [
-            'total_cases' => $active,
-            'open_cases' => $open,
-            'closed_cases' => $closed,
-            'archived_cases' => $archived,
-            'ofw_cases' => $ofw,
-            'nok_cases' => $nok,
+            'total_cases' => (int) $counts->active,
+            'open_cases' => (int) $counts->open,
+            'closed_cases' => (int) $counts->closed,
+            'archived_cases' => (int) $counts->archived,
+            'ofw_cases' => (int) $counts->ofw,
+            'nok_cases' => (int) $counts->nok,
             'total_referrals' => $totalReferrals,
             'category_breakdown' => $categoryBreakdown,
         ];

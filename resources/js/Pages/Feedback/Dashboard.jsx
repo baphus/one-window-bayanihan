@@ -1,6 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { formatDisplayDate } from '@/lib/utils';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
 
 const WINDOW_OPTIONS = [
   { value: 'all', label: 'All time' },
@@ -99,6 +101,7 @@ export default function FeedbackDashboard({
   recent_feedback = [],
   window: selectedWindow = 'all',
 }) {
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
   const totalResponses = toNumber(stats.total_submitted);
   const ratings = [1, 2, 3, 4, 5].map((rating) => ({
     rating,
@@ -108,7 +111,7 @@ export default function FeedbackDashboard({
   const hasDistribution = maxDistributionCount > 0;
 
   const handleWindowChange = (value) => {
-    router.get(route('feedbacks.index'), { window: value }, { preserveState: true, preserveScroll: true });
+    router.get(route('feedbacks.index'), { window: value }, withLoading({ preserveState: true, preserveScroll: true }));
   };
 
   return (
@@ -130,7 +133,7 @@ export default function FeedbackDashboard({
                 id="feedback-window"
                 value={selectedWindow}
                 onChange={(e) => handleWindowChange(e.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
               >
                 {WINDOW_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -140,15 +143,18 @@ export default function FeedbackDashboard({
           </div>
         </section>
 
-        <section data-tour="feedbacks-kpis" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <StatCard label="Total Sent" value={toNumber(stats.total_sent)} hint="Invitations issued" icon="send" />
-          <StatCard label="Responses" value={totalResponses} hint="Submitted feedback" icon="rate_review" />
-          <StatCard label="Response Rate" value={`${roundToTwo(stats.response_rate) ?? 0}%`} hint="Responses ÷ sent" icon="query_stats" />
-          <StatCard label="Avg Rating" value={roundToTwo(stats.avg_rating) ?? '—'} hint="Overall rating" icon="star" />
-          <StatCard label="Avg SERVQUAL" value={roundToTwo(stats.avg_servqual) ?? '—'} hint="Average dimension score" icon="insights" />
-        </section>
+        <div className="relative space-y-6" aria-busy={tableLoading}>
+          {tableLoading ? <TableLoadingOverlay variant="table" rows={8} columns={5} label="Loading updated feedback dashboard…" /> : null}
 
-        <div data-tour="feedbacks-breakdown" className="grid gap-6 xl:grid-cols-2">
+          <section data-tour="feedbacks-kpis" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard label="Total Sent" value={toNumber(stats.total_sent)} hint="Invitations issued" icon="send" />
+            <StatCard label="Responses" value={totalResponses} hint="Submitted feedback" icon="rate_review" />
+            <StatCard label="Response Rate" value={`${roundToTwo(stats.response_rate) ?? 0}%`} hint="Responses ÷ sent" icon="query_stats" />
+            <StatCard label="Avg Rating" value={roundToTwo(stats.avg_rating) ?? '—'} hint="Overall rating" icon="star" />
+            <StatCard label="Avg SERVQUAL" value={roundToTwo(stats.avg_servqual) ?? '—'} hint="Average dimension score" icon="insights" />
+          </section>
+
+          <div data-tour="feedbacks-breakdown" className="grid gap-6 xl:grid-cols-2">
           <SectionCard title="Rating distribution" description="Overall ratings by count.">
             {!hasDistribution ? (
               <EmptyState title="No ratings yet" description="Ratings will appear once clients start submitting feedback." />
@@ -201,9 +207,9 @@ export default function FeedbackDashboard({
               })}
             </div>
           </SectionCard>
-        </div>
+          </div>
 
-        <SectionCard title="Service breakdown" description="Invitations sent, responses, response rate, and average rating by service.">
+          <SectionCard title="Service breakdown" description="Invitations sent, responses, response rate, and average rating by service.">
           {service_breakdown.length === 0 ? (
             <EmptyState title="No service data yet" description="Service totals will appear here once feedback is recorded." />
           ) : (
@@ -234,9 +240,9 @@ export default function FeedbackDashboard({
               </table>
             </div>
           )}
-        </SectionCard>
+          </SectionCard>
 
-        <SectionCard dataTour="feedbacks-list" title="Recent feedback" description="Latest submissions from clients.">
+          <SectionCard dataTour="feedbacks-list" title="Recent feedback" description="Latest submissions from clients.">
           {recent_feedback.length === 0 ? (
             <EmptyState title="No recent feedback" description="Recent submissions will appear here once clients respond." />
           ) : (
@@ -273,7 +279,8 @@ export default function FeedbackDashboard({
               </table>
             </div>
           )}
-        </SectionCard>
+          </SectionCard>
+        </div>
       </div>
     </AppLayout>
   );

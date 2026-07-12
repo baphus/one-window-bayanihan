@@ -90,7 +90,7 @@ class DataExportQueries
      * No IDs or system fields. Administrators see all; Case Managers see own.
      *
      * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
-     *                          user_id, agcy_id, category_id, case_issue_id
+     *                          user_id, agcy_id, category_id, case_issue_id, age_min_days, referral_state
      */
     public function getCasesExport(?User $user = null, array $filters = []): Collection
     {
@@ -179,6 +179,16 @@ class DataExportQueries
                     ->where('is_deleted', false);
             });
         }
+        if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
+            $query->where('c.created_at', '<=', now()->subDays((int) $filters['age_min_days']));
+        }
+        if (($filters['referral_state'] ?? null) === 'none') {
+            $query->whereNotIn('c.id', function ($q) {
+                $q->select('case_id')
+                    ->from('referrals')
+                    ->where('is_deleted', false);
+            });
+        }
         if (! empty($filters['category_id'])) {
             $query->where('c.category_id', $filters['category_id']);
         }
@@ -194,6 +204,10 @@ class DataExportQueries
                     ->orWhere('cl.last_name', 'ilike', "%{$search}%");
             });
         }
+
+        // Safety cap — prevents memory exhaustion on unbounded exports.
+        // The DataExportService should eventually support streaming for larger sets.
+        $query->limit(10000);
 
         return $query->get()->map(function ($row) {
             // Convert stdClass to a mutable object we can add properties to
@@ -466,6 +480,10 @@ class DataExportQueries
             });
         }
 
+        // Safety cap — prevents memory exhaustion on unbounded exports.
+        // The DataExportService should eventually support streaming for larger sets.
+        $query->limit(10000);
+
         return $query->get()->map(function ($row) {
             $row = (object) $row;
 
@@ -667,6 +685,10 @@ class DataExportQueries
                     ->where('is_deleted', false);
             });
         }
+
+        // Safety cap — prevents memory exhaustion on unbounded exports.
+        // The DataExportService should eventually support streaming for larger sets.
+        $query->limit(10000);
 
         return $query->get()->map(function ($row) {
             $row = (object) $row;

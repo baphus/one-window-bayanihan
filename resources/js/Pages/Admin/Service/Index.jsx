@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 
@@ -12,6 +13,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
   const [editingService, setEditingService] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm);
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   function handleRowContextMenu(e, row) {
     e.preventDefault();
@@ -30,13 +32,13 @@ export default function AdminServiceIndex({ services, allAgencies }) {
       onPageChange: (page) => {
         const url = new URL(window.location);
         url.searchParams.set('page', page);
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['services'] });
+        router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['services'] }));
       },
       onRowsPerPageChange: (n) => {
         const url = new URL(window.location);
         url.searchParams.set('per_page', n);
         url.searchParams.delete('page');
-        router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['services'] });
+        router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['services'] }));
       },
     };
   }
@@ -100,6 +102,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
         keyExtractor={(row) => row.id}
         {...paginatorProps(services)}
         onRowContextMenu={handleRowContextMenu}
+        isLoading={tableLoading}
       />
       </div>
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />

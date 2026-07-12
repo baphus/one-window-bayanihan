@@ -108,7 +108,7 @@ export default function AdminDashboard({ dashboard = {} }) {
             <div className="grid gap-6 xl:grid-cols-12">
                 <div className="space-y-6 xl:col-span-8">
                     <SectionCard
-                        title="Recent case movement"
+                        title="Recent case activity"
                         dataTour="dashboard-recent-cases"
                         action={<ViewAllLink href="/cases">View all cases</ViewAllLink>}
                         bodyClassName=""
@@ -120,7 +120,7 @@ export default function AdminDashboard({ dashboard = {} }) {
                                     href={`/cases/${item.id}`}
                                     pill={item.case_number ?? item.caseNo}
                                     title={item.client_name ?? item.clientName ?? 'Unnamed client'}
-                                    note={[item.category, item.case_owner ?? item.caseOwner, item.created_at ? `Created ${formatDisplayDate(item.created_at)}` : null].filter(Boolean).join(' · ')}
+                                    note={[item.category, item.case_owner ?? item.caseOwner, item.last_activity ?? (item.updated_at ? `Updated ${formatDisplayDate(item.updated_at)}` : null)].filter(Boolean).join(' · ')}
                                     right={<StatusBadge status={item.status} />}
                                 />
                             ))}

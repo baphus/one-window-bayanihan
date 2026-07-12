@@ -14,6 +14,7 @@ import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
 import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { formatResolvedAddress } from '@/lib/addressResolver';
+import AuditLogModal from '@/Components/AuditLogModal';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -135,6 +136,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [showReferralPrompt, setShowReferralPrompt] = useState(!!page.props.just_published);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
+  const [showAuditLog, setShowAuditLog] = useState(false);
   const [formStatus, setFormStatus] = useState(caseFile.status);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
@@ -314,6 +316,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   }
 
   function handleArchive() {
+    if (hasActiveReferrals) {
+      toast.error('Cannot archive case: One or more referrals are still pending or in progress.');
+      return;
+    }
+
     router.post(route('cases.archive', caseFile.id), {}, {
       preserveScroll: true,
     });
@@ -380,6 +387,14 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           )}
           <button
             type="button"
+            onClick={() => setShowAuditLog(true)}
+            className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300 inline-flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">history</span>
+            Audit Log
+          </button>
+          <button
+            type="button"
             onClick={openEditDetails}
             className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300"
           >
@@ -406,7 +421,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             >
               Restore from Archive
             </button>
-          ) : caseFile.status === 'CLOSED' ? (
+          ) : caseFile.status === 'CLOSED' && !hasActiveReferrals ? (
             <button
               type="button"
               onClick={handleArchive}
@@ -885,7 +900,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 <select
                   value={formStatus}
                   onChange={(e) => setFormStatus(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                   <option value="OPEN">Open</option>
                   <option value="CLOSED">Closed</option>
@@ -898,7 +913,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 <select
                   value={formClientType}
                   onChange={(e) => setFormClientType(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                   <option value="OFW">Overseas Filipino Worker</option>
                   <option value="NEXT_OF_KIN">Next of Kin</option>
@@ -910,7 +925,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 <select
                   value={formVulnerability}
                   onChange={(e) => setFormVulnerability(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                   <option value="">None</option>
                   <option value="PWD">PWD</option>
@@ -925,7 +940,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 <select
                   value={nokVulnerability}
                   onChange={(e) => setNokVulnerability(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                   <option value="">None</option>
                   <option value="PWD">PWD</option>
@@ -968,6 +983,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       )}
 
       <UnsavedChangesModal show={showModal} onConfirm={confirmNavigation} onCancel={cancelNavigation} />
+      <AuditLogModal
+        show={showAuditLog}
+        onClose={() => setShowAuditLog(false)}
+        entityType="case"
+        entityId={caseFile.id}
+        title={`Audit Log — ${caseFile.case_number}`}
+      />
     </AppLayout>
   );
 }

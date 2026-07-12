@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
+use App\Services\OnboardingService;
 use App\Services\PhilippineAddressService;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
@@ -30,7 +31,7 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
-        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'sort', 'direction', 'per_page'];
+        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'referral_state', 'sort', 'direction', 'per_page'];
 
         $cases = $this->caseService->getCases(
             $request->only($filterKeys),
@@ -43,7 +44,7 @@ class CaseController extends Controller
             'cases' => $cases,
             'filters' => (object) $request->only($filterKeys),
             'stats' => $this->caseService->getCaseStats(),
-            'users' => User::select('id', 'name')->orderBy('name')->get(),
+            'users' => User::where('role', 'CASE_MANAGER')->select('id', 'name')->orderBy('name')->get(),
             'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
             'categories' => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
             'caseIssues' => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
@@ -79,7 +80,7 @@ class CaseController extends Controller
         if (! $isDraft) {
             $case = $this->caseService->publishDraft($case->id, $request->user()->id);
 
-            app(\App\Services\OnboardingService::class)
+            app(OnboardingService::class)
                 ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
             return redirect()
@@ -189,7 +190,7 @@ class CaseController extends Controller
 
         $case = $this->caseService->publishDraft($case->id, $request->user()->id);
 
-        app(\App\Services\OnboardingService::class)
+        app(OnboardingService::class)
             ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
         return redirect()
@@ -254,6 +255,7 @@ class CaseController extends Controller
         $filters = $request->only([
             'status', 'search', 'client_type', 'vulnerability_indicator',
             'user_id', 'agcy_id', 'category_id', 'case_issue_id',
+            'age_min_days', 'referral_state',
         ]);
 
         $cases = $queries->getCasesExport($user, array_filter($filters));

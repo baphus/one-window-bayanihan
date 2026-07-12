@@ -3,6 +3,8 @@ import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import OverdueCard from './OverdueCard';
 
 const ROLE_SUBTITLES = {
@@ -37,6 +39,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
   const [selectedIds, setSelectedIds] = useState([]);
   const [sending, setSending] = useState(null); // referral ID being reminded, or '__all__'
   const [confirmDialog, setConfirmDialog] = useState(null); // { type, referralId? }
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   // Derive current sort/filter from URL
   const currentSort = new URL(window.location).searchParams.get('sort_by') || 'most_stale';
@@ -97,21 +100,21 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
     const url = new URL(window.location);
     url.searchParams.set('sort_by', e.target.value);
     url.searchParams.delete('page');
-    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
-  }, []);
+    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['referrals'] }));
+  }, [withLoading]);
 
   const handleFilterChange = useCallback((e) => {
     const url = new URL(window.location);
     url.searchParams.set('status_filter', e.target.value);
     url.searchParams.delete('page');
-    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
-  }, []);
+    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['referrals'] }));
+  }, [withLoading]);
 
   const handlePageChange = useCallback((page) => {
     const url = new URL(window.location);
     url.searchParams.set('page', page);
-    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
-  }, []);
+    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['referrals'] }));
+  }, [withLoading]);
 
   const paginator = referrals;
   const totalPages = paginator?.last_page ?? 1;
@@ -232,7 +235,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
 
         {/* Section 3: Sort/Filter + Card List */}
         {total > 0 && (
-          <>
+          <div className="relative" aria-busy={tableLoading}>
             {/* Sort/Filter bar */}
             <div data-tour="overdue-filters" className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
@@ -391,7 +394,8 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
                 </div>
               </nav>
             )}
-          </>
+            {tableLoading && <TableLoadingOverlay variant="card" />}
+          </div>
         )}
 
         {/* Empty state */}

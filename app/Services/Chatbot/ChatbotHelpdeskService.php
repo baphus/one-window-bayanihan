@@ -2,6 +2,7 @@
 
 namespace App\Services\Chatbot;
 
+use App\Helpers\CacheHelper;
 use Illuminate\Support\Facades\Cache;
 
 class ChatbotHelpdeskService
@@ -80,7 +81,7 @@ class ChatbotHelpdeskService
             return $this->parsed;
         }
 
-        return $this->parsed = Cache::remember(
+        return $this->parsed = CacheHelper::safeRemember(
             'chatbot.helpdesk.'.$this->contentHash(),
             now()->addWeek(),
             fn () => $this->parseAll(),

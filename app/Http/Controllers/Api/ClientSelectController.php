@@ -16,10 +16,14 @@ class ClientSelectController extends Controller
 
     public function search(Request $request)
     {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
+
         $query = Client::withCount('caseFiles')
             ->where('is_deleted', false);
 
-        if ($search = $request->query('q')) {
+        if ($search = $validated['q'] ?? null) {
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'ilike', "%{$search}%")
                     ->orWhere('last_name', 'ilike', "%{$search}%")

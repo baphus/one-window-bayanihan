@@ -82,6 +82,38 @@ class ReferralService
         });
     }
 
+    public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null): array
+    {
+        $where = 'WHERE is_deleted = false';
+        $bindings = [];
+
+        if ($userRole === 'AGENCY' && $userAgencyId) {
+            $where .= ' AND agcy_id = ?';
+            $bindings[] = $userAgencyId;
+        }
+
+        $counts = DB::selectOne("
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE status = 'PENDING') AS pending,
+                COUNT(*) FILTER (WHERE status = 'PROCESSING') AS processing,
+                COUNT(*) FILTER (WHERE status = 'FOR_COMPLIANCE') AS for_compliance,
+                COUNT(*) FILTER (WHERE status = 'COMPLETED') AS completed,
+                COUNT(*) FILTER (WHERE status = 'REJECTED') AS rejected
+            FROM referrals
+            {$where}
+        ", $bindings);
+
+        return [
+            'total_referrals' => (int) $counts->total,
+            'pending' => (int) $counts->pending,
+            'processing' => (int) $counts->processing,
+            'for_compliance' => (int) $counts->for_compliance,
+            'completed' => (int) $counts->completed,
+            'rejected' => (int) $counts->rejected,
+        ];
+    }
+
     public function getReferrals(array $filters = [], ?string $userAgencyId = null, ?string $userRole = null)
     {
         $query = Referral::with([
@@ -108,6 +140,14 @@ class ReferralService
             $query->where('agcy_id', $filters['agcy_id']);
         }
 
+        if (! empty($filters['category_id'])) {
+            $query->whereHas('caseFile', fn ($q) => $q->where('category_id', $filters['category_id']));
+        }
+
+        if (! empty($filters['case_issue_id'])) {
+            $query->whereHas('caseFile', fn ($q) => $q->where('case_issue_id', $filters['case_issue_id']));
+        }
+
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
@@ -127,7 +167,7 @@ class ReferralService
             });
         }
 
-        return $query->paginate(15);
+        return $query->paginate(15)->through(fn ($referral) => $referral->append('latest_update'));
     }
 
     public function getReferral(string $id): Referral

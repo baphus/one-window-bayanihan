@@ -32,7 +32,7 @@ class Referral extends Model
         'is_deleted' => 'boolean',
     ];
 
-    protected $appends = ['latest_update'];
+    protected $appends = [];
 
     /**
      * Get the latest update for this referral — either the most recent milestone

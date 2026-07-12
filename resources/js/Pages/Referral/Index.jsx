@@ -6,6 +6,7 @@ import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMe
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
+import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 
 const COLUMN_DEFS = [
     { key: 'case_number', label: 'Case #', default: true },
@@ -29,10 +30,11 @@ function formatAddress(address) {
     return formatResolvedAddress(address, null);
 }
 
-export default function ReferralIndex({ referrals, filters }) {
+export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [] }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
+    const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
     const [searchValue, setSearchValue] = useState(filters?.search ?? '');
     const [viewMode, setViewMode] = useState('list');
@@ -46,18 +48,20 @@ export default function ReferralIndex({ referrals, filters }) {
         COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
     );
 
-    const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
-
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
 
     const toast = useToast();
     const [isExporting, setIsExporting] = useState(false);
+    const [tableLoading, setTableLoading] = useState(false);
 
     const handleExport = useCallback(() => {
         const params = new URLSearchParams();
         if (filters.status) params.set('status', filters.status);
         if (filters.search) params.set('search', filters.search);
+        if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
+        if (filters.category_id) params.set('category_id', filters.category_id);
+        if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
 
         const qs = params.toString();
         const url = route('referrals.export-excel') + (qs ? '?' + qs : '');
@@ -81,38 +85,110 @@ export default function ReferralIndex({ referrals, filters }) {
         return () => clearTimeout(searchTimeout.current);
     }, []);
 
-    const navigateWith = (params) => {
-        const url = new URL(window.location);
-        Object.entries(params).forEach(([k, v]) => {
-            if (v) url.searchParams.set(k, v);
-            else url.searchParams.delete(k);
+    useEffect(() => {
+        const onStart = () => setTableLoading(true);
+        const onFinish = () => setTableLoading(false);
+        const removeStart = router.on('start', onStart);
+        const removeFinish = router.on('finish', onFinish);
+        return () => {
+            if (typeof removeStart === 'function') removeStart();
+            if (typeof removeFinish === 'function') removeFinish();
+        };
+    }, []);
+
+    const updateTable = (params) => {
+        const clean = Object.fromEntries(
+            Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+        );
+        router.get(route('referrals.index'), clean, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['referrals', 'filters', 'stats', 'agencies', 'categories', 'caseIssues'],
+            showProgress: false,
         });
-        url.searchParams.delete('page');
-        router.get(url.toString(), {}, { preserveState: true, replace: true });
     };
 
     const handleSearchChange = (value) => {
         setSearchValue(value);
         clearTimeout(searchTimeout.current);
         searchTimeout.current = setTimeout(() => {
-            navigateWith({ search: value || undefined });
+            updateTable({ ...filters, search: value || undefined, page: undefined });
         }, 400);
+    };
+
+    const handleSearchClear = () => {
+        setSearchValue('');
+        clearTimeout(searchTimeout.current);
+        updateTable({ ...filters, search: undefined, page: undefined });
     };
 
     const activeFilters = useMemo(() => {
         const chips = [];
-        if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter });
+        if (filters?.status) chips.push({ key: 'status', label: 'Status', value: filters.status });
+        if (filters?.agcy_id) {
+            const agency = agencies.find(a => a.id === filters.agcy_id);
+            chips.push({ key: 'agcy_id', label: 'Agency', value: agency?.name || filters.agcy_id });
+        }
+        if (filters?.category_id) {
+            const cat = categories.find(c => c.id === filters.category_id);
+            chips.push({ key: 'category_id', label: 'Category', value: cat?.name || filters.category_id });
+        }
+        if (filters?.case_issue_id) {
+            const issue = caseIssues.find(c => c.id === filters.case_issue_id);
+            chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: issue?.name || filters.case_issue_id });
+        }
         return chips;
-    }, [statusFilter]);
+    }, [filters, agencies, categories, caseIssues]);
 
     const handleRemoveFilter = (filter) => {
-        if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
+        updateTable({ ...filters, [filter.key]: undefined, page: undefined });
     };
 
     const handleClearFilters = () => {
-        setStatusFilter('');
-        navigateWith({ status: undefined });
+        setSearchValue('');
+        clearTimeout(searchTimeout.current);
+        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, case_issue_id: undefined, page: undefined });
     };
+
+    const handleStatusQuickFilter = (status) => {
+        updateTable({ ...filters, status: status || undefined, page: undefined });
+    };
+
+    const quickFilterPills = useMemo(() => {
+        const statuses = [
+            { label: 'All', value: '' },
+            { label: 'Pending', value: 'PENDING', count: stats?.pending },
+            { label: 'Processing', value: 'PROCESSING', count: stats?.processing },
+            { label: 'For Compliance', value: 'FOR_COMPLIANCE', count: stats?.for_compliance },
+            { label: 'Completed', value: 'COMPLETED', count: stats?.completed },
+            { label: 'Rejected', value: 'REJECTED', count: stats?.rejected },
+        ];
+        const currentStatus = filters?.status ?? '';
+
+        return (
+            <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Quick status filters">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
+                {statuses.map((s) => {
+                    const isActive = currentStatus === s.value || (!currentStatus && s.value === '');
+                    return (
+                        <button
+                            key={s.label}
+                            onClick={() => handleStatusQuickFilter(s.value || undefined)}
+                            className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
+                                isActive
+                                    ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
+                                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
+                            }`}
+                        >
+                            {s.label}
+                            {s.count > 0 && ` (${s.count})`}
+                        </button>
+                    );
+                })}
+            </div>
+        );
+    }, [filters?.status, stats]);
 
     function paginatorProps(paginator) {
         return {
@@ -122,17 +198,8 @@ export default function ReferralIndex({ referrals, filters }) {
             currentPage: paginator.current_page,
             totalPages: paginator.last_page,
             rowsPerPage: paginator.per_page,
-            onPageChange: (page) => {
-                const url = new URL(window.location);
-                url.searchParams.set('page', page);
-                router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
-            },
-            onRowsPerPageChange: (n) => {
-                const url = new URL(window.location);
-                url.searchParams.set('per_page', n);
-                url.searchParams.delete('page');
-                router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
-            },
+            onPageChange: (page) => updateTable({ ...filters, page }),
+            onRowsPerPageChange: (n) => updateTable({ ...filters, per_page: n, page: undefined }),
         };
     }
 
@@ -258,14 +325,12 @@ export default function ReferralIndex({ referrals, filters }) {
             <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
                 <select
-                    value={statusFilter}
+                    value={filters?.status ?? ''}
                     onChange={(e) => {
                         const val = e.target.value;
-                        setStatusFilter(val);
-                        setFilterOpen(false);
-                        navigateWith({ status: val || undefined });
+                        updateTable({ ...filters, status: val || undefined, page: undefined });
                     }}
-                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
                     <option value="">All Statuses</option>
                     <option value="PENDING">Pending</option>
@@ -275,9 +340,65 @@ export default function ReferralIndex({ referrals, filters }) {
                     <option value="REJECTED">Rejected</option>
                 </select>
             </div>
-
+            <div>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Agency</label>
+                <select
+                    value={filters?.agcy_id ?? ''}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        updateTable({ ...filters, agcy_id: val || undefined, page: undefined });
+                    }}
+                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                >
+                    <option value="">All Agencies</option>
+                    {agencies.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
+                <select
+                    value={filters?.category_id ?? ''}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        updateTable({ ...filters, category_id: val || undefined, page: undefined });
+                    }}
+                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                >
+                    <option value="">All Categories</option>
+                    {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Issue / Concern</label>
+                <select
+                    value={filters?.case_issue_id ?? ''}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        updateTable({ ...filters, case_issue_id: val || undefined, page: undefined });
+                    }}
+                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                >
+                    <option value="">All Issues</option>
+                    {caseIssues.map((issue) => (
+                        <option key={issue.id} value={issue.id}>{issue.name}</option>
+                    ))}
+                </select>
+            </div>
+            <div className="border-t border-slate-200 pt-4 mt-4">
+                <button
+                    type="button"
+                    onClick={() => setFilterOpen(false)}
+                    className="w-full h-[36px] bg-blue-900 text-white text-[13px] font-bold rounded-[2px] hover:bg-blue-800 transition-colors"
+                >
+                    Done
+                </button>
+            </div>
         </div>
-    ), [statusFilter]);
+    ), [filters, agencies, categories, caseIssues]);
 
     const columnControlContent = useMemo(() => (
         <div className="space-y-2">
@@ -329,17 +450,17 @@ export default function ReferralIndex({ referrals, filters }) {
             <div data-tour="referrals-header" className="mb-8">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">
+                        <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
                             {isAgency ? 'My Agency Referrals' : 'Referral Management'}
                         </h1>
-                        <p className="text-sm text-slate-500 mt-1">Track and manage all referrals across agencies.</p>
+                        <p className="text-sm text-slate-400 font-body mt-0.5">Track and manage all referrals across agencies.</p>
                     </div>
                     <button
                         data-tour="referrals-export"
                         type="button"
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-[#0b5384] rounded-md hover:bg-[#09416a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b5384] text-white hover:bg-[#09416a] text-[12px] font-bold rounded-md transition-colors border border-[#0b5384] disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
                         {isExporting ? 'Exporting…' : 'Export Excel'}
@@ -347,15 +468,93 @@ export default function ReferralIndex({ referrals, filters }) {
                 </div>
             </div>
 
+            <section className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Referrals</p>
+                        <span className="p-1.5 bg-blue-50 rounded-lg"><ArrowRightLeft className="w-4 h-4 text-blue-900" /></span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900">{stats?.total_referrals ?? 0}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">All referrals</p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending</p>
+                        <span className="p-1.5 bg-amber-50 rounded-lg"><Clock className="w-4 h-4 text-amber-600" /></span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900">{stats?.pending ?? 0}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                        {stats?.total_referrals > 0
+                            ? `${((stats.pending / stats.total_referrals) * 100).toFixed(0)}% of total`
+                            : 'Awaiting response'}
+                    </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Processing</p>
+                        <span className="p-1.5 bg-sky-50 rounded-lg"><Loader className="w-4 h-4 text-sky-600" /></span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900">{stats?.processing ?? 0}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                        {stats?.total_referrals > 0
+                            ? `${((stats.processing / stats.total_referrals) * 100).toFixed(0)}% of total`
+                            : 'In progress'}
+                    </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">For Compliance</p>
+                        <span className="p-1.5 bg-violet-50 rounded-lg"><ClipboardCheck className="w-4 h-4 text-violet-600" /></span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900">{stats?.for_compliance ?? 0}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                        {stats?.total_referrals > 0
+                            ? `${((stats.for_compliance / stats.total_referrals) * 100).toFixed(0)}% of total`
+                            : 'Awaiting compliance'}
+                    </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Completed</p>
+                        <span className="p-1.5 bg-emerald-50 rounded-lg"><CheckCircle2 className="w-4 h-4 text-emerald-600" /></span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900">{stats?.completed ?? 0}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                        {stats?.total_referrals > 0
+                            ? `${((stats.completed / stats.total_referrals) * 100).toFixed(0)}% of total`
+                            : 'Successfully closed'}
+                    </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Rejected</p>
+                        <span className="p-1.5 bg-red-50 rounded-lg"><XCircle className="w-4 h-4 text-red-500" /></span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900">{stats?.rejected ?? 0}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                        {stats?.total_referrals > 0
+                            ? `${((stats.rejected / stats.total_referrals) * 100).toFixed(0)}% of total`
+                            : 'Declined by agency'}
+                    </p>
+                </div>
+            </section>
+
             <div data-tour="referrals-table">
             <UnifiedTable
                 columns={columns}
                 data={referrals.data}
                 keyExtractor={(row) => row.id}
                 {...paginatorProps(referrals)}
+                isLoading={tableLoading}
                 searchValue={searchValue}
                 searchPlaceholder="Search by referral ID, client, agency, or service..."
                 onSearchChange={handleSearchChange}
+                onSearchClear={handleSearchClear}
                 onAdvancedFilters={() => setFilterOpen((v) => { setColumnsOpen(false); return !v; })}
                 isAdvancedFiltersOpen={filterOpen}
                 advancedFiltersContent={advancedFilterContent}
@@ -367,8 +566,11 @@ export default function ReferralIndex({ referrals, filters }) {
                 onNewRecord={canCreate ? () => router.visit(route('referrals.create')) : undefined}
                 newRecordLabel="Create Referral"
                 activeFilters={activeFilters}
+                activeFilterCount={activeFilters.length}
                 onRemoveFilter={handleRemoveFilter}
                 onClearFilters={handleClearFilters}
+                onRowContextMenu={handleRowContextMenu}
+                quickFilters={quickFilterPills}
             />
             </div>
 
@@ -403,6 +605,15 @@ export default function ReferralIndex({ referrals, filters }) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {contextMenu && (
+                <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+                    <RowContextMenuItem icon="visibility" label="View" onClick={() => {
+                        router.visit(route('referrals.show', contextMenu.row.id));
+                        setContextMenu(null);
+                    }} />
+                </RowContextMenu>
             )}
         </AppLayout>
     );

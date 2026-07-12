@@ -9,6 +9,7 @@ use App\Models\FeedbackInvitation;
 use App\Models\Referral;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\CaseService;
 use App\Services\DashboardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -150,6 +151,10 @@ class DashboardServiceTest extends TestCase
 
         $this->assertSame(1, collect($data['workQueue'])->firstWhere('key', 'casesWithoutReferrals')['count']);
         $this->assertSame(1, collect($data['workQueue'])->firstWhere('key', 'rejectedReferrals')['count']);
+        $this->assertSame('/cases?status=OPEN&age_min_days=7', collect($data['workQueue'])->firstWhere('key', 'agingOpenCases')['href']);
+        $this->assertSame('/referrals?status=PENDING', collect($data['workQueue'])->firstWhere('key', 'pendingReferrals')['href']);
+        $this->assertSame('/referrals?status=REJECTED', collect($data['workQueue'])->firstWhere('key', 'rejectedReferrals')['href']);
+        $this->assertSame('/cases?status=OPEN&referral_state=none', collect($data['workQueue'])->firstWhere('key', 'casesWithoutReferrals')['href']);
         $this->assertNotEmpty($data['priorityCases']);
         $this->assertSame($caseWithoutReferral->id, collect($data['priorityCases'])->firstWhere('reason', 'No referral yet')['id']);
         $this->assertSame($returnedReferral->id, $data['priorityReferrals'][0]['id']);
@@ -157,6 +162,44 @@ class DashboardServiceTest extends TestCase
         $this->assertLessThanOrEqual(6, count($data['agencyResponseScorecard']));
         $this->assertLessThanOrEqual(8, count($data['priorityCases']));
         $this->assertContains('6-10 days', array_column($data['referralAgingBands'], 'label'));
+    }
+
+    #[Test]
+    public function case_manager_case_filters_support_age_and_no_referrals(): void
+    {
+        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agency = Agency::factory()->create();
+
+        $matchingCase = $this->createCaseForClient([
+            'user_id' => $caseManager->id,
+            'status' => 'OPEN',
+            'created_at' => now()->subDays(8),
+        ]);
+        $newCase = $this->createCaseForClient([
+            'user_id' => $caseManager->id,
+            'status' => 'OPEN',
+            'created_at' => now()->subDays(2),
+        ]);
+        $referredCase = $this->createCaseForClient([
+            'user_id' => $caseManager->id,
+            'status' => 'OPEN',
+            'created_at' => now()->subDays(9),
+        ]);
+        Referral::factory()->pending()->create([
+            'case_id' => $referredCase->id,
+            'agcy_id' => $agency->id,
+        ]);
+
+        $this->actingAs($caseManager);
+
+        $cases = app(CaseService::class)->getCases([
+            'status' => 'OPEN',
+            'age_min_days' => 7,
+            'referral_state' => 'none',
+        ]);
+
+        $this->assertSame([$matchingCase->id], $cases->pluck('id')->all());
+        $this->assertNotContains($newCase->id, $cases->pluck('id')->all());
     }
 
     #[Test]

@@ -28,12 +28,19 @@ class ReportsController extends Controller
         $dateScope = $request->query('date_scope', 'case_created_at');
         $province = $request->query('province');
         $city = $request->query('city');
-        $agencyId = $user?->role === 'AGENCY' ? $user?->agency?->id : null;
+
+        // Resolve effective agency scope: AGENCY users are always locked to
+        // their own agency; ADMIN and CASE_MANAGER may select one or view all.
+        $effectiveAgencyId = match ($user?->role) {
+            'AGENCY' => $user?->agency?->id,
+            'ADMIN', 'CASE_MANAGER' => $request->query('agency_id') ?: null,
+            default => null,
+        };
 
         $data = $this->reportsService->getAll(
             userId: $user->id,
             role: $user->role,
-            agencyId: $agencyId,
+            agencyId: $effectiveAgencyId,
             fromDate: $fromDate,
             toDate: $toDate,
             dateScope: $dateScope,
@@ -45,7 +52,7 @@ class ReportsController extends Controller
         $provinceOptions = $this->reportsService->getProvinceOptions(
             userId: $user->id,
             role: $user->role,
-            agencyId: $agencyId,
+            agencyId: $effectiveAgencyId,
         );
 
         $cityOptions = $province
@@ -53,13 +60,20 @@ class ReportsController extends Controller
                 province: $province,
                 userId: $user->id,
                 role: $user->role,
-                agencyId: $agencyId,
+                agencyId: $effectiveAgencyId,
             )
             : [];
+
+        $agencyOptions = $this->reportsService->getAgencyOptions(
+            userId: $user->id,
+            role: $user->role,
+        );
 
         return Inertia::render('Reports/Index', [
             // Eager props (included in initial response)
             'role' => $user->role,
+            'agencyId' => $effectiveAgencyId,
+            'agencyOptions' => $agencyOptions,
             'kpis' => $data['kpis'],
             'from' => $fromDate,
             'to' => $toDate,
@@ -108,7 +122,11 @@ class ReportsController extends Controller
         $user = $request->user();
         $fromDate = $request->input('from');
         $toDate = $request->input('to');
-        $agencyId = $user?->role === 'AGENCY' ? $user?->agency?->id : null;
+        $agencyId = match ($user?->role) {
+            'AGENCY' => $user?->agency?->id,
+            'ADMIN', 'CASE_MANAGER' => $request->input('agency_id') ?: null,
+            default => null,
+        };
 
         $data = $this->reportsService->getAll(
             userId: $user->id,

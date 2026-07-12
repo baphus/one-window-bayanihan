@@ -132,7 +132,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                   <select
                     value={data.agcy_id}
                     onChange={(e) => setData('agcy_id', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 text-sm"
                     required
                   >
                     <option value="">Select an agency...</option>

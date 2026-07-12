@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\CacheHelper;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -18,7 +19,7 @@ class SystemSetting extends Model
 
     public static function getValue(string $key, mixed $default = null): mixed
     {
-        $settings = Cache::remember('system_settings', 3600, function () {
+        $settings = CacheHelper::safeRemember('system_settings', 3600, function () {
             return static::pluck('value', 'key')->toArray();
         });
 

@@ -557,7 +557,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                         setData((prev) => ({ ...prev, role: e.target.value, agcy_id: '' }));
                       }
                     }}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 text-sm"
                     required
                   >
                     {roleOptions.map((opt) => (
@@ -579,7 +579,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                 <select
                   value={data.agcy_id}
                   onChange={(e) => setData('agcy_id', e.target.value)}
-                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 text-sm"
                   required
                 >
                   <option value="">Select agency...</option>

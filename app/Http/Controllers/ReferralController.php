@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
+use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\CaseIssue;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\SystemSetting;
@@ -25,15 +28,21 @@ class ReferralController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id'];
+
         $referrals = $this->referralService->getReferrals(
-            $request->only(['status', 'search', 'case_id', 'agcy_id']),
+            $request->only($filterKeys),
             $user->agcy_id,
             $user->role,
         );
 
         return Inertia::render('Referral/Index', [
             'referrals' => $referrals,
-            'filters' => (object) $request->only(['status', 'search', 'case_id', 'agcy_id']),
+            'filters' => (object) $request->only($filterKeys),
+            'stats' => $this->referralService->getReferralStats($user->agcy_id, $user->role),
+            'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
+            'categories' => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'caseIssues' => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
         ]);
     }
 

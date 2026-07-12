@@ -104,7 +104,7 @@ export default function CaseManagerDashboard({ dashboard = {} }) {
             <div className="grid gap-6 xl:grid-cols-12">
                 <div className="space-y-6 xl:col-span-8">
                     <SectionCard
-                        title="Recent cases"
+                        title="Recent case activity"
                         dataTour="dashboard-recent-cases"
                         action={<ViewAllLink href="/cases">View all cases</ViewAllLink>}
                         bodyClassName=""

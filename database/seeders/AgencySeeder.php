@@ -13,13 +13,13 @@ class AgencySeeder extends Seeder
      * Sourced from Wikimedia Commons (public domain Philippine government works).
      */
     private const LOGO_PATHS = [
-        'owwa' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801443/bayanihan/agencies/owwa.png',
+        'owwa' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783830051/bayanihan/agencies/owwa-new.png',
         'dmw' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801446/bayanihan/agencies/dmw.png',
         'doh' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801448/bayanihan/agencies/doh.png',
         'dole' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801450/bayanihan/agencies/dole.png',
         'dswd' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801451/bayanihan/agencies/dswd.png',
         'tesda' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801453/bayanihan/agencies/tesda.png',
-        'law-center-inc' => null, // Small NGO — no publicly available official logo
+        'law-center-inc' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783830193/bayanihan/agencies/law-center-inc.jpg',
         'province-cebu' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801455/bayanihan/agencies/province-cebu.png',
         'city-cebu' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801456/bayanihan/agencies/city-cebu.png',
     ];
@@ -124,7 +124,7 @@ SVG);
                 'description' => 'Law Center Inc. is a non-profit legal aid institution that provides free and low-cost legal services to marginalized communities and OFWs. It offers legal counseling, documentation assistance, notarization, and representation in cases involving illegal recruitment, contract violations, and other legal concerns.',
                 'contact_info' => "Law Center Inc.\r\n3/F JEG Building, Osmeña Boulevard\r\nCebu City 6000, Philippines\r\nTel: (032) 255-4321\r\nEmail: info@lawcenterinc.org",
                 // No publicly available official logo for this NGO; uses SVG text fallback
-                'logo_url' => self::LOGO_PATHS['law-center-inc'] ?? $this->svgLogo('LCI', '#5b2c6f'),
+                'logo_url' => self::LOGO_PATHS['law-center-inc'],
                 'location_query' => 'Law Center Inc., Osmeña Boulevard, Cebu City, Cebu, Philippines',
                 'map_link' => 'https://www.google.com/maps/place/Law+Center+Inc./@10.3120,123.8925,17z',
                 'latitude' => 10.3120000,

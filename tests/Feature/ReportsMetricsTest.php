@@ -69,6 +69,78 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
+    public function referral_trends_are_scoped_to_the_case_manager_and_include_month_counts(): void
+    {
+        $caseA = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        $caseB = CaseFile::factory()->create(['user_id' => $this->managerB->id, 'status' => 'OPEN']);
+
+        Referral::factory()->count(2)->pending()->create([
+            'case_id' => $caseA->id,
+            'agcy_id' => $this->agency->id,
+            'created_at' => '2026-02-10 08:00:00',
+            'updated_at' => '2026-02-10 08:00:00',
+        ]);
+        Referral::factory()->pending()->create([
+            'case_id' => $caseA->id,
+            'agcy_id' => $this->agency->id,
+            'created_at' => '2026-03-05 08:00:00',
+            'updated_at' => '2026-03-05 08:00:00',
+        ]);
+        Referral::factory()->count(3)->pending()->create([
+            'case_id' => $caseB->id,
+            'agcy_id' => $this->agency->id,
+            'created_at' => '2026-02-15 08:00:00',
+            'updated_at' => '2026-02-15 08:00:00',
+        ]);
+
+        $trends = $this->service->getReferralTrends(
+            $this->managerA->id,
+            'CASE_MANAGER',
+            '2026-02-01',
+            '2026-03-31',
+            'referral_created_at'
+        );
+
+        $this->assertSame(['2026-02', '2026-03'], $trends['labels']);
+        $this->assertSame('Referrals Created', $trends['datasets'][0]['label']);
+        $this->assertSame([2, 1], array_map('intval', $trends['datasets'][0]['data']));
+    }
+
+    #[Test]
+    public function referral_trends_are_scoped_to_the_agency(): void
+    {
+        $otherAgency = Agency::factory()->create();
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+
+        Referral::factory()->count(2)->pending()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $this->agency->id,
+            'created_at' => '2026-04-10 08:00:00',
+            'updated_at' => '2026-04-10 08:00:00',
+        ]);
+        Referral::factory()->count(4)->pending()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $otherAgency->id,
+            'created_at' => '2026-04-11 08:00:00',
+            'updated_at' => '2026-04-11 08:00:00',
+        ]);
+
+        $trends = $this->service->getReferralTrends(
+            null,
+            'AGENCY',
+            '2026-04-01',
+            '2026-04-30',
+            'referral_created_at',
+            null,
+            null,
+            $this->agency->id
+        );
+
+        $this->assertSame(['2026-04'], $trends['labels']);
+        $this->assertSame([2], array_map('intval', $trends['datasets'][0]['data']));
+    }
+
+    #[Test]
     public function resolution_time_uses_the_real_close_timestamp(): void
     {
         // Case opened 10 days ago, closed today -> ~10 day resolution.

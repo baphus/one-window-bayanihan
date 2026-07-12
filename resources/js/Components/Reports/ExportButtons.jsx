@@ -4,14 +4,15 @@ const btnClass =
   'inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b5384] text-white hover:bg-[#09416a] text-[12px] font-bold rounded-md transition-colors border border-[#0b5384] disabled:opacity-60 disabled:cursor-not-allowed';
 
 // Forward the full active filter set so the exported file matches exactly what
-// is shown on screen (date range, date scope, province, city).
-export default function ExportButtons({ fromDateISO, toDateISO, dateScope, province, city }) {
+// is shown on screen (date range, date scope, province, city, agency).
+export default function ExportButtons({ fromDateISO, toDateISO, dateScope, province, city, agencyId }) {
   const params = {
     from: fromDateISO,
     to: toDateISO,
     ...(dateScope ? { date_scope: dateScope } : {}),
     ...(province ? { province } : {}),
     ...(city ? { city } : {}),
+    ...(agencyId ? { agency_id: agencyId } : {}),
   };
 
   return (

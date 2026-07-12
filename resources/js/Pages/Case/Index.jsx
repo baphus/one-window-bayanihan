@@ -57,6 +57,14 @@ function referredToAgencies(referrals) {
   return names.length > 0 ? names.join(', ') : '\u2014';
 }
 
+function hasActiveReferrals(referrals) {
+  return (referrals || []).some((ref) => !['COMPLETED', 'REJECTED'].includes(ref.status));
+}
+
+function canArchiveCase(caseFile) {
+  return caseFile.status === 'CLOSED' && !hasActiveReferrals(caseFile.referrals);
+}
+
 const COLUMN_DEFS = [
   { key: 'case_number', label: 'Case Number', default: true },
   { key: 'tracker_number', label: 'Tracking ID', default: true },
@@ -105,6 +113,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
     if (filters.category_id) params.set('category_id', filters.category_id);
     if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
+    if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
+    if (filters.referral_state) params.set('referral_state', filters.referral_state);
 
     const qs = params.toString();
     const url = route('cases.export-excel') + (qs ? '?' + qs : '');
@@ -195,6 +205,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       const issue = caseIssues?.find(c => c.id === filters.case_issue_id);
       chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: issue?.name || filters.case_issue_id });
     }
+    if (filters?.age_min_days) chips.push({ key: 'age_min_days', label: 'Age', value: `${filters.age_min_days}+ days` });
+    if (filters?.referral_state === 'none') chips.push({ key: 'referral_state', label: 'Referrals', value: 'None' });
     return chips;
   }, [filters, users, agencies, categories, caseIssues]);
 
@@ -211,6 +223,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       agcy_id: undefined,
       category_id: undefined,
       case_issue_id: undefined,
+      age_min_days: undefined,
+      referral_state: undefined,
       search: undefined,
       page: undefined,
     });
@@ -409,7 +423,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                   >
                     Edit
                   </button>
-                  {row.status === 'CLOSED' && (
+                  {canArchiveCase(row) && (
                     <button
                       onClick={() => router.post(route('cases.archive', row.id))}
                       className="min-h-[28px] px-2.5 bg-gray-100 text-gray-600 hover:bg-gray-200 text-[11px] font-bold rounded-[3px] transition-colors border border-gray-300"
@@ -521,6 +535,24 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         </select>
       </div>
       <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Case Age</label>
+        <select
+          value={filters?.age_min_days ?? ''}
+          onChange={(e) => {
+            const val = e.target.value;
+            updateTable({ ...filters, age_min_days: val || undefined, page: undefined });
+          }}
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+        >
+          <option value="">All Ages</option>
+          <option value="7">7+ days</option>
+          <option value="14">14+ days</option>
+          <option value="30">30+ days</option>
+          <option value="60">60+ days</option>
+          <option value="90">90+ days</option>
+        </select>
+      </div>
+      <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Author</label>
         <select
           value={filters?.user_id ?? ''}
@@ -566,10 +598,10 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const quickFilterPills = useMemo(() => {
     const statuses = [
-      { label: 'All', value: '' },
-      { label: 'Open', value: 'OPEN' },
-      { label: 'Closed', value: 'CLOSED' },
-      { label: 'Archived', value: 'ARCHIVED' },
+      { label: 'All', value: '', count: stats?.total_cases },
+      { label: 'Open', value: 'OPEN', count: stats?.open_cases },
+      { label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
+      { label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
     ];
     const currentStatus = filters?.status ?? '';
 
@@ -589,13 +621,13 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               }`}
             >
               {s.label}
-              {s.label === 'Archived' && stats?.archived_cases > 0 && ` (${stats.archived_cases})`}
+              {s.count > 0 && ` (${s.count})`}
             </button>
           );
         })}
       </div>
     );
-  }, [filters?.status, stats?.archived_cases]);
+  }, [filters?.status, stats]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -754,7 +786,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             router.visit(`${route('cases.show', contextMenu.row.id)}?edit=1`);
             setContextMenu(null);
           }} />
-          {contextMenu.row.status === 'CLOSED' && (
+          {canArchiveCase(contextMenu.row) && (
             <RowContextMenuItem icon="archive" label="Archive" onClick={() => {
               router.post(route('cases.archive', contextMenu.row.id), {}, { preserveScroll: true });
               setContextMenu(null);

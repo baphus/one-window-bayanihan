@@ -8,6 +8,8 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import UnsavedChangesModal from '@/Components/UnsavedChangesModal';
 import LogoUpload from '@/Components/LogoUpload';
 import AgencyMapView from '@/Components/AgencyMapView';
+import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 
 const TABS = ['Referrals', 'Services', 'Focal Persons'];
 
@@ -27,6 +29,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
   const [saving, setSaving] = useState(false);
   const [editErrors, setEditErrors] = useState({});
   const [logoFile, setLogoFile] = useState(null);
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const { showModal, confirmNavigation, cancelNavigation, bypassNext } = useUnsavedChanges(showForm || showUserForm || isEditing);
 
@@ -110,7 +113,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
   function handleReferralPage(page) {
     const url = new URL(window.location);
     url.searchParams.set('page', page);
-    router.get(url.toString(), {}, { preserveState: true, preserveScroll: true, only: ['referrals'] });
+    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['referrals'] }));
   }
 
   // ── Helpers ──
@@ -333,7 +336,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
 
       {/* ── Referrals Tab ── */}
       {activeTab === 'Referrals' && (
-        <div>
+        <div className="relative" aria-busy={tableLoading}>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-slate-500">Referrals assigned to this agency.</p>
           </div>
@@ -415,6 +418,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
               </nav>
             </div>
           )}
+          {tableLoading && <TableLoadingOverlay variant="table" />}
         </div>
       )}
 

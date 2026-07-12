@@ -17,6 +17,7 @@ import Sparkline from '@/Components/Reports/Sparkline';
 import DateRangePicker from '@/Components/Reports/DateRangePicker';
 import CaseStatusPieChart from '@/Components/Reports/CaseStatusPieChart';
 import DateScopeSelect from '@/Components/Reports/DateScopeSelect';
+import AgencyFilter from '@/Components/Reports/AgencyFilter';
 import ReportTabBar from '@/Components/Reports/ReportTabBar';
 import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
 import ExportButtons from '@/Components/Reports/ExportButtons';
@@ -40,6 +41,7 @@ function ReportsDashboard({
   // Eager props
   kpis,
   dateScope: initialDateScope, province: initialProvince, city: initialCity,
+  agencyId: initialAgencyId, agencyOptions,
   provinceOptions, cityOptions,
   from: initialFrom, to: initialTo,
   role, referenceData,
@@ -48,16 +50,20 @@ function ReportsDashboard({
   const [dateScope, setDateScope] = useState(initialDateScope || 'case_created_at');
   const [province, setProvince] = useState(initialProvince || null);
   const [city, setCity] = useState(initialCity || null);
+  const [agencyId, setAgencyId] = useState(initialAgencyId || null);
   const [caseStatusDist, caseStatusLoading] = useLazyProp('caseStatusDistribution');
   const [casesSeries] = useLazyProp('casesOverTime');
+  const [referralSeries] = useLazyProp('referralTrends');
 
   const caseSparkline = casesSeries?.datasets?.[0]?.data;
+  const referralSparkline = referralSeries?.datasets?.[0]?.data;
   const referralStatuses = referenceData?.referralStatuses || [];
 
   const extraDeps = {
     ...(role === 'CASE_MANAGER' ? { date_scope: dateScope } : {}),
     province,
     city,
+    agency_id: agencyId,
   };
   const { fromDateISO, setFromDateISO, toDateISO, setToDateISO, quickRange, handleQuickRange, resetDateRange } = useReportFilters(
     initialFrom, initialTo, extraDeps,
@@ -97,20 +103,30 @@ function ReportsDashboard({
               dateScope={role === 'CASE_MANAGER' ? dateScope : undefined}
               province={province}
               city={city}
+              agencyId={agencyId}
             />
           </div>
         </div>
-        <div data-tour="reports-tabs" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          {role === 'CASE_MANAGER' && (
-            <ProvinceCityFilter
-              provinceOptions={provinceOptions || []}
-              cityOptions={cityOptions || []}
-              province={province}
-              city={city}
-              onProvinceChange={setProvince}
-              onCityChange={setCity}
-            />
-          )}
+        <div data-tour="reports-tabs" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            {role !== 'AGENCY' && (
+              <AgencyFilter
+                agencyOptions={agencyOptions || []}
+                agencyId={agencyId}
+                onChange={setAgencyId}
+              />
+            )}
+            {role === 'CASE_MANAGER' && (
+              <ProvinceCityFilter
+                provinceOptions={provinceOptions || []}
+                cityOptions={cityOptions || []}
+                province={province}
+                city={city}
+                onProvinceChange={setProvince}
+                onCityChange={setCity}
+              />
+            )}
+          </div>
           <ReportTabBar value={activeTab} onChange={setActiveTab} role={role} />
         </div>
       </header>
@@ -136,7 +152,8 @@ function ReportsDashboard({
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <MetricCard label="Total Referrals" value={`${suppressCount(kpis?.totalReferrals ?? 0)}`}
           icon={<GitFork className="w-4 h-4 text-[#0b5a8c]" />}
-          trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />} />
+          trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />}
+          sparkline={<Sparkline data={referralSparkline} color={COLORS.primary} />} />
         <MetricCard label="Pending" value={`${suppressCount(kpis?.pendingReferrals ?? 0)}`} valueTone="text-[#9a5b1a] dark:text-amber-400"
           icon={<Clock className="w-4 h-4 text-[#9a5b1a]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.pendingReferrals} />} />
@@ -159,6 +176,10 @@ function ReportsDashboard({
 
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <LazyTrendChart lazyKey="casesOverTime" title="Cases Over Time" />
+            <ReferralTrendsSection />
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <AgencyScorecardSection role={role} />
           </section>
         </>

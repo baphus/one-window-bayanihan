@@ -557,6 +557,9 @@ class TestingSeeder extends Seeder
             } while (isset($usedTrackers[$tracker]));
             $usedTrackers[$tracker] = true;
 
+            // Chronological: cases created between 180 and 5 days ago, distributed evenly
+            $caseCreatedAt = now()->subDays(180 - intval($i * 175 / $casesToCreate))->addHours(rand(0, 12));
+
             // Client assignment — DRAFT cases may or may not have a client
             $assignClient = $status !== 'DRAFT' || rand(0, 100) < 50;
             $clientId = $assignClient ? $clientIds[$i % 1000] : null;
@@ -567,9 +570,6 @@ class TestingSeeder extends Seeder
 
             $hasCategory = rand(0, 100) < 80;
             $hasIssue = rand(0, 100) < 70;
-
-            // Chronological: cases created between 180 and 5 days ago, distributed evenly
-            $caseCreatedAt = now()->subDays(180 - intval($i * 175 / $casesToCreate))->addHours(rand(0, 12));
             $closedAt = null;
 
             if ($status === 'CLOSED') {

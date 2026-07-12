@@ -38,7 +38,7 @@ function GenerateTrackingId() {
 
 function Field({ label, required, children, className }) {
     return (
-        <div className={className}>
+        <div className={`min-w-0 ${className || ''}`}>
             <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
                 {label}{required ? <span className="text-red-500 ml-0.5">*</span> : ''}
             </label>
@@ -79,7 +79,7 @@ function Select({ value, onChange, options, placeholder, required }) {
             value={value}
             onChange={onChange}
             required={required}
-            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         >
             {placeholder && <option value="">{placeholder}</option>}
             {options.map((opt) => (
@@ -1581,7 +1581,7 @@ function handleConfirmClient(client) {
                                                                     }, 300);
                                                                 }}
                                                                 placeholder="Search clients by name..."
-                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             />
                                                         </div>
 
@@ -1937,7 +1937,7 @@ function handleConfirmClient(client) {
                                                     <select
                                                         value={data.client_type}
                                                         onChange={(e) => setData('client_type', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         required
                                                     >
                                                         <option value="OFW">Overseas Filipino Worker</option>
@@ -1948,7 +1948,7 @@ function handleConfirmClient(client) {
                                                     <select
                                                         value={data.category_id}
                                                         onChange={(e) => setData('category_id', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         required
                                                     >
                                                         <option value="">Select category</option>
@@ -1968,7 +1968,7 @@ function handleConfirmClient(client) {
                                                                     setData('selected_nok_index', e.target.value);
                                                                     clearErrors('selected_nok_index', 'next_of_kin.email');
                                                                 }}
-                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                                 required
                                                             >
                                                                 <option value="">Select next of kin...</option>
@@ -2022,7 +2022,7 @@ function handleConfirmClient(client) {
                                                     <select
                                                         value={data.vulnerability_indicator}
                                                         onChange={(e) => setData('vulnerability_indicator', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         required
                                                     >
                                                         <option value="">Select vulnerability...</option>
@@ -2038,7 +2038,7 @@ function handleConfirmClient(client) {
                                                         <select
                                                             value={data.nok_vulnerability_indicator}
                                                             onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
-                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             required
                                                         >
                                                             <option value="">Select vulnerability...</option>
@@ -2064,7 +2064,7 @@ function handleConfirmClient(client) {
                                                         <select
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
-                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             required
                                                         >
                                                             <option value="">Select issue/concern...</option>
@@ -2092,7 +2092,7 @@ function handleConfirmClient(client) {
                                                             onChange={(e) => setNewIssueName(e.target.value)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                                                             placeholder="Enter new issue name..."
-                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             autoFocus
                                                         />
                                                     </Field>
@@ -2149,7 +2149,7 @@ function handleConfirmClient(client) {
                                                         <select
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
-                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             required
                                                         >
                                                             <option value="">Select issue/concern...</option>
@@ -2177,7 +2177,7 @@ function handleConfirmClient(client) {
                                                             onChange={(e) => setNewIssueName(e.target.value)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                                                             placeholder="Enter new issue name..."
-                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             autoFocus
                                                         />
                                                     </Field>
