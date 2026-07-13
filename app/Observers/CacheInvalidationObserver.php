@@ -111,7 +111,7 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:admin_user_counts');
     }
 
-    private function invalidateCase(): void
+    private function invalidateCase(?CaseFile $case = null): void
     {
         Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_counts');
@@ -122,6 +122,11 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:cm_priority_cases');
         Cache::forget('dashboard:cm_aging_open_count');
         Cache::forget('dashboard:cm_no_referral_count');
+
+        // Invalidate tracking cache for this specific case
+        if ($case) {
+            Cache::forget('tracking:data:' . $case->id);
+        }
     }
 
     private function invalidateReferral(): void
