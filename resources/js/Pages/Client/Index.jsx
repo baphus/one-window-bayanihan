@@ -7,6 +7,7 @@ import { useToast } from '@/Hooks/useToast';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { Users, UserCheck, Shield, ArrowRightLeft } from 'lucide-react';
+import ExportDialog from '@/Components/ExportDialog';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -88,7 +89,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function ClientIndex({ clients, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
+export default function ClientIndex({ clients, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [], exportRowCount = null }) {
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
@@ -104,10 +105,15 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
 
   const [tableLoading, setTableLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const toast = useToast();
 
   const handleExport = useCallback(() => {
+    setExportDialogOpen(true);
+  }, []);
+
+  const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
     if (filters.sex) params.set('sex', filters.sex);
@@ -117,12 +123,15 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters.category_id) params.set('category_id', filters.category_id);
     if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
     if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
 
     const qs = params.toString();
     const url = route('clients.export-excel') + (qs ? '?' + qs : '');
 
     setIsExporting(true);
-    toast.info('Preparing your export…');
+    setExportDialogOpen(false);
+    toast.info('Preparing your export\u2026');
 
     const link = document.createElement('a');
     link.href = url;
@@ -133,6 +142,20 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
 
     setTimeout(() => setIsExporting(false), 5000);
   }, [filters, toast]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    if (filters?.client_type) chips.push({ label: 'Client Type', value: filters.client_type });
+    if (filters?.sex) chips.push({ label: 'Sex', value: filters.sex });
+    if (filters?.case_status) chips.push({ label: 'Case Status', value: filters.case_status });
+    if (filters?.vulnerability_indicator) chips.push({ label: 'Vulnerability', value: filters.vulnerability_indicator });
+    if (filters?.category_id) chips.push({ label: 'Category', value: filters.category_id });
+    if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
+    if (filters?.agcy_id) chips.push({ label: 'Referred To', value: filters.agcy_id });
+    if (filters?.date_from) chips.push({ label: 'From', value: filters.date_from });
+    if (filters?.date_to) chips.push({ label: 'To', value: filters.date_to });
+    return chips;
+  }, [filters]);
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
@@ -674,6 +697,35 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
           ))}
         </select>
       </div>
+      <div className="border-t border-slate-200 pt-3 mt-3">
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Date Range</label>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block text-[10px] text-slate-400 mb-1">From</label>
+            <input
+              type="date"
+              value={filters?.date_from ?? ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                updateTable({ ...filters, date_from: val || undefined, page: undefined });
+              }}
+              className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-[10px] text-slate-400 mb-1">To</label>
+            <input
+              type="date"
+              value={filters?.date_to ?? ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                updateTable({ ...filters, date_to: val || undefined, page: undefined });
+              }}
+              className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+            />
+          </div>
+        </div>
+      </div>
       <div className="border-t border-slate-200 pt-4 mt-4">
         <button
           type="button"
@@ -684,7 +736,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
         </button>
       </div>
     </div>
-  ), [filters, categories, caseIssues, agencies]);
+  ), [filters, categories, caseIssues, agencies, updateTable]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -839,6 +891,15 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
           )}
         </RowContextMenu>
       )}
+
+      <ExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        title="Export Clients"
+        activeFilters={activeFilterChips}
+        rowCount={exportRowCount}
+        onExport={handleExportConfirm}
+      />
     </AppLayout>
   );
 }

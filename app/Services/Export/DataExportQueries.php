@@ -195,6 +195,12 @@ class DataExportQueries
         if (! empty($filters['case_issue_id'])) {
             $query->where('c.case_issue_id', $filters['case_issue_id']);
         }
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('c.created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('c.created_at', '<=', $filters['date_to']);
+        }
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
@@ -272,6 +278,11 @@ class DataExportQueries
 
             return $row;
         });
+    }
+
+    public function countCasesExport(?User $user = null, array $filters = []): int
+    {
+        return (int) $this->getCasesExport($user, $filters)->count();
     }
 
     /**
@@ -469,6 +480,12 @@ class DataExportQueries
                     ->whereNotNull('c12.client_id');
             });
         }
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('cl.created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('cl.created_at', '<=', $filters['date_to']);
+        }
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
@@ -553,6 +570,11 @@ class DataExportQueries
 
             return $row;
         });
+    }
+
+    public function countClientsExport(?User $user = null, array $filters = []): int
+    {
+        return (int) $this->getClientsExport($user, $filters)->count();
     }
 
     /**
@@ -671,6 +693,12 @@ class DataExportQueries
         }
         if (! empty($filters['age_max_days']) && is_numeric($filters['age_max_days'])) {
             $query->where('r.created_at', '>=', now()->subDays((int) $filters['age_max_days']));
+        }
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('r.created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('r.created_at', '<=', $filters['date_to']);
         }
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -816,6 +844,11 @@ class DataExportQueries
 
             return $row;
         });
+    }
+
+    public function countReferralsExport(?User $user = null, array $filters = []): int
+    {
+        return (int) $this->getReferralsExport($user, $filters)->count();
     }
 
     /**

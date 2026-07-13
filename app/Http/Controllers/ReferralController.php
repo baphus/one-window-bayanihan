@@ -6,11 +6,10 @@ use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\Agency;
-use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
+use App\Models\ReferralComplianceRequirement;
 use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -31,7 +30,7 @@ class ReferralController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'age_max_days'];
+        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to'];
 
         $referrals = $this->referralService->getReferrals(
             $request->only($filterKeys),
@@ -46,6 +45,7 @@ class ReferralController extends Controller
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
+            'exportRowCount' => (new DataExportQueries)->countReferralsExport($request->user(), array_filter($request->only(['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to']))),
         ]);
     }
 
@@ -343,7 +343,7 @@ class ReferralController extends Controller
         ]);
 
         // Find or create the compliance requirement
-        $requirement = \App\Models\ReferralComplianceRequirement::firstOrCreate(
+        $requirement = ReferralComplianceRequirement::firstOrCreate(
             [
                 'referral_id' => $referral->id,
                 'service_name' => $validated['service_name'],
@@ -459,6 +459,7 @@ class ReferralController extends Controller
 
         $filters = $request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
+            'date_from', 'date_to', 'agcy_id', 'category_id', 'case_issue_id',
         ]);
 
         $referrals = $queries->getReferralsExport($user, array_filter($filters));

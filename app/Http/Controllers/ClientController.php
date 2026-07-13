@@ -6,8 +6,6 @@ use App\Helpers\CacheHelper;
 use App\Http\Requests\ProfilePictureRequest;
 use App\Models\Agency;
 use App\Models\AuditLog;
-use App\Models\CaseCategory;
-use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
@@ -17,7 +15,6 @@ use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferenceDataService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -26,7 +23,7 @@ class ClientController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'sort', 'direction', 'per_page'];
+        $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
 
         $clients = Client::where('is_deleted', false)->with([
             'caseFile' => function ($q) {
@@ -110,6 +107,13 @@ class ClientController extends Controller
             });
         }
 
+        if (! empty($request->date_from)) {
+            $clients->whereDate('clients.created_at', '>=', $request->date_from);
+        }
+        if (! empty($request->date_to)) {
+            $clients->whereDate('clients.created_at', '<=', $request->date_to);
+        }
+
         // --- Sorting ---
         $sort = $request->input('sort', 'created_at');
         $sort = in_array($sort, ['created_at', 'first_name', 'last_name', 'date_of_birth', 'sex']) ? $sort : 'created_at';
@@ -128,6 +132,7 @@ class ClientController extends Controller
             'agencies' => app(ReferenceDataService::class)->getAgenciesDropdown(),
             'categories' => app(ReferenceDataService::class)->getActiveCategories(),
             'caseIssues' => app(ReferenceDataService::class)->getActiveIssues(),
+            'exportRowCount' => (new DataExportQueries)->countClientsExport($request->user(), array_filter($request->only(['search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to']))),
         ]);
     }
 
@@ -293,7 +298,7 @@ class ClientController extends Controller
         $queries = new DataExportQueries;
 
         $filters = $request->only([
-            'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id',
+            'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]);
 
         $clients = $queries->getClientsExport($user, array_filter($filters));

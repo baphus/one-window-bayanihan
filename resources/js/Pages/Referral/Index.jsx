@@ -7,6 +7,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
+import ExportDialog from '@/Components/ExportDialog';
 
 const COLUMN_DEFS = [
     { key: 'case_number', label: 'Case #', default: true },
@@ -30,7 +31,7 @@ function formatAddress(address) {
     return formatResolvedAddress(address, null);
 }
 
-export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [] }) {
+export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [], exportRowCount = null }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
@@ -53,9 +54,14 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
     const toast = useToast();
     const [isExporting, setIsExporting] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [tableLoading, setTableLoading] = useState(false);
 
     const handleExport = useCallback(() => {
+        setExportDialogOpen(true);
+    }, []);
+
+    const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
         const params = new URLSearchParams();
         if (filters.status) params.set('status', filters.status);
         if (filters.search) params.set('search', filters.search);
@@ -64,14 +70,16 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
         if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
         if (filters.age_max_days) params.set('age_max_days', filters.age_max_days);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
 
         const qs = params.toString();
         const url = route('referrals.export-excel') + (qs ? '?' + qs : '');
 
         setIsExporting(true);
+        setExportDialogOpen(false);
         toast.info('Preparing your export…');
 
-        // Trigger download without opening a new tab
         const link = document.createElement('a');
         link.href = url;
         link.style.display = 'none';
@@ -79,9 +87,21 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         link.click();
         document.body.removeChild(link);
 
-        // Reset after a reasonable timeout
         setTimeout(() => setIsExporting(false), 5000);
     }, [filters, toast]);
+
+    const activeFilterChips = useMemo(() => {
+        const chips = [];
+        if (filters?.status) chips.push({ label: 'Status', value: filters.status });
+        if (filters?.agcy_id) chips.push({ label: 'Agency', value: filters.agcy_id });
+        if (filters?.category_id) chips.push({ label: 'Category', value: filters.category_id });
+        if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
+        if (filters?.age_min_days) chips.push({ label: 'Older Than', value: `${filters.age_min_days}+ days` });
+        if (filters?.age_max_days) chips.push({ label: 'Received Within', value: `Last ${filters.age_max_days} days` });
+        if (filters?.date_from) chips.push({ label: 'From', value: filters.date_from });
+        if (filters?.date_to) chips.push({ label: 'To', value: filters.date_to });
+        return chips;
+    }, [filters]);
 
     useEffect(() => {
         return () => clearTimeout(searchTimeout.current);
@@ -429,6 +449,35 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                     <option value="60">60+ days</option>
                 </select>
             </div>
+            <div className="border-t border-slate-200 pt-3 mt-3">
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Date Range</label>
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                        <label className="block text-[10px] text-slate-400 mb-1">From</label>
+                        <input
+                            type="date"
+                            value={filters?.date_from ?? ''}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                updateTable({ ...filters, date_from: val || undefined, page: undefined });
+                            }}
+                            className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                        />
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-[10px] text-slate-400 mb-1">To</label>
+                        <input
+                            type="date"
+                            value={filters?.date_to ?? ''}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                updateTable({ ...filters, date_to: val || undefined, page: undefined });
+                            }}
+                            className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                        />
+                    </div>
+                </div>
+            </div>
             <div className="border-t border-slate-200 pt-4 mt-4">
                 <button
                     type="button"
@@ -439,7 +488,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 </button>
             </div>
         </div>
-    ), [filters, agencies, categories, caseIssues]);
+    ), [filters, agencies, categories, caseIssues, updateTable]);
 
     const columnControlContent = useMemo(() => (
         <div className="space-y-2">
@@ -656,6 +705,15 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                     }} />
                 </RowContextMenu>
             )}
+
+            <ExportDialog
+                open={exportDialogOpen}
+                onClose={() => setExportDialogOpen(false)}
+                title="Export Referrals"
+                activeFilters={activeFilterChips}
+                rowCount={exportRowCount}
+                onExport={handleExportConfirm}
+            />
         </AppLayout>
     );
 }

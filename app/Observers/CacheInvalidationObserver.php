@@ -65,7 +65,7 @@ class CacheInvalidationObserver
             $model instanceof CaseIssue => $this->invalidateIssue(),
             $model instanceof CaseStatus => $this->invalidateCaseStatus(),
             $model instanceof User => $this->invalidateUser(),
-            $model instanceof CaseFile => $this->invalidateCase(),
+            $model instanceof CaseFile => $this->invalidateCase($model),
             $model instanceof Referral => $this->invalidateReferral(),
             $model instanceof Service,
             $model instanceof ServiceRequirement => $this->invalidateService(),

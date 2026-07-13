@@ -5,13 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Http\Requests\UpdateDraftRequest;
-use App\Models\Agency;
-use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\SystemSetting;
-use App\Models\User;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -33,7 +29,7 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
-        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'referral_state', 'sort', 'direction', 'per_page'];
+        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
 
         $cases = $this->caseService->getCases(
             $request->only($filterKeys),
@@ -50,6 +46,7 @@ class CaseController extends Controller
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
+            'exportRowCount' => (new DataExportQueries)->countCasesExport($request->user(), array_filter($request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to']))),
         ]);
     }
 
@@ -257,7 +254,7 @@ class CaseController extends Controller
         $filters = $request->only([
             'status', 'search', 'client_type', 'vulnerability_indicator',
             'user_id', 'agcy_id', 'category_id', 'case_issue_id',
-            'age_min_days', 'referral_state',
+            'age_min_days', 'referral_state', 'date_from', 'date_to',
         ]);
 
         $cases = $queries->getCasesExport($user, array_filter($filters));

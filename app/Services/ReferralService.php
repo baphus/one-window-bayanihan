@@ -85,7 +85,7 @@ class ReferralService
 
     public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null): array
     {
-        $cacheKey = 'stats:referrals:' . ($userRole ?? 'all') . ':' . ($userAgencyId ?? 'global');
+        $cacheKey = 'stats:referrals:'.($userRole ?? 'all').':'.($userAgencyId ?? 'global');
 
         return CacheHelper::safeRemember($cacheKey, 120, function () use ($userAgencyId, $userRole) {
             $where = 'WHERE is_deleted = false';
@@ -159,6 +159,13 @@ class ReferralService
 
         if (! empty($filters['age_max_days']) && is_numeric($filters['age_max_days'])) {
             $query->where('created_at', '>=', now()->subDays((int) $filters['age_max_days'])->startOfDay());
+        }
+
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
         if (! empty($filters['search'])) {
