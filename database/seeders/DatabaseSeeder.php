@@ -20,9 +20,7 @@ class DatabaseSeeder extends Seeder
             CaseCategorySeeder::class,
             CaseIssueSeeder::class,
             ProductionSeeder::class,
-            ServqualConfigSeeder::class,
             SystemSettingSeeder::class,
-            DefaultServqualQuestionsSeeder::class,
         ]);
     }
 }

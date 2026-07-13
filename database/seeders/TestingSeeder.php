@@ -49,7 +49,6 @@ class TestingSeeder extends Seeder
             CaseIssueSeeder::class,
             ProductionSeeder::class,
             SystemSettingSeeder::class,
-            DefaultServqualQuestionsSeeder::class,
         ]);
 
         // =====================================================================
