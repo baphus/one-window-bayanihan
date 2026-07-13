@@ -127,8 +127,9 @@ class FindCaseByTrackerTest extends TestCase
         $this->assertTrue($firstRef->milestones->first()->relationLoaded('user'), 'referrals.milestones.user should be loaded');
         $this->assertNotNull($firstRef->milestones->first()->user);
 
-        $this->assertTrue($firstRef->relationLoaded('attachments'), 'referrals.attachments should be loaded');
-        $this->assertGreaterThan(0, $firstRef->attachments->count());
+        // Note: referrals.attachments intentionally NOT eager-loaded here —
+        // buildTrackingData() does not use attachment data for the overview display.
+        // Attachments are loaded separately only when needed (e.g., detail views).
     }
 
     public function test_returns_null_for_invalid_tracker(): void

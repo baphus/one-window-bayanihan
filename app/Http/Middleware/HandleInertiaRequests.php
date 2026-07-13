@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Helpers\CacheHelper;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -35,6 +36,42 @@ class HandleInertiaRequests extends Middleware
         return app(OnboardingService::class)->isProfileIncomplete($user);
     }
 
+    /**
+     * Get cached unread notification count for the user.
+     * TTL: 60 seconds — avoids a COUNT query on every single page load.
+     */
+    private function getUnreadNotificationCount(Request $request): int
+    {
+        $user = $request->user();
+        if (! $user) {
+            return 0;
+        }
+
+        return (int) CacheHelper::safeRemember(
+            "notifications:unread:{$user->id}",
+            60,
+            fn () => $user->unreadNotifications()->count(),
+        );
+    }
+
+    /**
+     * Get cached agency for the authenticated user.
+     * TTL: 1 hour — user's agency assignment rarely changes.
+     */
+    private function getCachedUserAgency(Request $request): mixed
+    {
+        $user = $request->user();
+        if (! $user || ! $user->agcy_id) {
+            return null;
+        }
+
+        return CacheHelper::safeRemember(
+            "user:{$user->id}:agency",
+            3600,
+            fn () => $user->agency,
+        );
+    }
+
     public function share(Request $request): array
     {
         return [
@@ -48,13 +85,11 @@ class HandleInertiaRequests extends Middleware
                         'onboarding_completed_at', 'onboarding_step',
                         'profile_completed_at',
                     ]),
-                    'agency' => $request->user()->agency,
+                    'agency' => $this->getCachedUserAgency($request),
                 ] : null,
             ],
             'notifications' => fn () => [
-                'unread_count' => $request->user()
-                    ? $request->user()->unreadNotifications()->count()
-                    : 0,
+                'unread_count' => $this->getUnreadNotificationCount($request),
             ],
             'just_published' => $request->session()->get('just_published'),
             'onboarding_required' => fn () => $this->getOnboardingRequired($request),
@@ -79,5 +114,25 @@ class HandleInertiaRequests extends Middleware
                 'site_key' => config('turnstile.site_key', ''),
             ],
         ];
+    }
+
+    // ── Cache Invalidation Helpers ───────────────────────────────────────
+
+    /**
+     * Invalidate the cached unread count for a specific user.
+     * Call this when notifications are created or marked as read.
+     */
+    public static function invalidateNotificationCount(string $userId): void
+    {
+        cache()->forget("notifications:unread:{$userId}");
+    }
+
+    /**
+     * Invalidate the cached agency for a specific user.
+     * Call this when the user's agency assignment changes.
+     */
+    public static function invalidateUserAgency(string $userId): void
+    {
+        cache()->forget("user:{$userId}:agency");
     }
 }

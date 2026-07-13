@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Http\Middleware\IpWhitelist;
 use App\Http\Requests\FeedbackSubmitRequest;
 use App\Models\Feedback;
-use App\Models\FeedbackInvitation;
-use App\Models\Service;
 use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -39,143 +38,178 @@ class FeedbackController extends Controller
         $isAgency = $user->role === 'AGENCY' && $user->agcy_id;
         $agencyId = $isAgency ? $user->agcy_id : null;
 
-        // Time window filter
-        $query = function ($query, string $createdAtColumn = 'created_at') use ($window) {
-            if ($window !== 'all') {
-                $from = match ($window) {
-                    '7d' => now()->subDays(7),
-                    '30d' => now()->subDays(30),
-                    '90d' => now()->subDays(90),
-                    'quarter' => now()->startOfQuarter(),
-                    'year' => now()->startOfYear(),
-                    default => null,
-                };
-                if ($from) {
-                    $query->where($createdAtColumn, '>=', $from);
-                }
+        // Compute the time window boundary once for raw SQL bindings
+        $from = null;
+        if ($window !== 'all') {
+            $from = match ($window) {
+                '7d' => now()->subDays(7),
+                '30d' => now()->subDays(30),
+                '90d' => now()->subDays(90),
+                'quarter' => now()->startOfQuarter(),
+                'year' => now()->startOfYear(),
+                default => null,
+            };
+        }
+
+        // Closure for Eloquent/query-builder time filtering (used by remaining queries)
+        $applyWindow = function ($query, string $createdAtColumn = 'created_at') use ($from) {
+            if ($from) {
+                $query->where($createdAtColumn, '>=', $from);
             }
         };
 
-        // Total invitations sent
-        $invitationQuery = FeedbackInvitation::query();
-        if ($agencyId) {
-            $invitationQuery->where('agency_id', $agencyId);
-        }
-        $query($invitationQuery);
-        $totalSent = $invitationQuery->count();
+        // ─── Cached stats (total_sent through service_breakdown) ───
+        $cachedStats = CacheHelper::safeRemember(
+            'feedback:dashboard:' . ($agencyId ?? 'all') . ':' . $window,
+            180,
+            function () use ($agencyId, $from, $applyWindow) {
+                // ─── Consolidated stats query (invitations count, submitted count, avg rating, rating distribution) ───
+                $invitationWhere = $agencyId ? 'WHERE agency_id = ?' : 'WHERE 1=1';
+                $feedbackWhere = $agencyId ? 'WHERE agency_id = ?' : 'WHERE 1=1';
+                $invitationBindings = $agencyId ? [$agencyId] : [];
+                $feedbackBindings = $agencyId ? [$agencyId] : [];
 
-        // Total feedback submitted
-        $feedbackQuery = Feedback::query();
-        if ($agencyId) {
-            $feedbackQuery->where('agency_id', $agencyId);
-        }
-        $query($feedbackQuery);
-        $totalSubmitted = $feedbackQuery->count();
+                if ($from) {
+                    $invitationWhere .= ' AND created_at >= ?';
+                    $invitationBindings[] = $from;
+                    $feedbackWhere .= ' AND created_at >= ?';
+                    $feedbackBindings[] = $from;
+                }
 
-        // Response rate
-        $responseRate = $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0;
+                $consolidatedSql = "
+                    SELECT
+                        (SELECT COUNT(*) FROM feedback_invitations {$invitationWhere}) AS total_sent,
+                        COUNT(*) AS total_submitted,
+                        AVG(overall_rating) FILTER (WHERE overall_rating IS NOT NULL) AS avg_rating,
+                        COUNT(*) FILTER (WHERE overall_rating = 1) AS rating_1,
+                        COUNT(*) FILTER (WHERE overall_rating = 2) AS rating_2,
+                        COUNT(*) FILTER (WHERE overall_rating = 3) AS rating_3,
+                        COUNT(*) FILTER (WHERE overall_rating = 4) AS rating_4,
+                        COUNT(*) FILTER (WHERE overall_rating = 5) AS rating_5
+                    FROM feedback {$feedbackWhere}
+                ";
 
-        // Average rating
-        $ratingQuery = Feedback::query()->whereNotNull('overall_rating');
-        if ($agencyId) {
-            $ratingQuery->where('agency_id', $agencyId);
-        }
-        $query($ratingQuery);
-        $avgRating = $ratingQuery->avg('overall_rating');
-        $avgRating = $avgRating ? round((float) $avgRating, 2) : null;
+                $consolidatedBindings = array_merge($invitationBindings, $feedbackBindings);
+                $stats = DB::selectOne($consolidatedSql, $consolidatedBindings);
 
-        // Average SERVQUAL perception
-        $servqualQuery = DB::table('feedback_servqual_responses')
-            ->join('feedback', 'feedback_servqual_responses.feedback_id', '=', 'feedback.id')
-            ->whereNotNull('feedback_servqual_responses.perception');
-        if ($agencyId) {
-            $servqualQuery->where('feedback.agency_id', $agencyId);
-        }
-        $query($servqualQuery, 'feedback.created_at');
-        $avgServqual = $servqualQuery->avg('feedback_servqual_responses.perception');
-        $avgServqual = $avgServqual ? round((float) $avgServqual, 2) : null;
+                $totalSent = (int) $stats->total_sent;
+                $totalSubmitted = (int) $stats->total_submitted;
+                $responseRate = $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0;
+                $avgRating = $stats->avg_rating !== null ? round((float) $stats->avg_rating, 2) : null;
 
-        // Rating distribution
-        $ratingDistQuery = Feedback::query()->whereNotNull('overall_rating');
-        if ($agencyId) {
-            $ratingDistQuery->where('agency_id', $agencyId);
-        }
-        $query($ratingDistQuery);
-        $ratingDistribution = $ratingDistQuery
-            ->select('overall_rating', DB::raw('count(*) as count'))
-            ->groupBy('overall_rating')
-            ->pluck('count', 'overall_rating')
-            ->toArray();
-        // Fill missing ratings
-        for ($i = 1; $i <= 5; $i++) {
-            $ratingDistribution[$i] = $ratingDistribution[$i] ?? 0;
-        }
-        ksort($ratingDistribution);
+                $ratingDistribution = [];
+                for ($i = 1; $i <= 5; $i++) {
+                    $ratingDistribution[$i] = (int) $stats->{"rating_{$i}"};
+                }
 
-        // SERVQUAL dimension averages
-        $dimensionQuery = DB::table('feedback_servqual_responses')
-            ->join('feedback', 'feedback_servqual_responses.feedback_id', '=', 'feedback.id')
-            ->whereNotNull('feedback_servqual_responses.perception');
-        if ($agencyId) {
-            $dimensionQuery->where('feedback.agency_id', $agencyId);
-        }
-        $query($dimensionQuery, 'feedback.created_at');
-        $dimensionAverages = $dimensionQuery
-            ->select('feedback_servqual_responses.dimension', DB::raw('avg(feedback_servqual_responses.perception) as avg_perception'))
-            ->groupBy('feedback_servqual_responses.dimension')
-            ->pluck('avg_perception', 'dimension')
-            ->map(fn ($v) => round((float) $v, 2))
-            ->toArray();
+                // ─── Average SERVQUAL perception ───
+                $servqualQuery = DB::table('feedback_servqual_responses')
+                    ->join('feedback', 'feedback_servqual_responses.feedback_id', '=', 'feedback.id')
+                    ->whereNotNull('feedback_servqual_responses.perception');
+                if ($agencyId) {
+                    $servqualQuery->where('feedback.agency_id', $agencyId);
+                }
+                $applyWindow($servqualQuery, 'feedback.created_at');
+                $avgServqual = $servqualQuery->avg('feedback_servqual_responses.perception');
+                $avgServqual = $avgServqual ? round((float) $avgServqual, 2) : null;
 
-        // Service breakdown
-        if ($agencyId) {
-            $serviceBreakdown = Service::where('agcy_id', $agencyId)
-                ->where('is_deleted', false)
-                ->orderBy('name')
-                ->get()
-                ->map(function ($service) use ($query) {
-                    $sent = FeedbackInvitation::where('service_id', $service->id);
-                    $submitted = Feedback::where('service_id', $service->id);
-                    $query($sent);
-                    $query($submitted);
+                // ─── SERVQUAL dimension averages ───
+                $dimensionQuery = DB::table('feedback_servqual_responses')
+                    ->join('feedback', 'feedback_servqual_responses.feedback_id', '=', 'feedback.id')
+                    ->whereNotNull('feedback_servqual_responses.perception');
+                if ($agencyId) {
+                    $dimensionQuery->where('feedback.agency_id', $agencyId);
+                }
+                $applyWindow($dimensionQuery, 'feedback.created_at');
+                $dimensionAverages = $dimensionQuery
+                    ->select('feedback_servqual_responses.dimension', DB::raw('avg(feedback_servqual_responses.perception) as avg_perception'))
+                    ->groupBy('feedback_servqual_responses.dimension')
+                    ->pluck('avg_perception', 'dimension')
+                    ->map(fn ($v) => round((float) $v, 2))
+                    ->toArray();
 
-                    $sentCount = $sent->count();
-                    $submittedCount = $submitted->count();
-                    $avgRating = (clone $submitted)->whereNotNull('overall_rating')->avg('overall_rating');
+                // ─── Service breakdown ───
+                if ($agencyId) {
+                    // Single query replacing N+1 loop
+                    $serviceJoinConditionFi = 'fi.service_id = s.id';
+                    $serviceJoinConditionF = 'f.service_id = s.id';
+                    $serviceBindings = [];
 
-                    return [
-                        'service_id' => $service->id,
-                        'service_name' => $service->name,
-                        'invitations_sent' => $sentCount,
-                        'count' => $submittedCount,
-                        'response_rate' => $sentCount > 0 ? round(($submittedCount / $sentCount) * 100, 1) : 0,
-                        'avg_rating' => $avgRating ? round((float) $avgRating, 2) : null,
-                    ];
-                })
-                ->toArray();
-        } else {
-            $serviceBreakdownQuery = Feedback::query()->whereNotNull('service_id');
-            $query($serviceBreakdownQuery);
-            $serviceBreakdown = $serviceBreakdownQuery
-                ->select('service_id', DB::raw('max(service_name) as service_name'), DB::raw('count(*) as count'), DB::raw('avg(overall_rating) as avg_rating'))
-                ->groupBy('service_id')
-                ->orderByDesc('count')
-                ->get()
-                ->map(fn ($row) => [
-                    'service_id' => $row->service_id,
-                    'service_name' => $row->service_name,
-                    'count' => (int) $row->count,
-                    'avg_rating' => $row->avg_rating ? round((float) $row->avg_rating, 2) : null,
-                ])
-                ->toArray();
-        }
+                    if ($from) {
+                        $serviceJoinConditionFi .= ' AND fi.created_at >= ?';
+                        $serviceBindings[] = $from;
+                        $serviceJoinConditionF .= ' AND f.created_at >= ?';
+                        $serviceBindings[] = $from;
+                    }
 
-        // Recent feedback
+                    $serviceBindings[] = $agencyId;
+
+                    $serviceSql = "
+                        SELECT s.id AS service_id, s.name AS service_name,
+                            COUNT(DISTINCT fi.id) AS invitations_sent,
+                            COUNT(DISTINCT f.id) AS submitted_count,
+                            AVG(f.overall_rating) FILTER (WHERE f.overall_rating IS NOT NULL) AS avg_rating
+                        FROM services s
+                        LEFT JOIN feedback_invitations fi ON {$serviceJoinConditionFi}
+                        LEFT JOIN feedback f ON {$serviceJoinConditionF}
+                        WHERE s.agcy_id = ? AND s.is_deleted = false
+                        GROUP BY s.id, s.name
+                        ORDER BY submitted_count DESC
+                    ";
+
+                    $serviceRows = DB::select($serviceSql, $serviceBindings);
+
+                    $serviceBreakdown = array_map(function ($row) {
+                        $sentCount = (int) $row->invitations_sent;
+                        $submittedCount = (int) $row->submitted_count;
+
+                        return [
+                            'service_id' => $row->service_id,
+                            'service_name' => $row->service_name,
+                            'invitations_sent' => $sentCount,
+                            'count' => $submittedCount,
+                            'response_rate' => $sentCount > 0 ? round(($submittedCount / $sentCount) * 100, 1) : 0,
+                            'avg_rating' => $row->avg_rating !== null ? round((float) $row->avg_rating, 2) : null,
+                        ];
+                    }, $serviceRows);
+                } else {
+                    $serviceBreakdownQuery = Feedback::query()->whereNotNull('service_id');
+                    $applyWindow($serviceBreakdownQuery);
+                    $serviceBreakdown = $serviceBreakdownQuery
+                        ->select('service_id', DB::raw('max(service_name) as service_name'), DB::raw('count(*) as count'), DB::raw('avg(overall_rating) as avg_rating'))
+                        ->groupBy('service_id')
+                        ->orderByDesc('count')
+                        ->get()
+                        ->map(fn ($row) => [
+                            'service_id' => $row->service_id,
+                            'service_name' => $row->service_name,
+                            'count' => (int) $row->count,
+                            'avg_rating' => $row->avg_rating ? round((float) $row->avg_rating, 2) : null,
+                        ])
+                        ->toArray();
+                }
+
+                return [
+                    'stats' => [
+                        'total_sent' => $totalSent,
+                        'total_submitted' => $totalSubmitted,
+                        'response_rate' => $responseRate,
+                        'avg_rating' => $avgRating,
+                        'avg_servqual' => $avgServqual,
+                    ],
+                    'rating_distribution' => $ratingDistribution,
+                    'dimension_averages' => $dimensionAverages,
+                    'service_breakdown' => $serviceBreakdown,
+                ];
+            }
+        );
+
+        // ─── Recent feedback (kept as-is — needs eager-loaded relations, not cached) ───
         $recentQuery = Feedback::with(['agency', 'caseFile.client', 'servqualResponses']);
         if ($agencyId) {
             $recentQuery->where('agency_id', $agencyId);
         }
-        $query($recentQuery);
+        $applyWindow($recentQuery);
         $recentFeedback = $recentQuery
             ->orderByDesc('created_at')
             ->limit(10)
@@ -197,16 +231,10 @@ class FeedbackController extends Controller
             ->toArray();
 
         return Inertia::render('Feedback/Dashboard', [
-            'stats' => [
-                'total_sent' => $totalSent,
-                'total_submitted' => $totalSubmitted,
-                'response_rate' => $responseRate,
-                'avg_rating' => $avgRating,
-                'avg_servqual' => $avgServqual,
-            ],
-            'rating_distribution' => $ratingDistribution,
-            'dimension_averages' => $dimensionAverages,
-            'service_breakdown' => $serviceBreakdown,
+            'stats' => $cachedStats['stats'],
+            'rating_distribution' => $cachedStats['rating_distribution'],
+            'dimension_averages' => $cachedStats['dimension_averages'],
+            'service_breakdown' => $cachedStats['service_breakdown'],
             'recent_feedback' => $recentFeedback,
             'window' => $window,
         ]);

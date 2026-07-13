@@ -263,7 +263,7 @@ export default function Login({ status, canResetPassword }) {
                         <div className="lg:w-1/2 relative min-h-[500px] flex flex-col justify-center text-white overflow-hidden">
                             <div className="absolute inset-0 z-0">
                                 <img
-                                    src="https://res.cloudinary.com/dzjshue6h/image/upload/v1782637496/667817270_1254865806795018_1270259905126531748_n_ry23hh.jpg"
+                                    src="/images/auth/login-bg.jpg"
                                     alt=""
                                     className="h-full w-full object-cover"
                                 />

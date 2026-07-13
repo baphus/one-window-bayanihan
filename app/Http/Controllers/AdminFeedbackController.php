@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\Feedback;
-use App\Models\FeedbackInvitation;
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,30 +26,47 @@ class AdminFeedbackController extends Controller
 
         $window = $validated['window'] ?? 'all';
 
-        // All-agency summary
-        $agencies = Agency::where('is_deleted', false)->orderBy('name')->get();
-        $agencySummary = $agencies->map(function ($agency) use ($window) {
-            $sent = FeedbackInvitation::where('agency_id', $agency->id);
-            $submitted = Feedback::where('agency_id', $agency->id);
-            $rating = Feedback::where('agency_id', $agency->id)->whereNotNull('overall_rating');
+        // All-agency summary (single GROUP BY query instead of N+1)
+        $from = $this->resolveWindowDate($window);
 
-            $this->applyWindow($sent, $window);
-            $this->applyWindow($submitted, $window);
-            $this->applyWindow($rating, $window);
+        $agencySummary = CacheHelper::safeRemember(
+            'feedback:admin_summary:' . $window,
+            300,
+            function () use ($from) {
+                $invitationJoin = $from
+                    ? 'LEFT JOIN feedback_invitations fi ON fi.agency_id = a.id AND fi.created_at >= ?'
+                    : 'LEFT JOIN feedback_invitations fi ON fi.agency_id = a.id';
 
-            $sentCount = $sent->count();
-            $submittedCount = $submitted->count();
-            $avgRating = $rating->avg('overall_rating');
+                $feedbackJoin = $from
+                    ? 'LEFT JOIN feedback f ON f.agency_id = a.id AND f.created_at >= ?'
+                    : 'LEFT JOIN feedback f ON f.agency_id = a.id';
 
-            return [
-                'id' => $agency->id,
-                'name' => $agency->name,
-                'total_sent' => $sentCount,
-                'total_submitted' => $submittedCount,
-                'response_rate' => $sentCount > 0 ? round(($submittedCount / $sentCount) * 100, 1) : 0,
-                'avg_rating' => $avgRating ? round((float) $avgRating, 2) : null,
-            ];
-        })->toArray();
+                $sql = "
+                    SELECT a.id, a.name,
+                        COUNT(DISTINCT fi.id) AS total_sent,
+                        COUNT(DISTINCT f.id) AS total_submitted,
+                        AVG(f.overall_rating) FILTER (WHERE f.overall_rating IS NOT NULL) AS avg_rating
+                    FROM agencies a
+                    {$invitationJoin}
+                    {$feedbackJoin}
+                    WHERE a.is_deleted = false
+                    GROUP BY a.id, a.name
+                    ORDER BY a.name
+                ";
+
+                $bindings = $from ? [$from, $from] : [];
+                $rows = DB::select($sql, $bindings);
+
+                return array_map(fn ($row) => [
+                    'id' => $row->id,
+                    'name' => $row->name,
+                    'total_sent' => (int) $row->total_sent,
+                    'total_submitted' => (int) $row->total_submitted,
+                    'response_rate' => $row->total_sent > 0 ? round(($row->total_submitted / $row->total_sent) * 100, 1) : 0,
+                    'avg_rating' => $row->avg_rating ? round((float) $row->avg_rating, 2) : null,
+                ], $rows);
+            }
+        );
 
         // Detailed feedback table
         $query = Feedback::with(['agency', 'caseFile.client', 'servqualResponses']);
@@ -113,7 +131,20 @@ class AdminFeedbackController extends Controller
             return;
         }
 
-        $from = match ($window) {
+        $from = $this->resolveWindowDate($window);
+
+        if ($from) {
+            $query->where('created_at', '>=', $from);
+        }
+    }
+
+    private function resolveWindowDate(string $window)
+    {
+        if ($window === 'all') {
+            return null;
+        }
+
+        return match ($window) {
             '7d' => now()->subDays(7),
             '30d' => now()->subDays(30),
             '90d' => now()->subDays(90),
@@ -121,9 +152,5 @@ class AdminFeedbackController extends Controller
             'year' => now()->startOfYear(),
             default => null,
         };
-
-        if ($from) {
-            $query->where('created_at', '>=', $from);
-        }
     }
 }

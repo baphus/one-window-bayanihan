@@ -30,16 +30,17 @@ Bayanihan One Window coordinates case management across multiple government agen
 | Build Tool | Vite 8 |
 | Auth | Custom OTP + TOTP MFA |
 | RBAC | Custom CheckRole middleware (`users.role` column) |
-| Queue | Database-driven |
+| Queue | Redis |
 | Hosting | Render (Docker) |
 
 ## Quick Start
 
 ### Prerequisites
 
-- PHP 8.3+
+- PHP 8.3+ (with `ext-redis` extension)
 - Node.js 18+
 - PostgreSQL 17 (or Supabase account)
+- Redis 7+ (or Memurai on Windows)
 - Composer
 
 ### Setup
@@ -81,10 +82,15 @@ FILESYSTEM_DISK=supabase
 SUPABASE_URL=your-supabase-url
 SUPABASE_KEY=your-service-role-key
 
-# Cache/Queue/Session (all database-backed)
-CACHE_STORE=database
-QUEUE_CONNECTION=database
-SESSION_DRIVER=database
+# Cache/Queue/Session (Redis-backed — falls back to database if Redis unavailable)
+CACHE_STORE=redis
+QUEUE_CONNECTION=redis
+SESSION_DRIVER=redis
+
+# Redis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=null
 
 # Mail
 MAIL_MAILER=log  # or smtp in production
@@ -194,6 +200,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design.
 | [Testing Strategy](docs/TESTING_STRATEGY.md) | Test approach, patterns, coverage |
 | [Security](docs/SECURITY_REQUIREMENTS.md) | Auth, RBAC, MFA, encryption, rate limiting |
 | [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Docker, Render, Supabase setup |
+| [Redis Integration](docs/REDIS_INTEGRATION.md) | Redis setup, performance gains, architecture |
 | [Audit Strategy](docs/AUDIT_STRATEGY.md) | Audit log design and retention |
 
 ## License

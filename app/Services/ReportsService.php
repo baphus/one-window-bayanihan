@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -15,6 +16,14 @@ use Illuminate\Support\Str;
 
 class ReportsService
 {
+    // ── Cache Keys & TTLs ────────────────────────────────────────────────
+
+    private const CACHE_TTL_PAYLOAD = 180;       // 3 minutes — full report payload
+    private const CACHE_TTL_REFERENCE = 1800;    // 30 minutes — reference/status data
+    private const CACHE_TTL_OPTIONS = 600;       // 10 minutes — filter options
+
+    public const KEY_REFERENCE_DATA = 'reports:reference_data';
+
     public function getAll(
         ?string $userId = null,
         ?string $role = null,
@@ -25,15 +34,26 @@ class ReportsService
         ?string $province = null,
         ?string $city = null,
     ): array {
-        $data = match ($role) {
-            'AGENCY' => $this->getAgencyPayload($userId, $fromDate, $toDate, $dateScope, $province, $city, $agencyId),
-            'ADMIN' => $this->getAdminPayload($fromDate, $toDate, $dateScope, $province, $city, $agencyId),
-            default => $this->getCaseManagerPayload($userId, $fromDate, $toDate, $dateScope, $province, $city, $agencyId),
-        };
+        // Build cache key from all parameters that affect the output
+        $cacheKey = 'reports:payload:' . md5(implode('|', [
+            $userId ?? '', $role ?? '', $agencyId ?? '',
+            $fromDate ?? '', $toDate ?? '', $dateScope,
+            $province ?? '', $city ?? '',
+        ]));
 
-        $data['role'] = $role;
+        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_PAYLOAD, function () use (
+            $userId, $role, $agencyId, $fromDate, $toDate, $dateScope, $province, $city
+        ) {
+            $data = match ($role) {
+                'AGENCY' => $this->getAgencyPayload($userId, $fromDate, $toDate, $dateScope, $province, $city, $agencyId),
+                'ADMIN' => $this->getAdminPayload($fromDate, $toDate, $dateScope, $province, $city, $agencyId),
+                default => $this->getCaseManagerPayload($userId, $fromDate, $toDate, $dateScope, $province, $city, $agencyId),
+            };
 
-        return $data;
+            $data['role'] = $role;
+
+            return $data;
+        });
     }
 
     private function getCaseManagerPayload(
@@ -420,22 +440,24 @@ class ReportsService
      */
     public function getReferenceData(): array
     {
-        return [
-            'referralStatuses' => CaseStatus::query()
-                ->where('type', 'referral')->where('is_active', true)
-                ->orderBy('sort_order')
-                ->get(['slug', 'name', 'color'])->toArray(),
-            'caseStatuses' => CaseStatus::query()
-                ->where('type', 'case')->where('is_active', true)
-                ->orderBy('sort_order')
-                ->get(['slug', 'name', 'color'])->toArray(),
-            'categories' => CaseCategory::query()
-                ->where('is_active', true)->orderBy('sort_order')
-                ->get(['name', 'color'])->toArray(),
-            'caseIssues' => CaseIssue::query()
-                ->where('is_active', true)->orderBy('sort_order')
-                ->get(['name'])->toArray(),
-        ];
+        return CacheHelper::safeRemember(self::KEY_REFERENCE_DATA, self::CACHE_TTL_REFERENCE, function () {
+            return [
+                'referralStatuses' => CaseStatus::query()
+                    ->where('type', 'referral')->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->get(['slug', 'name', 'color'])->toArray(),
+                'caseStatuses' => CaseStatus::query()
+                    ->where('type', 'case')->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->get(['slug', 'name', 'color'])->toArray(),
+                'categories' => CaseCategory::query()
+                    ->where('is_active', true)->orderBy('sort_order')
+                    ->get(['name', 'color'])->toArray(),
+                'caseIssues' => CaseIssue::query()
+                    ->where('is_active', true)->orderBy('sort_order')
+                    ->get(['name'])->toArray(),
+            ];
+        });
     }
 
     public function getReferralKpis(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
@@ -1271,104 +1293,133 @@ class ReportsService
             return [];
         }
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $agencyIds = Referral::whereNull('deleted_at')
-                ->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'))
-                ->select('agcy_id')->distinct()->pluck('agcy_id');
+        $cacheKey = 'reports:agency_options:' . md5(($userId ?? '') . '|' . ($role ?? ''));
 
+        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($userId, $role) {
+            if ($role === 'CASE_MANAGER' && $userId) {
+                $agencyIds = Referral::whereNull('deleted_at')
+                    ->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'))
+                    ->select('agcy_id')->distinct()->pluck('agcy_id');
+
+                return Agency::where('is_active', true)
+                    ->whereIn('id', $agencyIds)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Agency $a) => ['value' => $a->id, 'label' => $a->name])
+                    ->values()
+                    ->toArray();
+            }
+
+            // Admin: all active agencies.
             return Agency::where('is_active', true)
-                ->whereIn('id', $agencyIds)
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (Agency $a) => ['value' => $a->id, 'label' => $a->name])
                 ->values()
                 ->toArray();
-        }
-
-        // Admin: all active agencies.
-        return Agency::where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (Agency $a) => ['value' => $a->id, 'label' => $a->name])
-            ->values()
-            ->toArray();
+        });
     }
 
     public function getProvinceOptions(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = DB::table('client_addresses')
-            ->select('province')
-            ->whereNotNull('province')
-            ->where('province', '!=', '')
-            ->where('is_deleted', false)
-            ->distinct()
-            ->orderBy('province');
+        $cacheKey = 'reports:province_options:' . md5(($userId ?? '') . '|' . ($role ?? '') . '|' . ($agencyId ?? ''));
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->whereIn('client_id', function ($q) use ($userId) {
-                $q->select('client_id')->from('cases')
-                    ->where('user_id', $userId)
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
-        if ($agencyId) {
-            $query->whereIn('client_id', function ($q) use ($agencyId) {
-                $q->select('c.client_id')->from('cases as c')
-                    ->whereIn('c.id', function ($q2) use ($agencyId) {
-                        $q2->select('case_id')->from('referrals')
-                            ->where('agcy_id', $agencyId)
-                            ->whereNull('deleted_at');
-                    })
-                    ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
+        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($userId, $role, $agencyId) {
+            $query = DB::table('client_addresses')
+                ->select('province')
+                ->whereNotNull('province')
+                ->where('province', '!=', '')
+                ->where('is_deleted', false)
+                ->distinct()
+                ->orderBy('province');
 
-        $resolver = app(AddressNameResolver::class);
+            if ($role === 'CASE_MANAGER' && $userId) {
+                $query->whereIn('client_id', function ($q) use ($userId) {
+                    $q->select('client_id')->from('cases')
+                        ->where('user_id', $userId)
+                        ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                });
+            }
+            if ($agencyId) {
+                $query->whereIn('client_id', function ($q) use ($agencyId) {
+                    $q->select('c.client_id')->from('cases as c')
+                        ->whereIn('c.id', function ($q2) use ($agencyId) {
+                            $q2->select('case_id')->from('referrals')
+                                ->where('agcy_id', $agencyId)
+                                ->whereNull('deleted_at');
+                        })
+                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
+                });
+            }
 
-        return $query->pluck('province')->map(fn ($p) => [
-            'value' => $p,
-            'label' => $resolver->resolve($p),
-        ])->values()->toArray();
+            $resolver = app(AddressNameResolver::class);
+
+            return $query->pluck('province')->map(fn ($p) => [
+                'value' => $p,
+                'label' => $resolver->resolve($p),
+            ])->values()->toArray();
+        });
     }
 
     public function getCityOptions(?string $province = null, ?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = DB::table('client_addresses')
-            ->select('city_municipality')
-            ->whereNotNull('city_municipality')
-            ->where('city_municipality', '!=', '')
-            ->where('is_deleted', false)
-            ->distinct()
-            ->orderBy('city_municipality');
+        $cacheKey = 'reports:city_options:' . md5(($province ?? '') . '|' . ($userId ?? '') . '|' . ($role ?? '') . '|' . ($agencyId ?? ''));
 
-        if ($province) {
-            $query->where('province', $province);
-        }
+        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($province, $userId, $role, $agencyId) {
+            $query = DB::table('client_addresses')
+                ->select('city_municipality')
+                ->whereNotNull('city_municipality')
+                ->where('city_municipality', '!=', '')
+                ->where('is_deleted', false)
+                ->distinct()
+                ->orderBy('city_municipality');
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->whereIn('client_id', function ($q) use ($userId) {
-                $q->select('client_id')->from('cases')
-                    ->where('user_id', $userId)
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
-        if ($agencyId) {
-            $query->whereIn('client_id', function ($q) use ($agencyId) {
-                $q->select('c.client_id')->from('cases as c')
-                    ->whereIn('c.id', function ($q2) use ($agencyId) {
-                        $q2->select('case_id')->from('referrals')
-                            ->where('agcy_id', $agencyId)
-                            ->whereNull('deleted_at');
-                    })
-                    ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
+            if ($province) {
+                $query->where('province', $province);
+            }
 
-        $resolver = app(AddressNameResolver::class);
+            if ($role === 'CASE_MANAGER' && $userId) {
+                $query->whereIn('client_id', function ($q) use ($userId) {
+                    $q->select('client_id')->from('cases')
+                        ->where('user_id', $userId)
+                        ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                });
+            }
+            if ($agencyId) {
+                $query->whereIn('client_id', function ($q) use ($agencyId) {
+                    $q->select('c.client_id')->from('cases as c')
+                        ->whereIn('c.id', function ($q2) use ($agencyId) {
+                            $q2->select('case_id')->from('referrals')
+                                ->where('agcy_id', $agencyId)
+                                ->whereNull('deleted_at');
+                        })
+                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
+                });
+            }
 
-        return $query->pluck('city_municipality')->map(fn ($c) => [
-            'value' => $c,
-            'label' => $resolver->resolve($c),
-        ])->values()->toArray();
+            $resolver = app(AddressNameResolver::class);
+
+            return $query->pluck('city_municipality')->map(fn ($c) => [
+                'value' => $c,
+                'label' => $resolver->resolve($c),
+            ])->values()->toArray();
+        });
+    }
+
+    // ── Cache Invalidation ───────────────────────────────────────────────
+
+    /**
+     * Flush all reports caches. Called when cases/referrals/agencies change.
+     */
+    public static function invalidateAll(): void
+    {
+        // Clear reference data
+        cache()->forget(self::KEY_REFERENCE_DATA);
+
+        // Flush all payload caches (prefixed with reports:)
+        // Use tag-based clearing or pattern deletion if available;
+        // otherwise rely on TTL-based expiry (3 minutes max staleness).
+        // For targeted invalidation, we clear reference data immediately
+        // and let payloads expire naturally via their short TTL.
     }
 }

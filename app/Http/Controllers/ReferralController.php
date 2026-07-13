@@ -15,6 +15,7 @@ use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
+use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class ReferralController extends Controller
 {
     public function __construct(
         private readonly ReferralService $referralService,
+        private readonly ReferenceDataService $referenceData,
     ) {}
 
     public function index(Request $request)
@@ -41,15 +43,15 @@ class ReferralController extends Controller
             'referrals' => $referrals,
             'filters' => (object) $request->only($filterKeys),
             'stats' => $this->referralService->getReferralStats($user->agcy_id, $user->role),
-            'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
-            'categories' => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
-            'caseIssues' => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'agencies' => $this->referenceData->getAgenciesDropdown(),
+            'categories' => $this->referenceData->getActiveCategories(),
+            'caseIssues' => $this->referenceData->getActiveIssues(),
         ]);
     }
 
     public function create(Request $request)
     {
-        $agencies = $this->referralService->getAgenciesWithServices();
+        $agencies = $this->referenceData->getAgenciesWithServices();
 
         $casesQuery = CaseFile::with('client')
             ->where('status', 'OPEN')

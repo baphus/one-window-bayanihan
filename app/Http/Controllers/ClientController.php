@@ -15,6 +15,7 @@ use App\Services\AuditLogFormatter;
 use App\Services\CloudinaryAvatarService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
+use App\Services\ReferenceDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -124,9 +125,9 @@ class ClientController extends Controller
             'filters' => (object) $request->only($filterKeys),
             'stats' => $this->getClientStats($user),
             'users' => User::select('id', 'name')->orderBy('name')->get(),
-            'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
-            'categories' => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']),
-            'caseIssues' => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'agencies' => app(ReferenceDataService::class)->getAgenciesDropdown(),
+            'categories' => app(ReferenceDataService::class)->getActiveCategories(),
+            'caseIssues' => app(ReferenceDataService::class)->getActiveIssues(),
         ]);
     }
 

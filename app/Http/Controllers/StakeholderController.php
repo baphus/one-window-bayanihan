@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -10,13 +11,18 @@ class StakeholderController extends Controller
 {
     public function index()
     {
-        $agencies = Agency::with(['services', 'referrals' => function ($q) {
-            $q->select('id', 'agcy_id', 'status');
-        }])
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->toArray();
+        $agencies = CacheHelper::safeRemember('stakeholder:agencies_list', 600, function () {
+            return Agency::with(['services'])
+                ->withCount([
+                    'referrals as total_referrals_count',
+                    'referrals as active_referrals_count' => fn ($q) => $q->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE']),
+                    'referrals as completed_referrals_count' => fn ($q) => $q->where('status', 'COMPLETED'),
+                ])
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->toArray();
+        });
 
         return Inertia::render('Stakeholder/Index', [
             'agencies' => $agencies,
@@ -30,24 +36,24 @@ class StakeholderController extends Controller
             abort(404, 'Stakeholder not found.');
         }
 
-        $stakeholder->load([
-            'services.requirements',
-            'referrals' => function ($q) {
-                $q->select('id', 'agcy_id', 'status');
-            },
-        ]);
+        $agencyData = CacheHelper::safeRemember('stakeholder:agency:' . $stakeholder->id, 300, function () use ($stakeholder) {
+            $stakeholder->load(['services.requirements']);
+            $stakeholder->loadCount([
+                'referrals as total_referrals_count',
+                'referrals as active_referrals_count' => fn ($q) => $q->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE']),
+                'referrals as completed_referrals_count' => fn ($q) => $q->where('status', 'COMPLETED'),
+            ]);
 
-        $referrals = $stakeholder->referrals;
-        $activeReferrals = $referrals->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])->count();
-        $completedReferrals = $referrals->where('status', 'COMPLETED')->count();
+            return [
+                'stakeholder' => $stakeholder->toArray(),
+                'stats' => [
+                    'total_referrals' => (int) $stakeholder->total_referrals_count,
+                    'active_referrals' => (int) $stakeholder->active_referrals_count,
+                    'completed_referrals' => (int) $stakeholder->completed_referrals_count,
+                ],
+            ];
+        });
 
-        return Inertia::render('Stakeholder/Show', [
-            'stakeholder' => $stakeholder->toArray(),
-            'stats' => [
-                'total_referrals' => $referrals->count(),
-                'active_referrals' => $activeReferrals,
-                'completed_referrals' => $completedReferrals,
-            ],
-        ]);
+        return Inertia::render('Stakeholder/Show', $agencyData);
     }
 }

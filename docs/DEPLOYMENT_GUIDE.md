@@ -19,6 +19,7 @@
 - PHP 8.3+
 - Node.js 22+ (for Vite build)
 - PostgreSQL (local or Supabase)
+- Redis 7+ (local, Docker, or Memurai on Windows)
 - Composer 2
 
 ### Quick Start
@@ -78,10 +79,16 @@ SUPABASE_S3_REGION=ap-southeast-1
 SUPABASE_S3_BUCKET=your-bucket
 SUPABASE_S3_ENDPOINT=https://your-project.supabase.co/storage/v1/s3
 
-# Cache/Queue/Session (all database-backed)
-CACHE_STORE=database
-QUEUE_CONNECTION=database
-SESSION_DRIVER=database
+# Cache/Queue/Session (Redis-backed for performance)
+CACHE_STORE=redis
+QUEUE_CONNECTION=redis
+SESSION_DRIVER=redis
+
+# Redis
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
 
 # Mail
 MAIL_MAILER=log        # Use 'smtp' in production
@@ -117,7 +124,7 @@ docker-compose.yml
   ├── nginx (1.27-alpine) ─── port 80 → reverse proxy to app:9000
   ├── app (PHP 8.4-fpm) ──── Laravel + queue worker + scheduler
   ├── db (postgres:15-alpine) ── local database
-  └── redis (optional) ──── caching (not currently used)
+  └── redis (7-alpine) ──── cache, queue, sessions, OTP storage
 ```
 
 ### Build & Run
@@ -275,7 +282,7 @@ Admin UI: `/admin/system/maintenance` (toggle button)
 
 ```bash
 # Check queue status
-php artisan queue:monitor database
+php artisan queue:monitor redis:default
 
 # Retry failed jobs
 php artisan queue:retry all
@@ -308,7 +315,8 @@ Scripts available in `scripts/`:
 
 - [ ] Sentry DSN configured and receiving errors
 - [ ] Health check endpoint (`/up`) responding
-- [ ] Queue worker running (check `jobs` table for stuck jobs)
+- [ ] Redis connected (`redis-cli ping` → PONG)
+- [ ] Queue worker running (check queue depth with `php artisan queue:monitor redis:default`)
 - [ ] Email delivery working (check `email_logs` table)
 - [ ] Storage accessible (test file upload)
 - [ ] Database connections healthy

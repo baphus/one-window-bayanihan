@@ -9,19 +9,20 @@ use Illuminate\Support\Str;
 class AgencySeeder extends Seeder
 {
     /**
-     * Official agency logo URLs hosted on Cloudinary.
+     * Official agency logos, self-hosted under public/images/agencies.
      * Sourced from Wikimedia Commons (public domain Philippine government works).
+     * Self-hosted to avoid third-party CDN tracking-prevention console warnings.
      */
     private const LOGO_PATHS = [
-        'owwa' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783830051/bayanihan/agencies/owwa-new.png',
-        'dmw' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801446/bayanihan/agencies/dmw.png',
-        'doh' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801448/bayanihan/agencies/doh.png',
-        'dole' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801450/bayanihan/agencies/dole.png',
-        'dswd' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801451/bayanihan/agencies/dswd.png',
-        'tesda' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801453/bayanihan/agencies/tesda.png',
-        'law-center-inc' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783830193/bayanihan/agencies/law-center-inc.jpg',
-        'province-cebu' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801455/bayanihan/agencies/province-cebu.png',
-        'city-cebu' => 'https://res.cloudinary.com/fsc2meuy/image/upload/v1783801456/bayanihan/agencies/city-cebu.png',
+        'owwa' => '/images/agencies/owwa.png',
+        'dmw' => '/images/agencies/dmw.png',
+        'doh' => '/images/agencies/doh.png',
+        'dole' => '/images/agencies/dole.png',
+        'dswd' => '/images/agencies/dswd.png',
+        'tesda' => '/images/agencies/tesda.png',
+        'law-center-inc' => '/images/agencies/law-center-inc.jpg',
+        'province-cebu' => '/images/agencies/province-cebu.png',
+        'city-cebu' => '/images/agencies/city-cebu.png',
     ];
 
     /**

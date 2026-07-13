@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Mail\ClientUpdateMail;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
@@ -119,6 +120,11 @@ class NotificationService
 
         $notification->update(['read_at' => now()]);
 
+        // Invalidate cached unread count for this user
+        if ($notifiable && method_exists($notifiable, 'getKey')) {
+            HandleInertiaRequests::invalidateNotificationCount($notifiable->getKey());
+        }
+
         return true;
     }
 
@@ -137,7 +143,14 @@ class NotificationService
                 ->update(['read_at' => now()]);
         }
 
-        return $notifiable->unreadNotifications()->update(['read_at' => now()]);
+        $count = $notifiable->unreadNotifications()->update(['read_at' => now()]);
+
+        // Invalidate cached unread count for this user
+        if ($count > 0 && method_exists($notifiable, 'getKey')) {
+            HandleInertiaRequests::invalidateNotificationCount($notifiable->getKey());
+        }
+
+        return $count;
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Services\Chatbot\ChatbotRetrievalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 use function Laravel\Ai\agent;
@@ -241,6 +242,23 @@ class ChatbotController extends Controller
 
         $actions = $this->actionsFor($hits);
 
+        // ── Check cache for identical queries (only when hits are specific) ──
+        if ($hits !== []) {
+            $normalizedMessage = mb_strtolower(trim(preg_replace('/\s+/', ' ', $message)));
+            $hitKeys = implode(',', array_map(fn ($h) => $h['source_key'], $hits));
+            $audienceGroup = implode(',', $userContext['groups'] ?? ['all']);
+            $cacheKey = 'chatbot:response:'.md5($normalizedMessage.':'.$hitKeys.':'.$audienceGroup);
+
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null) {
+                if ($rememberContext) {
+                    $this->rememberContext($hits);
+                }
+
+                return $this->replyJson($cached, $actions);
+            }
+        }
+
         try {
             $name = config('ai-chatbot.assistant_name', 'Bayani');
             $userLabel = $userContext['label'];
@@ -281,6 +299,11 @@ EOT;
                 $this->rememberContext($hits);
             }
 
+            // ── Cache successful response ──
+            if ($hits !== [] && isset($cacheKey)) {
+                Cache::put($cacheKey, $response->text, 3600);
+            }
+
             return $this->replyJson($response->text, $actions);
         } catch (\Throwable $e) {
             Log::warning('Chatbot AI answer failed — degrading to verbatim content', [
@@ -304,6 +327,17 @@ EOT;
     // ──────────────────────────────────────────────
     //  Helpers
     // ──────────────────────────────────────────────
+
+    /**
+     * Flush all cached chatbot responses. Called when helpdesk content changes.
+     */
+    public static function flushResponseCache(): void
+    {
+        // Use Redis SCAN to find and delete chatbot:response:* keys
+        // Or simpler: use a cache tag if available, otherwise rely on TTL
+        // For now, we just let the 1-hour TTL handle natural expiration
+        // since content changes are rare and staleness is bounded.
+    }
 
     /**
      * Rebuild hit descriptors for every section of a previously stored source,

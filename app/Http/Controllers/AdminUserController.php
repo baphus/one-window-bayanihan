@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Mail\EmailChangedNotification;
 use App\Models\Agency;
 use App\Models\AuditLog;
@@ -76,13 +77,13 @@ class AdminUserController extends Controller
             'users' => $users,
             'filters' => $filters,
             'agencies' => $agencies,
-            'stats' => [
+            'stats' => CacheHelper::safeRemember('admin:user_stats', 120, fn () => [
                 'total' => User::count(),
                 'active' => User::where('is_active', true)->count(),
                 'case_managers' => User::where('role', 'CASE_MANAGER')->count(),
                 'agency_focals' => User::where('role', 'AGENCY')->count(),
                 'admins' => User::where('role', 'ADMIN')->count(),
-            ],
+            ]),
         ]);
     }
 

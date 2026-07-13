@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\User;
 use App\Services\CloudinaryAvatarService;
@@ -41,13 +42,13 @@ class AdminAgencyController extends Controller
         return Inertia::render('Admin/Agency/Index', [
             'agencies' => $agencies,
             'filters' => $filters,
-            'stats' => [
+            'stats' => CacheHelper::safeRemember('admin:agency_stats', 300, fn () => [
                 'total' => Agency::count(),
                 'active' => Agency::where('is_active', true)->count(),
                 'inactive' => Agency::where('is_active', false)->count(),
                 'default' => Agency::where('is_default', true)->count(),
                 'total_users' => User::count(),
-            ],
+            ]),
         ]);
     }
 

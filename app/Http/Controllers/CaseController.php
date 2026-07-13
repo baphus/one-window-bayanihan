@@ -17,6 +17,7 @@ use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
 use App\Services\PhilippineAddressService;
+use App\Services\ReferenceDataService;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,6 +28,7 @@ class CaseController extends Controller
         private readonly CaseService $caseService,
         private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
+        private readonly ReferenceDataService $referenceData,
     ) {}
 
     public function index(Request $request)
@@ -44,10 +46,10 @@ class CaseController extends Controller
             'cases' => $cases,
             'filters' => (object) $request->only($filterKeys),
             'stats' => $this->caseService->getCaseStats(),
-            'users' => User::where('role', 'CASE_MANAGER')->select('id', 'name')->orderBy('name')->get(),
-            'agencies' => Agency::select('id', 'name')->orderBy('name')->get(),
-            'categories' => CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
-            'caseIssues' => CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'users' => $this->referenceData->getCaseManagerUsers(),
+            'agencies' => $this->referenceData->getAgenciesDropdown(),
+            'categories' => $this->referenceData->getActiveCategories(),
+            'caseIssues' => $this->referenceData->getActiveIssues(),
         ]);
     }
 
@@ -58,8 +60,8 @@ class CaseController extends Controller
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
         }
 
-        $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
-        $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
+        $categories = $this->referenceData->getActiveCategories();
+        $caseIssues = $this->referenceData->getActiveIssues();
 
         return Inertia::render('Case/Create', [
             'client' => $client,
@@ -100,8 +102,8 @@ class CaseController extends Controller
         abort_unless($case->status === 'DRAFT', 404);
         abort_unless($case->user_id === $request->user()->id, 403);
 
-        $categories = CaseCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'name', 'color']);
-        $caseIssues = CaseIssue::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
+        $categories = $this->referenceData->getActiveCategories();
+        $caseIssues = $this->referenceData->getActiveIssues();
 
         // Resolve draft address names to codes for cascade dropdown pre-population
         $draftResolvedAddress = [];

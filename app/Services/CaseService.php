@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\CacheHelper;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
@@ -1110,36 +1111,38 @@ class CaseService
 
     public function getCaseStats(): array
     {
-        $counts = DB::selectOne("
-            SELECT
-                COUNT(*) FILTER (WHERE status NOT IN ('DRAFT','ARCHIVED')) AS active,
-                COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
-                COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed,
-                COUNT(*) FILTER (WHERE status = 'ARCHIVED') AS archived,
-                COUNT(*) FILTER (WHERE client_type = 'OFW' AND status NOT IN ('DRAFT','ARCHIVED')) AS ofw,
-                COUNT(*) FILTER (WHERE client_type = 'NEXT_OF_KIN' AND status NOT IN ('DRAFT','ARCHIVED')) AS nok
-            FROM cases
-            WHERE is_deleted = false
-        ");
+        return CacheHelper::safeRemember('stats:cases', 120, function () {
+            $counts = DB::selectOne("
+                SELECT
+                    COUNT(*) FILTER (WHERE status NOT IN ('DRAFT','ARCHIVED')) AS active,
+                    COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
+                    COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed,
+                    COUNT(*) FILTER (WHERE status = 'ARCHIVED') AS archived,
+                    COUNT(*) FILTER (WHERE client_type = 'OFW' AND status NOT IN ('DRAFT','ARCHIVED')) AS ofw,
+                    COUNT(*) FILTER (WHERE client_type = 'NEXT_OF_KIN' AND status NOT IN ('DRAFT','ARCHIVED')) AS nok
+                FROM cases
+                WHERE is_deleted = false
+            ");
 
-        $totalReferrals = Referral::count();
+            $totalReferrals = Referral::count();
 
-        $categoryBreakdown = CaseFile::join('case_categories', 'cases.category_id', '=', 'case_categories.id')
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->select('case_categories.id', 'case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
-            ->groupBy('case_categories.id', 'case_categories.name', 'case_categories.color')
-            ->orderBy('count', 'desc')
-            ->get();
+            $categoryBreakdown = CaseFile::join('case_categories', 'cases.category_id', '=', 'case_categories.id')
+                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+                ->select('case_categories.id', 'case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+                ->groupBy('case_categories.id', 'case_categories.name', 'case_categories.color')
+                ->orderBy('count', 'desc')
+                ->get();
 
-        return [
-            'total_cases' => (int) $counts->active,
-            'open_cases' => (int) $counts->open,
-            'closed_cases' => (int) $counts->closed,
-            'archived_cases' => (int) $counts->archived,
-            'ofw_cases' => (int) $counts->ofw,
-            'nok_cases' => (int) $counts->nok,
-            'total_referrals' => $totalReferrals,
-            'category_breakdown' => $categoryBreakdown,
-        ];
+            return [
+                'total_cases' => (int) $counts->active,
+                'open_cases' => (int) $counts->open,
+                'closed_cases' => (int) $counts->closed,
+                'archived_cases' => (int) $counts->archived,
+                'ofw_cases' => (int) $counts->ofw,
+                'nok_cases' => (int) $counts->nok,
+                'total_referrals' => $totalReferrals,
+                'category_breakdown' => $categoryBreakdown,
+            ];
+        });
     }
 }

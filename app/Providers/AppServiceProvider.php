@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Listeners\EmailEventSubscriber;
 use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -14,6 +15,7 @@ use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\Feedback;
+use App\Models\FeedbackInvitation;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -22,6 +24,7 @@ use App\Models\Service;
 use App\Models\ServiceRequirement;
 use App\Models\User;
 use App\Observers\AuditObserver;
+use App\Observers\CacheInvalidationObserver;
 use App\Services\Contracts\MalwareScannerInterface;
 use App\Services\Malware\ClamAvScanner;
 use App\Services\Malware\NullScanner;
@@ -91,6 +94,26 @@ class AppServiceProvider extends ServiceProvider
             $model::observe(AuditObserver::class);
         }
 
+        // Cache invalidation observer for models that affect cached reference data/stats
+        $cacheableModels = [
+            Agency::class,
+            CaseCategory::class,
+            CaseIssue::class,
+            CaseStatus::class,
+            User::class,
+            CaseFile::class,
+            Referral::class,
+            Service::class,
+            ServiceRequirement::class,
+            Feedback::class,
+            FeedbackInvitation::class,
+            Milestone::class,
+        ];
+
+        foreach ($cacheableModels as $model) {
+            $model::observe(CacheInvalidationObserver::class);
+        }
+
         RateLimiter::for('login', function (Request $request) {
             return Limit::perMinute(10)->by($request->input('email') ?: $request->ip());
         });
@@ -132,6 +155,13 @@ class AppServiceProvider extends ServiceProvider
         // the feedback_invitations unique constraint.
 
         Event::subscribe(EmailEventSubscriber::class);
+
+        // Invalidate cached notification count when a database notification is sent
+        Event::listen(\Illuminate\Notifications\Events\NotificationSent::class, function ($event) {
+            if ($event->channel === 'database' && $event->notifiable && method_exists($event->notifiable, 'getKey')) {
+                HandleInertiaRequests::invalidateNotificationCount($event->notifiable->getKey());
+            }
+        });
 
         // Set Cloudinary API timeout to prevent hanging uploads
         if (class_exists(Configuration::class)) {
