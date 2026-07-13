@@ -8,12 +8,11 @@ use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\CaseStatus;
-use App\Models\Feedback;
-use App\Models\FeedbackInvitation;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
+use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Services\ReferenceDataService;
 use App\Services\ReportsService;
@@ -26,7 +25,7 @@ use Illuminate\Support\Facades\Cache;
  * Registered in AppServiceProvider alongside AuditObserver for models that
  * affect cached reference data, stats, or shared props.
  *
- * NOTE: Feedback, FeedbackInvitation, and Milestone models must also be
+ * NOTE: SurveyInvitation and Milestone models must also be
  * registered to observe this observer in AppServiceProvider.
  */
 class CacheInvalidationObserver
@@ -69,8 +68,7 @@ class CacheInvalidationObserver
             $model instanceof Referral => $this->invalidateReferral(),
             $model instanceof Service,
             $model instanceof ServiceRequirement => $this->invalidateService(),
-            $model instanceof Feedback,
-            $model instanceof FeedbackInvitation => $this->invalidateFeedback(),
+            $model instanceof SurveyInvitation => $this->invalidateSurvey(),
             $model instanceof Milestone => $this->invalidateMilestone(),
             default => null,
         };
@@ -154,14 +152,9 @@ class CacheInvalidationObserver
         ReferenceDataService::invalidateAgencies(); // services tree is part of agency cache
     }
 
-    private function invalidateFeedback(): void
+    private function invalidateSurvey(): void
     {
-        // Can't pattern-delete easily, so clear the most common keys
-        // Admin summary for all windows
-        foreach (['all', '7d', '30d', '90d', 'quarter', 'year'] as $window) {
-            Cache::forget('feedback:admin_summary:' . $window);
-        }
-        // Agency-specific feedback dashboard keys will expire via TTL (180s)
+        // Survey dashboard stats will expire via TTL (180s)
     }
 
     private function invalidateMilestone(): void

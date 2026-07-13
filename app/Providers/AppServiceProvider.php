@@ -14,14 +14,13 @@ use App\Models\CaseStatus;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
-use App\Models\Feedback;
-use App\Models\FeedbackInvitation;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComplianceRequirement;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
+use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Observers\CacheInvalidationObserver;
@@ -87,7 +86,6 @@ class AppServiceProvider extends ServiceProvider
             CaseCategory::class,
             CaseIssue::class,
             CaseStatus::class,
-            Feedback::class,
         ];
 
         foreach ($auditableModels as $model) {
@@ -105,8 +103,7 @@ class AppServiceProvider extends ServiceProvider
             Referral::class,
             Service::class,
             ServiceRequirement::class,
-            Feedback::class,
-            FeedbackInvitation::class,
+            SurveyInvitation::class,
             Milestone::class,
         ];
 
@@ -150,9 +147,9 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
         Event::listen(Failed::class, LogFailedLogin::class);
-        // SendFeedbackRequest is auto-discovered (handle() type-hints ReferralCompleted);
-        // registering it here as well made it run twice per completion and violate
-        // the feedback_invitations unique constraint.
+        // SendSurveyRequest is auto-discovered (handle() type-hints ReferralCompleted);
+        // registering it here as well would make it run twice per completion and violate
+        // the survey_invitations unique constraint.
 
         Event::subscribe(EmailEventSubscriber::class);
 

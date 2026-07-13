@@ -11,11 +11,9 @@ use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\AdminAgencyController;
-use App\Http\Controllers\AdminFeedbackController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
-use App\Http\Controllers\AgencyServqualConfigController;
 use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
@@ -25,12 +23,13 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PublicFeedbackController;
+use App\Http\Controllers\PublicSurveyController;
+use App\Http\Controllers\SurveyFormController;
+use App\Http\Controllers\SurveyResponseController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\StakeholderController;
@@ -43,13 +42,13 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
-// Public feedback submission — no auth required (token-based)
-Route::get('/feedback/{token}', [PublicFeedbackController::class, 'showForm'])
-    ->name('feedbacks.submit-page')
+// Public survey submission — no auth required (token-based)
+Route::get('/survey/{token}', [PublicSurveyController::class, 'show'])
+    ->name('survey.public.show')
     ->middleware('throttle:30,1');
-Route::post('/feedback/{token}', [PublicFeedbackController::class, 'submit'])
-    ->name('feedbacks.submit')
-    ->middleware(['turnstile', 'throttle:10,1']);
+Route::post('/survey/{token}', [PublicSurveyController::class, 'submit'])
+    ->name('survey.public.submit')
+    ->middleware('throttle:10,1');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -137,19 +136,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs');
     });
 
-    // Feedback dashboard: routes to different controller methods based on role
-    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
-        Route::get('/feedbacks', [FeedbackController::class, 'dashboard'])->name('feedbacks.index');
-        Route::get('/feedbacks/servqual-config', [FeedbackController::class, 'servqualConfig'])->name('feedbacks.servqual-config');
-        Route::get('/feedbacks/export-excel', [FeedbackController::class, 'exportExcel'])->name('feedbacks.export-excel');
-        Route::get('/feedbacks/{feedback}', [FeedbackController::class, 'show'])->name('feedbacks.show');
-    });
-
-    // Admin cross-agency feedback dashboard
-    Route::middleware(['role:ADMIN', 'ip.whitelist'])->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/feedbacks', [AdminFeedbackController::class, 'dashboard'])->name('feedbacks.dashboard');
-    });
-
     // Case show: AGENCY can view cases with active referrals (authorized in controller)
     Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show')
         ->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
@@ -181,16 +167,21 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/services/{service}', [AgencyServiceController::class, 'destroy'])->name('agency.services.destroy');
     });
 
-    Route::middleware('role:AGENCY')->prefix('servqual-configs')->name('servqual-configs.')->group(function () {
-        Route::get('/', [AgencyServqualConfigController::class, 'index'])->name('index');
-        Route::get('/create', [AgencyServqualConfigController::class, 'create'])->name('create');
-        Route::post('/', [AgencyServqualConfigController::class, 'store'])->name('store');
-        Route::get('/{config}/edit', [AgencyServqualConfigController::class, 'edit'])->name('edit');
-        Route::patch('/{config}', [AgencyServqualConfigController::class, 'update'])->name('update');
-        Route::patch('/{config}/activate', [AgencyServqualConfigController::class, 'activate'])->name('activate');
-        Route::post('/{config}/assign-service', [AgencyServqualConfigController::class, 'assignService'])->name('assign-service');
-        Route::post('/{config}/unassign-service', [AgencyServqualConfigController::class, 'unassignService'])->name('unassign-service');
-        Route::delete('/{config}', [AgencyServqualConfigController::class, 'destroy'])->name('destroy');
+    // Survey form builder (AGENCY only)
+    Route::middleware('role:AGENCY')->prefix('survey-forms')->name('survey.forms.')->group(function () {
+        Route::get('/', [SurveyFormController::class, 'index'])->name('index');
+        Route::get('/create', [SurveyFormController::class, 'create'])->name('create');
+        Route::post('/', [SurveyFormController::class, 'store'])->name('store');
+        Route::get('/{form}/edit', [SurveyFormController::class, 'edit'])->name('edit');
+        Route::patch('/{form}', [SurveyFormController::class, 'update'])->name('update');
+        Route::patch('/{form}/activate', [SurveyFormController::class, 'activate'])->name('activate');
+        Route::delete('/{form}', [SurveyFormController::class, 'destroy'])->name('destroy');
+    });
+
+    // Survey responses dashboard (AGENCY, CASE_MANAGER, ADMIN)
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->prefix('surveys')->name('survey.responses.')->group(function () {
+        Route::get('/', [SurveyResponseController::class, 'index'])->name('index');
+        Route::get('/{invitation}', [SurveyResponseController::class, 'show'])->name('show');
     });
 
     // Agency detail — accessible by ADMIN and CASE_MANAGER (read-only for non-ADMIN)

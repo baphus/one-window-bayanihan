@@ -65,7 +65,7 @@ describe('Dashboard role insights', () => {
                 workQueue={[{ key: 'pendingReferrals', label: 'Pending', count: 1, note: 'Needs action.', tone: 'amber', href: '/referrals' }]}
                 referralStatusDistribution={[{ key: 'pending', label: 'Pending', count: 1, percent: 50, tone: 'amber' }]}
                 referralAgingBands={[{ key: '0-2', label: '0-2 days', count: 1, percent: 100, tone: 'emerald' }]}
-                feedbackPulse={{ hasData: false, totalSent: 0, totalSubmitted: 0, href: '/feedbacks' }}
+                feedbackPulse={{ hasData: false, totalSent: 0, totalSubmitted: 0, href: '/surveys' }}
                 recentActivity={[]}
             />,
         );

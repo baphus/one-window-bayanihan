@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import {
     ActivityFeed,
@@ -43,6 +44,8 @@ export default function AgencyDashboard({ dashboard = {} }) {
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
+            <GettingStartedChecklist />
+
             <PageHeader
                 eyebrow="Agency focal"
                 title={`Welcome back, ${firstName}`}
@@ -52,7 +55,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                     actions={[
                         { href: '/referrals', label: 'Open referrals', icon: 'send', primary: true },
                         { href: '/overdue-referrals', label: 'Overdue', icon: 'warning' },
-                        { href: '/feedbacks', label: 'Feedback', icon: 'reviews' },
+                        { href: '/surveys', label: 'Surveys', icon: 'reviews' },
                         { href: '/reports', label: 'Reports', icon: 'bar_chart' },
                     ]}
                 />
@@ -139,7 +142,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                         )}
                     </SectionCard>
 
-                    <SectionCard title="Client feedback" action={<ViewAllLink href="/feedbacks" />}>
+                    <SectionCard title="Client feedback" action={<ViewAllLink href="/surveys" />}>
                         {hasPulse ? (
                             <div className="space-y-3">
                                 <div className="grid grid-cols-3 gap-2">

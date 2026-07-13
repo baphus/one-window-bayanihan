@@ -45,8 +45,8 @@ export const navByRole = {
       { name: 'Services', href: '/services', icon: 'medical_services' },
     ]},
     { label: 'Feedback', items: [
-      { name: 'Feedbacks', href: '/feedbacks', icon: 'feedback' },
-      { name: 'SERVQUAL Config', href: '/servqual-configs', icon: 'tune' },
+      { name: 'Survey Forms', href: '/survey-forms', icon: 'assignment' },
+      { name: 'Survey Responses', href: '/surveys', icon: 'poll' },
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
@@ -65,7 +65,7 @@ export const navByRole = {
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', icon: 'summarize' },
-      { name: 'Feedbacks', href: '/feedbacks', icon: 'feedback' },
+      { name: 'Survey Responses', href: '/surveys', icon: 'poll' },
     ]},
     { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Feedback;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -169,109 +168,6 @@ class AuthorizationGapTest extends TestCase
         ]);
 
         $response->assertStatus(403);
-    }
-
-    // ──────────────────────────────────────────────
-    // FeedbackController::show()
-    // ──────────────────────────────────────────────
-
-    public function test_case_manager_can_view_feedback_for_own_case(): void
-    {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $case = CaseFile::factory()->create(['user_id' => $manager->id]);
-
-        $feedback = Feedback::create([
-            'case_id' => $case->id,
-            'service_name' => 'Test Service',
-        ]);
-
-        $response = $this->actingAs($manager)->get("/feedbacks/{$feedback->id}");
-
-        $response->assertStatus(200);
-    }
-
-    public function test_agency_can_view_feedback_for_their_agency(): void
-    {
-        $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $case = CaseFile::factory()->create(['user_id' => $manager->id]);
-
-        $feedback = Feedback::create([
-            'case_id' => $case->id,
-            'agency_id' => $agency->id,
-            'service_name' => 'Test Service',
-        ]);
-
-        $response = $this->actingAs($agencyUser)->get("/feedbacks/{$feedback->id}");
-
-        $response->assertStatus(200);
-    }
-
-    public function test_agency_can_view_feedback_with_active_referral(): void
-    {
-        $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $case = CaseFile::factory()->create(['user_id' => $manager->id]);
-
-        Referral::create([
-            'required_services' => 'Test service',
-            'status' => 'PENDING',
-            'case_id' => $case->id,
-            'agcy_id' => $agency->id,
-        ]);
-
-        $feedback = Feedback::create([
-            'case_id' => $case->id,
-            'agency_id' => $agency->id,
-            'service_name' => 'Test Service',
-        ]);
-
-        $response = $this->actingAs($agencyUser)->get("/feedbacks/{$feedback->id}");
-
-        $response->assertStatus(200);
-    }
-
-    public function test_agency_can_view_feedback_with_completed_referral(): void
-    {
-        $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $case = CaseFile::factory()->create(['user_id' => $manager->id]);
-
-        Referral::create([
-            'required_services' => 'Test service',
-            'status' => 'COMPLETED',
-            'case_id' => $case->id,
-            'agcy_id' => $agency->id,
-        ]);
-
-        $feedback = Feedback::create([
-            'case_id' => $case->id,
-            'agency_id' => $agency->id,
-            'service_name' => 'Test Service',
-        ]);
-
-        $response = $this->actingAs($agencyUser)->get("/feedbacks/{$feedback->id}");
-
-        $response->assertStatus(200);
-    }
-
-    public function test_admin_can_view_any_feedback(): void
-    {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $case = CaseFile::factory()->create(['user_id' => $manager->id]);
-
-        $feedback = Feedback::create([
-            'case_id' => $case->id,
-            'service_name' => 'Test Service',
-        ]);
-
-        $response = $this->actingAs($admin)->get("/feedbacks/{$feedback->id}");
-
-        $response->assertStatus(200);
     }
 
     // ──────────────────────────────────────────────

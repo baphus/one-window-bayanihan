@@ -85,7 +85,7 @@ SUPABASE_KEY=your-service-role-key
 # Cache/Queue/Session (Redis-backed — falls back to database if Redis unavailable)
 CACHE_STORE=redis
 QUEUE_CONNECTION=redis
-SESSION_DRIVER=redis
+SESSION_DRIVER=database
 
 # Redis
 REDIS_HOST=127.0.0.1

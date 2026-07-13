@@ -388,23 +388,15 @@ class DashboardService
                 'responseRate' => 0,
                 'avgRating' => null,
                 'avgServqual' => null,
-                'href' => '/feedbacks',
+                'href' => '/surveys',
             ];
         }
 
         $row = DB::selectOne("
             SELECT
-                (SELECT COUNT(*) FROM feedback_invitations WHERE agency_id = ?) AS total_sent,
-                COUNT(*) AS total_submitted,
-                AVG(overall_rating) FILTER (WHERE overall_rating IS NOT NULL) AS avg_rating
-            FROM feedback WHERE agency_id = ?
-        ", [$agencyId, $agencyId]);
-
-        $avgServqual = DB::selectOne("
-            SELECT AVG(fsr.perception) AS avg_servqual
-            FROM feedback_servqual_responses fsr
-            JOIN feedback f ON fsr.feedback_id = f.id
-            WHERE f.agency_id = ? AND fsr.perception IS NOT NULL
+                COUNT(*) AS total_sent,
+                COUNT(*) FILTER (WHERE submitted_at IS NOT NULL) AS total_submitted
+            FROM survey_invitations WHERE agency_id = ?
         ", [$agencyId]);
 
         $totalSent = (int) ($row->total_sent ?? 0);
@@ -415,9 +407,9 @@ class DashboardService
             'totalSent' => $totalSent,
             'totalSubmitted' => $totalSubmitted,
             'responseRate' => $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0,
-            'avgRating' => $row->avg_rating ? round((float) $row->avg_rating, 2) : null,
-            'avgServqual' => $avgServqual->avg_servqual ? round((float) $avgServqual->avg_servqual, 2) : null,
-            'href' => '/feedbacks',
+            'avgRating' => null,
+            'avgServqual' => null,
+            'href' => '/surveys',
         ];
     }
 

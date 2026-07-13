@@ -79,10 +79,10 @@ SUPABASE_S3_REGION=ap-southeast-1
 SUPABASE_S3_BUCKET=your-bucket
 SUPABASE_S3_ENDPOINT=https://your-project.supabase.co/storage/v1/s3
 
-# Cache/Queue/Session (Redis-backed for performance)
+# Cache/Queue (Redis-backed for performance; sessions use database)
 CACHE_STORE=redis
 QUEUE_CONNECTION=redis
-SESSION_DRIVER=redis
+SESSION_DRIVER=database
 
 # Redis
 REDIS_CLIENT=phpredis
@@ -124,7 +124,7 @@ docker-compose.yml
   ├── nginx (1.27-alpine) ─── port 80 → reverse proxy to app:9000
   ├── app (PHP 8.4-fpm) ──── Laravel + queue worker + scheduler
   ├── db (postgres:15-alpine) ── local database
-  └── redis (7-alpine) ──── cache, queue, sessions, OTP storage
+  └── redis (7-alpine) ──── cache, queue, OTP storage
 ```
 
 ### Build & Run

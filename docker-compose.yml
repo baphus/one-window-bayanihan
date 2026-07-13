@@ -61,7 +61,7 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-      - SESSION_DRIVER=${SESSION_DRIVER:-redis}
+      - SESSION_DRIVER=${SESSION_DRIVER:-database}
       - FILESYSTEM_DISK=supabase
     security_opt:
       - no-new-privileges:true
@@ -118,7 +118,7 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-      - SESSION_DRIVER=${SESSION_DRIVER:-redis}
+      - SESSION_DRIVER=${SESSION_DRIVER:-database}
       - FILESYSTEM_DISK=supabase
     security_opt:
       - no-new-privileges:true
@@ -170,7 +170,7 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-      - SESSION_DRIVER=${SESSION_DRIVER:-redis}
+      - SESSION_DRIVER=${SESSION_DRIVER:-database}
       - FILESYSTEM_DISK=supabase
     security_opt:
       - no-new-privileges:true
@@ -223,7 +223,7 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-      - SESSION_DRIVER=${SESSION_DRIVER:-redis}
+      - SESSION_DRIVER=${SESSION_DRIVER:-database}
       - FILESYSTEM_DISK=supabase
     depends_on:
       db:

@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import DashboardBanner from '@/Components/DashboardBanner';
+import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatCaseAge, formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import {
@@ -74,6 +75,7 @@ export default function CaseManagerDashboard({ dashboard = {} }) {
     return (
         <div className="mx-auto max-w-7xl pb-8">
             <DashboardBanner />
+            <GettingStartedChecklist />
 
             <PageHeader
                 eyebrow="Case manager"

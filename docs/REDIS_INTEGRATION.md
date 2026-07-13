@@ -12,11 +12,11 @@ This document outlines how Redis improves performance for One Window Bayanihan a
 |-----------|---------------|---------------|---------------------|
 | OTP Storage | Cache (database) | Cache (Redis) | **None** — uses Cache facade |
 | Queue | database | redis | **None** — uses ShouldQueue interface |
-| Session | database | redis | **None** — uses session config |
+| Session | database | database | **None** — stays on database driver |
 | Rate Limiting | Cache (database) | Cache (Redis) | **None** — uses RateLimiter facade |
 | General Cache | database | redis | **None** — uses Cache facade |
 
-**Key insight:** Zero application code changes required. The OtpService, all queued Mailables, rate limiters, and session handling already use Laravel's abstractions that are backend-agnostic.
+**Key insight:** Zero application code changes required. The OtpService, all queued Mailables, and rate limiters already use Laravel's abstractions that are backend-agnostic. Sessions remain on the database driver.
 
 ---
 
@@ -279,7 +279,7 @@ REDIS_PORT=6379
 # ─── Switch drivers to Redis ────────────────────────────────────
 CACHE_STORE=redis
 QUEUE_CONNECTION=redis
-SESSION_DRIVER=redis
+SESSION_DRIVER=database
 ```
 
 That's it. The config files (`config/database.php`, `config/cache.php`, `config/queue.php`, `config/session.php`) already have Redis connection definitions that read these env vars.
@@ -394,7 +394,7 @@ environment:
   - REDIS_HOST=${REDIS_HOST:-redis}
   - CACHE_STORE=${CACHE_STORE:-redis}      # Changed from database
   - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}  # Changed from database
-  - SESSION_DRIVER=${SESSION_DRIVER:-redis}     # Changed from database
+  - SESSION_DRIVER=${SESSION_DRIVER:-database}   # Stays on database driver
 ```
 
 ### Add Redis dependency
@@ -585,9 +585,9 @@ The `cache`, `sessions`, and `jobs` database tables already exist from migration
    REDIS_HOST=your-redis-internal-host
    REDIS_PORT=6379
    REDIS_PASSWORD=your-password
-   CACHE_STORE=redis
-   QUEUE_CONNECTION=redis
-   SESSION_DRIVER=redis
+    CACHE_STORE=redis
+    QUEUE_CONNECTION=redis
+    SESSION_DRIVER=database
    ```
 3. **Deploy** — no code changes needed
 
@@ -608,7 +608,6 @@ The `cache`, `sessions`, and `jobs` database tables already exist from migration
 - [ ] `REDIS_PASSWORD` set (non-null)
 - [ ] `CACHE_STORE=redis` configured
 - [ ] `QUEUE_CONNECTION=redis` configured
-- [ ] `SESSION_DRIVER=redis` configured
 - [ ] Queue worker running (Docker service or Render background worker)
 - [ ] `php artisan config:cache` run post-deploy
 - [ ] Existing database sessions will be lost (users re-login once)
@@ -665,11 +664,10 @@ If real-time notifications are added later, Redis can serve as the Pub/Sub backe
 | 1 | Install Redis server + PHP extension locally | None | None |
 | 2 | Switch `CACHE_STORE=redis` locally, test OTP flow | None | None |
 | 3 | Switch `QUEUE_CONNECTION=redis`, test email delivery | None | None |
-| 4 | Switch `SESSION_DRIVER=redis`, test login persistence | None | None |
-| 5 | Update Docker Compose defaults | None | None |
-| 6 | Provision Redis in production (Render/Upstash) | Low | None |
-| 7 | Deploy with Redis env vars | Medium | Brief (session reset) |
-| 8 | Monitor queue depth, error rates, memory | None | None |
+| 4 | Update Docker Compose defaults | None | None |
+| 5 | Provision Redis in production (Render/Upstash) | Low | None |
+| 6 | Deploy with Redis env vars | Medium | Brief (queue flush) |
+| 7 | Monitor queue depth, error rates, memory | None | None |
 
 **Estimated time:** 30-60 minutes for local setup, 15-30 minutes for production provisioning.
 

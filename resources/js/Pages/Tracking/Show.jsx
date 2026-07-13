@@ -369,28 +369,12 @@ export default function TrackingShow({
 
             {/* Feedback request */}
             {showFeedback && (() => {
-              const d = feedbackNtfn.data || {};
-              const params = new URLSearchParams({
-                tracking_token: d.tracking_token || '',
-                case_id: trackedCase?.id || '',
-                agency_id: d.agency_id || '',
-                referral_id: d.referral_id || '',
-                service_name: d.service_name || '',
-              }).toString();
-
               return (
                 <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-5">
                   <h2 className="text-sm font-bold text-on-surface">How was the service?</h2>
                   <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-on-surface-variant">
-                    An office has completed its part of your case. Your feedback helps us improve the assistance program.
+                    An office has completed its part of your case. A survey has been sent to your registered email address. Please check your inbox to provide your feedback.
                   </p>
-                  <Link
-                    href={`/feedbacks/submit-page?${params}`}
-                    className="mt-3 inline-flex items-center gap-1.5 bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-container"
-                  >
-                    Give feedback
-                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
-                  </Link>
                 </section>
               );
             })()}
