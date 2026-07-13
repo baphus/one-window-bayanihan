@@ -5,7 +5,7 @@ const btnClass =
 
 // Forward the full active filter set so the exported file matches exactly what
 // is shown on screen (date range, date scope, province, city, agency).
-export default function ExportButtons({ fromDateISO, toDateISO, dateScope, province, city, agencyId }) {
+export default function ExportButtons({ fromDateISO, toDateISO, dateScope, province, city, agencyId, disabled = false }) {
   const params = {
     from: fromDateISO,
     to: toDateISO,
@@ -19,6 +19,8 @@ export default function ExportButtons({ fromDateISO, toDateISO, dateScope, provi
     <div className="flex items-center gap-2">
       <button
         type="button"
+        disabled={disabled}
+        title={disabled ? 'Apply filters before exporting.' : undefined}
         onClick={() => window.open(route('reports.export-pdf', params))}
         className={btnClass}
       >
@@ -27,6 +29,8 @@ export default function ExportButtons({ fromDateISO, toDateISO, dateScope, provi
       </button>
       <button
         type="button"
+        disabled={disabled}
+        title={disabled ? 'Apply filters before exporting.' : undefined}
         onClick={() => window.open(route('reports.export-excel', params))}
         className={btnClass}
       >

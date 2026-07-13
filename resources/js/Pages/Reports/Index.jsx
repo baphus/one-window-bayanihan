@@ -65,8 +65,19 @@ function ReportsDashboard({
     city,
     agency_id: agencyId,
   };
-  const { fromDateISO, setFromDateISO, toDateISO, setToDateISO, quickRange, handleQuickRange, resetDateRange } = useReportFilters(
-    initialFrom, initialTo, extraDeps,
+  const appliedExtraDeps = {
+    ...(role === 'CASE_MANAGER' ? { date_scope: initialDateScope || 'case_created_at' } : {}),
+    province: initialProvince || null,
+    city: initialCity || null,
+    agency_id: initialAgencyId || null,
+  };
+  const {
+    fromDateISO, setFromDateISO,
+    toDateISO, setToDateISO,
+    quickRange, handleQuickRange, resetDateRange,
+    applyFilters, hasPendingChanges,
+  } = useReportFilters(
+    initialFrom, initialTo, extraDeps, appliedExtraDeps,
   );
 
   const roleSubtitle = role === 'AGENCY'
@@ -97,6 +108,18 @@ function ReportsDashboard({
               onReset={resetDateRange}
             />
             {role === 'CASE_MANAGER' && <DateScopeSelect value={dateScope} onChange={setDateScope} />}
+            <button
+              type="button"
+              onClick={applyFilters}
+              disabled={!hasPendingChanges}
+              className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                hasPendingChanges
+                  ? 'bg-[#0b5a8c] text-white hover:bg-[#094a73] focus:ring-[#0b5a8c]'
+                  : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+              }`}
+            >
+              Apply filters
+            </button>
             <ExportButtons
               fromDateISO={fromDateISO}
               toDateISO={toDateISO}
@@ -104,6 +127,7 @@ function ReportsDashboard({
               province={province}
               city={city}
               agencyId={agencyId}
+              disabled={hasPendingChanges}
             />
           </div>
         </div>
