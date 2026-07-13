@@ -9,20 +9,18 @@ use Illuminate\Support\Str;
 class AgencySeeder extends Seeder
 {
     /**
-     * Official agency logos, self-hosted under public/images/agencies.
-     * Sourced from Wikimedia Commons (public domain Philippine government works).
-     * Self-hosted to avoid third-party CDN tracking-prevention console warnings.
+     * Official agency logos hosted on Cloudinary.
      */
     private const LOGO_PATHS = [
-        'owwa' => '/images/agencies/owwa.png',
-        'dmw' => '/images/agencies/dmw.png',
-        'doh' => '/images/agencies/doh.png',
-        'dole' => '/images/agencies/dole.png',
-        'dswd' => '/images/agencies/dswd.png',
-        'tesda' => '/images/agencies/tesda.png',
-        'law-center-inc' => '/images/agencies/law-center-inc.jpg',
-        'province-cebu' => '/images/agencies/province-cebu.png',
-        'city-cebu' => '/images/agencies/city-cebu.png',
+        'owwa' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783960985/agency-logos/agency-owwa.png',
+        'dmw' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783960989/agency-logos/agency-dmw.png',
+        'doh' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783960992/agency-logos/agency-doh.png',
+        'dole' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783960998/agency-logos/agency-dole.png',
+        'dswd' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783961029/agency-logos/agency-dswd.png',
+        'tesda' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783961032/agency-logos/agency-tesda.png',
+        'law-center-inc' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783961035/agency-logos/agency-law-center-inc.jpg',
+        'province-cebu' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783961038/agency-logos/agency-province-cebu.png',
+        'city-cebu' => 'https://res.cloudinary.com/dzjshue6h/image/upload/v1783961041/agency-logos/agency-city-cebu.png',
     ];
 
     /**
@@ -124,7 +122,6 @@ SVG);
                 'name' => 'Law Center Inc.',
                 'description' => 'Law Center Inc. is a non-profit legal aid institution that provides free and low-cost legal services to marginalized communities and OFWs. It offers legal counseling, documentation assistance, notarization, and representation in cases involving illegal recruitment, contract violations, and other legal concerns.',
                 'contact_info' => "Law Center Inc.\r\n3/F JEG Building, Osmeña Boulevard\r\nCebu City 6000, Philippines\r\nTel: (032) 255-4321\r\nEmail: info@lawcenterinc.org",
-                // No publicly available official logo for this NGO; uses SVG text fallback
                 'logo_url' => self::LOGO_PATHS['law-center-inc'],
                 'location_query' => 'Law Center Inc., Osmeña Boulevard, Cebu City, Cebu, Philippines',
                 'map_link' => 'https://www.google.com/maps/place/Law+Center+Inc./@10.3120,123.8925,17z',
