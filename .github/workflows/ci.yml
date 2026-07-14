@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  DB_SSLMODE: disable
+
 jobs:
   lint-and-audit:
     name: Code Quality & Security

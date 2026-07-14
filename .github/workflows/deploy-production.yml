@@ -9,6 +9,7 @@ on:
         type: string
 
 env:
+  DB_SSLMODE: disable
   RENDER_SERVICE_ID: ${{ secrets.RENDER_PRODUCTION_SERVICE_ID }}
   RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
 
