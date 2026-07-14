@@ -7,6 +7,7 @@ use App\Models\CaseCategory;
 use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\User;
+use Illuminate\Support\Str;
 
 class AuditLogFormatter
 {
@@ -508,7 +509,7 @@ class AuditLogFormatter
         $user = $log->relationLoaded('user') ? $log->getRelation('user') : null;
         $name = $user?->name;
 
-        if ($name === null && $log->user_id !== null && \Illuminate\Support\Str::isUuid((string) $log->user_id)) {
+        if ($name === null && $log->user_id !== null && Str::isUuid((string) $log->user_id)) {
             $name = cache()->remember(
                 "audit_actor_name:{$log->user_id}",
                 now()->addMinutes(10),

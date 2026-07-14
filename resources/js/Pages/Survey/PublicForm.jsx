@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
-import { FlashMessageWatcher } from '@/Components/ToastProvider';
-import { useToast } from '@/Hooks/useToast';
 
 const LIKERT_LABELS = {
   1: 'Strongly Disagree',
@@ -63,14 +61,14 @@ function RatingInput({ value, onChange }) {
   );
 }
 
-function RadioInput({ options, value, onChange }) {
+function RadioInput({ options, value, onChange, name }) {
   return (
     <div className="space-y-2">
       {(options || []).map((option, i) => (
         <label key={i} className="flex items-center gap-3 cursor-pointer">
           <input
             type="radio"
-            name={`radio-${i}`}
+            name={name}
             checked={value === option}
             onChange={() => onChange(option)}
             className="h-4 w-4 border-slate-300 text-blue-900 focus:ring-blue-900"
@@ -131,7 +129,7 @@ function QuestionField({ question, answer, onAnswerChange, error }) {
       case 'rating':
         return <RatingInput value={answer.answer} onChange={(v) => onAnswerChange({ answer: v })} />;
       case 'radio':
-        return <RadioInput options={question.options} value={answer.answer} onChange={(v) => onAnswerChange({ answer: v })} />;
+        return <RadioInput options={question.options} value={answer.answer} name={`radio-${question.id}`} onChange={(v) => onAnswerChange({ answer: v })} />;
       case 'checkbox':
         return <CheckboxInput options={question.options} value={answer.selected_options} onChange={(v) => onAnswerChange({ selected_options: v })} />;
       case 'text':
@@ -157,7 +155,6 @@ function QuestionField({ question, answer, onAnswerChange, error }) {
 
 export default function PublicForm({ invitation, surveyForm, questions }) {
   const { props } = usePage();
-  const toast = useToast();
   const today = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
 
   // Build initial answers state
@@ -179,7 +176,7 @@ export default function PublicForm({ invitation, surveyForm, questions }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    post(route('survey.public.submit', invitation.token));
+    post(window.location.pathname);
   };
 
   // Check if already submitted (flash success)
@@ -201,7 +198,6 @@ export default function PublicForm({ invitation, surveyForm, questions }) {
   return (
     <>
       <Head title={surveyForm?.title || 'Survey'} />
-      <FlashMessageWatcher />
 
       <div className="min-h-screen bg-slate-50 py-8 px-4">
         <div className="mx-auto max-w-2xl space-y-6">

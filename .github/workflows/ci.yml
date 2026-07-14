@@ -182,6 +182,8 @@ jobs:
 
       - name: Run Frontend Tests
         run: npm run test:run
+        env:
+          LARAVEL_BYPASS_ENV_CHECK: 1
 
   e2e-tests:
     name: E2E Tests
@@ -275,6 +277,10 @@ jobs:
       - name: Run E2E Tests
         run: npx playwright test
         env:
+          APP_ENV: testing
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
           DB_PORT: 5432

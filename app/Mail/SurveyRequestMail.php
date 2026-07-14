@@ -4,13 +4,14 @@ namespace App\Mail;
 
 use App\Models\SurveyInvitation;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class SurveyRequestMail extends Mailable implements ShouldQueue
+class SurveyRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -18,8 +19,9 @@ class SurveyRequestMail extends Mailable implements ShouldQueue
 
     public function __construct(
         public readonly SurveyInvitation $invitation,
+        public readonly string $rawToken,
     ) {
-        $this->survey_url = route('survey.public.show', $invitation->token);
+        $this->survey_url = route('survey.public.show', $rawToken);
     }
 
     public function envelope(): Envelope

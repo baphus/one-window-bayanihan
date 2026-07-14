@@ -13,9 +13,13 @@ class SurveyQuestion extends Model
     use HasFactory, UsesUuid;
 
     public const TYPE_LIKERT = 'likert';
+
     public const TYPE_TEXT = 'text';
+
     public const TYPE_RADIO = 'radio';
+
     public const TYPE_CHECKBOX = 'checkbox';
+
     public const TYPE_RATING = 'rating';
 
     public const TYPES = [

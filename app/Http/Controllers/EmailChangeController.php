@@ -8,6 +8,7 @@ use App\Http\Requests\EmailChangeVerifyOtpRequest;
 use App\Mail\EmailChangedNotification;
 use App\Models\AuditLog;
 use App\Models\SystemSetting;
+use App\Services\AuditCategory;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -100,7 +101,7 @@ class EmailChangeController extends Controller
             'action' => 'UPDATE',
             'module' => 'user',
             // Account-credential change: must appear in the Security view
-            'category' => \App\Services\AuditCategory::SECURITY,
+            'category' => AuditCategory::SECURITY,
             'entity_id' => $user->id,
             'old_value' => ['email' => $oldEmail],
             'new_value' => ['email' => $newEmail],

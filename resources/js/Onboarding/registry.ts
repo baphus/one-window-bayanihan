@@ -188,7 +188,7 @@ export const pageGuides: Record<string, PageGuide> = {
         helpdeskSlug: 'feedback-dashboards-for-case-managers-and-admins',
         steps: [
             { element: '[data-tour="survey-responses-header"]', title: 'Feedback Responses', description: 'Review the client feedback collected from completed service surveys in one place.', side: 'bottom' },
-            { element: '[data-tour="survey-responses-filters"]', title: 'Find Responses', description: 'Use the available filters to narrow responses by date, agency, service, or other relevant criteria.', side: 'bottom' },
+            { element: '[data-tour="survey-responses-stats"]', title: 'Response Snapshot', description: 'Compare invitations sent, responses received, and the overall response rate at a glance.', side: 'bottom' },
             { element: '[data-tour="survey-responses-list"]', title: 'Open a Response', description: 'Select a response to read the complete answers and understand the client experience in detail.', side: 'top' },
         ],
     },

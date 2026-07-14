@@ -36,7 +36,7 @@ class StakeholderController extends Controller
             abort(404, 'Stakeholder not found.');
         }
 
-        $agencyData = CacheHelper::safeRemember('stakeholder:agency:' . $stakeholder->id, 300, function () use ($stakeholder) {
+        $agencyData = CacheHelper::safeRemember('stakeholder:agency:'.$stakeholder->id, 300, function () use ($stakeholder) {
             $stakeholder->load(['services.requirements']);
             $stakeholder->loadCount([
                 'referrals as total_referrals_count',

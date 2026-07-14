@@ -115,6 +115,64 @@ class DashboardServiceTest extends TestCase
     }
 
     #[Test]
+    public function agency_dashboard_feedback_pulse_counts_only_the_current_agency(): void
+    {
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $agency->id,
+        ]);
+        $agencyCase = $this->createCaseForClient();
+        $otherCase = $this->createCaseForClient();
+        $pendingCase = $this->createCaseForClient();
+        $agencyReferral = Referral::factory()->create(['case_id' => $agencyCase->id, 'agcy_id' => $agency->id]);
+        $otherReferral = Referral::factory()->create(['case_id' => $otherCase->id, 'agcy_id' => $otherAgency->id]);
+        $pendingReferral = Referral::factory()->create(['case_id' => $pendingCase->id, 'agcy_id' => $agency->id]);
+
+        SurveyInvitation::create([
+            'agency_id' => $agency->id,
+            'case_id' => $agencyCase->id,
+            'referral_id' => $agencyReferral->id,
+            'client_name' => 'Submitted Client',
+            'client_email' => 'submitted@example.com',
+            'service_name' => 'Test service',
+            'token_hash' => hash('sha256', 'submitted-survey-token'),
+            'expires_at' => now()->addDay(),
+            'submitted_at' => now(),
+        ]);
+        SurveyInvitation::create([
+            'agency_id' => $agency->id,
+            'case_id' => $pendingCase->id,
+            'referral_id' => $pendingReferral->id,
+            'client_name' => 'Pending Client',
+            'client_email' => 'pending@example.com',
+            'service_name' => 'Test service',
+            'token_hash' => hash('sha256', 'pending-survey-token'),
+            'expires_at' => now()->addDay(),
+        ]);
+        SurveyInvitation::create([
+            'agency_id' => $otherAgency->id,
+            'case_id' => $otherCase->id,
+            'referral_id' => $otherReferral->id,
+            'client_name' => 'Other Client',
+            'client_email' => 'other@example.com',
+            'service_name' => 'Other service',
+            'token_hash' => hash('sha256', 'other-survey-token'),
+            'expires_at' => now()->addDay(),
+            'submitted_at' => now(),
+        ]);
+
+        $pulse = app(DashboardService::class)->getAgencyData($agencyUser)['feedbackPulse'];
+
+        $this->assertTrue($pulse['hasData']);
+        $this->assertSame(2, $pulse['totalSent']);
+        $this->assertSame(1, $pulse['totalSubmitted']);
+        $this->assertSame(50.0, $pulse['responseRate']);
+        $this->assertSame('/surveys', $pulse['href']);
+    }
+
+    #[Test]
     public function case_manager_dashboard_insights_surface_coordination_bottlenecks(): void
     {
         $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);

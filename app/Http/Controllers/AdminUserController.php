@@ -9,6 +9,7 @@ use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\DefaultAgencyService;
+use App\Services\OnboardingService;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,7 +132,7 @@ class AdminUserController extends Controller
             'email_verified_at' => now(),
         ]);
 
-        app(\App\Services\OnboardingService::class)
+        app(OnboardingService::class)
             ->markChecklistItemQuietly($request->user(), 'add-first-user');
 
         return redirect()->route('admin.users.index')

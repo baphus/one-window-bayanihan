@@ -8,9 +8,7 @@ use Illuminate\Http\Request;
 
 class OnboardingController extends Controller
 {
-    public function __construct(private OnboardingService $service)
-    {
-    }
+    public function __construct(private OnboardingService $service) {}
 
     /**
      * Get the current onboarding state for the authenticated user.

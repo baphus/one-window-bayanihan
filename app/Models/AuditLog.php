@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
+use App\Services\AuditCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -83,7 +84,7 @@ class AuditLog extends Model
             // Stamp the event category once, centrally, for every write path
             // (observer and manual creates alike).
             if (! $auditLog->category && $auditLog->module && $auditLog->action) {
-                $auditLog->category = \App\Services\AuditCategory::for(
+                $auditLog->category = AuditCategory::for(
                     (string) $auditLog->module,
                     (string) $auditLog->action,
                     $auditLog->user_id

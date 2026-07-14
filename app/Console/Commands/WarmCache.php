@@ -3,12 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Helpers\CacheHelper;
-use App\Http\Controllers\StakeholderController;
 use App\Models\Agency;
 use App\Services\DashboardService;
 use App\Services\ReferenceDataService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 class WarmCache extends Command
 {

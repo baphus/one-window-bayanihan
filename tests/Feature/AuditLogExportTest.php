@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetPostgresSession;
 use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,8 +19,8 @@ class AuditLogExportTest extends TestCase
     {
         parent::setUp();
 
-        $this->withoutMiddleware(\App\Http\Middleware\HandleInertiaRequests::class);
-        $this->withoutMiddleware(\App\Http\Middleware\SetPostgresSession::class);
+        $this->withoutMiddleware(HandleInertiaRequests::class);
+        $this->withoutMiddleware(SetPostgresSession::class);
 
         $this->admin = User::factory()->create(['role' => 'ADMIN']);
         AuditLog::truncate();
