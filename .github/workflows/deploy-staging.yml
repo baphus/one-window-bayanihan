@@ -36,21 +36,21 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: pdo, pdo_pgsql, sockets
           coverage: none
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Get Composer Cache Directory
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer Dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -60,7 +60,7 @@ jobs:
         run: composer install --no-interaction --no-progress
 
       - name: Cache Node Dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}

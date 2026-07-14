@@ -6,7 +6,7 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": ">=8.4.1 <9.0",
         "bacon/bacon-qr-code": "*",
         "barryvdh/laravel-dompdf": "^3.1",
         "cloudinary/cloudinary_php": "3.1.3",
