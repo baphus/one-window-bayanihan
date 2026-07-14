@@ -1,29 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
-import { execSync } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '../../../..');
+import { runTinker } from './helpers/artisan';
 const ADMIN_EMAIL = 'admin@bayanihan.gov.ph';
 
 /**
  * Enable debug OTP mode and reset onboarding state for the test user.
  */
 function setupTestUser() {
-    try {
-        execSync(
-            'php artisan tinker --execute="\\App\\Models\\SystemSetting::setValue(\'debug_otp_enabled\', true)"',
-            { cwd: PROJECT_ROOT, timeout: 15000 }
-        );
-        execSync(
-            `php artisan tinker --execute="\\App\\Models\\User::where(\'email\', \'${ADMIN_EMAIL}\')->update([\'onboarding_completed_at\' => null, \'onboarding_step\' => null])"`,
-            { cwd: PROJECT_ROOT, timeout: 10000 }
-        );
-    } catch (e) {
-        console.warn('Setup warning:', e.message);
-    }
+    runTinker("\\App\\Models\\SystemSetting::setValue('debug_otp_enabled', true)", 'enable admin debug OTP');
+    runTinker(`\\App\\Models\\User::where('email', '${ADMIN_EMAIL}')->update(['onboarding_completed_at' => null, 'onboarding_step' => null])`, 'reset admin onboarding', 10000);
 }
 
 /**

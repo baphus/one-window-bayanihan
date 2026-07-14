@@ -1,11 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { execSync } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '../../../..');
+import { runTinker } from './helpers/artisan';
 const CM_EMAIL = 'case@bayanihan.gov.ph';
 
 /**
@@ -13,18 +7,8 @@ const CM_EMAIL = 'case@bayanihan.gov.ph';
  * page-guide/checklist state so the nudge and checklist behave first-visit.
  */
 function setupTestUser() {
-    try {
-        execSync(
-            'php artisan tinker --execute="\\App\\Models\\SystemSetting::setValue(\'debug_otp_enabled\', true)"',
-            { cwd: PROJECT_ROOT, timeout: 15000 }
-        );
-        execSync(
-            `php artisan tinker --execute="\\App\\Models\\User::where(\'email\', \'${CM_EMAIL}\')->update([\'onboarding_completed_at\' => now(), \'onboarding_step\' => null, \'seen_page_guides\' => null, \'checklist_progress\' => null])"`,
-            { cwd: PROJECT_ROOT, timeout: 10000 }
-        );
-    } catch (e) {
-        console.warn('Setup warning:', e.message);
-    }
+    runTinker("\\App\\Models\\SystemSetting::setValue('debug_otp_enabled', true)", 'enable page guide debug OTP');
+    runTinker(`\\App\\Models\\User::where('email', '${CM_EMAIL}')->update(['onboarding_completed_at' => now(), 'onboarding_step' => null, 'seen_page_guides' => null, 'checklist_progress' => null])`, 'reset page guide state', 10000);
 }
 
 async function loginAsCaseManager(page: Page) {

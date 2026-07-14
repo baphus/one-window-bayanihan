@@ -277,6 +277,7 @@ jobs:
       - name: Run E2E Tests
         run: npx playwright test
         env:
+          APP_ENV: testing
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
