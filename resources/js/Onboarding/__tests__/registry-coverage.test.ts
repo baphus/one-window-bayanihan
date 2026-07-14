@@ -21,6 +21,8 @@ const HREF_TO_ROUTE: Record<string, string> = {
     '/audit-logs': 'audit-logs.index',
     '/help': 'helpdesk.index',
     '/services': 'agency.services.index',
+    '/survey-forms': 'survey.forms.index',
+    '/surveys': 'survey.responses.index',
     '/feedbacks': 'feedbacks.index',
     '/servqual-configs': 'servqual-configs.index',
     '/admin/agencies': 'admin.agencies.index',

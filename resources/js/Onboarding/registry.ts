@@ -174,6 +174,24 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="servqual-create"]', title: 'Build a New Form', description: 'Click Add New to create a questionnaire — choose questions per SERVQUAL dimension, then activate or assign it when ready.', side: 'left' },
         ],
     },
+    'survey.forms.index': {
+        title: 'Survey Forms',
+        helpdeskSlug: 'building-servqual-feedback-questionnaires',
+        steps: [
+            { element: '[data-tour="survey-forms-header"]', title: 'Survey Forms', description: 'Create and manage the questionnaires your clients receive after a service is completed.', side: 'bottom' },
+            { element: '[data-tour="survey-forms-list"]', title: 'Manage Your Forms', description: 'Review existing forms, edit their questions, and identify which form is currently active for new survey invitations.', side: 'top' },
+            { element: '[data-tour="survey-forms-create"]', title: 'Create a Form', description: 'Use New Form to build a questionnaire with a title, description, and the questions clients should answer.', side: 'left' },
+        ],
+    },
+    'survey.responses.index': {
+        title: 'Survey Responses',
+        helpdeskSlug: 'feedback-dashboards-for-case-managers-and-admins',
+        steps: [
+            { element: '[data-tour="survey-responses-header"]', title: 'Feedback Responses', description: 'Review the client feedback collected from completed service surveys in one place.', side: 'bottom' },
+            { element: '[data-tour="survey-responses-filters"]', title: 'Find Responses', description: 'Use the available filters to narrow responses by date, agency, service, or other relevant criteria.', side: 'bottom' },
+            { element: '[data-tour="survey-responses-list"]', title: 'Open a Response', description: 'Select a response to read the complete answers and understand the client experience in detail.', side: 'top' },
+        ],
+    },
 
     // ── Admin management ─────────────────────────────────────────────
     'admin.agencies.index': {
