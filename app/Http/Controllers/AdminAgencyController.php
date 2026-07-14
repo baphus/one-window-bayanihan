@@ -6,6 +6,7 @@ use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\User;
 use App\Services\CloudinaryAvatarService;
+use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -85,7 +86,7 @@ class AdminAgencyController extends Controller
             $agency->save();
         }
 
-        app(\App\Services\OnboardingService::class)
+        app(OnboardingService::class)
             ->markChecklistItemQuietly($request->user(), 'register-agency');
 
         return redirect()->route('admin.agencies.index')

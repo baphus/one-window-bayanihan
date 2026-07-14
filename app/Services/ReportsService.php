@@ -19,7 +19,9 @@ class ReportsService
     // ── Cache Keys & TTLs ────────────────────────────────────────────────
 
     private const CACHE_TTL_PAYLOAD = 180;       // 3 minutes — full report payload
+
     private const CACHE_TTL_REFERENCE = 1800;    // 30 minutes — reference/status data
+
     private const CACHE_TTL_OPTIONS = 600;       // 10 minutes — filter options
 
     public const KEY_REFERENCE_DATA = 'reports:reference_data';
@@ -35,7 +37,7 @@ class ReportsService
         ?string $city = null,
     ): array {
         // Build cache key from all parameters that affect the output
-        $cacheKey = 'reports:payload:' . md5(implode('|', [
+        $cacheKey = 'reports:payload:'.md5(implode('|', [
             $userId ?? '', $role ?? '', $agencyId ?? '',
             $fromDate ?? '', $toDate ?? '', $dateScope,
             $province ?? '', $city ?? '',
@@ -1293,7 +1295,7 @@ class ReportsService
             return [];
         }
 
-        $cacheKey = 'reports:agency_options:' . md5(($userId ?? '') . '|' . ($role ?? ''));
+        $cacheKey = 'reports:agency_options:'.md5(($userId ?? '').'|'.($role ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($userId, $role) {
             if ($role === 'CASE_MANAGER' && $userId) {
@@ -1322,7 +1324,7 @@ class ReportsService
 
     public function getProvinceOptions(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $cacheKey = 'reports:province_options:' . md5(($userId ?? '') . '|' . ($role ?? '') . '|' . ($agencyId ?? ''));
+        $cacheKey = 'reports:province_options:'.md5(($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($userId, $role, $agencyId) {
             $query = DB::table('client_addresses')
@@ -1363,7 +1365,7 @@ class ReportsService
 
     public function getCityOptions(?string $province = null, ?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $cacheKey = 'reports:city_options:' . md5(($province ?? '') . '|' . ($userId ?? '') . '|' . ($role ?? '') . '|' . ($agencyId ?? ''));
+        $cacheKey = 'reports:city_options:'.md5(($province ?? '').'|'.($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($province, $userId, $role, $agencyId) {
             $query = DB::table('client_addresses')

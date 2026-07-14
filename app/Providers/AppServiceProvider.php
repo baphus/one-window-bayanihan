@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Listeners\EmailEventSubscriber;
 use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
-use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -32,6 +32,7 @@ use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -154,7 +155,7 @@ class AppServiceProvider extends ServiceProvider
         Event::subscribe(EmailEventSubscriber::class);
 
         // Invalidate cached notification count when a database notification is sent
-        Event::listen(\Illuminate\Notifications\Events\NotificationSent::class, function ($event) {
+        Event::listen(NotificationSent::class, function ($event) {
             if ($event->channel === 'database' && $event->notifiable && method_exists($event->notifiable, 'getKey')) {
                 HandleInertiaRequests::invalidateNotificationCount($event->notifiable->getKey());
             }

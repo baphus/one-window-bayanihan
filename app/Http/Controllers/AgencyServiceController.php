@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AgencyServiceService;
+use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -43,7 +44,7 @@ class AgencyServiceController extends Controller
             $request->user()->id,
         );
 
-        app(\App\Services\OnboardingService::class)
+        app(OnboardingService::class)
             ->markChecklistItemQuietly($request->user(), 'add-first-service');
 
         return redirect()

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CaseFile;
 use App\Models\Referral;
+use App\Models\ReferralComment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -38,7 +39,7 @@ class ReferralCommentVisibilityTest extends TestCase
     {
         [$user, $referral] = $this->makeAgencyUserWithReferral();
 
-        $comment = \App\Models\ReferralComment::create([
+        $comment = ReferralComment::create([
             'refr_id' => $referral->id,
             'content' => 'Parent comment',
             'visibility' => 'INTERNAL',

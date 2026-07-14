@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\TurnstileMiddleware;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\SecurityAuditLogger;
@@ -18,7 +19,7 @@ class AuditSecurityEventsTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware([
-            \App\Http\Middleware\TurnstileMiddleware::class,
+            TurnstileMiddleware::class,
         ]);
     }
 
