@@ -278,7 +278,7 @@ jobs:
         run: npx playwright test
         env:
           APP_ENV: testing
-          CACHE_STORE: array
+          CACHE_STORE: database
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
           DB_CONNECTION: pgsql
