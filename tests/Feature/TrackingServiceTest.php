@@ -9,6 +9,7 @@ use App\Models\Referral;
 use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -78,6 +79,8 @@ class TrackingServiceTest extends TestCase
 
         $this->loadRelations($case);
         $data = $service->buildTrackingData($case);
+
+        $this->assertEmpty($data['milestoneTimeline']);
 
         foreach ($data['milestoneTimeline'] as $item) {
             $this->assertStringNotContainsStringIgnoringCase('set ', $item['title'] ?? '');
@@ -360,10 +363,10 @@ class TrackingServiceTest extends TestCase
         Referral::factory()->count(3)->create(['case_id' => $case->id, 'status' => 'PROCESSING']);
         $this->loadRelations($case);
 
-        \Illuminate\Support\Facades\DB::enableQueryLog();
+        DB::enableQueryLog();
         $service->buildTrackingData($case);
-        $queries = collect(\Illuminate\Support\Facades\DB::getQueryLog())->pluck('query');
-        \Illuminate\Support\Facades\DB::disableQueryLog();
+        $queries = collect(DB::getQueryLog())->pluck('query');
+        DB::disableQueryLog();
 
         $this->assertEquals(
             1,

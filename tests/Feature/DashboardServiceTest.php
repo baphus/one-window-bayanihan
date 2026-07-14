@@ -5,9 +5,9 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
-use App\Models\FeedbackInvitation;
 use App\Models\Referral;
 use App\Models\Service;
+use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\DashboardService;
@@ -65,10 +65,15 @@ class DashboardServiceTest extends TestCase
             'status' => 'PENDING',
             'created_at' => now()->subDays(10),
         ]);
-        FeedbackInvitation::factory()->create([
+        SurveyInvitation::create([
             'agency_id' => $agency->id,
             'case_id' => $agencyCase->id,
             'referral_id' => $oldPending->id,
+            'client_name' => 'Test Client',
+            'client_email' => 'client@example.com',
+            'service_name' => $service->name,
+            'token' => 'test-survey-token',
+            'expires_at' => now()->addDay(),
         ]);
 
         $data = app(DashboardService::class)->getAgencyData($agencyUser);
@@ -106,7 +111,7 @@ class DashboardServiceTest extends TestCase
         $this->assertFalse($data['feedbackPulse']['hasData']);
         $this->assertSame(0, $data['feedbackPulse']['totalSent']);
         $this->assertSame(0, $data['feedbackPulse']['totalSubmitted']);
-        $this->assertSame('/feedbacks', $data['feedbackPulse']['href']);
+        $this->assertSame('/surveys', $data['feedbackPulse']['href']);
     }
 
     #[Test]

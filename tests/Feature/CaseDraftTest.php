@@ -64,6 +64,7 @@ class CaseDraftTest extends TestCase
             ],
             'vulnerability_indicator' => 'None',
             'summary' => 'Draft test case',
+            'is_draft' => true,
             'consent' => true,
         ]);
 
@@ -85,7 +86,7 @@ class CaseDraftTest extends TestCase
     {
         $initialCount = Client::count();
 
-        $this->actingAs($this->user)->post(route('cases.store'), [
+        $response = $this->actingAs($this->user)->post(route('cases.store'), [
             'client_type' => 'OFW',
             'category_id' => $this->category->id,
             'case_issue_id' => $this->caseIssue->id,
@@ -111,15 +112,17 @@ class CaseDraftTest extends TestCase
             ],
             'vulnerability_indicator' => 'None',
             'summary' => 'Draft test for client count',
+            'is_draft' => true,
             'consent' => true,
         ]);
 
+        $response->assertRedirect(route('cases.drafts'));
         $this->assertEquals($initialCount, Client::count());
     }
 
     public function test_store_with_is_draft_false_publishes_case(): void
     {
-        $this->actingAs($this->user)->post(route('cases.store'), [
+        $response = $this->actingAs($this->user)->post(route('cases.store'), [
             'client_type' => 'OFW',
             'category_id' => $this->category->id,
             'case_issue_id' => $this->caseIssue->id,
@@ -142,12 +145,17 @@ class CaseDraftTest extends TestCase
                 'last_country' => 'UAE',
                 'last_position' => 'Engineer',
                 'date_of_arrival' => '2024-01-15',
+                'start_date' => '2023-01-01',
+                'end_date' => '2024-01-15',
             ],
             'vulnerability_indicator' => 'None',
             'summary' => 'Publish test case',
             'is_draft' => false,
             'consent' => true,
         ]);
+
+        $case = CaseFile::where('status', 'OPEN')->firstOrFail();
+        $response->assertRedirect(route('cases.show', $case));
 
         $this->assertDatabaseHas('cases', [
             'status' => 'OPEN',

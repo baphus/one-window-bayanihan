@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
 
 env:
-  RENDER_SERVICE_ID: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
+  RENDER_SERVICE_ID: ${{ vars.RENDER_STAGING_SERVICE_ID }}
   RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-  STAGING_URL: ${{ secrets.RENDER_STAGING_URL }}
+  STAGING_URL: ${{ vars.RENDER_STAGING_URL }}
 
 jobs:
   test:
@@ -104,7 +104,7 @@ jobs:
     name: Deploy to Render
     needs: test
     runs-on: ubuntu-latest
-    if: ${{ success() && env.RENDER_SERVICE_ID != '' && env.STAGING_URL != '' }}
+    if: ${{ success() && vars.RENDER_STAGING_SERVICE_ID != '' && vars.RENDER_STAGING_URL != '' }}
 
     steps:
         # TODO: Add pre-deploy DB snapshot step:
@@ -146,7 +146,7 @@ jobs:
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
             
-            Staging URL: ${{ secrets.RENDER_STAGING_URL }}
+            Staging URL: ${{ vars.RENDER_STAGING_URL }}
             Credentials: See internal runbook
           webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         continue-on-error: true
