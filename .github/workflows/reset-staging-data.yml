@@ -1,0 +1,55 @@
+name: Reset Staging Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run daily at 2 AM UTC (10 AM PH time)
+    - cron: '0 2 * * *'
+
+env:
+  RENDER_SERVICE_ID: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
+  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+
+jobs:
+  reset-data:
+    name: Reset Staging Database
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render Deploy (Fresh Migration + Seed)
+        run: |
+          curl -X POST https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys \
+            -H "accept: application/json" \
+            -H "authorization: Bearer ${{ env.RENDER_API_KEY }}" \
+            -H "content-type: application/json" \
+            -d '{"clearCache":"clear_all"}'
+
+      - name: Wait for Deployment
+        run: sleep 60
+
+      - name: Verify Staging Health
+        run: |
+          curl -f https://bayanihan-staging.onrender.com/up || exit 1
+
+      - name: Notify Reset Complete
+        uses: 8398a7/action-slack@v3
+        if: success()
+        with:
+          status: success
+          text: |
+            ✓ Staging data reset complete!
+            Fresh database with 1000+ test cases ready.
+            Credentials: See internal runbook
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true
+
+      - name: Notify Reset Failed
+        uses: 8398a7/action-slack@v3
+        if: failure()
+        with:
+          status: failure
+          text: |
+            ✗ Staging data reset FAILED
+            Check Render logs: https://dashboard.render.com
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true

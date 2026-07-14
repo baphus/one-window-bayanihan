@@ -1,0 +1,140 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  RENDER_SERVICE_ID: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
+  RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, sockets
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install PHP Dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Cache Node Dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Copy Environment Variables
+        run: cp .env.example .env && php artisan key:generate
+
+      - name: Build Frontend Assets
+        run: npm run build
+
+      - name: TypeScript Type Check
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Run Tests
+        run: composer test
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: postgres
+          DB_DATABASE: test_db
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+
+  deploy:
+    name: Deploy to Render
+    needs: test
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+        # TODO: Add pre-deploy DB snapshot step:
+        #       pg_dump "$DATABASE_URL" > "db-snapshot-$(date +%F-%H%M%S).sql"
+        #       and upload snapshot to secure storage before deploy.
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Render
+        run: |
+          curl -X POST https://api.render.com/v1/services/${{ env.RENDER_SERVICE_ID }}/deploys \
+            -H "accept: application/json" \
+            -H "authorization: Bearer ${{ env.RENDER_API_KEY }}" \
+            -H "content-type: application/json" \
+            -d '{"clearCache":"do_not_clear"}'
+
+      - name: Health Gate — wait for /up
+        run: |
+          for i in $(seq 1 8); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://bayanihan-staging.onrender.com/up 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Application responding at /up (HTTP 200)"
+              exit 0
+            fi
+            echo "Attempt $i: /up returned $STATUS — waiting 15s..."
+            sleep 15
+          done
+          echo "❌ Application failed to respond at /up after 8 attempts"
+          exit 1
+
+      - name: Notify Deployment
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          text: |
+            Staging deployment ${{ job.status }}
+            Repo: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            
+            Staging URL: https://bayanihan-staging.onrender.com
+            Credentials: See internal runbook
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true
