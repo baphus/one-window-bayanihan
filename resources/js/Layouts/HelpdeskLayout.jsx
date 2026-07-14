@@ -49,7 +49,7 @@ export function SearchBar({ query, onSearch, large }) {
           />
           <button
             type="submit"
-            className={`border-l border-slate-200 bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${large ? 'px-6' : ''}`}
+            className={`flex-shrink-0 border-l border-slate-200 bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${large ? 'px-6' : ''}`}
           >
             Search
           </button>
@@ -79,7 +79,7 @@ export function SearchBar({ query, onSearch, large }) {
                       <p className="font-headline text-sm font-semibold text-slate-900">{article.title}</p>
                       <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{article.excerpt}</p>
                       {category && (
-                        <p className="mt-1 text-xs text-slate-400">{category.name}</p>
+                        <p className="mt-1 text-xs text-slate-600">{category.name}</p>
                       )}
                     </div>
                   </div>
@@ -155,7 +155,7 @@ function CategoryNav({ categories, activeSlug, idPrefix = 'desktop' }) {
                 className={linkClasses(isParentActive)}
               >
                 {cat.icon && (
-                  <span className="material-symbols-outlined text-base text-slate-400" aria-hidden="true">
+                  <span className="material-symbols-outlined text-base text-slate-600" aria-hidden="true">
                     {cat.icon}
                   </span>
                 )}
@@ -171,7 +171,7 @@ function CategoryNav({ categories, activeSlug, idPrefix = 'desktop' }) {
                   className={`flex items-center justify-center border-l border-slate-200 px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
                     isParentActive
                       ? 'bg-primary/10 text-primary'
-                      : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-700'
                   }`}
                 >
                   <span
@@ -268,7 +268,8 @@ export default function HelpdeskLayout({
 
       <a
         href="#help-main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+        tabIndex="0"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
       >
         Skip to main content
       </a>
@@ -278,7 +279,7 @@ export default function HelpdeskLayout({
       <ChatBot />
       <TourManager />
 
-      <div className="mx-auto max-w-7xl px-4 pb-8 pt-24 sm:px-6 lg:px-8">
+      <div className="mx-auto min-w-0 max-w-7xl overflow-x-hidden px-4 pb-8 pt-24 sm:px-6 lg:px-8">
         <div className={`flex items-center justify-end gap-3 pt-3 ${showCompactSearch ? 'mb-4' : 'mb-2'}`}>
           {showCompactSearch && (
             <div className="w-full max-w-xs">
@@ -290,7 +291,7 @@ export default function HelpdeskLayout({
 
         {showSidebar && <MobileTopicsDisclosure categories={parentCategories} activeSlug={activeSlug} />}
 
-        <div className="flex gap-8">
+        <div className="flex min-w-0 gap-8">
           {showSidebar && (
             <aside className="hidden w-72 flex-shrink-0 lg:block">
               <div className="sticky top-24 rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -306,7 +307,7 @@ export default function HelpdeskLayout({
             </aside>
           )}
 
-          <main id="help-main" className="min-w-0 flex-1">{children}</main>
+          <main id="help-main" className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
         </div>
       </div>
 
@@ -326,7 +327,7 @@ export default function HelpdeskLayout({
               Contact Support
             </Link>
           </div>
-          <div className="mt-6 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
+          <div className="mt-6 border-t border-slate-200 pt-4 text-center text-xs text-slate-600">
             &copy; {new Date().getFullYear()} DMW Region VII — One Window Bayanihan
           </div>
         </div>

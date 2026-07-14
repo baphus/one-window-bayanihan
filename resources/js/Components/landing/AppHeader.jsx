@@ -41,7 +41,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
       }`}
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-8">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex min-w-0 items-center gap-3">
           <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-circle bg-white">
             <img
               src="/logo.png"
@@ -50,12 +50,12 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
             />
           </div>
 
-          <div className="flex flex-col">
-            <span className="font-headline text-[18px] font-bold text-primary">
+          <div className="min-w-0 flex flex-col">
+            <span className="truncate font-headline text-[18px] font-bold text-primary">
               Bayanihan One Window
             </span>
 
-            <span className="font-label text-[12px] font-medium uppercase tracking-wide text-on-surface-variant">
+            <span className="truncate font-label text-[12px] font-medium uppercase tracking-wide text-on-surface-variant">
               DMW Region VII
             </span>
           </div>
@@ -127,11 +127,13 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => router.post(route('logout'))}
-                      className="text-slate-400 transition hover:text-red-500"
-                      title="Logout"
+                      aria-label="Log out"
+                      title="Log out"
+                      className="flex-shrink-0 text-slate-700 transition hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
-                      <span className="material-symbols-outlined text-[18px]">
+                      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
                         logout
                       </span>
                     </button>

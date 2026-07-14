@@ -16,7 +16,7 @@ export default function Breadcrumbs({ items }) {
       </Link>
       {items.map((item, i) => (
         <span key={i} className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-sm text-slate-400" aria-hidden="true">
+          <span className="material-symbols-outlined text-sm text-slate-600" aria-hidden="true">
             chevron_right
           </span>
           {i === items.length - 1 ? (
