@@ -9,6 +9,7 @@ on:
 env:
   RENDER_SERVICE_ID: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
   RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+  STAGING_URL: ${{ secrets.RENDER_STAGING_URL }}
 
 jobs:
   test:
@@ -79,11 +80,22 @@ jobs:
         run: npx tsc --noEmit
         continue-on-error: true
 
+      - name: Run Migrations
+        run: php artisan migrate --force
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: test_db
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+
       - name: Run Tests
         run: composer test
         env:
           DB_CONNECTION: pgsql
-          DB_HOST: postgres
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
           DB_DATABASE: test_db
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
@@ -92,7 +104,7 @@ jobs:
     name: Deploy to Render
     needs: test
     runs-on: ubuntu-latest
-    if: success()
+    if: ${{ success() && env.RENDER_SERVICE_ID != '' && env.STAGING_URL != '' }}
 
     steps:
         # TODO: Add pre-deploy DB snapshot step:
@@ -111,7 +123,7 @@ jobs:
       - name: Health Gate — wait for /up
         run: |
           for i in $(seq 1 8); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://bayanihan-staging.onrender.com/up 2>/dev/null || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$STAGING_URL/up" 2>/dev/null || echo "000")
             if [ "$STATUS" = "200" ]; then
               echo "✅ Application responding at /up (HTTP 200)"
               exit 0
@@ -134,7 +146,7 @@ jobs:
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
             
-            Staging URL: https://bayanihan-staging.onrender.com
+            Staging URL: ${{ secrets.RENDER_STAGING_URL }}
             Credentials: See internal runbook
           webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         continue-on-error: true
