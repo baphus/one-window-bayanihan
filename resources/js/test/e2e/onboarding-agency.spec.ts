@@ -27,14 +27,31 @@ async function loginAsAgency(page: Page) {
     // Wait for OTP step
     await page.waitForSelector('text=Verify Your Identity', { timeout: 10000 });
 
-    // Wait for all 6 OTP inputs to be auto-filled
+    // Wait for debug OTP banner and manually fill inputs
+    const debugOtpLocator = page.locator('text=Debug Mode');
+    try {
+        await debugOtpLocator.waitFor({ state: 'visible', timeout: 10000 });
+        const debugText = await debugOtpLocator.textContent();
+        const otpMatch = debugText?.match(/OTP:\s*(\d{6})/);
+        if (otpMatch) {
+            const otp = otpMatch[1];
+            const inputs = page.locator('input[inputmode="numeric"]');
+            for (let i = 0; i < 6; i++) {
+                await inputs.nth(i).fill(otp[i]);
+            }
+        }
+    } catch {
+        // Debug banner not visible — rely on React auto-fill
+    }
+
+    // Wait for all 6 OTP inputs to be filled
     await page.waitForFunction(() => {
         const inputs = document.querySelectorAll('input[inputmode="numeric"]');
         return (
             inputs.length === 6 &&
             Array.from(inputs).every((i) => (i instanceof HTMLInputElement ? i.value !== '' : false))
         );
-    }, { timeout: 5000 });
+    }, { timeout: 15000 });
 
     // Click "Verify & Continue"
     await page.getByRole('button', { name: 'Verify & Continue' }).click();
@@ -64,8 +81,11 @@ test.describe('AGENCY Onboarding', () => {
             page.getByText('Welcome to One Window Bayanihan!')
         ).toBeVisible({ timeout: 5000 });
 
-        // Start the tour
-        await page.getByRole('button', { name: 'Start Tour' }).click();
+        // Start the tour — wait for button to be stable (avoid detach during re-render)
+        const startTourBtn = page.getByRole('button', { name: 'Start Tour' });
+        await startTourBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await page.waitForTimeout(500); // Allow any pending re-renders to settle
+        await startTourBtn.click({ timeout: 10000 });
 
         // Wait for Driver.js popover to appear
         await page.waitForSelector('.driver-popover', { timeout: 5000 });

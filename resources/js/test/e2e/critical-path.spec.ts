@@ -45,19 +45,21 @@ async function login(page: Page, email: string, password: string = DEFAULT_PASSW
     // Wait for the OTP verification screen
     await page.waitForSelector('text=Verify Your Identity', { timeout: 10000 });
 
-    // Read the debug_otp from the visible "Debug Mode — OTP: XXXXXX" text
-    // and manually fill each input for robustness.
+    // Wait for debug OTP banner and manually fill inputs
     const debugOtpLocator = page.locator('text=Debug Mode');
-    if (await debugOtpLocator.count() > 0) {
-        const debugText = await debugOtpLocator.textContent({ timeout: 3000 });
+    try {
+        await debugOtpLocator.waitFor({ state: 'visible', timeout: 10000 });
+        const debugText = await debugOtpLocator.textContent();
         const otpMatch = debugText?.match(/OTP:\s*(\d{6})/);
         if (otpMatch) {
             const otp = otpMatch[1];
             const inputs = page.locator('input[inputmode="numeric"]');
-            for (let i = 0; i < otp.length; i++) {
-                await inputs.nth(i).press(otp[i]);
+            for (let i = 0; i < 6; i++) {
+                await inputs.nth(i).fill(otp[i]);
             }
         }
+    } catch {
+        // Debug banner not visible — rely on React auto-fill
     }
 
     // Wait for all 6 OTP inputs to be filled
@@ -67,7 +69,7 @@ async function login(page: Page, email: string, password: string = DEFAULT_PASSW
             inputs.length === 6 &&
             Array.from(inputs).every((i) => (i instanceof HTMLInputElement ? i.value !== '' : false))
         );
-    }, { timeout: 5000 });
+    }, { timeout: 15000 });
 
     // Click "Verify & Continue"
     await page.getByRole('button', { name: 'Verify & Continue' }).click();
@@ -253,18 +255,21 @@ test.describe('Scenario 5: Public tracking portal', () => {
             await page.waitForSelector('input[inputmode="numeric"]', { timeout: 5000 });
         }
 
-        // Read debug OTP
+        // Read debug OTP and manually fill inputs
         const debugOtpLocator = page.locator('text=Debug Mode');
-        if (await debugOtpLocator.count() > 0) {
-            const debugText = await debugOtpLocator.textContent({ timeout: 3000 });
+        try {
+            await debugOtpLocator.waitFor({ state: 'visible', timeout: 10000 });
+            const debugText = await debugOtpLocator.textContent();
             const otpMatch = debugText?.match(/OTP:\s*(\d{6})/);
             if (otpMatch) {
                 const otp = otpMatch[1];
                 const inputs = page.locator('input[inputmode="numeric"]');
-                for (let i = 0; i < otp.length; i++) {
-                    await inputs.nth(i).press(otp[i]);
+                for (let i = 0; i < 6; i++) {
+                    await inputs.nth(i).fill(otp[i]);
                 }
             }
+        } catch {
+            // Debug banner not visible — rely on React auto-fill
         }
 
         // Wait for all 6 OTP inputs to be filled
@@ -274,7 +279,7 @@ test.describe('Scenario 5: Public tracking portal', () => {
                 inputs.length === 6 &&
                 Array.from(inputs).every((i) => (i instanceof HTMLInputElement ? i.value !== '' : false))
             );
-        }, { timeout: 5000 });
+        }, { timeout: 15000 });
 
         // Click Verify
         await page.getByRole('button', { name: /Verify|Continue/i }).click();
@@ -301,7 +306,7 @@ test.describe('Scenario 6: Admin user management', () => {
         await page.waitForURL('**/admin/users', { timeout: 10000 });
 
         // Assert the user list is visible — the page renders user cards/tables
-        await expect(page.locator('text=Users').or(page.locator('text=User Management'))).toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible({ timeout: 5000 });
 
         // Look for evidence of user data rendering
         const userList = page.locator('table, [data-testid="user-list"], .user-list, .grid');

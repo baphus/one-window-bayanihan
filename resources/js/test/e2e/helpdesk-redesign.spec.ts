@@ -34,8 +34,11 @@ test.describe('Helpdesk redesign — rendering', () => {
 test.describe('Helpdesk redesign — keyboard walkthrough', () => {
   test('skip link is the first tab stop on the landing page', async ({ page }) => {
     await page.goto('/help');
+    await page.waitForLoadState('networkidle');
+    // Ensure body is focused first so Tab targets the first focusable element
+    await page.evaluate(() => { document.body.focus(); });
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: /skip to main content/i })).toBeFocused();
+    await expect(page.getByRole('link', { name: /skip to main content/i })).toBeFocused({ timeout: 5000 });
   });
 
   test('landing → topic card → category → article → feedback → contact, by keyboard', async ({ page }) => {

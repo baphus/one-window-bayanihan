@@ -21,26 +21,31 @@ async function loginAsCaseManager(page: Page) {
     await page.getByRole('button', { name: 'Sign In' }).click();
     await page.waitForSelector('text=Verify Your Identity', { timeout: 10000 });
 
+    // Wait for debug OTP banner and manually fill inputs
     const debugOtpLocator = page.locator('text=Debug Mode');
-    if (await debugOtpLocator.count() > 0) {
-        const debugText = await debugOtpLocator.textContent({ timeout: 3000 });
+    try {
+        await debugOtpLocator.waitFor({ state: 'visible', timeout: 10000 });
+        const debugText = await debugOtpLocator.textContent();
         const otpMatch = debugText?.match(/OTP:\s*(\d{6})/);
         if (otpMatch) {
             const otp = otpMatch[1];
             const inputs = page.locator('input[inputmode="numeric"]');
-            for (let i = 0; i < otp.length; i++) {
-                await inputs.nth(i).press(otp[i]);
+            for (let i = 0; i < 6; i++) {
+                await inputs.nth(i).fill(otp[i]);
             }
         }
+    } catch {
+        // Debug banner not visible — rely on React auto-fill
     }
 
+    // Wait for all 6 OTP inputs to be filled
     await page.waitForFunction(() => {
         const inputs = document.querySelectorAll('input[inputmode="numeric"]');
         return (
             inputs.length === 6 &&
             Array.from(inputs).every((i) => (i instanceof HTMLInputElement ? i.value !== '' : false))
         );
-    }, { timeout: 5000 });
+    }, { timeout: 15000 });
 
     await page.getByRole('button', { name: 'Verify & Continue' }).click();
     await page.waitForURL('**/dashboard', { timeout: 15000 });

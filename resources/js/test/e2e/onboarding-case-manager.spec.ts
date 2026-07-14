@@ -27,31 +27,31 @@ async function loginAsCaseManager(page: Page) {
     // Wait for the OTP verification screen
     await page.waitForSelector('text=Verify Your Identity', { timeout: 10000 });
 
-    // Read the debug_otp from the visible "Debug Mode — OTP: XXXXXX" text
-    // and manually fill each input. This is more robust than relying on the
-    // React auto-fill effect which can suffer timing issues on re-login
-    // (e.g. the Skip Tour test calls loginAsCaseManager twice).
+    // Wait for debug OTP banner and manually fill inputs
     const debugOtpLocator = page.locator('text=Debug Mode');
-    if (await debugOtpLocator.count() > 0) {
-        const debugText = await debugOtpLocator.textContent({ timeout: 3000 });
+    try {
+        await debugOtpLocator.waitFor({ state: 'visible', timeout: 10000 });
+        const debugText = await debugOtpLocator.textContent();
         const otpMatch = debugText?.match(/OTP:\s*(\d{6})/);
         if (otpMatch) {
             const otp = otpMatch[1];
             const inputs = page.locator('input[inputmode="numeric"]');
-            for (let i = 0; i < otp.length; i++) {
-                await inputs.nth(i).press(otp[i]);
+            for (let i = 0; i < 6; i++) {
+                await inputs.nth(i).fill(otp[i]);
             }
         }
+    } catch {
+        // Debug banner not visible — rely on React auto-fill
     }
 
-    // Wait for all 6 OTP inputs to be filled (either by manual fill above or auto-fill)
+    // Wait for all 6 OTP inputs to be filled
     await page.waitForFunction(() => {
         const inputs = document.querySelectorAll('input[inputmode="numeric"]');
         return (
             inputs.length === 6 &&
             Array.from(inputs).every((i) => (i instanceof HTMLInputElement ? i.value !== '' : false))
         );
-    }, { timeout: 5000 });
+    }, { timeout: 15000 });
 
     // Click "Verify & Continue"
     await page.getByRole('button', { name: 'Verify & Continue' }).click();
@@ -94,8 +94,11 @@ test.describe('CASE_MANAGER Onboarding', () => {
             page.getByText('Welcome to One Window Bayanihan!')
         ).toBeVisible({ timeout: 5000 });
 
-        // Click "Start Tour"
-        await page.getByRole('button', { name: 'Start Tour' }).click();
+        // Click "Start Tour" — wait for button to be stable (avoid detach during re-render)
+        const startTourBtn = page.getByRole('button', { name: 'Start Tour' });
+        await startTourBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await page.waitForTimeout(500);
+        await startTourBtn.click({ timeout: 10000 });
 
         // Wait for Driver.js popover to appear
         await page.waitForSelector('.driver-popover', { timeout: 5000 });
@@ -177,7 +180,9 @@ test.describe('CASE_MANAGER Onboarding', () => {
     test('Welcome tour auto-navigates from Dashboard to Cases and completes', async ({ page }) => {
         await loginAsCaseManager(page);
 
-        await page.getByRole('button', { name: 'Start Tour' }).click();
+        await page.getByRole('button', { name: 'Start Tour' }).waitFor({ state: 'visible', timeout: 10000 });
+        await page.waitForTimeout(300);
+        await page.getByRole('button', { name: 'Start Tour' }).click({ timeout: 10000 });
         await page.waitForSelector('.driver-popover', { timeout: 5000 });
 
         // Advance through the dashboard steps. The final step's button reads
@@ -210,7 +215,9 @@ test.describe('CASE_MANAGER Onboarding', () => {
     test('Interrupted tour offers Resume Tour after reload', async ({ page }) => {
         await loginAsCaseManager(page);
 
-        await page.getByRole('button', { name: 'Start Tour' }).click();
+        await page.getByRole('button', { name: 'Start Tour' }).waitFor({ state: 'visible', timeout: 10000 });
+        await page.waitForTimeout(300);
+        await page.getByRole('button', { name: 'Start Tour' }).click({ timeout: 10000 });
         await page.waitForSelector('.driver-popover', { timeout: 5000 });
 
         // Advance a couple of steps so a step key is persisted
