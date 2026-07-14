@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -33,7 +33,7 @@ function setupTestUser() {
  * Instead there is a "System Admin" mock-credentials button we click to
  * auto-fill the email/password fields.
  */
-async function loginAsAdmin(page) {
+async function loginAsAdmin(page: Page) {
     await page.goto('/login');
 
     // Fill the seeded test credentials directly

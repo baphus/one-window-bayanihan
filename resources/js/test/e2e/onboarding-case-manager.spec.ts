@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -32,7 +32,7 @@ function setupTestUser() {
  * Log in as CASE_MANAGER using the role selector (auto-fills credentials)
  * and the auto-filled debug OTP flow.
  */
-async function loginAsCaseManager(page) {
+async function loginAsCaseManager(page: Page) {
     await page.goto('/login');
 
     // Fill the seeded test credentials directly
@@ -81,7 +81,7 @@ async function loginAsCaseManager(page) {
 /**
  * Log out via the sidebar button.
  */
-async function logout(page) {
+async function logout(page: Page) {
     await page.locator('button[title="Log Out"]').click();
     await page.waitForURL('**/', { timeout: 10000 });
 }

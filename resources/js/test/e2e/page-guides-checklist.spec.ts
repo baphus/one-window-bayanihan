@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -27,7 +27,7 @@ function setupTestUser() {
     }
 }
 
-async function loginAsCaseManager(page) {
+async function loginAsCaseManager(page: Page) {
     await page.goto('/login');
 
     // Fill the seeded test credentials directly

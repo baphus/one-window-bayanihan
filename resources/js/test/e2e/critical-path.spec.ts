@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -43,7 +43,7 @@ function setupTestUser() {
  * Fill the login form with given credentials and submit, then handle the
  * debug OTP auto-fill on the OTP verification screen.
  */
-async function login(page, email, password = DEFAULT_PASSWORD) {
+async function login(page: Page, email: string, password: string = DEFAULT_PASSWORD) {
     await page.goto('/login');
 
     // Fill email field
@@ -93,22 +93,22 @@ async function login(page, email, password = DEFAULT_PASSWORD) {
     await page.waitForURL('**/dashboard', { timeout: 15000 });
 }
 
-async function loginAsCaseManager(page) {
+async function loginAsCaseManager(page: Page) {
     await login(page, CM_EMAIL);
 }
 
-async function loginAsAdmin(page) {
+async function loginAsAdmin(page: Page) {
     await login(page, ADMIN_EMAIL);
 }
 
-async function loginAsAgency(page) {
+async function loginAsAgency(page: Page) {
     await login(page, AGENCY_EMAIL);
 }
 
 /**
  * Log out via the sidebar button.
  */
-async function logout(page) {
+async function logout(page: Page) {
     await page.locator('button[title="Log Out"]').click();
     await page.waitForURL('**/', { timeout: 10000 });
 }
