@@ -15,6 +15,8 @@ abstract class TestCase extends BaseTestCase
 
         $this->app->bind(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
         {
+            public function __construct() {}
+
             public function uploadImage(UploadedFile $file, string $folder, string $publicId): string
             {
                 return 'https://res.cloudinary.com/test/image/upload/'.Str::uuid().'/'.$folder.'/'.$publicId.'.jpg';
