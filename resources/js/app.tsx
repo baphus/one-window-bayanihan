@@ -1,9 +1,9 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp, router } from '@inertiajs/react';
+import { createInertiaApp, router, App as InertiaAppComponent } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { lazy, useState, useEffect } from 'react';
+import { lazy, useState, useEffect, type ComponentProps, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import ErrorBoundary from '@/Components/ErrorBoundary';
 import ToastProvider from '@/Components/ToastProvider';
@@ -46,7 +46,13 @@ const DevTools = lazy(() =>
  * React tree (outside the Inertia page context), so we use Inertia's
  * global 'success' event to pick up the value from each page navigation.
  */
-function AppWithOnboarding({ App, appProps }) {
+function AppWithOnboarding({
+    App,
+    appProps,
+}: {
+    App: ComponentType<ComponentProps<typeof InertiaAppComponent>>;
+    appProps: ComponentProps<typeof InertiaAppComponent>;
+}) {
     const initialProps = appProps.initialPage.props as Record<string, unknown>;
     const [onboardingRequired, setOnboardingRequired] = useState(
         initialProps.onboarding_required,

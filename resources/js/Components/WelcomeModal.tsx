@@ -1,5 +1,17 @@
 import Modal from '@/Components/Modal';
 
+type CommonProps = {
+    show?: boolean;
+    onStartTour: () => void;
+    onSkipTour: () => void;
+    onRemindLater: () => void;
+};
+
+type WelcomeModalProps = CommonProps & (
+    | { canResume: true; onResumeTour: () => void }
+    | { canResume?: false; onResumeTour?: never }
+);
+
 export default function WelcomeModal({
     show = true,
     canResume = false,
@@ -7,7 +19,7 @@ export default function WelcomeModal({
     onResumeTour,
     onSkipTour,
     onRemindLater,
-}) {
+}: WelcomeModalProps) {
     return (
         <Modal show={show} maxWidth="md" onClose={onRemindLater}>
             <div className="px-6 py-5 text-center">
@@ -33,31 +45,19 @@ export default function WelcomeModal({
                 </p>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
-                <button
-                    onClick={onRemindLater}
-                    className="h-9 px-2 text-[12px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
-                >
+                <button onClick={onRemindLater} className="h-9 px-2 text-[12px] font-bold text-slate-500 hover:text-slate-700 transition-colors">
                     Remind Me Later
                 </button>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={onSkipTour}
-                        className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
+                    <button onClick={onSkipTour} className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
                         Skip Tour
                     </button>
                     {canResume && (
-                        <button
-                            onClick={onStartTour}
-                            className="h-9 rounded-[3px] border border-indigo-200 px-4 text-[12px] font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        >
+                        <button onClick={onStartTour} className="h-9 rounded-[3px] border border-indigo-200 px-4 text-[12px] font-bold text-indigo-600 hover:bg-indigo-50 transition-colors">
                             Restart
                         </button>
                     )}
-                    <button
-                        onClick={canResume ? onResumeTour : onStartTour}
-                        className="h-9 rounded-[3px] bg-indigo-600 px-4 text-[12px] font-bold text-white hover:bg-indigo-700 transition-colors"
-                    >
+                    <button onClick={canResume ? onResumeTour : onStartTour} className="h-9 rounded-[3px] bg-indigo-600 px-4 text-[12px] font-bold text-white hover:bg-indigo-700 transition-colors">
                         {canResume ? 'Resume Tour' : 'Start Tour'}
                     </button>
                 </div>

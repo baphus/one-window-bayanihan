@@ -16,21 +16,3 @@ export {
   updatePasswordSchema,
 } from './profileSchemas';
 export { referralSchema } from './referralSchema';
-export type {
-  RegisterInput,
-  ResetPasswordInput,
-  ConfirmPasswordInput,
-} from './authSchemas';
-export type {
-  UserFormInput,
-  ServiceFormInput,
-  AgencyFormInput,
-  CaseStatusInput,
-  CaseCategoryInput,
-  CaseIssueInput,
-} from './adminSchemas';
-export type {
-  ProfileInput,
-  UpdatePasswordInput,
-} from './profileSchemas';
-export type { ReferralInput } from './referralSchema';

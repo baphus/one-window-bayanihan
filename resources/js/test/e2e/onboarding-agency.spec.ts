@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,7 +30,7 @@ function setupTestUser() {
  * Log in as AGENCY user using the role selector (auto-fills credentials)
  * and the debug OTP auto-fill flow.
  */
-async function loginAsAgency(page) {
+async function loginAsAgency(page: Page) {
     await page.goto('/login');
 
     // Fill the seeded test credentials directly

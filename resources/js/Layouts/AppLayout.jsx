@@ -99,13 +99,14 @@ export default function AppLayout({ title, children }) {
       {/* Onboarding UI — use show prop so Headless UI Dialog properly cleans up on close */}
       <WelcomeModal
         show={phase === 'welcome'}
-        canResume={savedPosition !== null}
         onStartTour={() => launchTour(null)}
-        onResumeTour={() => launchTour(savedPosition)}
         onSkipTour={() => {
           skipOnboarding().then(() => endTour()).catch(() => endTour());
         }}
         onRemindLater={dismissRemindLater}
+        {...(savedPosition !== null
+          ? { canResume: true, onResumeTour: () => launchTour(savedPosition) }
+          : { canResume: false })}
       />
       <TourManager />
     </div>
