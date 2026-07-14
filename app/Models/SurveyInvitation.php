@@ -12,6 +12,11 @@ class SurveyInvitation extends Model
 {
     use HasFactory, UsesUuid;
 
+    protected $hidden = [
+        'token',
+        'token_hash',
+    ];
+
     protected $fillable = [
         'survey_form_id',
         'case_id',
@@ -20,7 +25,7 @@ class SurveyInvitation extends Model
         'client_name',
         'client_email',
         'service_name',
-        'token',
+        'token_hash',
         'expires_at',
         'submitted_at',
     ];

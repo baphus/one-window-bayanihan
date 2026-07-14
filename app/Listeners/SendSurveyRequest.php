@@ -8,11 +8,11 @@ use App\Models\SurveyInvitation;
 use App\Models\SystemSetting;
 use App\Services\SurveyFormService;
 use App\Services\SurveyInvitationService;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class SendSurveyRequest implements ShouldQueue
+class SendSurveyRequest implements ShouldQueueAfterCommit
 {
     /**
      * The name of the queue the job should be sent to.
@@ -70,9 +70,7 @@ class SendSurveyRequest implements ShouldQueue
         $serviceName = trim(explode(',', $referral->required_services ?? '')[0]) ?: 'General Service';
 
         // Create the survey invitation
-        $invitation = app(SurveyInvitationService::class)->createInvitation(
-            caseId: $referral->case_id,
-            agencyId: $referral->agcy_id,
+        $created = app(SurveyInvitationService::class)->createInvitation(
             referralId: $referral->id,
             clientName: $clientName,
             clientEmail: $caseFile->client->email,
@@ -80,6 +78,11 @@ class SendSurveyRequest implements ShouldQueue
             surveyFormId: $activeForm->id,
         );
 
+        if (! $created) {
+            return;
+        }
+
+        $invitation = $created->invitation;
         Log::info('Survey invitation created', [
             'invitation_id' => $invitation->id,
             'referral_id' => $referral->id,
@@ -88,6 +91,6 @@ class SendSurveyRequest implements ShouldQueue
         ]);
 
         // Queue the survey request email
-        Mail::to($caseFile->client->email)->queue(new SurveyRequestMail($invitation));
+        Mail::to($caseFile->client->email)->queue(new SurveyRequestMail($invitation, $created->rawToken));
     }
 }

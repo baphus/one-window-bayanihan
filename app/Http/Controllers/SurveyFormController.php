@@ -19,6 +19,7 @@ class SurveyFormController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $this->authorizeFormManagement($user);
 
         $forms = $this->surveyFormService->getFormsForAgency($user->agcy_id);
 
@@ -29,6 +30,8 @@ class SurveyFormController extends Controller
 
     public function create(Request $request)
     {
+        $this->authorizeFormManagement($request->user());
+
         return Inertia::render('Survey/FormBuilder', [
             'form' => null,
             'questionTypes' => SurveyQuestion::TYPES,
@@ -51,6 +54,7 @@ class SurveyFormController extends Controller
     {
         $user = $request->user();
         $this->authorizeAgencyOwnership($form, $user);
+        $this->surveyFormService->assertEditable($form);
 
         $form->load('questions');
 
@@ -99,8 +103,17 @@ class SurveyFormController extends Controller
 
     private function authorizeAgencyOwnership(SurveyForm $form, $user): void
     {
+        $this->authorizeFormManagement($user);
+
         if ($form->agency_id !== $user->agcy_id) {
             abort(403, 'You do not have access to this survey form.');
+        }
+    }
+
+    private function authorizeFormManagement($user): void
+    {
+        if (! $user || $user->role !== 'AGENCY' || $user->agcy_id === null) {
+            abort(403, 'You do not have access to survey form management.');
         }
     }
 }
