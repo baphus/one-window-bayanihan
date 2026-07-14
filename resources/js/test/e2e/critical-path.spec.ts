@@ -1,11 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { execSync } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '../../../..');
+import { runTinker } from './helpers/artisan';
 
 const CM_EMAIL = 'case@bayanihan.gov.ph';
 const ADMIN_EMAIL = 'admin@bayanihan.gov.ph';
@@ -17,20 +11,9 @@ const DEFAULT_PASSWORD = 'P@ssw0rd!';
  * Login uses debug_otp_enabled; tracking uses debug_tracking_otp_enabled.
  */
 function setupTestUser() {
-    try {
-        // Enable debug OTP for login
-        execSync(
-            'php artisan tinker --execute="\\App\\Models\\SystemSetting::setValue(\'debug_otp_enabled\', true)"',
-            { cwd: PROJECT_ROOT, timeout: 15000 }
-        );
-        // Enable debug OTP for tracking
-        execSync(
-            'php artisan tinker --execute="\\App\\Models\\SystemSetting::setValue(\'debug_tracking_otp_enabled\', true)"',
-            { cwd: PROJECT_ROOT, timeout: 15000 }
-        );
-    } catch (e) {
-        console.warn('Setup warning:', e.message);
-    }
+    // Enable debug OTP for login and tracking independently.
+    runTinker("\\App\\Models\\SystemSetting::setValue('debug_otp_enabled', true)", 'enable login debug OTP');
+    runTinker("\\App\\Models\\SystemSetting::setValue('debug_tracking_otp_enabled', true)", 'enable tracking debug OTP');
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -118,31 +101,23 @@ async function logout(page: Page) {
  * Returns { trackerNumber: string, clientEmail: string } or null.
  */
 function getTrackerAndClientEmail() {
-    try {
-        const result = execSync(
-            `php artisan tinker --execute="
-                \\$case = \\App\\Models\\CaseFile::where('status', 'OPEN')
-                    ->whereNotNull('client_id')
-                    ->whereHas('client', fn(\\$q) => \\$q->whereNotNull('email'))
-                    ->with('client:id,email')
-                    ->first();
-                if (\\$case) {
-                    echo \\$case->tracker_number . '|' . \\$case->client->email;
-                } else {
-                    echo 'NONE';
-                }
-            "`,
-            { cwd: PROJECT_ROOT, timeout: 15000 }
-        );
-        const parts = result.toString().trim().split('|');
-        if (parts.length === 2 && parts[0] !== 'NONE') {
-            return { trackerNumber: parts[0], clientEmail: parts[1] };
+    const result = runTinker(`
+        $case = \\App\\Models\\CaseFile::where('status', 'OPEN')
+            ->whereNotNull('client_id')
+            ->whereHas('client', fn($q) => $q->whereNotNull('email'))
+            ->with('client:id,email')
+            ->first();
+        if ($case) {
+            echo $case->tracker_number . '|' . $case->client->email;
+        } else {
+            echo 'NONE';
         }
-        return null;
-    } catch (e) {
-        console.warn('getTrackerAndClientEmail warning:', e.message);
-        return null;
+    `, 'find an open case for tracking');
+    const parts = result.trim().split('|');
+    if (parts.length === 2 && parts[0] !== 'NONE') {
+        return { trackerNumber: parts[0], clientEmail: parts[1] };
     }
+    return null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

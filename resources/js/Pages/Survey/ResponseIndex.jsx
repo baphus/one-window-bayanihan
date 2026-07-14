@@ -18,7 +18,7 @@ export default function ResponseIndex({ invitations, stats, filters = {} }) {
 
       <div className="space-y-6">
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
+          <div data-tour="survey-responses-header" className="flex flex-col gap-3 px-5 py-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Surveys</p>
               <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Survey Responses</h1>
@@ -28,7 +28,7 @@ export default function ResponseIndex({ invitations, stats, filters = {} }) {
         </section>
 
         {/* Stats Cards */}
-        <section className="grid gap-4 md:grid-cols-3">
+        <section data-tour="survey-responses-stats" className="grid gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Total Sent</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">{stats.total_sent}</p>
@@ -44,7 +44,7 @@ export default function ResponseIndex({ invitations, stats, filters = {} }) {
         </section>
 
         {/* Responses Table */}
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section data-tour="survey-responses-list" className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Submitted responses</h2>
           </div>

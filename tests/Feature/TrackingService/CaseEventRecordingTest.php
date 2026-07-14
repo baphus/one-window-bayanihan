@@ -2,8 +2,13 @@
 
 namespace Tests\Feature\TrackingService;
 
+use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
+use App\Models\CaseNotification;
+use App\Models\Client;
+use App\Models\ClientAddress;
 use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 use App\Services\CaseService;
@@ -36,7 +41,7 @@ class CaseEventRecordingTest extends TestCase
     public function test_create_referral_records_referral_sent_event(): void
     {
         [$case, $user] = $this->makeCase();
-        $agency = \App\Models\Agency::factory()->create();
+        $agency = Agency::factory()->create();
 
         $referral = app(ReferralService::class)->createReferral([
             'case_id' => $case->id,
@@ -57,7 +62,7 @@ class CaseEventRecordingTest extends TestCase
     public function test_create_referral_with_compliance_records_status_change_event(): void
     {
         [$case, $user] = $this->makeCase();
-        $agency = \App\Models\Agency::factory()->create();
+        $agency = Agency::factory()->create();
 
         $referral = app(ReferralService::class)->createReferral([
             'case_id' => $case->id,
@@ -165,8 +170,8 @@ class CaseEventRecordingTest extends TestCase
     public function test_publishing_a_draft_records_case_opened(): void
     {
         $user = User::factory()->create();
-        $client = \App\Models\Client::factory()->create(['sex' => 'FEMALE']);
-        \App\Models\ClientAddress::create([
+        $client = Client::factory()->create(['sex' => 'FEMALE']);
+        ClientAddress::create([
             'client_id' => $client->id,
             'region' => 'Region VII',
             'province' => 'Cebu',
@@ -174,7 +179,7 @@ class CaseEventRecordingTest extends TestCase
             'barangay' => 'Lahug',
             'street' => '123 Test St',
         ]);
-        $category = \App\Models\CaseCategory::factory()->create();
+        $category = CaseCategory::factory()->create();
         $case = CaseFile::factory()->create([
             'status' => 'DRAFT',
             'user_id' => $user->id,
@@ -250,7 +255,7 @@ class CaseEventRecordingTest extends TestCase
             'summary' => 'Updated summary text for the client record.',
         ], $editor->id);
 
-        $notification = \App\Models\CaseNotification::where('case_id', $case->id)
+        $notification = CaseNotification::where('case_id', $case->id)
             ->where('type', 'case_updated')
             ->first();
 

@@ -42,7 +42,7 @@ class TrackingService
 
     public function buildTrackingData(CaseFile $case): array
     {
-        return CacheHelper::safeRemember('tracking:data:' . $case->id, 90, function () use ($case) {
+        return CacheHelper::safeRemember('tracking:data:'.$case->id, 90, function () use ($case) {
             $client = $case->client;
             $referrals = $case->referrals;
             $caseNotifications = [];
@@ -198,7 +198,7 @@ class TrackingService
 
     public function buildAgencyMilestonesData(CaseFile $case, Referral $referral): array
     {
-        return CacheHelper::safeRemember('tracking:milestones:' . $case->id . ':' . $referral->id, 120, function () use ($case, $referral) {
+        return CacheHelper::safeRemember('tracking:milestones:'.$case->id.':'.$referral->id, 120, function () use ($case, $referral) {
             $case->loadMissing(['client.addresses', 'client.employments']);
             $referral->loadMissing(['agency', 'milestones.user']);
 

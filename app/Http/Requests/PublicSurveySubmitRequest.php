@@ -14,10 +14,11 @@ class PublicSurveySubmitRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'answers' => ['required', 'array', 'min:1'],
+            'answers' => ['present', 'array', 'list'],
+            'answers.*' => ['array'],
             'answers.*.question_id' => ['required', 'uuid'],
             'answers.*.answer' => ['nullable', 'string', 'max:2000'],
-            'answers.*.selected_options' => ['nullable', 'array'],
+            'answers.*.selected_options' => ['nullable', 'array', 'list'],
             'answers.*.selected_options.*' => ['string', 'max:255'],
         ];
     }

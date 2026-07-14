@@ -193,7 +193,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
 
   const initialQuestions = buildInitialQuestions();
 
-  const { data, setData, post, patch, processing, errors } = useForm({
+  const { data, setData, post, patch, transform, processing, errors } = useForm({
     title: form?.title ?? '',
     description: form?.description ?? '',
     questions: initialQuestions,
@@ -250,14 +250,14 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
     // Assign order numbers
     const questionsWithOrder = data.questions.map((q, i) => ({ ...q, order: i }));
 
+    // `useForm` owns the request payload. Passing a `data` option here would
+    // be treated as a visit option by Inertia and can leave the form's stale
+    // question order in the submitted payload.
+    transform((currentData) => ({ ...currentData, questions: questionsWithOrder }));
     if (isEditing) {
-      patch(route('survey.forms.update', form.id), {
-        data: { ...data, questions: questionsWithOrder },
-      });
+      patch(route('survey.forms.update', form.id));
     } else {
-      post(route('survey.forms.store'), {
-        data: { ...data, questions: questionsWithOrder },
-      });
+      post(route('survey.forms.store'));
     }
   };
 

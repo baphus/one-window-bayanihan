@@ -123,7 +123,7 @@ class CacheInvalidationObserver
 
         // Invalidate tracking cache for this specific case
         if ($case) {
-            Cache::forget('tracking:data:' . $case->id);
+            Cache::forget('tracking:data:'.$case->id);
         }
     }
 
@@ -132,7 +132,7 @@ class CacheInvalidationObserver
         Cache::forget('stats:cases');
         // Invalidate all referral stats (could be role-specific, but simplest to clear all)
         Cache::forget('stats:referrals:all:global');
-        Cache::forget('stats:referrals:AGENCY:' . ($this->getAgencyId() ?? 'global'));
+        Cache::forget('stats:referrals:AGENCY:'.($this->getAgencyId() ?? 'global'));
         Cache::forget('dashboard:cm_counts');
         Cache::forget('dashboard:admin_counts');
         Cache::forget('dashboard:cm_client_counts');

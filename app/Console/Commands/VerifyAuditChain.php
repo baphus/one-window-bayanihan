@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AuditChainCheckpoint;
 use App\Models\AuditLog;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class VerifyAuditChain extends Command
@@ -17,7 +18,7 @@ class VerifyAuditChain extends Command
     {
         $checkpoint = AuditChainCheckpoint::orderBy('created_at', 'desc')->first();
         $verifiedFrom = config('audit.chain_verified_from')
-            ? \Illuminate\Support\Carbon::parse(config('audit.chain_verified_from'))
+            ? Carbon::parse(config('audit.chain_verified_from'))
             : null;
 
         $verified = 0;

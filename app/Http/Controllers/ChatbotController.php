@@ -157,7 +157,7 @@ class ChatbotController extends Controller
         $topSource = $hits[0]['source_type'].':'.$hits[0]['slug'];
         $rival = null;
         foreach ($hits as $hit) {
-            if ($hit['source_type'].':'.$hit['slug'] !== $topSource) {
+            if ($topSource !== $hit['source_type'].':'.$hit['slug']) {
                 $rival = $hit;
                 break;
             }

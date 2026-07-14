@@ -24,9 +24,11 @@ class PublicSurveyController extends Controller
         }
 
         return Inertia::render('Survey/PublicForm', [
-            'invitation' => $invitation->only(['id', 'client_name', 'service_name', 'token']),
-            'surveyForm' => $invitation->surveyForm,
-            'questions' => $invitation->surveyForm->questions,
+            'invitation' => $invitation->only(['id', 'client_name', 'service_name']),
+            'surveyForm' => $invitation->surveyForm->only(['id', 'title', 'description']),
+            'questions' => $invitation->surveyForm->questions->map(fn ($question) => $question->only([
+                'id', 'type', 'label', 'options', 'is_required', 'order',
+            ]))->values(),
         ]);
     }
 
@@ -40,7 +42,13 @@ class PublicSurveyController extends Controller
             ]);
         }
 
-        $this->surveyInvitationService->submitResponse($invitation, $request->validated()['answers']);
+        try {
+            $this->surveyInvitationService->submitResponse($invitation, $request->validated()['answers']);
+        } catch (RuntimeException $e) {
+            return Inertia::render('Survey/PublicFormError', [
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return redirect()
             ->back()

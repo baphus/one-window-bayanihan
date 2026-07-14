@@ -21,18 +21,27 @@ class ReferenceDataService
     // ── Cache TTLs (seconds) ─────────────────────────────────────────────
 
     private const TTL_REFERENCE = 3600;       // 1 hour — categories, issues, agencies
+
     private const TTL_USERS = 600;            // 10 minutes — user lists
+
     private const TTL_AGENCIES_FULL = 1800;   // 30 minutes — agencies with services tree
+
     private const TTL_DEFAULT_AGENCY = 86400; // 24 hours — default agency
 
     // ── Cache Keys ───────────────────────────────────────────────────────
 
     public const KEY_AGENCIES_DROPDOWN = 'ref:agencies:dropdown';
+
     public const KEY_CATEGORIES_ACTIVE = 'ref:categories:active';
+
     public const KEY_ISSUES_ACTIVE = 'ref:issues:active';
+
     public const KEY_USERS_CASE_MANAGERS = 'ref:users:case_managers';
+
     public const KEY_AGENCIES_WITH_SERVICES = 'ref:agencies:with_services';
+
     public const KEY_AGENCY_DEFAULT = 'ref:agency:default';
+
     public const KEY_AGENCIES_ACTIVE_FULL = 'ref:agencies:active_full';
 
     // ── Dropdown/Reference Data Methods ──────────────────────────────────

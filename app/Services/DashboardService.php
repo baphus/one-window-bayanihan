@@ -130,7 +130,6 @@ class DashboardService
             ->toArray();
     }
 
-
     // ──────────────────────────────────────────────────────────────────────────────
     // Optimized SQL-based dashboard builders
     // ──────────────────────────────────────────────────────────────────────────────
@@ -210,15 +209,14 @@ class DashboardService
             'id' => $row->id,
             'caseId' => $row->case_id,
             'caseNo' => $row->case_number ?? 'N/A',
-            'clientName' => trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? '')) ?: 'N/A',
+            'clientName' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'N/A',
             'service' => $row->required_services ?: 'Service not specified',
             'agencyName' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
             'status' => $row->status,
             'ageDays' => (int) round($row->age_days),
-            'href' => '/referrals/' . $row->id,
+            'href' => '/referrals/'.$row->id,
         ], $rows);
     }
-
 
     private function buildAgencyResponseScorecardSQL(?string $agencyId = null): array
     {
@@ -282,7 +280,6 @@ class DashboardService
         ], $rows);
     }
 
-
     private function buildPriorityCasesSQL(int $limit = 8): array
     {
         $rows = DB::select("
@@ -337,15 +334,14 @@ class DashboardService
             'id' => $row->id,
             'caseNo' => $row->case_number ?? 'N/A',
             'trackerNumber' => $row->tracker_number,
-            'clientName' => trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? '')) ?: 'N/A',
+            'clientName' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'N/A',
             'status' => $row->status,
             'latestReferralStatus' => $row->latest_referral_status,
             'ageDays' => (int) round(Carbon::parse($row->created_at)->diffInDays(now())),
             'reason' => $row->reason,
-            'href' => '/cases/' . $row->id,
+            'href' => '/cases/'.$row->id,
         ], $rows);
     }
-
 
     private function buildAgencyServiceDemand(?string $agencyId): array
     {
@@ -392,12 +388,12 @@ class DashboardService
             ];
         }
 
-        $row = DB::selectOne("
+        $row = DB::selectOne('
             SELECT
                 COUNT(*) AS total_sent,
                 COUNT(*) FILTER (WHERE submitted_at IS NOT NULL) AS total_submitted
             FROM survey_invitations WHERE agency_id = ?
-        ", [$agencyId]);
+        ', [$agencyId]);
 
         $totalSent = (int) ($row->total_sent ?? 0);
         $totalSubmitted = (int) ($row->total_submitted ?? 0);
@@ -412,7 +408,6 @@ class DashboardService
             'href' => '/surveys',
         ];
     }
-
 
     // ──────────────────────────────────────────────────────────────────────────────
     // Public dashboard data methods
@@ -641,7 +636,6 @@ class DashboardService
         ];
     }
 
-
     public function getAgencyData(?User $user = null): array
     {
         $formatter = app(AuditLogFormatter::class);
@@ -713,11 +707,11 @@ class DashboardService
 
         // Recent activity via subquery instead of loading all referral IDs
         $recentActivity = AuditLog::whereIn('entity_id', function ($query) use ($agencyId) {
-                $query->select('id')
-                    ->from('referrals')
-                    ->where('agcy_id', $agencyId)
-                    ->where('is_deleted', false);
-            })
+            $query->select('id')
+                ->from('referrals')
+                ->where('agcy_id', $agencyId)
+                ->where('is_deleted', false);
+        })
             ->whereIn('module', ['referral', 'referrals'])
             ->orderBy('timestamp', 'desc')
             ->take(10)
@@ -773,7 +767,6 @@ class DashboardService
             'feedbackPulse' => $feedbackPulse,
         ];
     }
-
 
     public function getAdminData(): array
     {
@@ -891,7 +884,6 @@ class DashboardService
                 'href' => '/overdue-referrals',
             ],
         ];
-
 
         $usersByRole = CacheHelper::safeRemember('dashboard:admin_users_by_role', 120, function () {
             return User::select('role', DB::raw('count(*) as total'))

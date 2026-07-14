@@ -4,9 +4,9 @@ namespace App\Console\Commands;
 
 use App\Mail\ClientUpdateMail;
 use App\Mail\EmailChangedNotification;
-use App\Mail\SurveyRequestMail;
 use App\Mail\OtpMail;
 use App\Mail\ReferralOverdueMail;
+use App\Mail\SurveyRequestMail;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\SurveyInvitation;
@@ -19,6 +19,7 @@ use App\Notifications\SystemAlertNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 class SendTestMails extends Command
 {
@@ -51,16 +52,16 @@ class SendTestMails extends Command
         $this->components->task('Client Update', fn () => Mail::to($to)->send(new ClientUpdateMail('TRK-001', 'CASE-001', 'Update on your case', 'Your case has been updated. The agency is now reviewing your documents.')));
         $this->components->task('Survey Request', function () use ($to, $referral) {
             $invitation = SurveyInvitation::where('agency_id', $referral->agcy_id)->first();
+            $rawToken = Str::random(64);
             if (! $invitation) {
                 $invitation = new SurveyInvitation([
                     'client_name' => 'Juan Dela Cruz',
                     'service_name' => 'OFW Assistance',
-                    'token' => 'test_token_preview_only',
                     'agency_id' => $referral->agcy_id,
                 ]);
                 $invitation->setRelation('agency', $referral->agency);
             }
-            Mail::to($to)->send(new SurveyRequestMail($invitation));
+            Mail::to($to)->send(new SurveyRequestMail($invitation, $rawToken));
         });
         $this->components->task('Overdue Referral', fn () => Mail::to($to)->send(new ReferralOverdueMail($referral, 7)));
 
