@@ -148,11 +148,11 @@ export default function AppSidebar() {
       <div className="h-24 flex items-center px-8 border-b border-transparent shrink-0">
         <Link href="/" className="flex items-center gap-3 w-full">
           <div className="w-10 h-10 flex items-center justify-center shrink-0">
-            <img src="/logo.png" alt="Bayanihan Logo" className="w-full h-full object-contain" />
+            <img src="/logo.png" alt="One Window Bayanihan Logo" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-extrabold font-headline tracking-tight text-blue-950">Bayanihan</span>
-            <span className="text-[10px] font-bold font-label uppercase tracking-[0.08em] text-slate-500">Region VII</span>
+            <span className="text-[13px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan</span>
+            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
           </div>
         </Link>
       </div>

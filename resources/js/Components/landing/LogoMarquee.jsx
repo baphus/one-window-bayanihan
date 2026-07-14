@@ -33,7 +33,12 @@ function LogoImage({ src, alt }) {
 }
 
 export default function LogoMarquee({ agencies }) {
-  const logos = [...new Set(agencies.map((a) => a.logo_url).filter(Boolean))];
+  const logos = [...new Set(
+    agencies
+      .filter((a) => a.slug !== 'dmw')
+      .map((a) => a.logo_url)
+      .filter(Boolean)
+  )];
   const marqueeLogos = [...logos, ...logos];
 
   if (logos.length === 0) return null;

@@ -44,7 +44,7 @@ export default function Contact() {
               Contact Support
             </h1>
             <p className="mx-auto max-w-2xl text-lg leading-relaxed text-white/80">
-              Get in touch with the Bayanihan One Window team for assistance with your concerns.
+              Get in touch with the One Window Bayanihan team for assistance with your concerns.
             </p>
           </div>
         </section>
