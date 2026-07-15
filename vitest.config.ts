@@ -17,7 +17,6 @@ export default defineConfig({
         exclude: [
             '**/node_modules/**',
             '**/vendor/**',
-            '**/e2e/**',
             '.omo/**',
             // Other sessions' git worktrees — their test copies import '@/'
             // which aliases into THIS tree's resources/js, so running them

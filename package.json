@@ -7,14 +7,11 @@
     "dev": "vite",
     "addresses:sync": "node scripts/sync-philippine-addresses.cjs",
     "test": "vitest",
-    "test:run": "vitest run",
-    "test:e2e": "playwright test"
+    "test:run": "vitest run"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
     "@headlessui/react": "^2.0.0",
     "@inertiajs/react": "^2.0.0",
-    "@playwright/test": "^1.61.0",
     "@tailwindcss/forms": "^0.5.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -29,7 +26,6 @@
     "jsdom": "^29.1.1",
     "laravel-vite-plugin": "^3.1",
     "oh-my-openagent": "^4.13.0",
-    "playwright": "^1.60.0",
     "postcss": "^8.4.31",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

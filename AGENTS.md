@@ -16,7 +16,6 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 | `npm run build` | Production Vite build |
 | `npm test` | Vitest watch mode |
 | `npm run test:run` | Vitest one-shot |
-| `npm run test:e2e` | Playwright; auto-starts `php artisan serve --port=8000` |
 | `npm run addresses:sync` | Sync Philippine PSGC address data |
 
 ## Entrypoints and routing
