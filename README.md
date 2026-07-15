@@ -110,9 +110,6 @@ php artisan test --filter test_case_manager_can_create_case
 
 # Frontend tests
 npm run test:run
-
-# E2E tests (auto-starts server on port 8000)
-npm run test:e2e
 ```
 
 ## Project Structure
