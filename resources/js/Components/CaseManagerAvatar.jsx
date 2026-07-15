@@ -13,7 +13,7 @@ const BAYANIHAN_LOGO = '/images/bayanihan-logo.svg';
 /**
  * CaseManagerAvatar
  *
- * 3-level fallback: user avatar → Bayanihan logo → person icon
+ * 3-level fallback: user avatar → One Window Bayanihan logo → person icon
  *
  * @param {object|null} user - { name, avatar_url? }
  * @param {'sm'|'md'|'lg'} size
@@ -42,13 +42,13 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
         );
     }
 
-    // Level 1: try Bayanihan logo
+    // Level 1: try One Window Bayanihan logo
     if (fallbackLevel <= 1) {
         return (
             <span className={`group relative inline-block ${sizeClass}`}>
                 <img
                     src={BAYANIHAN_LOGO}
-                    alt="Bayanihan Logo"
+                    alt="One Window Bayanihan Logo"
                     className="h-full w-full rounded-circle object-contain border border-slate-200"
                     onError={() => setFallbackLevel(2)}
                 />

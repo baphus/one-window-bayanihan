@@ -17,7 +17,7 @@ export default function TermsOfService() {
               Terms of Service
             </h1>
             <p className="mx-auto max-w-2xl text-lg leading-relaxed text-white/80">
-              Please read these terms carefully before using the Bayanihan One Window system.
+              Please read these terms carefully before using the One Window Bayanihan system.
             </p>
           </div>
         </section>
@@ -30,7 +30,7 @@ export default function TermsOfService() {
 
             <h2>Acceptance of Terms</h2>
             <p>
-              By accessing or using the Bayanihan One Window system (the "System"), operated by the
+              By accessing or using the One Window Bayanihan system (the "System"), operated by the
               Department of Migrant Workers (DMW) Region VII, you agree to be bound by these Terms
               of Service (the "Terms"). If you do not agree to all of these Terms, you are not
               authorized to access or use the System. These Terms constitute a legally binding
@@ -40,7 +40,7 @@ export default function TermsOfService() {
 
             <h2>Description of Service</h2>
             <p>
-              The Bayanihan One Window system is a centralized digital case management platform
+              The One Window Bayanihan system is a centralized digital case management platform
               designed to streamline the processing, tracking, and referral of concerns involving
               Overseas Filipino Workers (OFWs) and their families. The System facilitates
               coordination among DMW, OWWA, DOLE, DOH, DSWD, TESDA, and other partner government
@@ -146,7 +146,7 @@ export default function TermsOfService() {
 
             <h2>Limitation of Liability</h2>
             <p>
-              The Bayanihan One Window system is provided on an &ldquo;as is&rdquo; and
+              The One Window Bayanihan system is provided on an &ldquo;as is&rdquo; and
               &ldquo;as available&rdquo; basis. To the fullest extent permitted by applicable
               law, DMW Region VII disclaims all warranties, express or implied, including but not
               limited to warranties of merchantability, fitness for a particular purpose, and

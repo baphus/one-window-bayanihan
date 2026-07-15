@@ -35,7 +35,7 @@ function UserAvatar({ user, size = 'sm', fallbackType = 'person', onClick }) {
         innerContent = (
             <img
                 src="/images/defaults/bayanihan-logo.png"
-                alt="Bayanihan Logo"
+                alt="One Window Bayanihan Logo"
                 className="h-full w-full object-contain"
             />
         );

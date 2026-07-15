@@ -59,11 +59,11 @@ export default function ForgotPassword({ status }) {
 
                             <div className="relative z-10 p-10 lg:p-14">
                                 <div className="mb-8">
-                                    <img src="/logo.png" alt="Bayanihan Logo" className="h-14 w-14 object-contain" />
+                                    <img src="/logo.png" alt="One Window Bayanihan Logo" className="h-14 w-14 object-contain" />
                                 </div>
 
                                 <h1 className="mb-6 font-headline text-2xl lg:text-3xl font-black leading-tight tracking-tight uppercase">
-                                    Bayanihan<br />One Window
+                                    One Window<br />Bayanihan
                                 </h1>
 
                                 <div className="h-1 w-16 bg-secondary-container mb-8" />
@@ -160,7 +160,7 @@ function AppHeader({ minimal }) {
                         <span className="material-symbols-outlined text-2xl text-primary">handshake</span>
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-headline text-[18px] font-bold text-primary">Bayanihan One Window</span>
+                        <span className="font-headline text-[18px] font-bold text-primary">One Window Bayanihan</span>
                         <span className="font-label text-[12px] font-medium uppercase tracking-wide text-on-surface-variant">DMW Region VII</span>
                     </div>
                 </Link>
