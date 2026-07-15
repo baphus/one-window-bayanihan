@@ -5,7 +5,7 @@ export default function AppFooter() {
   return (
     <footer className="w-full border-t-4 border-sky-900 bg-slate-100">
       <figure className="relative w-full overflow-hidden border-b border-slate-200/80">
-        <img src={FOOTER_COVER} alt="Bayanihan One Window cover photo"
+        <img src={FOOTER_COVER} alt="OWBAP cover photo"
           className="h-[320px] w-full object-cover object-center md:h-[460px]" loading="lazy" referrerPolicy="no-referrer"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/35 via-transparent to-transparent" />
@@ -13,7 +13,7 @@ export default function AppFooter() {
 
       <div className="flex w-full flex-col items-center justify-between gap-8 px-12 py-12 md:flex-row">
         <div className="flex max-w-md flex-col gap-4">
-          <span className="font-headline text-lg font-bold text-sky-900">Bayanihan One Window System</span>
+          <span className="font-headline text-lg font-bold text-sky-900">One Window Bayanihan Assistance Program</span>
           <p className="text-[12px] leading-relaxed text-slate-500">
             A centralized digital infrastructure for the Bureau of Migrant Workers, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
           </p>
@@ -32,7 +32,7 @@ export default function AppFooter() {
             <Link href={route('track.index')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Track Your Case</Link>
           </div>
           <div className="text-center text-[9px] uppercase tracking-widest text-slate-500 md:text-right">
-            &copy; 2026 Bayanihan One Window System. All Rights Reserved. Bureau of Migrant Workers.
+            &copy; 2026 One Window Bayanihan Assistance Program. All Rights Reserved. Bureau of Migrant Workers.
           </div>
         </div>
       </div>

@@ -17,11 +17,11 @@ export default function FeaturesSection() {
   const handleNext = () => setActivePhotoIndex((c) => (c + 1) % BAYANIHAN_PHOTOS.length);
 
   return (
-    <section id="features" className="bg-surface-container px-8 py-24">
+    <section id="features" className="bg-surface-container px-8 pt-8 pb-24">
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 max-w-4xl">
           <h2 className="font-headline text-3xl font-extrabold text-primary md:text-4xl">
-            What is Bayanihan One Window and Why It Matters
+            What is One Window Bayanihan and Why It Matters
           </h2>
         </div>
 

@@ -273,11 +273,11 @@ export default function Login({ status, canResetPassword }) {
 
                             <div className="relative z-10 p-10 lg:p-14">
                                 <div className="mb-8">
-                                    <img src="/logo.png" alt="Bayanihan Logo" className="h-14 w-14 object-contain" />
+                                    <img src="/logo.png" alt="One Window Bayanihan Logo" className="h-14 w-14 object-contain" />
                                 </div>
 
                                 <h1 className="mb-6 font-headline text-2xl lg:text-3xl font-black leading-tight tracking-tight uppercase">
-                                    Bayanihan<br />One Window
+                                    One Window<br />Bayanihan
                                 </h1>
 
                                 <div className="h-1 w-16 bg-secondary-container mb-8" />

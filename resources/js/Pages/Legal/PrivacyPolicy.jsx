@@ -33,7 +33,7 @@ export default function PrivacyPolicy() {
 
             <h2>1. Introduction</h2>
             <p>
-              The Bayanihan One Window System (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is the
+              The One Window Bayanihan Assistance Program (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is the
               digital case management platform of the Department of Migrant Workers (DMW) Region VII. We are
               committed to protecting the privacy and security of your personal data in accordance with Republic
               Act No. 10173, otherwise known as the <strong>Data Privacy Act of 2012</strong>, and its
@@ -79,7 +79,7 @@ export default function PrivacyPolicy() {
             <ul>
               <li>
                 <strong>Case Management:</strong> To receive, process, track, and resolve your concerns,
-                complaints, or requests filed through the Bayanihan One Window System.
+                complaints, or requests filed through the One Window Bayanihan Assistance Program.
               </li>
               <li>
                 <strong>Referrals and Coordination:</strong> To refer your case to the appropriate partner

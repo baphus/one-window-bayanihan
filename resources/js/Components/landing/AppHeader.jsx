@@ -45,7 +45,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
           <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-circle bg-white">
             <img
               src="/logo.png"
-              alt="Bayanihan Logo"
+              alt="One Window Bayanihan Logo"
               className="h-full w-full object-contain"
             />
           </div>
