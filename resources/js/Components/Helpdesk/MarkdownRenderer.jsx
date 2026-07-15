@@ -1,5 +1,38 @@
 import MDEditor from '@uiw/react-md-editor';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import { visit } from 'unist-util-visit';
+
+// Extend the default sanitize schema to allow aria-hidden and tabIndex on
+// anchor elements so our custom plugin's attributes survive sanitization.
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    a: [...(defaultSchema.attributes?.a || []), 'ariaHidden', 'tabIndex'],
+  },
+};
+
+// Rehype plugin: mark heading anchor links as aria-hidden so axe does not
+// flag them for missing accessible names (the heading text itself provides
+// the accessible name for the section).
+function rehypeHeadingLinks() {
+  return (tree) => {
+    visit(tree, 'element', (node) => {
+      if (
+        node.tagName === 'a' &&
+        node.properties?.href?.startsWith('#') &&
+        (!node.children ||
+          node.children.length === 0 ||
+          (node.children.length === 1 &&
+            node.children[0].type === 'text' &&
+            node.children[0].value.trim() === ''))
+      ) {
+        node.properties['ariaHidden'] = 'true';
+        node.properties.tabIndex = -1;
+      }
+    });
+  };
+}
 
 // The article page renders its own h1 (the article title), so the markdown
 // body must not introduce another one: drop a leading `# Title` line (it
@@ -48,7 +81,7 @@ export default function MarkdownRenderer({ content }) {
     <div className="md-renderer">
       <MDEditor.Markdown
         source={normalizeHeadings(content)}
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[[rehypeSanitize, sanitizeSchema], rehypeHeadingLinks]}
         wrapperElement={{
           'data-color-mode': 'light',
         }}
