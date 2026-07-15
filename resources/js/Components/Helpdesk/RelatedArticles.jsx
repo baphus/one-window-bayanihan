@@ -25,13 +25,13 @@ export default function RelatedArticles({ currentArticle, allArticles = [] }) {
           <Link
             key={article.id}
             href={`/help/${article.slug}`}
-            className="group block border-b border-slate-200 py-2.5 last:border-0"
+            className="group block border-b border-slate-200 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary last:border-0"
           >
             <h4 className="font-headline text-sm font-medium text-slate-700 transition-colors group-hover:text-primary">
               {article.title}
             </h4>
             {article.excerpt && (
-              <p className="mt-0.5 text-xs text-slate-400 line-clamp-1">{article.excerpt}</p>
+              <p className="mt-0.5 text-xs text-slate-600 line-clamp-1">{article.excerpt}</p>
             )}
           </Link>
         ))}

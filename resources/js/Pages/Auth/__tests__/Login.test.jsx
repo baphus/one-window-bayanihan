@@ -1,6 +1,9 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
 let mockPageProps = {};
 
 vi.mock('@inertiajs/react', () => ({
@@ -25,12 +28,16 @@ beforeEach(() => {
 
 import Login from '../Login';
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('Login page — login step', () => {
     it('renders email and password inputs with Sign In button', () => {
         mockPageProps = { errors: {} };
         render(<Login />);
 
-        expect(screen.getByRole('textbox')).toBeInTheDocument();
+        expect(screen.getByRole('textbox')).toBeInTheDocument(); // email input
         expect(screen.getByText(/email address/i)).toBeInTheDocument();
         expect(screen.getByText(/password/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
@@ -40,6 +47,7 @@ describe('Login page — login step', () => {
         mockPageProps = { errors: {} };
         render(<Login />);
 
+        // No error container rendered
         expect(screen.queryByText(/invalid credentials/i)).not.toBeInTheDocument();
     });
 
@@ -47,12 +55,15 @@ describe('Login page — login step', () => {
         mockPageProps = { errors: {} };
         render(<Login />);
 
+        // Password input is type="password" by default
         const passwordInput = document.querySelector('input[type="password"]');
         expect(passwordInput).not.toBeNull();
 
+        // Click the visibility toggle button (the eye icon)
         const toggleBtn = passwordInput.closest('div').querySelector('button[type="button"]');
         fireEvent.click(toggleBtn);
 
+        // After toggle, it should be type="text"
         expect(passwordInput).toHaveAttribute('type', 'text');
     });
 });
@@ -71,8 +82,9 @@ describe('Login page — OTP step', () => {
         mockPageProps = { errors: {}, step: 'otp', email: 'test@example.com', hint: 'te***@example.com' };
         render(<Login />);
 
-        const numericInputs = screen.getAllByRole('textbox')
-            .filter(input => input.getAttribute('inputmode') === 'numeric');
+        const otpInputs = screen.getAllByRole('textbox');
+        // Filter to only the numeric OTP inputs
+        const numericInputs = otpInputs.filter(input => input.getAttribute('inputmode') === 'numeric');
         expect(numericInputs).toHaveLength(6);
     });
 

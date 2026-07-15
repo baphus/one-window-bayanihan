@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
 let mockPageUrl = '/help';
 let mockPageProps = {};
 
@@ -38,6 +41,8 @@ describe('Helpdesk — accessibility', () => {
         const skipLink = screen.getByRole('link', { name: /skip to main content/i });
         expect(skipLink).toBeInTheDocument();
         expect(skipLink).toHaveAttribute('href', '#help-main');
+        // tabindex="0" makes it part of the tab order
+        expect(skipLink).toHaveAttribute('tabindex', '0');
     });
 
     it('landing page has a main region with id="help-main"', () => {
@@ -69,6 +74,7 @@ describe('Helpdesk — accessibility', () => {
             (link) => link.getAttribute('href')?.includes('category=')
         );
         expect(topicLinks.length).toBeGreaterThan(0);
+        // Links are natively focusable — no additional attributes needed
         topicLinks.forEach((link) => {
             expect(link.tagName.toLowerCase()).toBe('a');
         });

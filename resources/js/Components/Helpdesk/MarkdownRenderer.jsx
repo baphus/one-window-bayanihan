@@ -71,7 +71,7 @@ export function normalizeHeadings(markdown) {
 export default function MarkdownRenderer({ content }) {
   if (!content) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-slate-400">
+      <div className="flex items-center justify-center py-12 text-sm text-slate-600">
         No content available.
       </div>
     );
@@ -87,6 +87,11 @@ export default function MarkdownRenderer({ content }) {
         }}
       />
       <style>{`
+        .md-renderer {
+          min-width: 0;
+          max-width: 100%;
+          overflow-wrap: anywhere;
+        }
         .md-renderer .wmde-markdown,
         .md-renderer .wmde-markdown-color {
           background-color: transparent !important;
@@ -242,6 +247,7 @@ export default function MarkdownRenderer({ content }) {
           border-collapse: collapse;
           margin-bottom: 1.5em;
           font-size: 0.875rem;
+          overflow-wrap: anywhere;
         }
         .md-renderer .wmde-markdown th {
           background-color: #f1f4fa;

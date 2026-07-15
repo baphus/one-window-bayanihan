@@ -53,7 +53,7 @@ export default function Show() {
     return (
       <HelpdeskLayout title="Article Not Found">
         <div className="rounded-lg border border-dashed border-slate-200 bg-white py-16 text-center">
-          <span className="material-symbols-outlined mb-4 text-4xl text-primary/30">
+          <span className="material-symbols-outlined mb-4 text-4xl text-primary/30" aria-hidden="true">
             search_off
           </span>
           <h2 className="font-headline text-lg font-semibold text-slate-900">Article not found</h2>
@@ -101,7 +101,7 @@ export default function Show() {
               className="mb-3 inline-flex items-center gap-1 rounded-none bg-primary/10 px-3 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:bg-primary/20"
             >
               {category.icon && (
-                <span className="material-symbols-outlined text-sm">
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">
                   {category.icon}
                 </span>
               )}
@@ -109,7 +109,7 @@ export default function Show() {
             </Link>
           )}
 
-          <h1 className="font-headline text-3xl font-bold leading-tight text-slate-900">
+          <h1 className="break-words font-headline text-3xl font-bold leading-tight text-slate-900">
             {article.title}
           </h1>
 

@@ -18,12 +18,15 @@ describe('MarkdownRenderer', () => {
         expect(container.textContent).toContain('No content available');
     });
 
-    it('heading anchor links get aria-hidden="true" (accessibility)', () => {
+    it('heading anchor links get aria-hidden="true" (accessibility)', async () => {
         const markdown = `## What you need\n\nSome content\n\n## Steps\n\nMore content`;
         const { container } = render(<MarkdownRenderer content={markdown} />);
 
+        // The markdown renderer generates heading elements with id attributes
+        // and anchor links pointing to them
         const anchorLinks = container.querySelectorAll('a[href^="#"]');
         anchorLinks.forEach((link) => {
+            // Links that are empty (no text children) should have aria-hidden
             if (!link.textContent?.trim()) {
                 expect(link.getAttribute('aria-hidden')).toBe('true');
                 expect(link.getAttribute('tabindex')).toBe('-1');

@@ -60,13 +60,13 @@ function LandingView({ categoryTree }) {
             <Link
               key={entry.key}
               href={entry.href}
-              className="group flex items-start gap-3 border border-slate-200 bg-white p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="group flex min-w-0 items-start gap-3 border border-slate-200 bg-white p-4 transition-colors hover:border-primary/40 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <span
                 className="flex h-11 w-11 flex-shrink-0 items-center justify-center border border-slate-200 bg-surface-container-low text-primary"
                 aria-hidden="true"
               >
-                <span className="material-symbols-outlined text-[20px]">{entry.icon}</span>
+                <span className="material-symbols-outlined text-[20px] text-primary" aria-hidden="true">{entry.icon}</span>
               </span>
               <span className="min-w-0">
                 <span className="block font-headline text-sm font-bold text-slate-900 group-hover:text-primary">
@@ -90,7 +90,7 @@ function LandingView({ categoryTree }) {
             <Link
               key={category.id}
               href={`/help?category=${category.slug}`}
-              className="group border border-slate-200 bg-white p-5 transition-colors hover:border-primary/40 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="group min-w-0 border border-slate-200 bg-white p-5 transition-colors hover:border-primary/40 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <div className="flex items-center gap-3">
                 {category.icon && (
@@ -105,7 +105,7 @@ function LandingView({ categoryTree }) {
               <p className="mt-2 text-sm leading-relaxed text-slate-500 line-clamp-2">
                 {category.description}
               </p>
-              <p className="mt-3 text-xs font-semibold text-slate-400">
+              <p className="mt-3 text-xs font-semibold text-slate-600">
                 {category.articleCount} article{category.articleCount === 1 ? '' : 's'}
               </p>
             </Link>
@@ -197,7 +197,7 @@ function CategoryView({ category, categoryTree }) {
         {category.description && (
           <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">{category.description}</p>
         )}
-        <p className="mt-2 text-xs font-semibold text-slate-400">
+        <p className="mt-2 text-xs font-semibold text-slate-600">
           {totalCount} article{totalCount === 1 ? '' : 's'}
         </p>
       </header>
@@ -242,7 +242,7 @@ function CategoryView({ category, categoryTree }) {
                       {sub.name}
                     </Link>
                   </h2>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-600">
                     {subArticles.length} article{subArticles.length === 1 ? '' : 's'}
                   </span>
                 </div>

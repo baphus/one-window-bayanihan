@@ -25,6 +25,7 @@ describe('Tour configs — role-specific structure', () => {
         expect(caseManagerTour.pages).toHaveLength(2);
         expect(caseManagerTour.pages[0].route).toBe('dashboard');
         expect(caseManagerTour.pages[1].route).toBe('cases.index');
+        // Description references work queue
         expect(caseManagerTour.pages[0].steps[1].description).toMatch(/dispatch board|work queue/i);
     });
 
@@ -33,6 +34,7 @@ describe('Tour configs — role-specific structure', () => {
         expect(agencyTour.pages).toHaveLength(2);
         expect(agencyTour.pages[0].route).toBe('dashboard');
         expect(agencyTour.pages[1].route).toBe('referrals.index');
+        // Description references agency-specific content
         expect(agencyTour.pages[0].steps[0].description).toMatch(/agency/i);
     });
 
@@ -41,6 +43,7 @@ describe('Tour configs — role-specific structure', () => {
         expect(adminTour.pages).toHaveLength(2);
         expect(adminTour.pages[0].route).toBe('dashboard');
         expect(adminTour.pages[1].route).toBe('admin.users.index');
+        // Description references admin/system-wide content
         expect(adminTour.pages[0].steps[0].description).toMatch(/admin|system/i);
     });
 
