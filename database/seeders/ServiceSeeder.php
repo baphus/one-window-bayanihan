@@ -89,6 +89,34 @@ class ServiceSeeder extends Seeder
                 continue;
             }
 
+            // Skip if this service already exists for the agency (idempotent).
+            $existing = DB::table('services')
+                ->where('name', $svc['name'])
+                ->where('agcy_id', $agencyId)
+                ->first();
+
+            if ($existing) {
+                $serviceId = $existing->id;
+
+                // Seed requirements only if the service has none yet.
+                if (DB::table('service_requirements')->where('service_id', $serviceId)->doesntExist()) {
+                    $requirements = $requirementTemplates[$svc['name']] ?? ['Valid ID'];
+                    foreach ($requirements as $req) {
+                        DB::table('service_requirements')->insert([
+                            'id' => (string) Str::uuid(),
+                            'name' => $req,
+                            'description' => $req,
+                            'is_required' => true,
+                            'service_id' => $serviceId,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]);
+                    }
+                }
+
+                continue;
+            }
+
             $serviceId = (string) Str::uuid();
             DB::table('services')->insert([
                 'id' => $serviceId,

@@ -342,10 +342,15 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                 const isNok = row.client_type === 'NEXT_OF_KIN';
                 const val = isNok ? row.nok_vulnerability_indicator : row.vulnerability_indicator;
                 if (!val || val === 'None') return <span className="text-slate-400">&mdash;</span>;
+                const parts = val.split(',').map(s => s.trim()).filter(Boolean);
                 return (
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold leading-none ${vulnStyles[val] || 'bg-slate-100 text-slate-700'}`}>
-                    {val}
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {parts.map((v) => (
+                      <span key={v} className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold leading-none ${vulnStyles[v] || 'bg-slate-100 text-slate-700'}`}>
+                        {v}
+                      </span>
+                    ))}
+                  </div>
                 );
               },
             };

@@ -39,6 +39,20 @@ class StoreCaseRequest extends FormRequest
             $this->merge(['client' => array_merge($this->input('client', []), ['email' => null])]);
         }
 
+        // Normalize vulnerability fields — accept comma-separated multi-select, validate each segment
+        foreach (['vulnerability_indicator', 'nok_vulnerability_indicator'] as $field) {
+            if ($this->has($field)) {
+                $raw = $this->input($field);
+                if (is_string($raw)) {
+                    $segments = array_map('trim', explode(',', $raw));
+                    $segments = array_filter($segments, fn ($s) => $s !== '');
+                    $valid = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'];
+                    $segments = array_values(array_intersect($segments, $valid));
+                    $this->merge([$field => empty($segments) ? 'None' : implode(', ', $segments)]);
+                }
+            }
+        }
+
         if ($this->has('next_of_kin') && is_array($this->input('next_of_kin'))) {
             $noks = $this->input('next_of_kin');
             foreach ($noks as $key => $nok) {
@@ -72,8 +86,8 @@ class StoreCaseRequest extends FormRequest
         return [
             'is_draft' => ['nullable', 'boolean'],
             'client_type' => [$r, 'string', Rule::in(CaseFile::CLIENT_TYPES)],
-            'vulnerability_indicator' => [$r, 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
-            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
+            'vulnerability_indicator' => [$r, 'string', 'max:255'],
+            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', 'max:255'],
             'summary' => ['nullable', 'string', 'max:5000'],
             'category_id' => [$r, 'string', 'exists:case_categories,id'],
             'case_issue_id' => [$r, 'string', 'exists:case_issues,id'],

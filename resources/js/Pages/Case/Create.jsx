@@ -8,9 +8,11 @@ import useLocalStorageDraft from '@/Hooks/useLocalStorageDraft';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 import PhoneInput from '@/Components/PhoneInput';
+import SearchableSelect from '@/Components/SearchableSelect';
 import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
+import { formatResolvedAddress } from '@/lib/addressResolver';
 
 const STEPS = [
     { id: 1, title: 'Client Profile', description: 'Enter client information and employment details' },
@@ -138,7 +140,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
                         <div className="col-span-2">
                             <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Address</span>
                             <span className="font-semibold text-slate-800">
-                                {[data.address.barangay, data.address.city_municipality, data.address.province, data.address.region].filter(Boolean).join(', ') || '—'}
+                                {formatResolvedAddress(data.address) || '—'}
                             </span>
                         </div>
                         <div>
@@ -193,7 +195,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
 }
 
 export default function CaseCreate() {
-    const { client, categories = [], existingDraft, auth, caseIssues = [] } = usePage().props;
+    const { client, categories = [], existingDraft, auth, caseIssues = [], positionOptions = [] } = usePage().props;
 
     function normalizeSex(value) {
         if (!value) return '';
@@ -1781,7 +1783,7 @@ function handleConfirmClient(client) {
                                                         <CountrySelect value={data.employment.last_country} onChange={(v) => handleEmploymentChange('last_country', v)} placeholder="Select country..." />
                                                     </Field>
                                                     <Field label="Last Job Position" required>
-                                                        <Input value={data.employment.last_position} onChange={(e) => handleEmploymentChange('last_position', e.target.value)} />
+                                                        <SearchableSelect value={data.employment.last_position} onChange={(v) => handleEmploymentChange('last_position', v)} options={positionOptions} placeholder="Select or type position..." allowCustom />
                                                     </Field>
                                                     <Field label="Employment Period" required className="md:col-span-2">
                                                         <div className="flex items-center gap-2">
@@ -2053,35 +2055,53 @@ function handleConfirmClient(client) {
                                             <p className="mt-2 text-[13px] text-slate-500">Indicate if the client falls under any vulnerable sector.</p>
                                             <div className={`mt-4 grid ${data.client_type === 'OFW' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
                                                 <Field label={data.client_type === 'OFW' ? 'OFW Vulnerability Status' : 'Client Vulnerability Status'} required>
-                                                    <select
-                                                        value={data.vulnerability_indicator}
-                                                        onChange={(e) => setData('vulnerability_indicator', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                        required
-                                                    >
-                                                        <option value="">Select vulnerability...</option>
-                                                        <option value="PWD">PWD</option>
-                                                        <option value="Senior Citizen">Senior Citizen</option>
-                                                        <option value="Solo Parent">Solo Parent</option>
-                                                        <option value="Indigenous Person">Indigenous Person</option>
-                                                        <option value="None">None</option>
-                                                    </select>
+                                                    <div className="flex flex-wrap gap-3 mt-1">
+                                                        {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
+                                                            const checked = data.vulnerability_indicator && data.vulnerability_indicator !== 'None' && data.vulnerability_indicator.split(',').map(s => s.trim()).includes(opt);
+                                                            return (
+                                                                <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={() => {
+                                                                            const current = data.vulnerability_indicator && data.vulnerability_indicator !== 'None'
+                                                                                ? data.vulnerability_indicator.split(',').map(s => s.trim()).filter(Boolean)
+                                                                                : [];
+                                                                            const next = checked ? current.filter(v => v !== opt) : [...current, opt];
+                                                                            setData('vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
+                                                                        }}
+                                                                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    <span className="text-[13px] text-slate-700">{opt}</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </Field>
                                                 {data.client_type === 'NEXT_OF_KIN' && (
                                                     <Field label="Next of Kin Vulnerability Status" required>
-                                                        <select
-                                                            value={data.nok_vulnerability_indicator}
-                                                            onChange={(e) => setData('nok_vulnerability_indicator', e.target.value)}
-                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                            required
-                                                        >
-                                                            <option value="">Select vulnerability...</option>
-                                                            <option value="PWD">PWD</option>
-                                                            <option value="Senior Citizen">Senior Citizen</option>
-                                                            <option value="Solo Parent">Solo Parent</option>
-                                                            <option value="Indigenous Person">Indigenous Person</option>
-                                                            <option value="None">None</option>
-                                                        </select>
+                                                        <div className="flex flex-wrap gap-3 mt-1">
+                                                            {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
+                                                                const checked = data.nok_vulnerability_indicator && data.nok_vulnerability_indicator !== 'None' && data.nok_vulnerability_indicator.split(',').map(s => s.trim()).includes(opt);
+                                                                return (
+                                                                    <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={checked}
+                                                                            onChange={() => {
+                                                                                const current = data.nok_vulnerability_indicator && data.nok_vulnerability_indicator !== 'None'
+                                                                                    ? data.nok_vulnerability_indicator.split(',').map(s => s.trim()).filter(Boolean)
+                                                                                    : [];
+                                                                                const next = checked ? current.filter(v => v !== opt) : [...current, opt];
+                                                                                setData('nok_vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
+                                                                            }}
+                                                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                        />
+                                                                        <span className="text-[13px] text-slate-700">{opt}</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </Field>
                                                 )}
                                             </div>

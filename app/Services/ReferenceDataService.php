@@ -6,6 +6,7 @@ use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseIssue;
+use App\Models\ClientEmployment;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -144,6 +145,28 @@ class ReferenceDataService
             self::TTL_REFERENCE,
             fn () => Agency::where('is_active', true)->get(),
         );
+    }
+
+    /**
+     * Distinct position values from client_employments, for the case-create
+     * position dropdown. Not cached — the list should reflect the latest
+     * entries as new cases are created.
+     *
+     * Returns an array of [value, label] pairs for SearchableSelect.
+     */
+    public function getPositionOptions(): array
+    {
+        $positions = ClientEmployment::query()
+            ->whereNotNull('last_position')
+            ->where('last_position', '!=', '')
+            ->pluck('last_position')
+            ->map(fn (string $p) => trim($p))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
+        return $positions->map(fn (string $p) => ['value' => $p, 'label' => $p])->toArray();
     }
 
     // ── Invalidation ─────────────────────────────────────────────────────

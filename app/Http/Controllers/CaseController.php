@@ -15,6 +15,7 @@ use App\Services\OnboardingService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
 use App\Services\TrackingService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -64,6 +65,7 @@ class CaseController extends Controller
             'client' => $client,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
+            'positionOptions' => $this->referenceData->getPositionOptions(),
         ]);
     }
 
@@ -118,6 +120,7 @@ class CaseController extends Controller
             'existingDraft' => $case,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
+            'positionOptions' => $this->referenceData->getPositionOptions(),
             'draftResolvedAddress' => $draftResolvedAddress,
         ]);
     }
@@ -306,6 +309,32 @@ class CaseController extends Controller
             ['key' => 'nok_email',          'label' => 'NOK Email',            'type' => 'string'],
             ['key' => 'exported_at',        'label' => 'Exported At',          'type' => 'string'],
         ];
+    }
+
+    public function exportPdf(string $id, Request $request)
+    {
+        $case = $this->caseService->getCase($id);
+        $this->authorizeCaseAccess($case, $request->user());
+
+        $client = $case->client;
+        $primaryEmployment = $client->employments->first();
+        $primaryAddress = $client->addresses->first();
+        $primaryNok = $client->nextOfKin->first();
+
+        $data = [
+            'case' => $case,
+            'client' => $client,
+            'employment' => $primaryEmployment,
+            'address' => $primaryAddress,
+            'nok' => $primaryNok,
+            'referrals' => $case->referrals()->with('agency')->get(),
+            'milestones' => $case->caseEvents()->latest('occurred_at')->get(),
+            'exportedAt' => now()->format('M d, Y h:i A'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.case-report', $data);
+
+        return $pdf->download('case-report-'.$case->case_number.'-'.now()->format('Ymd-His').'.pdf');
     }
 
     private function authorizeCaseAccess($case, $user)

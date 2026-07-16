@@ -111,7 +111,7 @@ class CaseService
                             'start_date' => $data['employment']['start_date'] ?? null,
                             'end_date' => $data['employment']['end_date'] ?? null,
                             'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $data['employment']['last_position'] ?? null,
+                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
                         ]);
                     } else {
@@ -122,7 +122,7 @@ class CaseService
                             'start_date' => $data['employment']['start_date'] ?? null,
                             'end_date' => $data['employment']['end_date'] ?? null,
                             'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $data['employment']['last_position'] ?? null,
+                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
                         ]);
                     }
@@ -303,7 +303,7 @@ class CaseService
                             'start_date' => $data['employment']['start_date'] ?? null,
                             'end_date' => $data['employment']['end_date'] ?? null,
                             'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $data['employment']['last_position'] ?? null,
+                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
                         ]);
                     } else {
@@ -314,7 +314,7 @@ class CaseService
                             'start_date' => $data['employment']['start_date'] ?? null,
                             'end_date' => $data['employment']['end_date'] ?? null,
                             'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $data['employment']['last_position'] ?? null,
+                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
                         ]);
                     }
@@ -444,7 +444,7 @@ class CaseService
                         'start_date' => $draftData['employment']['start_date'] ?? null,
                         'end_date' => $draftData['employment']['end_date'] ?? null,
                         'last_country' => $draftData['employment']['last_country'] ?? null,
-                        'last_position' => $draftData['employment']['last_position'] ?? null,
+                        'last_position' => $this->normalizePosition($draftData['employment']['last_position'] ?? null),
                         'date_of_arrival' => $draftData['employment']['date_of_arrival'] ?? null,
                     ]);
                 }
@@ -665,11 +665,10 @@ class CaseService
         }
 
         if (! empty($filters['vulnerability_indicator'])) {
-            $query->where('vulnerability_indicator', $filters['vulnerability_indicator']);
-        }
-
-        if (! empty($filters['nok_vulnerability_indicator'])) {
-            $query->where('nok_vulnerability_indicator', $filters['nok_vulnerability_indicator']);
+            $query->where(function ($q) use ($filters) {
+                $q->where('vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%")
+                    ->orWhere('nok_vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%");
+            });
         }
 
         if (! empty($filters['category_id'])) {
@@ -788,12 +787,23 @@ class CaseService
                 } elseif ($case->status === 'OPEN' && $oldStatus === 'CLOSED') {
                     $this->eventRecorder->caseReopened($case, $userId);
                 }
-
-                $this->dispatchStatusChangeNotification($case, $oldStatus ?? 'UNKNOWN', $case->status, $userId);
             }
 
-            // Dispatch notifications
-            $this->dispatchCaseUpdateNotification($case, $old, $userId);
+            $updateCase = $case;
+            $updateOld = $old;
+            $updateUserId = $userId;
+            $updateOldStatus = $oldStatus;
+            $updateStatusChanged = $case->wasChanged('status');
+            DB::afterCommit(function () use ($updateCase, $updateOld, $updateUserId, $updateOldStatus, $updateStatusChanged) {
+                try {
+                    if ($updateStatusChanged) {
+                        $this->dispatchStatusChangeNotification($updateCase, $updateOldStatus ?? 'UNKNOWN', $updateCase->status, $updateUserId);
+                    }
+                    $this->dispatchCaseUpdateNotification($updateCase, $updateOld, $updateUserId);
+                } catch (\Throwable) {
+                    report('Failed to send case update notification');
+                }
+            });
 
             return $case->load([
                 'client.addresses',
@@ -890,7 +900,7 @@ class CaseService
 
     public function toggleCaseStatus(string $id, string $userId): CaseFile
     {
-        return DB::transaction(function () use ($id, $userId) {
+        $case = DB::transaction(function () use ($id, $userId) {
             $case = CaseFile::findOrFail($id);
             $old = $case->toArray();
 
@@ -901,6 +911,7 @@ class CaseService
                 }
             }
 
+            $oldStatus = $case->status;
             $case->update([
                 'status' => $case->status === 'OPEN' ? 'CLOSED' : 'OPEN',
             ]);
@@ -917,8 +928,13 @@ class CaseService
 
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
-            // Dispatch status change notification
-            $this->dispatchStatusChangeNotification($case, $old['status'] ?? 'UNKNOWN', $case->status, $userId);
+            DB::afterCommit(function () use ($case, $oldStatus, $userId) {
+                try {
+                    $this->dispatchStatusChangeNotification($case, $oldStatus, $case->status, $userId);
+                } catch (\Throwable) {
+                    report('Failed to send status change notification');
+                }
+            });
 
             return $case->load([
                 'client.addresses',
@@ -932,6 +948,8 @@ class CaseService
                 'caseIssue',
             ]);
         });
+
+        return $case;
     }
 
     private function dispatchCaseUpdateNotification(CaseFile $case, array $oldData, string $userId): void
@@ -1151,5 +1169,19 @@ class CaseService
                 'category_breakdown' => $categoryBreakdown,
             ];
         });
+    }
+
+    /**
+     * Normalize a job position string for consistent storage.
+     * Trims whitespace and applies title case so "caregiver" and "CAREGIVER"
+     * both resolve to "Caregiver", preventing duplicates in the dropdown.
+     */
+    private function normalizePosition(?string $position): ?string
+    {
+        if (empty(trim($position ?? ''))) {
+            return null;
+        }
+
+        return ucwords(strtolower(trim($position)));
     }
 }

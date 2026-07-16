@@ -16,7 +16,19 @@ class CacheHelper
     public static function safeRemember(string $key, mixed $ttl, \Closure $callback): mixed
     {
         try {
-            return Cache::remember($key, $ttl, $callback);
+            $value = Cache::remember($key, $ttl, $callback);
+
+            // PHP's unserialize() may return __PHP_Incomplete_Class silently
+            // (no exception) when the class isn't autoloaded yet — commonly
+            // seen with the database cache driver after bootstrap changes.
+            // Treat the stale entry as a miss so the callback re-runs fresh.
+            if (is_object($value) && get_class($value) === '__PHP_Incomplete_Class') {
+                Cache::forget($key);
+
+                return $callback();
+            }
+
+            return $value;
         } catch (\Throwable $e) {
             Cache::forget($key);
 

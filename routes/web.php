@@ -116,6 +116,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
         Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
+        Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
         Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
         Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
         Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
