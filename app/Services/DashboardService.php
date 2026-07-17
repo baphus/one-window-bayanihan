@@ -549,11 +549,17 @@ class DashboardService
         });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:cm_cases_by_category', 300, function () {
-            return CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+            // Authoritative assignments: one case may contribute once to each
+            // assigned category, but never more than once per category. Deleted,
+            // draft, and archived cases are intentionally excluded.
+            return DB::table('case_category AS assignments')
+                ->join('cases', 'cases.id', '=', 'assignments.case_id')
+                ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
+                ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
+                ->where('cases.is_deleted', false)
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-                ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
                 ->groupBy('case_categories.name', 'case_categories.color')
-                ->orderBy('count', 'desc')
+                ->orderByDesc('count')
                 ->get()
                 ->map(fn ($row) => [
                     'name' => $row->name,
@@ -986,11 +992,16 @@ class DashboardService
             ->toArray();
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:admin_cases_by_category', 300, function () {
-            return CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
+            // Keep category counts additive across assignments while excluding
+            // deleted, draft, and archived cases from the dashboard mix.
+            return DB::table('case_category AS assignments')
+                ->join('cases', 'cases.id', '=', 'assignments.case_id')
+                ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
+                ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
+                ->where('cases.is_deleted', false)
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-                ->join('case_categories', 'cases.category_id', '=', 'case_categories.id')
                 ->groupBy('case_categories.name', 'case_categories.color')
-                ->orderBy('count', 'desc')
+                ->orderByDesc('count')
                 ->get()
                 ->map(fn ($row) => [
                     'name' => $row->name,

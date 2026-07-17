@@ -1,6 +1,6 @@
 # Data Model
 
-> **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Source:** `database/migrations/` (21 migration files)
+> **Version:** 2.1.0 | **Updated:** 2026-07-17 | **Source:** `database/migrations/`, including the pending `2026_07_17_000001_create_case_category_pivot_table.php`
 
 ## Overview
 
@@ -46,6 +46,7 @@
 | 29 | `feedback_invitations` | Token-based feedback invitations | Feedback |
 | 30 | `audit_logs` | Immutable audit trail | Monitoring |
 | 31 | `email_logs` | Email delivery tracking | Monitoring |
+| 32 | `case_category` | Canonical case-to-category assignments | `2026_07_17_000001_create_case_category_pivot_table` (pending deployment) |
 
 ---
 
@@ -218,13 +219,33 @@
 | `consent_given_at` | timestamp | nullable | Data consent timestamp |
 | `user_id` | uuid | FK → users.id | Case manager |
 | `client_id` | uuid | FK → clients.id, nullable | |
-| `category_id` | uuid | FK → case_categories.id, nullable | |
+| `category_id` | uuid | FK → case_categories.id, nullable | **Deprecated compatibility mirror** of the deterministic primary category; not the canonical assignment store |
 | `case_issue_id` | uuid | FK → case_issues.id, nullable | |
 | `draft_client_data` | jsonb | nullable | Unpublished draft data |
 | `escalated_at` | timestamp | nullable | (dropped in later migration) |
 | `escalation_reason` | string | nullable | |
 | `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
 | `created_at` / `updated_at` | timestamp | | |
+
+### case_category
+
+The `case_category` pivot is the canonical source of case category assignments. A case may have multiple rows/categories; `cases.category_id` remains only as a compatibility mirror for older consumers and represents one deterministic primary category.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | uuid | PK, default `gen_random_uuid()` | Pivot row identifier |
+| `case_id` | uuid | FK → cases.id, `ON DELETE CASCADE` | |
+| `case_category_id` | uuid | FK → case_categories.id, `ON DELETE RESTRICT` | |
+| `created_at` / `updated_at` | timestamp | | |
+
+The pair (`case_id`, `case_category_id`) is UNIQUE, with indexes on both foreign keys. The migration backfills one pivot row for every existing case whose legacy `category_id` is non-null. It does not remove or rewrite `cases.category_id`.
+
+#### Category assignment and compatibility rules
+
+- Writes accept either `category_ids` (the canonical multi-category input) or the legacy scalar `category_id`, never both. IDs must be UUIDs, distinct, and refer to active categories. Drafts may omit categories; publishing requires at least one active category.
+- `category_ids` is synchronized to the pivot. The mirror is retained in `cases.category_id` and is selected deterministically: preserve the current mirror when it remains assigned; otherwise choose the active category with lowest `sort_order`, then lowest `name`, then lowest `id`. A legacy scalar `category_id` write is treated as a single-category assignment and becomes the mirror.
+- Category list filters accept `category_id` or `category_ids`; `category_ids` is normalized to an array, limited to 50 distinct UUIDs, and matches a case when any selected ID is present in either the pivot or the compatibility mirror. Filter input is not a request to mutate assignments.
+- Deleting a case cascades its pivot rows. Deleting a referenced category is restricted. Removing a category assignment does not delete the category; the mirror is reselected using the rule above (and a published case cannot be left without an active assignment).
 
 ### client_addresses
 

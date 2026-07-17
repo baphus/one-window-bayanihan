@@ -66,6 +66,18 @@ function canArchiveCase(caseFile) {
   return caseFile.status === 'CLOSED' && !hasActiveReferrals(caseFile.referrals);
 }
 
+function getCaseCategories(caseFile, availableCategories = []) {
+  if (Array.isArray(caseFile?.categories) && caseFile.categories.length) return caseFile.categories;
+  if (caseFile?.category) return [caseFile.category];
+  // Responses containing only IDs are supported as a final compatibility fallback.
+  return (caseFile?.category_ids || []).map((id) => availableCategories.find((category) => String(category.id) === String(id))).filter(Boolean);
+}
+
+function getCategoryFilterIds(filters) {
+  const value = filters?.category_ids ?? filters?.category_id;
+  return (Array.isArray(value) ? value : (value ? [value] : [])).map(String);
+}
+
 const COLUMN_DEFS = [
   { key: 'case_number', label: 'Case Number', default: true },
   { key: 'tracker_number', label: 'Tracking ID', default: true },
@@ -117,7 +129,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     if (filters.vulnerability_indicator) params.set('vulnerability_indicator', filters.vulnerability_indicator);
     if (filters.user_id) params.set('user_id', filters.user_id);
     if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
-    if (filters.category_id) params.set('category_id', filters.category_id);
+    getCategoryFilterIds(filters).forEach((id) => params.append('category_ids[]', id));
     if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
     if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
     if (filters.referral_state) params.set('referral_state', filters.referral_state);
@@ -146,7 +158,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     if (filters?.status) chips.push({ label: 'Status', value: filters.status });
     if (filters?.client_type) chips.push({ label: 'Client Type', value: filters.client_type });
     if (filters?.vulnerability_indicator) chips.push({ label: 'Vulnerability', value: filters.vulnerability_indicator });
-    if (filters?.category_id) chips.push({ label: 'Category', value: filters.category_id });
+    if (getCategoryFilterIds(filters).length) chips.push({ label: 'Category', value: getCategoryFilterIds(filters).join(', ') });
     if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
     if (filters?.age_min_days) chips.push({ label: 'Case Age', value: `${filters.age_min_days}+ days` });
     if (filters?.user_id) chips.push({ label: 'Author', value: filters.user_id });
@@ -220,9 +232,10 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       const agency = agencies.find(a => a.id === filters.agcy_id);
       chips.push({ key: 'agcy_id', label: 'Referred To', value: agency?.name || filters.agcy_id });
     }
-    if (filters?.category_id) {
-      const cat = categories?.find(c => c.id === filters.category_id);
-      chips.push({ key: 'category_id', label: 'Category', value: cat?.name || filters.category_id });
+    if (getCategoryFilterIds(filters).length) {
+      const ids = getCategoryFilterIds(filters);
+      const names = ids.map((id) => categories?.find(c => String(c.id) === id)?.name || id);
+      chips.push({ key: 'category_ids', label: 'Category', value: names.join(', ') });
     }
     if (filters?.case_issue_id) {
       const issue = caseIssues?.find(c => c.id === filters.case_issue_id);
@@ -234,7 +247,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   }, [filters, users, agencies, categories, caseIssues]);
 
   const handleRemoveFilter = (filter) => {
-    updateTable({ ...filters, [filter.key]: undefined, page: undefined });
+    updateTable({ ...filters, [filter.key]: undefined, ...(filter.key === 'category_ids' ? { category_id: undefined } : {}), page: undefined });
   };
 
   const handleClearFilters = () => {
@@ -244,7 +257,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       vulnerability_indicator: undefined,
       user_id: undefined,
       agcy_id: undefined,
-      category_id: undefined,
+      category_ids: undefined,
       case_issue_id: undefined,
       age_min_days: undefined,
       referral_state: undefined,
@@ -359,15 +372,18 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               ...base,
               sortable: false,
               render: (row) => {
-                if (!row.category) return <span className="text-slate-400">&mdash;</span>;
+                const rowCategories = getCaseCategories(row, categories);
+                if (!rowCategories.length) return <span className="text-slate-400">&mdash;</span>;
                 return (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                        style={{ backgroundColor: row.category.color ? `${row.category.color}20` : '#f1f5f9', color: row.category.color || '#64748b' }}>
-                    {row.category.color && (
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.category.color }} />
-                    )}
-                    {row.category.name}
-                  </span>
+                  <div className="flex max-w-[220px] flex-wrap gap-1">
+                    {rowCategories.map((category) => (
+                      <span key={category.id || category.name} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
+                        {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
+                        {category.name || category.title}
+                      </span>
+                    ))}
+                  </div>
                 );
               },
             };
@@ -533,18 +549,20 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
         <select
-          value={filters?.category_id ?? ''}
+          multiple
+          value={getCategoryFilterIds(filters)}
           onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, category_id: val || undefined, page: undefined });
+            const values = Array.from(e.target.selectedOptions, (option) => option.value);
+            updateTable({ ...filters, category_ids: values.length ? values : undefined, category_id: undefined, page: undefined });
           }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="min-h-24 w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Categories</option>
           {categories?.map((cat) => (
             <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
         </select>
+        <p className="mt-1 text-[11px] text-slate-500">Select any categories assigned to the case.</p>
       </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Issue/Concern</label>

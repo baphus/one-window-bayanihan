@@ -25,6 +25,10 @@ class UpdateDraftRequest extends FormRequest
             $this->merge(['category_id' => null]);
         }
 
+        if ($this->has('category_ids') && $this->input('category_ids') === '') {
+            $this->merge(['category_ids' => null]);
+        }
+
         if ($this->has('case_issue_id') && $this->case_issue_id === '') {
             $this->merge(['case_issue_id' => null]);
         }
@@ -54,7 +58,11 @@ class UpdateDraftRequest extends FormRequest
             'vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'nok_vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
             'summary' => ['nullable', 'string', 'max:5000'],
-            'category_id' => ['nullable', 'string', 'exists:case_categories,id'],
+            // Drafts may be saved without a category; publishing performs the
+            // completeness check in CaseService.
+            'category_id' => ['bail', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids' => ['nullable', 'array'],
+            'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
             'case_issue_id' => ['nullable', 'string', 'exists:case_issues,id'],
 
             'client.first_name' => ['nullable', 'string', 'max:255'],
@@ -101,5 +109,14 @@ class UpdateDraftRequest extends FormRequest
             'employment.last_position' => ['nullable', 'string', 'max:255'],
             'employment.date_of_arrival' => ['nullable', 'date'],
         ];
+    }
+
+    protected function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->has('category_id') && $this->has('category_ids')) {
+                $validator->errors()->add('category_ids', 'Use either category_id or category_ids, not both.');
+            }
+        });
     }
 }

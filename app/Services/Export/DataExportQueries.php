@@ -16,6 +16,41 @@ use Illuminate\Support\Facades\DB;
 
 class DataExportQueries
 {
+    private function categoryNamesExpression(string $caseAlias): string
+    {
+        return "COALESCE((SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM case_category ca JOIN case_categories cc ON cc.id = ca.case_category_id WHERE ca.case_id = {$caseAlias}.id), (SELECT name FROM case_categories WHERE id = {$caseAlias}.category_id))";
+    }
+
+    /** @return array<int, string> */
+    private function categoryFilterIds(array $filters): array
+    {
+        $ids = ! empty($filters['category_ids']) ? $filters['category_ids'] : ($filters['category_id'] ?? []);
+        $ids = is_array($ids) ? $ids : ($ids === '' || $ids === null ? [] : [$ids]);
+
+        return array_values(array_unique(array_filter($ids, static fn ($id) => $id !== null && $id !== '')));
+    }
+
+    /**
+     * Apply the category match without joining the pivot.  EXISTS keeps one
+     * result per case (and therefore one result per referral/client row),
+     * while the grouped predicate preserves the legacy scalar fallback.
+     */
+    private function applyCategoryFilter($query, string $caseAlias, array $filters)
+    {
+        $categoryIds = $this->categoryFilterIds($filters);
+        if (! $categoryIds) {
+            return $query;
+        }
+
+        return $query->where(function ($category) use ($categoryIds, $caseAlias) {
+            $category->whereIn($caseAlias.'.category_id', $categoryIds);
+            $category->orWhereExists(fn ($sub) => $sub->selectRaw('1')
+                ->from('case_category AS category_assignment')
+                ->whereColumn('category_assignment.case_id', $caseAlias.'.id')
+                ->whereIn('category_assignment.case_category_id', $categoryIds));
+        });
+    }
+
     private function addresses(): AddressNameResolver
     {
         return app(AddressNameResolver::class);
@@ -64,6 +99,7 @@ class DataExportQueries
                 'user_id',
                 'client_id',
                 'category_id',
+                DB::raw($this->categoryNamesExpression('cases').' AS categories'),
                 'created_at',
                 'updated_at',
             ])
@@ -90,7 +126,8 @@ class DataExportQueries
      * No IDs or system fields. Administrators see all; Case Managers see own.
      *
      * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
-     *                          user_id, agcy_id, category_id, case_issue_id, age_min_days, referral_state
+     *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
+     *                          age_min_days, referral_state
      */
     public function getCasesExport(?User $user = null, array $filters = []): Collection
     {
@@ -125,6 +162,7 @@ class DataExportQueries
                 DB::raw('(SELECT ce.position FROM client_employments ce WHERE ce.client_id = c.client_id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS work_position'),
                 // Case summary
                 'c.summary AS case_summary',
+                DB::raw($this->categoryNamesExpression('c').' AS categories'),
                 // Case issue (to-one)
                 'ci.name AS issue_concern',
                 // Receiving parties — comma-separated agency names from referrals (COALESCE handles empty)
@@ -189,9 +227,7 @@ class DataExportQueries
                     ->where('is_deleted', false);
             });
         }
-        if (! empty($filters['category_id'])) {
-            $query->where('c.category_id', $filters['category_id']);
-        }
+        $this->applyCategoryFilter($query, 'c', $filters);
         if (! empty($filters['case_issue_id'])) {
             $query->where('c.case_issue_id', $filters['case_issue_id']);
         }
@@ -342,6 +378,10 @@ class DataExportQueries
      */
     public function getClientsExport(?User $user = null, array $filters = []): Collection
     {
+        if ($user?->role === 'AGENCY' && ! $user->agcy_id) {
+            return collect();
+        }
+
         $query = DB::table('clients AS cl')
             ->select([
                 // Client info
@@ -448,13 +488,15 @@ class DataExportQueries
                     ->whereNotNull('c9.client_id');
             });
         }
-        if (! empty($filters['category_id'])) {
+        $categoryIds = $this->categoryFilterIds($filters);
+        if ($categoryIds) {
             $query->whereIn('cl.id', function ($q) use ($filters) {
                 $q->select('c10.client_id')
                     ->from('cases AS c10')
-                    ->where('c10.category_id', $filters['category_id'])
                     ->where('c10.is_deleted', false)
                     ->whereNotNull('c10.client_id');
+
+                $this->applyCategoryFilter($q, 'c10', $filters);
             });
         }
         if (! empty($filters['case_issue_id'])) {
@@ -616,6 +658,10 @@ class DataExportQueries
      */
     public function getReferralsExport(?User $user = null, array $filters = []): Collection
     {
+        if ($user?->role === 'AGENCY' && ! $user->agcy_id) {
+            return collect();
+        }
+
         $query = DB::table('referrals AS r')
             ->select([
                 // Case info
@@ -711,13 +757,23 @@ class DataExportQueries
             });
         }
 
+        $this->applyCategoryFilter($query, 'c', $filters);
+
         if (! $this->isAdmin($user)) {
-            $query->whereIn('r.case_id', function ($q) use ($user) {
-                $q->select('id')
-                    ->from('cases')
-                    ->where('user_id', $user->id)
-                    ->where('is_deleted', false);
-            });
+            if ($user?->role === 'CASE_MANAGER') {
+                $query->whereIn('r.case_id', function ($q) use ($user) {
+                    $q->select('id')
+                        ->from('cases')
+                        ->where('user_id', $user->id)
+                        ->where('is_deleted', false);
+                });
+            } elseif ($user?->role === 'AGENCY' && $user->agcy_id) {
+                $query->where('r.agcy_id', $user->agcy_id);
+            } else {
+                // AGENCY users without an assigned agency, and unknown
+                // non-admin roles, must not receive an unrestricted export.
+                $query->whereRaw('1 = 0');
+            }
         }
 
         // Safety cap — prevents memory exhaustion on unbounded exports.

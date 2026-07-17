@@ -235,7 +235,7 @@ class CaseServiceTest extends TestCase
                 'consent' => true,
             ],
         ]);
-
+        $case->categories()->attach($category->id);
         $service = app(CaseService::class);
         $result = $service->publishDraft($case->id, $user->id);
 
@@ -262,7 +262,6 @@ class CaseServiceTest extends TestCase
                 'first_name' => 'Juan',
             ],
         ]);
-
         $service = app(CaseService::class);
 
         $this->expectException(ValidationException::class);
@@ -293,6 +292,7 @@ class CaseServiceTest extends TestCase
                 'consent' => true,
             ],
         ]);
+        $case->categories()->attach($category->id);
 
         $service = app(CaseService::class);
 
@@ -332,6 +332,7 @@ class CaseServiceTest extends TestCase
                 'consent' => true,
             ],
         ]);
+        $case->categories()->attach($category->id);
 
         $service = app(CaseService::class);
         $result = $service->publishDraft($case->id, $user->id);

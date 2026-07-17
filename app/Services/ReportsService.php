@@ -1133,9 +1133,15 @@ class ReportsService
 
     public function categoryDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = CaseFile::select('case_categories.name', 'case_categories.color', DB::raw('count(*) as total'))
-            ->join('case_categories', 'case_categories.id', '=', 'cases.category_id')
+        // Category analytics reads the authoritative assignment table. A case
+        // counts once per assigned category; deleted, draft, and archived cases
+        // are excluded from both counts and percentages.
+        $query = DB::table('case_category AS assignments')
+            ->join('cases', 'cases.id', '=', 'assignments.case_id')
+            ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
+            ->where('cases.is_deleted', false)
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as total'))
             ->groupBy('case_categories.name', 'case_categories.color')
             ->orderBy('case_categories.name');
 

@@ -22,6 +22,22 @@ const STEPS = [
 
 const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
 
+// Older drafts expose category_id/category; the form now always sends category_ids.
+function normalizeCategoryIds(value) {
+    const values = Array.isArray(value) ? value : (value == null || value === '' ? [] : [value]);
+    return [...new Set(values.map((item) => (item && typeof item === 'object' ? item.id : item))
+        .filter((id) => id !== null && id !== undefined && id !== '').map(String))];
+}
+
+function getDraftCategoryIds(draft) {
+    // The relation is authoritative when it is present; category_id is only a
+    // compatibility fallback for older drafts.
+    if (Array.isArray(draft?.categories) && draft.categories.length) {
+        return normalizeCategoryIds(draft.categories);
+    }
+    return normalizeCategoryIds(draft?.category_ids ?? draft?.category_id ?? draft?.category);
+}
+
 function GenerateCaseId() {
     const now = new Date();
     const y = now.getFullYear();
@@ -94,7 +110,8 @@ function Select({ value, onChange, options, placeholder, required }) {
 function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssues, notificationEmail, onClose, onConfirm, processing, isDraft, nokSummary }) {
     if (!show) return null;
 
-    const categoryName = categories.find(c => String(c.id) === String(data.category_id))?.name || '—';
+    const selectedCategories = normalizeCategoryIds(data.category_ids)
+        .map((id) => categories.find(c => String(c.id) === id)).filter(Boolean);
     const issueName = caseIssues.find(i => String(i.id) === String(data.case_issue_id))?.name || '—';
 
     return (
@@ -145,7 +162,14 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
                         </div>
                         <div>
                             <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</span>
-                            <span className="font-semibold text-slate-800">{categoryName}</span>
+                            <span className="flex flex-wrap gap-1">
+                                {selectedCategories.length ? selectedCategories.map((category) => (
+                                    <span key={category.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                        {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
+                                        {category.name}
+                                    </span>
+                                )) : '—'}
+                            </span>
                         </div>
                         <div>
                             <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Case Issue</span>
@@ -207,7 +231,7 @@ export default function CaseCreate() {
 
     const { data, setData, post, put, processing, errors, setError, clearErrors } = useForm({
         client_type: 'OFW',
-        category_id: '',
+        category_ids: [],
         vulnerability_indicator: 'None',
         nok_vulnerability_indicator: 'None',
         summary: '',
@@ -272,7 +296,7 @@ export default function CaseCreate() {
     const initialFormRef = useRef({
         formData: {
             client_type: 'OFW',
-            category_id: '',
+            category_ids: [],
             vulnerability_indicator: 'None',
             nok_vulnerability_indicator: 'None',
             summary: '',
@@ -290,7 +314,7 @@ export default function CaseCreate() {
 
     function formDataEqual(a, b) {
         return a.client_type === b.client_type
-            && a.category_id === b.category_id
+            && JSON.stringify(a.category_ids || []) === JSON.stringify(b.category_ids || [])
             && a.vulnerability_indicator === b.vulnerability_indicator
             && a.nok_vulnerability_indicator === b.nok_vulnerability_indicator
             && a.summary === b.summary
@@ -460,7 +484,7 @@ export default function CaseCreate() {
             initialFormRef.current = {
         formData: {
             client_type: 'OFW',
-            category_id: '',
+            category_ids: [],
             vulnerability_indicator: 'None',
             nok_vulnerability_indicator: 'None',
             summary: '',
@@ -529,7 +553,7 @@ export default function CaseCreate() {
 
         // 1. Case-level fields
         setData('client_type', existingDraft.client_type || 'OFW');
-        setData('category_id', existingDraft.category_id || '');
+        setData('category_ids', getDraftCategoryIds(existingDraft));
         setData('selected_nok_index', existingDraft.selected_nok_index ?? '');
         setData('vulnerability_indicator', existingDraft.vulnerability_indicator || 'None');
         setData('summary', existingDraft.summary || '');
@@ -703,7 +727,7 @@ export default function CaseCreate() {
         initialFormRef.current = {
             formData: {
                 client_type: existingDraft.client_type || 'OFW',
-                category_id: existingDraft.category_id || '',
+                category_ids: getDraftCategoryIds(existingDraft),
                 vulnerability_indicator: existingDraft.vulnerability_indicator || 'None',
                 nok_vulnerability_indicator: existingDraft.nok_vulnerability_indicator || 'None',
                 summary: existingDraft.summary || '',
@@ -910,7 +934,7 @@ export default function CaseCreate() {
             return clientOk && addressOk && employmentOk && nokOk;
         }
         if (currentStep === 2) {
-            const baseOk = data.client_type && data.category_id && data.case_issue_id && data.vulnerability_indicator;
+            const baseOk = data.client_type && data.category_ids?.length > 0 && data.case_issue_id && data.vulnerability_indicator;
             if (data.client_type === 'NEXT_OF_KIN') {
                 return baseOk && data.selected_nok_index !== '' && !!selectedNok?.email?.trim()
                     && data.nok_vulnerability_indicator;
@@ -1116,8 +1140,8 @@ export default function CaseCreate() {
         }
 
         if (step === 2) {
-            if (!data.category_id) {
-                setError('category_id', 'Category is required.');
+            if (!data.category_ids?.length) {
+                setError('category_ids', 'Select at least one category.');
                 isValid = false;
                 missing.push('Category');
             }
@@ -1181,7 +1205,7 @@ export default function CaseCreate() {
             && notificationEmail.trim().length > 0
             && data.summary.trim().length > 0
             && data.case_issue_id
-            && data.category_id
+            && data.category_ids?.length > 0
             && data.vulnerability_indicator
             && (clientSource === 'existing' || data.consent);
     }
@@ -1270,7 +1294,7 @@ export default function CaseCreate() {
         initialFormRef.current = {
                 formData: {
                     client_type: 'OFW',
-                    category_id: '',
+                    category_ids: [],
                     vulnerability_indicator: 'None',
                     nok_vulnerability_indicator: 'None',
                     summary: '',
@@ -1359,7 +1383,7 @@ function handleConfirmClient(client) {
         initialFormRef.current = {
             formData: {
                 client_type: 'OFW',
-                category_id: '',
+                category_ids: [],
                 vulnerability_indicator: 'None',
                 nok_vulnerability_indicator: 'None',
                 summary: '',
@@ -1982,16 +2006,18 @@ function handleConfirmClient(client) {
                                                 </Field>
                                                 <Field label="Category" required>
                                                     <select
-                                                        value={data.category_id}
-                                                        onChange={(e) => setData('category_id', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        multiple
+                                                        value={data.category_ids || []}
+                                                        onChange={(e) => setData('category_ids', Array.from(e.target.selectedOptions, (option) => option.value))}
+                                                        className="min-h-24 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                         required
                                                     >
-                                                        <option value="">Select category</option>
                                                         {categories.map((cat) => (
                                                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                                                         ))}
                                                     </select>
+                                                    <p className="mt-1 text-[11px] text-slate-500">Hold Ctrl/Cmd to select more than one.</p>
+                                                    <InputError message={errors.category_ids} className="mt-1" />
                                                 </Field>
                                             </div>
                                             {data.client_type === 'NEXT_OF_KIN' && (

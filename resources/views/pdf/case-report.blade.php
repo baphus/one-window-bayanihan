@@ -69,8 +69,8 @@
             <td class="value">{{ $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin' }}</td>
         </tr>
         <tr>
-            <td class="label">Category</td>
-            <td class="value">{{ $case->category->name ?? '—' }}</td>
+            <td class="label">Categories</td>
+            <td class="value">{{ ($case->categories ?? collect())->pluck('name')->filter()->unique()->sort()->implode(', ') ?: ($case->category->name ?? '—') }}</td>
             <td class="label">Case Issue</td>
             <td class="value">{{ $case->caseIssue->name ?? '—' }}</td>
         </tr>

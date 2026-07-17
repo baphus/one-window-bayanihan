@@ -31,6 +31,11 @@ function formatAddress(address) {
     return formatResolvedAddress(address, null);
 }
 
+function getCategoryFilterIds(filters) {
+    const value = filters?.category_ids ?? filters?.category_id;
+    return (Array.isArray(value) ? value : (value ? [value] : [])).map(String);
+}
+
 export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [], exportRowCount = null }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
@@ -66,7 +71,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         if (filters.status) params.set('status', filters.status);
         if (filters.search) params.set('search', filters.search);
         if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
-        if (filters.category_id) params.set('category_id', filters.category_id);
+        getCategoryFilterIds(filters).forEach((id) => params.append('category_ids[]', id));
         if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
         if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
         if (filters.age_max_days) params.set('age_max_days', filters.age_max_days);
@@ -94,7 +99,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         const chips = [];
         if (filters?.status) chips.push({ label: 'Status', value: filters.status });
         if (filters?.agcy_id) chips.push({ label: 'Agency', value: filters.agcy_id });
-        if (filters?.category_id) chips.push({ label: 'Category', value: filters.category_id });
+        if (getCategoryFilterIds(filters).length) chips.push({ label: 'Category', value: getCategoryFilterIds(filters).join(', ') });
         if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
         if (filters?.age_min_days) chips.push({ label: 'Older Than', value: `${filters.age_min_days}+ days` });
         if (filters?.age_max_days) chips.push({ label: 'Received Within', value: `Last ${filters.age_max_days} days` });
@@ -152,9 +157,9 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             const agency = agencies.find(a => a.id === filters.agcy_id);
             chips.push({ key: 'agcy_id', label: 'Agency', value: agency?.name || filters.agcy_id });
         }
-        if (filters?.category_id) {
-            const cat = categories.find(c => c.id === filters.category_id);
-            chips.push({ key: 'category_id', label: 'Category', value: cat?.name || filters.category_id });
+        if (getCategoryFilterIds(filters).length) {
+            const names = getCategoryFilterIds(filters).map((id) => categories.find(c => String(c.id) === id)?.name || id);
+            chips.push({ key: 'category_ids', label: 'Category', value: names.join(', ') });
         }
         if (filters?.case_issue_id) {
             const issue = caseIssues.find(c => c.id === filters.case_issue_id);
@@ -166,13 +171,13 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     }, [filters, agencies, categories, caseIssues]);
 
     const handleRemoveFilter = (filter) => {
-        updateTable({ ...filters, [filter.key]: undefined, page: undefined });
+        updateTable({ ...filters, [filter.key]: undefined, ...(filter.key === 'category_ids' ? { category_id: undefined } : {}), page: undefined });
     };
 
     const handleClearFilters = () => {
         setSearchValue('');
         clearTimeout(searchTimeout.current);
-        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, case_issue_id: undefined, age_min_days: undefined, age_max_days: undefined, page: undefined });
+        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, category_ids: undefined, case_issue_id: undefined, age_min_days: undefined, age_max_days: undefined, page: undefined });
     };
 
     const handleStatusQuickFilter = (status) => {
@@ -383,14 +388,14 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
                 <select
-                    value={filters?.category_id ?? ''}
+                    multiple
+                    value={getCategoryFilterIds(filters)}
                     onChange={(e) => {
-                        const val = e.target.value;
-                        updateTable({ ...filters, category_id: val || undefined, page: undefined });
+                        const values = Array.from(e.target.selectedOptions, (option) => option.value);
+                        updateTable({ ...filters, category_ids: values.length ? values : undefined, category_id: undefined, page: undefined });
                     }}
-                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                    className="min-h-24 w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
-                    <option value="">All Categories</option>
                     {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}

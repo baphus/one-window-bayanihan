@@ -19,6 +19,7 @@ class ColumnMaps
             ['key' => 'user_id',                   'label' => 'User ID',                     'type' => 'uuid'],
             ['key' => 'client_id',                 'label' => 'Client ID',                   'type' => 'uuid'],
             ['key' => 'category_id',               'label' => 'Category ID',                 'type' => 'uuid'],
+            ['key' => 'categories',                'label' => 'Categories',                  'type' => 'string'],
             ['key' => 'created_at',                'label' => 'Created At',                  'type' => 'date'],
             ['key' => 'updated_at',                'label' => 'Updated At',                  'type' => 'date'],
         ],

@@ -64,6 +64,14 @@ function fullName(row) {
   return [row.first_name, row.middle_initial, row.last_name, row.suffix].filter(Boolean).join(' ');
 }
 
+function categoryIdsFromFilters(filters) {
+  const ids = Array.isArray(filters?.category_ids)
+    ? [...filters.category_ids]
+    : (filters?.category_ids ? [filters.category_ids] : []);
+  if (filters?.category_id) ids.push(filters.category_id);
+  return [...new Set(ids.filter(Boolean).map(String))];
+}
+
 const COLUMN_DEFS = [
   { key: 'name', label: 'Name', default: true },
   { key: 'age', label: 'Age', default: true },
@@ -120,7 +128,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters.client_type) params.set('client_type', filters.client_type);
     if (filters.vulnerability_indicator) params.set('vulnerability_indicator', filters.vulnerability_indicator);
     if (filters.case_status) params.set('case_status', filters.case_status);
-    if (filters.category_id) params.set('category_id', filters.category_id);
+    categoryIdsFromFilters(filters).forEach((id) => params.append('category_ids[]', id));
     if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
     if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
     if (dateFrom) params.set('date_from', dateFrom);
@@ -149,7 +157,8 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters?.sex) chips.push({ label: 'Sex', value: filters.sex });
     if (filters?.case_status) chips.push({ label: 'Case Status', value: filters.case_status });
     if (filters?.vulnerability_indicator) chips.push({ label: 'Vulnerability', value: filters.vulnerability_indicator });
-    if (filters?.category_id) chips.push({ label: 'Category', value: filters.category_id });
+    const categoryIds = categoryIdsFromFilters(filters);
+    if (categoryIds.length) chips.push({ label: 'Category', value: `${categoryIds.length} selected` });
     if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
     if (filters?.agcy_id) chips.push({ label: 'Referred To', value: filters.agcy_id });
     if (filters?.date_from) chips.push({ label: 'From', value: filters.date_from });
@@ -219,9 +228,10 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters?.sex) chips.push({ key: 'sex', label: 'Sex', value: filters.sex });
     if (filters?.case_status) chips.push({ key: 'case_status', label: 'Case Status', value: filters.case_status });
     if (filters?.vulnerability_indicator) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: filters.vulnerability_indicator });
-    if (filters?.category_id) {
-      const cat = categories?.find(c => c.id === filters.category_id);
-      chips.push({ key: 'category_id', label: 'Category', value: cat?.name || filters.category_id });
+    const categoryIds = categoryIdsFromFilters(filters);
+    if (categoryIds.length) {
+      const names = categoryIds.map((id) => categories?.find((c) => String(c.id) === id)?.name || id);
+      chips.push({ key: 'category_ids', label: 'Category', value: names.join(', ') });
     }
     if (filters?.case_issue_id) {
       const issue = caseIssues?.find(c => c.id === filters.case_issue_id);
@@ -235,7 +245,12 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
   }, [filters, categories, caseIssues, agencies]);
 
   const handleRemoveFilter = (filter) => {
-    updateTable({ ...filters, [filter.key]: undefined, page: undefined });
+    updateTable({
+      ...filters,
+      [filter.key]: undefined,
+      ...(filter.key === 'category_ids' ? { category_id: undefined } : {}),
+      page: undefined,
+    });
   };
 
   const handleClearFilters = () => {
@@ -245,6 +260,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
       case_status: undefined,
       vulnerability_indicator: undefined,
       category_id: undefined,
+      category_ids: undefined,
       case_issue_id: undefined,
       agcy_id: undefined,
       search: undefined,
@@ -386,13 +402,20 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
               sortable: false,
               render: (row) => {
                 const cat = row.case_file?.category;
-                if (!cat) return <span className="text-slate-400">&mdash;</span>;
+                const categoriesForCase = row.case_file?.categories?.length
+                  ? row.case_file.categories
+                  : (cat ? [cat] : []);
+                if (categoriesForCase.length === 0) return <span className="text-slate-400">&mdash;</span>;
                 return (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                        style={{ backgroundColor: cat.color ? `${cat.color}20` : '#f1f5f9', color: cat.color || '#64748b' }}>
-                    {cat.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />}
-                    {cat.name}
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {categoriesForCase.map((category) => (
+                      <span key={category.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                            style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
+                        {category.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color }} />}
+                        {category.name}
+                      </span>
+                    ))}
+                  </div>
                 );
               },
             };
@@ -657,18 +680,19 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
         <select
-          value={filters?.category_id ?? ''}
+          multiple
+          value={categoryIdsFromFilters(filters)}
           onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, category_id: val || undefined, page: undefined });
+            const values = Array.from(e.target.selectedOptions, (option) => option.value);
+            updateTable({ ...filters, category_ids: values.length ? values : undefined, category_id: undefined, page: undefined });
           }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full min-h-[92px] border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
-          <option value="">All Categories</option>
           {categories?.map((cat) => (
             <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
         </select>
+        <p className="mt-1 text-[10px] text-slate-400">Hold Ctrl/Cmd to select more than one.</p>
       </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Issue/Concern</label>

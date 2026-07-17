@@ -231,6 +231,21 @@ GitHub push → Render detects → Docker build → Health check → Route traff
 
 ---
 
+## 4.1 Case-category pivot migration
+
+`2026_07_17_000001_create_case_category_pivot_table.php` is an undeployed migration. Deploy it in this order. This is a coordinated maintenance step, not a rolling migration:
+
+1. Take and verify a PostgreSQL/Supabase backup or snapshot, and confirm the migration is pending (`php artisan migrate:status`).
+2. Quiesce the application: stop/drain all old web instances and stop all queue workers (including schedulers or other processes that can write cases). Keep the old web/queue writers stopped until the migration, deployment, and initial reconciliation are complete; do not run this migration while an old writer can create or change category assignments.
+3. Run the migration against the target database (`php artisan migrate --force`). It creates `case_category`, adds its foreign keys, indexes, and pair uniqueness constraint, then backfills one pivot row for each existing non-null `cases.category_id`.
+4. Deploy the application release that reads and writes the pivot. Keep `cases.category_id` available as the compatibility mirror; do not treat it as the canonical assignment store.
+5. Before restarting any writers, reconcile the pivot row count and sampled assignments against the non-null legacy mirror. Keep the old web/queue writers stopped while performing this initial reconciliation and assignment sampling.
+6. Start the new web/queue processes, then verify category reads, writes, and filters before declaring the rollout complete.
+
+The migration's rollback only drops `case_category`; it does not restore pivot assignments or provide a reverse backfill. Do not use `migrate:rollback` as an application rollback after data has been written to the pivot. If rollback is required, stop the incompatible release and restore the database snapshot (or otherwise recreate the pivot and assignments) before redeploying the previous application version.
+
+---
+
 ## 5. Build Process
 
 ### Production Build

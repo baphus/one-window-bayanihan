@@ -5,16 +5,19 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CaseCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class AdminCaseCategoryController extends Controller
 {
     public function index()
     {
-        $categories = CaseCategory::withCount('caseFiles')
-            ->orderBy('sort_order')
+        $categories = CaseCategory::orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->each(function (CaseCategory $category) {
+                $category->case_files_count = $this->categoryUsageCount($category->id);
+            });
 
         return Inertia::render('Admin/CaseCategory/Index', [
             'categories' => $categories,
@@ -55,18 +58,61 @@ class AdminCaseCategoryController extends Controller
             ->with('success', 'Category updated successfully.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        $category = CaseCategory::withCount('caseFiles')->findOrFail($id);
+        $usageCount = 0;
 
-        if ($category->case_files_count > 0) {
+        DB::transaction(function () use ($request, $id, &$usageCount) {
+            // Case mutations lock cases before categories. Keep the same
+            // order here to avoid deadlocks with concurrent assignments.
+            $caseIds = $this->categoryCaseIds($id);
+
+            if ($caseIds->isNotEmpty()) {
+                DB::table('cases AS c')
+                    ->whereIn('c.id', $caseIds)
+                    ->orderBy('c.id')
+                    ->lockForUpdate()
+                    ->get(['c.id']);
+            }
+
+            $category = CaseCategory::whereKey($id)->lockForUpdate()->firstOrFail();
+            $usageCount = $this->categoryUsageCount($category->id);
+
+            if ($usageCount > 0) {
+                return;
+            }
+
+            $category->is_active = false;
+            $category->deleted_by = $request->user()->id;
+            $category->delete();
+        });
+
+        if ($usageCount > 0) {
             return redirect()->route('admin.case-categories.index')
-                ->with('error', 'Cannot delete category: '.$category->case_files_count.' case(s) are using it.');
+                ->with('error', 'Cannot delete category: '.$usageCount.' case(s) are using it.');
         }
-
-        $category->update(['is_deleted' => true, 'is_active' => false]);
 
         return redirect()->route('admin.case-categories.index')
             ->with('success', 'Category deleted successfully.');
+    }
+
+    private function categoryUsageCount(string $categoryId): int
+    {
+        return (int) DB::table('case_category AS cc')
+            ->join('cases AS c', 'c.id', '=', 'cc.case_id')
+            ->where('cc.case_category_id', $categoryId)
+            ->where('c.is_deleted', false)
+            ->distinct()
+            ->count('cc.case_id');
+    }
+
+    private function categoryCaseIds(string $categoryId)
+    {
+        return DB::table('case_category AS cc')
+            ->where('cc.case_category_id', $categoryId)
+            ->orderBy('cc.case_id')
+            ->pluck('cc.case_id')
+            ->unique()
+            ->values();
     }
 }
