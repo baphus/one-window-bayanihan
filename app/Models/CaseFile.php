@@ -82,4 +82,9 @@ class CaseFile extends Model
     {
         return $this->hasMany(CaseDocument::class, 'case_id');
     }
+
+    public function caseEvents()
+    {
+        return $this->hasMany(CaseEvent::class, 'case_id');
+    }
 }

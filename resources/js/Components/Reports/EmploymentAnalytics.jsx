@@ -2,6 +2,14 @@ import { useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { Briefcase } from 'lucide-react';
 import MetricCard from '@/Components/Reports/MetricCard';
+import countries from '@/data/countries.json';
+
+const countryNameByCode = Object.fromEntries(countries.map((c) => [c.code, c.name]));
+
+const BAR_COLORS = [
+  '#0b5a8c', '#3f915f', '#9b51b0', '#d9663b', '#0b7a75',
+  '#6366f1', '#e11d48', '#ca8a04', '#7c3aed', '#0891b2',
+];
 
 const barOptions = {
   responsive: true,
@@ -26,11 +34,13 @@ export default function EmploymentAnalytics({
   const countryChartData = useMemo(() => {
     if (!employmentDistribution?.labels?.length) return null;
     return {
-      labels: employmentDistribution.labels,
+      labels: employmentDistribution.labels.map((l) =>
+        l.length <= 2 && countryNameByCode[l] ? countryNameByCode[l] : l
+      ),
       datasets: [{
         label: 'Clients',
         data: employmentDistribution.data,
-        backgroundColor: '#0b5a8c',
+        backgroundColor: employmentDistribution.data.map((_, i) => BAR_COLORS[i % BAR_COLORS.length]),
         borderRadius: 3,
         barThickness: 18,
       }],

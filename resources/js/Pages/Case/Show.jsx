@@ -368,23 +368,32 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         </div>
       )}
 
-      <div data-tour="case-header" className="flex items-start justify-between gap-4 flex-wrap mb-6">
-        <div>
-          <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Case Details</h1>
-          <p className="mt-1 text-[14px] leading-6 text-slate-600">Overview of client profile, referral progress, and timeline updates.</p>
-        </div>
-        <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
-          <StatusBadge status={caseFile.status} size="md" />
-          {caseFile.user && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md">
-              <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
-                {caseFile.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-              </span>
-              <span className="text-[11px] font-medium text-slate-600">
-                Created by <span className="font-bold text-slate-800">{caseFile.user.name}</span>
-              </span>
-            </div>
-          )}
+      <div className="mb-6">
+        <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Case Details</h1>
+        <p className="mt-1 text-[14px] leading-6 text-slate-600">Overview of client profile, referral progress, and timeline updates.</p>
+        <div data-tour="case-header" className="flex items-center justify-between gap-4 flex-wrap mt-3">
+          <div className="flex items-center gap-2">
+            <StatusBadge status={caseFile.status} size="md" />
+            {caseFile.user && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md">
+                <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
+                  {caseFile.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                </span>
+                <span className="text-[11px] font-medium text-slate-600">
+                  Created by <span className="font-bold text-slate-800">{caseFile.user.name}</span>
+                </span>
+              </div>
+            )}
+          </div>
+          <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
+            <a
+            href={route('cases.export-pdf', caseFile.id)}
+            target="_blank"
+            className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300 inline-flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+            Export PDF
+          </a>
           <button
             type="button"
             onClick={() => setShowAuditLog(true)}
@@ -437,6 +446,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             &larr; Back to Cases
           </Link>
         </div>
+      </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
@@ -787,28 +797,34 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               )}
 
               {/* Vulnerability — compact badges */}
-              {((caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None') || (caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None')) && (
-                <>
-                  <hr className="border-slate-200" />
-                  <div>
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Vulnerability</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {caseFile.vulnerability_indicator && caseFile.vulnerability_indicator !== 'None' && (
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                          <span className="material-symbols-outlined text-[13px]">{vulnConfig[caseFile.vulnerability_indicator]?.icon || 'warning'}</span>
-                          OFW: {caseFile.vulnerability_indicator}
-                        </span>
-                      )}
-                      {caseFile.nok_vulnerability_indicator && caseFile.nok_vulnerability_indicator !== 'None' && (
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[caseFile.nok_vulnerability_indicator]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                          <span className="material-symbols-outlined text-[13px]">{vulnConfig[caseFile.nok_vulnerability_indicator]?.icon || 'warning'}</span>
-                          NOK: {caseFile.nok_vulnerability_indicator}
-                        </span>
-                      )}
+              {(() => {
+                const ofwVulns = (caseFile.vulnerability_indicator || '').split(',').map(s => s.trim()).filter(v => v && v !== 'None');
+                const nokVulns = (caseFile.nok_vulnerability_indicator || '').split(',').map(s => s.trim()).filter(v => v && v !== 'None');
+                const hasVulns = ofwVulns.length > 0 || nokVulns.length > 0;
+                if (!hasVulns) return null;
+                return (
+                  <>
+                    <hr className="border-slate-200" />
+                    <div>
+                      <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Vulnerability</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {ofwVulns.map((v) => (
+                          <span key={`ofw-${v}`} className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[v]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                            <span className="material-symbols-outlined text-[13px]">{vulnConfig[v]?.icon || 'warning'}</span>
+                            OFW: {v}
+                          </span>
+                        ))}
+                        {nokVulns.map((v) => (
+                          <span key={`nok-${v}`} className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[v]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                            <span className="material-symbols-outlined text-[13px]">{vulnConfig[v]?.icon || 'warning'}</span>
+                            NOK: {v}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                );
+              })()}
             </div>
           </CardSection>
 
@@ -922,32 +938,52 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Vulnerability</label>
-                <select
-                  value={formVulnerability}
-                  onChange={(e) => setFormVulnerability(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                  <option value="">None</option>
-                  <option value="PWD">PWD</option>
-                  <option value="Senior Citizen">Senior Citizen</option>
-                  <option value="Solo Parent">Solo Parent</option>
-                  <option value="Indigenous Person">Indigenous Person</option>
-                </select>
+                <div className="flex flex-wrap gap-3">
+                  {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
+                    const val = formVulnerability || '';
+                    const checked = val !== '' && val !== 'None' && val.split(',').map(s => s.trim()).includes(opt);
+                    return (
+                      <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const current = val && val !== 'None' ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+                            const next = checked ? current.filter(v => v !== opt) : [...current, opt];
+                            setFormVulnerability(next.length > 0 ? next.join(', ') : '');
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-[13px] text-slate-700">{opt}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="md:col-span-2">
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">NOK Vulnerability</label>
-                <select
-                  value={nokVulnerability}
-                  onChange={(e) => setNokVulnerability(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                  <option value="">None</option>
-                  <option value="PWD">PWD</option>
-                  <option value="Senior Citizen">Senior Citizen</option>
-                  <option value="Solo Parent">Solo Parent</option>
-                  <option value="Indigenous Person">Indigenous Person</option>
-                </select>
+                <div className="flex flex-wrap gap-3">
+                  {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
+                    const val = nokVulnerability || '';
+                    const checked = val !== '' && val !== 'None' && val.split(',').map(s => s.trim()).includes(opt);
+                    return (
+                      <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const current = val && val !== 'None' ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+                            const next = checked ? current.filter(v => v !== opt) : [...current, opt];
+                            setNokVulnerability(next.length > 0 ? next.join(', ') : '');
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-[13px] text-slate-700">{opt}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="md:col-span-2">

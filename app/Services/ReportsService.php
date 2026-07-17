@@ -9,6 +9,7 @@ use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\CaseStatus;
 use App\Models\Client;
+use App\Models\ClientEmployment;
 use App\Models\Referral;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -324,23 +325,36 @@ class ReportsService
             });
         }
 
-        $results = (clone $query)
-            ->select(DB::raw("
-                CASE
-                    WHEN client_type = 'NEXT_OF_KIN'
-                        THEN COALESCE(NULLIF(nok_vulnerability_indicator, 'None'), NULLIF(vulnerability_indicator, 'None'), 'None')
-                    ELSE COALESCE(NULLIF(vulnerability_indicator, 'None'), 'None')
-                END as vuln
-            "), DB::raw('count(*) as total'))
-            ->groupBy('vuln')
-            ->pluck('total', 'vuln');
+        $categories = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'];
+        $counts = [];
 
-        $categories = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'];
+        foreach ($categories as $cat) {
+            $count = (clone $query)
+                ->where(function ($q) use ($cat) {
+                    $q->where('cases.vulnerability_indicator', 'LIKE', "%{$cat}%")
+                        ->orWhere('cases.nok_vulnerability_indicator', 'LIKE', "%{$cat}%");
+                })
+                ->count();
+            $counts[$cat] = $count;
+        }
+
+        // Count cases with no vulnerability set (or only "None")
+        $noneCount = (clone $query)
+            ->where(function ($q) use ($categories) {
+                foreach ($categories as $cat) {
+                    $q->where('cases.vulnerability_indicator', 'NOT LIKE', "%{$cat}%")
+                        ->where('cases.nok_vulnerability_indicator', 'NOT LIKE', "%{$cat}%");
+                }
+            })
+            ->count();
+        $counts['None'] = $noneCount;
+
+        $allCategories = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'];
         $colors = ['#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#cbd5e1'];
 
         return [
-            'labels' => $categories,
-            'data' => array_map(fn ($c) => (int) ($results[$c] ?? 0), $categories),
+            'labels' => $allCategories,
+            'data' => array_map(fn ($c) => (int) ($counts[$c] ?? 0), $allCategories),
             'colors' => $colors,
         ];
     }
@@ -980,8 +994,9 @@ class ReportsService
 
     public function getLastEmploymentDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = DB::table('client_employments')
-            ->select('last_country', DB::raw('count(distinct client_id) as total'))
+        // Use Eloquent so the EncryptedString cast decrypts last_country.
+        // DB::table() bypasses casts and returns raw ciphertext for encrypted rows.
+        $query = ClientEmployment::query()
             ->whereNotNull('last_country')
             ->where('is_deleted', false);
 
@@ -1002,17 +1017,20 @@ class ReportsService
                             ->where('agcy_id', $agencyId)
                             ->whereNull('deleted_at');
                     })
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                    ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
             });
         }
 
-        $results = $query->groupBy('last_country')
-            ->orderByDesc('total')
-            ->get();
+        // Decrypt via Eloquent, then group in PHP
+        $grouped = $query->pluck('last_country')
+            ->filter(fn ($v) => is_string($v) && $v !== '')
+            ->groupBy(fn ($v) => $v)
+            ->map(fn ($g) => $g->count())
+            ->sortDesc();
 
         return [
-            'labels' => $results->pluck('last_country')->toArray(),
-            'data' => $results->pluck('total')->toArray(),
+            'labels' => $grouped->keys()->toArray(),
+            'data' => $grouped->values()->toArray(),
         ];
     }
 

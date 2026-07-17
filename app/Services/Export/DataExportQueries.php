@@ -164,8 +164,8 @@ class DataExportQueries
         }
         if (! empty($filters['vulnerability_indicator'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where('c.vulnerability_indicator', $filters['vulnerability_indicator'])
-                    ->orWhere('c.nok_vulnerability_indicator', $filters['vulnerability_indicator']);
+                $q->where('c.vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%")
+                    ->orWhere('c.nok_vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%");
             });
         }
         if (! empty($filters['user_id'])) {
@@ -432,8 +432,8 @@ class DataExportQueries
                 $q->select('c8.client_id')
                     ->from('cases AS c8')
                     ->where(function ($q2) use ($vuln) {
-                        $q2->where('c8.vulnerability_indicator', $vuln)
-                            ->orWhere('c8.nok_vulnerability_indicator', $vuln);
+                        $q2->where('c8.vulnerability_indicator', 'LIKE', "%{$vuln}%")
+                            ->orWhere('c8.nok_vulnerability_indicator', 'LIKE', "%{$vuln}%");
                     })
                     ->where('c8.is_deleted', false)
                     ->whereNotNull('c8.client_id');

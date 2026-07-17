@@ -50,14 +50,9 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
             />
           </div>
 
-          <div className="min-w-0 flex flex-col">
-            <span className="truncate font-headline text-[18px] font-bold text-primary">
-              Bayanihan One Window
-            </span>
-
-            <span className="truncate font-label text-[12px] font-medium uppercase tracking-wide text-on-surface-variant">
-              DMW Region VII
-            </span>
+          <div className="flex flex-col">
+            <span className="text-[18px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
           </div>
         </Link>
 

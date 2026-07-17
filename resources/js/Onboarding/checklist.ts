@@ -30,7 +30,7 @@ export const checklistByRole: Record<string, ChecklistItemDef[]> = {
     AGENCY: [
         { id: 'add-first-service', label: 'Set up your first service', icon: 'medical_services', route: 'agency.services.index', marking: 'action' },
         { id: 'act-on-referral', label: 'Act on a referral', icon: 'assignment_turned_in', route: 'referrals.index', marking: 'action' },
-        { id: 'configure-servqual', label: 'Configure your feedback questionnaire', icon: 'tune', route: 'servqual-configs.index', marking: 'action' },
+        { id: 'configure-servqual', label: 'Configure your feedback questionnaire', icon: 'tune', route: 'survey.forms.index', marking: 'action' },
         { id: 'open-help-center', label: 'Browse the Help Center', icon: 'help', route: 'helpdesk.index', marking: 'visit' },
     ],
     ADMIN: [

@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 
-export default function SearchableSelect({ value, onChange, options = [], placeholder = 'Select...', disabled = false }) {
+/**
+ * Searchable dropdown that also supports freeform typing when `allowCustom` is true.
+ *
+ * - allowCustom=false (default): classic combobox — select from the list only.
+ * - allowCustom=true: user can type a value that isn't in the list. When the
+ *   typed text doesn't match any option exactly, a "Use '…'" pseudo-option
+ *   appears at the bottom. Pressing Enter or clicking it submits the typed text.
+ */
+export default function SearchableSelect({ value, onChange, options = [], placeholder = 'Select...', disabled = false, allowCustom = false }) {
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -13,6 +21,16 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     const filtered = query.trim()
         ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
         : options;
+
+    // When allowCustom is on, the typed query may not match any option exactly.
+    const hasExactMatch = query.trim()
+        ? options.some((o) => o.label.toLowerCase() === query.trim().toLowerCase())
+        : !!selectedOption;
+
+    // When allowCustom is active and there's typed text with no exact match,
+    // we offer a "Use '<query>'" option appended to the end of the filtered list.
+    const showCustomOption = allowCustom && query.trim() && !hasExactMatch;
+    const totalItems = filtered.length + (showCustomOption ? 1 : 0);
 
     useEffect(() => {
         function handleClickOutside(e) {
@@ -32,8 +50,8 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
         }
     }, [highlightedIndex, open]);
 
-    function handleSelect(option) {
-        onChange(option.value);
+    function handleSelect(optionValue) {
+        onChange(optionValue);
         setQuery('');
         setOpen(false);
         setHighlightedIndex(-1);
@@ -65,7 +83,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
         switch (e.key) {
             case 'ArrowDown':
                 e.preventDefault();
-                setHighlightedIndex((i) => Math.min(i + 1, filtered.length - 1));
+                setHighlightedIndex((i) => Math.min(i + 1, totalItems - 1));
                 break;
             case 'ArrowUp':
                 e.preventDefault();
@@ -73,8 +91,13 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
                 break;
             case 'Enter':
                 e.preventDefault();
-                if (highlightedIndex >= 0 && filtered[highlightedIndex]) {
-                    handleSelect(filtered[highlightedIndex]);
+                if (highlightedIndex >= 0) {
+                    if (showCustomOption && highlightedIndex === filtered.length) {
+                        // The "Use '…'" pseudo-option is highlighted
+                        handleSelect(query.trim());
+                    } else if (filtered[highlightedIndex]) {
+                        handleSelect(filtered[highlightedIndex].value);
+                    }
                 }
                 break;
             case 'Escape':
@@ -90,7 +113,10 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
         }
     }
 
-    const displayValue = open ? query : (selectedOption?.label ?? '');
+    // Display: when open show the query; otherwise show the selected label or raw value.
+    const displayValue = open
+        ? query
+        : (selectedOption?.label ?? (allowCustom && value ? value : ''));
 
     return (
         <div ref={wrapperRef} className="relative">
@@ -118,7 +144,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
                         filtered.map((option, idx) => (
                             <li
                                 key={option.value}
-                                onMouseDown={(e) => { e.preventDefault(); handleSelect(option); }}
+                                onMouseDown={(e) => { e.preventDefault(); handleSelect(option.value); }}
                                 onMouseEnter={() => setHighlightedIndex(idx)}
                                 className={`px-3 py-1.5 text-[12px] cursor-pointer transition-colors ${
                                     option.value === value
@@ -131,8 +157,22 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
                                 {option.label}
                             </li>
                         ))
-                    ) : (
+                    ) : !showCustomOption ? (
                         <li className="px-3 py-2 text-[11px] text-slate-400 italic">No results found</li>
+                    ) : null}
+
+                    {showCustomOption && (
+                        <li
+                            onMouseDown={(e) => { e.preventDefault(); handleSelect(query.trim()); }}
+                            onMouseEnter={() => setHighlightedIndex(filtered.length)}
+                            className={`px-3 py-1.5 text-[12px] cursor-pointer transition-colors border-t border-slate-100 ${
+                                highlightedIndex === filtered.length
+                                    ? 'bg-indigo-50 text-indigo-700'
+                                    : 'text-slate-500 hover:bg-slate-50'
+                            }`}
+                        >
+                            Use &ldquo;{query.trim()}&rdquo;
+                        </li>
                     )}
                 </ul>
             )}
