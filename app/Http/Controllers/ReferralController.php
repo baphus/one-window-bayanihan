@@ -30,7 +30,7 @@ class ReferralController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to'];
+        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to'];
 
         $referrals = $this->referralService->getReferrals(
             $request->only($filterKeys),
@@ -45,7 +45,7 @@ class ReferralController extends Controller
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countReferralsExport($request->user(), array_filter($request->only(['status', 'search', 'case_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to']))),
+            'exportRowCount' => (new DataExportQueries)->countReferralsExport($request->user(), array_filter($request->only(['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to']))),
         ]);
     }
 
@@ -459,7 +459,7 @@ class ReferralController extends Controller
 
         $filters = $request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
-            'date_from', 'date_to', 'agcy_id', 'category_id', 'case_issue_id',
+            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
         ]);
 
         $referrals = $queries->getReferralsExport($user, array_filter($filters));

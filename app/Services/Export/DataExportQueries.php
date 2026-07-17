@@ -39,7 +39,34 @@ class DataExportQueries
         $ids = ! empty($filters['category_ids']) ? $filters['category_ids'] : ($filters['category_id'] ?? []);
         $ids = is_array($ids) ? $ids : ($ids === '' || $ids === null ? [] : [$ids]);
 
-        return array_values(array_filter($ids, static fn ($id) => $id !== null && $id !== ''));
+        return array_values(array_unique(array_filter($ids, static fn ($id) => $id !== null && $id !== '')));
+    }
+
+    /**
+     * Apply the category match without joining the pivot.  EXISTS keeps one
+     * result per case (and therefore one result per referral/client row),
+     * while the grouped predicate preserves the legacy scalar fallback.
+     */
+    private function applyCategoryFilter($query, string $caseAlias, array $filters)
+    {
+        $categoryIds = $this->categoryFilterIds($filters);
+        if (! $categoryIds) {
+            return $query;
+        }
+
+        $table = $this->categoryAssignmentTable();
+        $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
+
+        return $query->where(function ($category) use ($categoryIds, $caseAlias, $table, $column) {
+            $category->whereIn($caseAlias.'.category_id', $categoryIds);
+
+            if ($table) {
+                $category->orWhereExists(fn ($sub) => $sub->selectRaw('1')
+                    ->from($table.' AS category_assignment')
+                    ->whereColumn('category_assignment.case_id', $caseAlias.'.id')
+                    ->whereIn('category_assignment.'.$column, $categoryIds));
+            }
+        });
     }
 
     private function addresses(): AddressNameResolver
@@ -117,7 +144,8 @@ class DataExportQueries
      * No IDs or system fields. Administrators see all; Case Managers see own.
      *
      * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
-     *                          user_id, agcy_id, category_id, case_issue_id, age_min_days, referral_state
+     *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
+     *                          age_min_days, referral_state
      */
     public function getCasesExport(?User $user = null, array $filters = []): Collection
     {
@@ -217,18 +245,7 @@ class DataExportQueries
                     ->where('is_deleted', false);
             });
         }
-        $categoryIds = $this->categoryFilterIds($filters);
-        if ($categoryIds) {
-            $table = $this->categoryAssignmentTable();
-            $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
-            $query->where(function ($q) use ($categoryIds, $table, $column) {
-                $q->whereIn('c.category_id', $categoryIds);
-                if ($table) {
-                    $q->orWhereExists(fn ($sub) => $sub->selectRaw('1')->from($table.' AS ca')
-                        ->whereColumn('ca.case_id', 'c.id')->whereIn('ca.'.$column, $categoryIds));
-                }
-            });
-        }
+        $this->applyCategoryFilter($query, 'c', $filters);
         if (! empty($filters['case_issue_id'])) {
             $query->where('c.case_issue_id', $filters['case_issue_id']);
         }
@@ -487,20 +504,13 @@ class DataExportQueries
         }
         $categoryIds = $this->categoryFilterIds($filters);
         if ($categoryIds) {
-            $table = $this->categoryAssignmentTable();
-            $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
-            $query->whereIn('cl.id', function ($q) use ($categoryIds, $table, $column) {
+            $query->whereIn('cl.id', function ($q) use ($filters) {
                 $q->select('c10.client_id')
                     ->from('cases AS c10')
-                    ->where(function ($category) use ($categoryIds, $table, $column) {
-                        $category->whereIn('c10.category_id', $categoryIds);
-                        if ($table) {
-                            $category->orWhereExists(fn ($sub) => $sub->selectRaw('1')->from($table.' AS ca')
-                                ->whereColumn('ca.case_id', 'c10.id')->whereIn('ca.'.$column, $categoryIds));
-                        }
-                    })
                     ->where('c10.is_deleted', false)
                     ->whereNotNull('c10.client_id');
+
+                $this->applyCategoryFilter($q, 'c10', $filters);
             });
         }
         if (! empty($filters['case_issue_id'])) {
@@ -756,6 +766,8 @@ class DataExportQueries
                     ->orWhere('r.required_services', 'ilike', "%{$search}%");
             });
         }
+
+        $this->applyCategoryFilter($query, 'c', $filters);
 
         if (! $this->isAdmin($user)) {
             $query->whereIn('r.case_id', function ($q) use ($user) {

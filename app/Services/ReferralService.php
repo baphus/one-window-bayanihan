@@ -149,12 +149,20 @@ class ReferralService
             $query->where('agcy_id', $filters['agcy_id']);
         }
 
-        if (! empty($filters['category_id'])) {
-            $query->whereHas('caseFile', function ($q) use ($filters) {
-                $q->where('category_id', $filters['category_id']);
-                if (method_exists(CaseFile::class, 'categories')) {
-                    $q->orWhereHas('categories', fn ($categories) => $categories->whereKey($filters['category_id']));
-                }
+        $categoryIds = $filters['category_ids'] ?? [];
+        if (! is_array($categoryIds) || empty($categoryIds)) {
+            $categoryIds = ! empty($filters['category_id']) ? [$filters['category_id']] : [];
+        }
+        $categoryIds = array_values(array_filter($categoryIds));
+
+        if (! empty($categoryIds)) {
+            $query->whereHas('caseFile', function ($q) use ($categoryIds) {
+                $q->where(function ($categoryQuery) use ($categoryIds) {
+                    $categoryQuery->whereIn('category_id', $categoryIds);
+                    if (method_exists(CaseFile::class, 'categories')) {
+                        $categoryQuery->orWhereHas('categories', fn ($categories) => $categories->whereIn('case_categories.id', $categoryIds));
+                    }
+                });
             });
         }
 

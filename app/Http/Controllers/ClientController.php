@@ -23,11 +23,13 @@ class ClientController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
+        $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'category_ids', 'case_issue_id', 'agcy_id', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
+
+        $categoryIds = $this->categoryFilterIds($request);
 
         $clients = Client::where('is_deleted', false)->with([
             'caseFile' => function ($q) {
-                $q->with(['referrals.agency', 'category', 'caseIssue']);
+                $q->with(['referrals.agency', 'category', 'categories', 'caseIssue']);
             },
             'addresses',
             'employments',
@@ -89,12 +91,12 @@ class ClientController extends Controller
             });
         }
 
-        if (! empty($request->category_id)) {
-            $clients->whereHas('caseFile', function ($q) use ($request) {
-                $q->where(function ($caseQuery) use ($request) {
-                    $caseQuery->where('category_id', $request->category_id)
-                        ->orWhereHas('categories', function ($categoryQuery) use ($request) {
-                            $categoryQuery->where('case_categories.id', $request->category_id);
+        if ($categoryIds !== []) {
+            $clients->whereHas('caseFile', function ($q) use ($categoryIds) {
+                $q->where(function ($caseQuery) use ($categoryIds) {
+                    $caseQuery->whereIn('category_id', $categoryIds)
+                        ->orWhereHas('categories', function ($categoryQuery) use ($categoryIds) {
+                            $categoryQuery->whereIn('case_categories.id', $categoryIds);
                         });
                 });
             });
@@ -137,8 +139,24 @@ class ClientController extends Controller
             'agencies' => app(ReferenceDataService::class)->getAgenciesDropdown(),
             'categories' => app(ReferenceDataService::class)->getActiveCategories(),
             'caseIssues' => app(ReferenceDataService::class)->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countClientsExport($request->user(), array_filter($request->only(['search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to']))),
+            'exportRowCount' => (new DataExportQueries)->countClientsExport($user, array_filter(array_merge(
+                $request->only(['search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to']),
+                ['category_ids' => $categoryIds],
+            ))),
         ]);
+    }
+
+    /** @return array<int, string> */
+    private function categoryFilterIds(Request $request): array
+    {
+        $ids = $request->input('category_ids', []);
+        $ids = is_array($ids) ? $ids : ($ids === null || $ids === '' ? [] : [$ids]);
+
+        if ($request->filled('category_id')) {
+            $ids[] = $request->input('category_id');
+        }
+
+        return array_values(array_unique(array_filter($ids, static fn ($id) => $id !== null && $id !== '')));
     }
 
     private function getClientStats(?User $user): array
@@ -305,6 +323,7 @@ class ClientController extends Controller
         $filters = $request->only([
             'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]);
+        $filters['category_ids'] = $this->categoryFilterIds($request);
 
         $clients = $queries->getClientsExport($user, array_filter($filters));
 

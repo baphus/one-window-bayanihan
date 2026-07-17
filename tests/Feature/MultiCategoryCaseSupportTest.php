@@ -4,11 +4,15 @@ namespace Tests\Feature;
 
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
+use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\Client;
+use App\Models\Referral;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
+use App\Services\ReferralService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -195,6 +199,104 @@ class MultiCategoryCaseSupportTest extends TestCase
             ->where('categories.0.id', $category->id)
             ->where('categories.0.case_files_count', 0)
         );
+    }
+
+    public function test_referral_service_category_ids_use_any_semantics_for_secondary_and_legacy_categories(): void
+    {
+        $service = app(ReferralService::class);
+        $agency = Agency::factory()->create();
+        $target = CaseCategory::factory()->create();
+        $secondary = CaseCategory::factory()->create();
+        $unrelated = CaseCategory::factory()->create();
+
+        $legacyCase = CaseFile::factory()->create(['category_id' => $target->id]);
+        $secondaryCase = CaseFile::factory()->create(['category_id' => null]);
+        $unrelatedCase = CaseFile::factory()->create(['category_id' => $unrelated->id]);
+        $this->linkCategories($secondaryCase, [$secondary->id]);
+
+        $legacyReferral = Referral::factory()->create(['case_id' => $legacyCase->id, 'agcy_id' => $agency->id]);
+        $secondaryReferral = Referral::factory()->create(['case_id' => $secondaryCase->id, 'agcy_id' => $agency->id]);
+        Referral::factory()->create(['case_id' => $unrelatedCase->id, 'agcy_id' => $agency->id]);
+
+        $results = $service->getReferrals(['category_ids' => [$target->id, $secondary->id]]);
+
+        $this->assertEqualsCanonicalizing(
+            [$legacyReferral->id, $secondaryReferral->id],
+            $results->getCollection()->pluck('id')->all(),
+        );
+    }
+
+    public function test_client_controller_category_ids_filter_matches_secondary_and_legacy_categories(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $target = CaseCategory::factory()->create();
+        $secondary = CaseCategory::factory()->create();
+        $unrelated = CaseCategory::factory()->create();
+        $legacyClient = Client::factory()->create();
+        $secondaryClient = Client::factory()->create();
+        $unrelatedClient = Client::factory()->create();
+
+        CaseFile::factory()->create(['client_id' => $legacyClient->id, 'category_id' => $target->id]);
+        $secondaryCase = CaseFile::factory()->create(['client_id' => $secondaryClient->id, 'category_id' => null]);
+        $this->linkCategories($secondaryCase, [$secondary->id]);
+        CaseFile::factory()->create(['client_id' => $unrelatedClient->id, 'category_id' => $unrelated->id]);
+
+        $response = $this->actingAs($admin)->get(route('clients.index', [
+            'category_ids' => [$target->id, $secondary->id],
+            'per_page' => 100,
+        ]));
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('clients.data', 2)
+            ->where('clients.data.0.id', fn ($id) => in_array($id, [$legacyClient->id, $secondaryClient->id], true))
+            ->where('clients.data.1.id', fn ($id) => in_array($id, [$legacyClient->id, $secondaryClient->id], true))
+        );
+    }
+
+    public function test_data_exports_category_ids_filter_cases_referrals_and_clients_without_duplicates(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $agency = Agency::factory()->create();
+        $target = CaseCategory::factory()->create(['name' => 'Target']);
+        $secondary = CaseCategory::factory()->create(['name' => 'Secondary']);
+        $unrelated = CaseCategory::factory()->create();
+        $legacyClient = Client::factory()->create();
+        $secondaryClient = Client::factory()->create();
+        $unrelatedClient = Client::factory()->create();
+
+        $legacyCase = CaseFile::factory()->create([
+            'client_id' => $legacyClient->id,
+            'category_id' => $target->id,
+        ]);
+        $secondaryCase = CaseFile::factory()->create([
+            'client_id' => $secondaryClient->id,
+            'category_id' => null,
+        ]);
+        $this->linkCategories($secondaryCase, [$target->id, $secondary->id]);
+        $unrelatedCase = CaseFile::factory()->create([
+            'client_id' => $unrelatedClient->id,
+            'category_id' => $unrelated->id,
+        ]);
+        $legacyReferral = Referral::factory()->create(['case_id' => $legacyCase->id, 'agcy_id' => $agency->id]);
+        $secondaryReferral = Referral::factory()->create(['case_id' => $secondaryCase->id, 'agcy_id' => $agency->id]);
+        Referral::factory()->create(['case_id' => $unrelatedCase->id, 'agcy_id' => $agency->id]);
+
+        $queries = app(DataExportQueries::class);
+        $filters = ['category_ids' => [$target->id, $secondary->id]];
+        $cases = $queries->getCasesExport($admin, $filters);
+        $referrals = $queries->getReferralsExport($admin, $filters);
+        $clients = $queries->getClientsExport($admin, $filters);
+
+        $this->assertCount(2, $cases);
+        $this->assertSame(2, $queries->countCasesExport($admin, $filters));
+        $this->assertSame('Secondary, Target', $cases->firstWhere('case_number', $secondaryCase->case_number)->categories);
+        $this->assertEqualsCanonicalizing([$legacyReferral->case_id, $secondaryReferral->case_id], $referrals->pluck('case_number')->map(
+            fn ($number) => CaseFile::where('case_number', $number)->value('id'),
+        )->all());
+        $this->assertCount(2, $referrals);
+        $this->assertSame(2, $queries->countReferralsExport($admin, $filters));
+        $this->assertCount(2, $clients);
+        $this->assertSame(2, $queries->countClientsExport($admin, $filters));
     }
 
     private function linkCategories(CaseFile $case, array $categoryIds): void
