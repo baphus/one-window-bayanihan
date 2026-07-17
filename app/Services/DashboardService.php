@@ -776,7 +776,7 @@ class DashboardService
         $dashboardWindow = now()->subDays(5);
 
         // Single aggregated query for case + referral counts (cached 60s)
-        $countsKey = 'dashboard:admin_counts';
+        $countsKey = 'dashboard:admin_counts_v2';
         [$caseCounts, $refCounts] = CacheHelper::safeRemember($countsKey, 60, function () use ($dashboardWindow) {
             $caseCounts = DB::selectOne("
                 SELECT
@@ -797,18 +797,18 @@ class DashboardService
                 FROM referrals WHERE is_deleted = false
             ", [$dashboardWindow]);
 
-            return [$caseCounts, $refCounts];
+            return [(array) $caseCounts, (array) $refCounts];
         });
-        $totalCases = (int) $caseCounts->total;
-        $openCases = (int) $caseCounts->open;
-        $closedCases = (int) $caseCounts->closed;
-        $totalReferrals = (int) $refCounts->total;
-        $pendingReferrals = (int) $refCounts->pending;
-        $processingReferrals = (int) $refCounts->processing;
-        $forComplianceReferrals = (int) $refCounts->for_compliance;
-        $completedReferrals = (int) $refCounts->completed;
-        $rejectedReferrals = (int) $refCounts->rejected;
-        $overdueReferrals = (int) $refCounts->overdue;
+        $totalCases = (int) $caseCounts['total'];
+        $openCases = (int) $caseCounts['open'];
+        $closedCases = (int) $caseCounts['closed'];
+        $totalReferrals = (int) $refCounts['total'];
+        $pendingReferrals = (int) $refCounts['pending'];
+        $processingReferrals = (int) $refCounts['processing'];
+        $forComplianceReferrals = (int) $refCounts['for_compliance'];
+        $completedReferrals = (int) $refCounts['completed'];
+        $rejectedReferrals = (int) $refCounts['rejected'];
+        $overdueReferrals = (int) $refCounts['overdue'];
 
         $referralStatusDistribution = $this->buildStatusDistributionFromCounts(
             ['PENDING' => $pendingReferrals, 'PROCESSING' => $processingReferrals, 'FOR_COMPLIANCE' => $forComplianceReferrals, 'COMPLETED' => $completedReferrals, 'REJECTED' => $rejectedReferrals],

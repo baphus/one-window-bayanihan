@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\CaseService;
 use App\Services\DashboardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -306,6 +307,20 @@ class DashboardServiceTest extends TestCase
         $this->assertSame('/referrals?status=PROCESSING', collect($data['operationalQueues'])->firstWhere('key', 'processingReferrals')['href']);
         $this->assertSame('/referrals?status=FOR_COMPLIANCE', collect($data['operationalQueues'])->firstWhere('key', 'forComplianceReferrals')['href']);
         $this->assertSame('/overdue-referrals', collect($data['operationalQueues'])->firstWhere('key', 'overdueReferrals')['href']);
+    }
+
+    #[Test]
+    public function admin_counts_cache_hit_remains_usable(): void
+    {
+        Cache::forget('dashboard:admin_counts_v2');
+
+        $first = app(DashboardService::class)->getAdminData();
+        $second = app(DashboardService::class)->getAdminData();
+
+        $this->assertSame($first['stats'], $second['stats']);
+        $this->assertSame($first['totalCases'], $second['totalCases']);
+        $this->assertSame($first['totalReferrals'], $second['totalReferrals']);
+        $this->assertArrayHasKey('operationalQueues', $second);
     }
 
     private function createCaseForClient(array $attributes = []): CaseFile
