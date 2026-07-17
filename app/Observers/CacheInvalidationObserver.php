@@ -113,7 +113,7 @@ class CacheInvalidationObserver
     {
         Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_counts');
-        Cache::forget('dashboard:admin_counts');
+        Cache::forget('dashboard:admin_counts_v2');
         Cache::forget('dashboard:cm_closed_days');
         Cache::forget('dashboard:cm_cases_by_category');
         Cache::forget('dashboard:cm_client_counts');
@@ -134,7 +134,7 @@ class CacheInvalidationObserver
         Cache::forget('stats:referrals:all:global');
         Cache::forget('stats:referrals:AGENCY:'.($this->getAgencyId() ?? 'global'));
         Cache::forget('dashboard:cm_counts');
-        Cache::forget('dashboard:admin_counts');
+        Cache::forget('dashboard:admin_counts_v2');
         Cache::forget('dashboard:cm_client_counts');
         Cache::forget('dashboard:cm_aging_bands');
         Cache::forget('dashboard:cm_priority_referrals');
