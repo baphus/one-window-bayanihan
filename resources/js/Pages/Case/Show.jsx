@@ -23,6 +23,29 @@ const vulnConfig = {
   'Indigenous Person': { icon: 'groups', className: 'bg-teal-100 text-teal-800 border-teal-200' },
 };
 
+function getCaseCategories(caseFile) {
+  if (Array.isArray(caseFile?.categories) && caseFile.categories.length) return caseFile.categories;
+  if (Array.isArray(caseFile?.category_ids) && caseFile.category_ids.length) {
+    return caseFile.category_ids.map((id) => (id && typeof id === 'object' ? id : { id, name: id }));
+  }
+  return caseFile?.category ? [caseFile.category] : [];
+}
+
+function CategoryBadges({ caseFile }) {
+  const categories = getCaseCategories(caseFile);
+  if (!categories.length) return <span className="text-slate-400">&mdash;</span>;
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {categories.map((category) => (
+        <span key={category.id || category.name} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
+          {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
+          {category.name || category.title}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function getCaseAgeDays(createdAt, status, updatedAt) {
   const created = new Date(createdAt).getTime();
   const end = status === 'CLOSED' ? new Date(updatedAt).getTime() : Date.now();
@@ -285,12 +308,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   function handleSaveDetails() {
     setSaving(true);
     bypassNext();
+    const category_ids = getCaseCategories(caseFile)
+      .map((category) => category?.id)
+      .filter((id) => id !== null && id !== undefined && id !== '');
     router.patch(route('cases.update', caseFile.id), {
       status: formStatus,
       client_type: formClientType,
       vulnerability_indicator: formVulnerability,
       nok_vulnerability_indicator: nokVulnerability,
       summary: formSummary,
+      // The update request is partial, but category_ids must still be sent so
+      // editing unrelated details does not discard existing assignments.
+      category_ids,
     }, {
       preserveScroll: true,
       onSuccess: () => {
@@ -477,15 +506,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <span className="text-[11px] text-slate-600">
               <span className="font-semibold text-slate-800">{clientTypeLabel}</span>
             </span>
-            {caseFile.category && (
+            {getCaseCategories(caseFile).length > 0 && (
               <>
                 <span className="text-[11px] text-slate-300 select-none">|</span>
-                <span className="text-[11px] text-slate-600">
-                  {caseFile.category.color && (
-                    <span className="w-2 h-2 rounded-full inline-block mr-1" style={{ backgroundColor: caseFile.category.color }} />
-                  )}
-                  <span className="font-semibold text-slate-800">{caseFile.category.name}</span>
-                </span>
+                <CategoryBadges caseFile={caseFile} />
               </>
             )}
           </div>
@@ -496,16 +520,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
               <MetaTile label="Client Type" value={clientTypeLabel} />
               <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
-              {caseFile.category && (
-                <MetaTile label="Category" value={
-                  <span className="inline-flex items-center gap-1.5">
-                    {caseFile.category.color && (
-                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: caseFile.category.color }} />
-                    )}
-                    {caseFile.category.name}
-                  </span>
-                } />
-              )}
+              {getCaseCategories(caseFile).length > 0 && <MetaTile label="Category" value={<CategoryBadges caseFile={caseFile} />} />}
               {caseFile.case_issue && (
                 <MetaTile label="Issue/Concern" value={caseFile.case_issue.name} />
               )}

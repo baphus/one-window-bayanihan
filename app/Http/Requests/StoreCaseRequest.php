@@ -29,6 +29,10 @@ class StoreCaseRequest extends FormRequest
             $this->merge(['category_id' => null]);
         }
 
+        if ($this->has('category_ids') && $this->input('category_ids') === '') {
+            $this->merge(['category_ids' => null]);
+        }
+
         if ($this->has('case_issue_id') && $this->case_issue_id === '') {
             $this->merge(['case_issue_id' => null]);
         }
@@ -89,7 +93,11 @@ class StoreCaseRequest extends FormRequest
             'vulnerability_indicator' => [$r, 'string', 'max:255'],
             'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', 'max:255'],
             'summary' => ['nullable', 'string', 'max:5000'],
-            'category_id' => [$r, 'string', 'exists:case_categories,id'],
+            // Drafts may be saved before categories are selected. Published case
+            // creation must contain at least one category in either format.
+            'category_id' => [$this->boolean('is_draft') ? 'nullable' : 'required_without:category_ids', 'nullable', 'string', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids' => [$this->boolean('is_draft') ? 'nullable' : 'required_without:category_id', 'nullable', 'array', $this->boolean('is_draft') ? 'nullable' : 'min:1'],
+            'category_ids.*' => ['uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
             'case_issue_id' => [$r, 'string', 'exists:case_issues,id'],
 
             'client.first_name' => [$r, 'string', 'max:255'],

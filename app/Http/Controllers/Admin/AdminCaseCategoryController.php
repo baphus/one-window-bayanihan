@@ -5,16 +5,19 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CaseCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class AdminCaseCategoryController extends Controller
 {
     public function index()
     {
-        $categories = CaseCategory::withCount('caseFiles')
-            ->orderBy('sort_order')
+        $categories = CaseCategory::orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->each(function (CaseCategory $category) {
+                $category->case_files_count = $this->categoryUsageCount($category->id);
+            });
 
         return Inertia::render('Admin/CaseCategory/Index', [
             'categories' => $categories,
@@ -57,16 +60,34 @@ class AdminCaseCategoryController extends Controller
 
     public function destroy(string $id)
     {
-        $category = CaseCategory::withCount('caseFiles')->findOrFail($id);
+        $category = CaseCategory::findOrFail($id);
+        $usageCount = $this->categoryUsageCount($category->id);
 
-        if ($category->case_files_count > 0) {
+        if ($usageCount > 0) {
             return redirect()->route('admin.case-categories.index')
-                ->with('error', 'Cannot delete category: '.$category->case_files_count.' case(s) are using it.');
+                ->with('error', 'Cannot delete category: '.$usageCount.' case(s) are using it.');
         }
 
         $category->update(['is_deleted' => true, 'is_active' => false]);
 
         return redirect()->route('admin.case-categories.index')
             ->with('success', 'Category deleted successfully.');
+    }
+
+    private function categoryUsageCount(string $categoryId): int
+    {
+        return (int) DB::table('cases AS c')
+            ->where('c.is_deleted', false)
+            ->where(function ($query) use ($categoryId) {
+                $query->where('c.category_id', $categoryId)
+                    ->orWhereExists(function ($pivot) use ($categoryId) {
+                        $pivot->selectRaw('1')
+                            ->from('case_category AS cc')
+                            ->whereColumn('cc.case_id', 'c.id')
+                            ->where('cc.case_category_id', $categoryId);
+                    });
+            })
+            ->distinct('c.id')
+            ->count('c.id');
     }
 }

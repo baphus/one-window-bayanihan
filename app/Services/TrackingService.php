@@ -19,7 +19,7 @@ class TrackingService
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
     {
-        return CaseFile::with([
+        $relations = [
             'client.addresses',
             'client.employments',
             'client.nextOfKin',
@@ -27,7 +27,13 @@ class TrackingService
             'referrals.complianceRequirements',
             'referrals.milestones.user',
             'user:id,name',
-        ])->where('tracker_number', $trackerNumber)->first();
+            'category',
+        ];
+        if (method_exists(CaseFile::class, 'categories')) {
+            $relations[] = 'categories';
+        }
+
+        return CaseFile::with($relations)->where('tracker_number', $trackerNumber)->first();
     }
 
     public function generateOtp(string $identifier, string $purpose = 'track'): string
@@ -171,6 +177,7 @@ class TrackingService
                     'caseNo' => $case->case_number,
                     'clientName' => $client ? "{$client->first_name} {$client->last_name}" : 'Unknown',
                     'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                    'categories' => $this->categoryPresentation($case),
                     'service' => $referrals->first()?->required_services ?? '',
                     'milestone' => '',
                     'status' => match ($case->status) {
@@ -194,6 +201,16 @@ class TrackingService
                 ],
             ];
         });
+    }
+
+    private function categoryPresentation(CaseFile $case): array
+    {
+        $categories = method_exists($case, 'categories') ? $case->categories : collect();
+        if ($categories->isNotEmpty()) {
+            return $categories->map(fn ($category) => ['name' => $category->name, 'color' => $category->color])->values()->all();
+        }
+
+        return $case->category ? [['name' => $case->category->name, 'color' => $case->category->color]] : [];
     }
 
     public function buildAgencyMilestonesData(CaseFile $case, Referral $referral): array

@@ -13,9 +13,35 @@ use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DataExportQueries
 {
+    private function categoryAssignmentTable(): ?string
+    {
+        return collect(['case_category', 'case_category_assignments', 'case_category_case', 'case_categories_case'])
+            ->first(fn ($table) => Schema::hasTable($table));
+    }
+
+    private function categoryNamesExpression(string $caseAlias): string
+    {
+        $table = $this->categoryAssignmentTable();
+        $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
+
+        return $table
+            ? "COALESCE((SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM {$table} ca JOIN case_categories cc ON cc.id = ca.{$column} WHERE ca.case_id = {$caseAlias}.id), (SELECT name FROM case_categories WHERE id = {$caseAlias}.category_id))"
+            : "(SELECT name FROM case_categories WHERE id = {$caseAlias}.category_id)";
+    }
+
+    /** @return array<int, string> */
+    private function categoryFilterIds(array $filters): array
+    {
+        $ids = ! empty($filters['category_ids']) ? $filters['category_ids'] : ($filters['category_id'] ?? []);
+        $ids = is_array($ids) ? $ids : ($ids === '' || $ids === null ? [] : [$ids]);
+
+        return array_values(array_filter($ids, static fn ($id) => $id !== null && $id !== ''));
+    }
+
     private function addresses(): AddressNameResolver
     {
         return app(AddressNameResolver::class);
@@ -64,6 +90,7 @@ class DataExportQueries
                 'user_id',
                 'client_id',
                 'category_id',
+                DB::raw($this->categoryNamesExpression('cases').' AS categories'),
                 'created_at',
                 'updated_at',
             ])
@@ -125,6 +152,7 @@ class DataExportQueries
                 DB::raw('(SELECT ce.position FROM client_employments ce WHERE ce.client_id = c.client_id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS work_position'),
                 // Case summary
                 'c.summary AS case_summary',
+                DB::raw($this->categoryNamesExpression('c').' AS categories'),
                 // Case issue (to-one)
                 'ci.name AS issue_concern',
                 // Receiving parties — comma-separated agency names from referrals (COALESCE handles empty)
@@ -189,8 +217,17 @@ class DataExportQueries
                     ->where('is_deleted', false);
             });
         }
-        if (! empty($filters['category_id'])) {
-            $query->where('c.category_id', $filters['category_id']);
+        $categoryIds = $this->categoryFilterIds($filters);
+        if ($categoryIds) {
+            $table = $this->categoryAssignmentTable();
+            $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
+            $query->where(function ($q) use ($categoryIds, $table, $column) {
+                $q->whereIn('c.category_id', $categoryIds);
+                if ($table) {
+                    $q->orWhereExists(fn ($sub) => $sub->selectRaw('1')->from($table.' AS ca')
+                        ->whereColumn('ca.case_id', 'c.id')->whereIn('ca.'.$column, $categoryIds));
+                }
+            });
         }
         if (! empty($filters['case_issue_id'])) {
             $query->where('c.case_issue_id', $filters['case_issue_id']);
@@ -448,11 +485,20 @@ class DataExportQueries
                     ->whereNotNull('c9.client_id');
             });
         }
-        if (! empty($filters['category_id'])) {
-            $query->whereIn('cl.id', function ($q) use ($filters) {
+        $categoryIds = $this->categoryFilterIds($filters);
+        if ($categoryIds) {
+            $table = $this->categoryAssignmentTable();
+            $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
+            $query->whereIn('cl.id', function ($q) use ($categoryIds, $table, $column) {
                 $q->select('c10.client_id')
                     ->from('cases AS c10')
-                    ->where('c10.category_id', $filters['category_id'])
+                    ->where(function ($category) use ($categoryIds, $table, $column) {
+                        $category->whereIn('c10.category_id', $categoryIds);
+                        if ($table) {
+                            $category->orWhereExists(fn ($sub) => $sub->selectRaw('1')->from($table.' AS ca')
+                                ->whereColumn('ca.case_id', 'c10.id')->whereIn('ca.'.$column, $categoryIds));
+                        }
+                    })
                     ->where('c10.is_deleted', false)
                     ->whereNotNull('c10.client_id');
             });

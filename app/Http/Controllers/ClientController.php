@@ -91,7 +91,12 @@ class ClientController extends Controller
 
         if (! empty($request->category_id)) {
             $clients->whereHas('caseFile', function ($q) use ($request) {
-                $q->where('category_id', $request->category_id);
+                $q->where(function ($caseQuery) use ($request) {
+                    $caseQuery->where('category_id', $request->category_id)
+                        ->orWhereHas('categories', function ($categoryQuery) use ($request) {
+                            $categoryQuery->where('case_categories.id', $request->category_id);
+                        });
+                });
             });
         }
 

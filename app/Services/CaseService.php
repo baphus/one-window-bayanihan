@@ -61,7 +61,7 @@ class CaseService
                 'status' => 'DRAFT',
                 'consent_given_at' => ! empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
-                'category_id' => $data['category_id'] ?? null,
+                'category_id' => ($categoryIds = $this->categoryIdsFromData($data))[0] ?? null,
                 'case_issue_id' => $data['case_issue_id'] ?? null,
             ];
 
@@ -85,6 +85,7 @@ class CaseService
             ];
 
             $case = CaseFile::create($createData);
+            $case->categories()->sync($categoryIds ?? []);
 
             $isExistingClient = ! empty($data['selected_client_id']);
 
@@ -172,7 +173,7 @@ class CaseService
                 $case->save();
             }
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });
     }
 
@@ -218,12 +219,13 @@ class CaseService
         return DB::transaction(function () use ($case, $data) {
             // Update CaseFile fields without triggering audit/notification events
             CaseFile::withoutEvents(function () use ($case, $data) {
+                $categoryIds = $this->categoryIdsFromData($data);
                 $updateData = [
                     'client_type' => $data['client_type'] ?? $case->client_type,
                     'vulnerability_indicator' => $data['vulnerability_indicator'] ?? $case->vulnerability_indicator,
                     'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? $case->nok_vulnerability_indicator,
                     'summary' => $data['summary'] ?? $case->summary,
-                    'category_id' => $data['category_id'] ?? $case->category_id,
+                    'category_id' => $categoryIds === null ? $case->category_id : ($categoryIds[0] ?? null),
                     'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
                 ];
 
@@ -276,6 +278,10 @@ class CaseService
                 $updateData['draft_client_data'] = $draftClientData;
 
                 $case->update($updateData);
+
+                if ($this->categoryIdsFromData($data) !== null) {
+                    $case->categories()->sync($this->categoryIdsFromData($data));
+                }
             });
 
             // Update linked client record when selected_client_id is provided (existing client mode)
@@ -363,13 +369,13 @@ class CaseService
             // No notifications — draft updates are internal
             // No case_number/tracker_number regeneration — keep existing values
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });
     }
 
     public function getUserDrafts(string $userId, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = CaseFile::with('client', 'category')
+        $query = CaseFile::with('client', 'category', 'categories')
             ->where('status', 'DRAFT')
             ->where('user_id', $userId);
 
@@ -487,7 +493,7 @@ class CaseService
 
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'caseIssue']);
+            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });
     }
 
@@ -503,7 +509,7 @@ class CaseService
             $missing[] = 'Client type';
         }
 
-        if (empty($case->category_id)) {
+        if (empty($case->category_id) && ! $case->categories()->exists()) {
             $missing[] = 'Category';
         }
 
@@ -618,6 +624,19 @@ class CaseService
         return $nokList[(int) $index]['id'] ?? null;
     }
 
+    private function categoryIdsFromData(array $data): ?array
+    {
+        if (array_key_exists('category_ids', $data)) {
+            return array_values(array_filter($data['category_ids'] ?? []));
+        }
+
+        if (array_key_exists('category_id', $data)) {
+            return $data['category_id'] ? [$data['category_id']] : [];
+        }
+
+        return null;
+    }
+
     public function getCases(array $filters = [], string $sort = 'created_at', string $direction = 'desc', int $perPage = 15)
     {
         $sortMap = [
@@ -629,7 +648,7 @@ class CaseService
         ];
         $sortColumn = $sortMap[$sort] ?? 'created_at';
 
-        $query = CaseFile::with(['client', 'user', 'category', 'caseIssue', 'referrals.agency', 'referrals.milestones']);
+        $query = CaseFile::with(['client', 'user', 'category', 'categories', 'caseIssue', 'referrals.agency', 'referrals.milestones']);
 
         $query->where('status', '!=', 'DRAFT');
 
@@ -671,8 +690,20 @@ class CaseService
             });
         }
 
-        if (! empty($filters['category_id'])) {
-            $query->where('category_id', $filters['category_id']);
+        if (! empty($filters['category_ids']) && is_array($filters['category_ids'])) {
+            $query->where(function ($q) use ($filters) {
+                $q->whereIn('category_id', $filters['category_ids'])
+                    ->orWhereHas('categories', function ($categoryQuery) use ($filters) {
+                        $categoryQuery->whereIn('case_categories.id', $filters['category_ids']);
+                    });
+            });
+        } elseif (! empty($filters['category_id'])) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('category_id', $filters['category_id'])
+                    ->orWhereHas('categories', function ($categoryQuery) use ($filters) {
+                        $categoryQuery->where('case_categories.id', $filters['category_id']);
+                    });
+            });
         }
 
         if (! empty($filters['case_issue_id'])) {
@@ -736,6 +767,7 @@ class CaseService
             'referrals.complianceRequirements',
             'user',
             'category',
+            'categories',
             'caseIssue',
             'documents' => fn ($q) => $q->where('is_deleted', false),
         ])->findOrFail($id);
@@ -745,6 +777,7 @@ class CaseService
     {
         return DB::transaction(function () use ($id, $data, $userId) {
             $case = CaseFile::findOrFail($id);
+            $categoryIds = $this->categoryIdsFromData($data);
             $old = $case->toArray();
             $oldStatus = $case->status;
             $newStatus = $data['status'] ?? $case->status;
@@ -762,7 +795,7 @@ class CaseService
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
-                'category_id' => $data['category_id'] ?? $case->category_id,
+                'category_id' => $categoryIds === null ? $case->category_id : ($categoryIds[0] ?? null),
                 'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
             ];
 
@@ -775,6 +808,10 @@ class CaseService
             }
 
             $case->update($updateData);
+
+            if ($this->categoryIdsFromData($data) !== null) {
+                $case->categories()->sync($this->categoryIdsFromData($data));
+            }
 
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
@@ -814,6 +851,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'categories',
                 'caseIssue',
             ]);
         });
@@ -846,6 +884,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'categories',
                 'caseIssue',
             ]);
         });
@@ -872,6 +911,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'categories',
                 'caseIssue',
             ]);
         });
@@ -945,6 +985,7 @@ class CaseService
                 'referrals.attachments.user',
                 'user',
                 'category',
+                'categories',
                 'caseIssue',
             ]);
         });

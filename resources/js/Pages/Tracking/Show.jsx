@@ -302,6 +302,13 @@ export default function TrackingShow({
           <p className="mt-1.5 text-sm text-primary-fixed/90">
             {trackedCase.clientName} · Case opened {formatLongDate(trackedCase.createdAt)}
           </p>
+          {trackedCase.categories?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {trackedCase.categories.map((category) => (
+                <span key={category.name} className="border border-white/30 px-2 py-1 text-[11px] font-semibold">{category.name}</span>
+              ))}
+            </div>
+          )}
 
           <p className="mt-6 max-w-2xl font-headline text-lg font-bold leading-snug sm:text-xl">
             {statusLine}

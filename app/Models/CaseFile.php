@@ -68,6 +68,12 @@ class CaseFile extends Model
         return $this->belongsTo(CaseCategory::class, 'category_id');
     }
 
+    public function categories()
+    {
+        return $this->belongsToMany(CaseCategory::class, 'case_category', 'case_id', 'case_category_id')
+            ->withTimestamps();
+    }
+
     public function caseIssue()
     {
         return $this->belongsTo(CaseIssue::class, 'case_issue_id');

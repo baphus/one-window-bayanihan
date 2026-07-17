@@ -121,13 +121,17 @@ class ReferralService
 
     public function getReferrals(array $filters = [], ?string $userAgencyId = null, ?string $userRole = null)
     {
-        $query = Referral::with([
+        $relations = [
             'caseFile.client.addresses',
             'caseFile.category',
             'caseFile.caseIssue',
             'agency',
             'milestones' => fn ($q) => $q->latest(),
-        ])->orderBy('created_at', 'desc');
+        ];
+        if (method_exists(CaseFile::class, 'categories')) {
+            $relations[] = 'caseFile.categories';
+        }
+        $query = Referral::with($relations)->orderBy('created_at', 'desc');
 
         if ($userRole === 'AGENCY' && $userAgencyId) {
             $query->where('agcy_id', $userAgencyId);
@@ -146,7 +150,12 @@ class ReferralService
         }
 
         if (! empty($filters['category_id'])) {
-            $query->whereHas('caseFile', fn ($q) => $q->where('category_id', $filters['category_id']));
+            $query->whereHas('caseFile', function ($q) use ($filters) {
+                $q->where('category_id', $filters['category_id']);
+                if (method_exists(CaseFile::class, 'categories')) {
+                    $q->orWhereHas('categories', fn ($categories) => $categories->whereKey($filters['category_id']));
+                }
+            });
         }
 
         if (! empty($filters['case_issue_id'])) {
@@ -192,7 +201,7 @@ class ReferralService
 
     public function getReferral(string $id): Referral
     {
-        return Referral::with([
+        $relations = [
             'caseFile.client.addresses',
             'caseFile.client.employments',
             'caseFile.client.nextOfKin',
@@ -205,7 +214,12 @@ class ReferralService
             'comments.user',
             'comments.replies.user',
             'complianceRequirements.fulfilledBy',
-        ])->findOrFail($id);
+        ];
+        if (method_exists(CaseFile::class, 'categories')) {
+            $relations[] = 'caseFile.categories';
+        }
+
+        return Referral::with($relations)->findOrFail($id);
     }
 
     public function getServiceRequirements(string $agencyId): array

@@ -38,4 +38,10 @@ class CaseCategory extends Model
     {
         return $this->hasMany(CaseFile::class, 'category_id');
     }
+
+    public function cases()
+    {
+        return $this->belongsToMany(CaseFile::class, 'case_category', 'case_category_id', 'case_id')
+            ->withTimestamps();
+    }
 }

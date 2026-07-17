@@ -30,7 +30,7 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
-        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
+        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
 
         $cases = $this->caseService->getCases(
             $request->only($filterKeys),
@@ -47,7 +47,7 @@ class CaseController extends Controller
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countCasesExport($request->user(), array_filter($request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to']))),
+            'exportRowCount' => (new DataExportQueries)->countCasesExport($request->user(), array_filter($request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to']))),
         ]);
     }
 
@@ -256,7 +256,7 @@ class CaseController extends Controller
 
         $filters = $request->only([
             'status', 'search', 'client_type', 'vulnerability_indicator',
-            'user_id', 'agcy_id', 'category_id', 'case_issue_id',
+            'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
             'age_min_days', 'referral_state', 'date_from', 'date_to',
         ]);
 
@@ -302,6 +302,7 @@ class CaseController extends Controller
             ['key' => 'previous_country',   'label' => 'Previous Country',     'type' => 'string'],
             ['key' => 'work_position',      'label' => 'Work Position',        'type' => 'string'],
             ['key' => 'issue_concern',      'label' => 'Issues/Concern',       'type' => 'string'],
+            ['key' => 'categories',         'label' => 'Categories',           'type' => 'string'],
             ['key' => 'case_summary',       'label' => 'Case Summary',         'type' => 'string'],
             ['key' => 'receiving_parties',  'label' => 'Receiving Party/s',    'type' => 'string'],
             ['key' => 'nok_full_name',      'label' => 'NOK Full Name',        'type' => 'string'],

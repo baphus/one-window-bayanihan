@@ -15,6 +15,14 @@ class UpdateCaseRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->has('category_id') && $this->category_id === '') {
+            $this->merge(['category_id' => null]);
+        }
+
+        if ($this->has('category_ids') && $this->input('category_ids') === '') {
+            $this->merge(['category_ids' => null]);
+        }
+
         foreach (['vulnerability_indicator', 'nok_vulnerability_indicator'] as $field) {
             if ($this->has($field)) {
                 $raw = $this->input($field);
@@ -37,6 +45,11 @@ class UpdateCaseRequest extends FormRequest
             'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
             'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255'],
             'summary' => ['nullable', 'string', 'max:5000'],
+            // Category fields are optional on partial edits; existing assignments
+            // remain unchanged when neither field is submitted.
+            'category_id' => ['nullable', 'string', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids' => ['nullable', 'array'],
+            'category_ids.*' => ['uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
         ];
     }
 }
