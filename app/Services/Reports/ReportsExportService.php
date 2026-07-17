@@ -8,7 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class ReportsExportService
 {
@@ -248,11 +247,7 @@ class ReportsExportService
 
     private function caseRows($base)
     {
-        $table = collect(['case_category', 'case_category_assignments', 'case_category_case', 'case_categories_case'])->first(fn ($t) => Schema::hasTable($t));
-        $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
-        $category = $table
-            ? "COALESCE((SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM {$table} ca JOIN case_categories cc ON cc.id = ca.{$column} WHERE ca.case_id = cases.id), (SELECT name FROM case_categories WHERE id = cases.category_id))"
-            : '(SELECT name FROM case_categories WHERE id = cases.category_id)';
+        $category = "(SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM case_category ca JOIN case_categories cc ON cc.id = ca.case_category_id WHERE ca.case_id = cases.id)";
 
         return (clone $base)->leftJoin('case_issues', 'case_issues.id', '=', 'cases.case_issue_id')
             ->selectRaw("cases.id as case_id, cases.case_number, cases.client_type, {$category} as category, case_issues.name as issue, cases.status, cases.created_at, cases.updated_at, cases.closed_at, DATE_PART('day', NOW() - cases.created_at)::int as age_days")

@@ -15,6 +15,7 @@ use App\Services\OnboardingService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
 use App\Services\TrackingService;
+use App\Support\CategoryFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -31,9 +32,10 @@ class CaseController extends Controller
     public function index(Request $request)
     {
         $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
+        $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
         $cases = $this->caseService->getCases(
-            $request->only($filterKeys),
+            array_merge($request->only($filterKeys), $categoryFilters),
             $request->input('sort', 'created_at'),
             $request->input('direction', 'desc'),
             (int) $request->input('per_page', 15)
@@ -41,13 +43,13 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => (object) $request->only($filterKeys),
+            'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters),
             'stats' => $this->caseService->getCaseStats(),
             'users' => $this->referenceData->getCaseManagerUsers(),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countCasesExport($request->user(), array_filter($request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to']))),
+            'exportRowCount' => (new DataExportQueries)->countCasesExport($request->user(), array_filter(array_merge($request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to']), $categoryFilters))),
         ]);
     }
 
@@ -254,11 +256,11 @@ class CaseController extends Controller
         $user = auth()->user();
         $queries = new DataExportQueries;
 
-        $filters = $request->only([
+        $filters = array_merge($request->only([
             'status', 'search', 'client_type', 'vulnerability_indicator',
             'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
             'age_min_days', 'referral_state', 'date_from', 'date_to',
-        ]);
+        ]), CategoryFilter::fromRequest($request)->toArray());
 
         $cases = $queries->getCasesExport($user, array_filter($filters));
 

@@ -47,9 +47,26 @@ class UpdateCaseRequest extends FormRequest
             'summary' => ['nullable', 'string', 'max:5000'],
             // Category fields are optional on partial edits; existing assignments
             // remain unchanged when neither field is submitted.
-            'category_id' => ['nullable', 'string', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_id' => ['bail', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
             'category_ids' => ['nullable', 'array'],
-            'category_ids.*' => ['uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
         ];
+    }
+
+    protected function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->has('category_id') && $this->has('category_ids')) {
+                $validator->errors()->add('category_ids', 'Use either category_id or category_ids, not both.');
+            }
+
+            if ($this->has('category_id') && ! $this->filled('category_id')) {
+                $validator->errors()->add('category_id', 'At least one category is required.');
+            }
+
+            if ($this->has('category_ids') && empty($this->input('category_ids'))) {
+                $validator->errors()->add('category_ids', 'At least one category is required.');
+            }
+        });
     }
 }

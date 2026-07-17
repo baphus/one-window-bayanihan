@@ -2,7 +2,6 @@
 
 namespace App\Observers;
 
-use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -15,6 +14,7 @@ use App\Models\ServiceRequirement;
 use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Services\ReferenceDataService;
+use App\Services\ReferralService;
 use App\Services\ReportsService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
@@ -41,7 +41,7 @@ class CacheInvalidationObserver
 
         // If a user's agency assignment changed, invalidate their cached agency
         if ($model instanceof User && $model->wasChanged('agcy_id')) {
-            HandleInertiaRequests::invalidateUserAgency($model->id);
+            Cache::forget("user:{$model->id}:agency");
         }
 
         // If a user's role changed, invalidate user lists
@@ -87,7 +87,9 @@ class CacheInvalidationObserver
     private function invalidateCategory(): void
     {
         ReferenceDataService::invalidateCategories();
+        Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_cases_by_category');
+        Cache::forget('dashboard:admin_cases_by_category');
         ReportsService::invalidateAll();
     }
 
@@ -111,6 +113,7 @@ class CacheInvalidationObserver
 
     private function invalidateCase(?CaseFile $case = null): void
     {
+        ReferralService::invalidateReferralStats();
         Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_counts');
         Cache::forget('dashboard:admin_counts_v2');
@@ -129,10 +132,8 @@ class CacheInvalidationObserver
 
     private function invalidateReferral(): void
     {
+        ReferralService::invalidateReferralStats();
         Cache::forget('stats:cases');
-        // Invalidate all referral stats (could be role-specific, but simplest to clear all)
-        Cache::forget('stats:referrals:all:global');
-        Cache::forget('stats:referrals:AGENCY:'.($this->getAgencyId() ?? 'global'));
         Cache::forget('dashboard:cm_counts');
         Cache::forget('dashboard:admin_counts_v2');
         Cache::forget('dashboard:cm_client_counts');
@@ -163,10 +164,5 @@ class CacheInvalidationObserver
         // Rely on TTL (90s) for tracking data freshness
         // Clear dashboard priority referrals since milestone activity affects overdue logic
         Cache::forget('dashboard:cm_priority_referrals');
-    }
-
-    private function getAgencyId(): ?string
-    {
-        return null; // Can't reliably get from observer context; rely on TTL for agency-scoped keys
     }
 }

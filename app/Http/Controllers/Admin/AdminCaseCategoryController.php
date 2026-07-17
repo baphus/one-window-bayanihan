@@ -58,17 +58,39 @@ class AdminCaseCategoryController extends Controller
             ->with('success', 'Category updated successfully.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        $category = CaseCategory::findOrFail($id);
-        $usageCount = $this->categoryUsageCount($category->id);
+        $usageCount = 0;
+
+        DB::transaction(function () use ($request, $id, &$usageCount) {
+            // Case mutations lock cases before categories. Keep the same
+            // order here to avoid deadlocks with concurrent assignments.
+            $caseIds = $this->categoryCaseIds($id);
+
+            if ($caseIds->isNotEmpty()) {
+                DB::table('cases AS c')
+                    ->whereIn('c.id', $caseIds)
+                    ->orderBy('c.id')
+                    ->lockForUpdate()
+                    ->get(['c.id']);
+            }
+
+            $category = CaseCategory::whereKey($id)->lockForUpdate()->firstOrFail();
+            $usageCount = $this->categoryUsageCount($category->id);
+
+            if ($usageCount > 0) {
+                return;
+            }
+
+            $category->is_active = false;
+            $category->deleted_by = $request->user()->id;
+            $category->delete();
+        });
 
         if ($usageCount > 0) {
             return redirect()->route('admin.case-categories.index')
                 ->with('error', 'Cannot delete category: '.$usageCount.' case(s) are using it.');
         }
-
-        $category->update(['is_deleted' => true, 'is_active' => false]);
 
         return redirect()->route('admin.case-categories.index')
             ->with('success', 'Category deleted successfully.');
@@ -76,18 +98,21 @@ class AdminCaseCategoryController extends Controller
 
     private function categoryUsageCount(string $categoryId): int
     {
-        return (int) DB::table('cases AS c')
+        return (int) DB::table('case_category AS cc')
+            ->join('cases AS c', 'c.id', '=', 'cc.case_id')
+            ->where('cc.case_category_id', $categoryId)
             ->where('c.is_deleted', false)
-            ->where(function ($query) use ($categoryId) {
-                $query->where('c.category_id', $categoryId)
-                    ->orWhereExists(function ($pivot) use ($categoryId) {
-                        $pivot->selectRaw('1')
-                            ->from('case_category AS cc')
-                            ->whereColumn('cc.case_id', 'c.id')
-                            ->where('cc.case_category_id', $categoryId);
-                    });
-            })
-            ->distinct('c.id')
-            ->count('c.id');
+            ->distinct()
+            ->count('cc.case_id');
+    }
+
+    private function categoryCaseIds(string $categoryId)
+    {
+        return DB::table('case_category AS cc')
+            ->where('cc.case_category_id', $categoryId)
+            ->orderBy('cc.case_id')
+            ->pluck('cc.case_id')
+            ->unique()
+            ->values();
     }
 }

@@ -13,24 +13,12 @@ use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class DataExportQueries
 {
-    private function categoryAssignmentTable(): ?string
-    {
-        return collect(['case_category', 'case_category_assignments', 'case_category_case', 'case_categories_case'])
-            ->first(fn ($table) => Schema::hasTable($table));
-    }
-
     private function categoryNamesExpression(string $caseAlias): string
     {
-        $table = $this->categoryAssignmentTable();
-        $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
-
-        return $table
-            ? "COALESCE((SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM {$table} ca JOIN case_categories cc ON cc.id = ca.{$column} WHERE ca.case_id = {$caseAlias}.id), (SELECT name FROM case_categories WHERE id = {$caseAlias}.category_id))"
-            : "(SELECT name FROM case_categories WHERE id = {$caseAlias}.category_id)";
+        return "COALESCE((SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM case_category ca JOIN case_categories cc ON cc.id = ca.case_category_id WHERE ca.case_id = {$caseAlias}.id), (SELECT name FROM case_categories WHERE id = {$caseAlias}.category_id))";
     }
 
     /** @return array<int, string> */
@@ -54,18 +42,12 @@ class DataExportQueries
             return $query;
         }
 
-        $table = $this->categoryAssignmentTable();
-        $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
-
-        return $query->where(function ($category) use ($categoryIds, $caseAlias, $table, $column) {
+        return $query->where(function ($category) use ($categoryIds, $caseAlias) {
             $category->whereIn($caseAlias.'.category_id', $categoryIds);
-
-            if ($table) {
-                $category->orWhereExists(fn ($sub) => $sub->selectRaw('1')
-                    ->from($table.' AS category_assignment')
-                    ->whereColumn('category_assignment.case_id', $caseAlias.'.id')
-                    ->whereIn('category_assignment.'.$column, $categoryIds));
-            }
+            $category->orWhereExists(fn ($sub) => $sub->selectRaw('1')
+                ->from('case_category AS category_assignment')
+                ->whereColumn('category_assignment.case_id', $caseAlias.'.id')
+                ->whereIn('category_assignment.case_category_id', $categoryIds));
         });
     }
 
@@ -396,6 +378,10 @@ class DataExportQueries
      */
     public function getClientsExport(?User $user = null, array $filters = []): Collection
     {
+        if ($user?->role === 'AGENCY' && ! $user->agcy_id) {
+            return collect();
+        }
+
         $query = DB::table('clients AS cl')
             ->select([
                 // Client info
@@ -672,6 +658,10 @@ class DataExportQueries
      */
     public function getReferralsExport(?User $user = null, array $filters = []): Collection
     {
+        if ($user?->role === 'AGENCY' && ! $user->agcy_id) {
+            return collect();
+        }
+
         $query = DB::table('referrals AS r')
             ->select([
                 // Case info
@@ -770,12 +760,20 @@ class DataExportQueries
         $this->applyCategoryFilter($query, 'c', $filters);
 
         if (! $this->isAdmin($user)) {
-            $query->whereIn('r.case_id', function ($q) use ($user) {
-                $q->select('id')
-                    ->from('cases')
-                    ->where('user_id', $user->id)
-                    ->where('is_deleted', false);
-            });
+            if ($user?->role === 'CASE_MANAGER') {
+                $query->whereIn('r.case_id', function ($q) use ($user) {
+                    $q->select('id')
+                        ->from('cases')
+                        ->where('user_id', $user->id)
+                        ->where('is_deleted', false);
+                });
+            } elseif ($user?->role === 'AGENCY' && $user->agcy_id) {
+                $query->where('r.agcy_id', $user->agcy_id);
+            } else {
+                // AGENCY users without an assigned agency, and unknown
+                // non-admin roles, must not receive an unrestricted export.
+                $query->whereRaw('1 = 0');
+            }
         }
 
         // Safety cap — prevents memory exhaustion on unbounded exports.

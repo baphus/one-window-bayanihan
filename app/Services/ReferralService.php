@@ -16,16 +16,31 @@ use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class ReferralService
 {
+    public const REFERRAL_STATS_CACHE_VERSION_KEY = 'stats:referrals:version';
+
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly CaseEventRecorder $eventRecorder,
     ) {}
+
+    public static function referralStatsCacheKey(?string $userAgencyId, ?string $userRole, ?string $userId): string
+    {
+        $version = (int) Cache::rememberForever(self::REFERRAL_STATS_CACHE_VERSION_KEY, static fn () => 1);
+
+        return 'stats:referrals:v'.$version.':'.($userRole ?? 'all').':'.($userAgencyId ?? 'global').':'.($userId ?? 'global');
+    }
+
+    public static function invalidateReferralStats(): void
+    {
+        Cache::increment(self::REFERRAL_STATS_CACHE_VERSION_KEY);
+    }
 
     public function createReferral(array $data, string $userId): Referral
     {
@@ -83,17 +98,30 @@ class ReferralService
         });
     }
 
-    public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null): array
+    public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null, ?string $userId = null): array
     {
-        $cacheKey = 'stats:referrals:'.($userRole ?? 'all').':'.($userAgencyId ?? 'global');
+        $cacheKey = self::referralStatsCacheKey($userAgencyId, $userRole, $userId);
 
-        return CacheHelper::safeRemember($cacheKey, 120, function () use ($userAgencyId, $userRole) {
+        return CacheHelper::safeRemember($cacheKey, 120, function () use ($userAgencyId, $userRole, $userId) {
+            if ($userRole === 'AGENCY' && ! $userAgencyId) {
+                return array_fill_keys(['total_referrals', 'pending', 'processing', 'for_compliance', 'completed', 'rejected'], 0);
+            }
+
+            if ($userRole === 'CASE_MANAGER' && ! $userId) {
+                return array_fill_keys(['total_referrals', 'pending', 'processing', 'for_compliance', 'completed', 'rejected'], 0);
+            }
+
             $where = 'WHERE is_deleted = false';
             $bindings = [];
 
             if ($userRole === 'AGENCY' && $userAgencyId) {
                 $where .= ' AND agcy_id = ?';
                 $bindings[] = $userAgencyId;
+            }
+
+            if ($userRole === 'CASE_MANAGER') {
+                $where .= ' AND EXISTS (SELECT 1 FROM cases c WHERE c.id = referrals.case_id AND c.user_id = ? AND c.is_deleted = false)';
+                $bindings[] = $userId;
             }
 
             $counts = DB::selectOne("
@@ -119,7 +147,7 @@ class ReferralService
         });
     }
 
-    public function getReferrals(array $filters = [], ?string $userAgencyId = null, ?string $userRole = null)
+    public function getReferrals(array $filters = [], ?string $userAgencyId = null, ?string $userRole = null, ?string $userId = null)
     {
         $relations = [
             'caseFile.client.addresses',
@@ -128,13 +156,25 @@ class ReferralService
             'agency',
             'milestones' => fn ($q) => $q->latest(),
         ];
-        if (method_exists(CaseFile::class, 'categories')) {
-            $relations[] = 'caseFile.categories';
-        }
+        $relations[] = 'caseFile.categories';
         $query = Referral::with($relations)->orderBy('created_at', 'desc');
 
-        if ($userRole === 'AGENCY' && $userAgencyId) {
-            $query->where('agcy_id', $userAgencyId);
+        if ($userRole === 'AGENCY') {
+            if (! $userAgencyId) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where('agcy_id', $userAgencyId);
+            }
+        }
+
+        if ($userRole === 'CASE_MANAGER') {
+            if (! $userId) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereHas('caseFile', fn ($q) => $q
+                    ->where('user_id', $userId)
+                    ->where('is_deleted', false));
+            }
         }
 
         if (! empty($filters['status'])) {
@@ -159,9 +199,7 @@ class ReferralService
             $query->whereHas('caseFile', function ($q) use ($categoryIds) {
                 $q->where(function ($categoryQuery) use ($categoryIds) {
                     $categoryQuery->whereIn('category_id', $categoryIds);
-                    if (method_exists(CaseFile::class, 'categories')) {
-                        $categoryQuery->orWhereHas('categories', fn ($categories) => $categories->whereIn('case_categories.id', $categoryIds));
-                    }
+                    $categoryQuery->orWhereHas('categories', fn ($categories) => $categories->whereIn('case_categories.id', $categoryIds));
                 });
             });
         }
@@ -223,9 +261,7 @@ class ReferralService
             'comments.replies.user',
             'complianceRequirements.fulfilledBy',
         ];
-        if (method_exists(CaseFile::class, 'categories')) {
-            $relations[] = 'caseFile.categories';
-        }
+        $relations[] = 'caseFile.categories';
 
         return Referral::with($relations)->findOrFail($id);
     }
@@ -365,8 +401,10 @@ class ReferralService
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
             ->where('created_at', '<', $cutoff);
 
-        if ($userRole === 'AGENCY' && $userAgencyId) {
-            $query->where('agcy_id', $userAgencyId);
+        if ($userRole === 'AGENCY') {
+            $userAgencyId
+                ? $query->where('agcy_id', $userAgencyId)
+                : $query->whereRaw('1 = 0');
         }
 
         return $query->orderBy('created_at')->paginate(15);
@@ -407,7 +445,9 @@ class ReferralService
             'CASE_MANAGER' => $query->whereIn(
                 'case_id', CaseFile::where('user_id', $userId)->select('id'),
             ),
-            'AGENCY' => $query->where('agcy_id', $userAgencyId),
+            'AGENCY' => $userAgencyId
+                ? $query->where('agcy_id', $userAgencyId)
+                : $query->whereRaw('1 = 0'),
         };
 
         // Status filter

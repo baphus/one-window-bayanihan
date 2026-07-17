@@ -140,6 +140,40 @@ class ReportsExportServiceTest extends TestCase
     }
 
     #[Test]
+    public function case_export_uses_secondary_pivot_categories_without_scalar_category(): void
+    {
+        [$agency] = $this->seedAgencies();
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $secondary = CaseCategory::factory()->create(['name' => 'Secondary category']);
+        $case = CaseFile::factory()->create([
+            'case_number' => 'CASE-PIVOT-CATEGORY-001',
+            'user_id' => $manager->id,
+            'category_id' => null,
+            'created_at' => CarbonImmutable::parse('2026-03-01 00:00:00'),
+            'updated_at' => CarbonImmutable::parse('2026-03-02 00:00:00'),
+        ]);
+        DB::table('case_category')->insert([
+            'id' => (string) Str::uuid(),
+            'case_id' => $case->id,
+            'case_category_id' => $secondary->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        Referral::factory()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+            'status' => 'PENDING',
+            'required_services' => 'Assistance',
+        ]);
+
+        $sheets = $this->service->buildExcelSheets($this->requestFor($manager));
+        $row = $this->sheetRows($sheets, 'Case Details')->firstWhere('case_number', $case->case_number);
+
+        $this->assertNotNull($row);
+        $this->assertSame($secondary->name, $row->category);
+    }
+
+    #[Test]
     public function pdf_top_referrals_are_limited_to_active_risk_ranked_rows(): void
     {
         [$agency] = $this->seedAgencies();

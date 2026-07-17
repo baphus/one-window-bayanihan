@@ -95,9 +95,9 @@ class StoreCaseRequest extends FormRequest
             'summary' => ['nullable', 'string', 'max:5000'],
             // Drafts may be saved before categories are selected. Published case
             // creation must contain at least one category in either format.
-            'category_id' => [$this->boolean('is_draft') ? 'nullable' : 'required_without:category_ids', 'nullable', 'string', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_id' => ['bail', $this->boolean('is_draft') ? 'nullable' : 'required_without:category_ids', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
             'category_ids' => [$this->boolean('is_draft') ? 'nullable' : 'required_without:category_id', 'nullable', 'array', $this->boolean('is_draft') ? 'nullable' : 'min:1'],
-            'category_ids.*' => ['uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
             'case_issue_id' => [$r, 'string', 'exists:case_issues,id'],
 
             'client.first_name' => [$r, 'string', 'max:255'],
@@ -145,5 +145,18 @@ class StoreCaseRequest extends FormRequest
             'employment.last_position' => [$r, 'string', 'max:255'],
             'employment.date_of_arrival' => [$r, 'date'],
         ];
+    }
+
+    protected function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->has('category_id') && $this->has('category_ids')) {
+                $validator->errors()->add('category_ids', 'Use either category_id or category_ids, not both.');
+            }
+
+            if (! $this->boolean('is_draft') && (! $this->filled('category_id') && empty($this->input('category_ids')))) {
+                $validator->errors()->add('category_ids', 'At least one category is required.');
+            }
+        });
     }
 }

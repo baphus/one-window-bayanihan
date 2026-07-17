@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Helpers\CacheHelper;
+use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
@@ -15,6 +17,7 @@ use App\Notifications\CaseUpdated;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -52,6 +55,10 @@ class CaseService
     private function createCaseInternal(array $data, string $userId): CaseFile
     {
         return DB::transaction(function () use ($data, $userId) {
+            $categoryMutation = $this->resolveCategoryMutation($data);
+            $categoryIds = $categoryMutation['ids'] ?? [];
+            $this->lockActiveCategories($categoryIds);
+
             $createData = [
                 'case_number' => $this->generateCaseNumber(),
                 'tracker_number' => $this->generateTrackerNumber(),
@@ -61,7 +68,7 @@ class CaseService
                 'status' => 'DRAFT',
                 'consent_given_at' => ! empty($data['consent']) ? now() : null,
                 'user_id' => $userId,
-                'category_id' => ($categoryIds = $this->categoryIdsFromData($data))[0] ?? null,
+                'category_id' => $this->primaryCategoryId($categoryIds, null, $categoryMutation['legacy'] ?? false),
                 'case_issue_id' => $data['case_issue_id'] ?? null,
             ];
 
@@ -85,7 +92,7 @@ class CaseService
             ];
 
             $case = CaseFile::create($createData);
-            $case->categories()->sync($categoryIds ?? []);
+            $this->syncCaseCategories($case, $categoryIds);
 
             $isExistingClient = ! empty($data['selected_client_id']);
 
@@ -210,22 +217,27 @@ class CaseService
 
     public function updateDraft(string $id, array $data, string $userId): CaseFile
     {
-        $case = CaseFile::where('status', 'DRAFT')->findOrFail($id);
+        return DB::transaction(function () use ($id, $data, $userId) {
+            $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
-        if ($case->user_id !== $userId) {
-            throw new AuthorizationException('You do not own this draft.');
-        }
+            if ($case->user_id !== $userId) {
+                throw new AuthorizationException('You do not own this draft.');
+            }
 
-        return DB::transaction(function () use ($case, $data) {
+            $categoryMutation = $this->resolveCategoryMutation($data);
+            $categoryIds = $categoryMutation['ids'] ?? [];
+            if ($categoryMutation !== null) {
+                $this->lockActiveCategories($categoryIds);
+            }
+
             // Update CaseFile fields without triggering audit/notification events
-            CaseFile::withoutEvents(function () use ($case, $data) {
-                $categoryIds = $this->categoryIdsFromData($data);
+            CaseFile::withoutEvents(function () use ($case, $data, $categoryMutation, $categoryIds) {
                 $updateData = [
                     'client_type' => $data['client_type'] ?? $case->client_type,
                     'vulnerability_indicator' => $data['vulnerability_indicator'] ?? $case->vulnerability_indicator,
                     'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? $case->nok_vulnerability_indicator,
                     'summary' => $data['summary'] ?? $case->summary,
-                    'category_id' => $categoryIds === null ? $case->category_id : ($categoryIds[0] ?? null),
+                    'category_id' => $categoryMutation === null ? $case->category_id : $this->primaryCategoryId($categoryIds, $case->category_id, $categoryMutation['legacy']),
                     'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
                 ];
 
@@ -279,8 +291,8 @@ class CaseService
 
                 $case->update($updateData);
 
-                if ($this->categoryIdsFromData($data) !== null) {
-                    $case->categories()->sync($this->categoryIdsFromData($data));
+                if ($categoryMutation !== null) {
+                    $this->syncCaseCategories($case, $categoryIds);
                 }
             });
 
@@ -406,13 +418,23 @@ class CaseService
     public function publishDraft(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $userId) {
-            $case = CaseFile::where('status', 'DRAFT')->findOrFail($id);
+            $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
             if ($case->user_id !== $userId) {
                 throw new AuthorizationException('You do not own this draft.');
             }
 
             $case->loadMissing(['client.addresses', 'client.nextOfKin']);
+            $oldCategoryIds = $case->categories()->pluck('case_categories.id')->all();
+            $this->revalidatePublishedCategories($case);
+            $this->recordCategoryMutation(
+                $case,
+                $oldCategoryIds,
+                $case->categories()->pluck('case_categories.id')->all(),
+                $userId,
+                'PUBLISH',
+                true,
+            );
             $this->assertDraftCompleteForPublishing($case);
 
             // Capture the draft state before publishing (for audit diff)
@@ -509,7 +531,7 @@ class CaseService
             $missing[] = 'Client type';
         }
 
-        if (empty($case->category_id) && ! $case->categories()->exists()) {
+        if ($case->categories()->count() === 0) {
             $missing[] = 'Category';
         }
 
@@ -624,17 +646,114 @@ class CaseService
         return $nokList[(int) $index]['id'] ?? null;
     }
 
-    private function categoryIdsFromData(array $data): ?array
+    private function resolveCategoryMutation(array $data): ?array
     {
-        if (array_key_exists('category_ids', $data)) {
-            return array_values(array_filter($data['category_ids'] ?? []));
+        $hasScalar = array_key_exists('category_id', $data);
+        $hasArray = array_key_exists('category_ids', $data);
+
+        if ($hasScalar && $hasArray) {
+            throw ValidationException::withMessages(['category_ids' => 'Use either category_id or category_ids, not both.']);
         }
 
-        if (array_key_exists('category_id', $data)) {
-            return $data['category_id'] ? [$data['category_id']] : [];
+        if (! $hasScalar && ! $hasArray) {
+            return null;
         }
 
-        return null;
+        $ids = $hasArray ? ($data['category_ids'] ?? []) : (($data['category_id'] ?? null) ? [$data['category_id']] : []);
+        $ids = array_values(array_unique(array_filter($ids)));
+
+        return ['ids' => $ids, 'legacy' => $hasScalar];
+    }
+
+    private function lockActiveCategories(array $ids): void
+    {
+        $categories = CaseCategory::whereIn('id', $ids)->where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')->orderBy('id')->lockForUpdate()->get();
+        if ($categories->count() !== count($ids)) {
+            throw ValidationException::withMessages(['category_ids' => 'All selected categories must be active.']);
+        }
+    }
+
+    private function syncCaseCategories(CaseFile $case, array $categoryIds): void
+    {
+        $changes = $case->categories()->sync($categoryIds);
+
+        if ($case->status !== 'DRAFT' && array_filter($changes, fn ($items) => ! empty($items))) {
+            $this->invalidateCategoryCaches($case);
+        }
+    }
+
+    private function invalidateCategoryCaches(CaseFile $case): void
+    {
+        Cache::forget('stats:cases');
+        Cache::forget('dashboard:cm_cases_by_category');
+        Cache::forget('dashboard:admin_cases_by_category');
+        Cache::forget('tracking:data:'.$case->id);
+        ReportsService::invalidateAll();
+    }
+
+    private function recordCategoryMutation(
+        CaseFile $case,
+        array $oldCategoryIds,
+        array $newCategoryIds,
+        string $userId,
+        string $action = 'UPDATE',
+        bool $force = false,
+    ): void {
+        $oldCategoryIds = $this->sortedCategoryIds($oldCategoryIds);
+        $newCategoryIds = $this->sortedCategoryIds($newCategoryIds);
+
+        if (! $force && $oldCategoryIds === $newCategoryIds) {
+            return;
+        }
+
+        AuditLog::create([
+            'action' => $action,
+            'module' => 'case',
+            'entity_id' => $case->id,
+            'description' => 'Case category assignments changed.',
+            'old_value' => ['category_ids' => $oldCategoryIds],
+            'new_value' => ['category_ids' => $newCategoryIds],
+            'user_id' => $userId,
+            'timestamp' => now(),
+        ]);
+    }
+
+    private function sortedCategoryIds(array $categoryIds): array
+    {
+        $categoryIds = array_values(array_unique(array_filter($categoryIds)));
+        sort($categoryIds, SORT_STRING);
+
+        return $categoryIds;
+    }
+
+    private function primaryCategoryId(array $ids, ?string $current, bool $legacy): ?string
+    {
+        if (empty($ids)) {
+            return null;
+        }
+        if ($legacy) {
+            return $ids[0];
+        }
+        if ($current !== null && in_array($current, $ids, true)) {
+            return $current;
+        }
+
+        return CaseCategory::whereIn('id', $ids)->where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')->orderBy('id')->value('id');
+    }
+
+    private function revalidatePublishedCategories(CaseFile $case): void
+    {
+        $ids = $case->categories()->pluck('case_categories.id')->all();
+        if (empty($ids)) {
+            throw ValidationException::withMessages(['category_ids' => 'At least one active category is required to publish.']);
+        }
+        $this->lockActiveCategories($ids);
+        if (! in_array($case->category_id, $ids, true)) {
+            $case->category_id = $this->primaryCategoryId($ids, $case->category_id, false);
+            $case->save();
+        }
     }
 
     public function getCases(array $filters = [], string $sort = 'created_at', string $direction = 'desc', int $perPage = 15)
@@ -776,11 +895,19 @@ class CaseService
     public function updateCase(string $id, array $data, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $data, $userId) {
-            $case = CaseFile::findOrFail($id);
-            $categoryIds = $this->categoryIdsFromData($data);
+            $case = CaseFile::lockForUpdate()->findOrFail($id);
+            $categoryMutation = $this->resolveCategoryMutation($data);
+            $categoryIds = $categoryMutation['ids'] ?? [];
+            $oldCategoryIds = $case->categories()->pluck('case_categories.id')->all();
+            $newStatus = $data['status'] ?? $case->status;
+            if ($categoryMutation !== null && empty($categoryIds) && $newStatus !== 'DRAFT') {
+                throw ValidationException::withMessages(['category_ids' => 'At least one category is required.']);
+            }
+            if ($categoryMutation !== null) {
+                $this->lockActiveCategories($categoryIds);
+            }
             $old = $case->toArray();
             $oldStatus = $case->status;
-            $newStatus = $data['status'] ?? $case->status;
 
             if ($newStatus !== $case->status && in_array($newStatus, ['CLOSED', 'ARCHIVED'], true)) {
                 $canClose = $this->canClose($id);
@@ -795,7 +922,7 @@ class CaseService
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
-                'category_id' => $categoryIds === null ? $case->category_id : ($categoryIds[0] ?? null),
+                'category_id' => $categoryMutation === null ? $case->category_id : $this->primaryCategoryId($categoryIds, $case->category_id, $categoryMutation['legacy']),
                 'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
             ];
 
@@ -809,8 +936,9 @@ class CaseService
 
             $case->update($updateData);
 
-            if ($this->categoryIdsFromData($data) !== null) {
-                $case->categories()->sync($this->categoryIdsFromData($data));
+            if ($categoryMutation !== null) {
+                $this->syncCaseCategories($case, $categoryIds);
+                $this->recordCategoryMutation($case, $oldCategoryIds, $categoryIds, $userId);
             }
 
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
@@ -1192,10 +1320,12 @@ class CaseService
 
             $totalReferrals = Referral::count();
 
-            $categoryBreakdown = CaseFile::join('case_categories', 'cases.category_id', '=', 'case_categories.id')
+            $categoryBreakdown = CaseFile::join('case_category', 'cases.id', '=', 'case_category.case_id')
+                ->join('case_categories as pivot_categories', 'case_category.case_category_id', '=', 'pivot_categories.id')
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-                ->select('case_categories.id', 'case_categories.name', 'case_categories.color', DB::raw('count(*) as count'))
-                ->groupBy('case_categories.id', 'case_categories.name', 'case_categories.color')
+                ->where('cases.is_deleted', false)
+                ->select('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color', DB::raw('COUNT(DISTINCT cases.id) as count'))
+                ->groupBy('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color')
                 ->orderBy('count', 'desc')
                 ->get();
 

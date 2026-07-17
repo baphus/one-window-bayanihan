@@ -9,7 +9,6 @@ use App\Models\CaseFile;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class DashboardService
 {
@@ -550,15 +549,12 @@ class DashboardService
         });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:cm_cases_by_category', 300, function () {
-            $table = collect(['case_category', 'case_category_assignments', 'case_category_case', 'case_categories_case'])->first(fn ($t) => Schema::hasTable($t));
-            $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
-            $links = $table
-                ? "SELECT case_id, {$column} AS category_id FROM {$table} UNION SELECT id, category_id FROM cases WHERE category_id IS NOT NULL"
-                : 'SELECT id AS case_id, category_id FROM cases WHERE category_id IS NOT NULL';
-
-            return DB::table(DB::raw("({$links}) AS case_category_links"))
-                ->join('cases', 'cases.id', '=', 'case_category_links.case_id')
-                ->join('case_categories', 'case_categories.id', '=', 'case_category_links.category_id')
+            // Authoritative assignments: one case may contribute once to each
+            // assigned category, but never more than once per category. Deleted,
+            // draft, and archived cases are intentionally excluded.
+            return DB::table('case_category AS assignments')
+                ->join('cases', 'cases.id', '=', 'assignments.case_id')
+                ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
                 ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
                 ->where('cases.is_deleted', false)
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
@@ -996,15 +992,11 @@ class DashboardService
             ->toArray();
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:admin_cases_by_category', 300, function () {
-            $table = collect(['case_category', 'case_category_assignments', 'case_category_case', 'case_categories_case'])->first(fn ($t) => Schema::hasTable($t));
-            $column = $table === 'case_category' ? 'case_category_id' : 'category_id';
-            $links = $table
-                ? "SELECT case_id, {$column} AS category_id FROM {$table} UNION SELECT id, category_id FROM cases WHERE category_id IS NOT NULL"
-                : 'SELECT id AS case_id, category_id FROM cases WHERE category_id IS NOT NULL';
-
-            return DB::table(DB::raw("({$links}) AS case_category_links"))
-                ->join('cases', 'cases.id', '=', 'case_category_links.case_id')
-                ->join('case_categories', 'case_categories.id', '=', 'case_category_links.category_id')
+            // Keep category counts additive across assignments while excluding
+            // deleted, draft, and archived cases from the dashboard mix.
+            return DB::table('case_category AS assignments')
+                ->join('cases', 'cases.id', '=', 'assignments.case_id')
+                ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
                 ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
                 ->where('cases.is_deleted', false)
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])

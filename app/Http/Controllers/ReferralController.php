@@ -17,6 +17,7 @@ use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
 use App\Services\StorageService;
+use App\Support\CategoryFilter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -31,21 +32,23 @@ class ReferralController extends Controller
     {
         $user = $request->user();
         $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to'];
+        $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
         $referrals = $this->referralService->getReferrals(
-            $request->only($filterKeys),
+            array_merge($request->only($filterKeys), $categoryFilters),
             $user->agcy_id,
             $user->role,
+            $user->id,
         );
 
         return Inertia::render('Referral/Index', [
             'referrals' => $referrals,
-            'filters' => (object) $request->only($filterKeys),
-            'stats' => $this->referralService->getReferralStats($user->agcy_id, $user->role),
+            'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters),
+            'stats' => $this->referralService->getReferralStats($user->agcy_id, $user->role, $user->id),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countReferralsExport($request->user(), array_filter($request->only(['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to']))),
+            'exportRowCount' => (new DataExportQueries)->countReferralsExport($user, array_filter(array_merge($request->only(['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to']), $categoryFilters))),
         ]);
     }
 
@@ -457,10 +460,10 @@ class ReferralController extends Controller
         $user = auth()->user();
         $queries = new DataExportQueries;
 
-        $filters = $request->only([
+        $filters = array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
             'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
-        ]);
+        ]), CategoryFilter::fromRequest($request)->toArray());
 
         $referrals = $queries->getReferralsExport($user, array_filter($filters));
 
@@ -536,6 +539,9 @@ class ReferralController extends Controller
             if ($referral->caseFile && $referral->caseFile->user_id === $user->id) {
                 return;
             }
+            abort(403, 'You do not have access to this referral.');
+        }
+        if ($user->isAgency() && ! $user->agcy_id) {
             abort(403, 'You do not have access to this referral.');
         }
         if ($referral->agcy_id === $user->agcy_id) {

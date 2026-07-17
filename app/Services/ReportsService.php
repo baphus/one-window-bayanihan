@@ -13,7 +13,6 @@ use App\Models\ClientEmployment;
 use App\Models\Referral;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class ReportsService
@@ -1134,16 +1133,12 @@ class ReportsService
 
     public function categoryDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $assignmentTable = collect(['case_category', 'case_category_assignments', 'case_category_case', 'case_categories_case'])
-            ->first(fn ($table) => Schema::hasTable($table));
-        $assignmentColumn = $assignmentTable === 'case_category' ? 'case_category_id' : 'category_id';
-        $assigned = $assignmentTable
-            ? "SELECT case_id, {$assignmentColumn} AS category_id FROM {$assignmentTable}"
-            : 'SELECT id AS case_id, category_id FROM cases WHERE category_id IS NOT NULL';
-        $legacy = $assignmentTable ? 'UNION SELECT id AS case_id, category_id FROM cases WHERE category_id IS NOT NULL' : '';
-        $query = DB::table(DB::raw("({$assigned} {$legacy}) AS case_category_links"))
-            ->join('cases', 'cases.id', '=', 'case_category_links.case_id')
-            ->join('case_categories', 'case_categories.id', '=', 'case_category_links.category_id')
+        // Category analytics reads the authoritative assignment table. A case
+        // counts once per assigned category; deleted, draft, and archived cases
+        // are excluded from both counts and percentages.
+        $query = DB::table('case_category AS assignments')
+            ->join('cases', 'cases.id', '=', 'assignments.case_id')
+            ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
             ->where('cases.is_deleted', false)
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as total'))

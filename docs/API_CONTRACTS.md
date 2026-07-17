@@ -194,6 +194,16 @@ All routes below require `auth` middleware (session-based).
 
 ## Role-Gated Routes
 
+### Case category input and filters
+
+For case create, update, and save-draft mutations listed below, `category_ids` is the canonical input: an array of distinct UUIDs identifying active categories, synchronized to the `case_category` pivot. The deprecated scalar `category_id` remains a compatibility input for single-category clients and is converted to a one-element assignment. When category input is supplied, provide one field or the other, never both; sending both is invalid even if one is null or empty. The publish endpoint does not accept category input; it consumes and validates the assignments already stored for the case.
+
+For mutation inputs, an omitted category field means “do not change” on update/save-draft. Draft creation may omit categories, and draft save/update may omit them; a null or empty scalar, or a null/empty `category_ids` array, means no category assignment and is allowed for drafts. A non-draft create requires at least one active category; a non-draft update may omit category fields to retain its assignments, but cannot clear them. Category IDs must be valid UUIDs and active; malformed, duplicate, or inactive IDs are rejected. Publishing consumes the stored pivot assignments and requires at least one active category.
+
+The pivot is canonical. `cases.category_id` is a deprecated compatibility mirror containing the deterministic primary: retain the current mirror when it is still assigned; otherwise choose the active assignment by lowest `sort_order`, then `name`, then `id`. A legacy scalar mutation becomes the sole pivot assignment and its value becomes the mirror.
+
+For `GET /cases`, `GET /cases/export-excel`, `GET /clients`, `GET /clients/export-excel`, `GET /referrals`, and `GET /referrals/export-excel`, `category_id` and `category_ids` are filters, not mutations. Either may be supplied; if both are supplied they are combined, not treated as a mutation conflict. A scalar is normalized into the selected-ID set, null/empty values mean no category filter, and `category_ids` accepts at most 50 distinct UUIDs. These are ANY filters: a result matches when at least one selected ID is present in the canonical case-category pivot or in the legacy `cases.category_id` mirror; client and referral results inherit this case-category match through their associated cases.
+
 ### CASE_MANAGER + ADMIN
 
 | Method | URI | Controller | Name |

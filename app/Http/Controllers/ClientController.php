@@ -14,6 +14,7 @@ use App\Services\CloudinaryAvatarService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferenceDataService;
+use App\Support\CategoryFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -25,16 +26,38 @@ class ClientController extends Controller
         $user = $request->user();
         $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'category_ids', 'case_issue_id', 'agcy_id', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
 
-        $categoryIds = $this->categoryFilterIds($request);
+        $categoryFilter = CategoryFilter::fromRequest($request);
+        $categoryIds = $categoryFilter->ids();
 
         $clients = Client::where('is_deleted', false)->with([
-            'caseFile' => function ($q) {
-                $q->with(['referrals.agency', 'category', 'categories', 'caseIssue']);
+            'caseFile' => function ($q) use ($user) {
+                if ($user?->isCaseManager()) {
+                    $q->where('user_id', $user->id);
+                } elseif ($user?->isAgency()) {
+                    $q->whereHas('referrals', fn ($referrals) => $referrals
+                        ->where('agcy_id', $user->agcy_id)
+                        ->where('is_deleted', false));
+                }
+
+                $q->with([
+                    'referrals' => function ($referrals) use ($user) {
+                        $referrals->where('is_deleted', false)->with('agency');
+                        if ($user?->isAgency()) {
+                            $referrals->where('agcy_id', $user->agcy_id);
+                        }
+                    },
+                    'category', 'categories', 'caseIssue',
+                ]);
             },
             'addresses',
             'employments',
             'nextOfKin',
         ]);
+
+        // An agency user without an agency has no visible client scope.
+        if ($user?->isAgency() && ! $user->agcy_id) {
+            $clients->whereRaw('1 = 0');
+        }
 
         // Role-based scoping
         if ($user && ! $user->isAdmin()) {
@@ -146,27 +169,17 @@ class ClientController extends Controller
         ]);
     }
 
-    /** @return array<int, string> */
-    private function categoryFilterIds(Request $request): array
-    {
-        $ids = $request->input('category_ids', []);
-        $ids = is_array($ids) ? $ids : ($ids === null || $ids === '' ? [] : [$ids]);
-
-        if ($request->filled('category_id')) {
-            $ids[] = $request->input('category_id');
-        }
-
-        return array_values(array_unique(array_filter($ids, static fn ($id) => $id !== null && $id !== '')));
-    }
-
     private function getClientStats(?User $user): array
     {
         $cacheKey = 'client_stats:'.$user?->id;
 
         return CacheHelper::safeRemember($cacheKey, 30, function () use ($user) {
             // Single query with conditional aggregation — replaces 10 separate count queries
+            $totalClientsExpression = $user?->isAdmin()
+                ? '(SELECT COUNT(*) FROM clients WHERE is_deleted = false)'
+                : 'COUNT(DISTINCT cl.id)';
             $sql = "SELECT
-                (SELECT COUNT(*) FROM clients WHERE is_deleted = false) AS total_clients,
+                {$totalClientsExpression} AS total_clients,
                 COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS ofw_clients,
                 COUNT(DISTINCT CASE WHEN c.client_type = 'NOK' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS nok_clients,
                 COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%PWD%' OR c.nok_vulnerability_indicator LIKE '%PWD%') THEN cl.id END) AS vuln_pwd,
@@ -179,6 +192,17 @@ class ClientController extends Controller
             WHERE cl.is_deleted = false";
 
             $bindings = [];
+
+            if ($user?->isAgency() && ! $user->agcy_id) {
+                return [
+                    'total_clients' => 0,
+                    'ofw_clients' => 0,
+                    'nok_clients' => 0,
+                    'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
+                    'clients_with_open_cases' => 0,
+                    'total_referrals' => 0,
+                ];
+            }
 
             if ($user && ! $user->isAdmin()) {
                 if ($user->isCaseManager()) {
@@ -229,14 +253,45 @@ class ClientController extends Controller
     public function show(string $id, Request $request)
     {
         $client = Client::with([
-            'caseFile' => function ($q) {
-                $q->with(['referrals.agency', 'referrals.milestones', 'user']);
-            },
             'addresses',
             'employments',
         ])->findOrFail($id);
 
-        $this->authorizeClientAccess($client, $request->user());
+        $user = $request->user();
+        $caseQuery = $client->caseFiles()
+            ->where('cases.is_deleted', false)
+            ->with(['user']);
+
+        if ($user->isCaseManager()) {
+            $caseQuery->where('user_id', $user->id);
+        } elseif ($user->isAgency()) {
+            if (! $user->agcy_id) {
+                abort(404, 'Client not found.');
+            }
+
+            $caseQuery->whereHas('referrals', fn ($q) => $q
+                ->where('agcy_id', $user->agcy_id)
+                ->where('is_deleted', false));
+        } elseif (! $user->isAdmin()) {
+            abort(404, 'Client not found.');
+        }
+
+        $caseQuery->with(['referrals' => function ($q) use ($user) {
+            $q->where('is_deleted', false)->with(['agency', 'milestones']);
+
+            if ($user->isAgency()) {
+                $q->where('agcy_id', $user->agcy_id);
+            }
+        }]);
+
+        $case = $caseQuery->latest('cases.created_at')->latest('cases.id')->first();
+        if (! $case) {
+            abort(404, 'Client not found.');
+        }
+
+        // The relationship is explicitly replaced with the authorized case;
+        // never serialize Client::caseFile's global latest case here.
+        $client->setRelation('caseFile', $case);
 
         $auditLogs = AuditLog::with('user')
             ->where(function ($q) use ($client) {
@@ -323,7 +378,7 @@ class ClientController extends Controller
         $filters = $request->only([
             'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]);
-        $filters['category_ids'] = $this->categoryFilterIds($request);
+        $filters = array_merge($filters, CategoryFilter::fromRequest($request)->toArray());
 
         $clients = $queries->getClientsExport($user, array_filter($filters));
 

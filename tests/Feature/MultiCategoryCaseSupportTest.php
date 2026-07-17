@@ -42,9 +42,9 @@ class MultiCategoryCaseSupportTest extends TestCase
     public function test_category_ids_are_persisted_and_update_syncs_the_pivot(): void
     {
         $user = User::factory()->create();
-        $first = CaseCategory::factory()->create();
-        $second = CaseCategory::factory()->create();
-        $third = CaseCategory::factory()->create();
+        $first = CaseCategory::factory()->create(['name' => 'Existing primary', 'sort_order' => 10]);
+        $second = CaseCategory::factory()->create(['name' => 'Secondary category', 'sort_order' => 20]);
+        $third = CaseCategory::factory()->create(['name' => 'Lowest replacement', 'sort_order' => 1]);
 
         $case = app(CaseService::class)->createCase([
             'client_type' => 'OFW',
@@ -56,10 +56,17 @@ class MultiCategoryCaseSupportTest extends TestCase
         $this->assertEqualsCanonicalizing([$first->id, $second->id], $case->categories()->pluck('case_categories.id')->all());
 
         app(CaseService::class)->updateDraft($case->id, [
+            'category_ids' => [$first->id, $second->id, $third->id],
+        ], $user->id);
+
+        $this->assertSame($first->id, $case->fresh()->category_id, 'An existing scalar primary is preserved when it remains selected.');
+        $this->assertEqualsCanonicalizing([$first->id, $second->id, $third->id], $case->fresh()->categories()->pluck('case_categories.id')->all());
+
+        app(CaseService::class)->updateDraft($case->id, [
             'category_ids' => [$second->id, $third->id],
         ], $user->id);
 
-        $this->assertSame($second->id, $case->fresh()->category_id);
+        $this->assertSame($third->id, $case->fresh()->category_id, 'When the scalar primary is not selected, the lowest sort_order is the deterministic fallback.');
         $this->assertEqualsCanonicalizing([$second->id, $third->id], $case->fresh()->categories()->pluck('case_categories.id')->all());
         $this->assertDatabaseMissing('case_category', ['case_id' => $case->id, 'case_category_id' => $first->id]);
     }
@@ -77,7 +84,7 @@ class MultiCategoryCaseSupportTest extends TestCase
             app(CaseService::class)->publishDraft($case->id, $user->id);
             $this->fail('Publishing a draft without a category should fail.');
         } catch (ValidationException $exception) {
-            $this->assertStringContainsString('Category', $exception->errors()['draft'][0]);
+            $this->assertSame('At least one active category is required to publish.', $exception->errors()['category_ids'][0]);
         }
     }
 
