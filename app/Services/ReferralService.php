@@ -259,6 +259,7 @@ class ReferralService
             'attachments.user',
             'comments.user',
             'comments.replies.user',
+            'documents.user',
         ];
         $relations[] = 'caseFile.categories';
 

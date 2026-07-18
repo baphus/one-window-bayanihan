@@ -20,6 +20,7 @@ class CaseDocument extends Model
         'category',
         'size',
         'case_id',
+        'referral_id',
         'user_id',
         'is_deleted',
         'deleted_at',
@@ -48,6 +49,11 @@ class CaseDocument extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function referral()
+    {
+        return $this->belongsTo(Referral::class, 'referral_id');
     }
 
     public function fileUrl(): Attribute

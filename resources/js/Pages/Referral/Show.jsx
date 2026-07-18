@@ -86,6 +86,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const [postingComment, setPostingComment] = useState(false);
     const [showMilestoneModal, setShowMilestoneModal] = useState(false);
     const [removeAttachment, setRemoveAttachment] = useState(null);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [uploadingDoc, setUploadingDoc] = useState(false);
     const milestoneForm = useForm({ title: '', description: '' });
 
     const replyToComment = replyToCommentId
@@ -130,6 +132,28 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
     function cancelReply() {
         setReplyToCommentId(null);
+    }
+
+    function handleDocumentUpload() {
+        if (!selectedFile) return;
+        setUploadingDoc(true);
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('referral_id', referral.id);
+        formData.append('category', 'referral');
+        router.post(route('cases.documents.store', referral.case_id), formData, {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.reload({ only: ['referral'] });
+                setSelectedFile(null);
+            },
+            onError: (errors) => {
+                console.error(errors);
+            },
+            onFinish: () => {
+                setUploadingDoc(false);
+            },
+        });
     }
 
     return (
@@ -476,6 +500,88 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             </div>
                         </CardSection>
                     )}
+
+                    {/* Referral Documents */}
+                    <div data-tour="referral-documents">
+                        <CardSection title="Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                            {/* Upload area — case manager and admin only */}
+                            {(isCaseManager || isAdmin) && (
+                                <div className="border border-slate-200 rounded-md bg-slate-50/50 px-3 py-2.5 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <label className="shrink-0 h-[28px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors cursor-pointer inline-flex items-center gap-1.5">
+                                            <span className="material-symbols-outlined text-[14px]">upload_file</span>
+                                            Choose File
+                                            <input
+                                                type="file"
+                                                className="sr-only"
+                                                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                                            />
+                                        </label>
+                                        {selectedFile ? (
+                                            <span className="text-[11px] text-slate-600 truncate min-w-0">{selectedFile.name}</span>
+                                        ) : (
+                                            <span className="text-[11px] text-slate-400 italic">No file selected</span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleDocumentUpload}
+                                            disabled={!selectedFile || uploadingDoc}
+                                            className="ml-auto shrink-0 h-[28px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
+                                        >
+                                            {uploadingDoc ? (
+                                                <>
+                                                    <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                                                    Uploading…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-symbols-outlined text-[14px]">cloud_upload</span>
+                                                    Upload
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Document list */}
+                            {referral.documents && referral.documents.length > 0 ? (
+                                <div className="divide-y divide-slate-100">
+                                    {referral.documents.map((doc) => (
+                                        <div key={doc.id} className="flex items-center gap-3 px-1 py-2.5">
+                                            <span className="material-symbols-outlined text-[16px] text-slate-400">
+                                                {doc.file_type?.startsWith('image/') ? 'image' : 'description'}
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <a
+                                                    href={doc.file_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
+                                                >
+                                                    {doc.file_name}
+                                                </a>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {doc.user && (
+                                                        <span className="text-[9px] text-slate-400">
+                                                            Uploaded by {doc.user.name}
+                                                        </span>
+                                                    )}
+                                                    {doc.created_at && (
+                                                        <span className="text-[9px] text-slate-400">
+                                                            {formatDisplayDateTime(doc.created_at)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[12px] text-slate-500 italic">No documents uploaded yet.</p>
+                            )}
+                        </CardSection>
+                    </div>
 
                 </main>
 

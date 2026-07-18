@@ -119,4 +119,9 @@ class Referral extends Model
     {
         return $this->hasMany(ReferralComment::class, 'refr_id');
     }
+
+    public function documents()
+    {
+        return $this->hasMany(CaseDocument::class, 'referral_id');
+    }
 }
