@@ -19,6 +19,9 @@ const TIMELINE_EVENT_CONFIG = {
   referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600', icon: 'forward_to_inbox' },
   referral_status: { dot: 'bg-amber-50 border-amber-200 text-amber-600',   icon: 'sync_alt' },
   milestone:       { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
+  client_request:  { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'outgoing_mail' },
+  client_response: { dot: 'bg-cyan-50 border-cyan-200 text-cyan-700',       icon: 'reply' },
+  client_request_status: { dot: 'bg-indigo-50 border-indigo-200 text-indigo-600', icon: 'published_with_changes' },
 };
 
 function formatFullName(person) {
@@ -43,7 +46,245 @@ function getClientAge(dob) {
     return age;
 }
 
-export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [] }) {
+const CLIENT_REQUEST_TYPES = {
+    DOCUMENT_REQUEST: 'Document request',
+    QUESTION: 'Question',
+    INFORMATION_UPDATE: 'Information update',
+};
+
+const CLIENT_REQUEST_STATUSES = {
+    OPEN: { label: 'Open', classes: 'bg-blue-50 border-blue-200 text-blue-700' },
+    IN_PROGRESS: { label: 'In progress', classes: 'bg-amber-50 border-amber-200 text-amber-700' },
+    CLIENT_RESPONDED: { label: 'Client responded', classes: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+    COMPLETED: { label: 'Completed', classes: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+    CANCELLED: { label: 'Cancelled', classes: 'bg-slate-100 border-slate-200 text-slate-600' },
+};
+
+function clientRequestStatus(status) {
+    return CLIENT_REQUEST_STATUSES[status] ?? {
+        label: status?.replace(/_/g, ' ') ?? 'Unknown',
+        classes: 'bg-slate-100 border-slate-200 text-slate-600',
+    };
+}
+
+function clientRequestLink(link) {
+    if (!link) return null;
+    const now = Date.now();
+    const expiresAt = link.expires_at ? new Date(link.expires_at) : null;
+    const isExpired = link.status === 'EXPIRED' || (expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= now);
+    const isRevoked = link.revoked_at || link.status === 'REVOKED';
+    const state = isRevoked ? 'revoked' : isExpired ? 'expired' : 'active';
+
+    return { ...link, state, expiresAt };
+}
+
+function ClientRequestAccess({ request, canIssue, canRevoke, onMutate }) {
+    const [loading, setLoading] = useState(null);
+    const [error, setError] = useState('');
+    const links = (request.access_links ?? []).map(clientRequestLink).filter(Boolean);
+    const link = links[links.length - 1] ?? null;
+    const routeAction = link && link.state === 'active'
+        ? 'referrals.client-requests.access.revoke'
+        : link
+            ? 'referrals.client-requests.access.reissue'
+            : 'referrals.client-requests.access.issue';
+    const actionLabel = link?.state === 'active' ? 'Revoke link' : link ? 'Issue replacement' : 'Issue access link';
+    const canAct = link?.state === 'active' ? canRevoke : canIssue;
+
+    function submitAccessAction() {
+        if (!canAct || loading) return;
+        setError('');
+        setLoading(routeAction);
+        const params = routeAction.endsWith('revoke') ? [link.id] : [request.id];
+        router.post(route(routeAction, params), {}, {
+            preserveScroll: true,
+            onSuccess: onMutate,
+            onError: (errors) => setError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to update client access.'),
+            onFinish: () => setLoading(null),
+        });
+    }
+
+    return (
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Client access</p>
+                    {!link && <p className="mt-1 text-[11px] text-slate-600">No access link has been issued yet.</p>}
+                    {link?.state === 'active' && (
+                        <p className="mt-1 text-[11px] text-emerald-700">
+                            Active link{link.expires_at ? ` · Expires ${formatDisplayDateTime(link.expires_at)}` : ''}
+                        </p>
+                    )}
+                    {link?.state === 'expired' && <p className="mt-1 text-[11px] text-amber-700">The previous link has expired. A replacement link can be issued.</p>}
+                    {link?.state === 'revoked' && <p className="mt-1 text-[11px] text-slate-600">The previous link was revoked. A replacement link can be issued.</p>}
+                    {link && (
+                        <p className="mt-1 text-[10px] text-slate-400">
+                            Used {link.use_count ?? 0} time{link.use_count === 1 ? '' : 's'}
+                            {link.first_used_at ? ` · First used ${formatDisplayDateTime(link.first_used_at)}` : ''}
+                            {link.last_used_at ? ` · Last used ${formatDisplayDateTime(link.last_used_at)}` : ''}
+                        </p>
+                    )}
+                </div>
+                {canAct && (
+                    <button
+                        type="button"
+                        onClick={submitAccessAction}
+                        disabled={!!loading}
+                        className={`h-[28px] shrink-0 rounded-md px-3 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${link?.state === 'active' ? 'border border-red-200 bg-white text-red-700 hover:bg-red-50' : 'border border-blue-900 bg-blue-900 text-white hover:bg-blue-800'}`}
+                    >
+                        {loading ? 'Working…' : actionLabel}
+                    </button>
+                )}
+            </div>
+            {error && <p role="alert" className="mt-2 text-[10px] font-semibold text-red-700">{error}</p>}
+            {link?.state !== 'active' && canIssue && (
+                <p className="mt-2 text-[10px] text-slate-400">The client will receive a secure notification through the registered contact channel.</p>
+            )}
+        </div>
+    );
+}
+
+function ClientRequestCard({ request, permissions, isOversight, onMutate }) {
+    const [reply, setReply] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(null);
+    const status = clientRequestStatus(request.status);
+    const isTerminal = ['COMPLETED', 'CANCELLED'].includes(request.status);
+
+    function reloadRequests() {
+        router.reload({ only: ['clientRequestHistory', 'clientRequestPermissions', 'timeline'], preserveScroll: true });
+    }
+
+    function submit(routeName, params, data = {}) {
+        setError('');
+        setLoading(routeName);
+        router.post(route(routeName, params), data, {
+            preserveScroll: true,
+            onSuccess: reloadRequests,
+            onError: (errors) => setError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to complete this action.'),
+            onFinish: () => setLoading(null),
+        });
+    }
+
+    function sendReply(event) {
+        event.preventDefault();
+        const body = reply.trim();
+        if (!body || loading || !permissions.canReply) return;
+        submit('referrals.client-requests.messages.store', [request.id], { body });
+        setReply('');
+    }
+
+    const items = request.items ?? [];
+    const messages = request.messages ?? [];
+
+    return (
+        <article className="rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-[13px] font-bold text-slate-900">{request.title}</h4>
+                        <span className={`inline-flex rounded-md border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${status.classes}`}>{status.label}</span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">{CLIENT_REQUEST_TYPES[request.type] ?? 'Client request'}</p>
+                </div>
+                {request.due_at && <p className="shrink-0 text-[10px] text-slate-500">Due {formatDisplayDateTime(request.due_at)}</p>}
+            </div>
+
+            {request.instructions && <p className="mt-3 whitespace-pre-wrap text-[12px] leading-5 text-slate-600">{request.instructions}</p>}
+
+            {items.length > 0 && (
+                <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Document checklist</p>
+                    <ul className="mt-1.5 space-y-1">
+                        {items.map((item) => <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[11px] text-slate-700"><span className="material-symbols-outlined mt-0.5 text-[14px] text-slate-400">check_box_outline_blank</span>{item.label}</li>)}
+                    </ul>
+                </div>
+            )}
+
+            {messages.length > 0 && (
+                <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Conversation</p>
+                    {messages.map((message) => (
+                        <div key={message.id} className={`rounded-md px-2.5 py-2 ${message.sender_kind === 'CLIENT_ACCESS' ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 border border-slate-100'}`}>
+                            <div className="flex items-baseline justify-between gap-2"><span className="text-[10px] font-bold text-slate-700">{message.sender_kind === 'CLIENT_ACCESS' ? 'Client' : 'Agency'}</span><span className="text-[9px] text-slate-400">{formatDisplayDateTime(message.created_at)}</span></div>
+                            <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-5 text-slate-700">{message.body}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {!isOversight && permissions.canReply && !isTerminal && (
+                <form onSubmit={sendReply} className="mt-3 border-t border-slate-200 pt-3">
+                    <label htmlFor={`request-reply-${request.id}`} className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Reply to client</label>
+                    <textarea id={`request-reply-${request.id}`} value={reply} onChange={(event) => { setReply(event.target.value); setError(''); }} rows={2} disabled={!!loading} className="mt-1.5 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 disabled:opacity-60" placeholder="Write a reply..." />
+                    <div className="mt-1.5 flex justify-end"><button type="submit" disabled={!!loading || !reply.trim()} className="h-[28px] rounded-md bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{loading === 'referrals.client-requests.messages.store' ? 'Sending…' : 'Send reply'}</button></div>
+                </form>
+            )}
+
+            {error && <p role="alert" className="mt-2 text-[10px] font-semibold text-red-700">{error}</p>}
+
+            {!isOversight && permissions.canTransition && (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.complete', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60">{loading === 'referrals.client-requests.complete' ? 'Working…' : 'Complete'}</button>}
+                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.cancel', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-red-200 bg-red-50 px-3 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-60">{loading === 'referrals.client-requests.cancel' ? 'Working…' : 'Cancel'}</button>}
+                    {isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.reopen', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-blue-200 bg-blue-50 px-3 text-[10px] font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-60">{loading === 'referrals.client-requests.reopen' ? 'Working…' : 'Reopen'}</button>}
+                </div>
+            )}
+
+            <ClientRequestAccess request={request} canIssue={!isOversight && permissions.canCreate} canRevoke={permissions.canRevokeAccess} onMutate={onMutate} />
+        </article>
+    );
+}
+
+function ClientRequestsSection({ referral, requests, permissions, isReceivingAgency, isCaseManager, isAdmin }) {
+    const [showCreate, setShowCreate] = useState(false);
+    const createForm = useForm({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''] });
+    const isOversight = isCaseManager || isAdmin || !isReceivingAgency;
+    const canCreate = isReceivingAgency && permissions.canCreate;
+    const reloadRequests = () => router.reload({ only: ['clientRequestHistory', 'clientRequestPermissions', 'timeline'], preserveScroll: true });
+
+    function submitCreate(event) {
+        event.preventDefault();
+        createForm.transform((data) => ({ ...data, checklist: data.type === 'DOCUMENT_REQUEST' ? data.checklist.map((item) => item.trim()).filter(Boolean) : undefined }));
+        createForm.post(route('referrals.client-requests.store', [referral.id]), {
+            preserveScroll: true,
+            onSuccess: () => { setShowCreate(false); createForm.reset(); reloadRequests(); },
+        });
+    }
+
+    return (
+        <>
+            <CardSection title="Client Requests" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] text-slate-500">Secure requests and replies shared with the client.</p>
+                    {canCreate && <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-[28px] items-center gap-1.5 rounded-md border border-blue-900 bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800"><span className="material-symbols-outlined text-[14px]">add</span>Request client</button>}
+                </div>
+                {isOversight && <div className="mb-3 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2"><span className="material-symbols-outlined text-[16px] text-sky-700">visibility</span><p className="text-[11px] font-semibold text-sky-800">Oversight view — request history and messages are read-only.</p></div>}
+                {requests.length > 0 ? <div className="space-y-3">{requests.map((request) => <ClientRequestCard key={request.id} request={request} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} />)}</div> : <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-slate-200 py-7 text-center"><span className="material-symbols-outlined text-[24px] text-slate-300">inbox</span><p className="mt-2 text-[11px] font-semibold text-slate-500">No client requests yet</p><p className="mt-1 text-[10px] text-slate-400">Requests created here will appear in this history.</p></div>}
+            </CardSection>
+
+            {showCreate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setShowCreate(false)}>
+                    <div className="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-lg" onClick={(event) => event.stopPropagation()}>
+                        <div className="border-b border-slate-200 px-5 py-4"><h3 className="text-[16px] font-extrabold text-slate-900">Request client</h3><p className="mt-1 text-[12px] text-slate-500">Ask the client for information or documents needed by the agency.</p></div>
+                        <form onSubmit={submitCreate}>
+                            <div className="space-y-4 px-5 py-4">
+                                <div><label htmlFor="client_request_type" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Request type *</label><select id="client_request_type" value={createForm.data.type} onChange={(event) => createForm.setData('type', event.target.value)} className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"><option value="DOCUMENT_REQUEST">Document request</option><option value="QUESTION">Question</option><option value="INFORMATION_UPDATE">Information update</option></select><InputError message={createForm.errors.type} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.title} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_instructions" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Instructions *</label><textarea id="client_request_instructions" rows={3} value={createForm.data.instructions} onChange={(event) => createForm.setData('instructions', event.target.value)} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.instructions} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
+                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" aria-label={`Remove checklist item ${index + 1}`} onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400 hover:text-red-600">×</button>}</div>)}</div><InputError message={createForm.errors.checklist} className="mt-1" /></div>}
+                            </div>
+                            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creating…' : 'Create request'}</button></div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
+
+export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {} }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
@@ -554,7 +795,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                             </span>
                                             <div className="min-w-0 flex-1">
                                                 <a
-                                                    href={doc.file_url}
+                                                    href={route('cases.documents.download', [referral.case_id, doc.id])}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
@@ -583,6 +824,14 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         </CardSection>
                     </div>
 
+                    <ClientRequestsSection
+                        referral={referral}
+                        requests={clientRequestHistory}
+                        permissions={clientRequestPermissions}
+                        isReceivingAgency={isReceivingAgency}
+                        isCaseManager={isCaseManager}
+                        isAdmin={isAdmin}
+                    />
                 </main>
 
                 <aside className="xl:col-span-4 space-y-4">

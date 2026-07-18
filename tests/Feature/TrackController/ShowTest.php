@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TrackController;
 
+use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
 use Tests\TestCase;
@@ -11,17 +12,22 @@ class ShowTest extends TestCase
     use CreatesTrackingCase, RefreshDatabase;
 
     // ---------------------------------------------------------------
-    //  1. Direct access with a valid tracker_number
+    //  1. Access with a valid tracker/email session binding
     // ---------------------------------------------------------------
 
-    public function test_direct_access_with_valid_tracker(): void
+    public function test_bound_session_with_valid_tracker_renders_tracking_page(): void
     {
         // ARRANGE
         $result = $this->createCompleteCase();
         $case = $result['case'];
 
         // ACT
-        $response = $this->get(route('track.show', [
+        $response = $this->withSession([
+            TrackingService::SESSION_KEY => [
+                'tracker_number' => $case->tracker_number,
+                'email' => $result['client']->email,
+            ],
+        ])->get(route('track.show', [
             'tracker_number' => $case->tracker_number,
         ]));
 
@@ -39,41 +45,22 @@ class ShowTest extends TestCase
     }
 
     // ---------------------------------------------------------------
-    //  2. Direct access — no OTP enforced (documented security gap)
+    //  2. Direct access without the OTP-bound session is denied
     // ---------------------------------------------------------------
 
-    /**
-     * Design gap: show() does NOT require OTP verification.
-     *
-     * Unlike verifyOtp(), the show() endpoint returns full case tracking
-     * data with only a tracker_number query parameter — no OTP check is
-     * performed. This means anyone with a valid tracker_number can access
-     * case tracking details without proving identity via email OTP.
-     *
-     * Security should be added separately per SECURITY_REQUIREMENTS.md.
-     */
-    public function test_direct_access_no_otp_enforced(): void
+    public function test_direct_access_without_otp_binding_is_denied(): void
     {
         // ARRANGE
         $result = $this->createCompleteCase();
         $case = $result['case'];
 
-        // ACT — no OTP required, no email, no authentication
+        // ACT — no OTP-bound session, no email, no authentication
         $response = $this->get(route('track.show', [
             'tracker_number' => $case->tracker_number,
         ]));
 
-        // ASSERT — tracking data returned WITHOUT OTP flow
-        $response->assertInertia(fn ($page) => $page
-            ->component('Tracking/Show')
-            ->has('trackingId')
-            ->has('trackedCase')
-            ->has('caseOverview')
-            ->missing('caseTimeline')
-            ->has('milestoneTimeline')
-            ->has('trackingAgencies')
-            ->has('caseNotifications')
-        );
+        // ASSERT — safe denial instead of case data
+        $response->assertRedirect()->assertSessionHasErrors('tracker_number');
     }
 
     // ---------------------------------------------------------------

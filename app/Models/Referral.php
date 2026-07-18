@@ -124,4 +124,9 @@ class Referral extends Model
     {
         return $this->hasMany(CaseDocument::class, 'referral_id');
     }
+
+    public function clientRequests()
+    {
+        return $this->hasMany(ReferralClientRequest::class, 'referral_id');
+    }
 }

@@ -18,6 +18,10 @@ class CaseDocumentController extends Controller
 
         $query = $case->documents()->where('is_deleted', false);
 
+        if ($request->user()->isAgency()) {
+            $query->whereHas('referral', fn ($referrals) => $referrals->where('agcy_id', $request->user()->agcy_id));
+        }
+
         if ($request->filled('category')) {
             $query->where('category', $request->input('category'));
         }
@@ -33,6 +37,9 @@ class CaseDocumentController extends Controller
 
     public function store(StoreCaseDocumentRequest $request, string $caseId)
     {
+        $case = CaseFile::findOrFail($caseId);
+        $this->authorizeAccess($case, $request->user());
+
         $file = $request->file('file');
 
         $errors = app(StorageService::class)->validate($file, 'case_document');
@@ -145,7 +152,11 @@ class CaseDocumentController extends Controller
             return;
         }
         if ($user->isCaseManager()) {
-            return;
+            if ($case->user_id === $user->id) {
+                return;
+            }
+
+            abort(403, 'You do not have access to documents for this case.');
         }
 
         $hasActiveReferral = $case->referrals()
@@ -167,9 +178,13 @@ class CaseDocumentController extends Controller
 
     private function authorizeDocumentAccess(CaseDocument $document, $user)
     {
-        // Case-level documents (no referral_id) are already handled by authorizeAccess
+        // Case-level documents are only available to administrators and case managers.
         if (! $document->referral_id) {
-            return;
+            if ($user->isAdmin() || ($user->isCaseManager() && $document->caseFile?->user_id === $user->id)) {
+                return;
+            }
+
+            abort(403, 'You do not have access to this document.');
         }
 
         // Admin can access any document

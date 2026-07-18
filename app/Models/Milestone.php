@@ -11,7 +11,7 @@ class Milestone extends Model
 {
     use HasFactory, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'refr_id'];
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'refr_id', 'client_request_id'];
 
     public function getAuditModuleName(): string
     {
@@ -23,6 +23,7 @@ class Milestone extends Model
         'description',
         'requirements',
         'refr_id',
+        'client_request_id',
         'user_id',
     ];
 
@@ -39,5 +40,10 @@ class Milestone extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function clientRequest()
+    {
+        return $this->belongsTo(ReferralClientRequest::class, 'client_request_id');
     }
 }

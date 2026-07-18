@@ -27,10 +27,6 @@ class CaseDocument extends Model
         'deleted_by',
     ];
 
-    protected $appends = [
-        'file_url',
-    ];
-
     protected $hidden = [
         'is_deleted',
         'deleted_at',

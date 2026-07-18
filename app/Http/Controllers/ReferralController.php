@@ -142,12 +142,18 @@ class ReferralController extends Controller
         $this->authorizeReferralAccess($referral, $request->user());
         $serviceRequirements = $this->referralService->getServiceRequirements($referral->agcy_id);
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
+        $clientRequestHistory = $this->referralService->getClientRequestHistory($referral);
+        // Keep the eager-loaded models out of the general referral payload; the
+        // service's allow-listed history is the only client-request projection.
+        $referral->unsetRelation('clientRequests');
 
         return Inertia::render('Referral/Show', [
             'referral' => $referral,
             'serviceRequirements' => $serviceRequirements,
             'overdueDays' => $overdueDays,
             'timeline' => $this->referralService->getReferralTimeline($referral),
+            'clientRequestHistory' => $clientRequestHistory,
+            'clientRequestPermissions' => $this->referralService->getClientRequestPermissions($referral, $request->user()),
         ]);
     }
 

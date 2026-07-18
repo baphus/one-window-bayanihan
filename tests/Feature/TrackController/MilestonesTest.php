@@ -3,6 +3,7 @@
 namespace Tests\Feature\TrackController;
 
 use App\Models\Referral;
+use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
 use Tests\TestCase;
@@ -17,7 +18,12 @@ class MilestonesTest extends TestCase
         $case = $result['case'];
         $referral = $result['referrals']->first();
 
-        $response = $this->get(route('track.milestones', [
+        $response = $this->withSession([
+            TrackingService::SESSION_KEY => [
+                'tracker_number' => $case->tracker_number,
+                'email' => $result['client']->email,
+            ],
+        ])->get(route('track.milestones', [
             'tracker_number' => $case->tracker_number,
             'referral' => $referral->id,
         ]));
@@ -37,12 +43,18 @@ class MilestonesTest extends TestCase
 
     public function test_referral_from_another_case_returns_404(): void
     {
-        $caseA = $this->createCompleteCase()['case'];
+        $resultA = $this->createCompleteCase();
+        $caseA = $resultA['case'];
         $resultB = $this->createCompleteCase(milestonesPerReferral: 1);
         /** @var Referral $foreignReferral */
         $foreignReferral = $resultB['referrals']->first();
 
-        $response = $this->get(route('track.milestones', [
+        $response = $this->withSession([
+            TrackingService::SESSION_KEY => [
+                'tracker_number' => $caseA->tracker_number,
+                'email' => $resultA['client']->email,
+            ],
+        ])->get(route('track.milestones', [
             'tracker_number' => $caseA->tracker_number,
             'referral' => $foreignReferral->id,
         ]));

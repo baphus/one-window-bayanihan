@@ -8,10 +8,13 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Milestone;
 use App\Models\Referral;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class TrackingService
 {
+    public const SESSION_KEY = 'tracking.verified';
+
     public function __construct(
         private readonly OtpService $otpService,
         private readonly AddressNameResolver $addressResolver,
@@ -33,6 +36,22 @@ class TrackingService
         }
 
         return CaseFile::with($relations)->where('tracker_number', $trackerNumber)->first();
+    }
+
+    public function emailMatchesCase(CaseFile $case, string $email): bool
+    {
+        return $case->client?->email !== null
+            && hash_equals(strtolower(trim($case->client->email)), strtolower(trim($email)));
+    }
+
+    public function hasValidSessionBinding(Request $request, string $trackerNumber): bool
+    {
+        $binding = $request->session()->get(self::SESSION_KEY);
+
+        return is_array($binding)
+            && ($binding['tracker_number'] ?? null) === $trackerNumber
+            && is_string($binding['email'] ?? null)
+            && $binding['email'] !== '';
     }
 
     public function generateOtp(string $identifier, string $purpose = 'track'): string

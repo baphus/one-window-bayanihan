@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TrackController;
 
+use App\Models\CaseFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
@@ -49,6 +50,10 @@ class VerifyOtpTest extends TestCase
 
     private function sendOtp(string $trackerNumber): string
     {
+        $this->email = strtolower((string) CaseFile::with('client')
+            ->where('tracker_number', $trackerNumber)
+            ->firstOrFail()->client->email);
+
         $this->post(route('track.send-otp'), [
             'tracker_number' => $trackerNumber,
             'email' => $this->email,
@@ -285,5 +290,30 @@ class VerifyOtpTest extends TestCase
 
         // ASSERT
         $response->assertSessionHasErrors('otp');
+    }
+
+    public function test_tracking_requires_the_case_client_email(): void
+    {
+        $case = $this->createCompleteCase()['case'];
+
+        $response = $this->post(route('track.send-otp'), [
+            'tracker_number' => $case->tracker_number,
+            'email' => 'someone-else@example.com',
+        ]);
+
+        $response->assertSessionHasErrors('tracker_number');
+        $this->assertNull(Cache::get('otp:track:someone-else@example.com'));
+    }
+
+    public function test_tracking_pages_are_denied_without_a_verified_session_binding(): void
+    {
+        $result = $this->createCompleteCase();
+        $case = $result['case'];
+        $referral = $result['referrals']->first();
+
+        $this->get(route('track.show', ['tracker_number' => $case->tracker_number]))
+            ->assertSessionHasErrors('tracker_number');
+        $this->get(route('track.milestones', [$case->tracker_number, $referral->id]))
+            ->assertNotFound();
     }
 }

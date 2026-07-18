@@ -17,6 +17,10 @@ use App\Models\ClientEmployment;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
+use App\Models\ReferralClientAccessLink;
+use App\Models\ReferralClientMessage;
+use App\Models\ReferralClientRequest;
+use App\Models\ReferralClientRequestItem;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
 use App\Models\SurveyInvitation;
@@ -85,6 +89,10 @@ class AppServiceProvider extends ServiceProvider
             CaseCategory::class,
             CaseIssue::class,
             CaseStatus::class,
+            ReferralClientRequest::class,
+            ReferralClientRequestItem::class,
+            ReferralClientMessage::class,
+            ReferralClientAccessLink::class,
         ];
 
         foreach ($auditableModels as $model) {
@@ -142,6 +150,54 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('api-mutations', function (Request $request) {
             return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        $recipientEmail = static function (Request $request): ?string {
+            $referral = $request->route('referral');
+            if ($referral instanceof Referral) {
+                return $referral->loadMissing('caseFile.client')->caseFile?->client?->email;
+            }
+
+            if (filled($referral)) {
+                return Referral::query()->with('caseFile.client')->find($referral)?->caseFile?->client?->email;
+            }
+
+            $clientRequest = $request->route('clientRequest');
+            if ($clientRequest instanceof ReferralClientRequest) {
+                return $clientRequest->loadMissing('referral.caseFile.client')->referral?->caseFile?->client?->email;
+            }
+
+            if (filled($clientRequest)) {
+                return ReferralClientRequest::query()->with('referral.caseFile.client')->find($clientRequest)?->referral?->caseFile?->client?->email;
+            }
+
+            return null;
+        };
+
+        RateLimiter::for('agency-client-request-create', function (Request $request) {
+            $referral = $request->route('referral');
+            $referralId = is_object($referral) ? $referral->getKey() : $referral;
+
+            return Limit::perHour(5)->by(($request->user()?->id ?: 'guest').'|'.$referralId);
+        });
+
+        RateLimiter::for('agency-client-access', function (Request $request) {
+            $clientRequest = $request->route('clientRequest');
+            $requestId = is_object($clientRequest) ? $clientRequest->getKey() : $clientRequest;
+
+            return Limit::perHour(3)->by(($request->user()?->id ?: 'guest').'|'.$requestId);
+        });
+
+        RateLimiter::for('agency-client-delivery-recipient', function (Request $request) use ($recipientEmail) {
+            $email = $recipientEmail($request);
+
+            return filled($email)
+                ? Limit::perHour(5)->by('recipient|'.hash('sha256', strtolower(trim($email))))
+                : Limit::none();
+        });
+
+        RateLimiter::for('track-request-exchange', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
         });
 
         Event::listen(Login::class, LogSuccessfulLogin::class);

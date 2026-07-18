@@ -10,6 +10,8 @@ use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
+use App\Models\ReferralClientMessage;
+use App\Models\ReferralClientRequest;
 use App\Models\ReferralComment;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
@@ -260,10 +262,100 @@ class ReferralService
             'comments.user',
             'comments.replies.user',
             'documents.user',
+            'clientRequests' => fn ($q) => $q
+                ->where('is_deleted', false)
+                ->with([
+                    'items:id,request_id,label,sort_order',
+                    'creator:id,name,role',
+                    'messages' => fn ($messages) => $messages
+                        ->where('is_deleted', false)
+                        ->with('user:id,name,role')
+                        ->latest(),
+                    'accessLinks:id,request_id,expires_at,revoked_at,first_used_at,last_used_at,use_count',
+                    'milestone:id,refr_id,client_request_id,title,description,created_at',
+                ])
+                ->latest(),
         ];
         $relations[] = 'caseFile.categories';
 
         return Referral::with($relations)->findOrFail($id);
+    }
+
+    /**
+     * Return the staff-facing request inbox without exposing client-link secrets
+     * or Eloquent's unbounded model serialization.
+     */
+    public function getClientRequestHistory(Referral $referral): array
+    {
+        return $referral->clientRequests->map(function (ReferralClientRequest $request): array {
+            return [
+                'id' => $request->id,
+                'type' => $request->type,
+                'title' => $request->title,
+                'instructions' => $request->instructions,
+                'status' => $request->status,
+                'due_at' => $request->due_at?->toISOString(),
+                'created_at' => $request->created_at?->toISOString(),
+                'updated_at' => $request->updated_at?->toISOString(),
+                'creator' => $request->creator ? [
+                    'id' => $request->creator->id,
+                    'name' => $request->creator->name,
+                    'role' => $request->creator->role,
+                ] : null,
+                'items' => $request->items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'label' => $item->label,
+                    'sort_order' => $item->sort_order,
+                ])->values()->all(),
+                'messages' => $request->messages->map(fn ($message) => [
+                    'id' => $message->id,
+                    'body' => $message->body,
+                    'sender_kind' => $message->sender_kind,
+                    'kind' => $message->kind,
+                    'created_at' => $message->created_at?->toISOString(),
+                    'user' => $message->user ? [
+                        'id' => $message->user->id,
+                        'name' => $message->user->name,
+                        'role' => $message->user->role,
+                    ] : null,
+                ])->values()->all(),
+                'access_links' => $request->accessLinks->map(function ($link): array {
+                    $usable = $link->revoked_at === null && $link->expires_at?->isFuture() === true;
+
+                    return [
+                        'id' => $link->id,
+                        'status' => $link->revoked_at !== null ? 'REVOKED' : ($usable ? 'ACTIVE' : 'EXPIRED'),
+                        'expires_at' => $link->expires_at?->toISOString(),
+                        'revoked_at' => $link->revoked_at?->toISOString(),
+                        'first_used_at' => $link->first_used_at?->toISOString(),
+                        'last_used_at' => $link->last_used_at?->toISOString(),
+                        'use_count' => (int) $link->use_count,
+                    ];
+                })->values()->all(),
+                'milestone' => $request->milestone ? [
+                    'id' => $request->milestone->id,
+                    'title' => $request->milestone->title,
+                    'description' => $request->milestone->description,
+                    'created_at' => $request->milestone->created_at?->toISOString(),
+                ] : null,
+            ];
+        })->values()->all();
+    }
+
+    public function getClientRequestPermissions(Referral $referral, User $actor): array
+    {
+        $receivingAgency = $actor->isAgency()
+            && $actor->is_active
+            && $actor->agcy_id === $referral->agcy_id;
+        $oversight = $actor->isAdmin()
+            || ($actor->isCaseManager() && $referral->caseFile?->user_id === $actor->id);
+
+        return [
+            'canCreate' => $receivingAgency,
+            'canReply' => $receivingAgency,
+            'canTransition' => $receivingAgency,
+            'canRevokeAccess' => $receivingAgency || $oversight,
+        ];
     }
 
     public function getServiceRequirements(string $agencyId): array
@@ -664,6 +756,17 @@ class ReferralService
      */
     public function getReferralTimeline(Referral $referral): array
     {
+        $referral->loadMissing([
+            'agency',
+            'clientRequests' => fn ($query) => $query
+                ->where('is_deleted', false)
+                ->with([
+                    'messages' => fn ($messages) => $messages
+                        ->where('is_deleted', false)
+                        ->where('sender_kind', ReferralClientMessage::SENDER_CLIENT_ACCESS)
+                        ->orderBy('created_at'),
+                ]),
+        ]);
         $events = collect();
 
         // 1. Referral sent event
@@ -709,6 +812,52 @@ class ReferralService
                 'timestamp' => $ms->created_at->toISOString(),
                 'actor' => $ms->user?->name ?? 'System',
             ]);
+        }
+
+        // Client-request events intentionally contain state only. The request
+        // workspace remains the source of truth for instructions and messages.
+        $agencyName = $referral->agency?->name ?? 'Receiving agency';
+        $requestTypeTitles = [
+            ReferralClientRequest::TYPE_DOCUMENT_REQUEST => 'Client document request created',
+            ReferralClientRequest::TYPE_QUESTION => 'Client question created',
+            ReferralClientRequest::TYPE_INFORMATION_UPDATE => 'Client information update created',
+        ];
+
+        foreach ($referral->clientRequests->sortBy('created_at') as $clientRequest) {
+            $events->push([
+                'id' => 'client-request-created-'.$clientRequest->id,
+                'type' => 'client_request',
+                'title' => $requestTypeTitles[$clientRequest->type] ?? 'Client request created',
+                'description' => 'Status: '.str_replace('_', ' ', $clientRequest->status),
+                'timestamp' => $clientRequest->created_at->toISOString(),
+                'actor' => $agencyName,
+            ]);
+
+            foreach ($clientRequest->messages->sortBy('created_at') as $message) {
+                $events->push([
+                    'id' => 'client-response-'.$message->id,
+                    'type' => 'client_response',
+                    'title' => 'Client responded to request',
+                    'description' => 'Client response received.',
+                    'timestamp' => $message->created_at->toISOString(),
+                    'actor' => 'Client',
+                ]);
+            }
+
+            if (in_array($clientRequest->status, [
+                ReferralClientRequest::STATUS_COMPLETED,
+                ReferralClientRequest::STATUS_CANCELLED,
+            ], true) && $clientRequest->updated_at?->ne($clientRequest->created_at)) {
+                $state = strtolower($clientRequest->status);
+                $events->push([
+                    'id' => 'client-request-status-'.$clientRequest->id.'-'.$clientRequest->status,
+                    'type' => 'client_request_status',
+                    'title' => 'Client request '.$state,
+                    'description' => 'Status: '.str_replace('_', ' ', $clientRequest->status),
+                    'timestamp' => $clientRequest->updated_at->toISOString(),
+                    'actor' => $agencyName,
+                ]);
+            }
         }
 
         return $events->sortBy('timestamp')->values()->toArray();

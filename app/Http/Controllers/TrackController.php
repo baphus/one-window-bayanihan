@@ -26,26 +26,30 @@ class TrackController extends Controller
             'email' => ['required', 'string', 'email'],
         ]);
 
-        $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
-        if (! $case) {
+        $trackerNumber = $request->input('tracker_number');
+        $email = strtolower(trim($request->input('email')));
+        $case = $this->trackingService->findCaseByTracker($trackerNumber);
+        if (! $case || ! $this->trackingService->emailMatchesCase($case, $email)) {
+            $request->session()->forget(TrackingService::SESSION_KEY);
+
             // Return a generic error indistinguishable from other validation failures
             // to prevent tracker number enumeration
             return back()->withErrors(['tracker_number' => 'Unable to process request. Please check your details and try again.']);
         }
 
         $otp = $this->trackingService->generateOtp(
-            $request->input('email'),
+            $email,
             'track',
         );
 
-        $emailParts = explode('@', $request->input('email'));
+        $emailParts = explode('@', $email);
         $hint = strlen($emailParts[0]) > 2
             ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
-            : $request->input('email');
+            : $email;
 
         return Inertia::render('Tracking/Verify', [
             'tracker_number' => $request->input('tracker_number'),
-            'email' => $request->input('email'),
+            'email' => $email,
             'hint' => $hint,
             'debug_otp' => (SystemSetting::getValue('debug_tracking_otp_enabled', false) && app()->environment('local', 'testing')) ? $otp : null,
         ]);
@@ -59,8 +63,17 @@ class TrackController extends Controller
             'otp' => ['required', 'string', 'size:6'],
         ]);
 
+        $trackerNumber = $request->input('tracker_number');
+        $email = strtolower(trim($request->input('email')));
+        $case = $this->trackingService->findCaseByTracker($trackerNumber);
+        if (! $case || ! $this->trackingService->emailMatchesCase($case, $email)) {
+            $request->session()->forget(TrackingService::SESSION_KEY);
+
+            return back()->withErrors(['tracker_number' => 'Unable to process request. Please check your details and try again.']);
+        }
+
         $verified = $this->trackingService->verifyOtp(
-            $request->input('email'),
+            $email,
             $request->input('otp'),
             'track',
         );
@@ -69,10 +82,11 @@ class TrackController extends Controller
             return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
         }
 
-        $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
-        if (! $case) {
-            return back()->withErrors(['tracker_number' => 'Case not found.']);
-        }
+        $request->session()->regenerate();
+        $request->session()->put(TrackingService::SESSION_KEY, [
+            'tracker_number' => $case->tracker_number,
+            'email' => $email,
+        ]);
 
         return redirect()->route('track.show', ['tracker_number' => $case->tracker_number]);
     }
@@ -82,6 +96,10 @@ class TrackController extends Controller
         $request->validate([
             'tracker_number' => ['required', 'string'],
         ]);
+
+        if (! $this->trackingService->hasValidSessionBinding($request, $request->input('tracker_number'))) {
+            return back()->withErrors(['tracker_number' => 'Unable to process request. Please check your details and try again.']);
+        }
 
         $case = $this->trackingService->findCaseByTracker($request->input('tracker_number'));
         if (! $case) {
@@ -97,6 +115,10 @@ class TrackController extends Controller
 
     public function milestones(Request $request, string $tracker_number, Referral $referral)
     {
+        if (! $this->trackingService->hasValidSessionBinding($request, $tracker_number)) {
+            abort(404);
+        }
+
         $case = $this->trackingService->findCaseByTracker($tracker_number);
 
         if (! $case || $referral->case_id !== $case->id) {

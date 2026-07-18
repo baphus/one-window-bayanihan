@@ -28,6 +28,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSurveyController;
+use App\Http\Controllers\ReferralClientRequestController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\StakeholderController;
@@ -159,10 +160,23 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::middleware('role:AGENCY')->group(function () {
+        Route::post('/referrals/{referral}/client-requests', [ReferralClientRequestController::class, 'store'])->name('referrals.client-requests.store')->middleware(['throttle:agency-client-request-create', 'throttle:agency-client-delivery-recipient']);
+        Route::post('/client-requests/{clientRequest}/messages', [ReferralClientRequestController::class, 'sendMessage'])->name('referrals.client-requests.messages.store');
+        Route::post('/client-requests/{clientRequest}/complete', [ReferralClientRequestController::class, 'complete'])->name('referrals.client-requests.complete');
+        Route::post('/client-requests/{clientRequest}/cancel', [ReferralClientRequestController::class, 'cancel'])->name('referrals.client-requests.cancel');
+        Route::post('/client-requests/{clientRequest}/reopen', [ReferralClientRequestController::class, 'reopen'])->name('referrals.client-requests.reopen')->middleware(['throttle:agency-client-access', 'throttle:agency-client-delivery-recipient']);
+        Route::post('/client-requests/{clientRequest}/access/issue', [ReferralClientRequestController::class, 'issue'])->name('referrals.client-requests.access.issue')->middleware(['throttle:agency-client-access', 'throttle:agency-client-delivery-recipient']);
+        Route::post('/client-requests/{clientRequest}/access/reissue', [ReferralClientRequestController::class, 'reissue'])->name('referrals.client-requests.access.reissue')->middleware(['throttle:agency-client-access', 'throttle:agency-client-delivery-recipient']);
+
         Route::get('/services', [AgencyServiceController::class, 'index'])->name('agency.services.index');
         Route::post('/services', [AgencyServiceController::class, 'store'])->name('agency.services.store');
         Route::patch('/services/{service}', [AgencyServiceController::class, 'update'])->name('agency.services.update');
         Route::delete('/services/{service}', [AgencyServiceController::class, 'destroy'])->name('agency.services.destroy');
+    });
+
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
+        Route::get('/referrals/{referral}/client-requests', [ReferralClientRequestController::class, 'index'])->name('referrals.client-requests.index');
+        Route::post('/client-access-links/{accessLink}/revoke', [ReferralClientRequestController::class, 'revoke'])->name('referrals.client-requests.access.revoke');
     });
 
     // Survey form builder (AGENCY only)
@@ -323,6 +337,18 @@ Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
 Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
 Route::get('/track/case/{tracker_number}/referrals/{referral}/milestones', [TrackController::class, 'milestones'])
     ->name('track.milestones');
+
+Route::post('/track/request/exchange', [ReferralClientRequestController::class, 'exchange'])
+    ->name('track.request.exchange')
+    ->middleware('throttle:track-request-exchange');
+Route::get('/track/request', [ReferralClientRequestController::class, 'show'])
+    ->name('track.request.index');
+Route::post('/track/request/messages', [ReferralClientRequestController::class, 'clientMessage'])
+    ->name('track.request.messages.store')
+    ->middleware('throttle:20,1');
+Route::post('/track/request/replacement', [ReferralClientRequestController::class, 'replacement'])
+    ->name('track.request.replacement')
+    ->middleware('throttle:5,1');
 
 Route::prefix('help')->name('helpdesk.')->group(function () {
     Route::get('/', function (Request $request) {
