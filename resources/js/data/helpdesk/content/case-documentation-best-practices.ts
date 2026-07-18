@@ -12,7 +12,7 @@ Good documentation makes a case easier to act on, review, and close. A case reco
 - **vulnerability_indicator** and **nok_vulnerability_indicator**: record relevant risks factually.
 - **category_id** and **case_issue_id**: select the best match.
 - **summary**: explain concern, prior actions, and next steps.
-- **status**: use **DRAFT**, **OPEN**, **CLOSED**, or **ARCHIVED**.
+- **status**: use **OPEN**, **CLOSED**, or **ARCHIVED**. Drafts are saved separately from cases.
 
 ## Intake sections
 

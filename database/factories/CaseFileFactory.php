@@ -35,11 +35,6 @@ class CaseFileFactory extends Factory
         return $this->state(fn () => ['status' => 'CLOSED', 'closed_at' => now()]);
     }
 
-    public function draft(): static
-    {
-        return $this->state(['status' => 'DRAFT']);
-    }
-
     public function archived(): static
     {
         return $this->state(['status' => 'ARCHIVED']);

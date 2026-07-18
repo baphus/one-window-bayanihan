@@ -18,7 +18,7 @@ const content = `# Glossary of Terms
 
 **Tracker Number** — Public tracking identifier used by clients to check progress without logging in.
 
-**DRAFT** — Case status for a case being prepared and not yet fully opened.
+**DRAFT** — A case record saved separately from published cases while being prepared. Drafts are only visible to the creator and become cases when published.
 
 **OPEN** — Case status for active work.
 

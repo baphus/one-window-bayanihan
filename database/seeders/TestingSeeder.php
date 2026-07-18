@@ -529,15 +529,13 @@ class TestingSeeder extends Seeder
         $usedTrackers = [];
         $datePrefix = now()->format('Ymd');
 
-        // Status distribution: 40% OPEN, 30% CLOSED, 15% DRAFT, 15% ARCHIVED
+        // Status distribution: 40% OPEN, 30% CLOSED, 30% ARCHIVED
         $caseStatusDistribution = [];
         for ($i = 0; $i < $casesToCreate; $i++) {
             if ($i < 340) {
                 $caseStatusDistribution[] = 'OPEN';
             } elseif ($i < 595) {
                 $caseStatusDistribution[] = 'CLOSED';
-            } elseif ($i < 723) {
-                $caseStatusDistribution[] = 'DRAFT';
             } else {
                 $caseStatusDistribution[] = 'ARCHIVED';
             }
@@ -568,8 +566,8 @@ class TestingSeeder extends Seeder
             // Chronological: cases created between 180 and 5 days ago, distributed evenly
             $caseCreatedAt = now()->subDays(180 - intval($i * 175 / $casesToCreate))->addHours(rand(0, 12));
 
-            // Client assignment — DRAFT cases may or may not have a client
-            $assignClient = $status !== 'DRAFT' || rand(0, 100) < 50;
+            // Client assignment — all cases have a client
+            $assignClient = true;
             $clientId = $assignClient ? $clientIds[$i % 1000] : null;
             if ($clientId) {
                 $caseClientMap[$caseId] = $clientId;
@@ -614,7 +612,7 @@ class TestingSeeder extends Seeder
 
         // =====================================================================
         // 6. REFERRALS  (variable — target 896)
-        //    Distribution: OPEN×2, CLOSED×2, DRAFT×0, ARCHIVED×2
+        //    Distribution: OPEN×2, CLOSED×2, ARCHIVED×2
         //    Referral status: 30% PENDING, 25% PROCESSING, 15% FOR_COMPLIANCE,
         //                     20% COMPLETED, 10% REJECTED
         // =====================================================================
@@ -648,11 +646,6 @@ class TestingSeeder extends Seeder
             }
 
             $caseStatus = $caseInsert->status;
-
-            // DRAFT cases get 0 referrals; all others get 2
-            if ($caseStatus === 'DRAFT') {
-                continue;
-            }
 
             $caseCreated = $caseCreatedDates[$caseId] ?? Carbon::parse($caseInsert->created_at);
 
@@ -976,7 +969,7 @@ class TestingSeeder extends Seeder
                 'new_value' => json_encode([
                     'case_number' => $case->case_number,
                     'client_type' => $case->client_type,
-                    'status' => $case->status === 'DRAFT' ? 'DRAFT' : 'OPEN',
+                    'status' => $case->status === 'ARCHIVED' ? 'ARCHIVED' : 'OPEN',
                 ]),
                 'user_id' => $case->user_id,
                 'timestamp' => $baseTs,
@@ -1047,7 +1040,7 @@ class TestingSeeder extends Seeder
             // 5. Case status change (CLOSED or ARCHIVED — terminal event for the case)
             if ($case->status === 'CLOSED' || $case->status === 'ARCHIVED') {
                 $ts = $ts->addMinutes(rand(30, 1440));
-                $beforeStatus = $case->status === 'DRAFT' ? 'DRAFT' : 'OPEN';
+                $beforeStatus = $case->status === 'ARCHIVED' ? 'OPEN' : 'OPEN';
                 $auditLogs[] = [
                     'id' => (string) Str::uuid(),
                     'action' => 'UPDATE',

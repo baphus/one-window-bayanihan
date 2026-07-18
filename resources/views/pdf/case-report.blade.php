@@ -28,7 +28,6 @@
         .status-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 8px; font-weight: 700; }
         .status-OPEN { background: #dbeafe; color: #1e40af; }
         .status-CLOSED { background: #d1fae5; color: #065f46; }
-        .status-DRAFT { background: #f1f5f9; color: #475569; }
         .status-ARCHIVED { background: #e2e8f0; color: #64748b; }
 
         .referral-status { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 8px; font-weight: 700; }

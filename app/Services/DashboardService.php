@@ -417,14 +417,12 @@ class DashboardService
     {
         $formatter = app(AuditLogFormatter::class);
 
-        $myDraftCount = $user ? CaseFile::where('status', 'DRAFT')->where('user_id', $user->id)->count() : 0;
-
         // Single aggregated query for case counts + referral counts (cached 60s)
         $countsKey = 'dashboard:cm_counts';
         [$caseCounts, $refCounts] = CacheHelper::safeRemember($countsKey, 60, function () {
             $caseCounts = DB::selectOne("
                 SELECT
-                    COUNT(*) FILTER (WHERE status != 'DRAFT') AS total,
+                    COUNT(*) AS total,
                     COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed
                 FROM cases WHERE is_deleted = false
@@ -516,7 +514,7 @@ class DashboardService
         // Load allCases (trimmed: no 'user' eager load, only needed columns)
         $allCases = CaseFile::with(['client'])
             ->select('id', 'case_number', 'tracker_number', 'client_id', 'client_type', 'status', 'created_at', 'updated_at')
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('status', ['ARCHIVED'])
             ->where(function ($q) {
                 $q->where('status', 'OPEN')
                     ->orWhere('created_at', '>', now()->subDays(30));
@@ -557,7 +555,7 @@ class DashboardService
                 ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
                 ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
                 ->where('cases.is_deleted', false)
-                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+                ->whereNotIn('cases.status', ['ARCHIVED'])
                 ->groupBy('case_categories.name', 'case_categories.color')
                 ->orderByDesc('count')
                 ->get()
@@ -610,7 +608,6 @@ class DashboardService
             $this->queueItem('agingOpenCases', 'Aging open cases', $agingOpenCasesCount, 'Open seven days or more.', 'amber', 'folder_clock', '/cases?status=OPEN&age_min_days=7'),
             $this->queueItem('pendingReferrals', 'Pending referrals', $pendingReferrals, 'Waiting for agency action.', 'amber', 'schedule', '/referrals?status=PENDING'),
             $this->queueItem('rejectedReferrals', 'Returned referrals', $rejectedReferrals, 'Needs reassignment or follow-up.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
-            $this->queueItem('draftCases', 'Draft cases', $myDraftCount, 'Your unfinished case drafts.', 'slate', 'edit_note', '/cases/drafts'),
             $this->queueItem('casesWithoutReferrals', 'Cases without referrals', $casesWithoutReferrals, 'Open cases that may need routing.', 'blue', 'hub', '/cases?status=OPEN&referral_state=none'),
         ];
 
@@ -636,7 +633,6 @@ class DashboardService
             'workQueue' => $workQueue,
             'recentActivity' => $recentActivity,
             'averageCaseDaysToClose' => $averageCaseDaysToClose,
-            'myDraftCount' => $myDraftCount,
             'allCases' => $allCases,
             'agencyBreakdown' => $agencyBreakdown,
         ];
@@ -786,7 +782,7 @@ class DashboardService
         [$caseCounts, $refCounts] = CacheHelper::safeRemember($countsKey, 60, function () use ($dashboardWindow) {
             $caseCounts = DB::selectOne("
                 SELECT
-                    COUNT(*) FILTER (WHERE status != 'DRAFT') AS total,
+                    COUNT(*) AS total,
                     COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed
                 FROM cases WHERE is_deleted = false
@@ -932,7 +928,7 @@ class DashboardService
         });
 
         $recentCases = CaseFile::with(['client', 'user', 'category'])
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('status', ['ARCHIVED'])
             ->where('is_deleted', false)
             ->orderBy('updated_at', 'desc')
             ->take(6)
@@ -999,7 +995,7 @@ class DashboardService
                 ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
                 ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
                 ->where('cases.is_deleted', false)
-                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+                ->whereNotIn('cases.status', ['ARCHIVED'])
                 ->groupBy('case_categories.name', 'case_categories.color')
                 ->orderByDesc('count')
                 ->get()

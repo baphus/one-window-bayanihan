@@ -39,23 +39,55 @@ class NotificationService
             return null;
         }
 
-        // Queue a friendly email to the client with case update details.
-        Mail::to($clientEmail)->queue(new ClientUpdateMail(
-            trackingNumber: $case->tracker_number,
-            caseNumber: $case->case_number,
-            title: $title,
-            message: $message,
-        ));
+        $eventKey = $data['event_key'] ?? null;
+        $claimed = null;
 
-        return CaseNotification::create([
-            'case_id' => $case->id,
-            'client_email' => $clientEmail,
-            'type' => $type,
-            'title' => $title,
-            'message' => $message,
-            'data' => $data,
-            'related_url' => $relatedUrl,
-        ]);
+        if ($eventKey) {
+            $claimed = CaseNotification::claimDelivery([
+                'case_id' => $case->id,
+                'client_email' => $clientEmail,
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'data' => $data,
+                'related_url' => $relatedUrl,
+                'event_key' => $eventKey,
+            ]);
+
+            // Another worker owns the claim, or this event was already sent.
+            if (! $claimed) {
+                return null;
+            }
+        }
+
+        try {
+            // Queue a friendly email to the client with case update details.
+            Mail::to($clientEmail)->queue(new ClientUpdateMail(
+                trackingNumber: $case->tracker_number,
+                caseNumber: $case->case_number,
+                title: $title,
+                message: $message,
+            ));
+
+            if ($claimed) {
+                $claimed->markDeliveryQueued();
+
+                return $claimed;
+            }
+
+            return CaseNotification::create([
+                'case_id' => $case->id,
+                'client_email' => $clientEmail,
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'data' => $data,
+                'related_url' => $relatedUrl,
+            ]);
+        } catch (\Throwable $exception) {
+            $claimed?->markDeliveryFailed();
+            throw $exception;
+        }
     }
 
     /**

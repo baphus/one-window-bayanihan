@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
-use App\Http\Requests\UpdateDraftRequest;
-use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Services\CaseService;
@@ -78,79 +76,18 @@ class CaseController extends Controller
             $request->user()->id,
         );
 
-        $isDraft = $request->validated()['is_draft'] ?? true;
-
-        if (! $isDraft) {
-            $case = $this->caseService->publishDraft($case->id, $request->user()->id);
-
-            app(OnboardingService::class)
-                ->markChecklistItemQuietly($request->user(), 'create-first-case');
-
-            return redirect()
-                ->route('cases.show', $case)
-                ->with('success', 'Case created successfully.')
-                ->with('just_published', true);
-        }
+        app(OnboardingService::class)
+            ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
         return redirect()
-            ->route('cases.drafts')
-            ->with('success', 'Draft saved successfully.');
-    }
-
-    public function editDraft(Request $request, string $id)
-    {
-        $case = $this->caseService->getCase($id);
-        abort_unless($case->status === 'DRAFT', 404);
-        abort_unless($case->user_id === $request->user()->id, 403);
-
-        $categories = $this->referenceData->getActiveCategories();
-        $caseIssues = $this->referenceData->getActiveIssues();
-
-        // Resolve draft address names to codes for cascade dropdown pre-population
-        $draftResolvedAddress = [];
-        $draftData = $case->draft_client_data;
-        if (! empty($draftData['address'])) {
-            $region = $draftData['address']['region'] ?? '';
-            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
-                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
-            } else {
-                $draftResolvedAddress = $draftData['address'];
-            }
-        }
-
-        return Inertia::render('Case/Create', [
-            'existingDraft' => $case,
-            'categories' => $categories,
-            'caseIssues' => $caseIssues,
-            'positionOptions' => $this->referenceData->getPositionOptions(),
-            'draftResolvedAddress' => $draftResolvedAddress,
-        ]);
-    }
-
-    public function updateDraft(UpdateDraftRequest $request, string $id)
-    {
-        $case = $this->caseService->updateDraft($id, $request->validated(), $request->user()->id);
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'ok' => true,
-                'id' => $case->id,
-                'saved_at' => $case->updated_at?->toIso8601String() ?? now()->toIso8601String(),
-            ]);
-        }
-
-        return redirect()
-            ->route('cases.drafts')
-            ->with('success', 'Draft updated successfully.');
+            ->route('cases.show', $case)
+            ->with('success', 'Case created successfully.');
     }
 
     public function show(string $id, Request $request)
     {
         $case = $this->caseService->getCase($id);
         $this->authorizeCaseAccess($case, $request->user());
-        if ($case->status === 'DRAFT' && $case->user_id !== $request->user()->id) {
-            abort(403, 'You do not have access to this draft.');
-        }
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
         $trackingData = $this->trackingService->buildTrackingData($case);
@@ -188,21 +125,6 @@ class CaseController extends Controller
             ->with('success', 'Case status updated successfully.');
     }
 
-    public function publish(Request $request, CaseFile $case)
-    {
-        $this->authorizeCaseAccess($case, $request->user());
-
-        $case = $this->caseService->publishDraft($case->id, $request->user()->id);
-
-        app(OnboardingService::class)
-            ->markChecklistItemQuietly($request->user(), 'create-first-case');
-
-        return redirect()
-            ->route('cases.show', $case)
-            ->with('success', 'Draft published successfully.')
-            ->with('just_published', true);
-    }
-
     public function archive(Request $request, string $id)
     {
         $case = $this->caseService->getCase($id);
@@ -229,26 +151,6 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.show', $case)
             ->with('success', 'Case restored from archive successfully.');
-    }
-
-    public function drafts(Request $request)
-    {
-        $filters = $request->only(['search', 'date_from', 'date_to']);
-        $drafts = $this->caseService->getUserDrafts($request->user()->id, $filters);
-
-        return Inertia::render('Draft/Index', [
-            'drafts' => $drafts,
-            'filters' => $filters,
-        ]);
-    }
-
-    public function destroyDraft(string $id, Request $request)
-    {
-        $this->caseService->deleteDraft($id, $request->user()->id);
-
-        return redirect()
-            ->route('cases.drafts')
-            ->with('success', 'Draft deleted successfully.');
     }
 
     public function exportExcel(Request $request)

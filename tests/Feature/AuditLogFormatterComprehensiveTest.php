@@ -242,21 +242,20 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
             // ---- PUBLISH: Case (our new action) ----
             'PUBLISH / CASE (with case number and summary)' => [
-                'PUBLISH', 'CASE', ['status' => 'DRAFT', 'summary' => 'Test draft'],
+                'PUBLISH', 'CASE', ['status' => 'OPEN', 'summary' => 'Test draft'],
                 ['status' => 'OPEN', 'case_number' => 'CASE-20260702-0005', 'tracker_number' => 'OWBAP-ABCD123', 'summary' => 'Test case for client'],
                 ['published', 'CASE-20260702-0005', 'Test case for client'],
-                ['DRAFT'],
             ],
             'PUBLISH / CASE (no summary)' => [
-                'PUBLISH', 'CASE', ['status' => 'DRAFT'], ['status' => 'OPEN', 'case_number' => 'CASE-20260702-0006'],
+                'PUBLISH', 'CASE', ['status' => 'OPEN'], ['status' => 'OPEN', 'case_number' => 'CASE-20260702-0006'],
                 ['published', 'CASE-20260702-0006'],
             ],
             'PUBLISH / CASE (tracker only)' => [
-                'PUBLISH', 'CASE', ['status' => 'DRAFT'], ['status' => 'OPEN', 'tracker_number' => 'OWBAP-XYZ999'],
+                'PUBLISH', 'CASE', ['status' => 'OPEN'], ['status' => 'OPEN', 'tracker_number' => 'OWBAP-XYZ999'],
                 ['published', 'OWBAP-XYZ999'],
             ],
             'PUBLISH / case (lowercase module)' => [
-                'PUBLISH', 'case', ['status' => 'DRAFT'], ['status' => 'OPEN', 'case_number' => 'CASE-20260702-0007'],
+                'PUBLISH', 'case', ['status' => 'OPEN'], ['status' => 'OPEN', 'case_number' => 'CASE-20260702-0007'],
                 ['published', 'CASE-20260702-0007'],
             ],
 
@@ -285,15 +284,15 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $log = new AuditLog([
             'action' => 'PUBLISH',
             'module' => 'CASE',
-            'description' => 'Maria Santos published Case CASE-20260702-0006 — Test case for client — DRAFT',
-            'old_value' => ['status' => 'DRAFT'],
+            'description' => 'Maria Santos published Case CASE-20260702-0006 — Test case for client',
+            'old_value' => ['status' => 'OPEN'],
             'new_value' => ['status' => 'OPEN', 'case_number' => 'CASE-20260702-0006'],
             'user_id' => null,
             'timestamp' => now(),
         ]);
 
         $this->assertSame(
-            'Maria Santos published Case CASE-20260702-0006 — Test case for client — DRAFT',
+            'Maria Santos published Case CASE-20260702-0006 — Test case for client',
             $this->formatter->format($log),
         );
     }
@@ -413,14 +412,11 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
             'PUBLISH changes shown' => [
                 'PUBLISH', 'CASE',
-                ['status' => 'DRAFT'],
+                ['status' => 'OPEN'],
                 ['status' => 'OPEN', 'case_number' => 'CASE-20260702-0006', 'summary' => 'Test case'],
                 'Maria Santos',
                 [
                     'messageContains' => 'published',
-                    'changesCheck' => [
-                        ['field' => 'status', 'old' => 'Draft', 'new' => 'Open'],
-                    ],
                     'hasChanges' => true,
                     'module' => 'Case',
                 ],
@@ -510,8 +506,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'escalation_reason' => ['escalation_reason', 'escalation reason'],
             'category_id' => ['category_id', 'category'],
             'case_issue_id' => ['case_issue_id', 'case issue'],
-            'draft_client_data' => ['draft_client_data', 'draft client data'],
-
             // Client fields
             'first_name' => ['first_name', 'first name'],
             'last_name' => ['last_name', 'last name'],
@@ -563,7 +557,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             // Statuses
             'status OPEN' => ['case_files', 'status', 'OPEN', 'Open'],
             'status CLOSED' => ['case_files', 'status', 'CLOSED', 'Closed'],
-            'status DRAFT' => ['case_files', 'status', 'DRAFT', 'Draft'],
             'status ARCHIVED' => ['case_files', 'status', 'ARCHIVED', 'Archived'],
             'status PENDING' => ['case_files', 'status', 'PENDING', 'Pending'],
             'status PROCESSING' => ['case_files', 'status', 'PROCESSING', 'Processing'],
@@ -788,10 +781,10 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
     public function test_publish_audit_shows_meaningful_changes_only(): void
     {
-        // Simulate what publishDraft() now produces: old (draft) vs new (published)
+        // Simulate what publishDraft() now produces: old vs new (published)
         $old = [
-            'status' => 'DRAFT',
-            'summary' => 'Test case for client — DRAFT',
+            'status' => 'OPEN',
+            'summary' => 'Test case for client',
             'client_type' => 'NON-OFW',
             'case_number' => 'CASE-20260702-0006',
             'tracker_number' => 'OWBAP-KCNHW6UO',
@@ -805,20 +798,18 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
             'is_deleted' => false,
-            'draft_client_data' => ['first_name' => 'Maria', 'last_name' => 'Santos'],
         ];
 
         $new = array_merge($old, [
             'status' => 'OPEN',
             'client_id' => 'd31e0a57-85f4-4f17-9b34-7699c787dfea',
             'consent_given_at' => '2026-07-03T00:00:00.000000Z',
-            'draft_client_data' => null,
         ]);
 
         $log = new AuditLog([
             'action' => 'PUBLISH',
             'module' => 'CASE',
-            'description' => 'Case CASE-20260702-0006 published — Test case for client — DRAFT',
+            'description' => 'Case CASE-20260702-0006 published — Test case for client',
             'old_value' => $old,
             'new_value' => $new,
             'user_id' => null,
@@ -834,26 +825,15 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
         // The changes should only show what actually changed
         $changes = $display['changes'];
-        $fieldLabels = array_column($changes, 'fieldLabel');
-
-        // Status change is meaningful
-        $this->assertContains('status', $fieldLabels);
-        $statusChanges = array_values(array_filter($changes, fn ($c) => $c['fieldLabel'] === 'status'));
-        $this->assertNotEmpty($statusChanges);
-        $this->assertStringContainsString('Open', $statusChanges[0]['new']);
-        $this->assertStringContainsString('Draft', $statusChanges[0]['old']);
-
-        // client_id change is meaningful
-        $this->assertContains('client id', $fieldLabels);
 
         // Fields that didn't change should NOT appear
-        $this->assertNotContains('summary', $fieldLabels,
+        $this->assertNotContains('summary', array_column($changes, 'fieldLabel'),
             'Summary did not change; changes should not mention it');
-        $this->assertNotContains('tracker number', $fieldLabels,
+        $this->assertNotContains('tracker number', array_column($changes, 'fieldLabel'),
             'Tracker number did not change; changes should not mention it');
-        $this->assertNotContains('case number', $fieldLabels,
+        $this->assertNotContains('case number', array_column($changes, 'fieldLabel'),
             'Case number did not change; changes should not mention it');
-        $this->assertNotContains('client type', $fieldLabels,
+        $this->assertNotContains('client type', array_column($changes, 'fieldLabel'),
             'Client type did not change; changes should not mention it');
 
         // No UUIDs in the output (they're already in old/new values but formatFieldValue won't resolve them)

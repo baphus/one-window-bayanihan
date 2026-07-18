@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  FileEdit,
   FolderCheck,
   FolderOpen,
   Loader2,
@@ -16,7 +15,6 @@ import {
 const colors = {
   OPEN: 'border-blue-200 bg-blue-50 text-blue-700',
   CLOSED: 'border-slate-200 bg-slate-100 text-slate-600',
-  DRAFT: 'border-amber-200 bg-amber-50 text-amber-700',
   ARCHIVED: 'border-gray-200 bg-gray-100 text-gray-600',
   PENDING: 'border-amber-200 bg-amber-50 text-amber-700',
   PROCESSING: 'border-blue-200 bg-blue-50 text-blue-700',
@@ -32,7 +30,6 @@ const colors = {
 const icons = {
   OPEN: FolderOpen,
   CLOSED: FolderCheck,
-  DRAFT: FileEdit,
   ARCHIVED: Archive,
   PENDING: Clock,
   PROCESSING: Loader2,

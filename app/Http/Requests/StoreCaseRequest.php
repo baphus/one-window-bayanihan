@@ -17,14 +17,6 @@ class StoreCaseRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->boolean('is_draft')) {
-            $this->merge(['is_draft' => true]);
-
-            // Inertia sends JSON — ConvertEmptyStringsToNull doesn't apply.
-            // For drafts, convert all empty strings to null so 'nullable' rules skip them.
-            $this->merge($this->convertEmptyStringsToNull($this->all()));
-        }
-
         if ($this->has('category_id') && $this->category_id === '') {
             $this->merge(['category_id' => null]);
         }
@@ -68,35 +60,19 @@ class StoreCaseRequest extends FormRequest
         }
     }
 
-    private function convertEmptyStringsToNull(array $data): array
-    {
-        $result = [];
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                $result[$key] = $this->convertEmptyStringsToNull($value);
-            } else {
-                $result[$key] = $value === '' ? null : $value;
-            }
-        }
-
-        return $result;
-    }
-
     public function rules(): array
     {
-        // Drafts require nothing — just save whatever progress exists
-        $r = $this->boolean('is_draft') ? 'nullable' : 'required';
+        // Case creation requires all fields — drafts are handled by the case_drafts aggregate
+        $r = 'required';
 
         return [
-            'is_draft' => ['nullable', 'boolean'],
             'client_type' => [$r, 'string', Rule::in(CaseFile::CLIENT_TYPES)],
             'vulnerability_indicator' => [$r, 'string', 'max:255'],
             'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', 'max:255'],
             'summary' => ['nullable', 'string', 'max:5000'],
-            // Drafts may be saved before categories are selected. Published case
-            // creation must contain at least one category in either format.
-            'category_id' => ['bail', $this->boolean('is_draft') ? 'nullable' : 'required_without:category_ids', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'category_ids' => [$this->boolean('is_draft') ? 'nullable' : 'required_without:category_id', 'nullable', 'array', $this->boolean('is_draft') ? 'nullable' : 'min:1'],
+            // Case creation must contain at least one category in either format.
+            'category_id' => ['bail', 'required_without:category_ids', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids' => ['required_without:category_id', 'nullable', 'array', 'min:1'],
             'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
             'case_issue_id' => [$r, 'string', 'exists:case_issues,id'],
 
@@ -110,6 +86,7 @@ class StoreCaseRequest extends FormRequest
             'client.contact_number' => [$r, 'string', 'max:50'],
 
             'next_of_kin' => ['nullable', 'array'],
+            'next_of_kin.*.id' => ['bail', 'nullable', 'uuid'],
             'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.middle_initial' => ['nullable', 'string', 'max:1'],
             'next_of_kin.*.last_name' => ['required_with:next_of_kin', 'string', 'max:255'],
@@ -124,7 +101,13 @@ class StoreCaseRequest extends FormRequest
             'next_of_kin.*.nok_address.barangay' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
 
-            'selected_client_id' => ['nullable', 'string', 'exists:clients,id'],
+            'selected_client_id' => [
+                'bail',
+                'nullable',
+                'string',
+                'uuid',
+                Rule::exists('clients', 'id')->where(fn ($query) => $query->whereRaw('is_deleted IS FALSE')),
+            ],
             'selected_nok_index' => ['nullable', 'integer', 'min:0'],
 
             'consent' => ['nullable', 'boolean'],
@@ -154,7 +137,7 @@ class StoreCaseRequest extends FormRequest
                 $validator->errors()->add('category_ids', 'Use either category_id or category_ids, not both.');
             }
 
-            if (! $this->boolean('is_draft') && (! $this->filled('category_id') && empty($this->input('category_ids')))) {
+            if (! $this->filled('category_id') && empty($this->input('category_ids'))) {
                 $validator->errors()->add('category_ids', 'At least one category is required.');
             }
         });

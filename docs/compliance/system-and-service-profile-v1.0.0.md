@@ -107,7 +107,7 @@ Extensive OFW PII, regulated under RA 10173:
 - **client_addresses:** region, province, city/municipality, barangay, street — `:67-83`.
 - **client_employments:** employer, position, country, employment dates, date of arrival — `:86-105`.
 - **next_of_kin:** name, relationship, phone, email, full address — `:108-133`.
-- **cases:** `consent_given_at`, `vulnerability_indicator`, `nok_vulnerability_indicator`, `escalation_reason`, `draft_client_data` (JSONB raw PII), tracker number, summary — `:35-64`.
+- **cases:** `consent_given_at`, `vulnerability_indicator`, `nok_vulnerability_indicator`, `escalation_reason`, tracker number, summary — `:35-64`.
 - **users:** name, email, bcrypt password (rounds 12), contact number, position/department/office, `emergency_contact`, `mfa_secret`, `mfa_recovery_codes` — migration `0001_...:11-41`.
 - **case_documents / referral_attachments:** uploaded ID/contract documents (most sensitive payload) — private object storage.
 - **feedback:** ratings + free-text; **email_logs:** recipient email; **sessions:** IP + user agent; **audit_logs:** old/new JSONB (User PII fields excluded via `$auditExclude`).

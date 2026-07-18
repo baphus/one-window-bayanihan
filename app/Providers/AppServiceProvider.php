@@ -8,6 +8,7 @@ use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
 use App\Models\Agency;
 use App\Models\CaseCategory;
+use App\Models\CaseDraft;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\CaseStatus;
@@ -24,6 +25,7 @@ use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Observers\CacheInvalidationObserver;
+use App\Policies\CaseDraftPolicy;
 use App\Services\Contracts\MalwareScannerInterface;
 use App\Services\Malware\ClamAvScanner;
 use App\Services\Malware\NullScanner;
@@ -34,6 +36,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
@@ -59,6 +62,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(CaseDraft::class, CaseDraftPolicy::class);
+
         URL::forceRootUrl(config('app.url'));
 
         if (! app()->environment('local', 'testing')) {
@@ -144,6 +149,10 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('api-mutations', function (Request $request) {
             return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('case-draft-autosave', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
         });
 
         Event::listen(Login::class, LogSuccessfulLogin::class);

@@ -302,30 +302,6 @@ class AuditLogFormatterTest extends TestCase
         $this->assertSame('client_type', $changes[0]['field']);
     }
 
-    public function test_get_structured_changes_draft_client_data(): void
-    {
-        $formatter = new AuditLogFormatter;
-
-        $changes = $formatter->getStructuredChanges(
-            null,
-            [
-                'draft_client_data' => [
-                    'first_name' => 'Juan',
-                    'last_name' => 'Dela Cruz',
-                    'email' => 'juan@example.com',
-                    'client_type' => 'OFW',
-                ],
-            ],
-            'CREATE',
-        );
-
-        $this->assertCount(1, $changes);
-        $this->assertSame('draft_client_data', $changes[0]['field']);
-        $this->assertStringContainsString('Juan Dela Cruz', $changes[0]['new']);
-        $this->assertStringContainsString('OFW', $changes[0]['new']);
-        $this->assertStringContainsString('juan@example.com', $changes[0]['new']);
-    }
-
     public function test_get_structured_changes_uuid_field_unresolved(): void
     {
         $formatter = new AuditLogFormatter;
@@ -507,7 +483,6 @@ class AuditLogFormatterTest extends TestCase
             ['decision', 'decision'],
             ['decision_reason', 'decision reason'],
             ['due_date', 'due date'],
-            ['draft_client_data', 'draft client data'],
             ['priority', 'priority'],
             ['suffix', 'suffix'],
         ];

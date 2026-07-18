@@ -47,7 +47,7 @@ The left-side navigation gives access to the main work areas available to Case M
 
 Use search and filters before creating a new record. Duplicate case records make public tracking and referral coordination harder.
 
-## 4. Create a case as a draft
+## 4. Create a case
 
 ![Cases list](/assets/helpdesk/cases-index.png)
 
@@ -59,11 +59,11 @@ Use search and filters before creating a new record. Duplicate case records make
 
 Enter the core case information carefully. Depending on the form configuration, you may be asked for personal details, address, employment or deployment information, category/issue details, narrative summary, and supporting documents.
 
-When you save a new case, the system creates it as **DRAFT** by default. This is intentional. Draft-first processing gives you time to check spelling, validate identity details, attach documents, and confirm that the case is ready for official handling.
+Your work is auto-saved as a **draft** while you fill out the form. Drafts are kept separately from published cases and do not appear in public tracking or active workloads until you publish.
 
-> **Do not treat a saved draft as an active public case.** A draft is still being prepared. Public tracking maps **DRAFT** to **BEING_PREPARED**.
+> **Do not treat a saved draft as an active public case.** A draft is still being prepared and is only visible to you.
 
-## 5. Review and publish the draft
+## 5. Review and publish the case
 
 Before publishing, open the draft and check:
 
@@ -73,13 +73,12 @@ Before publishing, open the draft and check:
 4. Required documents are attached or the missing documents are clearly noted.
 5. No duplicate case already exists for the same concern.
 
-When the record is ready, use the available publish action on the draft. Publishing changes the status from **DRAFT** to **OPEN**. Public tracking maps **OPEN** to **IN_PROGRESS**.
+When the record is ready, use the **Create Case** action. This publishes the case with status **OPEN**. Public tracking maps **OPEN** to **IN_PROGRESS**.
 
 Case status meanings:
 
 | Internal status | Public tracking meaning | Use when |
 |---|---|---|
-| **DRAFT** | **BEING_PREPARED** | Intake is saved but not yet published. |
 | **OPEN** | **IN_PROGRESS** | The case is active and may receive referrals. |
 | **CLOSED** | **RESOLVED** | The case has been resolved or completed. |
 | **ARCHIVED** | **ARCHIVED** | The case is retained for record purposes. |
@@ -125,7 +124,7 @@ Check referrals regularly. If a referral is **FOR_COMPLIANCE**, coordinate with 
 ## 8. Daily routine checklist
 
 1. Open the **Dashboard** and scan for overdue or newly updated work.
-2. Review **DRAFT** cases and publish only those ready to become **OPEN**.
+2. Review your drafts and publish only those ready to become **OPEN** cases.
 3. Process new intake and avoid duplicate records.
 4. Check **Referrals** for pending agency action, compliance requests, and completed work.
 5. Update case notes and documents after every meaningful action.

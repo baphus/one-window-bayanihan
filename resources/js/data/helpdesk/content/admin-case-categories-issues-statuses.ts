@@ -22,7 +22,7 @@ The project uses a soft-delete flag pattern. Removed records are marked as delet
 
 ## Status reference
 
-The core case statuses are DRAFT, OPEN, CLOSED, and ARCHIVED. Do not rename these casually; changing labels can confuse users and reports.
+The core case statuses are OPEN, CLOSED, and ARCHIVED. Drafts are saved separately from cases and are not a case status. Do not rename these casually; changing labels can confuse users and reports.
 
 ## Maintenance tips
 

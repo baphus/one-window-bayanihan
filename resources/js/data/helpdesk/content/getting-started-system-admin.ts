@@ -43,7 +43,7 @@ The supported application roles are:
 
 | Role | Typical user |
 |---|---|
-| **CASE_MANAGER** | DMW staff who create cases, manage drafts, publish cases, create referrals, monitor dashboards, and view reports. |
+| **CASE_MANAGER** | DMW staff who create cases, publish drafts, create referrals, monitor dashboards, and view reports. |
 | **AGENCY** | Partner agency focal persons who work only on referrals scoped to their agency. |
 | **ADMIN** | System administrators who maintain users, agencies, services, settings, audit logs, and maintenance/security pages. |
 
@@ -94,12 +94,11 @@ Current case statuses in the application are:
 
 | Internal status | Public tracking status |
 |---|---|
-| **DRAFT** | **BEING_PREPARED** |
 | **OPEN** | **IN_PROGRESS** |
 | **CLOSED** | **RESOLVED** |
 | **ARCHIVED** | **ARCHIVED** |
 
-Cases are draft-first: when a Case Manager saves a new case, the case is created as **DRAFT**. Publishing changes it to **OPEN**. Keep this workflow in mind when reviewing reports or assisting users who cannot find a case in an active workload list.
+Drafts are saved separately from cases and are not a case status. When a Case Manager publishes a draft, the case is created as **OPEN**. Keep this in mind when reviewing reports or assisting users who cannot find a case in an active workload list.
 
 Referral statuses are **PENDING**, **PROCESSING**, **FOR_COMPLIANCE**, **COMPLETED**, and **REJECTED**. Do not rename these meanings in help text, training material, or reference configuration without confirming code support.
 

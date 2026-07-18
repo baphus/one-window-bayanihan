@@ -12,7 +12,6 @@ const HREF_TO_ROUTE: Record<string, string> = {
     '/dashboard': 'dashboard',
     '/notifications/page': 'notifications.page',
     '/cases': 'cases.index',
-    '/cases/drafts': 'cases.drafts',
     '/clients': 'clients.index',
     '/referrals': 'referrals.index',
     '/overdue-referrals': 'overdue-referrals.index',

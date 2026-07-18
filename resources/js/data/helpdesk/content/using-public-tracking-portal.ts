@@ -39,10 +39,11 @@ Case statuses are exact system values:
 
 | Status | Meaning |
 | --- | --- |
-| **DRAFT** | Owner-only staff draft; not normally public. |
 | **OPEN** | The case has been submitted and is active. |
 | **CLOSED** | The case has been completed or resolved. |
 | **ARCHIVED** | The case is retained as an inactive record. |
+
+> **Note:** Drafts are not shown in public tracking. A case only appears after it is published by the Case Manager.
 
 Referral progress may mention **PENDING**, **FOR_COMPLIANCE**, **COMPLETED**, or **REJECTED** when relevant. If requirements are requested, the client should follow the Case Manager or agency instructions.
 

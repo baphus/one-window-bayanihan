@@ -14,7 +14,7 @@ The dashboard is a daily snapshot for Case Managers. It helps prioritize work, b
 
 ## Move from counts to records
 
-Use the cases index to inspect actual records and statuses: **DRAFT**, **OPEN**, **CLOSED**, and **ARCHIVED**.
+Use the cases index to inspect actual records and statuses: **OPEN**, **CLOSED**, and **ARCHIVED**. Drafts are managed separately and do not appear in the cases list until published.
 
 ![Cases index](/assets/helpdesk/cases-index.png)
 
@@ -28,7 +28,7 @@ Detailed work happens on referral pages. Prioritize old **PENDING** referrals, *
 
 ## End-of-day closeout
 
-- Publish, update, or delete drafts as appropriate.
+- Publish, update, or delete drafts as appropriate. Drafts are saved separately from cases and only become cases when published.
 - Add milestones for completed referral actions.
 - Reply to comments needing your input.
 - Check compliance items remain **PENDING** only when truly unresolved.

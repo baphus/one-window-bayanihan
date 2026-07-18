@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\CaseDocumentController;
+use App\Http\Controllers\CaseDraftController;
 use App\Http\Controllers\CaseIssueController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
@@ -35,6 +36,7 @@ use App\Http\Controllers\SurveyFormController;
 use App\Http\Controllers\SurveyResponseController;
 use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
+use App\Http\Middleware\EnsureCaseDraftsEnabled;
 use App\Models\Agency;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -114,13 +116,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
         Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
         Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
-        Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
-        Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
-        Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
-        Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
-        Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
         Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
         Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
         Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
@@ -135,6 +132,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
 
         Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs');
+    });
+
+    // New revision-aware draft aggregate: case managers may access their own drafts only.
+    Route::middleware([EnsureCaseDraftsEnabled::class, 'role:CASE_MANAGER', 'case-draft.rls'])->group(function () {
+        Route::post('/case-drafts', [CaseDraftController::class, 'store'])->name('case-drafts.store');
+        Route::put('/case-drafts/{draft}', [CaseDraftController::class, 'update'])
+            ->name('case-drafts.update')
+            ->middleware('throttle:case-draft-autosave');
+        Route::post('/case-drafts/{draft}/publish', [CaseDraftController::class, 'publish'])->name('case-drafts.publish');
+        Route::delete('/case-drafts/{draft}', [CaseDraftController::class, 'destroy'])->name('case-drafts.destroy');
     });
 
     // Case show: AGENCY can view cases with active referrals (authorized in controller)

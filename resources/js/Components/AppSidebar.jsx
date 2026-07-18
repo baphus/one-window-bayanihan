@@ -18,7 +18,6 @@ export const navByRole = {
     ]},
     { label: 'Management', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
-      { name: 'My Drafts', href: '/cases/drafts', icon: 'drafts' },
       { name: 'Clients', href: '/clients', icon: 'people' },
       { name: 'Referrals', href: '/referrals', icon: 'send' },
       { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
@@ -69,7 +68,6 @@ export const navByRole = {
     ]},
     { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
-      { name: 'My Drafts', href: '/cases/drafts', icon: 'drafts' },
       { name: 'Clients', href: '/clients', icon: 'people' },
       { name: 'Referrals', href: '/referrals', icon: 'send' },
       { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
@@ -120,7 +118,7 @@ export default function AppSidebar() {
 
   const isActive = (href) => {
     if (href === '/dashboard') return url === '/dashboard';
-    if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/drafts');
+    if (href === '/cases') return url.startsWith('/cases');
     return url.startsWith(href);
   };
 

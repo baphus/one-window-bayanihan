@@ -149,29 +149,6 @@ class AuditLogFormatter
             return in_array($value, [true, 1, '1'], true) ? 'Yes' : 'No';
         }
 
-        // Summarize draft_client_data — extract key info instead of showing raw JSON
-        // Must be checked BEFORE generic array handling
-        if ($field === 'draft_client_data' && is_array($value)) {
-            $first = $value['first_name'] ?? '';
-            $last = $value['last_name'] ?? '';
-            $name = trim("$first $last");
-            $email = $value['email'] ?? '';
-            $clientType = $value['client_type'] ?? '';
-
-            $parts = [];
-            if ($name !== '') {
-                $parts[] = $name;
-            }
-            if ($clientType !== '') {
-                $parts[] = "($clientType)";
-            }
-            if ($email !== '') {
-                $parts[] = "— $email";
-            }
-
-            return $parts !== [] ? 'Client: '.implode(' ', $parts) : sprintf('%d fields', count($value));
-        }
-
         if (is_array($value)) {
             $count = count($value);
             if ($count === 0) {
@@ -195,7 +172,6 @@ class AuditLogFormatter
         $statusMap = [
             'OPEN' => 'Open',
             'CLOSED' => 'Closed',
-            'DRAFT' => 'Draft',
             'ARCHIVED' => 'Archived',
             'PENDING' => 'Pending',
             'PROCESSING' => 'Processing',

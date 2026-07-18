@@ -45,7 +45,7 @@
 | FR-INT-001 | Only DMW creates cases | `CaseController` gated by `role:CASE_MANAGER` | Route auth test | ✅ |
 | FR-INT-002 | Generate unique Case Number | Auto-generated in `CaseService::create()` | Schema unique constraint | ✅ |
 | FR-INT-003 | Generate unique Tracker Number | Auto-generated, stored in `cases.tracker_number` | Schema unique constraint | ✅ |
-| FR-INT-004 | Allow draft save | `status` field supports 'DRAFT' | Manual QA | ✅ |
+| FR-INT-004 | Allow draft save | `case_drafts` aggregate with autosave | Manual QA | ✅ |
 | FR-INT-005 | Validate mandatory intake fields | Form Request validation rules | Validation test | ✅ |
 | FR-INT-006 | Create Unified Master Case File | Case creation creates all related records | Integration test | ✅ |
 | FR-INT-007 | Record case summaries | `cases.summary` text field | Manual QA | ✅ |

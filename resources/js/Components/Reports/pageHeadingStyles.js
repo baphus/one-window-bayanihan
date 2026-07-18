@@ -20,7 +20,6 @@ const STATUS_COLORS = {
   // Case statuses
   OPEN: '#3f915f',
   CLOSED: '#64748b',
-  DRAFT: '#94a3b8',
   ARCHIVED: '#78716c',
   // Referral statuses
   PENDING: '#c9812b',

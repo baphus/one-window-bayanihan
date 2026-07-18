@@ -211,12 +211,7 @@ For `GET /cases`, `GET /cases/export-excel`, `GET /clients`, `GET /clients/expor
 | GET | `/cases` | `CaseController@index` | `cases.index` |
 | GET | `/cases/create` | `CaseController@create` | `cases.create` |
 | POST | `/cases` | `CaseController@store` | `cases.store` |
-| GET | `/cases/drafts` | `CaseController@drafts` | `cases.drafts` |
 | GET | `/cases/export-excel` | `CaseController@exportExcel` | `cases.export-excel` |
-| DELETE | `/cases/{case}/destroy-draft` | `CaseController@destroyDraft` | `cases.drafts.destroy` |
-| GET | `/cases/{case}/edit-draft` | `CaseController@editDraft` | `cases.edit-draft` |
-| PUT | `/cases/{case}/save-draft` | `CaseController@updateDraft` | `cases.save-draft` |
-| POST | `/cases/{case}/publish` | `CaseController@publish` | `cases.publish` |
 | POST | `/cases/{case}/archive` | `CaseController@archive` | `cases.archive` |
 | POST | `/cases/{case}/unarchive` | `CaseController@unarchive` | `cases.unarchive` |
 | PATCH | `/cases/{case}` | `CaseController@update` | `cases.update` |

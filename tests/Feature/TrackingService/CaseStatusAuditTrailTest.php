@@ -65,12 +65,12 @@ class CaseStatusAuditTrailTest extends TestCase
         $case = $result['case'];
         $user = $result['user'];
 
-        // Create a manual UPDATE log simulating DRAFT → OPEN transition
+        // Create a manual UPDATE log simulating OPEN transition
         $this->createAuditLog(
             entityId: $case->id,
             action: 'UPDATE',
             module: 'case_files',
-            oldValue: ['status' => 'DRAFT'],
+            oldValue: ['status' => 'OPEN'],
             newValue: ['status' => 'OPEN'],
             userId: $user->id,
         );
@@ -82,14 +82,14 @@ class CaseStatusAuditTrailTest extends TestCase
 
         // ASSERT
         $this->assertCount(1, $updateLogs);
-        $this->assertSame('DRAFT', $updateLogs[0]->old_value['status']);
+        $this->assertSame('OPEN', $updateLogs[0]->old_value['status']);
         $this->assertSame('OPEN', $updateLogs[0]->new_value['status']);
     }
 
     /**
-     * Verify that a DRAFT→OPEN→CLOSED lifecycle produces audit logs in
+     * Verify that an OPEN→CLOSED lifecycle produces audit logs in
      * correct chronological order with accurate old/new values.  Includes
-     * the auto-created CREATE log from the observer plus three manually
+     * the auto-created CREATE log from the observer plus two manually
      * created lifecycle logs.
      */
     public function test_full_lifecycle_audit_trail(): void
@@ -101,22 +101,22 @@ class CaseStatusAuditTrailTest extends TestCase
         $base = Carbon::now();
 
         // Manually create 3 lifecycle audit logs with clearly distinguishable timestamps
-        // Log 1: earliest — creation as DRAFT
+        // Log 1: earliest — creation as OPEN
         AuditLog::create([
             'entity_id' => $case->id,
             'action' => 'CREATE',
             'module' => 'case_files',
-            'new_value' => ['status' => 'DRAFT', 'case_number' => $case->case_number],
+            'new_value' => ['status' => 'OPEN', 'case_number' => $case->case_number],
             'user_id' => $user->id,
             'timestamp' => $base->copy()->subMinutes(10),
         ]);
 
-        // Log 2: middle — DRAFT → OPEN
+        // Log 2: middle — OPEN → OPEN (no status change)
         AuditLog::create([
             'entity_id' => $case->id,
             'action' => 'UPDATE',
             'module' => 'case_files',
-            'old_value' => ['status' => 'DRAFT'],
+            'old_value' => ['status' => 'OPEN'],
             'new_value' => ['status' => 'OPEN'],
             'user_id' => $user->id,
             'timestamp' => $base->copy()->subMinutes(5),
@@ -141,13 +141,13 @@ class CaseStatusAuditTrailTest extends TestCase
         // ASSERT — total count: 3 manual + 1 auto-created = 4
         $this->assertCount(4, $logs);
 
-        // Entry 0 — earliest: manual CREATE DRAFT
+        // Entry 0 — earliest: manual CREATE OPEN
         $this->assertSame('CREATE', $logs[0]->action);
-        $this->assertSame('DRAFT', $logs[0]->new_value['status']);
+        $this->assertSame('OPEN', $logs[0]->new_value['status']);
 
-        // Entry 1 — manual UPDATE DRAFT → OPEN
+        // Entry 1 — manual UPDATE OPEN → OPEN
         $this->assertSame('UPDATE', $logs[1]->action);
-        $this->assertSame('DRAFT', $logs[1]->old_value['status']);
+        $this->assertSame('OPEN', $logs[1]->old_value['status']);
         $this->assertSame('OPEN', $logs[1]->new_value['status']);
 
         // Entry 2 — auto-created CREATE (observer ran after factory create)
@@ -182,7 +182,7 @@ class CaseStatusAuditTrailTest extends TestCase
             'action' => 'CREATE',
             'module' => 'case_files',
             'new_value' => [
-                'status' => 'DRAFT',
+                'status' => 'OPEN',
                 'case_number' => $case->case_number,
                 'client_type' => $case->client_type,
             ],
@@ -190,12 +190,12 @@ class CaseStatusAuditTrailTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        // UPDATE log: DRAFT → OPEN
+        // UPDATE log: OPEN → OPEN
         $updateLog = AuditLog::create([
             'entity_id' => $case->id,
             'action' => 'UPDATE',
             'module' => 'case_files',
-            'old_value' => ['status' => 'DRAFT', 'case_number' => $case->case_number],
+            'old_value' => ['status' => 'OPEN', 'case_number' => $case->case_number],
             'new_value' => ['status' => 'OPEN', 'case_number' => $case->case_number],
             'user_id' => $user->id,
             'timestamp' => now(),
@@ -254,7 +254,7 @@ class CaseStatusAuditTrailTest extends TestCase
             'action' => 'CREATE',
             'module' => 'case_files',
             'new_value' => [
-                'status' => 'DRAFT',
+                'status' => 'OPEN',
                 'case_number' => $case->case_number,
                 'client_type' => $case->client_type,
             ],
@@ -266,7 +266,7 @@ class CaseStatusAuditTrailTest extends TestCase
             'entity_id' => $case->id,
             'action' => 'UPDATE',
             'module' => 'case_files',
-            'old_value' => ['status' => 'DRAFT', 'case_number' => $case->case_number],
+            'old_value' => ['status' => 'OPEN', 'case_number' => $case->case_number],
             'new_value' => ['status' => 'OPEN', 'case_number' => $case->case_number],
             'user_id' => $user->id,
             'timestamp' => now()->subMinutes(5),

@@ -221,7 +221,6 @@
 | `client_id` | uuid | FK → clients.id, nullable | |
 | `category_id` | uuid | FK → case_categories.id, nullable | **Deprecated compatibility mirror** of the deterministic primary category; not the canonical assignment store |
 | `case_issue_id` | uuid | FK → case_issues.id, nullable | |
-| `draft_client_data` | jsonb | nullable | Unpublished draft data |
 | `escalated_at` | timestamp | nullable | (dropped in later migration) |
 | `escalation_reason` | string | nullable | |
 | `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |

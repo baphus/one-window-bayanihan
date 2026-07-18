@@ -190,14 +190,14 @@ class ReportsExportService
     }
 
     /**
-     * Case detail base — mirrors ReportsService::caseQuery (excludes DRAFT and
+     * Case detail base — mirrors ReportsService::caseQuery (excludes
      * ARCHIVED, which the previous export wrongly included) plus geo + soft-delete.
      */
     private function caseBase(array $c)
     {
         $q = DB::table('cases')
             ->whereNull('cases.deleted_at')
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->whereBetween('cases.created_at', [$c['fromInstant'], $c['toInstant']]);
 
         if ($c['role'] === 'CASE_MANAGER') {

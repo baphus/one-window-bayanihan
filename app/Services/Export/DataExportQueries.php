@@ -180,7 +180,7 @@ class DataExportQueries
             })
             ->leftJoin('case_issues AS ci', 'c.case_issue_id', '=', 'ci.id')
             ->where('c.is_deleted', false)
-            ->where('c.status', '!=', 'DRAFT')
+            ->where('c.status', '!=', 'ARCHIVED')
             ->where('c.status', '!=', 'ARCHIVED')
             ->orderBy('c.created_at', 'desc');
 

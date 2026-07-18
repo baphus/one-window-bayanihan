@@ -150,9 +150,10 @@ class TrackingService
             $unreadCount = 0;
             $caseNotifications = [];
 
-            if ($case->client && $case->client->email) {
+            $recipientEmail = app(CaseRecipientResolver::class)->resolve($case);
+            if ($recipientEmail) {
                 $notifications = CaseNotification::where('case_id', $case->id)
-                    ->where('client_email', $case->client->email)
+                    ->where('client_email', $recipientEmail)
                     ->orderBy('created_at', 'desc')
                     ->get();
 
@@ -184,7 +185,6 @@ class TrackingService
                         'OPEN' => 'IN_PROGRESS',
                         'CLOSED' => 'RESOLVED',
                         'ARCHIVED' => 'ARCHIVED',
-                        'DRAFT' => 'BEING_PREPARED',
                         default => 'UNKNOWN',
                     },
                     'createdAt' => $case->created_at->toISOString(),
@@ -259,7 +259,6 @@ class TrackingService
                         'OPEN' => 'IN_PROGRESS',
                         'CLOSED' => 'RESOLVED',
                         'ARCHIVED' => 'ARCHIVED',
-                        'DRAFT' => 'BEING_PREPARED',
                         default => 'UNKNOWN',
                     },
                 ],

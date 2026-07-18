@@ -79,7 +79,7 @@ class MultiCategoryCaseSupportTest extends TestCase
             'client' => ['first_name' => 'Draft', 'last_name' => 'Case'],
         ], $user->id);
 
-        $this->assertSame('DRAFT', $case->status);
+        $this->assertSame('OPEN', $case->status);
         try {
             app(CaseService::class)->publishDraft($case->id, $user->id);
             $this->fail('Publishing a draft without a category should fail.');
@@ -170,7 +170,7 @@ class MultiCategoryCaseSupportTest extends TestCase
     {
         $user = User::factory()->create();
         $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['status' => 'DRAFT', 'user_id' => $user->id]);
+        $case = CaseFile::factory()->create(['status' => 'OPEN', 'user_id' => $user->id]);
         $this->linkCategories($case, [$category->id]);
 
         app(CaseService::class)->deleteDraft($case->id, $user->id);

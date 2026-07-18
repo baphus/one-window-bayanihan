@@ -46,7 +46,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $this->link($second, [$primary->id]);
 
         foreach ([
-            ['status' => 'DRAFT', 'is_deleted' => false],
+            ['status' => 'OPEN', 'is_deleted' => false],
             ['status' => 'ARCHIVED', 'is_deleted' => false],
             ['status' => 'OPEN', 'is_deleted' => true],
         ] as $attributes) {

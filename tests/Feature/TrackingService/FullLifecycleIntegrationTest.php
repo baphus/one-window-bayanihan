@@ -44,7 +44,7 @@ class FullLifecycleIntegrationTest extends TestCase
 
     public function test_full_lifecycle_from_case_intake_to_tracking_output(): void
     {
-        // ARRANGE — simulate the full case lifecycle: DRAFT → OPEN → referral → milestone → CLOSED
+        // ARRANGE — simulate the full case lifecycle: OPEN → referral → milestone → CLOSED
         $user = User::factory()->create();
         $client = Client::factory()->create();
         $case = CaseFile::factory()->draft()->create([

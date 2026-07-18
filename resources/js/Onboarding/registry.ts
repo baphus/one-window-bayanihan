@@ -84,16 +84,6 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="cases-table"]', title: 'Open a Case', description: 'Click any row to open the full case record with its timeline, referrals, and documents. Ready to add work? Use New Case to start one.', side: 'top' },
         ],
     },
-    'cases.drafts': {
-        title: 'My Drafts',
-        helpdeskSlug: 'managing-draft-cases',
-        steps: [
-            { element: '[data-tour="drafts-header"]', title: 'Your Draft Cases', description: 'Cases you saved but have not submitted yet. Drafts are private — only you can see and edit them.', side: 'bottom' },
-            { element: '[data-tour="drafts-filters"]', title: 'Find a Draft', description: 'Search by client name or case number, or narrow the list with a creation date range. Active filters appear as removable chips below.', side: 'bottom' },
-            { element: '[data-tour="drafts-table"]', title: 'Review and Publish', description: 'The Draft Age badge shows how long each draft has been sitting — red means over a week old. Use Edit to finish a draft, Publish to submit it as a live case, or the delete button to discard it.', side: 'top' },
-            { element: '[data-tour="drafts-new-case"]', title: 'Start a New Case', description: 'Ready to begin? Click New Case to open the case creation form. You can save it as a draft at any point and return here later.', side: 'bottom', align: 'end' },
-        ],
-    },
     'clients.index': {
         title: 'Clients',
         helpdeskSlug: 'getting-started-case-managers',

@@ -3,7 +3,6 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useAutoSave from '@/Hooks/useAutoSave';
-import useLocalStorageDraft from '@/Hooks/useLocalStorageDraft';
 
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
@@ -22,20 +21,10 @@ const STEPS = [
 
 const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
 
-// Older drafts expose category_id/category; the form now always sends category_ids.
 function normalizeCategoryIds(value) {
     const values = Array.isArray(value) ? value : (value == null || value === '' ? [] : [value]);
     return [...new Set(values.map((item) => (item && typeof item === 'object' ? item.id : item))
         .filter((id) => id !== null && id !== undefined && id !== '').map(String))];
-}
-
-function getDraftCategoryIds(draft) {
-    // The relation is authoritative when it is present; category_id is only a
-    // compatibility fallback for older drafts.
-    if (Array.isArray(draft?.categories) && draft.categories.length) {
-        return normalizeCategoryIds(draft.categories);
-    }
-    return normalizeCategoryIds(draft?.category_ids ?? draft?.category_id ?? draft?.category);
 }
 
 function GenerateCaseId() {
@@ -219,7 +208,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
 }
 
 export default function CaseCreate() {
-    const { client, categories = [], existingDraft, auth, caseIssues = [], positionOptions = [] } = usePage().props;
+    const { client, categories = [], caseIssues = [], positionOptions = [] } = usePage().props;
 
     function normalizeSex(value) {
         if (!value) return '';
@@ -267,7 +256,6 @@ export default function CaseCreate() {
         selected_nok_index: '',
         consent: false,
         selected_client_id: '',
-        is_draft: false,
         case_issue_id: '',
     });
 
@@ -282,8 +270,6 @@ export default function CaseCreate() {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const searchDebounceRef = useRef(null);
-    const draftIdRef = useRef(existingDraft?.id || null);
-    const restoredRef = useRef(false);
     const [searchResults, setSearchResults] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
     const [showAddIssue, setShowAddIssue] = useState(false);
@@ -306,7 +292,6 @@ export default function CaseCreate() {
             next_of_kin: [],
             selected_nok_index: '',
             consent: false,
-            is_draft: false,
             case_issue_id: '',
         },
         clientSource: 'new',
@@ -342,7 +327,6 @@ export default function CaseCreate() {
             && JSON.stringify(a.next_of_kin) === JSON.stringify(b.next_of_kin)
             && a.selected_nok_index === b.selected_nok_index
             && a.consent === b.consent
-            && a.is_draft === b.is_draft
             && a.case_issue_id === b.case_issue_id;
     }
 
@@ -351,18 +335,13 @@ export default function CaseCreate() {
             || clientSource !== initialFormRef.current.clientSource;
     }, [data, clientSource]);
 
-    const { autoSaveStatus, draftId: autoSaveDraftId, cancelPendingSave } = useAutoSave({
+    const { autoSaveStatus, cancelPendingSave, flush } = useAutoSave({
         formData: data,
-        draftId: existingDraft?.id || null,
+        draftId: null,
+        initialRevision: 1,
     });
 
-    const { hasLocalBackup, localBackup, clearLocalBackup } = useLocalStorageDraft({
-        formData: data,
-        userId: auth.user?.id,
-        enabled: !existingDraft && clientSource === 'new',
-    });
-
-    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty, { onDiscard: clearLocalBackup, onSaveDraft: handleSaveDraft });
+    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty, { onSaveDraft: handleSaveDraft });
 
     async function handleQuickAddIssue() {
         const name = newIssueName.trim();
@@ -381,18 +360,6 @@ export default function CaseCreate() {
             setAddingIssue(false);
         }
     }
-
-    useEffect(() => {
-        if (!hasLocalBackup || existingDraft || !localBackup?.data || restoredRef.current) return;
-        restoredRef.current = true;
-
-        // Always discard stale localStorage backups — "Create Case" starts fresh.
-        clearLocalBackup();
-    }, [hasLocalBackup, existingDraft, localBackup, setData]);
-
-    useEffect(() => {
-        if (autoSaveDraftId) draftIdRef.current = autoSaveDraftId;
-    }, [autoSaveDraftId]);
 
     // Fetch clients from API — loads recent clients on mount and filters on search
     useEffect(() => {
@@ -537,7 +504,6 @@ export default function CaseCreate() {
                         : [],
                     selected_nok_index: '',
                     consent: false,
-                    is_draft: false,
                     case_issue_id: '',
                 },
                 clientSource: 'existing',
@@ -545,247 +511,6 @@ export default function CaseCreate() {
 
             setSelectedClient(null);
         }
-    }, []);
-
-    // Seed form state when an existing draft is loaded
-    useEffect(() => {
-        if (!existingDraft) return;
-
-        // 1. Case-level fields
-        setData('client_type', existingDraft.client_type || 'OFW');
-        setData('category_ids', getDraftCategoryIds(existingDraft));
-        setData('selected_nok_index', existingDraft.selected_nok_index ?? '');
-        setData('vulnerability_indicator', existingDraft.vulnerability_indicator || 'None');
-        setData('summary', existingDraft.summary || '');
-        setData('is_draft', true);
-        if (existingDraft.case_issue_id) setData('case_issue_id', existingDraft.case_issue_id);
-
-        let clientData = null;
-        let src = 'new';
-        let selId = '';
-
-        // 2. Client data sourcing
-        if (existingDraft.client) {
-            // Linked Client model
-            clientData = existingDraft.client;
-            src = 'existing';
-            selId = existingDraft.client.id;
-
-            setData('client', {
-                ...data.client,
-                first_name: existingDraft.client.first_name || '',
-                last_name: existingDraft.client.last_name || '',
-                middle_initial: existingDraft.client.middle_initial || '',
-                suffix: existingDraft.client.suffix || '',
-                date_of_birth: existingDraft.client.date_of_birth || '',
-                sex: normalizeSex(existingDraft.client.sex) || 'Male',
-                email: existingDraft.client.email || '',
-                contact_number: existingDraft.client.contact_number || '',
-            });
-
-            if (existingDraft.client.addresses?.[0]) {
-                setData('address', {
-                    ...data.address,
-                    region: existingDraft.client.addresses[0].region || '',
-                    province: existingDraft.client.addresses[0].province || '',
-                    city_municipality: existingDraft.client.addresses[0].city_municipality || '',
-                    barangay: existingDraft.client.addresses[0].barangay || '',
-                    street: existingDraft.client.addresses[0].street || '',
-                });
-            }
-
-            if (existingDraft.client.employments?.[0]) {
-                setData('employment', {
-                    ...data.employment,
-                    employer_name: existingDraft.client.employments[0].employer_name || '',
-                    position: existingDraft.client.employments[0].position || '',
-                    country: existingDraft.client.employments[0].country || '',
-                    last_country: existingDraft.client.employments[0].last_country || '',
-                    last_position: existingDraft.client.employments[0].last_position || '',
-                    date_of_arrival: existingDraft.client.employments[0].date_of_arrival || '',
-                });
-            }
-
-            if (existingDraft.client.nextOfKin?.length) {
-                setData('next_of_kin', existingDraft.client.nextOfKin.map(nok => ({
-                    id: nok.id,
-                    first_name: nok.first_name || '',
-                    middle_initial: nok.middle_initial || '',
-                    last_name: nok.last_name || '',
-                    is_primary: nok.is_primary || false,
-                    relationship: nok.relationship || '',
-                    phone_number: nok.phone_number || '',
-                    email: nok.email || '',
-                    full_address: nok.full_address || '',
-                    nok_address: {
-                        region: nok.region || '',
-                        province: nok.province || '',
-                        city_municipality: nok.city_municipality || '',
-                        barangay: nok.barangay || '',
-                        street: nok.street || '',
-                    },
-                })));
-            }
-        } else if (existingDraft.draft_client_data) {
-            // JSON blob from drafts. Older existing-client drafts may have
-            // selected_client_id here even when case.client_id was not persisted.
-            try {
-                clientData = typeof existingDraft.draft_client_data === 'string'
-                    ? JSON.parse(existingDraft.draft_client_data)
-                    : existingDraft.draft_client_data;
-            } catch {
-                clientData = null;
-            }
-
-            if (clientData) {
-                if (clientData.selected_client_id) {
-                    src = 'existing';
-                    selId = clientData.selected_client_id;
-                }
-
-                setData('client', {
-                    ...data.client,
-                    first_name: clientData.first_name || '',
-                    last_name: clientData.last_name || '',
-                    middle_initial: clientData.middle_initial || '',
-                    suffix: clientData.suffix || '',
-                    date_of_birth: clientData.date_of_birth || '',
-                    sex: normalizeSex(clientData.sex) || 'Male',
-                    email: clientData.email || '',
-                    contact_number: clientData.contact_number || '',
-                });
-
-                if (clientData.address) {
-                    setData('address', {
-                        ...data.address,
-                        region: clientData.address.region || '',
-                        province: clientData.address.province || '',
-                        city_municipality: clientData.address.city_municipality || '',
-                        barangay: clientData.address.barangay || '',
-                        street: clientData.address.street || '',
-                    });
-                }
-
-                if (clientData.employment) {
-                    setData('employment', {
-                        ...data.employment,
-                        employer_name: clientData.employment.employer_name || '',
-                        position: clientData.employment.position || '',
-                        country: clientData.employment.country || '',
-                        last_country: clientData.employment.last_country || '',
-                        last_position: clientData.employment.last_position || '',
-                        date_of_arrival: clientData.employment.date_of_arrival || '',
-                    });
-                }
-
-                if (clientData.next_of_kin) {
-                    const raw = clientData.next_of_kin;
-                    const nokArray = Array.isArray(raw) ? raw : (raw.first_name ? [raw] : []);
-                    setData('next_of_kin', nokArray.map((nok, idx) => ({
-                        id: nok.id || null,
-                        first_name: nok.first_name || '',
-                        middle_initial: nok.middle_initial || '',
-                        last_name: nok.last_name || '',
-                        is_primary: nok.is_primary ?? (idx === 0),
-                        relationship: nok.relationship || '',
-                        phone_number: nok.phone_number || '',
-                        email: nok.email || '',
-                        full_address: nok.full_address || '',
-                        nok_address: {
-                            region: nok.region || nok.nok_address?.region || '',
-                            province: nok.province || nok.nok_address?.province || '',
-                            city_municipality: nok.city_municipality || nok.nok_address?.city_municipality || '',
-                            barangay: nok.barangay || nok.nok_address?.barangay || '',
-                            street: nok.street || nok.nok_address?.street || '',
-                        },
-                    })));
-                }
-            }
-        }
-
-        // 3. Client source and selection
-        const c = clientData || {};
-        const emps = c.employments || [];
-        const noks = c.nextOfKin || [];
-
-        setClientSource(src);
-        setData('selected_client_id', selId);
-        setData('consent', false);
-        setSelectedClient(null);
-
-        // 4. When editing a draft with a linked client, skip the client selection
-        //    search screen and go directly to case setup (step 2).
-        if (src === 'existing' && selId) {
-            setCurrentStep(2);
-        }
-
-        // 5. Generated IDs — override with existing draft's real IDs
-        setCaseId(existingDraft.case_number);
-        setTrackingId(existingDraft.tracker_number);
-
-        // 5. Dirty tracking reset — follow handleConfirmClient pattern
-        initialFormRef.current = {
-            formData: {
-                client_type: existingDraft.client_type || 'OFW',
-                category_ids: getDraftCategoryIds(existingDraft),
-                vulnerability_indicator: existingDraft.vulnerability_indicator || 'None',
-                nok_vulnerability_indicator: existingDraft.nok_vulnerability_indicator || 'None',
-                summary: existingDraft.summary || '',
-                client: {
-                    first_name: c.first_name || '',
-                    last_name: c.last_name || '',
-                    middle_initial: c.middle_initial || '',
-                    suffix: c.suffix || '',
-                    date_of_birth: c.date_of_birth || '',
-                    sex: normalizeSex(c.sex) || 'Male',
-                    email: c.email || '',
-                    contact_number: c.contact_number || '',
-                },
-                address: {
-                    region: (c.addresses?.[0]?.region || c.address?.region) || '',
-                    province: (c.addresses?.[0]?.province || c.address?.province) || '',
-                    city_municipality: (c.addresses?.[0]?.city_municipality || c.address?.city_municipality) || '',
-                    barangay: (c.addresses?.[0]?.barangay || c.address?.barangay) || '',
-                    street: (c.addresses?.[0]?.street || c.address?.street) || '',
-                },
-                employment: {
-                    employer_name: (emps[0]?.employer_name || c.employment?.employer_name) || '',
-                    position: (emps[0]?.position || c.employment?.position) || '',
-                    country: (emps[0]?.country || c.employment?.country) || '',
-                    start_date: '',
-                    end_date: '',
-                    last_country: (emps[0]?.last_country || c.employment?.last_country) || '',
-                    last_position: (emps[0]?.last_position || c.employment?.last_position) || '',
-                    date_of_arrival: (emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '',
-                },
-                next_of_kin: (() => {
-                    const rawNoks = noks.length ? noks : (c.next_of_kin ? (Array.isArray(c.next_of_kin) ? c.next_of_kin : [c.next_of_kin]) : []);
-                    return rawNoks.map(nok => ({
-                        id: nok.id || null,
-                        first_name: nok.first_name || '',
-                        middle_initial: nok.middle_initial || '',
-                        last_name: nok.last_name || '',
-                        is_primary: nok.is_primary || false,
-                        relationship: nok.relationship || '',
-                        phone_number: nok.phone_number || '',
-                        email: nok.email || '',
-                        full_address: nok.full_address || '',
-                        nok_address: {
-                            region: nok.region || nok.nok_address?.region || '',
-                            province: nok.province || nok.nok_address?.province || '',
-                            city_municipality: nok.city_municipality || nok.nok_address?.city_municipality || '',
-                            barangay: nok.barangay || nok.nok_address?.barangay || '',
-                            street: nok.street || nok.nok_address?.street || '',
-                        },
-                    }));
-                })(),
-                selected_nok_index: '',
-                consent: false,
-                is_draft: true,
-                case_issue_id: existingDraft.case_issue_id || '',
-            },
-            clientSource: src,
-        };
     }, []);
 
     const stepProgress = Math.round((currentStep / STEPS.length) * 100);
@@ -1210,30 +935,15 @@ export default function CaseCreate() {
             && (clientSource === 'existing' || data.consent);
     }
 
-    function handleSaveDraft(e) {
+    async function handleSaveDraft(e) {
         e?.preventDefault();
         bypassNext();
 
-        // Inertia v2's useForm.post/put ignores options.data and always sends the
-        // form's internal dataRef. Set is_draft on the form state so it reaches
-        // the backend, which uses it to switch validation to nullable rules.
-        setData('is_draft', true);
-
-        const onError = (errors) => {
-            const msgs = Object.values(errors);
-            toast.error(msgs[0] || 'Validation failed.');
-        };
-
-        if (existingDraft) {
-            put(route('cases.save-draft', existingDraft.id), {
-                preserveScroll: true,
-                onError,
-            });
-        } else {
-            post(route('cases.store'), {
-                preserveScroll: true,
-                onError,
-            });
+        try {
+            await flush();
+            toast.success('Draft saved.');
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Failed to save draft.');
         }
     }
 
@@ -1243,30 +953,11 @@ export default function CaseCreate() {
         setShowCreateModal(true);
     }
 
-    function handleConfirmSubmit() {
+    async function handleConfirmSubmit() {
         setShowCreateModal(false);
         bypassNext();
 
-        if (existingDraft) {
-            // Publishing does NOT send form data — publishes the draft as last saved.
-            // User should save via "Update Draft" first.
-            post(route('cases.publish', existingDraft.id), {
-                onSuccess: () => { clearLocalBackup(); },
-                onError: (errors) => {
-                    const msgs = Object.values(errors);
-                    toast.error(msgs[0] || 'Validation failed.');
-                },
-                preserveScroll: true,
-            });
-            return;
-        }
-
-        // Inertia v2's useForm.post ignores options.data — set is_draft directly
-        // on the form state so the backend receives the correct flag.
-        setData('is_draft', false);
-
         post(route('cases.store'), {
-            onSuccess: () => { clearLocalBackup(); },
             onError: (errors) => {
                 const msgs = Object.values(errors);
                 toast.error(msgs[0] || 'Validation failed.');
@@ -1304,7 +995,6 @@ export default function CaseCreate() {
                 next_of_kin: [],
                 selected_nok_index: '',
                 consent: false,
-                is_draft: false,
                 case_issue_id: '',
             },
             clientSource: 'new',
@@ -1313,7 +1003,6 @@ export default function CaseCreate() {
 
     function handleSwitchToExisting() {
         setClientSource('existing');
-        clearLocalBackup();
     }
 
 function handleConfirmClient(client) {
@@ -1436,7 +1125,6 @@ function handleConfirmClient(client) {
                 : [],
             selected_nok_index: '',
             consent: false,
-            is_draft: false,
             case_issue_id: '',
         },
         clientSource: 'existing',
@@ -1456,8 +1144,8 @@ function handleConfirmClient(client) {
         : 'No next of kin indicated';
 
     return (
-        <AppLayout title={existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'}>
-            <Head title={existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'} />
+        <AppLayout title="Create New Case">
+            <Head title="Create New Case" />
 
             {client && (
                 <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
@@ -1468,10 +1156,10 @@ function handleConfirmClient(client) {
             <div className="mb-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">{existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'}</h1>
-                        <p className="text-sm text-slate-500 mt-1">{existingDraft ? 'Continue editing your draft case before submitting or publishing.' : 'A guided onboarding flow to register the case with confidence.'}</p>
+                        <h1 className="text-2xl font-bold text-slate-900">Create New Case</h1>
+                        <p className="text-sm text-slate-500 mt-1">A guided onboarding flow to register the case with confidence.</p>
                     </div>
-                    <Link href={existingDraft ? route('cases.drafts') : route('cases.index')} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0">&larr; {existingDraft ? 'Back to Drafts' : 'Back to Cases'}</Link>
+                    <Link href={route('cases.index')} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0">&larr; Back to Cases</Link>
                 </div>
             </div>
 
@@ -2296,7 +1984,7 @@ function handleConfirmClient(client) {
                                     <button type="button" onClick={handleSaveDraft} disabled={processing || autoSaveStatus === 'saving' || !hasDirty}
                                         className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-5 py-2.5 text-[13px] font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">
                                         <span className="material-symbols-outlined text-[18px]">save</span>
-                                        {processing ? (existingDraft ? 'Updating...' : 'Saving...') : (existingDraft ? 'Update Draft' : 'Save as Draft')}
+                                        {processing ? 'Saving...' : 'Save as Draft'}
                                     </button>
                                     {autoSaveStatus === 'saving' && (
                                         <span className="text-[12px] text-slate-500 animate-pulse">Saving...</span>
@@ -2306,6 +1994,9 @@ function handleConfirmClient(client) {
                                     )}
                                     {autoSaveStatus === 'error' && (
                                         <span className="text-[12px] text-red-500">Save failed</span>
+                                    )}
+                                    {autoSaveStatus === 'conflict' && (
+                                        <span className="text-[12px] text-amber-600 font-medium">Stale revision — save again to resume</span>
                                     )}
                                 </div>
                             </div>
@@ -2324,7 +2015,7 @@ function handleConfirmClient(client) {
                             ) : (
                                 <button type="button" onClick={handleSubmit} disabled={processing || !canSubmit()}
                                     className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
-                                    {processing ? (existingDraft ? 'Publishing...' : 'Creating...') : (existingDraft ? 'Publish Draft' : 'Create Case')}
+                                    {processing ? 'Creating...' : 'Create Case'}
                                 </button>
                             )}
                         </div>
@@ -2344,7 +2035,7 @@ function handleConfirmClient(client) {
                 onClose={() => setShowCreateModal(false)}
                 onConfirm={handleConfirmSubmit}
                 processing={processing}
-                isDraft={!!existingDraft}
+                isDraft={false}
                 nokSummary={nokSummary}
             />
         </AppLayout>

@@ -157,7 +157,7 @@ class ReportsService
 
     public function getOverview(?string $fromDate = null, ?string $toDate = null, ?string $agencyId = null): array
     {
-        $caseQuery = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+        $caseQuery = CaseFile::whereNotIn('status', ['ARCHIVED']);
         if ($fromDate) {
             $caseQuery->whereDate('created_at', '>=', $fromDate);
         }
@@ -210,7 +210,7 @@ class ReportsService
             DB::raw("to_char(created_at, 'YYYY-MM') as month"),
             DB::raw('count(*) as total')
         )
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('status', ['ARCHIVED'])
             ->where('created_at', '>=', now()->subMonths($months));
 
         if ($agencyId) {
@@ -284,7 +284,7 @@ class ReportsService
 
     public function getClientTypeDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        $query = CaseFile::whereNotIn('cases.status', ['ARCHIVED']);
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->where('cases.user_id', $userId);
         }
@@ -313,7 +313,7 @@ class ReportsService
 
     public function getVulnerabilityDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        $query = CaseFile::whereNotIn('cases.status', ['ARCHIVED']);
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->where('cases.user_id', $userId);
         }
@@ -361,7 +361,7 @@ class ReportsService
 
     private function caseQuery(?string $userId = null, ?string $role = null, ?string $agencyId = null, string $dateScope = 'case_created_at')
     {
-        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        $query = CaseFile::whereNotIn('cases.status', ['ARCHIVED']);
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->where('cases.user_id', $userId);
         }
@@ -598,7 +598,7 @@ class ReportsService
     private function filteredClientIds(?string $userId, ?string $role, ?string $fromDate, ?string $toDate, ?string $province, ?string $city, ?string $agencyId = null)
     {
         $q = CaseFile::query()
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->whereNull('cases.deleted_at');
 
         if ($role === 'CASE_MANAGER' && $userId) {
@@ -940,7 +940,7 @@ class ReportsService
         ?string $agencyId = null,
     ): array {
         $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->whereNotNull('ca.province')
@@ -1005,7 +1005,7 @@ class ReportsService
                 $q->select('client_id')
                     ->from('cases')
                     ->where('user_id', $userId)
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                    ->whereNotIn('status', ['ARCHIVED']);
             });
         }
         if ($agencyId) {
@@ -1017,7 +1017,7 @@ class ReportsService
                             ->where('agcy_id', $agencyId)
                             ->whereNull('deleted_at');
                     })
-                    ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+                    ->whereNotIn('cases.status', ['ARCHIVED']);
             });
         }
 
@@ -1046,7 +1046,7 @@ class ReportsService
                 $q->select('client_id')
                     ->from('cases')
                     ->where('user_id', $userId)
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                    ->whereNotIn('status', ['ARCHIVED']);
             });
         }
         if ($agencyId) {
@@ -1058,7 +1058,7 @@ class ReportsService
                             ->where('agcy_id', $agencyId)
                             ->whereNull('deleted_at');
                     })
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                    ->whereNotIn('status', ['ARCHIVED']);
             });
         }
 
@@ -1079,7 +1079,7 @@ class ReportsService
                 $q->select('client_id')
                     ->from('cases')
                     ->where('user_id', $userId)
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                    ->whereNotIn('status', ['ARCHIVED']);
             });
         }
         if ($agencyId) {
@@ -1091,7 +1091,7 @@ class ReportsService
                             ->where('agcy_id', $agencyId)
                             ->whereNull('deleted_at');
                     })
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                    ->whereNotIn('status', ['ARCHIVED']);
             });
         }
 
@@ -1140,7 +1140,7 @@ class ReportsService
             ->join('cases', 'cases.id', '=', 'assignments.case_id')
             ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
             ->where('cases.is_deleted', false)
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as total'))
             ->groupBy('case_categories.name', 'case_categories.color')
             ->orderBy('case_categories.name');
@@ -1257,7 +1257,7 @@ class ReportsService
     public function getCityDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
         $query = CaseFile::select('ca.city_municipality', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->whereNotNull('ca.city_municipality')
@@ -1363,7 +1363,7 @@ class ReportsService
                 $query->whereIn('client_id', function ($q) use ($userId) {
                     $q->select('client_id')->from('cases')
                         ->where('user_id', $userId)
-                        ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                        ->whereNotIn('status', ['ARCHIVED']);
                 });
             }
             if ($agencyId) {
@@ -1374,7 +1374,7 @@ class ReportsService
                                 ->where('agcy_id', $agencyId)
                                 ->whereNull('deleted_at');
                         })
-                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
+                        ->whereNotIn('c.status', ['ARCHIVED']);
                 });
             }
 
@@ -1408,7 +1408,7 @@ class ReportsService
                 $query->whereIn('client_id', function ($q) use ($userId) {
                     $q->select('client_id')->from('cases')
                         ->where('user_id', $userId)
-                        ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                        ->whereNotIn('status', ['ARCHIVED']);
                 });
             }
             if ($agencyId) {
@@ -1419,7 +1419,7 @@ class ReportsService
                                 ->where('agcy_id', $agencyId)
                                 ->whereNull('deleted_at');
                         })
-                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
+                        ->whereNotIn('c.status', ['ARCHIVED']);
                 });
             }
 

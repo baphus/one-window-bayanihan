@@ -839,15 +839,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
         quickFilters={quickFilterPills}
-        extraActions={
-          <button
-            onClick={() => router.visit(route('cases.drafts'))}
-            className="h-[40px] px-4 border border-amber-300 text-[14px] font-bold text-amber-700 rounded-[3px] bg-amber-50 flex items-center gap-2 hover:bg-amber-100 transition-colors whitespace-nowrap shrink-0"
-          >
-            <span className="material-symbols-outlined text-[18px]">edit_note</span>
-            View Drafts
-          </button>
-        }
+
       />
       </div>
 

@@ -21,7 +21,6 @@ import monitoringQueueJobsSystemHealth from "./content/monitoring-queue-jobs-sys
 import privacyDataProtectionOwb from "./content/privacy-data-protection-owb";
 import glossaryOfTerms from "./content/glossary-of-terms";
 import troubleshootingCommonIssues from "./content/troubleshooting-common-issues";
-import managingDraftCases from "./content/managing-draft-cases";
 import managingComplianceRequirements from "./content/managing-compliance-requirements";
 import usingReferralComments from "./content/using-referral-comments";
 import creatingPublishingCases from "./content/creating-publishing-cases";
@@ -392,18 +391,6 @@ export const articles: HelpdeskArticle[] = [
     categoryId: CATEGORY["cm-workflow"],
     tagIds: [TAG["cases"], TAG["training"], TAG["documents"]],
     featured: true,
-    publishedAt: "2026-07-09T00:00:00.000Z",
-  },
-  {
-    id: "article-24",
-    title: "Managing Draft Cases: Save, Edit, Publish, Delete",
-    slug: "managing-draft-cases",
-    excerpt:
-      "How Case Managers use the DRAFT workflow safely, including owner-only access, draft updates, publishing, and deleting unfinished drafts.",
-    content: managingDraftCases,
-    categoryId: CATEGORY["cm-workflow"],
-    tagIds: [TAG["cases"], TAG["documents"], TAG["onboarding"]],
-    featured: false,
     publishedAt: "2026-07-09T00:00:00.000Z",
   },
   {

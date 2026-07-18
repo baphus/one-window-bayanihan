@@ -8,10 +8,11 @@ Case statuses show the internal lifecycle of a case. Tracker numbers allow clien
 
 | Status | Meaning |
 |---|---|
-| DRAFT | The case is being prepared and may still need required details. |
 | OPEN | The case is active and being handled. |
 | CLOSED | The case handling is complete. |
 | ARCHIVED | The case is retained for records and no longer active. |
+
+> **Note:** Drafts are saved separately from cases and are not a case status. A draft becomes a case only when published.
 
 Administrators manage case status references in the admin CaseStatus section. System statuses cannot be deleted. Categories, issues, and statuses may be active or inactive and use soft-delete behavior when removed.
 

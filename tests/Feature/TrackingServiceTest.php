@@ -72,7 +72,7 @@ class TrackingServiceTest extends TestCase
             'action' => 'UPDATE',
             'module' => 'case',
             'entity_id' => $case->id,
-            'description' => 'set draft_client_data to {"foo":"bar"}; set category_id to a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+            'description' => 'set internal_note to confidential; set category_id to a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
             'user_id' => null,
             'timestamp' => now(),
         ]);
@@ -174,17 +174,6 @@ class TrackingServiceTest extends TestCase
         $data = $service->buildTrackingData($case);
 
         $this->assertEquals('IN_PROGRESS', $data['trackedCase']['status']);
-    }
-
-    public function test_case_status_mapping_draft_returns_being_prepared(): void
-    {
-        $service = app(TrackingService::class);
-        $case = CaseFile::factory()->create(['status' => 'DRAFT']);
-        $this->loadRelations($case);
-
-        $data = $service->buildTrackingData($case);
-
-        $this->assertEquals('BEING_PREPARED', $data['trackedCase']['status']);
         $this->assertNotEquals('COMPLETED', $data['trackedCase']['status']);
     }
 

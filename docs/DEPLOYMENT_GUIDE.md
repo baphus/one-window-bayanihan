@@ -37,7 +37,7 @@ The `setup` script runs:
 1. `composer install`
 2. Copy `.env.example` → `.env`
 3. `php artisan key:generate`
-4. `php artisan migrate --force`
+4. `php artisan migrate --force` (with the migration credential; never from the web process)
 5. `npm install --ignore-scripts`
 6. `npm run build`
 
@@ -68,6 +68,11 @@ DB_PORT=5432
 DB_DATABASE=one_window
 DB_USERNAME=postgres
 DB_PASSWORD=secret
+
+# RLS roles (the web credential is not the database owner)
+DB_RUNTIME_ROLE=bayanihan_runtime
+DB_MAINTENANCE_ROLE=bayanihan_maintenance
+CASE_DRAFT_MAINT_DB_URL=postgresql://bayanihan_maintenance:***@db.example/one_window?sslmode=require
 
 # Storage (Supabase S3-compatible)
 FILESYSTEM_DISK=supabase
@@ -116,6 +121,24 @@ TRUSTED_PROXIES=10.0.0.0/8
 ---
 
 ## 2. Docker Deployment
+
+### PostgreSQL roles and migration operations
+
+Provision three separate credentials before enabling `FEATURE_CASE_DRAFTS`:
+
+* `DB_URL`/`DB_USERNAME`: the non-owner `DB_RUNTIME_ROLE` used by web and queue processes.
+* `CASE_DRAFT_MAINT_DB_URL`: the non-owner `DB_MAINTENANCE_ROLE` used only by
+  `case-drafts:expire-stale` and `case-drafts:reencrypt`.
+* A separately protected migration/owner credential used only by the release
+  migration job (`php artisan migrate --force --no-interaction`).
+
+The runtime and maintenance roles must be granted the policies and table
+privileges by migration `2026_07_17_000005_add_staged_case_draft_rls_roles.php`.
+Neither role may own the tables or use the owner/default connection as a
+fallback. Verify `select current_user` for both URLs before rollout. Web and
+worker containers do not auto-migrate; `RUN_MIGRATIONS` is intentionally ignored.
+Keep `FEATURE_CASE_DRAFTS=false` until migrations, role grants, transaction
+context verification, and the dedicated maintenance process are all live.
 
 ### Architecture
 

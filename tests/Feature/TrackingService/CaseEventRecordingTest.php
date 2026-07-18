@@ -181,7 +181,7 @@ class CaseEventRecordingTest extends TestCase
         ]);
         $category = CaseCategory::factory()->create();
         $case = CaseFile::factory()->create([
-            'status' => 'DRAFT',
+            'status' => 'OPEN',
             'user_id' => $user->id,
             'client_id' => $client->id,
             'client_type' => 'OFW',

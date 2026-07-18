@@ -180,12 +180,12 @@ class ClientController extends Controller
                 : 'COUNT(DISTINCT cl.id)';
             $sql = "SELECT
                 {$totalClientsExpression} AS total_clients,
-                COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS ofw_clients,
-                COUNT(DISTINCT CASE WHEN c.client_type = 'NOK' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS nok_clients,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%PWD%' OR c.nok_vulnerability_indicator LIKE '%PWD%') THEN cl.id END) AS vuln_pwd,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Senior Citizen%' OR c.nok_vulnerability_indicator LIKE '%Senior Citizen%') THEN cl.id END) AS vuln_senior,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Solo Parent%' OR c.nok_vulnerability_indicator LIKE '%Solo Parent%') THEN cl.id END) AS vuln_solo,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Indigenous Person%' OR c.nok_vulnerability_indicator LIKE '%Indigenous Person%') THEN cl.id END) AS vuln_indigenous,
+                COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('ARCHIVED') THEN cl.id END) AS ofw_clients,
+                COUNT(DISTINCT CASE WHEN c.client_type = 'NOK' AND c.status NOT IN ('ARCHIVED') THEN cl.id END) AS nok_clients,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('ARCHIVED') AND (c.vulnerability_indicator LIKE '%PWD%' OR c.nok_vulnerability_indicator LIKE '%PWD%') THEN cl.id END) AS vuln_pwd,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('ARCHIVED') AND (c.vulnerability_indicator LIKE '%Senior Citizen%' OR c.nok_vulnerability_indicator LIKE '%Senior Citizen%') THEN cl.id END) AS vuln_senior,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('ARCHIVED') AND (c.vulnerability_indicator LIKE '%Solo Parent%' OR c.nok_vulnerability_indicator LIKE '%Solo Parent%') THEN cl.id END) AS vuln_solo,
+                COUNT(DISTINCT CASE WHEN c.status NOT IN ('ARCHIVED') AND (c.vulnerability_indicator LIKE '%Indigenous Person%' OR c.nok_vulnerability_indicator LIKE '%Indigenous Person%') THEN cl.id END) AS vuln_indigenous,
                 COUNT(DISTINCT CASE WHEN c.status = 'OPEN' THEN cl.id END) AS open_cases
             FROM clients cl
             JOIN cases c ON c.client_id = cl.id AND c.is_deleted = false

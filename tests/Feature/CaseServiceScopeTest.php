@@ -170,14 +170,14 @@ class CaseServiceScopeTest extends TestCase
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         CaseFile::factory(3)->create(['user_id' => $manager->id, 'status' => 'OPEN']);
-        CaseFile::factory(2)->create(['user_id' => $manager->id, 'status' => 'DRAFT']);
+        CaseFile::factory(2)->create(['user_id' => $manager->id, 'status' => 'OPEN']);
 
         $this->actingAs($manager);
         $cases = $this->service->getCases();
 
-        $this->assertCount(3, $cases);
+        $this->assertCount(5, $cases);
         foreach ($cases as $case) {
-            $this->assertNotEquals('DRAFT', $case->status);
+            $this->assertEquals('OPEN', $case->status);
         }
     }
 

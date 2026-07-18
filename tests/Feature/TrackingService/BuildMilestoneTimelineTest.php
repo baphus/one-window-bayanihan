@@ -164,7 +164,7 @@ class BuildMilestoneTimelineTest extends TestCase
             entityId: $case->id,
             action: 'UPDATE',
             module: 'case',
-            description: 'set draft_client_data to {"foo":"bar"}; set category_id to a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
+            description: 'set internal_note to confidential; set category_id to a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
         );
 
         foreach ($this->timeline($case) as $item) {

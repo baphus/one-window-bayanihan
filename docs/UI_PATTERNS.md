@@ -114,7 +114,6 @@
 | CLOSED / COMPLETED | Green | ✓ |
 | REJECTED | Red | ✕ |
 | FOR COMPLIANCE | Orange | ⚠ |
-| DRAFT | Gray | ○ |
 
 **Note:** Color is NEVER the only indicator — text labels and icons always accompany status badges (WCAG 2.1 AA compliance).
 

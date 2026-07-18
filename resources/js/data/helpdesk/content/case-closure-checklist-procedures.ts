@@ -6,7 +6,7 @@ Close a case only when assistance has been completed, the outcome is documented,
 
 ## Status check
 
-Case statuses are exactly **DRAFT**, **OPEN**, **CLOSED**, and **ARCHIVED**. A case should generally be **OPEN** before closure. Drafts should be published or deleted, not closed.
+Case statuses are exactly **OPEN**, **CLOSED**, and **ARCHIVED**. A case should generally be **OPEN** before closure. Drafts are saved separately and should be published or deleted, not closed.
 
 ## Referral checklist
 

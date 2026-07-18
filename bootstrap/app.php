@@ -4,21 +4,24 @@ use App\Http\Middleware\CheckMfaEnrolled;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\CheckUserActive;
 use App\Http\Middleware\ContentSecurityPolicy;
+use App\Http\Middleware\EnsureCaseDraftsEnabled;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IpWhitelist;
 use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
-use App\Http\Middleware\SetPostgresSession;
+use App\Http\Middleware\SetCaseDraftRlsContext;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Http\Middleware\VerifyTurnstileSession;
 use App\Services\IncidentIdService;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -37,7 +40,6 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(SetPostgresSession::class);
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
         $middleware->trustProxies(
@@ -62,6 +64,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'ip.whitelist' => IpWhitelist::class,
             'turnstile' => VerifyTurnstile::class,
             'turnstile.session' => VerifyTurnstileSession::class,
+            'case-draft.rls' => SetCaseDraftRlsContext::class,
+        ]);
+
+        // Authenticate first, then stop disabled draft routes before implicit
+        // model binding and FormRequest authorization/validation can run.
+        $middleware->priority([
+            Authenticate::class,
+            EnsureCaseDraftsEnabled::class,
+            CheckRole::class,
+            SetCaseDraftRlsContext::class,
+            SubstituteBindings::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

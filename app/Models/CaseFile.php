@@ -43,14 +43,16 @@ class CaseFile extends Model
         'client_id',
         'category_id',
         'case_issue_id',
-        'draft_client_data',
+        'consent_notice_version',
+        'selected_nok_id',
+        'selected_nok_evidence',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
         'closed_at' => 'datetime',
         'consent_given_at' => 'datetime',
-        'draft_client_data' => 'array',
+        'selected_nok_evidence' => 'array',
     ];
 
     public function user()
@@ -61,6 +63,11 @@ class CaseFile extends Model
     public function client()
     {
         return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function selectedNok()
+    {
+        return $this->belongsTo(NextOfKin::class, 'selected_nok_id');
     }
 
     public function category()

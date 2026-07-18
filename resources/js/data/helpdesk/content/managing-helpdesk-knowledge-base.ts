@@ -51,7 +51,7 @@ Recommended file naming:
 Before publishing, confirm that the article:
 
 - Uses current route/page names such as Admin/User, Agency, Service, Security, ActiveSessions, CaseCategory, CaseIssue, CaseStatus, DataExport, Maintenance, EmailLogs, LogViewer, and OverdueReferrals.
-- Uses exact case statuses: DRAFT, OPEN, CLOSED, ARCHIVED.
+- Uses exact case statuses: OPEN, CLOSED, ARCHIVED. Drafts are a separate concept and not a case status.
 - Uses exact referral statuses: PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED.
 - Does not describe features that are not present in the application.
 - Does not expose secrets, credentials, private URLs, or personal data in examples.

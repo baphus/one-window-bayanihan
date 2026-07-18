@@ -30,9 +30,8 @@ Capture consent before processing. Select the best category and case issue. Writ
 
 ## Save draft or publish
 
-Use **DRAFT** when information is incomplete. Drafts can be edited, deleted, or published later. Publish when ready for official handling; the case becomes **OPEN**.
+Your work is auto-saved as a **draft** while you fill out the form. Drafts are kept separately from published cases and are only visible to you. You can return to a draft later, edit it, or discard it. When all required fields are complete, use **Create Case** to publish — the case becomes **OPEN** and receives its case number and tracker number.
 
-![Draft cases](/assets/helpdesk/cases-drafts.png)
 ![Cases index](/assets/helpdesk/cases-index.png)
 
 ## After publishing

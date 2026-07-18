@@ -82,10 +82,13 @@ class ReferralService
             Notification::send($agencyUsers, new ReferralCreated($referral));
 
             // Also create OFW notification for the case client
-            if ($referral->caseFile && $referral->caseFile->client && $referral->caseFile->client->email) {
+            $recipientEmail = $referral->caseFile
+                ? app(CaseRecipientResolver::class)->resolve($referral->caseFile)
+                : null;
+            if ($recipientEmail) {
                 $this->notificationService->notifyOfw(
                     $referral->caseFile,
-                    $referral->caseFile->client->email,
+                    $recipientEmail,
                     'referral_created',
                     'New Referral',
                     'A new referral has been created for your case.',
@@ -310,10 +313,11 @@ class ReferralService
                 }
 
                 // Also create OFW notification
-                if ($referral->caseFile->client && $referral->caseFile->client->email) {
+                $recipientEmail = app(CaseRecipientResolver::class)->resolve($referral->caseFile);
+                if ($recipientEmail) {
                     $this->notificationService->notifyOfw(
                         $referral->caseFile,
-                        $referral->caseFile->client->email,
+                        $recipientEmail,
                         'referral_status_changed',
                         'Referral Status Updated',
                         "Referral status changed from {$oldStatus} to {$status}.",

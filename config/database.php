@@ -19,6 +19,11 @@ return [
 
     'default' => env('DB_CONNECTION', 'pgsql'),
 
+    'rls' => [
+        'runtime_role' => env('DB_RUNTIME_ROLE', 'bayanihan_runtime'),
+        'maintenance_role' => env('DB_MAINTENANCE_ROLE', 'bayanihan_maintenance'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Database Connections
@@ -95,6 +100,21 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'require'),
+            'timezone' => 'UTC',
+        ],
+
+        'case_draft_maintenance' => [
+            'driver' => 'pgsql',
+            'url' => env('CASE_DRAFT_MAINT_DB_URL'),
+            'host' => null,
+            'port' => null,
+            'database' => null,
+            'username' => null,
+            'password' => null,
+            'charset' => 'utf8',
+            'prefix' => '',
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'require'),
             'timezone' => 'UTC',

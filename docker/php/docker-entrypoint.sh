@@ -26,11 +26,8 @@ if [ "${APP_ENV}" != "local" ] && [ "${APP_ENV}" != "testing" ]; then
     echo "[ENTRYPOINT] Configuration cached for production"
 fi
 
-# ── Run migrations if enabled ──
-if [ "${RUN_MIGRATIONS}" = "true" ]; then
-    echo "[ENTRYPOINT] Running migrations..."
-    php artisan migrate --force --no-interaction || true
-fi
+# Migrations are deliberately not run by the web/worker image. Run them as a
+# separate deployment job with the owner/migration credential.
 
 # ── Chatbot: build the FTS5 retrieval index (fails loudly if FTS5 missing) ──
 if [ "${AI_CHATBOT_ENABLED}" = "true" ]; then

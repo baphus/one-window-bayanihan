@@ -13,3 +13,5 @@ Schedule::command('audit:prune --force')->monthlyOn(1, '02:30')->withoutOverlapp
 Schedule::command('audit:verify')->weeklyOn(1, '04:00')->withoutOverlapping();
 
 Schedule::command('storage:cleanup-orphans')->daily();
+
+Schedule::command('case-drafts:expire-stale')->daily()->withoutOverlapping();

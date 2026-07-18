@@ -30,7 +30,6 @@ class AuditLogFormatterTest extends TestCase
         $this->assertSame('Processing', $f->formatFieldValue('case_files', 'status', 'PROCESSING'));
         $this->assertSame('Completed', $f->formatFieldValue('case_files', 'status', 'COMPLETED'));
         $this->assertSame('Rejected', $f->formatFieldValue('case_files', 'status', 'REJECTED'));
-        $this->assertSame('Draft', $f->formatFieldValue('case_files', 'status', 'DRAFT'));
         $this->assertSame('Archived', $f->formatFieldValue('case_files', 'status', 'ARCHIVED'));
         $this->assertSame('Closed', $f->formatFieldValue('case_files', 'status', 'CLOSED'));
     }
