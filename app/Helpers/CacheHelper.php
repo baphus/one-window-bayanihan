@@ -18,14 +18,16 @@ class CacheHelper
         try {
             $value = Cache::remember($key, $ttl, $callback);
 
-            // PHP's unserialize() may return __PHP_Incomplete_Class silently
-            // (no exception) when the class isn't autoloaded yet — commonly
-            // seen with the database cache driver after bootstrap changes.
-            // Treat the stale entry as a miss so the callback re-runs fresh.
-            if (is_object($value) && get_class($value) === '__PHP_Incomplete_Class') {
-                Cache::forget($key);
-
-                return $callback();
+            // A stdClass cached by a serialized driver (redis/file/database)
+            // can unserialize into a state that throws "tried to access a
+            // property on an incomplete object" the moment the caller reads a
+            // property — even though get_class() still reports stdClass. The
+            // robust recovery is to rebuild it from its array form, which
+            // works for both healthy and incomplete stdClass instances and
+            // yields a clean, fully-usable object. Other object types (models,
+            // DTOs) are left untouched.
+            if ($value instanceof \stdClass) {
+                return (object) (array) $value;
             }
 
             return $value;

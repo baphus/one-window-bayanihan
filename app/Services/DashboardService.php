@@ -545,7 +545,7 @@ class DashboardService
                 FROM cases WHERE status = 'CLOSED' AND is_deleted = false
             ");
 
-            return round((float) ($result->avg_days ?? 0), 1);
+            return round((float) (($result->avg_days ?? 0)), 1);
         });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:cm_cases_by_category', 300, function () {
