@@ -440,17 +440,21 @@ class DashboardService
                 FROM referrals WHERE is_deleted = false
             ");
 
-            return [$caseCounts, $refCounts];
+            // Cast to arrays: objects from DB::selectOne silently break across
+            // serialized cache drivers (redis/file/database) — the cached
+            // payload must be plain arrays or scalars to avoid incomplete-object
+            // corruption that causes an infinite 409-reload loop.
+            return [(array) $caseCounts, (array) $refCounts];
         });
-        $totalCases = (int) $caseCounts->total;
-        $openCases = (int) $caseCounts->open;
-        $closedCases = (int) $caseCounts->closed;
-        $totalReferrals = (int) $refCounts->total;
-        $pendingReferrals = (int) $refCounts->pending;
-        $processingReferrals = (int) $refCounts->processing;
-        $completedReferrals = (int) $refCounts->completed;
-        $rejectedReferrals = (int) $refCounts->rejected;
-        $forComplianceReferrals = (int) $refCounts->for_compliance;
+        $totalCases = (int) ($caseCounts['total'] ?? 0);
+        $openCases = (int) ($caseCounts['open'] ?? 0);
+        $closedCases = (int) ($caseCounts['closed'] ?? 0);
+        $totalReferrals = (int) ($refCounts['total'] ?? 0);
+        $pendingReferrals = (int) ($refCounts['pending'] ?? 0);
+        $processingReferrals = (int) ($refCounts['processing'] ?? 0);
+        $completedReferrals = (int) ($refCounts['completed'] ?? 0);
+        $rejectedReferrals = (int) ($refCounts['rejected'] ?? 0);
+        $forComplianceReferrals = (int) ($refCounts['for_compliance'] ?? 0);
 
         $activeAgencies = CacheHelper::safeRemember('dashboard:active_agencies_count', 300, function () {
             return Agency::where('is_active', true)->count();
@@ -458,7 +462,7 @@ class DashboardService
 
         // Unique client count + OFW/NOK split via DB query (avoids loading all clients into memory)
         $clientCounts = CacheHelper::safeRemember('dashboard:cm_client_counts', 120, function () {
-            return DB::selectOne('
+            return (array) DB::selectOne('
                 SELECT
                     COUNT(DISTINCT c.client_id) AS total,
                     COUNT(DISTINCT CASE WHEN c.client_type = \'OFW\' THEN c.client_id END) AS ofw,
@@ -468,9 +472,9 @@ class DashboardService
                 WHERE r.is_deleted = false AND c.client_id IS NOT NULL
             ');
         });
-        $uniqueClientCount = (int) $clientCounts->total;
-        $ofwCount = (int) $clientCounts->ofw;
-        $nokCount = (int) $clientCounts->nok;
+        $uniqueClientCount = (int) ($clientCounts['total'] ?? 0);
+        $ofwCount = (int) ($clientCounts['ofw'] ?? 0);
+        $nokCount = (int) ($clientCounts['nok'] ?? 0);
 
         // Recent activity (LIMIT 10, indexed — kept as-is)
         $recentActivity = AuditLog::with('user')
@@ -651,7 +655,9 @@ class DashboardService
         // Single aggregated query for agency referral counts (cached 60s)
         $countsKey = 'dashboard:agency_counts:'.$agencyId;
         $refCounts = CacheHelper::safeRemember($countsKey, 60, function () use ($agencyId) {
-            return DB::selectOne("
+            // Cast to array: objects from DB::selectOne silently break across
+            // serialized cache drivers, causing an infinite 409-reload loop.
+            return (array) DB::selectOne("
                 SELECT
                     COUNT(*) AS total,
                     COUNT(*) FILTER (WHERE status = 'PENDING') AS pending,
@@ -662,12 +668,12 @@ class DashboardService
                 FROM referrals WHERE is_deleted = false AND agcy_id = ?
             ", [$agencyId]);
         });
-        $totalReferrals = (int) $refCounts->total;
-        $pendingReferrals = (int) $refCounts->pending;
-        $processingReferrals = (int) $refCounts->processing;
-        $forComplianceReferrals = (int) $refCounts->for_compliance;
-        $completedReferrals = (int) $refCounts->completed;
-        $rejectedReferrals = (int) $refCounts->rejected;
+        $totalReferrals = (int) ($refCounts['total'] ?? 0);
+        $pendingReferrals = (int) ($refCounts['pending'] ?? 0);
+        $processingReferrals = (int) ($refCounts['processing'] ?? 0);
+        $forComplianceReferrals = (int) ($refCounts['for_compliance'] ?? 0);
+        $completedReferrals = (int) ($refCounts['completed'] ?? 0);
+        $rejectedReferrals = (int) ($refCounts['rejected'] ?? 0);
 
         // Optimized SQL-based computations (replace $agencyReferrals bulk load)
         $referralStatusDistribution = $this->buildStatusDistributionFromCounts(
