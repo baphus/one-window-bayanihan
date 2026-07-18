@@ -187,6 +187,7 @@ class CaseEventRecordingTest extends TestCase
             'client_type' => 'OFW',
             'category_id' => $category->id,
         ]);
+        $case->categories()->attach($category->id);
 
         app(CaseService::class)->publishDraft($case->id, $user->id);
 
