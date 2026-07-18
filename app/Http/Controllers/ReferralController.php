@@ -6,6 +6,7 @@ use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\Agency;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -102,25 +103,27 @@ class ReferralController extends Controller
         );
 
         if ($request->hasFile('documents')) {
-            foreach ($request->file('documents') as $key => $file) {
-                $errors = app(StorageService::class)->validate($file, 'referral_attachment');
+            foreach ($request->file('documents') as $file) {
+                $errors = app(StorageService::class)->validate($file, 'case_document');
                 if (! empty($errors)) {
-                    return back()->withErrors(['documents.'.$key => $errors[0]]);
+                    return back()->withErrors(['documents' => $errors[0]]);
                 }
 
-                $result = app(StorageService::class)->store($file, 'referrals/'.$referral->id);
+                $result = app(StorageService::class)->store($file, 'case-documents/'.$referral->case_id);
 
                 if (! $result->success) {
-                    return back()->withErrors(['documents.'.$key => $result->error ?? 'Failed to store file.']);
+                    return back()->withErrors(['documents' => $result->error ?? 'Failed to store file.']);
                 }
 
-                ReferralAttachment::create([
-                    'referral_id' => $referral->id,
-                    'file_name' => implode(' - ', [str_replace('::', ' / ', $key), $result->originalName]),
+                CaseDocument::create([
+                    'file_name' => $result->originalName,
                     'file_path' => $result->path,
                     'file_type' => $result->type,
                     'size' => $result->size,
+                    'case_id' => $referral->case_id,
+                    'referral_id' => $referral->id,
                     'user_id' => $request->user()->id,
+                    'category' => 'referral',
                 ]);
             }
         }

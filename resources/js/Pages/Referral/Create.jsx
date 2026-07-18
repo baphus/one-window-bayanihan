@@ -36,6 +36,13 @@ function InfoRow({ label, value, subtext }) {
     );
 }
 
+function formatFileSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 export default function ReferralCreate({ case_id, agencies, cases: paginatedCases, caseReferrals = {}, filters = {} }) {
     const cases = paginatedCases.data || [];
     const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases.meta || {};
@@ -44,6 +51,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
         agcy_id: '',
         services: [],
         notes: '',
+        documents: [],
     });
 
     const { validate } = useClientValidation(referralSchema, data, setError);
@@ -87,7 +95,8 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
         || data.agcy_id !== initialFormRef.current.agcy_id
         || JSON.stringify(data.services) !== JSON.stringify(initialFormRef.current.services)
         || notesValue !== ''
-    ), [data.case_id, data.agcy_id, data.services, notesValue]);
+        || data.documents.length > 0
+    ), [data.case_id, data.agcy_id, data.services, notesValue, data.documents.length]);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
     const selectedCase = useMemo(() => {
         if (!data.case_id) return null;
@@ -744,6 +753,46 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                 />
                                             </div>
                                             <InputError message={errors.notes} className="mt-1" />
+                                        </div>
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Supporting Documents</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Attach supporting documents for the agency (optional).</p>
+                                            <div className="mt-4">
+                                                <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/50 px-6 py-6 transition-colors hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer">
+                                                    <span className="material-symbols-outlined text-[28px] text-slate-400">upload_file</span>
+                                                    <span className="text-[13px] font-semibold text-slate-600">Click to browse files</span>
+                                                    <span className="text-[11px] text-slate-400">PDF, JPG, PNG, DOC, DOCX &middot; Multiple files allowed</span>
+                                                    <input
+                                                        type="file"
+                                                        multiple
+                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                                        onChange={(e) => setData('documents', Array.from(e.target.files || []))}
+                                                        className="hidden"
+                                                    />
+                                                </label>
+                                            </div>
+                                            {data.documents.length > 0 && (
+                                                <div className="mt-4 space-y-2">
+                                                    {data.documents.map((file, idx) => (
+                                                        <div key={idx} className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                                                            <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">description</span>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-[12px] font-medium text-slate-700 truncate">{file.name}</p>
+                                                                <p className="text-[10px] text-slate-400">{formatFileSize(file.size)}</p>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setData('documents', data.documents.filter((_, i) => i !== idx))}
+                                                                className="shrink-0 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[16px]">close</span>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <InputError message={errors.documents} className="mt-1" />
                                         </div>
                                     </div>
                                 )}
