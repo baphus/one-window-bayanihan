@@ -24,7 +24,6 @@ class TrackingService
             'client.employments',
             'client.nextOfKin',
             'referrals.agency',
-            'referrals.complianceRequirements',
             'referrals.milestones.user',
             'user:id,name',
             'category',
@@ -95,18 +94,10 @@ class TrackingService
                 ->orderBy('sequence')
                 ->get();
 
-            // Referral IDs that ever entered FOR_COMPLIANCE, per the event record.
-            $complianceReferralIds = $events
-                ->where('type', CaseEvent::TYPE_REFERRAL_STATUS_CHANGED)
-                ->filter(fn (CaseEvent $event) => ($event->meta['to'] ?? null) === 'FOR_COMPLIANCE')
-                ->pluck('referral_id')
-                ->unique()
-                ->all();
-
             // Agency cards with dynamic step progress
-            $agencyCards = $referrals->map(function ($ref) use ($case, $complianceReferralIds) {
+            $agencyCards = $referrals->map(function ($ref) use ($case) {
                 $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
-                $hasCompliance = $ref->status === 'FOR_COMPLIANCE' || in_array($ref->id, $complianceReferralIds, true);
+                $hasCompliance = $ref->status === 'FOR_COMPLIANCE';
 
                 return [
                     'referralId' => $ref->id,
@@ -114,19 +105,13 @@ class TrackingService
                     'note' => $ref->notes ?? '',
                     'status' => $ref->status,
                     'milestoneCount' => $ref->milestones->count(),
-                    'steps' => $this->buildAgencySteps($ref, $hasCompliance),
+                    'steps' => $this->buildAgencySteps($ref),
                     'latestMilestoneLabel' => $latestMilestone?->title,
                     'milestonesUrl' => route('track.milestones', [
                         'tracker_number' => $case->tracker_number,
                         'referral' => $ref->id,
                     ]),
-                    'compliance_requirements' => $ref->complianceRequirements->map(fn ($cr) => [
-                        'id' => $cr->id,
-                        'service_name' => $cr->service_name,
-                        'requirement_name' => $cr->requirement_name,
-                        'status' => $cr->status,
-                        'completed_at' => $cr->completed_at?->toISOString(),
-                    ])->values()->toArray(),
+                    'requirements' => $ref->requirements ?? [],
                 ];
             })->toArray();
 
@@ -320,7 +305,7 @@ class TrackingService
      * and compliance history (derived from recorded status-change events).
      * Returns 3–6 steps with label and state keys.
      */
-    private function buildAgencySteps(Referral $referral, bool $hasCompliance): array
+    private function buildAgencySteps(Referral $referral): array
     {
         $agencyName = $referral->agency?->name ?? 'Agency';
         $status = $referral->status;
@@ -345,35 +330,15 @@ class TrackingService
             return $steps;
         }
 
-        if ($hasCompliance || $status === 'FOR_COMPLIANCE') {
-            // === COMPLIANCE PATH ===
-            if ($status === 'FOR_COMPLIANCE') {
-                $steps[] = ['label' => 'For Compliance', 'state' => 'active'];
-                $steps[] = ['label' => 'Processing after compliance', 'state' => 'pending'];
-                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
-            } elseif ($status === 'COMPLETED') {
-                $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
-                $steps[] = ['label' => 'Processing after compliance', 'state' => 'complete'];
-                $steps[] = ['label' => 'Completed', 'state' => 'active'];
-            } else {
-                // PROCESSING (after having been in compliance)
-                $steps[] = ['label' => 'For Compliance', 'state' => 'complete'];
-                $steps[] = ['label' => 'Processing after compliance', 'state' => 'active'];
-                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
-            }
+        if ($status === 'PROCESSING') {
+            $steps[] = ['label' => 'Processing', 'state' => 'active'];
+            $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+        } elseif ($status === 'COMPLETED') {
+            $steps[] = ['label' => 'Processing', 'state' => 'complete'];
+            $steps[] = ['label' => 'Completed', 'state' => 'active'];
         } else {
-            // === STANDARD PATH (no compliance history) ===
-            if ($status === 'PROCESSING') {
-                $steps[] = ['label' => 'Processing', 'state' => 'active'];
-                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
-            } elseif ($status === 'COMPLETED') {
-                $steps[] = ['label' => 'Processing', 'state' => 'complete'];
-                $steps[] = ['label' => 'Completed', 'state' => 'active'];
-            } else {
-                // fallback (shouldn't happen but handle gracefully)
-                $steps[] = ['label' => 'Processing', 'state' => 'pending'];
-                $steps[] = ['label' => 'Completed', 'state' => 'pending'];
-            }
+            $steps[] = ['label' => 'Processing', 'state' => 'pending'];
+            $steps[] = ['label' => 'Completed', 'state' => 'pending'];
         }
 
         return $steps;

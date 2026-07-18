@@ -154,12 +154,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 ['document.pdf', 'attachment'],
             ],
 
-            // ---- CREATE: ReferralComplianceRequirement ----
-            'CREATE / referral_compliance_requirement' => [
-                'CREATE', 'referral_compliance_requirement', null, ['name' => 'Medical Certificate'],
-                ['added to', 'referral compliance requirement'],
-            ],
-
             // ---- UPDATE: Case (single field change) ----
             'UPDATE / case (single status change)' => [
                 'UPDATE', 'case', ['status' => 'PROCESSING'], ['status' => 'COMPLETED'],

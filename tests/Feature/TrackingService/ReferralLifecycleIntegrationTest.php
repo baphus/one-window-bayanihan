@@ -7,7 +7,6 @@ use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
-use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
@@ -21,7 +20,6 @@ class ReferralLifecycleIntegrationTest extends TestCase
 
     /**
      * Eager-load all relationships that buildTrackingData() requires.
-     * Includes complianceRequirements so compliance_requirements is populated.
      */
     private function loadRelations(CaseFile $case): CaseFile
     {
@@ -31,7 +29,6 @@ class ReferralLifecycleIntegrationTest extends TestCase
             'referrals.agency',
             'referrals.milestones.user',
             'referrals.attachments',
-            'referrals.complianceRequirements',
             'user',
         ]);
 
@@ -89,8 +86,6 @@ class ReferralLifecycleIntegrationTest extends TestCase
             $this->assertArrayHasKey('name', $agency);
             $this->assertArrayHasKey('steps', $agency);
             $this->assertArrayHasKey('milestonesUrl', $agency);
-            $this->assertArrayHasKey('compliance_requirements', $agency);
-
             // Styling is the frontend's job — the payload carries state, not CSS.
             $this->assertArrayNotHasKey('statusTone', $agency);
             $this->assertArrayNotHasKey('borderTone', $agency);
@@ -100,65 +95,30 @@ class ReferralLifecycleIntegrationTest extends TestCase
     }
 
     // ----------------------------------------------------------------
-    //  2. Compliance requirements in agency card
+    //  2. Requirements in agency card
     // ----------------------------------------------------------------
 
-    public function test_compliance_requirements_in_agency_card(): void
+    public function test_requirements_in_agency_card(): void
     {
         // Arrange
         $service = $this->app->make(TrackingService::class);
         $setup = $this->createCaseWithClient();
         $case = $setup['case'];
-        $user = $setup['user'];
 
         $referral = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'FOR_COMPLIANCE',
-        ]);
-
-        // Create one pending and one completed compliance requirement
-        $pending = ReferralComplianceRequirement::create([
-            'referral_id' => $referral->id,
-            'service_name' => 'Medical Clearance',
-            'requirement_name' => 'Chest X-ray',
-            'status' => 'pending',
-            'completed_at' => null,
-        ]);
-
-        $completed = ReferralComplianceRequirement::create([
-            'referral_id' => $referral->id,
-            'service_name' => 'Legal Assistance',
-            'requirement_name' => 'Affidavit of Support',
-            'status' => 'completed',
-            'completed_at' => now()->subDay(),
-            'fulfilled_by' => $user->id,
+            'requirements' => ['Chest X-ray', 'Affidavit of Support'],
         ]);
 
         $this->loadRelations($case);
 
         // Act
         $data = $service->buildTrackingData($case);
-        $complianceRequirements = $data['trackingAgencies'][0]['compliance_requirements'];
+        $requirements = $data['trackingAgencies'][0]['requirements'];
 
         // Assert
-        $this->assertCount(2, $complianceRequirements);
-
-        // Find pending entry
-        $pendingEntry = collect($complianceRequirements)->firstWhere('status', 'pending');
-        $this->assertNotNull($pendingEntry, 'Pending compliance requirement not found');
-        $this->assertSame($pending->id, $pendingEntry['id']);
-        $this->assertSame('Medical Clearance', $pendingEntry['service_name']);
-        $this->assertSame('Chest X-ray', $pendingEntry['requirement_name']);
-        $this->assertNull($pendingEntry['completed_at']);
-
-        // Find completed entry
-        $completedEntry = collect($complianceRequirements)->firstWhere('status', 'completed');
-        $this->assertNotNull($completedEntry, 'Completed compliance requirement not found');
-        $this->assertSame($completed->id, $completedEntry['id']);
-        $this->assertSame('Legal Assistance', $completedEntry['service_name']);
-        $this->assertSame('Affidavit of Support', $completedEntry['requirement_name']);
-        $this->assertNotNull($completedEntry['completed_at']);
-        $this->assertStringEndsWith('Z', $completedEntry['completed_at']); // ISO format
+        $this->assertEquals(['Chest X-ray', 'Affidavit of Support'], $requirements);
     }
 
     // ----------------------------------------------------------------
@@ -317,13 +277,13 @@ class ReferralLifecycleIntegrationTest extends TestCase
         $setup = $this->createCaseWithClient();
         $case = $setup['case'];
 
-        // Status → expected step count (standard path, no compliance history)
+        // Status → expected step count
         $expectedCounts = [
             'PENDING' => 3,
             'PROCESSING' => 5,
             'COMPLETED' => 5,
             'REJECTED' => 3,
-            'FOR_COMPLIANCE' => 6,
+            'FOR_COMPLIANCE' => 5,
         ];
 
         foreach ($expectedCounts as $status => $expectedCount) {

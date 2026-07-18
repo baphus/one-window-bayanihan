@@ -5,7 +5,6 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
-import FileUpload from '@/Components/FileUpload';
 import { CardSection, InfoCell } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar, { getAvatarColor } from '@/Components/ui/UserAvatar';
@@ -87,9 +86,6 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const [postingComment, setPostingComment] = useState(false);
     const [showMilestoneModal, setShowMilestoneModal] = useState(false);
     const [removeAttachment, setRemoveAttachment] = useState(null);
-    const [markCompliedDoc, setMarkCompliedDoc] = useState(null);
-    const [markCompliedRemark, setMarkCompliedRemark] = useState('');
-    const [markCompliedSubmitting, setMarkCompliedSubmitting] = useState(false);
     const milestoneForm = useForm({ title: '', description: '' });
 
     const replyToComment = replyToCommentId
@@ -421,288 +417,64 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             )}
                         </div>
                     </CardSection>
-                    {/* Uploaded Documents Section */}
-                    {serviceRequirements.length > 0 && (
-                        <div data-tour="referral-documents">
+                    {/* Requirements Section */}
+                    <div data-tour="referral-documents">
+                        <CardSection title="Requirements" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                            {referral.requirements && referral.requirements.length > 0 ? (
+                                <ul className="space-y-1.5">
+                                    {referral.requirements.map((req, idx) => (
+                                        <li key={idx} className="flex items-start gap-2 text-[12px] text-slate-700">
+                                            <span className="material-symbols-outlined text-[14px] text-slate-400 mt-0.5 shrink-0">chevron_right</span>
+                                            <span>{req}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-[12px] text-slate-500 italic">No requirements listed.</p>
+                            )}
+                        </CardSection>
+                    </div>
+
+                    {/* Uploaded Documents / Attachments */}
+                    {(referral.attachments ?? []).filter((att) => !att.is_archived).length > 0 && (
                         <CardSection title="Uploaded Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            <div className="mb-3 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
-                                <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
-                                <p className="text-[11px] leading-5 text-blue-800">
-                                    Checklist of required documents per service. Documents uploaded during referral creation are matched below.
-                                </p>
-                            </div>
-                            <div className="space-y-4">
-                                {serviceRequirements.map((service) => {
-                                    const complianceReqs = referral.compliance_requirements ?? [];
-                                    const docs = service.requiredDocuments ?? [];
-                                    const serviceAttachments = (referral.attachments ?? []).filter(
-                                        (att) => !att.is_archived && att.file_name?.startsWith(service.title + ' / ')
-                                    );
-                                    const totalReqs = docs.length;
-                                    const compliedCount = totalReqs > 0
-                                        ? docs.filter((doc) => {
-                                            const cr = complianceReqs.find(
-                                                (c) => c.service_name === service.title && c.requirement_name === doc
-                                            );
-                                            if (cr && cr.status === 'COMPLIED') return true;
-                                            return serviceAttachments.some((att) => att.file_name?.startsWith(service.title + ' / ' + doc + ' - '));
-                                        }).length
-                                        : 0;
-                                    const isFullyComplied = totalReqs > 0 && compliedCount === totalReqs;
-
-                                    return (
-                                        <div key={service.title} className="rounded-md border border-slate-200 bg-white overflow-hidden">
-                                            <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span className="material-symbols-outlined text-[16px] text-slate-500">folder_open</span>
-                                                    <h4 className="text-[12px] font-bold text-slate-800 truncate">{service.title}</h4>
+                            <div className="divide-y divide-slate-100">
+                                {(referral.attachments ?? [])
+                                    .filter((att) => !att.is_archived)
+                                    .map((att) => (
+                                        <div key={att.id} className="flex items-center gap-3 px-1 py-2.5">
+                                            <span className="material-symbols-outlined text-[16px] text-slate-400">description</span>
+                                            <div className="min-w-0 flex-1">
+                                                <a
+                                                    href={route('referrals.attachments.download', [referral.id, att.id])}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
+                                                >
+                                                    {att.file_name}
+                                                </a>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {att.user && (
+                                                        <span className="text-[9px] text-slate-400">
+                                                            Uploaded by {att.user.name}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md ${
-                                                    isFullyComplied
-                                                        ? 'border border-green-200 bg-green-50 text-green-700'
-                                                        : 'border border-orange-200 bg-orange-50 text-orange-700'
-                                                }`}>
-                                                    {isFullyComplied ? 'Complied' : `${compliedCount}/${totalReqs} Complied`}
-                                                </span>
                                             </div>
-                                            {totalReqs > 0 ? (
-                                                <div className="divide-y divide-slate-100">
-                                                    {docs.map((doc) => {
-                                                        const matchingAttachment = serviceAttachments.find(
-                                                            (att) => att.file_name?.startsWith(service.title + ' / ' + doc + ' - ')
-                                                        );
-                                                        const isUploaded = !!matchingAttachment;
-                                                        const complianceReq = complianceReqs.find(
-                                                            (c) => c.service_name === service.title && c.requirement_name === doc
-                                                        );
-                                                        const isComplied = complianceReq?.status === 'COMPLIED';
-                                                        const isFulfilled = isUploaded || isComplied;
-                                                        const canUploadDoc = (isCaseManager || isAgency || isAdmin) && !isFulfilled;
-                                                        const isUploader = isUploaded && matchingAttachment.user_id === auth.user.id;
-
-                                                        return (
-                                                            <div key={doc} className="px-4 py-2.5">
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className={`material-symbols-outlined text-[18px] ${
-                                                                        isFulfilled ? 'text-green-600' : 'text-orange-500'
-                                                                    }`}>
-                                                                        {isFulfilled ? 'check_circle' : 'pending'}
-                                                                    </span>
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <p className="text-[12px] font-medium text-slate-700 truncate">{doc}</p>
-                                                                        {isComplied ? (
-                                                                            <div className="mt-0.5 space-y-1">
-                                                                                <p className="text-[10px] text-green-700 font-medium">
-                                                                                    Fulfilled {complianceReq.completed_at ? new Date(complianceReq.completed_at).toLocaleDateString() : ''}
-                                                                                    {complianceReq.fulfilled_by_name ? ` by ${complianceReq.fulfilled_by_name}` : ''}
-                                                                                </p>
-                                                                                {complianceReq.remark && (
-                                                                                    <div className="flex items-start gap-1.5 rounded bg-slate-50 border border-slate-100 px-2.5 py-1.5">
-                                                                                        <span className="material-symbols-outlined text-[12px] text-slate-400 mt-0.5">comment</span>
-                                                                                        <p className="text-[10px] text-slate-600 italic">{complianceReq.remark}</p>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : isUploaded ? (
-                                                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                                                <a
-                                                                                    href={route('referrals.attachments.download', [referral.id, matchingAttachment.id])}
-                                                                                    target="_blank"
-                                                                                    rel="noopener noreferrer"
-                                                                                    className="text-[10px] text-blue-700 hover:text-blue-900 hover:underline font-medium inline-flex items-center gap-0.5"
-                                                                                >
-                                                                                    <span className="material-symbols-outlined text-[12px]">download</span>
-                                                                                    {matchingAttachment.file_name?.split(' - ').slice(1).join(' - ') || matchingAttachment.file_name}
-                                                                                </a>
-                                                                                {matchingAttachment.user && (
-                                                                                    <span className="text-[9px] text-slate-400">
-                                                                                        by {matchingAttachment.user.name}
-                                                                                    </span>
-                                                                                )}
-                                                                                {isUploader && (
-                                                                                    <div className="flex items-center gap-1 ml-auto">
-                                                                                        <label className="text-[9px] text-blue-700 hover:text-blue-900 font-bold cursor-pointer inline-flex items-center gap-0.5">
-                                                                                            <span className="material-symbols-outlined text-[12px]">swap_horiz</span>
-                                                                                            Replace
-                                                                                            <input
-                                                                                                type="file"
-                                                                                                className="hidden"
-                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                                                                onChange={(e) => {
-                                                                                                    const file = e.target.files?.[0];
-                                                                                                    if (!file) return;
-                                                                                                    router.post(
-                                                                                                        route('referrals.attachments.replace', [referral.id, matchingAttachment.id]),
-                                                                                                        { file, document_label: service.title + '::' + doc },
-                                                                                                        { preserveScroll: true }
-                                                                                                    );
-                                                                                                }}
-                                                                                            />
-                                                                                        </label>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => setRemoveAttachment(matchingAttachment)}
-                                                                                            className="text-[9px] text-red-600 hover:text-red-800 font-bold inline-flex items-center gap-0.5"
-                                                                                        >
-                                                                                            <span className="material-symbols-outlined text-[12px]">delete</span>
-                                                                                            Remove
-                                                                                        </button>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <p className="text-[10px] text-orange-600 font-medium mt-0.5">Pending</p>
-                                                                        )}
-                                                                    </div>
-                                                                    <span className={`shrink-0 inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                                                                        isFulfilled
-                                                                            ? 'border border-green-200 bg-green-50 text-green-700'
-                                                                            : 'border border-orange-200 bg-orange-50 text-orange-700'
-                                                                    }`}>
-                                                                        {isComplied ? 'Complied' : isUploaded ? 'Uploaded' : 'Pending'}
-                                                                    </span>
-                                                                </div>
-                                                                {canUploadDoc && (
-                                                                    <div className="mt-2 ml-[30px]">
-                                                                        <FileUpload
-                                                                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                                            label="Upload Document"
-                                                                            onFilesSelected={(file) => {
-                                                                            if (!file) return;
-                                                                                router.post(
-                                                                                    route('referrals.attachments.store', referral.id),
-                                                                                    { file, document_label: service.title + '::' + doc },
-                                                                                    { preserveScroll: true }
-                                                                                );
-                                                                            }}
-                                                                        />
-                                                                        {isAgency && (() => {
-                                                                            const docKey = service.title + '::' + doc;
-                                                                            return (
-                                                                                <>
-                                                                                    {markCompliedDoc !== docKey ? (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => { setMarkCompliedDoc(docKey); setMarkCompliedRemark(''); }}
-                                                                                            className="mt-2 h-[28px] px-3 text-[10px] font-bold rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors inline-flex items-center gap-1"
-                                                                                        >
-                                                                                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                                                                                            Mark as Complied
-                                                                                        </button>
-                                                                                    ) : (
-                                                                                        <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-                                                                                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Mark as Complied</p>
-                                                                                            <p className="text-[10px] text-emerald-700">
-                                                                                                Use this if the client has already complied (e.g., submitted physically). A remark is required.
-                                                                                            </p>
-                                                                                            <textarea
-                                                                                                value={markCompliedRemark}
-                                                                                                onChange={(e) => setMarkCompliedRemark(e.target.value)}
-                                                                                                rows={2}
-                                                                                                placeholder="Enter remark (e.g., Client submitted documents in person)..."
-                                                                                                className="w-full rounded-md border border-emerald-200 px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 resize-none"
-                                                                                            />
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    disabled={markCompliedSubmitting || !markCompliedRemark.trim()}
-                                                                                                    onClick={() => {
-                                                                                                        if (!markCompliedRemark.trim()) return;
-                                                                                                        setMarkCompliedSubmitting(true);
-                                                                                                        router.post(
-                                                                                                            route('referrals.mark-document-complied', referral.id),
-                                                                                                            {
-                                                                                                                remark: markCompliedRemark.trim(),
-                                                                                                                service_name: service.title,
-                                                                                                                requirement_name: doc,
-                                                                                                            },
-                                                                                                            {
-                                                                                                                preserveScroll: true,
-                                                                                                                onSuccess: () => { setMarkCompliedDoc(null); setMarkCompliedRemark(''); setMarkCompliedSubmitting(false); },
-                                                                                                                onError: () => setMarkCompliedSubmitting(false),
-                                                                                                            }
-                                                                                                        );
-                                                                                                    }}
-                                                                                                    className="h-[26px] px-3 bg-emerald-600 text-white text-[10px] font-bold rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                                                                >
-                                                                                                    {markCompliedSubmitting ? 'Saving...' : 'Confirm'}
-                                                                                                </button>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={() => { setMarkCompliedDoc(null); setMarkCompliedRemark(''); }}
-                                                                                                    className="h-[26px] px-3 border border-slate-200 bg-white text-slate-600 text-[10px] font-bold rounded-md hover:bg-slate-50 transition-colors"
-                                                                                                >
-                                                                                                    Cancel
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            ) : (
-                                                <div className="px-4 py-3">
-                                                    <p className="text-[11px] text-slate-500 italic">No required documents defined for this service.</p>
-                                                </div>
+                                            {att.user_id === auth.user.id && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRemoveAttachment(att)}
+                                                    className="text-[9px] text-red-600 hover:text-red-800 font-bold inline-flex items-center gap-0.5 shrink-0"
+                                                >
+                                                    <span className="material-symbols-outlined text-[12px]">delete</span>
+                                                    Remove
+                                                </button>
                                             )}
                                         </div>
-                                    );
-                                })}
+                                    ))}
                             </div>
-
-                            {/* Show any additional attachments that don't match a service requirement */}
-                            {(() => {
-                                const unmatchedAttachments = (referral.attachments ?? []).filter((att) => {
-                                    if (att.is_archived) return false;
-                                    return !serviceRequirements.some((service) =>
-                                        att.file_name?.startsWith(service.title + ' / ')
-                                    );
-                                });
-                                if (unmatchedAttachments.length === 0) return null;
-                                return (
-                                    <div className="mt-4 rounded-md border border-slate-200 bg-white overflow-hidden">
-                                        <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                                            <span className="material-symbols-outlined text-[16px] text-slate-500">attach_file</span>
-                                            <h4 className="text-[12px] font-bold text-slate-800">Other Attachments</h4>
-                                        </div>
-                                        <div className="divide-y divide-slate-100">
-                                            {unmatchedAttachments.map((att) => (
-                                                <div key={att.id} className="flex items-center gap-3 px-4 py-2.5">
-                                                    <span className="material-symbols-outlined text-[16px] text-slate-400">description</span>
-                                                    <div className="min-w-0 flex-1">
-                                                        <a
-                                                            href={route('referrals.attachments.download', [referral.id, att.id])}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
-                                                        >
-                                                            {att.file_name}
-                                                        </a>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            {att.user && (
-                                                                <span className="text-[9px] text-slate-400">
-                                                                    Uploaded by {att.user.name}
-                                                                </span>
-                                                            )}
-                                                            {att.file_type && (
-                                                                <span className="text-[9px] text-slate-400 uppercase">{att.file_type}</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
                         </CardSection>
-                        </div>
                     )}
 
                 </main>

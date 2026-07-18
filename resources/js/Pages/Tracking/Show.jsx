@@ -27,7 +27,6 @@ const EVENT_ICON = {
   referral_sent: 'send',
   referral_status_changed: 'sync_alt',
   milestone_added: 'flag',
-  compliance_fulfilled: 'task_alt',
   case_closed: 'verified',
   case_reopened: 'restart_alt',
 };
@@ -155,9 +154,7 @@ function StepBar({ steps }) {
 function AgencyChapter({ agency, events }) {
   const stamp = REFERRAL_STAMP[agency.status] ?? REFERRAL_STAMP.PENDING;
   const isRejected = agency.status === 'REJECTED';
-  // Only unresolved requirements warrant an action block — fulfilled ones
-  // already appear in the ledger as compliance_fulfilled entries.
-  const pendingRequirements = (agency.compliance_requirements ?? []).filter((cr) => cr.status === 'PENDING');
+  const requirements = agency.requirements ?? [];
 
   return (
     <section className="border border-outline-variant bg-surface-container-lowest">
@@ -176,19 +173,16 @@ function AgencyChapter({ agency, events }) {
           </p>
         )}
 
-        {pendingRequirements.length > 0 && (
-          <div className="mt-5 border border-on-tertiary-fixed-variant/30 bg-tertiary-fixed/30 p-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-tertiary-fixed-variant">
-              Action needed — documents to prepare
+        {requirements.length > 0 && (
+          <div className="mt-5 border border-outline-variant/60 bg-surface-container-low p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+              Required documents
             </p>
-            <ul className="mt-2.5 space-y-2">
-              {pendingRequirements.map((cr) => (
-                <li key={cr.id} className="flex items-baseline justify-between gap-3 text-[13px]">
-                  <span className="min-w-0">
-                    <span className="font-semibold text-on-surface">{cr.requirement_name}</span>
-                    <span className="text-on-surface-variant"> · {cr.service_name}</span>
-                  </span>
-                  <span className="shrink-0 text-[11px] font-semibold text-on-tertiary-fixed-variant">To submit</span>
+            <ul className="mt-2.5 space-y-1.5">
+              {requirements.map((req, idx) => (
+                <li key={idx} className="flex items-baseline gap-2 text-[13px]">
+                  <span className="material-symbols-outlined text-[14px] text-on-surface-variant/60 shrink-0 mt-0.5">chevron_right</span>
+                  <span className="text-on-surface">{req}</span>
                 </li>
               ))}
             </ul>

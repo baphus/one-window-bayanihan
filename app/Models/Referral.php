@@ -20,6 +20,7 @@ class Referral extends Model
 
     protected $fillable = [
         'required_services',
+        'requirements',
         'notes',
         'status',
         'decision',
@@ -30,6 +31,7 @@ class Referral extends Model
 
     protected $casts = [
         'is_deleted' => 'boolean',
+        'requirements' => 'array',
     ];
 
     protected $appends = [];
@@ -111,11 +113,6 @@ class Referral extends Model
     public function attachments()
     {
         return $this->hasMany(ReferralAttachment::class, 'referral_id');
-    }
-
-    public function complianceRequirements()
-    {
-        return $this->hasMany(ReferralComplianceRequirement::class, 'referral_id');
     }
 
     public function comments()

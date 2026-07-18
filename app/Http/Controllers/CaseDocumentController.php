@@ -15,7 +15,13 @@ class CaseDocumentController extends Controller
         $case = CaseFile::findOrFail($caseId);
         $this->authorizeAccess($case, $request->user());
 
-        $documents = $case->documents()->where('is_deleted', false)->get();
+        $query = $case->documents()->where('is_deleted', false);
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->input('category'));
+        }
+
+        $documents = $query->get();
 
         return response()->json($documents);
     }
@@ -47,6 +53,7 @@ class CaseDocumentController extends Controller
             'file_name' => $result->originalName,
             'file_path' => $result->path,
             'file_type' => $result->type,
+            'category' => $request->input('category'),
             'size' => $result->size,
             'case_id' => $caseId,
             'user_id' => $request->user()->id,

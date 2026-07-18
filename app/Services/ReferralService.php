@@ -11,7 +11,6 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
-use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
@@ -59,18 +58,19 @@ class ReferralService
 
             $this->eventRecorder->referralSent($referral, $userId);
 
-            if (! empty($data['compliance_requirements'])) {
-                foreach ($data['compliance_requirements'] as $req) {
-                    ReferralComplianceRequirement::create([
-                        'referral_id' => $referral->id,
-                        'service_name' => $req['service_name'],
-                        'requirement_name' => $req['requirement_name'],
-                        'status' => 'PENDING',
-                    ]);
+            // Pre-fill requirements from service requirements
+            if (! empty($data['agcy_id'])) {
+                $serviceReqs = $this->getServiceRequirements($data['agcy_id']);
+                $requirements = [];
+                foreach ($serviceReqs as $svc) {
+                    foreach ($svc['requiredDocuments'] ?? [] as $doc) {
+                        $requirements[] = $doc;
+                    }
                 }
-                $referral->update(['status' => 'FOR_COMPLIANCE']);
-                $referral->refresh();
-                $this->eventRecorder->referralStatusChanged($referral, 'PENDING', 'FOR_COMPLIANCE', $userId);
+                if (! empty($requirements)) {
+                    $referral->update(['requirements' => $requirements]);
+                    $referral->refresh();
+                }
             }
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
@@ -259,7 +259,6 @@ class ReferralService
             'attachments.user',
             'comments.user',
             'comments.replies.user',
-            'complianceRequirements.fulfilledBy',
         ];
         $relations[] = 'caseFile.categories';
 
@@ -336,9 +335,9 @@ class ReferralService
         });
     }
 
-    public function addMilestone(string $referralId, string $title, ?string $description, string $userId): Milestone
+    public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone
     {
-        return DB::transaction(function () use ($referralId, $title, $description, $userId) {
+        return DB::transaction(function () use ($referralId, $title, $description, $userId, $requirements) {
             $referral = Referral::findOrFail($referralId);
 
             if ($referral->status === 'COMPLETED') {
@@ -348,6 +347,7 @@ class ReferralService
             $milestone = Milestone::create([
                 'title' => $title,
                 'description' => $description,
+                'requirements' => $requirements,
                 'refr_id' => $referralId,
                 'user_id' => $userId,
             ]);
@@ -429,10 +429,6 @@ class ReferralService
             'agency:id,name',
             'milestones' => fn ($q) => $q->latest()->limit(1),
         ])
-            ->withCount([
-                'complianceRequirements as compliance_total',
-                'complianceRequirements as compliance_fulfilled' => fn ($q) => $q->where('status', 'COMPLIED'),
-            ])
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
             ->whereRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
                 (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
@@ -501,13 +497,6 @@ class ReferralService
                 default => 'mild',
             };
 
-            // Compliance progress (only for FOR_COMPLIANCE)
-            $complianceTotal = $referral->compliance_total ?? 0;
-            $complianceFulfilled = $referral->compliance_fulfilled ?? 0;
-            $complianceProgress = $referral->status === 'FOR_COMPLIANCE' && $complianceTotal > 0
-                ? $complianceFulfilled.'/'.$complianceTotal
-                : null;
-
             return [
                 'id' => $referral->id,
                 'case_number' => $referral->caseFile?->case_number,
@@ -521,9 +510,6 @@ class ReferralService
                 'severity' => $severity,
                 'last_activity_description' => $lastActivityDesc,
                 'last_activity_date' => $lastActivityDate->toIso8601String(),
-                'compliance_progress' => $complianceProgress,
-                'compliance_total' => $complianceTotal,
-                'compliance_fulfilled' => $complianceFulfilled,
                 'case_manager_name' => $referral->caseFile?->user?->name ?? 'System',
                 'created_at' => $referral->created_at->toIso8601String(),
             ];
@@ -610,53 +596,6 @@ class ReferralService
         // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
         return $attachment->load('user');
-    }
-
-    public function fulfillCompliance(string $complianceId, array $fileData, string $userId): ReferralAttachment
-    {
-        return DB::transaction(function () use ($complianceId, $fileData, $userId) {
-            $requirement = ReferralComplianceRequirement::findOrFail($complianceId);
-
-            if ($requirement->status !== 'PENDING') {
-                throw new \InvalidArgumentException('Compliance requirement is not pending.');
-            }
-
-            $attachment = $this->addAttachment($requirement->referral_id, $fileData, $userId);
-
-            $requirement->update([
-                'status' => 'COMPLIED',
-                'fulfilled_by' => $userId,
-                'completed_at' => now(),
-            ]);
-
-            $this->eventRecorder->complianceFulfilled($requirement->referral, $requirement, $userId);
-
-            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
-
-            return $attachment;
-        });
-    }
-
-    public function markComplianceAsComplied(string $complianceId, string $remark, string $userId): ReferralComplianceRequirement
-    {
-        return DB::transaction(function () use ($complianceId, $remark, $userId) {
-            $requirement = ReferralComplianceRequirement::findOrFail($complianceId);
-
-            if ($requirement->status !== 'PENDING') {
-                throw new \InvalidArgumentException('Compliance requirement is not pending.');
-            }
-
-            $requirement->update([
-                'status' => 'COMPLIED',
-                'fulfilled_by' => $userId,
-                'completed_at' => now(),
-                'remark' => $remark,
-            ]);
-
-            $this->eventRecorder->complianceFulfilled($requirement->referral, $requirement, $userId);
-
-            return $requirement;
-        });
     }
 
     public function replaceAttachment(string $attachmentId, array $fileData, string $userId): ReferralAttachment

@@ -90,9 +90,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/referrals/{referral}/attachments/{attachment}/remove', [ReferralController::class, 'deleteAttachment'])->name('referrals.attachments.delete');
     Route::get('/referrals/{referral}/attachments/{attachment}/download', [ReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
-    Route::post('/referrals/{referral}/compliance/{compliance}/fulfill', [ReferralController::class, 'fulfillCompliance'])->name('referrals.compliance.fulfill');
-    Route::post('/referrals/{referral}/compliance/{compliance}/mark-complied', [ReferralController::class, 'markComplianceAsComplied'])->name('referrals.compliance.mark-complied');
-    Route::post('/referrals/{referral}/mark-document-complied', [ReferralController::class, 'markDocumentComplied'])->name('referrals.mark-document-complied');
 
     Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs');
 

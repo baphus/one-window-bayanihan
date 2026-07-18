@@ -21,12 +21,14 @@ class Milestone extends Model
     protected $fillable = [
         'title',
         'description',
+        'requirements',
         'refr_id',
         'user_id',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
+        'requirements' => 'array',
     ];
 
     public function referral()

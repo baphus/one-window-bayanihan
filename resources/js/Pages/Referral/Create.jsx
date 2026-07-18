@@ -5,7 +5,6 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import InputError from '@/Components/InputError';
-import FileUpload from '@/Components/FileUpload';
 import { referralSchema } from '@/Schemas/referralSchema';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { useToast } from '@/Hooks/useToast';
@@ -13,22 +12,7 @@ import { useToast } from '@/Hooks/useToast';
 const STEPS = [
     { id: 1, title: 'Select Case', description: 'Choose the case to refer' },
     { id: 2, title: 'Select Agency', description: 'Pick the receiving agency' },
-    { id: 3, title: 'Select Service', description: 'Choose services and attach requirements' },
-];
-
-function buildServiceRequirementKey(serviceTitle, requirement) {
-    return `${serviceTitle}::${requirement}`;
-}
-
-const ALLOWED_FILE_TYPES = [
-    { ext: '.pdf', mime: 'application/pdf' },
-    { ext: '.doc', mime: 'application/msword' },
-    { ext: '.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
-    { ext: '.jpg', mime: 'image/jpeg' },
-    { ext: '.jpeg', mime: 'image/jpeg' },
-    { ext: '.png', mime: 'image/png' },
-    { ext: '.gif', mime: 'image/gif' },
-    { ext: '.webp', mime: 'image/webp' },
+    { id: 3, title: 'Select Service', description: 'Choose services and review requirements' },
 ];
 
 function Field({ label, required, children, className }) {
@@ -67,12 +51,9 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     const toast = useToast();
 
     const [createStep, setCreateStep] = useState(1);
-    const [requirementUploads, setRequirementUploads] = useState({});
-    const [fileErrors, setFileErrors] = useState({});
     const [notesValue, setNotesValue] = useState('');
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [debouncedSearch, setDebouncedSearch] = useState(filters.search || '');
-    const [complianceMode, setComplianceMode] = useState({});
     const searchDebounceRef = useRef(null);
     const agencySearchDebounceRef = useRef(null);
 
@@ -106,8 +87,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
         || data.agcy_id !== initialFormRef.current.agcy_id
         || JSON.stringify(data.services) !== JSON.stringify(initialFormRef.current.services)
         || notesValue !== ''
-        || Object.keys(requirementUploads).length > 0
-    ), [data.case_id, data.agcy_id, data.services, notesValue, requirementUploads]);
+    ), [data.case_id, data.agcy_id, data.services, notesValue]);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
     const selectedCase = useMemo(() => {
         if (!data.case_id) return null;
@@ -140,18 +120,12 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     const selectedServiceRequirements = useMemo(() => {
         return selectedServiceDetails.flatMap((service) =>
             (service.requirements || []).map((req) => ({
-                key: buildServiceRequirementKey(service.name, req.name),
+                key: `${service.name}::${req.name}`,
                 serviceTitle: service.name,
                 requirement: req.name,
             }))
         );
     }, [selectedServiceDetails]);
-
-    const missingRequirementKeys = useMemo(() => {
-        return selectedServiceRequirements.filter((item) => !requirementUploads[item.key] && !complianceMode[item.key]).map((item) => item.key);
-    }, [selectedServiceRequirements, requirementUploads, complianceMode]);
-
-    const hasMissingRequirementUploads = missingRequirementKeys.length > 0;
 
     useEffect(() => {
         if (!data.case_id || !data.agcy_id) return;
@@ -166,22 +140,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
             setData('services', [agency.services[0].name]);
         }
     }, [data.agcy_id]);
-
-    useEffect(() => {
-        const activeKeys = new Set(selectedServiceRequirements.map((item) => item.key));
-        setRequirementUploads((current) => {
-            const next = Object.fromEntries(
-                Object.entries(current).filter(([key]) => activeKeys.has(key))
-            );
-            return Object.keys(next).length === Object.keys(current).length ? current : next;
-        });
-        setComplianceMode((current) => {
-            const next = Object.fromEntries(
-                Object.entries(current).filter(([key]) => activeKeys.has(key))
-            );
-            return Object.keys(next).length === Object.keys(current).length ? current : next;
-        });
-    }, [selectedServiceRequirements]);
 
     useEffect(() => {
         if (case_id) {
@@ -208,7 +166,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     const isStepOneValid = Boolean(selectedCase);
     const isStepTwoValid = Boolean(data.agcy_id) && !selectedAgencyIsReferred;
     const isStepThreeValid = Boolean(
-        data.case_id && data.agcy_id && data.services.length > 0 && !hasMissingRequirementUploads
+        data.case_id && data.agcy_id && data.services.length > 0
     );
 
     const stepProgress = Math.round((createStep / STEPS.length) * 100);
@@ -231,47 +189,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
         );
     }
 
-    function isValidFileType(file) {
-        if (!file) return false;
-        const ext = '.' + file.name.split('.').pop().toLowerCase();
-        const mime = (file.type || '').toLowerCase();
-        return ALLOWED_FILE_TYPES.some(
-            (t) => t.ext === ext && (!mime || mime === t.mime)
-        );
-    }
-
-    function handleFileChange(requirementKey, file) {
-        if (!file) {
-            setFileErrors((current) => {
-                const next = { ...current };
-                delete next[requirementKey];
-                return next;
-            });
-            setRequirementUploads((current) => {
-                const next = { ...current };
-                delete next[requirementKey];
-                return next;
-            });
-            return;
-        }
-
-        if (!isValidFileType(file)) {
-            setFileErrors((current) => ({
-                ...current,
-                [requirementKey]: 'Invalid file type. Allowed: PDF, DOC, DOCX, JPG, PNG, GIF, WEBP',
-            }));
-            return;
-        }
-
-        setFileErrors((current) => {
-            const next = { ...current };
-            delete next[requirementKey];
-            return next;
-        });
-        setRequirementUploads((current) => ({ ...current, [requirementKey]: file }));
-        setComplianceMode((current) => ({ ...current, [requirementKey]: false }));
-    }
-
     function parseRequiredDocs(service) {
         if (!service?.requirements) return [];
         return service.requirements.map(r => r.name);
@@ -283,43 +200,9 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
         if (!validate()) return;
         if (!isStepThreeValid) return;
 
-        const newFileErrors = {};
-        let hasInvalidFiles = false;
-        Object.entries(requirementUploads).forEach(([key, file]) => {
-            if (file && !isValidFileType(file)) {
-                newFileErrors[key] = 'Invalid file type. Allowed: PDF, DOC, DOCX, JPG, PNG, GIF, WEBP';
-                hasInvalidFiles = true;
-            }
-        });
-
-        if (hasInvalidFiles) {
-            setFileErrors((current) => ({ ...current, ...newFileErrors }));
-            return;
-        }
-
-        const complianceEntries = selectedServiceRequirements
-            .filter((item) => complianceMode[item.key])
-            .map((item) => ({
-                service_name: item.serviceTitle,
-                requirement_name: item.requirement,
-            }));
-        if (complianceEntries.length > 0) {
-            setData('compliance_requirements', complianceEntries);
-        }
-
-        Object.entries(requirementUploads).forEach(([key, file]) => {
-            if (file) {
-                setData(`documents.${key}`, file);
-            }
-        });
         setData('notes', notesValue);
 
         bypassNext();
-
-        if (hasMissingRequirementUploads) {
-            toast.warning('Upload all required documents before submitting.');
-            return;
-        }
 
         post(route('referrals.store'), {
             onSuccess: () => { toast.success('Referral submitted successfully!'); },
@@ -408,7 +291,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                     )}
                                     {createStep === 3 && (
                                         <>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Select services and upload required documents.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Select services and review requirements.</span></li>
                                             <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add optional remarks for the agency.</span></li>
                                         </>
                                     )}
@@ -819,7 +702,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                         {selectedServiceDetails.length > 0 && (
                                             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                                 <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Service Requirements</h3>
-                                                <p className="mt-2 text-[13px] text-slate-500">Upload required documents for each selected service.</p>
+                                                <p className="mt-2 text-[13px] text-slate-500">Required documents for each selected service.</p>
                                                 <div className="mt-4 space-y-4">
                                                     {selectedServiceDetails.map((service) => {
                                                         const docs = parseRequiredDocs(service);
@@ -829,88 +712,15 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                                 <p className="mt-1 text-[12px] text-slate-500">
                                                                     Processing Time: <span className="font-semibold text-indigo-600">{service.processing_days || 'N/A'} business days</span>
                                                                 </p>
-
                                                                 {docs.length ? (
-                                                                    <div className="mt-3 space-y-2">
-                                                                        {docs.map((requirement) => {
-                                                                            const requirementKey = buildServiceRequirementKey(service.name, requirement);
-                                                                            const hasFile = Boolean(requirementUploads[requirementKey]);
-                                                                            const isCompliance = Boolean(complianceMode[requirementKey]);
-                                                                            const borderClass = isCompliance
-                                                                                ? 'border-orange-200 bg-orange-50/40'
-                                                                                : !hasFile
-                                                                                    ? 'border-rose-300 bg-rose-50/40'
-                                                                                    : 'border-slate-200 bg-white';
-                                                                            return (
-                                                                                <div key={requirementKey}
-                                                                                    className={`rounded-lg border px-4 py-3 ${borderClass}`}
-                                                                                >
-                                                                                    <p className="text-[12px] font-semibold text-slate-700">{requirement}</p>
-
-                                                                                    <div className="mt-2 flex items-center gap-3">
-                                                                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                                                                            <input
-                                                                                                type="radio"
-                                                                                                name={`upload-mode-${requirementKey}`}
-                                                                                                checked={!isCompliance}
-                                                                                                onChange={() => {
-                                                                                                    setComplianceMode((prev) => ({ ...prev, [requirementKey]: false }));
-                                                                                                }}
-                                                                                                className="h-3 w-3 text-indigo-600"
-                                                                                            />
-                                                                                            <span className="text-[11px] text-slate-600">Upload File</span>
-                                                                                        </label>
-                                                                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                                                                            <input
-                                                                                                type="radio"
-                                                                                                name={`upload-mode-${requirementKey}`}
-                                                                                                checked={isCompliance}
-                                                                                                onChange={() => {
-                                                                                                    setComplianceMode((prev) => ({ ...prev, [requirementKey]: true }));
-                                                                                                    setRequirementUploads((current) => {
-                                                                                                        const next = { ...current };
-                                                                                                        delete next[requirementKey];
-                                                                                                        return next;
-                                                                                                    });
-                                                                                                    setFileErrors((current) => {
-                                                                                                        const next = { ...current };
-                                                                                                        delete next[requirementKey];
-                                                                                                        return next;
-                                                                                                    });
-                                                                                                }}
-                                                                                                className="h-3 w-3 text-orange-500"
-                                                                                            />
-                                                                                            <span className="text-[11px] text-slate-600">For Compliance</span>
-                                                                                        </label>
-                                                                                    </div>
-
-                                                                                    {isCompliance ? (
-                                                                                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1">
-                                                                                            <svg className="h-3.5 w-3.5 text-orange-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                                                                                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                                                                                            </svg>
-                                                                                            <span className="text-[11px] font-bold uppercase tracking-wider text-orange-700">FOR COMPLIANCE</span>
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        <>
-                                                                                            <FileUpload
-                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                                                                label="Choose file"
-                                                                                                onFilesSelected={(file) => handleFileChange(requirementKey, file)}
-                                                                                            />
-                                                                                            {hasFile ? (
-                                                                                                <p className="mt-1 text-[11px] text-emerald-600">Attached: {requirementUploads[requirementKey]?.name}</p>
-                                                                                            ) : (
-                                                                                                <p className="mt-1 text-[11px] text-rose-700">Upload is required for this document.</p>
-                                                                                            )}
-                                                                                            <InputError message={fileErrors[requirementKey]} className="mt-1" />
-                                                                                        </>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
+                                                                    <ul className="mt-3 space-y-1.5">
+                                                                        {docs.map((requirement, idx) => (
+                                                                            <li key={idx} className="flex items-start gap-2 text-[12px] text-slate-700">
+                                                                                <span className="material-symbols-outlined text-[14px] text-slate-400 mt-0.5 shrink-0">chevron_right</span>
+                                                                                <span>{requirement}</span>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
                                                                 ) : (
                                                                     <p className="mt-2 text-[12px] text-slate-500">No listed requirements for this service.</p>
                                                                 )}
@@ -918,7 +728,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                         );
                                                     })}
                                                 </div>
-
                                             </div>
                                         )}
 

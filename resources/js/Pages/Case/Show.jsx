@@ -80,7 +80,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
     referral_status_changed: { dot: 'bg-amber-50 border-amber-200 text-amber-600',       icon: 'sync_alt' },
     milestone_added:         { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
-    compliance_fulfilled:    { dot: 'bg-teal-50 border-teal-200 text-teal-600',        icon: 'task_alt' },
     case_closed:             { dot: 'bg-slate-100 border-slate-200 text-slate-600',     icon: 'lock' },
     case_reopened:           { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'lock_open' },
   };
@@ -91,7 +90,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     { value: 'referral',     label: 'Referrals' },
     { value: 'referral_status_changed', label: 'Status Updates' },
     { value: 'milestone_added',    label: 'Milestones' },
-    { value: 'compliance_fulfilled', label: 'Compliance' },
     { value: 'case_closed',  label: 'Case Closed' },
   ];
 

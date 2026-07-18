@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Agency;
 use App\Models\CaseFile;
+use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -109,6 +110,37 @@ class ReferralMilestoneTest extends TestCase
             'title' => 'Milestone Without Description',
             'refr_id' => $this->referral->id,
         ]);
+    }
+
+    #[Test]
+    public function milestone_can_store_requirements(): void
+    {
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $this->agency->id,
+        ]);
+
+        $response = $this->actingAs($agencyUser)->post(
+            route('referrals.milestones.store', $this->referral),
+            [
+                'title' => 'Document Collection',
+                'description' => 'Collect all required documents',
+                'requirements' => ['Passport', 'Birth Certificate', 'Medical Clearance'],
+            ],
+        );
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('milestones', [
+            'title' => 'Document Collection',
+            'refr_id' => $this->referral->id,
+        ]);
+
+        $milestone = Milestone::where('title', 'Document Collection')->first();
+        $this->assertEquals(
+            ['Passport', 'Birth Certificate', 'Medical Clearance'],
+            $milestone->requirements
+        );
     }
 
     #[Test]

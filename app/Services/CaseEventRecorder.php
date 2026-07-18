@@ -6,7 +6,6 @@ use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
-use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 
 /**
@@ -96,16 +95,6 @@ class CaseEventRecorder
         return $this->record($referral->case_id, $referral->id, CaseEvent::TYPE_MILESTONE_ADDED, [
             'title' => $milestone->title,
             'description' => $milestone->description,
-        ], $userId);
-    }
-
-    public function complianceFulfilled(Referral $referral, ReferralComplianceRequirement $requirement, ?string $userId = null): CaseEvent
-    {
-        $agency = $this->agencyName($referral);
-
-        return $this->record($referral->case_id, $referral->id, CaseEvent::TYPE_COMPLIANCE_FULFILLED, [
-            'title' => 'A requirement for '.$agency.' has been submitted',
-            'description' => $requirement->requirement_name.' — '.$requirement->service_name,
         ], $userId);
     }
 

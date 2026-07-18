@@ -26,6 +26,7 @@ class StoreCaseDocumentRequest extends FormRequest
         return [
             'file' => ['required', 'file', 'max:'.config('file-uploads.max_size', 20480), 'mimes:pdf,jpg,png,doc,docx'],
             'description' => ['nullable', 'string', 'max:500'],
+            'category' => ['nullable', 'string', 'max:255'],
         ];
     }
 

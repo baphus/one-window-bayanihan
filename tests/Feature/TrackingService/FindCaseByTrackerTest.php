@@ -6,7 +6,6 @@ use App\Models\CaseFile;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\ReferralAttachment;
-use App\Models\ReferralComplianceRequirement;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
@@ -59,6 +58,10 @@ class FindCaseByTrackerTest extends TestCase
         $client = $result['client'];
         $referral = $result['referrals']->first();
 
+        // Set requirements on the referral
+        $referral->update(['requirements' => ['Medical Examination: Chest X-Ray']]);
+        $referral->refresh();
+
         // Manually create records for relationships without dedicated factories
         ClientAddress::create([
             'client_id' => $client->id,
@@ -74,13 +77,6 @@ class FindCaseByTrackerTest extends TestCase
             'employer_name' => 'Test Employer Ltd.',
             'position' => 'Software Engineer',
             'country' => 'Saudi Arabia',
-        ]);
-
-        ReferralComplianceRequirement::create([
-            'referral_id' => $referral->id,
-            'service_name' => 'Medical Examination',
-            'requirement_name' => 'Chest X-Ray',
-            'status' => 'PENDING',
         ]);
 
         ReferralAttachment::create([
@@ -118,8 +114,8 @@ class FindCaseByTrackerTest extends TestCase
         $this->assertTrue($firstRef->relationLoaded('agency'), 'referrals.agency should be loaded');
         $this->assertNotNull($firstRef->agency);
 
-        $this->assertTrue($firstRef->relationLoaded('complianceRequirements'), 'referrals.complianceRequirements should be loaded');
-        $this->assertGreaterThan(0, $firstRef->complianceRequirements->count());
+        $this->assertNotNull($firstRef->requirements);
+        $this->assertEquals(['Medical Examination: Chest X-Ray'], $firstRef->requirements);
 
         $this->assertTrue($firstRef->relationLoaded('milestones'), 'referrals.milestones should be loaded');
         $this->assertGreaterThan(0, $firstRef->milestones->count());

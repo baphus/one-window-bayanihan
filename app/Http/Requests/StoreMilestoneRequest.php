@@ -16,6 +16,8 @@ class StoreMilestoneRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
+            'requirements' => ['nullable', 'array'],
+            'requirements.*' => ['string', 'max:255'],
         ];
     }
 }
