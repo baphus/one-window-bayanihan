@@ -185,6 +185,7 @@ class CaseDraftTest extends TestCase
                 ],
             ],
         ]);
+        $case->categories()->attach($this->category->id);
 
         $response = $this->actingAs($this->user)->post(route('cases.publish', $case->id));
 
@@ -219,6 +220,7 @@ class CaseDraftTest extends TestCase
             'client_id' => $client->id,
             'draft_client_data' => null,
         ]);
+        $case->categories()->attach($this->category->id);
 
         $response = $this->actingAs($this->user)->post(route('cases.publish', $case->id));
 
@@ -252,6 +254,7 @@ class CaseDraftTest extends TestCase
                 'next_of_kin' => ['first_name' => 'Ben', 'last_name' => 'Cruz', 'relationship' => 'Brother'],
             ],
         ]);
+        $case->categories()->attach($this->category->id);
 
         $this->actingAs($this->user)->post(route('cases.publish', $case->id));
         $case->refresh();

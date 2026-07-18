@@ -285,7 +285,7 @@ class ClientController extends Controller
         }]);
 
         $case = $caseQuery->latest('cases.created_at')->latest('cases.id')->first();
-        if (! $case) {
+        if (! $case && ! $user->isAdmin()) {
             abort(404, 'Client not found.');
         }
 
