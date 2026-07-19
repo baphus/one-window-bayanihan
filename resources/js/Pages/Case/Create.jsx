@@ -13,6 +13,7 @@ import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
+import { DEFAULT_POSITIONS } from '@/data/defaultPositions';
 
 const STEPS = [
     { id: 1, title: 'Client Profile', description: 'Enter client information and employment details' },
@@ -381,6 +382,16 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
 
 export default function CaseCreate() {
     const { client, categories = [], existingDraft, auth, caseIssues = [], positionOptions = [] } = usePage().props;
+
+    // Merge curated defaults with previously entered positions from the backend,
+    // de-duplicate, sort, and shape as [value, label] pairs for SearchableSelect.
+    const mergedPositionOptions = useMemo(() => {
+        const labels = [...DEFAULT_POSITIONS, ...positionOptions.map((o) => o.label ?? o)]
+            .map((p) => String(p).trim())
+            .filter(Boolean);
+        const unique = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+        return unique.map((p) => ({ value: p, label: p }));
+    }, [positionOptions]);
 
     function normalizeSex(value) {
         if (!value) return '';
@@ -1990,7 +2001,7 @@ function handleConfirmClient(client) {
                                                         <CountrySelect value={data.employment.last_country} onChange={(v) => handleEmploymentChange('last_country', v)} placeholder="Select country..." />
                                                     </Field>
                                                     <Field label="Last Job Position" required>
-                                                        <SearchableSelect value={data.employment.last_position} onChange={(v) => handleEmploymentChange('last_position', v)} options={positionOptions} placeholder="Select or type position..." allowCustom />
+                                                        <SearchableSelect value={data.employment.last_position} onChange={(v) => handleEmploymentChange('last_position', v)} options={mergedPositionOptions} placeholder="Select or type position..." allowCustom />
                                                     </Field>
                                                     <Field label="Employment Period" required className="md:col-span-2">
                                                         <div className="flex items-center gap-2">

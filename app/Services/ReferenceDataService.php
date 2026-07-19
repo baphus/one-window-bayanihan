@@ -150,7 +150,8 @@ class ReferenceDataService
     /**
      * Distinct position values from client_employments, for the case-create
      * position dropdown. Not cached — the list should reflect the latest
-     * entries as new cases are created.
+     * entries as new cases are created. Curated defaults are merged on the
+     * frontend (resources/js/data/defaultPositions.ts).
      *
      * Returns an array of [value, label] pairs for SearchableSelect.
      */

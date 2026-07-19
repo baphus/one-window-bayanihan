@@ -46,6 +46,8 @@ class ReferralMilestoneTest extends TestCase
     #[Test]
     public function agency_user_can_add_milestone(): void
     {
+        $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
+
         $agencyUser = User::factory()->create([
             'role' => 'AGENCY',
             'agcy_id' => $this->agency->id,
@@ -92,6 +94,8 @@ class ReferralMilestoneTest extends TestCase
     #[Test]
     public function milestone_accepts_optional_description(): void
     {
+        $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
+
         $agencyUser = User::factory()->create([
             'role' => 'AGENCY',
             'agcy_id' => $this->agency->id,
@@ -115,6 +119,8 @@ class ReferralMilestoneTest extends TestCase
     #[Test]
     public function milestone_can_store_requirements(): void
     {
+        $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
+
         $agencyUser = User::factory()->create([
             'role' => 'AGENCY',
             'agcy_id' => $this->agency->id,
@@ -146,6 +152,8 @@ class ReferralMilestoneTest extends TestCase
     #[Test]
     public function agency_can_add_milestone_without_description(): void
     {
+        $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
+
         $agencyUser = User::factory()->create([
             'role' => 'AGENCY',
             'agcy_id' => $this->agency->id,
@@ -163,6 +171,57 @@ class ReferralMilestoneTest extends TestCase
         $this->assertDatabaseHas('milestones', [
             'title' => 'Progress Update',
             'description' => null,
+            'refr_id' => $this->referral->id,
+            'user_id' => $agencyUser->id,
+        ]);
+    }
+
+    #[Test]
+    public function agency_cannot_add_milestone_before_accepting_referral(): void
+    {
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $this->agency->id,
+        ]);
+
+        $response = $this->actingAs($agencyUser)->post(
+            route('referrals.milestones.store', $this->referral),
+            [
+                'title' => 'Should Be Blocked',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $this->assertDatabaseMissing('milestones', [
+            'title' => 'Should Be Blocked',
+            'refr_id' => $this->referral->id,
+        ]);
+    }
+
+    #[Test]
+    public function agency_can_add_milestone_after_accepting_referral(): void
+    {
+        $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
+
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $this->agency->id,
+        ]);
+
+        $response = $this->actingAs($agencyUser)->post(
+            route('referrals.milestones.store', $this->referral),
+            [
+                'title' => 'Accepted Milestone',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('milestones', [
+            'title' => 'Accepted Milestone',
             'refr_id' => $this->referral->id,
             'user_id' => $agencyUser->id,
         ]);

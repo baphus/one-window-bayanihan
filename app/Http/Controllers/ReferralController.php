@@ -162,6 +162,16 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
+        // Only the owning agency may accept (move to PROCESSING) a referral.
+        $isAccept = $request->input('status') === 'PROCESSING'
+            || $request->input('decision') === 'ACCEPT';
+
+        if ($isAccept && ! $request->user()->isAgency()) {
+            return redirect()
+                ->back()
+                ->with('error', 'Only the receiving agency can accept this referral.');
+        }
+
         $referral = $this->referralService->updateStatus(
             $id,
             $request->input('status'),
@@ -189,6 +199,13 @@ class ReferralController extends Controller
             return redirect()
                 ->back()
                 ->with('error', 'Cannot add milestones to a completed referral.');
+        }
+
+        // Agencies may only add milestones after accepting the referral.
+        if ($request->user()->role === 'AGENCY' && ! in_array($referral->status, ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED'], true)) {
+            return redirect()
+                ->back()
+                ->with('error', 'You can only add milestones after accepting the referral.');
         }
 
         $milestone = $this->referralService->addMilestone(
