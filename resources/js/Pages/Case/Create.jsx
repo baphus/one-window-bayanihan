@@ -710,7 +710,7 @@ export default function CaseCreate() {
 
         setClientSource(src);
         setData('selected_client_id', selId);
-        setData('consent', false);
+        setData('consent', clientData?.consent ?? false);
         setSelectedClient(null);
 
         // 4. When editing a draft with a linked client, skip the client selection
@@ -780,7 +780,7 @@ export default function CaseCreate() {
                     }));
                 })(),
                 selected_nok_index: '',
-                consent: false,
+                consent: clientData?.consent ?? false,
                 is_draft: true,
                 case_issue_id: existingDraft.case_issue_id || '',
             },
@@ -1443,6 +1443,7 @@ function handleConfirmClient(client) {
     };
 
     setSelectedClient(null);
+    setCurrentStep(2);
 }
 
     const selectedNokIndex = data.selected_nok_index !== '' ? Number(data.selected_nok_index) : null;
@@ -1925,6 +1926,14 @@ function handleConfirmClient(client) {
 
                                                         <div className="mt-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                                             <Subsection title="Address">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateNokAddress(idx, { ...data.address })}
+                                                                    className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-bold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                                                                    Same as client address
+                                                                </button>
                                                                 <AddressDropdowns
                                                                     values={nok.nok_address || { region: '', province: '', city_municipality: '', barangay: '', street: '' }}
                                                                     onChange={(field, value) => {

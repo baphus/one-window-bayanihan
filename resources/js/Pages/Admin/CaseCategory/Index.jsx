@@ -10,7 +10,7 @@ import CaseCategoryFormModal from '@/Components/Admin/CaseCategoryFormModal';
 export default function AdminCaseCategoryIndex({ categories }) {
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const { UnsavedModal } = useUnsavedChanges(showForm);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
 
   const columns = useMemo(() => [
     {
@@ -62,16 +62,29 @@ export default function AdminCaseCategoryIndex({ categories }) {
           >
             Edit
           </button>
-          <button
-            onClick={() => {
-              if (confirm('Deactivate this category?')) {
-                router.delete(route('admin.case-categories.destroy', row.id), { preserveScroll: true });
-              }
-            }}
-            className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
-          >
-            Deactivate
-          </button>
+          {row.is_active ? (
+            <button
+              onClick={() => {
+                if (confirm('Deactivate this category?')) {
+                  router.delete(route('admin.case-categories.destroy', row.id), { preserveScroll: true });
+                }
+              }}
+              className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
+            >
+              Deactivate
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                if (confirm(`Reactivate category "${row.name}"?`)) {
+                  router.patch(route('admin.case-categories.reactivate', row.id), {}, { preserveScroll: true });
+                }
+              }}
+              className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200"
+            >
+              Reactivate
+            </button>
+          )}
         </div>
       ),
     },

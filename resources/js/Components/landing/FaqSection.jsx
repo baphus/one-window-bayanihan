@@ -8,7 +8,7 @@ export default function FaqSection() {
     <section id="faq" className="bg-surface px-8 py-24">
       <div className="mx-auto max-w-5xl">
         <div className="mb-12 text-center">
-          <h2 className="font-headline text-3xl font-extrabold text-primary">Frequently Asked Questions</h2>
+          <h2 className="font-headline text-2xl font-extrabold text-primary md:text-3xl">Frequently Asked Questions</h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-on-surface-variant md:text-base">
             Get fast answers about tracking, agency coordination, and privacy.
           </p>

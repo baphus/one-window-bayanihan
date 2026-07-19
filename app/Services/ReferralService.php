@@ -228,18 +228,18 @@ class ReferralService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('id', 'like', "%{$search}%")
-                    ->orWhere('required_services', 'like', "%{$search}%")
+                $q->where('id', 'ilike', "%{$search}%")
+                    ->orWhere('required_services', 'ilike', "%{$search}%")
                     ->orWhereHas('caseFile', function ($q) use ($search) {
-                        $q->where('case_number', 'like', "%{$search}%");
+                        $q->where('case_number', 'ilike', "%{$search}%");
                     })
                     ->orWhereHas('agency', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
+                        $q->where('name', 'ilike', "%{$search}%");
                     })
                     ->orWhereHas('caseFile.client', function ($q) use ($search) {
-                        $q->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('middle_initial', 'like', "%{$search}%");
+                        $q->where('first_name', 'ilike', "%{$search}%")
+                            ->orWhere('last_name', 'ilike', "%{$search}%")
+                            ->orWhere('middle_initial', 'ilike', "%{$search}%");
                     });
             });
         }

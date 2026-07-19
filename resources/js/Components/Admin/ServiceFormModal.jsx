@@ -159,7 +159,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                   min="0"
                   max="365"
                   value={data.processing_days}
-                  onChange={(e) => setData('processing_days', e.target.value)}
+                  onChange={(e) => setData('processing_days', e.target.value === '' ? '' : Number(e.target.value))}
                   className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                   placeholder="e.g. 7"
                 />

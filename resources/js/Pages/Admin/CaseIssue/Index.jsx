@@ -7,10 +7,18 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import CaseIssueFormModal from '@/Components/Admin/CaseIssueFormModal';
 
-export default function AdminCaseIssueIndex({ issues }) {
+export default function AdminCaseIssueIndex({ issues, filters }) {
   const [showForm, setShowForm] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
-  const { UnsavedModal } = useUnsavedChanges(showForm);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
+
+  const showDeleted = filters?.show_deleted === 'true' || filters?.show_deleted === true;
+
+  function toggleShowDeleted() {
+    router.get(route('admin.case-issues.index'), {
+      show_deleted: showDeleted ? undefined : 'true',
+    }, { preserveState: true, replace: true });
+  }
 
   const columns = useMemo(() => [
     {
@@ -48,16 +56,29 @@ export default function AdminCaseIssueIndex({ issues }) {
           >
             Edit
           </button>
-          <button
-            onClick={() => {
-              if (confirm('Deactivate this issue?')) {
-                router.delete(route('admin.case-issues.destroy', row.id), { preserveScroll: true });
-              }
-            }}
-            className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
-          >
-            Deactivate
-          </button>
+          {row.is_active ? (
+            <button
+              onClick={() => {
+                if (confirm('Deactivate this issue?')) {
+                  router.delete(route('admin.case-issues.destroy', row.id), { preserveScroll: true });
+                }
+              }}
+              className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
+            >
+              Deactivate
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                if (confirm(`Reactivate issue "${row.name}"?`)) {
+                  router.patch(route('admin.case-issues.reactivate', row.id), {}, { preserveScroll: true });
+                }
+              }}
+              className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200"
+            >
+              Reactivate
+            </button>
+          )}
         </div>
       ),
     },
@@ -88,6 +109,17 @@ export default function AdminCaseIssueIndex({ issues }) {
         columns={columns}
         data={issues}
         keyExtractor={(row) => row.id}
+        extraActions={(
+          <label className="flex items-center gap-2 cursor-pointer ml-auto shrink-0">
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={toggleShowDeleted}
+              className="rounded border-slate-300 text-red-600 focus:ring-red-500 focus:ring-offset-0"
+            />
+            <span className="text-[13px] text-slate-500 whitespace-nowrap">Show deactivated</span>
+          </label>
+        )}
       />
       </div>
       {UnsavedModal}

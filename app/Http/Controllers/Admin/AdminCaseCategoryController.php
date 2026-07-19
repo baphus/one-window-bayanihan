@@ -10,7 +10,7 @@ use Inertia\Inertia;
 
 class AdminCaseCategoryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $categories = CaseCategory::orderBy('sort_order')
             ->orderBy('name')
@@ -94,6 +94,32 @@ class AdminCaseCategoryController extends Controller
 
         return redirect()->route('admin.case-categories.index')
             ->with('success', 'Category deleted successfully.');
+    }
+
+    public function reactivate(string $id)
+    {
+        $category = CaseCategory::withTrashed()->findOrFail($id);
+
+        if ($category->is_active && ! $category->is_deleted) {
+            return redirect()->route('admin.case-categories.index')
+                ->with('error', 'Category is already active.');
+        }
+
+        $category->is_active = true;
+        $category->is_deleted = false;
+        $category->deleted_at = null;
+        $category->save();
+
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'case_category',
+            'entity_id' => $category->id,
+            'user_id' => auth()->id(),
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->route('admin.case-categories.index')
+            ->with('success', 'Category reactivated successfully.');
     }
 
     private function categoryUsageCount(string $categoryId): int

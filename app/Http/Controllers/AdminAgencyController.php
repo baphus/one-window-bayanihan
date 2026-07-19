@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
+use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
@@ -256,5 +257,31 @@ class AdminAgencyController extends Controller
 
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency deactivated successfully.');
+    }
+
+    public function reactivate(string $id)
+    {
+        $agency = Agency::withTrashed()->findOrFail($id);
+
+        if ($agency->is_active && ! $agency->is_deleted) {
+            return redirect()->route('admin.agencies.index')
+                ->with('error', 'Agency is already active.');
+        }
+
+        $agency->is_active = true;
+        $agency->is_deleted = false;
+        $agency->deleted_at = null;
+        $agency->save();
+
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'agency',
+            'entity_id' => $agency->id,
+            'user_id' => auth()->id(),
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->route('admin.agencies.index')
+            ->with('success', 'Agency reactivated successfully.');
     }
 }

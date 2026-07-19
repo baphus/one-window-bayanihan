@@ -316,6 +316,32 @@ class AdminUserController extends Controller
             ->with('success', 'User deactivated successfully.');
     }
 
+    public function reactivate(string $id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+
+        if ($user->is_active && ! $user->is_deleted) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'User is already active.');
+        }
+
+        $user->is_active = true;
+        $user->is_deleted = false;
+        $user->deleted_at = null;
+        $user->save();
+
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'user',
+            'entity_id' => $user->id,
+            'user_id' => auth()->id(),
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'User reactivated successfully.');
+    }
+
     public function verify(User $user)
     {
         if ($user->is_deleted || ! $user->is_active) {

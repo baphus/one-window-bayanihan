@@ -261,8 +261,12 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
         onFilterChange({ ...filterValues, category: next.length > 0 ? next.join(',') : '' });
     };
 
-    const handleModuleChange = (e) => {
-        onFilterChange({ ...filterValues, module: e.target.value });
+    const handleModuleToggle = (module) => {
+        const currentModules = (filterValues.module || '').split(',').filter(Boolean);
+        const newModules = currentModules.includes(module)
+            ? currentModules.filter(m => m !== module)
+            : [...currentModules, module];
+        onFilterChange({ ...filterValues, module: newModules.join(',') });
     };
 
     const handleSearchChange = (e) => {
@@ -299,18 +303,6 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                 </div>
                 
                 <div className="flex flex-wrap gap-3 items-center">
-                    {/* Module Select */}
-                    <select
-                        value={filterValues.module || ''}
-                        onChange={handleModuleChange}
-                        className="py-2 pl-3 pr-8 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    >
-                        <option value="">All Modules</option>
-                        {availableModules.map(m => (
-                            <option key={m} value={m}>{availableModulesLabels[m] || m}</option>
-                        ))}
-                    </select>
-                    
                     {/* Date Range */}
                     <div className="flex items-center gap-2">
                         <input
@@ -377,6 +369,29 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     );
                 })}
             </div>
+
+            {/* Modules multi-select */}
+            {availableModules.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium text-slate-700 mr-2">Modules:</span>
+                    {availableModules.map(m => {
+                        const isActive = (filterValues.module || '').split(',').includes(m);
+                        return (
+                            <button
+                                key={m}
+                                onClick={() => handleModuleToggle(m)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                    isActive
+                                    ? 'bg-violet-100 border-violet-200 text-violet-800'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                            >
+                                {availableModulesLabels[m] || m}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
             
             {/* Active filters summary & Clear */}
             {hasFilters && (

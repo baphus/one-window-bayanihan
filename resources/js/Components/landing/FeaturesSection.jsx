@@ -20,7 +20,7 @@ export default function FeaturesSection() {
     <section id="features" className="bg-surface-container px-8 pt-8 pb-24">
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 max-w-4xl">
-          <h2 className="font-headline text-3xl font-extrabold text-primary md:text-4xl">
+          <h2 className="font-headline text-2xl font-extrabold text-primary md:text-3xl">
             What is One Window Bayanihan and Why It Matters
           </h2>
         </div>
@@ -51,13 +51,26 @@ export default function FeaturesSection() {
           </div>
         </div>
 
-        <article className="mb-12 mt-12 max-w-4xl space-y-6 text-base leading-relaxed text-on-surface-variant md:text-lg">
-          <p>One Window Bayanihan Assistance Program (OWBAP) is a unified, ICT-enabled platform designed to transform how assistance is delivered to Overseas Filipino Workers (OFWs).</p>
-          <p>It serves as a centralized inter-agency referral and tracking system, enabling the Department of Migrant Workers (DMW), local government units, and partner agencies to work together through one coordinated digital platform.</p>
-          <p>Built on the principle of<br />&quot;One OFW. One Entry. One Coordinated System.&quot;<br />OWBAP eliminates fragmented processes by introducing a single-entry, assisted case intake, where case managers handle encoding, service assignment, and document management, removing the need for OFWs to repeatedly submit information or navigate multiple offices.</p>
-          <p>Through automated referrals, standardized workflows, and real-time case tracking via a unique tracker number, the system ensures faster response, improved transparency, and seamless coordination from assistance to reintegration.</p>
-          <p>By centralizing case visibility and strengthening inter-agency collaboration, OWBAP delivers efficient, accountable, and people-centered support, ensuring that every OFW receives timely help and that no case is left behind.</p>
-        </article>
+        <div className="mt-12 mb-12 grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-start">
+          {/* Text */}
+          <article className="space-y-4 text-sm leading-relaxed text-on-surface-variant md:text-base">
+            <p>One Window Bayanihan Assistance Program (OWBAP) is a unified, ICT-enabled platform designed to transform how assistance is delivered to Overseas Filipino Workers (OFWs).</p>
+            <p>It serves as a centralized inter-agency referral and tracking system, enabling the Department of Migrant Workers (DMW), local government units, and partner agencies to work together through one coordinated digital platform.</p>
+            <p>Built on the principle of<br />&quot;One OFW. One Entry. One Coordinated System.&quot;<br />OWBAP eliminates fragmented processes by introducing a single-entry, assisted case intake, where case managers handle encoding, service assignment, and document management, removing the need for OFWs to repeatedly submit information or navigate multiple offices.</p>
+            <p>Through automated referrals, standardized workflows, and real-time case tracking via a unique tracker number, the system ensures faster response, improved transparency, and seamless coordination from assistance to reintegration.</p>
+            <p>By centralizing case visibility and strengthening inter-agency collaboration, OWBAP delivers efficient, accountable, and people-centered support, ensuring that every OFW receives timely help and that no case is left behind.</p>
+          </article>
+
+          {/* Logo */}
+          <div className="flex items-center justify-center drop-shadow-2xl">
+            <img
+              src="/logo.png"
+              alt="One Window Bayanihan Assistance Program Logo"
+              className="w-full max-w-sm animate-float object-contain"
+              loading="lazy"
+            />
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {FEATURE_SCREENSHOTS.map((f) => (
