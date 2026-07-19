@@ -138,6 +138,136 @@ function Select({ value, onChange, options, placeholder, required }) {
     );
 }
 
+function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) {
+    const [open, setOpen] = useState(false);
+    const triggerRef = useRef(null);
+    const panelRef = useRef(null);
+    const listboxId = 'category-checkbox-listbox';
+
+    useEffect(() => {
+        if (!open) return;
+        function handlePointerDown(e) {
+            if (
+                panelRef.current && !panelRef.current.contains(e.target) &&
+                triggerRef.current && !triggerRef.current.contains(e.target)
+            ) {
+                setOpen(false);
+            }
+        }
+        function handleKeyDown(e) {
+            if (e.key === 'Escape') {
+                setOpen(false);
+                triggerRef.current?.focus();
+            }
+        }
+        document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [open]);
+
+    function toggle(id) {
+        const sid = String(id);
+        const next = selectedIds.includes(sid)
+            ? selectedIds.filter((x) => x !== sid)
+            : [...selectedIds, sid];
+        onChange(next);
+    }
+
+    const count = selectedIds.length;
+    let summary;
+    if (count === 0) {
+        summary = 'Select categories\u2026';
+    } else if (count <= 2) {
+        summary = selectedIds
+            .map((id) => categories.find((c) => String(c.id) === String(id))?.name || id)
+            .join(', ');
+    } else {
+        summary = `${count} categories selected`;
+    }
+
+    return (
+        <div className="relative">
+            <button
+                ref={triggerRef}
+                type="button"
+                role="combobox"
+                aria-label="Case categories"
+                aria-expanded={open}
+                aria-controls={listboxId}
+                aria-haspopup="listbox"
+                onClick={() => setOpen((v) => !v)}
+                className={`flex h-10 w-full items-center justify-between gap-2 rounded-[3px] border px-3 text-left text-[13px] outline-none transition-colors bg-white ${
+                    error
+                        ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                        : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                } ${count === 0 ? 'text-slate-400' : 'text-slate-700'}`}
+            >
+                <span className="truncate">{summary}</span>
+                <svg
+                    className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+            </button>
+            {open && (
+                <div
+                    ref={panelRef}
+                    id={listboxId}
+                    role="listbox"
+                    aria-multiselectable="true"
+                    aria-label="Categories"
+                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg focus:outline-none"
+                >
+                    {categories.map((cat) => {
+                        const checked = selectedIds.includes(String(cat.id));
+                        return (
+                            <div
+                                key={cat.id}
+                                role="option"
+                                aria-selected={checked}
+                                onClick={() => toggle(cat.id)}
+                                onKeyDown={(e) => {
+                                    if (e.key === ' ' || e.key === 'Enter') {
+                                        e.preventDefault();
+                                        toggle(cat.id);
+                                    }
+                                }}
+                                tabIndex={-1}
+                                className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-[13px] transition-colors ${
+                                    checked ? 'bg-indigo-50 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                                }`}
+                            >
+                                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                                    checked ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+                                }`}>
+                                    {checked && (
+                                        <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
+                                            <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    )}
+                                </div>
+                                {cat.color && (
+                                    <span
+                                        className="h-2 w-2 shrink-0 rounded-full"
+                                        style={{ backgroundColor: cat.color }}
+                                    />
+                                )}
+                                <span className="truncate">{cat.name}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssues, notificationEmail, onClose, onConfirm, processing, isDraft, nokSummary }) {
     if (!show) return null;
 
@@ -2066,18 +2196,12 @@ function handleConfirmClient(client) {
                                                     </select>
                                                 </Field>
                                                 <Field label="Category" required>
-                                                    <select
-                                                        multiple
-                                                        value={data.category_ids || []}
-                                                        onChange={(e) => setData('category_ids', Array.from(e.target.selectedOptions, (option) => option.value))}
-                                                        className="min-h-24 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                        required
-                                                    >
-                                                        {categories.map((cat) => (
-                                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                                        ))}
-                                                    </select>
-                                                    <p className="mt-1 text-[11px] text-slate-500">Hold Ctrl/Cmd to select more than one.</p>
+                                                    <CategoryCheckboxDropdown
+                                                        categories={categories}
+                                                        selectedIds={data.category_ids || []}
+                                                        onChange={(ids) => setData('category_ids', ids)}
+                                                        error={errors.category_ids}
+                                                    />
                                                     <InputError message={errors.category_ids} className="mt-1" />
                                                 </Field>
                                             </div>
