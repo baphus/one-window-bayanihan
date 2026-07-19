@@ -9,7 +9,6 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Client;
 use App\Models\ClientAddress;
-use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\ReferralService;
@@ -59,30 +58,6 @@ class CaseEventRecordingTest extends TestCase
         $this->assertStringContainsString('Legal Assistance', $event->description);
     }
 
-    public function test_create_referral_with_compliance_records_status_change_event(): void
-    {
-        [$case, $user] = $this->makeCase();
-        $agency = Agency::factory()->create();
-
-        $referral = app(ReferralService::class)->createReferral([
-            'case_id' => $case->id,
-            'agcy_id' => $agency->id,
-            'services' => ['Training'],
-            'compliance_requirements' => [
-                ['service_name' => 'Training', 'requirement_name' => 'Valid ID'],
-            ],
-        ], $user->id);
-
-        $events = CaseEvent::where('referral_id', $referral->id)->orderBy('created_at')->get();
-
-        $this->assertEquals(
-            [CaseEvent::TYPE_REFERRAL_SENT, CaseEvent::TYPE_REFERRAL_STATUS_CHANGED],
-            $events->pluck('type')->toArray()
-        );
-        $this->assertEquals('PENDING', $events[1]->meta['from']);
-        $this->assertEquals('FOR_COMPLIANCE', $events[1]->meta['to']);
-    }
-
     public function test_every_intermediate_status_transition_is_recorded(): void
     {
         $result = $this->createCompleteCase(1);
@@ -90,7 +65,7 @@ class CaseEventRecordingTest extends TestCase
         $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $referral->agcy_id]);
         $service = app(ReferralService::class);
 
-        foreach (['PROCESSING', 'FOR_COMPLIANCE', 'PROCESSING', 'COMPLETED'] as $status) {
+        foreach (['PROCESSING', 'COMPLETED'] as $status) {
             $service->updateStatus($referral->id, $status, null, null, $agencyUser->id);
         }
 
@@ -99,12 +74,10 @@ class CaseEventRecordingTest extends TestCase
             ->orderBy('created_at')
             ->get();
 
-        $this->assertCount(4, $events);
+        $this->assertCount(2, $events);
         $this->assertEquals(
             [
                 ['from' => 'PENDING', 'to' => 'PROCESSING'],
-                ['from' => 'PROCESSING', 'to' => 'FOR_COMPLIANCE'],
-                ['from' => 'FOR_COMPLIANCE', 'to' => 'PROCESSING'],
                 ['from' => 'PROCESSING', 'to' => 'COMPLETED'],
             ],
             $events->pluck('meta')->toArray()
@@ -139,32 +112,6 @@ class CaseEventRecordingTest extends TestCase
         $this->assertNotNull($event);
         $this->assertEquals('Documents verified', $event->title);
         $this->assertEquals('All submitted documents check out.', $event->description);
-    }
-
-    public function test_fulfill_compliance_records_event(): void
-    {
-        $result = $this->createCompleteCase(1);
-        $referral = $result['referrals']->first();
-        $requirement = ReferralComplianceRequirement::create([
-            'referral_id' => $referral->id,
-            'service_name' => 'Training',
-            'requirement_name' => 'Valid ID',
-            'status' => 'PENDING',
-        ]);
-
-        app(ReferralService::class)->fulfillCompliance($requirement->id, [
-            'name' => 'id.pdf',
-            'path' => 'referrals/'.$referral->id.'/id.pdf',
-            'type' => 'application/pdf',
-            'size' => 1024,
-        ], $result['user']->id);
-
-        $event = CaseEvent::where('referral_id', $referral->id)
-            ->where('type', CaseEvent::TYPE_COMPLIANCE_FULFILLED)
-            ->first();
-
-        $this->assertNotNull($event);
-        $this->assertStringContainsString('Valid ID', $event->description);
     }
 
     public function test_publishing_a_draft_records_case_opened(): void

@@ -375,8 +375,6 @@ class AuditLogController extends Controller
         $referralModules = ['REFERRAL', 'referrals', 'referral'];
         $milestoneModules = ['milestone', 'milestones'];
         $attachmentModules = ['referral_attachment', 'referral_attachments'];
-        $complianceModules = ['referral_compliance', 'referral_compliance_requirements'];
-
         // Get milestone IDs belonging to this referral
         $milestoneIds = $referral->milestones()->pluck('id')->toArray();
 
@@ -386,10 +384,7 @@ class AuditLogController extends Controller
             ->pluck('id')
             ->toArray();
 
-        // Get compliance requirement IDs belonging to this referral
-        $complianceIds = $referral->complianceRequirements()->pluck('id')->toArray();
-
-        $query = AuditLog::where(function ($q) use ($id, $referralModules, $milestoneIds, $milestoneModules, $attachmentIds, $attachmentModules, $complianceIds, $complianceModules) {
+        $query = AuditLog::where(function ($q) use ($id, $referralModules, $milestoneIds, $milestoneModules, $attachmentIds, $attachmentModules) {
             // Referral logs
             $q->where(function ($sub) use ($id, $referralModules) {
                 $sub->where('entity_id', $id)->whereIn('module', $referralModules);
@@ -404,12 +399,6 @@ class AuditLogController extends Controller
             if (! empty($attachmentIds)) {
                 $q->orWhere(function ($sub) use ($attachmentIds, $attachmentModules) {
                     $sub->whereIn('entity_id', $attachmentIds)->whereIn('module', $attachmentModules);
-                });
-            }
-            // Related compliance requirement logs
-            if (! empty($complianceIds)) {
-                $q->orWhere(function ($sub) use ($complianceIds, $complianceModules) {
-                    $sub->whereIn('entity_id', $complianceIds)->whereIn('module', $complianceModules);
                 });
             }
         });

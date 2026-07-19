@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCaseDocumentRequest;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
 
@@ -15,13 +16,30 @@ class CaseDocumentController extends Controller
         $case = CaseFile::findOrFail($caseId);
         $this->authorizeAccess($case, $request->user());
 
-        $documents = $case->documents()->where('is_deleted', false)->get();
+        $query = $case->documents()->where('is_deleted', false);
+
+        if ($request->user()->isAgency()) {
+            $query->whereHas('referral', fn ($referrals) => $referrals->where('agcy_id', $request->user()->agcy_id));
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->input('category'));
+        }
+
+        if ($request->filled('referral_id')) {
+            $query->where('referral_id', $request->input('referral_id'));
+        }
+
+        $documents = $query->get();
 
         return response()->json($documents);
     }
 
     public function store(StoreCaseDocumentRequest $request, string $caseId)
     {
+        $case = CaseFile::findOrFail($caseId);
+        $this->authorizeAccess($case, $request->user());
+
         $file = $request->file('file');
 
         $errors = app(StorageService::class)->validate($file, 'case_document');
@@ -31,6 +49,17 @@ class CaseDocumentController extends Controller
             }
 
             return back()->withErrors(['file' => $errors[0]]);
+        }
+
+        // If referral_id is provided, verify it belongs to this case
+        if ($request->filled('referral_id')) {
+            $referral = Referral::where('id', $request->input('referral_id'))
+                ->where('case_id', $caseId)
+                ->first();
+
+            if (! $referral) {
+                return response()->json(['errors' => ['referral_id' => ['Invalid referral for this case.']]], 422);
+            }
         }
 
         $result = app(StorageService::class)->store($file, 'case-documents/'.$caseId);
@@ -47,8 +76,10 @@ class CaseDocumentController extends Controller
             'file_name' => $result->originalName,
             'file_path' => $result->path,
             'file_type' => $result->type,
+            'category' => $request->input('category'),
             'size' => $result->size,
             'case_id' => $caseId,
+            'referral_id' => $request->input('referral_id'),
             'user_id' => $request->user()->id,
         ]);
 
@@ -65,6 +96,8 @@ class CaseDocumentController extends Controller
             ->where('is_deleted', false)
             ->firstOrFail();
 
+        $this->authorizeDocumentAccess($document, $request->user());
+
         return response()->json($document);
     }
 
@@ -77,6 +110,8 @@ class CaseDocumentController extends Controller
             ->where('id', $documentId)
             ->where('is_deleted', false)
             ->firstOrFail();
+
+        $this->authorizeDocumentAccess($document, $request->user());
 
         $url = app(StorageService::class)->temporaryUrl($document->file_path, 24);
 
@@ -97,6 +132,8 @@ class CaseDocumentController extends Controller
             ->where('is_deleted', false)
             ->firstOrFail();
 
+        $this->authorizeDocumentAccess($document, $request->user());
+
         $document->update([
             'is_deleted' => true,
             'deleted_at' => now(),
@@ -115,7 +152,11 @@ class CaseDocumentController extends Controller
             return;
         }
         if ($user->isCaseManager()) {
-            return;
+            if ($case->user_id === $user->id) {
+                return;
+            }
+
+            abort(403, 'You do not have access to documents for this case.');
         }
 
         $hasActiveReferral = $case->referrals()
@@ -133,5 +174,34 @@ class CaseDocumentController extends Controller
         if (! $user->isCaseManager()) {
             abort(403, 'Only case managers can manage case documents.');
         }
+    }
+
+    private function authorizeDocumentAccess(CaseDocument $document, $user)
+    {
+        // Case-level documents are only available to administrators and case managers.
+        if (! $document->referral_id) {
+            if ($user->isAdmin() || ($user->isCaseManager() && $document->caseFile?->user_id === $user->id)) {
+                return;
+            }
+
+            abort(403, 'You do not have access to this document.');
+        }
+
+        // Admin can access any document
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        // Case manager who owns the case can access
+        if ($user->isCaseManager() && $document->caseFile && $document->caseFile->user_id === $user->id) {
+            return;
+        }
+
+        // Agency whose agcy_id matches the referral's agcy_id can access
+        if ($user->isAgency() && $document->referral && $document->referral->agcy_id === $user->agcy_id) {
+            return;
+        }
+
+        abort(403, 'You do not have access to this document.');
     }
 }

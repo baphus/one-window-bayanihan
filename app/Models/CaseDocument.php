@@ -17,16 +17,14 @@ class CaseDocument extends Model
         'file_name',
         'file_path',
         'file_type',
+        'category',
         'size',
         'case_id',
+        'referral_id',
         'user_id',
         'is_deleted',
         'deleted_at',
         'deleted_by',
-    ];
-
-    protected $appends = [
-        'file_url',
     ];
 
     protected $hidden = [
@@ -47,6 +45,11 @@ class CaseDocument extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function referral()
+    {
+        return $this->belongsTo(Referral::class, 'referral_id');
     }
 
     public function fileUrl(): Attribute

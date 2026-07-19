@@ -27,7 +27,6 @@ class EdgeCasesTest extends TestCase
             'client.addresses',
             'client.employments',
             'referrals.agency',
-            'referrals.complianceRequirements',
             'referrals.milestones.user',
             'referrals.attachments',
             'user',
@@ -154,8 +153,9 @@ class EdgeCasesTest extends TestCase
     {
         // ARRANGE
         Mail::fake();
-        $email = 'test@example.com';
-        $case = CaseFile::factory()->create();
+        $result = $this->createCompleteCase();
+        $case = $result['case'];
+        $email = $result['client']->email;
 
         // ACT — send OTP twice for the same email
         $this->post(route('track.send-otp'), [
@@ -182,8 +182,9 @@ class EdgeCasesTest extends TestCase
     public function test_otp_with_spaces_passes_trimmed_validation(): void
     {
         // ARRANGE
-        $case = CaseFile::factory()->create();
-        $email = 'test@example.com';
+        $result = $this->createCompleteCase();
+        $case = $result['case'];
+        $email = $result['client']->email;
 
         // Pre-seed an OTP that differs from the trimmed "123456" so the
         // verification step fails — proving the value was trimmed.
@@ -271,26 +272,23 @@ class EdgeCasesTest extends TestCase
         $response->assertSessionHasErrors(['email']);
     }
 
-    public function test_send_otp_with_unmatched_email_still_succeeds(): void
+    public function test_send_otp_with_unmatched_email_is_denied_without_issuing_otp(): void
     {
         // ARRANGE
-        $case = CaseFile::factory()->create();
+        $result = $this->createCompleteCase();
+        $case = $result['case'];
         Mail::fake();
 
-        // ACT — POST with a valid email that doesn't match the client's email
-        // The controller only validates format ('email' rule) and
-        // tracker existence ('exists:cases,tracker_number'), NOT email matching.
+        // ACT — POST with a valid email that does not match the case client.
         $response = $this->post(route('track.send-otp'), [
             'tracker_number' => $case->tracker_number,
             'email' => 'unmatched@example.com',
         ]);
 
-        // ASSERT — no validation errors (the email is valid format, tracker exists)
-        $response->assertSessionDoesntHaveErrors();
-        $response->assertStatus(200); // Renders Inertia page
-
-        // OTP was generated and cached
+        // ASSERT — generic denial and no OTP for the unrelated address
+        $response->assertRedirect()->assertSessionHasErrors('tracker_number');
         $key = 'otp:track:unmatched@example.com';
-        $this->assertNotNull(Cache::get($key));
+        $this->assertNull(Cache::get($key));
+        Mail::assertNothingQueued();
     }
 }

@@ -883,7 +883,6 @@ class CaseService
             'referrals.milestones',
             'referrals.agency',
             'referrals.attachments.user',
-            'referrals.complianceRequirements',
             'user',
             'category',
             'categories',

@@ -27,7 +27,19 @@ class SecurityHeaders
 
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        $capabilityRoutes = [
+            'track.request.exchange',
+            'track.request.index',
+            'track.request.messages.store',
+            'track.request.replacement',
+        ];
+
+        if (in_array($request->route()?->getName(), $capabilityRoutes, true)) {
+            $response->headers->set('Cache-Control', 'no-store');
+            $response->headers->set('Referrer-Policy', 'no-referrer');
+        } elseif (! $response->headers->has('Referrer-Policy')) {
+            $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        }
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()');
 
         return $response;

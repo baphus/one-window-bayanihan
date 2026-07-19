@@ -462,6 +462,7 @@ class DashboardService
 
         // Unique client count + OFW/NOK split via DB query (avoids loading all clients into memory)
         $clientCounts = CacheHelper::safeRemember('dashboard:cm_client_counts', 120, function () {
+            // Cache only arrays/scalars, never DB result objects.
             return (array) DB::selectOne('
                 SELECT
                     COUNT(DISTINCT c.client_id) AS total,
@@ -655,8 +656,7 @@ class DashboardService
         // Single aggregated query for agency referral counts (cached 60s)
         $countsKey = 'dashboard:agency_counts:'.$agencyId;
         $refCounts = CacheHelper::safeRemember($countsKey, 60, function () use ($agencyId) {
-            // Cast to array: objects from DB::selectOne silently break across
-            // serialized cache drivers, causing an infinite 409-reload loop.
+            // Cache only arrays/scalars, never DB result objects.
             return (array) DB::selectOne("
                 SELECT
                     COUNT(*) AS total,

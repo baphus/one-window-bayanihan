@@ -24,8 +24,6 @@ class CaseEvent extends Model
 
     public const TYPE_MILESTONE_ADDED = 'milestone_added';
 
-    public const TYPE_COMPLIANCE_FULFILLED = 'compliance_fulfilled';
-
     public const TYPE_CASE_CLOSED = 'case_closed';
 
     public const TYPE_CASE_REOPENED = 'case_reopened';

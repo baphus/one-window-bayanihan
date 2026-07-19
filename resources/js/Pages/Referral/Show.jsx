@@ -5,7 +5,6 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
-import FileUpload from '@/Components/FileUpload';
 import { CardSection, InfoCell } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar, { getAvatarColor } from '@/Components/ui/UserAvatar';
@@ -20,6 +19,9 @@ const TIMELINE_EVENT_CONFIG = {
   referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600', icon: 'forward_to_inbox' },
   referral_status: { dot: 'bg-amber-50 border-amber-200 text-amber-600',   icon: 'sync_alt' },
   milestone:       { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
+  client_request:  { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'outgoing_mail' },
+  client_response: { dot: 'bg-cyan-50 border-cyan-200 text-cyan-700',       icon: 'reply' },
+  client_request_status: { dot: 'bg-indigo-50 border-indigo-200 text-indigo-600', icon: 'published_with_changes' },
 };
 
 function formatFullName(person) {
@@ -44,7 +46,245 @@ function getClientAge(dob) {
     return age;
 }
 
-export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [] }) {
+const CLIENT_REQUEST_TYPES = {
+    DOCUMENT_REQUEST: 'Document request',
+    QUESTION: 'Question',
+    INFORMATION_UPDATE: 'Information update',
+};
+
+const CLIENT_REQUEST_STATUSES = {
+    OPEN: { label: 'Open', classes: 'bg-blue-50 border-blue-200 text-blue-700' },
+    IN_PROGRESS: { label: 'In progress', classes: 'bg-amber-50 border-amber-200 text-amber-700' },
+    CLIENT_RESPONDED: { label: 'Client responded', classes: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+    COMPLETED: { label: 'Completed', classes: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+    CANCELLED: { label: 'Cancelled', classes: 'bg-slate-100 border-slate-200 text-slate-600' },
+};
+
+function clientRequestStatus(status) {
+    return CLIENT_REQUEST_STATUSES[status] ?? {
+        label: status?.replace(/_/g, ' ') ?? 'Unknown',
+        classes: 'bg-slate-100 border-slate-200 text-slate-600',
+    };
+}
+
+function clientRequestLink(link) {
+    if (!link) return null;
+    const now = Date.now();
+    const expiresAt = link.expires_at ? new Date(link.expires_at) : null;
+    const isExpired = link.status === 'EXPIRED' || (expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= now);
+    const isRevoked = link.revoked_at || link.status === 'REVOKED';
+    const state = isRevoked ? 'revoked' : isExpired ? 'expired' : 'active';
+
+    return { ...link, state, expiresAt };
+}
+
+function ClientRequestAccess({ request, canIssue, canRevoke, onMutate }) {
+    const [loading, setLoading] = useState(null);
+    const [error, setError] = useState('');
+    const links = (request.access_links ?? []).map(clientRequestLink).filter(Boolean);
+    const link = links[links.length - 1] ?? null;
+    const routeAction = link && link.state === 'active'
+        ? 'referrals.client-requests.access.revoke'
+        : link
+            ? 'referrals.client-requests.access.reissue'
+            : 'referrals.client-requests.access.issue';
+    const actionLabel = link?.state === 'active' ? 'Revoke link' : link ? 'Issue replacement' : 'Issue access link';
+    const canAct = link?.state === 'active' ? canRevoke : canIssue;
+
+    function submitAccessAction() {
+        if (!canAct || loading) return;
+        setError('');
+        setLoading(routeAction);
+        const params = routeAction.endsWith('revoke') ? [link.id] : [request.id];
+        router.post(route(routeAction, params), {}, {
+            preserveScroll: true,
+            onSuccess: onMutate,
+            onError: (errors) => setError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to update client access.'),
+            onFinish: () => setLoading(null),
+        });
+    }
+
+    return (
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Client access</p>
+                    {!link && <p className="mt-1 text-[11px] text-slate-600">No access link has been issued yet.</p>}
+                    {link?.state === 'active' && (
+                        <p className="mt-1 text-[11px] text-emerald-700">
+                            Active link{link.expires_at ? ` · Expires ${formatDisplayDateTime(link.expires_at)}` : ''}
+                        </p>
+                    )}
+                    {link?.state === 'expired' && <p className="mt-1 text-[11px] text-amber-700">The previous link has expired. A replacement link can be issued.</p>}
+                    {link?.state === 'revoked' && <p className="mt-1 text-[11px] text-slate-600">The previous link was revoked. A replacement link can be issued.</p>}
+                    {link && (
+                        <p className="mt-1 text-[10px] text-slate-400">
+                            Used {link.use_count ?? 0} time{link.use_count === 1 ? '' : 's'}
+                            {link.first_used_at ? ` · First used ${formatDisplayDateTime(link.first_used_at)}` : ''}
+                            {link.last_used_at ? ` · Last used ${formatDisplayDateTime(link.last_used_at)}` : ''}
+                        </p>
+                    )}
+                </div>
+                {canAct && (
+                    <button
+                        type="button"
+                        onClick={submitAccessAction}
+                        disabled={!!loading}
+                        className={`h-[28px] shrink-0 rounded-md px-3 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${link?.state === 'active' ? 'border border-red-200 bg-white text-red-700 hover:bg-red-50' : 'border border-blue-900 bg-blue-900 text-white hover:bg-blue-800'}`}
+                    >
+                        {loading ? 'Working…' : actionLabel}
+                    </button>
+                )}
+            </div>
+            {error && <p role="alert" className="mt-2 text-[10px] font-semibold text-red-700">{error}</p>}
+            {link?.state !== 'active' && canIssue && (
+                <p className="mt-2 text-[10px] text-slate-400">The client will receive a secure notification through the registered contact channel.</p>
+            )}
+        </div>
+    );
+}
+
+function ClientRequestCard({ request, permissions, isOversight, onMutate }) {
+    const [reply, setReply] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(null);
+    const status = clientRequestStatus(request.status);
+    const isTerminal = ['COMPLETED', 'CANCELLED'].includes(request.status);
+
+    function reloadRequests() {
+        router.reload({ only: ['clientRequestHistory', 'clientRequestPermissions', 'timeline'], preserveScroll: true });
+    }
+
+    function submit(routeName, params, data = {}) {
+        setError('');
+        setLoading(routeName);
+        router.post(route(routeName, params), data, {
+            preserveScroll: true,
+            onSuccess: reloadRequests,
+            onError: (errors) => setError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to complete this action.'),
+            onFinish: () => setLoading(null),
+        });
+    }
+
+    function sendReply(event) {
+        event.preventDefault();
+        const body = reply.trim();
+        if (!body || loading || !permissions.canReply) return;
+        submit('referrals.client-requests.messages.store', [request.id], { body });
+        setReply('');
+    }
+
+    const items = request.items ?? [];
+    const messages = request.messages ?? [];
+
+    return (
+        <article className="rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-[13px] font-bold text-slate-900">{request.title}</h4>
+                        <span className={`inline-flex rounded-md border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${status.classes}`}>{status.label}</span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">{CLIENT_REQUEST_TYPES[request.type] ?? 'Client request'}</p>
+                </div>
+                {request.due_at && <p className="shrink-0 text-[10px] text-slate-500">Due {formatDisplayDateTime(request.due_at)}</p>}
+            </div>
+
+            {request.instructions && <p className="mt-3 whitespace-pre-wrap text-[12px] leading-5 text-slate-600">{request.instructions}</p>}
+
+            {items.length > 0 && (
+                <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Document checklist</p>
+                    <ul className="mt-1.5 space-y-1">
+                        {items.map((item) => <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[11px] text-slate-700"><span className="material-symbols-outlined mt-0.5 text-[14px] text-slate-400">check_box_outline_blank</span>{item.label}</li>)}
+                    </ul>
+                </div>
+            )}
+
+            {messages.length > 0 && (
+                <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Conversation</p>
+                    {messages.map((message) => (
+                        <div key={message.id} className={`rounded-md px-2.5 py-2 ${message.sender_kind === 'CLIENT_ACCESS' ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 border border-slate-100'}`}>
+                            <div className="flex items-baseline justify-between gap-2"><span className="text-[10px] font-bold text-slate-700">{message.sender_kind === 'CLIENT_ACCESS' ? 'Client' : 'Agency'}</span><span className="text-[9px] text-slate-400">{formatDisplayDateTime(message.created_at)}</span></div>
+                            <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-5 text-slate-700">{message.body}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {!isOversight && permissions.canReply && !isTerminal && (
+                <form onSubmit={sendReply} className="mt-3 border-t border-slate-200 pt-3">
+                    <label htmlFor={`request-reply-${request.id}`} className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Reply to client</label>
+                    <textarea id={`request-reply-${request.id}`} value={reply} onChange={(event) => { setReply(event.target.value); setError(''); }} rows={2} disabled={!!loading} className="mt-1.5 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 disabled:opacity-60" placeholder="Write a reply..." />
+                    <div className="mt-1.5 flex justify-end"><button type="submit" disabled={!!loading || !reply.trim()} className="h-[28px] rounded-md bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{loading === 'referrals.client-requests.messages.store' ? 'Sending…' : 'Send reply'}</button></div>
+                </form>
+            )}
+
+            {error && <p role="alert" className="mt-2 text-[10px] font-semibold text-red-700">{error}</p>}
+
+            {!isOversight && permissions.canTransition && (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.complete', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60">{loading === 'referrals.client-requests.complete' ? 'Working…' : 'Complete'}</button>}
+                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.cancel', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-red-200 bg-red-50 px-3 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-60">{loading === 'referrals.client-requests.cancel' ? 'Working…' : 'Cancel'}</button>}
+                    {isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.reopen', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-blue-200 bg-blue-50 px-3 text-[10px] font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-60">{loading === 'referrals.client-requests.reopen' ? 'Working…' : 'Reopen'}</button>}
+                </div>
+            )}
+
+            <ClientRequestAccess request={request} canIssue={!isOversight && permissions.canCreate} canRevoke={permissions.canRevokeAccess} onMutate={onMutate} />
+        </article>
+    );
+}
+
+function ClientRequestsSection({ referral, requests, permissions, isReceivingAgency, isCaseManager, isAdmin }) {
+    const [showCreate, setShowCreate] = useState(false);
+    const createForm = useForm({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''] });
+    const isOversight = isCaseManager || isAdmin || !isReceivingAgency;
+    const canCreate = isReceivingAgency && permissions.canCreate;
+    const reloadRequests = () => router.reload({ only: ['clientRequestHistory', 'clientRequestPermissions', 'timeline'], preserveScroll: true });
+
+    function submitCreate(event) {
+        event.preventDefault();
+        createForm.transform((data) => ({ ...data, checklist: data.type === 'DOCUMENT_REQUEST' ? data.checklist.map((item) => item.trim()).filter(Boolean) : undefined }));
+        createForm.post(route('referrals.client-requests.store', [referral.id]), {
+            preserveScroll: true,
+            onSuccess: () => { setShowCreate(false); createForm.reset(); reloadRequests(); },
+        });
+    }
+
+    return (
+        <>
+            <CardSection title="Client Requests" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] text-slate-500">Secure requests and replies shared with the client.</p>
+                    {canCreate && <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-[28px] items-center gap-1.5 rounded-md border border-blue-900 bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800"><span className="material-symbols-outlined text-[14px]">add</span>Request client</button>}
+                </div>
+                {isOversight && <div className="mb-3 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2"><span className="material-symbols-outlined text-[16px] text-sky-700">visibility</span><p className="text-[11px] font-semibold text-sky-800">Oversight view — request history and messages are read-only.</p></div>}
+                {requests.length > 0 ? <div className="space-y-3">{requests.map((request) => <ClientRequestCard key={request.id} request={request} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} />)}</div> : <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-slate-200 py-7 text-center"><span className="material-symbols-outlined text-[24px] text-slate-300">inbox</span><p className="mt-2 text-[11px] font-semibold text-slate-500">No client requests yet</p><p className="mt-1 text-[10px] text-slate-400">Requests created here will appear in this history.</p></div>}
+            </CardSection>
+
+            {showCreate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setShowCreate(false)}>
+                    <div className="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-lg" onClick={(event) => event.stopPropagation()}>
+                        <div className="border-b border-slate-200 px-5 py-4"><h3 className="text-[16px] font-extrabold text-slate-900">Request client</h3><p className="mt-1 text-[12px] text-slate-500">Ask the client for information or documents needed by the agency.</p></div>
+                        <form onSubmit={submitCreate}>
+                            <div className="space-y-4 px-5 py-4">
+                                <div><label htmlFor="client_request_type" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Request type *</label><select id="client_request_type" value={createForm.data.type} onChange={(event) => createForm.setData('type', event.target.value)} className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"><option value="DOCUMENT_REQUEST">Document request</option><option value="QUESTION">Question</option><option value="INFORMATION_UPDATE">Information update</option></select><InputError message={createForm.errors.type} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.title} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_instructions" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Instructions *</label><textarea id="client_request_instructions" rows={3} value={createForm.data.instructions} onChange={(event) => createForm.setData('instructions', event.target.value)} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.instructions} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
+                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" aria-label={`Remove checklist item ${index + 1}`} onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400 hover:text-red-600">×</button>}</div>)}</div><InputError message={createForm.errors.checklist} className="mt-1" /></div>}
+                            </div>
+                            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creating…' : 'Create request'}</button></div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
+
+export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {} }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
@@ -87,9 +327,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const [postingComment, setPostingComment] = useState(false);
     const [showMilestoneModal, setShowMilestoneModal] = useState(false);
     const [removeAttachment, setRemoveAttachment] = useState(null);
-    const [markCompliedDoc, setMarkCompliedDoc] = useState(null);
-    const [markCompliedRemark, setMarkCompliedRemark] = useState('');
-    const [markCompliedSubmitting, setMarkCompliedSubmitting] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [uploadingDoc, setUploadingDoc] = useState(false);
     const milestoneForm = useForm({ title: '', description: '' });
 
     const replyToComment = replyToCommentId
@@ -134,6 +373,28 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
     function cancelReply() {
         setReplyToCommentId(null);
+    }
+
+    function handleDocumentUpload() {
+        if (!selectedFile) return;
+        setUploadingDoc(true);
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('referral_id', referral.id);
+        formData.append('category', 'referral');
+        router.post(route('cases.documents.store', referral.case_id), formData, {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.reload({ only: ['referral'] });
+                setSelectedFile(null);
+            },
+            onError: (errors) => {
+                console.error(errors);
+            },
+            onFinish: () => {
+                setUploadingDoc(false);
+            },
+        });
     }
 
     return (
@@ -421,290 +682,156 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             )}
                         </div>
                     </CardSection>
-                    {/* Uploaded Documents Section */}
-                    {serviceRequirements.length > 0 && (
-                        <div data-tour="referral-documents">
+                    {/* Requirements Section */}
+                    <div data-tour="referral-documents">
+                        <CardSection title="Requirements" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                            {referral.requirements && referral.requirements.length > 0 ? (
+                                <ul className="space-y-1.5">
+                                    {referral.requirements.map((req, idx) => (
+                                        <li key={idx} className="flex items-start gap-2 text-[12px] text-slate-700">
+                                            <span className="material-symbols-outlined text-[14px] text-slate-400 mt-0.5 shrink-0">chevron_right</span>
+                                            <span>{req}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-[12px] text-slate-500 italic">No requirements listed.</p>
+                            )}
+                        </CardSection>
+                    </div>
+
+                    {/* Uploaded Documents / Attachments */}
+                    {(referral.attachments ?? []).filter((att) => !att.is_archived).length > 0 && (
                         <CardSection title="Uploaded Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            <div className="mb-3 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
-                                <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
-                                <p className="text-[11px] leading-5 text-blue-800">
-                                    Checklist of required documents per service. Documents uploaded during referral creation are matched below.
-                                </p>
-                            </div>
-                            <div className="space-y-4">
-                                {serviceRequirements.map((service) => {
-                                    const complianceReqs = referral.compliance_requirements ?? [];
-                                    const docs = service.requiredDocuments ?? [];
-                                    const serviceAttachments = (referral.attachments ?? []).filter(
-                                        (att) => !att.is_archived && att.file_name?.startsWith(service.title + ' / ')
-                                    );
-                                    const totalReqs = docs.length;
-                                    const compliedCount = totalReqs > 0
-                                        ? docs.filter((doc) => {
-                                            const cr = complianceReqs.find(
-                                                (c) => c.service_name === service.title && c.requirement_name === doc
-                                            );
-                                            if (cr && cr.status === 'COMPLIED') return true;
-                                            return serviceAttachments.some((att) => att.file_name?.startsWith(service.title + ' / ' + doc + ' - '));
-                                        }).length
-                                        : 0;
-                                    const isFullyComplied = totalReqs > 0 && compliedCount === totalReqs;
-
-                                    return (
-                                        <div key={service.title} className="rounded-md border border-slate-200 bg-white overflow-hidden">
-                                            <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span className="material-symbols-outlined text-[16px] text-slate-500">folder_open</span>
-                                                    <h4 className="text-[12px] font-bold text-slate-800 truncate">{service.title}</h4>
+                            <div className="divide-y divide-slate-100">
+                                {(referral.attachments ?? [])
+                                    .filter((att) => !att.is_archived)
+                                    .map((att) => (
+                                        <div key={att.id} className="flex items-center gap-3 px-1 py-2.5">
+                                            <span className="material-symbols-outlined text-[16px] text-slate-400">description</span>
+                                            <div className="min-w-0 flex-1">
+                                                <a
+                                                    href={route('referrals.attachments.download', [referral.id, att.id])}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
+                                                >
+                                                    {att.file_name}
+                                                </a>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {att.user && (
+                                                        <span className="text-[9px] text-slate-400">
+                                                            Uploaded by {att.user.name}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md ${
-                                                    isFullyComplied
-                                                        ? 'border border-green-200 bg-green-50 text-green-700'
-                                                        : 'border border-orange-200 bg-orange-50 text-orange-700'
-                                                }`}>
-                                                    {isFullyComplied ? 'Complied' : `${compliedCount}/${totalReqs} Complied`}
-                                                </span>
                                             </div>
-                                            {totalReqs > 0 ? (
-                                                <div className="divide-y divide-slate-100">
-                                                    {docs.map((doc) => {
-                                                        const matchingAttachment = serviceAttachments.find(
-                                                            (att) => att.file_name?.startsWith(service.title + ' / ' + doc + ' - ')
-                                                        );
-                                                        const isUploaded = !!matchingAttachment;
-                                                        const complianceReq = complianceReqs.find(
-                                                            (c) => c.service_name === service.title && c.requirement_name === doc
-                                                        );
-                                                        const isComplied = complianceReq?.status === 'COMPLIED';
-                                                        const isFulfilled = isUploaded || isComplied;
-                                                        const canUploadDoc = (isCaseManager || isAgency || isAdmin) && !isFulfilled;
-                                                        const isUploader = isUploaded && matchingAttachment.user_id === auth.user.id;
-
-                                                        return (
-                                                            <div key={doc} className="px-4 py-2.5">
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className={`material-symbols-outlined text-[18px] ${
-                                                                        isFulfilled ? 'text-green-600' : 'text-orange-500'
-                                                                    }`}>
-                                                                        {isFulfilled ? 'check_circle' : 'pending'}
-                                                                    </span>
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <p className="text-[12px] font-medium text-slate-700 truncate">{doc}</p>
-                                                                        {isComplied ? (
-                                                                            <div className="mt-0.5 space-y-1">
-                                                                                <p className="text-[10px] text-green-700 font-medium">
-                                                                                    Fulfilled {complianceReq.completed_at ? new Date(complianceReq.completed_at).toLocaleDateString() : ''}
-                                                                                    {complianceReq.fulfilled_by_name ? ` by ${complianceReq.fulfilled_by_name}` : ''}
-                                                                                </p>
-                                                                                {complianceReq.remark && (
-                                                                                    <div className="flex items-start gap-1.5 rounded bg-slate-50 border border-slate-100 px-2.5 py-1.5">
-                                                                                        <span className="material-symbols-outlined text-[12px] text-slate-400 mt-0.5">comment</span>
-                                                                                        <p className="text-[10px] text-slate-600 italic">{complianceReq.remark}</p>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : isUploaded ? (
-                                                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                                                <a
-                                                                                    href={route('referrals.attachments.download', [referral.id, matchingAttachment.id])}
-                                                                                    target="_blank"
-                                                                                    rel="noopener noreferrer"
-                                                                                    className="text-[10px] text-blue-700 hover:text-blue-900 hover:underline font-medium inline-flex items-center gap-0.5"
-                                                                                >
-                                                                                    <span className="material-symbols-outlined text-[12px]">download</span>
-                                                                                    {matchingAttachment.file_name?.split(' - ').slice(1).join(' - ') || matchingAttachment.file_name}
-                                                                                </a>
-                                                                                {matchingAttachment.user && (
-                                                                                    <span className="text-[9px] text-slate-400">
-                                                                                        by {matchingAttachment.user.name}
-                                                                                    </span>
-                                                                                )}
-                                                                                {isUploader && (
-                                                                                    <div className="flex items-center gap-1 ml-auto">
-                                                                                        <label className="text-[9px] text-blue-700 hover:text-blue-900 font-bold cursor-pointer inline-flex items-center gap-0.5">
-                                                                                            <span className="material-symbols-outlined text-[12px]">swap_horiz</span>
-                                                                                            Replace
-                                                                                            <input
-                                                                                                type="file"
-                                                                                                className="hidden"
-                                                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                                                                onChange={(e) => {
-                                                                                                    const file = e.target.files?.[0];
-                                                                                                    if (!file) return;
-                                                                                                    router.post(
-                                                                                                        route('referrals.attachments.replace', [referral.id, matchingAttachment.id]),
-                                                                                                        { file, document_label: service.title + '::' + doc },
-                                                                                                        { preserveScroll: true }
-                                                                                                    );
-                                                                                                }}
-                                                                                            />
-                                                                                        </label>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => setRemoveAttachment(matchingAttachment)}
-                                                                                            className="text-[9px] text-red-600 hover:text-red-800 font-bold inline-flex items-center gap-0.5"
-                                                                                        >
-                                                                                            <span className="material-symbols-outlined text-[12px]">delete</span>
-                                                                                            Remove
-                                                                                        </button>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <p className="text-[10px] text-orange-600 font-medium mt-0.5">Pending</p>
-                                                                        )}
-                                                                    </div>
-                                                                    <span className={`shrink-0 inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                                                                        isFulfilled
-                                                                            ? 'border border-green-200 bg-green-50 text-green-700'
-                                                                            : 'border border-orange-200 bg-orange-50 text-orange-700'
-                                                                    }`}>
-                                                                        {isComplied ? 'Complied' : isUploaded ? 'Uploaded' : 'Pending'}
-                                                                    </span>
-                                                                </div>
-                                                                {canUploadDoc && (
-                                                                    <div className="mt-2 ml-[30px]">
-                                                                        <FileUpload
-                                                                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                                            label="Upload Document"
-                                                                            onFilesSelected={(file) => {
-                                                                            if (!file) return;
-                                                                                router.post(
-                                                                                    route('referrals.attachments.store', referral.id),
-                                                                                    { file, document_label: service.title + '::' + doc },
-                                                                                    { preserveScroll: true }
-                                                                                );
-                                                                            }}
-                                                                        />
-                                                                        {isAgency && (() => {
-                                                                            const docKey = service.title + '::' + doc;
-                                                                            return (
-                                                                                <>
-                                                                                    {markCompliedDoc !== docKey ? (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => { setMarkCompliedDoc(docKey); setMarkCompliedRemark(''); }}
-                                                                                            className="mt-2 h-[28px] px-3 text-[10px] font-bold rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors inline-flex items-center gap-1"
-                                                                                        >
-                                                                                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                                                                                            Mark as Complied
-                                                                                        </button>
-                                                                                    ) : (
-                                                                                        <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-                                                                                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Mark as Complied</p>
-                                                                                            <p className="text-[10px] text-emerald-700">
-                                                                                                Use this if the client has already complied (e.g., submitted physically). A remark is required.
-                                                                                            </p>
-                                                                                            <textarea
-                                                                                                value={markCompliedRemark}
-                                                                                                onChange={(e) => setMarkCompliedRemark(e.target.value)}
-                                                                                                rows={2}
-                                                                                                placeholder="Enter remark (e.g., Client submitted documents in person)..."
-                                                                                                className="w-full rounded-md border border-emerald-200 px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 resize-none"
-                                                                                            />
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    disabled={markCompliedSubmitting || !markCompliedRemark.trim()}
-                                                                                                    onClick={() => {
-                                                                                                        if (!markCompliedRemark.trim()) return;
-                                                                                                        setMarkCompliedSubmitting(true);
-                                                                                                        router.post(
-                                                                                                            route('referrals.mark-document-complied', referral.id),
-                                                                                                            {
-                                                                                                                remark: markCompliedRemark.trim(),
-                                                                                                                service_name: service.title,
-                                                                                                                requirement_name: doc,
-                                                                                                            },
-                                                                                                            {
-                                                                                                                preserveScroll: true,
-                                                                                                                onSuccess: () => { setMarkCompliedDoc(null); setMarkCompliedRemark(''); setMarkCompliedSubmitting(false); },
-                                                                                                                onError: () => setMarkCompliedSubmitting(false),
-                                                                                                            }
-                                                                                                        );
-                                                                                                    }}
-                                                                                                    className="h-[26px] px-3 bg-emerald-600 text-white text-[10px] font-bold rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                                                                >
-                                                                                                    {markCompliedSubmitting ? 'Saving...' : 'Confirm'}
-                                                                                                </button>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={() => { setMarkCompliedDoc(null); setMarkCompliedRemark(''); }}
-                                                                                                    className="h-[26px] px-3 border border-slate-200 bg-white text-slate-600 text-[10px] font-bold rounded-md hover:bg-slate-50 transition-colors"
-                                                                                                >
-                                                                                                    Cancel
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            ) : (
-                                                <div className="px-4 py-3">
-                                                    <p className="text-[11px] text-slate-500 italic">No required documents defined for this service.</p>
-                                                </div>
+                                            {att.user_id === auth.user.id && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRemoveAttachment(att)}
+                                                    className="text-[9px] text-red-600 hover:text-red-800 font-bold inline-flex items-center gap-0.5 shrink-0"
+                                                >
+                                                    <span className="material-symbols-outlined text-[12px]">delete</span>
+                                                    Remove
+                                                </button>
                                             )}
                                         </div>
-                                    );
-                                })}
+                                    ))}
                             </div>
-
-                            {/* Show any additional attachments that don't match a service requirement */}
-                            {(() => {
-                                const unmatchedAttachments = (referral.attachments ?? []).filter((att) => {
-                                    if (att.is_archived) return false;
-                                    return !serviceRequirements.some((service) =>
-                                        att.file_name?.startsWith(service.title + ' / ')
-                                    );
-                                });
-                                if (unmatchedAttachments.length === 0) return null;
-                                return (
-                                    <div className="mt-4 rounded-md border border-slate-200 bg-white overflow-hidden">
-                                        <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                                            <span className="material-symbols-outlined text-[16px] text-slate-500">attach_file</span>
-                                            <h4 className="text-[12px] font-bold text-slate-800">Other Attachments</h4>
-                                        </div>
-                                        <div className="divide-y divide-slate-100">
-                                            {unmatchedAttachments.map((att) => (
-                                                <div key={att.id} className="flex items-center gap-3 px-4 py-2.5">
-                                                    <span className="material-symbols-outlined text-[16px] text-slate-400">description</span>
-                                                    <div className="min-w-0 flex-1">
-                                                        <a
-                                                            href={route('referrals.attachments.download', [referral.id, att.id])}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
-                                                        >
-                                                            {att.file_name}
-                                                        </a>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            {att.user && (
-                                                                <span className="text-[9px] text-slate-400">
-                                                                    Uploaded by {att.user.name}
-                                                                </span>
-                                                            )}
-                                                            {att.file_type && (
-                                                                <span className="text-[9px] text-slate-400 uppercase">{att.file_type}</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
                         </CardSection>
-                        </div>
                     )}
 
+                    {/* Referral Documents */}
+                    <div data-tour="referral-documents">
+                        <CardSection title="Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                            {/* Upload area — case manager and admin only */}
+                            {(isCaseManager || isAdmin) && (
+                                <div className="border border-slate-200 rounded-md bg-slate-50/50 px-3 py-2.5 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <label className="shrink-0 h-[28px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors cursor-pointer inline-flex items-center gap-1.5">
+                                            <span className="material-symbols-outlined text-[14px]">upload_file</span>
+                                            Choose File
+                                            <input
+                                                type="file"
+                                                className="sr-only"
+                                                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                                            />
+                                        </label>
+                                        {selectedFile ? (
+                                            <span className="text-[11px] text-slate-600 truncate min-w-0">{selectedFile.name}</span>
+                                        ) : (
+                                            <span className="text-[11px] text-slate-400 italic">No file selected</span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleDocumentUpload}
+                                            disabled={!selectedFile || uploadingDoc}
+                                            className="ml-auto shrink-0 h-[28px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
+                                        >
+                                            {uploadingDoc ? (
+                                                <>
+                                                    <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                                                    Uploading…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-symbols-outlined text-[14px]">cloud_upload</span>
+                                                    Upload
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Document list */}
+                            {referral.documents && referral.documents.length > 0 ? (
+                                <div className="divide-y divide-slate-100">
+                                    {referral.documents.map((doc) => (
+                                        <div key={doc.id} className="flex items-center gap-3 px-1 py-2.5">
+                                            <span className="material-symbols-outlined text-[16px] text-slate-400">
+                                                {doc.file_type?.startsWith('image/') ? 'image' : 'description'}
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <a
+                                                    href={route('cases.documents.download', [referral.case_id, doc.id])}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
+                                                >
+                                                    {doc.file_name}
+                                                </a>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {doc.user && (
+                                                        <span className="text-[9px] text-slate-400">
+                                                            Uploaded by {doc.user.name}
+                                                        </span>
+                                                    )}
+                                                    {doc.created_at && (
+                                                        <span className="text-[9px] text-slate-400">
+                                                            {formatDisplayDateTime(doc.created_at)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[12px] text-slate-500 italic">No documents uploaded yet.</p>
+                            )}
+                        </CardSection>
+                    </div>
+
+                    <ClientRequestsSection
+                        referral={referral}
+                        requests={clientRequestHistory}
+                        permissions={clientRequestPermissions}
+                        isReceivingAgency={isReceivingAgency}
+                        isCaseManager={isCaseManager}
+                        isAdmin={isAdmin}
+                    />
                 </main>
 
                 <aside className="xl:col-span-4 space-y-4">

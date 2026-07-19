@@ -236,7 +236,7 @@ class BuildMilestoneTimelineTest extends TestCase
             // Must be one of the valid case event types
             $this->assertContains($item['type'], [
                 'case_opened', 'referral_sent', 'referral_status_changed',
-                'milestone_added', 'compliance_fulfilled', 'case_closed', 'case_reopened',
+                'milestone_added', 'case_closed', 'case_reopened',
             ]);
 
             // Must NOT contain raw internal data: UUIDs, field names, internal notes

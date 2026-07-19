@@ -6,7 +6,6 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
-use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
@@ -20,7 +19,6 @@ class FullLifecycleIntegrationTest extends TestCase
 
     /**
      * Eager-load all relationships that buildTrackingData() requires.
-     * Includes complianceRequirements which is needed for agency card compliance data.
      */
     private function loadRelations(CaseFile $case): CaseFile
     {
@@ -28,7 +26,6 @@ class FullLifecycleIntegrationTest extends TestCase
             'client.addresses',
             'client.employments',
             'referrals.agency',
-            'referrals.complianceRequirements',
             'referrals.milestones.user',
             'referrals.attachments',
             'user',
@@ -256,7 +253,7 @@ class FullLifecycleIntegrationTest extends TestCase
         foreach ($data['milestoneTimeline'] as $event) {
             $this->assertContains($event['type'], [
                 'case_opened', 'referral_sent', 'referral_status_changed',
-                'milestone_added', 'compliance_fulfilled', 'case_closed', 'case_reopened',
+                'milestone_added', 'case_closed', 'case_reopened',
             ]);
             $this->assertStringNotContainsStringIgnoringCase('set ', $event['title']);
         }
@@ -340,29 +337,17 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertEquals('case_closed', $data['milestoneTimeline'][1]['type']);
     }
 
-    public function test_referral_with_compliance_agency_card_structure(): void
+    public function test_referral_with_requirements_agency_card_structure(): void
     {
         // ARRANGE
         $result = $this->createCompleteCase(referralCount: 1);
         $case = $result['case'];
         $referral = $result['referrals']->first();
 
-        // Set referral to FOR_COMPLIANCE status
-        $referral->update(['status' => 'FOR_COMPLIANCE']);
-
-        // Create two compliance requirements with different statuses
-        ReferralComplianceRequirement::create([
-            'referral_id' => $referral->id,
-            'service_name' => 'Medical Examination',
-            'requirement_name' => 'Chest X-Ray',
-            'status' => 'PENDING',
-        ]);
-        ReferralComplianceRequirement::create([
-            'referral_id' => $referral->id,
-            'service_name' => 'Document Verification',
-            'requirement_name' => 'Passport Copy',
-            'status' => 'COMPLETED',
-            'completed_at' => now(),
+        // Set referral to FOR_COMPLIANCE status with requirements
+        $referral->update([
+            'status' => 'FOR_COMPLIANCE',
+            'requirements' => ['Chest X-Ray', 'Passport Copy'],
         ]);
 
         $this->loadRelations($case);
@@ -372,42 +357,7 @@ class FullLifecycleIntegrationTest extends TestCase
         $data = $service->buildTrackingData($case);
         $agencyCard = $data['trackingAgencies'][0];
 
-        // ASSERT — compliance_requirements is present and populated
-        $this->assertNotEmpty($agencyCard['compliance_requirements']);
-        $this->assertCount(2, $agencyCard['compliance_requirements']);
-
-        // ASSERT — each compliance requirement has the expected structure
-        foreach ($agencyCard['compliance_requirements'] as $cr) {
-            $this->assertArrayHasKey('id', $cr);
-            $this->assertArrayHasKey('service_name', $cr);
-            $this->assertArrayHasKey('requirement_name', $cr);
-            $this->assertArrayHasKey('status', $cr);
-            $this->assertArrayHasKey('completed_at', $cr);
-        }
-
-        // ASSERT — find requirements by service_name (order is non-deterministic due to UUID PKs)
-        $reqsByService = [];
-        foreach ($agencyCard['compliance_requirements'] as $cr) {
-            $reqsByService[$cr['service_name']] = $cr;
-        }
-
-        $this->assertArrayHasKey('Medical Examination', $reqsByService);
-        $this->assertEquals('Chest X-Ray', $reqsByService['Medical Examination']['requirement_name']);
-        $this->assertEquals('PENDING', $reqsByService['Medical Examination']['status']);
-        $this->assertNull($reqsByService['Medical Examination']['completed_at']);
-
-        $this->assertArrayHasKey('Document Verification', $reqsByService);
-        $this->assertEquals('Passport Copy', $reqsByService['Document Verification']['requirement_name']);
-        $this->assertEquals('COMPLETED', $reqsByService['Document Verification']['status']);
-        $this->assertNotNull($reqsByService['Document Verification']['completed_at']);
-
-        // ASSERT — steps has 6 entries (compliance path: Created, Referred, Received, For Compliance, Processing after compliance, Completed)
-        $this->assertCount(6, $agencyCard['steps']);
-        $this->assertEquals('For Compliance', $agencyCard['steps'][3]['label']);
-        $this->assertEquals('active', $agencyCard['steps'][3]['state']);
-        $this->assertEquals('Processing after compliance', $agencyCard['steps'][4]['label']);
-        $this->assertEquals('pending', $agencyCard['steps'][4]['state']);
-        $this->assertEquals('Completed', $agencyCard['steps'][5]['label']);
-        $this->assertEquals('pending', $agencyCard['steps'][5]['state']);
+        // ASSERT — requirements is present with the expected values
+        $this->assertEquals(['Chest X-Ray', 'Passport Copy'], $agencyCard['requirements']);
     }
 }

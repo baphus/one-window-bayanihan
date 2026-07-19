@@ -22,17 +22,33 @@ class LogContext
     {
         self::$requestId = (string) Str::uuid();
 
+        $route = $request->route();
+
         Log::withContext([
             'request_id' => self::$requestId,
             'user_id' => $request->user()?->id,
             'user_role' => $request->user()?->role,
-            'route' => $request->route()?->getName(),
+            'route' => $route?->getName(),
             'method' => $request->method(),
-            'url' => $request->fullUrl(),
+            'url' => $this->safeUrl($request, $route?->getName()),
             'ip' => $request->ip(),
         ]);
 
         return $next($request);
+    }
+
+    /** Redact the bearer token while retaining the capability route shape. */
+    private function safeUrl(Request $request, ?string $routeName): string
+    {
+        if ($routeName !== 'track.request.exchange') {
+            return $request->fullUrl();
+        }
+
+        return preg_replace(
+            '#(/track/request/)[^/?\#]+#',
+            '$1[redacted]',
+            $request->fullUrl(),
+        ) ?? '/track/request/[redacted]';
     }
 
     /**

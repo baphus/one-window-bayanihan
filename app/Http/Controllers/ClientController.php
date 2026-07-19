@@ -285,6 +285,7 @@ class ClientController extends Controller
         }]);
 
         $case = $caseQuery->latest('cases.created_at')->latest('cases.id')->first();
+        // Admin may view any client even without an associated case file.
         if (! $case && ! $user->isAdmin()) {
             abort(404, 'Client not found.');
         }

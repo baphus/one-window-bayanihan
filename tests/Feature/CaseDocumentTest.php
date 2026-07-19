@@ -89,17 +89,23 @@ class CaseDocumentTest extends TestCase
             ->assertJsonCount(1);
     }
 
-    public function test_case_manager_can_list_documents()
+    public function test_non_owning_case_manager_cannot_list_show_or_download_documents()
     {
-        $this->createDocument();
+        $document = $this->createDocument();
 
         $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
 
-        $response = $this->actingAs($otherManager)
-            ->getJson(route('cases.documents.index', $this->case->id));
+        $this->actingAs($otherManager)
+            ->getJson(route('cases.documents.index', $this->case->id))
+            ->assertForbidden();
 
-        $response->assertOk()
-            ->assertJsonCount(1);
+        $this->actingAs($otherManager)
+            ->getJson(route('cases.documents.show', [$this->case->id, $document->id]))
+            ->assertForbidden();
+
+        $this->actingAs($otherManager)
+            ->get(route('cases.documents.download', [$this->case->id, $document->id]))
+            ->assertForbidden();
     }
 
     public function test_document_soft_delete()
@@ -132,8 +138,6 @@ class CaseDocumentTest extends TestCase
 
     public function test_agency_user_with_active_referral_can_access()
     {
-        $this->createDocument();
-
         $agency = Agency::create([
             'id' => fake()->uuid(),
             'name' => 'Test Agency',
@@ -141,13 +145,15 @@ class CaseDocumentTest extends TestCase
             'slug' => 'test-agency',
         ]);
 
-        Referral::create([
+        $referral = Referral::create([
             'id' => fake()->uuid(),
             'required_services' => 'Test service',
             'status' => 'PENDING',
             'case_id' => $this->case->id,
             'agcy_id' => $agency->id,
         ]);
+
+        $this->createDocument()->update(['referral_id' => $referral->id]);
 
         $agencyUser = User::factory()->create([
             'role' => 'AGENCY',
@@ -256,6 +262,78 @@ class CaseDocumentTest extends TestCase
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertForbidden();
+    }
+
+    public function test_agency_cannot_list_show_or_download_another_agencys_referral_document(): void
+    {
+        $ownerAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Owner', 'short' => 'OW', 'slug' => 'owner-docs']);
+        $otherAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Other', 'short' => 'OT', 'slug' => 'other-docs']);
+        $referral = Referral::create([
+            'id' => fake()->uuid(), 'required_services' => 'Service', 'status' => 'PENDING',
+            'case_id' => $this->case->id, 'agcy_id' => $ownerAgency->id,
+        ]);
+        Referral::create([
+            'id' => fake()->uuid(), 'required_services' => 'Other service', 'status' => 'PENDING',
+            'case_id' => $this->case->id, 'agcy_id' => $otherAgency->id,
+        ]);
+        $document = $this->createDocument();
+        $document->update(['referral_id' => $referral->id]);
+        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $otherAgency->id]);
+
+        $this->actingAs($agencyUser)->getJson(route('cases.documents.index', $this->case->id))
+            ->assertOk()->assertJsonCount(0);
+        $this->actingAs($agencyUser)->getJson(route('cases.documents.show', [$this->case->id, $document->id]))
+            ->assertForbidden();
+        $this->actingAs($agencyUser)->get(route('cases.documents.download', [$this->case->id, $document->id]))
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function test_document_category_is_stored_and_filterable(): void
+    {
+        Storage::fake('object-storage');
+
+        $this->mock(StorageService::class, function ($mock) {
+            $mock->shouldReceive('validate')->andReturn([]);
+            $mock->shouldReceive('temporaryUrl')->andReturn('https://example.com/file.pdf');
+            $mock->shouldReceive('store')->andReturn(new FileStoreResult(
+                path: 'case-documents/test/document.pdf',
+                originalName: 'document.pdf',
+                storedName: 'uuid-document.pdf',
+                type: 'application/pdf',
+                size: 2048,
+                success: true,
+            ));
+        });
+
+        $file = UploadedFile::fake()->create('document.pdf', 2048);
+
+        $response = $this->actingAs($this->caseManager)
+            ->postJson(route('cases.documents.store', $this->case->id), [
+                'file' => $file,
+                'category' => 'Medical',
+            ]);
+
+        $response->assertCreated();
+
+        $this->assertDatabaseHas('case_documents', [
+            'case_id' => $this->case->id,
+            'category' => 'Medical',
+        ]);
+
+        // Filter by category
+        $response = $this->actingAs($this->caseManager)
+            ->getJson(route('cases.documents.index', $this->case->id).'?category=Medical');
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json());
+
+        // Filter by non-matching category returns empty
+        $response = $this->actingAs($this->caseManager)
+            ->getJson(route('cases.documents.index', $this->case->id).'?category=Financial');
+
+        $response->assertOk();
+        $this->assertCount(0, $response->json());
     }
 
     public function test_document_creation_stores_size()

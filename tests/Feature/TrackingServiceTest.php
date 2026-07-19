@@ -235,7 +235,7 @@ class TrackingServiceTest extends TestCase
         $this->assertEquals('pending', $steps[4]['state']);
     }
 
-    public function test_agency_steps_for_compliance_is_active(): void
+    public function test_agency_steps_for_compliance_follows_standard_path(): void
     {
         $service = app(TrackingService::class);
         $case = CaseFile::factory()->create();
@@ -245,20 +245,18 @@ class TrackingServiceTest extends TestCase
         $data = $service->buildTrackingData($case);
         $steps = $data['trackingAgencies'][0]['steps'];
 
-        // FOR_COMPLIANCE → 6 steps: Created, Referred, Received, For Compliance, Processing after compliance, Completed
-        $this->assertCount(6, $steps);
+        // FOR_COMPLIANCE follows the standard path → 5 steps: Created, Referred, Received, Processing, Completed
+        $this->assertCount(5, $steps);
         $this->assertEquals('Created', $steps[0]['label']);
         $this->assertEquals('complete', $steps[0]['state']);
         $this->assertStringContainsString('Referred to', $steps[1]['label']);
         $this->assertEquals('complete', $steps[1]['state']);
         $this->assertStringContainsString('Received by', $steps[2]['label']);
         $this->assertEquals('complete', $steps[2]['state']);
-        $this->assertEquals('For Compliance', $steps[3]['label']);
-        $this->assertEquals('active', $steps[3]['state']);
-        $this->assertEquals('Processing after compliance', $steps[4]['label']);
+        $this->assertEquals('Processing', $steps[3]['label']);
+        $this->assertEquals('pending', $steps[3]['state']);
+        $this->assertEquals('Completed', $steps[4]['label']);
         $this->assertEquals('pending', $steps[4]['state']);
-        $this->assertEquals('Completed', $steps[5]['label']);
-        $this->assertEquals('pending', $steps[5]['state']);
     }
 
     public function test_agency_cards_have_no_internal_route_links(): void

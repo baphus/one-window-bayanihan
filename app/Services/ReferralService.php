@@ -10,8 +10,9 @@ use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
+use App\Models\ReferralClientMessage;
+use App\Models\ReferralClientRequest;
 use App\Models\ReferralComment;
-use App\Models\ReferralComplianceRequirement;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
@@ -59,18 +60,19 @@ class ReferralService
 
             $this->eventRecorder->referralSent($referral, $userId);
 
-            if (! empty($data['compliance_requirements'])) {
-                foreach ($data['compliance_requirements'] as $req) {
-                    ReferralComplianceRequirement::create([
-                        'referral_id' => $referral->id,
-                        'service_name' => $req['service_name'],
-                        'requirement_name' => $req['requirement_name'],
-                        'status' => 'PENDING',
-                    ]);
+            // Pre-fill requirements from service requirements
+            if (! empty($data['agcy_id'])) {
+                $serviceReqs = $this->getServiceRequirements($data['agcy_id']);
+                $requirements = [];
+                foreach ($serviceReqs as $svc) {
+                    foreach ($svc['requiredDocuments'] ?? [] as $doc) {
+                        $requirements[] = $doc;
+                    }
                 }
-                $referral->update(['status' => 'FOR_COMPLIANCE']);
-                $referral->refresh();
-                $this->eventRecorder->referralStatusChanged($referral, 'PENDING', 'FOR_COMPLIANCE', $userId);
+                if (! empty($requirements)) {
+                    $referral->update(['requirements' => $requirements]);
+                    $referral->refresh();
+                }
             }
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
@@ -259,11 +261,101 @@ class ReferralService
             'attachments.user',
             'comments.user',
             'comments.replies.user',
-            'complianceRequirements.fulfilledBy',
+            'documents.user',
+            'clientRequests' => fn ($q) => $q
+                ->where('is_deleted', false)
+                ->with([
+                    'items:id,request_id,label,sort_order',
+                    'creator:id,name,role',
+                    'messages' => fn ($messages) => $messages
+                        ->where('is_deleted', false)
+                        ->with('user:id,name,role')
+                        ->latest(),
+                    'accessLinks:id,request_id,expires_at,revoked_at,first_used_at,last_used_at,use_count',
+                    'milestone:id,refr_id,client_request_id,title,description,created_at',
+                ])
+                ->latest(),
         ];
         $relations[] = 'caseFile.categories';
 
         return Referral::with($relations)->findOrFail($id);
+    }
+
+    /**
+     * Return the staff-facing request inbox without exposing client-link secrets
+     * or Eloquent's unbounded model serialization.
+     */
+    public function getClientRequestHistory(Referral $referral): array
+    {
+        return $referral->clientRequests->map(function (ReferralClientRequest $request): array {
+            return [
+                'id' => $request->id,
+                'type' => $request->type,
+                'title' => $request->title,
+                'instructions' => $request->instructions,
+                'status' => $request->status,
+                'due_at' => $request->due_at?->toISOString(),
+                'created_at' => $request->created_at?->toISOString(),
+                'updated_at' => $request->updated_at?->toISOString(),
+                'creator' => $request->creator ? [
+                    'id' => $request->creator->id,
+                    'name' => $request->creator->name,
+                    'role' => $request->creator->role,
+                ] : null,
+                'items' => $request->items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'label' => $item->label,
+                    'sort_order' => $item->sort_order,
+                ])->values()->all(),
+                'messages' => $request->messages->map(fn ($message) => [
+                    'id' => $message->id,
+                    'body' => $message->body,
+                    'sender_kind' => $message->sender_kind,
+                    'kind' => $message->kind,
+                    'created_at' => $message->created_at?->toISOString(),
+                    'user' => $message->user ? [
+                        'id' => $message->user->id,
+                        'name' => $message->user->name,
+                        'role' => $message->user->role,
+                    ] : null,
+                ])->values()->all(),
+                'access_links' => $request->accessLinks->map(function ($link): array {
+                    $usable = $link->revoked_at === null && $link->expires_at?->isFuture() === true;
+
+                    return [
+                        'id' => $link->id,
+                        'status' => $link->revoked_at !== null ? 'REVOKED' : ($usable ? 'ACTIVE' : 'EXPIRED'),
+                        'expires_at' => $link->expires_at?->toISOString(),
+                        'revoked_at' => $link->revoked_at?->toISOString(),
+                        'first_used_at' => $link->first_used_at?->toISOString(),
+                        'last_used_at' => $link->last_used_at?->toISOString(),
+                        'use_count' => (int) $link->use_count,
+                    ];
+                })->values()->all(),
+                'milestone' => $request->milestone ? [
+                    'id' => $request->milestone->id,
+                    'title' => $request->milestone->title,
+                    'description' => $request->milestone->description,
+                    'created_at' => $request->milestone->created_at?->toISOString(),
+                ] : null,
+            ];
+        })->values()->all();
+    }
+
+    public function getClientRequestPermissions(Referral $referral, User $actor): array
+    {
+        $receivingAgency = $actor->isAgency()
+            && $actor->is_active
+            && $actor->agcy_id === $referral->agcy_id;
+        $oversight = $actor->isAdmin()
+            || ($actor->isCaseManager() && $referral->caseFile?->user_id === $actor->id);
+
+        return [
+            'canCreate' => $receivingAgency,
+            'canReply' => $receivingAgency,
+            'canTransition' => $receivingAgency,
+            'canRevokeAccess' => $receivingAgency || $oversight,
+        ];
     }
 
     public function getServiceRequirements(string $agencyId): array
@@ -336,9 +428,9 @@ class ReferralService
         });
     }
 
-    public function addMilestone(string $referralId, string $title, ?string $description, string $userId): Milestone
+    public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone
     {
-        return DB::transaction(function () use ($referralId, $title, $description, $userId) {
+        return DB::transaction(function () use ($referralId, $title, $description, $userId, $requirements) {
             $referral = Referral::findOrFail($referralId);
 
             if ($referral->status === 'COMPLETED') {
@@ -348,6 +440,7 @@ class ReferralService
             $milestone = Milestone::create([
                 'title' => $title,
                 'description' => $description,
+                'requirements' => $requirements,
                 'refr_id' => $referralId,
                 'user_id' => $userId,
             ]);
@@ -429,10 +522,6 @@ class ReferralService
             'agency:id,name',
             'milestones' => fn ($q) => $q->latest()->limit(1),
         ])
-            ->withCount([
-                'complianceRequirements as compliance_total',
-                'complianceRequirements as compliance_fulfilled' => fn ($q) => $q->where('status', 'COMPLIED'),
-            ])
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
             ->whereRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
                 (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
@@ -501,13 +590,6 @@ class ReferralService
                 default => 'mild',
             };
 
-            // Compliance progress (only for FOR_COMPLIANCE)
-            $complianceTotal = $referral->compliance_total ?? 0;
-            $complianceFulfilled = $referral->compliance_fulfilled ?? 0;
-            $complianceProgress = $referral->status === 'FOR_COMPLIANCE' && $complianceTotal > 0
-                ? $complianceFulfilled.'/'.$complianceTotal
-                : null;
-
             return [
                 'id' => $referral->id,
                 'case_number' => $referral->caseFile?->case_number,
@@ -521,9 +603,6 @@ class ReferralService
                 'severity' => $severity,
                 'last_activity_description' => $lastActivityDesc,
                 'last_activity_date' => $lastActivityDate->toIso8601String(),
-                'compliance_progress' => $complianceProgress,
-                'compliance_total' => $complianceTotal,
-                'compliance_fulfilled' => $complianceFulfilled,
                 'case_manager_name' => $referral->caseFile?->user?->name ?? 'System',
                 'created_at' => $referral->created_at->toIso8601String(),
             ];
@@ -612,53 +691,6 @@ class ReferralService
         return $attachment->load('user');
     }
 
-    public function fulfillCompliance(string $complianceId, array $fileData, string $userId): ReferralAttachment
-    {
-        return DB::transaction(function () use ($complianceId, $fileData, $userId) {
-            $requirement = ReferralComplianceRequirement::findOrFail($complianceId);
-
-            if ($requirement->status !== 'PENDING') {
-                throw new \InvalidArgumentException('Compliance requirement is not pending.');
-            }
-
-            $attachment = $this->addAttachment($requirement->referral_id, $fileData, $userId);
-
-            $requirement->update([
-                'status' => 'COMPLIED',
-                'fulfilled_by' => $userId,
-                'completed_at' => now(),
-            ]);
-
-            $this->eventRecorder->complianceFulfilled($requirement->referral, $requirement, $userId);
-
-            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
-
-            return $attachment;
-        });
-    }
-
-    public function markComplianceAsComplied(string $complianceId, string $remark, string $userId): ReferralComplianceRequirement
-    {
-        return DB::transaction(function () use ($complianceId, $remark, $userId) {
-            $requirement = ReferralComplianceRequirement::findOrFail($complianceId);
-
-            if ($requirement->status !== 'PENDING') {
-                throw new \InvalidArgumentException('Compliance requirement is not pending.');
-            }
-
-            $requirement->update([
-                'status' => 'COMPLIED',
-                'fulfilled_by' => $userId,
-                'completed_at' => now(),
-                'remark' => $remark,
-            ]);
-
-            $this->eventRecorder->complianceFulfilled($requirement->referral, $requirement, $userId);
-
-            return $requirement;
-        });
-    }
-
     public function replaceAttachment(string $attachmentId, array $fileData, string $userId): ReferralAttachment
     {
         return DB::transaction(function () use ($attachmentId, $fileData, $userId) {
@@ -724,6 +756,17 @@ class ReferralService
      */
     public function getReferralTimeline(Referral $referral): array
     {
+        $referral->loadMissing([
+            'agency',
+            'clientRequests' => fn ($query) => $query
+                ->where('is_deleted', false)
+                ->with([
+                    'messages' => fn ($messages) => $messages
+                        ->where('is_deleted', false)
+                        ->where('sender_kind', ReferralClientMessage::SENDER_CLIENT_ACCESS)
+                        ->orderBy('created_at'),
+                ]),
+        ]);
         $events = collect();
 
         // 1. Referral sent event
@@ -769,6 +812,52 @@ class ReferralService
                 'timestamp' => $ms->created_at->toISOString(),
                 'actor' => $ms->user?->name ?? 'System',
             ]);
+        }
+
+        // Client-request events intentionally contain state only. The request
+        // workspace remains the source of truth for instructions and messages.
+        $agencyName = $referral->agency?->name ?? 'Receiving agency';
+        $requestTypeTitles = [
+            ReferralClientRequest::TYPE_DOCUMENT_REQUEST => 'Client document request created',
+            ReferralClientRequest::TYPE_QUESTION => 'Client question created',
+            ReferralClientRequest::TYPE_INFORMATION_UPDATE => 'Client information update created',
+        ];
+
+        foreach ($referral->clientRequests->sortBy('created_at') as $clientRequest) {
+            $events->push([
+                'id' => 'client-request-created-'.$clientRequest->id,
+                'type' => 'client_request',
+                'title' => $requestTypeTitles[$clientRequest->type] ?? 'Client request created',
+                'description' => 'Status: '.str_replace('_', ' ', $clientRequest->status),
+                'timestamp' => $clientRequest->created_at->toISOString(),
+                'actor' => $agencyName,
+            ]);
+
+            foreach ($clientRequest->messages->sortBy('created_at') as $message) {
+                $events->push([
+                    'id' => 'client-response-'.$message->id,
+                    'type' => 'client_response',
+                    'title' => 'Client responded to request',
+                    'description' => 'Client response received.',
+                    'timestamp' => $message->created_at->toISOString(),
+                    'actor' => 'Client',
+                ]);
+            }
+
+            if (in_array($clientRequest->status, [
+                ReferralClientRequest::STATUS_COMPLETED,
+                ReferralClientRequest::STATUS_CANCELLED,
+            ], true) && $clientRequest->updated_at?->ne($clientRequest->created_at)) {
+                $state = strtolower($clientRequest->status);
+                $events->push([
+                    'id' => 'client-request-status-'.$clientRequest->id.'-'.$clientRequest->status,
+                    'type' => 'client_request_status',
+                    'title' => 'Client request '.$state,
+                    'description' => 'Status: '.str_replace('_', ' ', $clientRequest->status),
+                    'timestamp' => $clientRequest->updated_at->toISOString(),
+                    'actor' => $agencyName,
+                ]);
+            }
         }
 
         return $events->sortBy('timestamp')->values()->toArray();
