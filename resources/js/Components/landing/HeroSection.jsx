@@ -22,7 +22,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
           <div className="flex w-full flex-col items-start md:w-[60%]">
             {/* Headline */}
             <h1
-              className="animate-fade-in-up mb-6 text-4xl font-semibold leading-[1.1] tracking-tight text-white drop-shadow-xl sm:text-5xl lg:text-6xl"
+              className="animate-fade-in-up mb-6 text-3xl font-semibold leading-[1.1] tracking-tight text-white drop-shadow-xl sm:text-4xl lg:text-5xl"
               style={{ animationDelay: '0.2s', animationFillMode: 'both', fontFamily: "'Outfit', sans-serif" }}
             >
               Connecting Government
@@ -34,7 +34,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
 
             {/* Description */}
             <p
-              className="animate-fade-in-up mb-10 max-w-lg text-base leading-relaxed text-slate-300 drop-shadow md:text-lg"
+              className="animate-fade-in-up mb-10 max-w-lg text-sm leading-relaxed text-slate-300 drop-shadow md:text-base"
               style={{ animationDelay: '0.35s', animationFillMode: 'both' }}
             >
               {description}
@@ -47,14 +47,14 @@ export default function HeroSection({ title, description, onTrackAction, agencie
             >
               <button
                 onClick={onTrackAction}
-                className="inline-flex items-center justify-center gap-2 bg-white px-8 py-4 text-base font-bold text-primary shadow-xl transition-all hover:bg-slate-100 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 bg-white px-6 py-3 text-sm font-bold text-primary shadow-xl transition-all hover:bg-slate-100 active:scale-95"
               >
                 <span className="material-symbols-outlined text-[22px]">travel_explore</span>
                 Track Your Case
               </button>
               <a
                 href="#features"
-                className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-8 py-4 text-base font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"
               >
                 Learn More
               </a>

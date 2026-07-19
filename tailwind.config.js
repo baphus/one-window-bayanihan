@@ -88,6 +88,7 @@ export default {
                 headline: ['Public Sans', 'sans-serif'],
                 body: ['Public Sans', 'sans-serif'],
                 label: ['Public Sans', 'sans-serif'],
+                serif: ['Outfit', 'sans-serif'],
             },
 
             borderRadius: {

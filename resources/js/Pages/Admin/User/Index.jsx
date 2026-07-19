@@ -47,7 +47,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [peerProfileUser, setPeerProfileUser] = useState(null);
-  const { UnsavedModal } = useUnsavedChanges(showForm);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
@@ -312,6 +312,17 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
                     </button>
                   )}
                   {isAdmin && (!row.is_active || row.is_deleted) && (
+                    <>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Reactivate user "${row.name}"?`)) {
+                          router.patch(route('admin.users.reactivate', row.id), {}, { preserveScroll: true });
+                        }
+                      }}
+                      className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200"
+                    >
+                      Reactivate
+                    </button>
                     <button
                       onClick={() => {
                         if (confirm(`Permanently delete user "${row.name}"? This action cannot be undone.`)) {
@@ -322,6 +333,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
                     >
                       Delete
                     </button>
+                    </>
                   )}
                 </div>
               ),
@@ -417,7 +429,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
             }}
             className="rounded border-slate-300 text-red-600 focus:ring-red-500 focus:ring-offset-0"
           />
-          <span className="text-[12px] font-semibold text-slate-700">Show deleted users</span>
+          <span className="text-[12px] font-semibold text-slate-700">Show deactivated users</span>
         </label>
       </div>
     </div>
@@ -566,12 +578,20 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
             }} />
           )}
           {(!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
+            <>
+            <RowContextMenuItem icon="restart_alt" label="Reactivate" variant="success" onClick={() => {
+              if (confirm(`Reactivate user "${contextMenu.row.name}"?`)) {
+                router.patch(route('admin.users.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
+              }
+              setContextMenu(null);
+            }} />
             <RowContextMenuItem icon="delete" label="Delete permanently" variant="danger" onClick={() => {
               if (confirm(`Permanently delete user "${contextMenu.row.name}"? This cannot be undone.`)) {
                 router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
               }
               setContextMenu(null);
             }} />
+            </>
           )}
         </RowContextMenu>
       )}

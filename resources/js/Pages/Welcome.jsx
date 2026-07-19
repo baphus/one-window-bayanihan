@@ -7,7 +7,6 @@ import FeaturesSection from '@/Components/landing/FeaturesSection';
 import PartnersSection from '@/Components/landing/PartnersSection';
 import FaqSection from '@/Components/landing/FaqSection';
 import HelpCenterSection from '@/Components/landing/HelpCenterSection';
-import AboutSection from '@/Components/landing/AboutSection';
 import TrackerSection from '@/Components/landing/TrackerSection';
 import AppFooter from '@/Components/landing/AppFooter';
 
@@ -38,7 +37,6 @@ export default function Welcome({ agencies }) {
         <PartnersSection agencies={agencies} />
         <HelpCenterSection />
         <FaqSection />
-        <AboutSection />
         <TrackerSection />
       </main>
 

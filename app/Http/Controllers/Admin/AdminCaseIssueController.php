@@ -3,21 +3,28 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\CaseIssue;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class AdminCaseIssueController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $issues = CaseIssue::withCount('caseFiles')
-            ->orderBy('sort_order')
+        $query = CaseIssue::withTrashed()->withCount('caseFiles');
+
+        if (! $request->boolean('show_deleted')) {
+            $query->where('is_deleted', false);
+        }
+
+        $issues = $query->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
         return Inertia::render('Admin/CaseIssue/Index', [
             'issues' => $issues,
+            'filters' => $request->only(['show_deleted']),
         ]);
     }
 
@@ -60,9 +67,36 @@ class AdminCaseIssueController extends Controller
                 ->with('error', 'Cannot delete issue: '.$issue->case_files_count.' case(s) are using it.');
         }
 
-        $issue->update(['is_deleted' => true, 'is_active' => false]);
+        $issue->is_active = false;
+        $issue->delete();
 
         return redirect()->route('admin.case-issues.index')
             ->with('success', 'Issue deleted successfully.');
+    }
+
+    public function reactivate(string $id)
+    {
+        $issue = CaseIssue::withTrashed()->findOrFail($id);
+
+        if ($issue->is_active && ! $issue->is_deleted) {
+            return redirect()->route('admin.case-issues.index')
+                ->with('error', 'Issue is already active.');
+        }
+
+        $issue->is_active = true;
+        $issue->is_deleted = false;
+        $issue->deleted_at = null;
+        $issue->save();
+
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'case_issue',
+            'entity_id' => $issue->id,
+            'user_id' => auth()->id(),
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->route('admin.case-issues.index')
+            ->with('success', 'Issue reactivated successfully.');
     }
 }

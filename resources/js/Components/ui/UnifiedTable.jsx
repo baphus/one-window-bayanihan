@@ -355,7 +355,7 @@ export function UnifiedTable({
                 </button>
 
                 {isAdvancedFiltersOpen && advancedFiltersContent ? (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-h-[calc(100vh-180px)] overflow-y-auto rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg">
                     {advancedFiltersContent}
                   </div>
                 ) : null}
@@ -372,7 +372,7 @@ export function UnifiedTable({
                 </button>
 
                 {isColumnsControlOpen && columnsControlContent ? (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-h-[calc(100vh-180px)] overflow-y-auto rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg">
                     {columnsControlContent}
                   </div>
                 ) : null}

@@ -394,11 +394,11 @@ class CaseService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('case_number', 'like', "%{$search}%")
+                $q->where('case_number', 'ilike', "%{$search}%")
                     ->orWhereHas('client', function ($q) use ($search) {
-                        $q->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+                        $q->where('first_name', 'ilike', "%{$search}%")
+                            ->orWhere('last_name', 'ilike', "%{$search}%")
+                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
                     });
             });
         }
@@ -868,15 +868,15 @@ class CaseService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('case_number', 'like', "%{$search}%")
-                    ->orWhere('tracker_number', 'like', "%{$search}%")
-                    ->orWhere('client_type', 'like', "%{$search}%")
+                $q->where('case_number', 'ilike', "%{$search}%")
+                    ->orWhere('tracker_number', 'ilike', "%{$search}%")
+                    ->orWhere('client_type', 'ilike', "%{$search}%")
                     ->orWhereHas('client', function ($q) use ($search) {
-                        $q->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('middle_initial', 'like', "%{$search}%")
-                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                            ->orWhereRaw("CONCAT(first_name, ' ', middle_initial, ' ', last_name) LIKE ?", ["%{$search}%"]);
+                        $q->where('first_name', 'ilike', "%{$search}%")
+                            ->orWhere('last_name', 'ilike', "%{$search}%")
+                            ->orWhere('middle_initial', 'ilike', "%{$search}%")
+                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"])
+                            ->orWhereRaw("CONCAT(first_name, ' ', middle_initial, ' ', last_name) ILIKE ?", ["%{$search}%"]);
                     });
             });
         }

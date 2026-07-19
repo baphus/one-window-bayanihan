@@ -217,6 +217,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/agencies', [AdminAgencyController::class, 'store'])->name('agencies.store');
         Route::patch('/agencies/{agency}', [AdminAgencyController::class, 'update'])->name('agencies.update');
         Route::delete('/agencies/{agency}', [AdminAgencyController::class, 'destroy'])->name('agencies.destroy');
+        Route::patch('/agencies/{agency}/reactivate', [AdminAgencyController::class, 'reactivate'])->name('agencies.reactivate');
 
         Route::get('/services', [AdminServiceController::class, 'index'])->name('services.index');
         Route::post('/services', [AdminServiceController::class, 'store'])->name('services.store');
@@ -228,6 +229,7 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+        Route::patch('/users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
         Route::patch('/users/{user}/verify', [AdminUserController::class, 'verify'])->name('users.verify');
         Route::post('/users/{user}/email-change/send-otp', [AdminUserController::class, 'sendEmailChangeOtp'])->name('users.email-change.send-otp');
         Route::post('/users/{user}/email-change/verify-otp', [AdminUserController::class, 'verifyEmailChangeOtp'])->name('users.email-change.verify-otp');
@@ -239,6 +241,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/case-categories', [AdminCaseCategoryController::class, 'store'])->name('case-categories.store');
         Route::patch('/case-categories/{caseCategory}', [AdminCaseCategoryController::class, 'update'])->name('case-categories.update');
         Route::delete('/case-categories/{caseCategory}', [AdminCaseCategoryController::class, 'destroy'])->name('case-categories.destroy');
+        Route::patch('/case-categories/{caseCategory}/reactivate', [AdminCaseCategoryController::class, 'reactivate'])->name('case-categories.reactivate');
 
         Route::get('/case-statuses', [AdminCaseStatusController::class, 'index'])->name('case-statuses.index');
         Route::post('/case-statuses', [AdminCaseStatusController::class, 'store'])->name('case-statuses.store');
@@ -249,6 +252,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/case-issues', [AdminCaseIssueController::class, 'store'])->name('case-issues.store');
         Route::patch('/case-issues/{caseIssue}', [AdminCaseIssueController::class, 'update'])->name('case-issues.update');
         Route::delete('/case-issues/{caseIssue}', [AdminCaseIssueController::class, 'destroy'])->name('case-issues.destroy');
+        Route::patch('/case-issues/{caseIssue}/reactivate', [AdminCaseIssueController::class, 'reactivate'])->name('case-issues.reactivate');
 
         Route::get('/data-export', [DataExportController::class, 'index'])->name('data-export.index');
         Route::get('/data-export/export', [DataExportController::class, 'export'])->name('data-export.export');

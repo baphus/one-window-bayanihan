@@ -50,8 +50,8 @@ class PublicSurveyController extends Controller
             ]);
         }
 
-        return redirect()
-            ->back()
-            ->with('success', 'Thank you for completing the survey!');
+        return Inertia::render('Survey/PublicFormSubmitted', [
+            'message' => 'Thank you for completing the survey!',
+        ]);
     }
 }

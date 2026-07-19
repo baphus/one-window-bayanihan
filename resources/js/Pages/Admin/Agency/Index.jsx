@@ -29,7 +29,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
 
   const [showForm, setShowForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState(null);
-  const { UnsavedModal } = useUnsavedChanges(showForm);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
@@ -234,6 +234,18 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                       Deactivate
                     </button>
                   )}
+                  {isAdmin && (!row.is_active || row.is_deleted) && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Reactivate agency "${row.name}"?`)) {
+                          router.patch(route('admin.agencies.reactivate', row.id), {}, { preserveScroll: true });
+                        }
+                      }}
+                      className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200"
+                    >
+                      Reactivate
+                    </button>
+                  )}
                 </div>
               ),
             };
@@ -410,6 +422,14 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
             setEditingAgency(contextMenu.row);
             setContextMenu(null);
           }} />
+          {isAdmin && (!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
+            <RowContextMenuItem icon="restart_alt" label="Reactivate" variant="success" onClick={() => {
+              if (confirm(`Reactivate agency "${contextMenu.row.name}"?`)) {
+                router.patch(route('admin.agencies.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
+              }
+              setContextMenu(null);
+            }} />
+          )}
         </RowContextMenu>
       )}
     </AppLayout>
