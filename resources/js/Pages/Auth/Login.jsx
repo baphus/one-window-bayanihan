@@ -255,154 +255,259 @@ export default function Login({ status, canResetPassword }) {
             <AppHeader minimal />
 
             <main className="min-h-dvh pt-[72px] flex flex-col">
-                <div className="flex-1 flex items-center justify-center p-8">
-                    <div className="w-full max-w-5xl">
-                        <div className="flex flex-col lg:flex-row rounded-lg shadow-2xl bg-surface border border-slate-200 border-l-0 overflow-hidden">
+                <div className="flex-1 flex flex-col lg:flex-row">
 
-                        {/* Left: Branding */}
-                        <div className="lg:w-1/2 relative min-h-[500px] flex flex-col justify-center text-white overflow-hidden">
-                            <div className="absolute inset-0 z-0">
-                                <img
-                                    src="/images/auth/login-bg.jpg"
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-primary/85 mix-blend-multiply" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-primary/40 to-transparent" />
-                            </div>
-
-                            <div className="relative z-10 p-10 lg:p-14">
-                                <div className="mb-8">
-                                    <img src="/logo.png" alt="One Window Bayanihan Logo" className="h-14 w-14 object-contain" />
-                                </div>
-
-                                <h1 className="mb-6 font-headline text-2xl lg:text-3xl font-black leading-tight tracking-tight uppercase">
-                                    One Window<br />Bayanihan
-                                </h1>
-
-                                <div className="h-1 w-16 bg-secondary-container mb-8" />
-
-                                <p className="max-w-xs text-base text-white/80 leading-relaxed font-medium">
-                                    Connecting government agencies for seamless migrant worker assistance across Region VII.
-                                </p>
-                            </div>
+                    {/* Left: Branding */}
+                    <div className="lg:w-[60%] relative min-h-[320px] lg:min-h-full flex flex-col justify-center text-white overflow-hidden">
+                        <div className="absolute inset-0 z-0">
+                            <img
+                                src="/images/auth/login-bg.jpg"
+                                alt=""
+                                className="h-full w-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-primary/85 mix-blend-multiply" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-primary/40 to-transparent" />
                         </div>
 
-                        {/* Right: Form */}
-                        <div className="lg:w-1/2 p-10 lg:p-14 bg-surface">
-                            <div className="mx-auto flex h-[560px] max-w-md flex-col justify-center">
-                            {step === 'login' && (
-                                <div>
-                                    <div className="mb-8">
-                                        <span className="material-symbols-outlined mb-4 block text-primary text-[32px]">
-                                            lock
-                                        </span>
+                        <div className="relative z-10 p-10 lg:p-14">
+                            <div className="mb-8">
+                                <img src="/logo.png" alt="One Window Bayanihan Logo" className="h-14 w-14 object-contain" />
+                            </div>
 
-                                        <h2 className="font-headline text-2xl font-bold text-slate-900">
-                                            Sign In
-                                        </h2>
+                            <h1 className="mb-2 font-serif text-3xl lg:text-4xl font-bold leading-tight tracking-tight">
+                                One Window Bayanihan
+                            </h1>
+                            <p className="mb-6 font-serif text-xl lg:text-2xl uppercase tracking-widest text-white/70">
+                                Assistance Program
+                            </p>
 
-                                        <p className="mt-2 text-sm text-slate-500">
-                                            Sign in using your government account credentials.
-                                        </p>
-                                    </div>
+                            <div className="h-1 w-16 bg-secondary-container mb-8" />
 
-                                    <form onSubmit={handleLoginSubmit} className="space-y-6">
-                                        {loginError && (
-                                            <div className="bg-error-container p-4 border border-error/20 flex items-center gap-3 mb-6">
-                                                <span className="material-symbols-outlined text-error text-[20px]">error</span>
-                                                <p className="text-xs font-semibold text-on-error-container">{loginError}</p>
-                                            </div>
-                                        )}
+                            <p className="max-w-xs text-base text-white/80 leading-relaxed font-medium">
+                                Connecting government agencies for seamless migrant worker assistance across Region VII.
+                            </p>
+                        </div>
+                    </div>
 
-                                        <div>
-                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
-                                            <div className="relative">
-                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
-                                                <input
-                                                    type="email"
-                                                    value={email}
-                                                    onChange={(e) => setEmail(e.target.value)}
-                                                    className="w-full border border-outline bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-none"
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
+                    {/* Right: Form */}
+                    <div className="lg:w-[40%] flex items-center justify-center p-10 lg:p-14 bg-surface">
+                        <div className="w-full max-w-md">
+                        {step === 'login' && (
+                            <div>
+                                <div className="mb-8">
+                                    <span className="material-symbols-outlined mb-4 block text-primary text-[32px]">
+                                        lock
+                                    </span>
 
-                                        <div>
-                                            <div className="flex justify-between mb-2">
-                                                <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password</label>
-                                                {canResetPassword && (
-                                                    <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
-                                                )}
-                                                <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">lock</span>
-                                                <input
-                                                    type={showPassword ? 'text' : 'password'}
-                                                    value={password}
-                                                    onChange={(e) => setPassword(e.target.value)}
-                                                    className="w-full border border-outline bg-surface-container px-4 py-3 pl-12 pr-12 text-sm focus:border-primary focus:outline-none rounded-none"
-                                                    required
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-primary"
-                                                >
-                                                    <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                                                </button>
-                                            </div>
-                                        </div>
+                                    <h2 className="font-headline text-2xl font-bold text-slate-900">
+                                        Sign In
+                                    </h2>
 
-                                        <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
-
-                                        <button
-                                            type="submit"
-                                            disabled={processing}
-                                            className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
-                                        >
-                                            {processing ? 'Verifying...' : 'Sign In'}
-                                        </button>
-                                    </form>
+                                    <p className="mt-2 text-sm text-slate-500">
+                                        Sign in using your government account credentials.
+                                    </p>
                                 </div>
-                            )}
 
-                            {step === 'otp' && (
-                                <div className="max-w-md mx-auto text-center">
-                                    <div className="mb-10 flex flex-col items-center gap-4">
-                                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/15 bg-primary/10 text-primary">
-                                            <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>verified_user</span>
+                                <form onSubmit={handleLoginSubmit} className="space-y-6">
+                                    {loginError && (
+                                        <div className="bg-error-container p-4 border border-error/20 flex items-center gap-3 mb-6">
+                                            <span className="material-symbols-outlined text-error text-[20px]">error</span>
+                                            <p className="text-xs font-semibold text-on-error-container">{loginError}</p>
                                         </div>
-                                        <h2 className="font-headline text-2xl font-bold text-slate-900">
-                                            Verify Your Identity
-                                        </h2>
-                                        <p className="text-sm text-on-surface-variant leading-relaxed">
-                                            For security, enter the 6-digit verification code sent to <span className="font-bold text-on-surface">{hint}</span>
-                                        </p>
+                                    )}
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
+                                            <input
+                                                type="email"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                className="w-full border border-outline-variant bg-surface-container px-4-1 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-none"
+                                                required
+                                            />
+                                        </div>
                                     </div>
 
-                                    <form onSubmit={handleVerifyOtp}>
-                                        <div className="mb-10 flex justify-center gap-3" onPaste={handlePaste}>
-                                            {otp.map((digit, idx) => (
+                                    <div>
+                                        <div className="flex justify-between mb-2">
+                                            <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password</label>
+                                            {canResetPassword && (
+                                                <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
+                                            )}
+                                            <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
+                                        </div>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">lock</span>
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 pr-12 text-sm focus:border-primary focus:outline-none rounded-none"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-primary"
+                                            >
+                                                <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                    >
+                                        {processing ? 'Verifying...' : 'Sign In'}
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {step === 'otp' && (
+                            <div className="max-w-md mx-auto text-center">
+                                <div className="mb-10 flex flex-col items-center gap-4">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/15 bg-primary/10 text-primary">
+                                        <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>verified_user</span>
+                                    </div>
+                                    <h2 className="font-headline text-2xl font-bold text-slate-900">
+                                        Verify Your Identity
+                                    </h2>
+                                    <p className="text-sm text-on-surface-variant leading-relaxed">
+                                        For security, enter the 6-digit verification code sent to <span className="font-bold text-on-surface">{hint}</span>
+                                    </p>
+                                </div>
+
+                                <form onSubmit={handleVerifyOtp}>
+                                    <div className="mb-10 flex justify-center gap-3" onPaste={handlePaste}>
+                                        {otp.map((digit, idx) => (
+                                            <input
+                                                key={idx}
+                                                ref={(el) => { otpRefs.current[idx] = el; }}
+                                                type="text"
+                                                inputMode="numeric"
+                                                autoComplete="one-time-code"
+                                                maxLength={1}
+                                                value={digit}
+                                                onChange={(e) => handleOtpChange(idx, e.target.value)}
+                                                onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                                                className="h-14 w-12 border border-outline-variant bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
+                                            />
+                                        ))}
+                                    </div>
+
+                                    {otpError && (
+                                        <p className="text-xs font-semibold text-error mb-4">{otpError}</p>
+                                    )}
+
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                    >
+                                        {processing ? 'Verifying...' : 'Verify & Continue'}
+                                    </button>
+                                </form>
+
+                                <div className="mt-6 text-center">
+                                    <button
+                                        type="button"
+                                        onClick={handleResendOtp}
+                                        disabled={resendCooldown > 0 || processing}
+                                        className="text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {resendCooldown > 0 ? (
+                                            <span className="text-on-surface-variant">
+                                                Resend code in <span className="text-primary">{resendCooldown}s</span>
+                                            </span>
+                                        ) : (
+                                            <span className="text-primary hover:text-primary/80 underline underline-offset-2">
+                                                Resend code
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+
+                                {debug_otp && (
+                                    <div className="mt-4 rounded bg-amber-50 border border-amber-300 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">
+                                        Debug Mode — OTP: {debug_otp}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => { setStep('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); autoFilled.current = false; }}
+                                    className="mt-8 flex items-center justify-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary mx-auto transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                                    Return to Login
+                                </button>
+                            </div>
+                        )}
+
+                        {step === 'mfa-challenge' && (
+                            <div className="max-w-md mx-auto text-center">
+                                <div className="mb-8 flex flex-col items-center gap-4">
+                                    <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                                        <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>security</span>
+                                    </div>
+                                    <h2 className="font-headline text-2xl font-black uppercase text-primary">VERIFY YOUR SIGN-IN</h2>
+                                    <p className="text-sm text-on-surface-variant leading-relaxed max-w-sm">
+                                        Choose how to verify this sign-in for <span className="font-bold text-on-surface">{hint}</span>. Use an authenticator app or receive a one-time code by email.
+                                    </p>
+                                </div>
+
+                                <div className="mb-6 grid grid-cols-2 gap-2 rounded-none border border-outline-variant p-2 bg-surface-container/60">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setMfaMode('totp'); setOtp(['', '', '', '', '', '']); setOtpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); }}
+                                        className={`flex flex-col items-center gap-1 px-3 py-3 text-left transition-colors ${mfaMode === 'totp' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
+                                        aria-pressed={mfaMode === 'totp'}
+                                    >
+                                        <span className="material-symbols-outlined text-[20px]">smartphone</span>
+                                        <span className="text-xs font-bold uppercase tracking-wide">Authenticator</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectMfaEmail}
+                                        className={`flex flex-col items-center gap-1 px-3 py-3 text-left transition-colors ${mfaMode === 'email' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
+                                        aria-pressed={mfaMode === 'email'}
+                                    >
+                                        <span className="material-symbols-outlined text-[20px]">mail</span>
+                                        <span className="text-xs font-bold uppercase tracking-wide">Email Code</span>
+                                    </button>
+                                </div>
+
+                                {mfaMode === 'totp' ? (
+                                    <form onSubmit={handleVerifyTotp}>
+                                        <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                                            Enter the 6-digit code from Google Authenticator, Microsoft Authenticator, Authy, or another TOTP app.
+                                        </p>
+                                        <div className="mb-8 flex justify-center gap-3" onPaste={handleMfaPaste}>
+                                            {mfaTotp.map((digit, idx) => (
                                                 <input
                                                     key={idx}
-                                                    ref={(el) => { otpRefs.current[idx] = el; }}
+                                                    ref={(el) => { mfaTotpRefs.current[idx] = el; }}
                                                     type="text"
                                                     inputMode="numeric"
                                                     autoComplete="one-time-code"
                                                     maxLength={1}
                                                     value={digit}
-                                                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                                                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                                                    className="h-14 w-12 border border-outline bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
+                                                    onChange={(e) => handleMfaTotpChange(idx, e.target.value)}
+                                                    onKeyDown={(e) => handleMfaTotpKeyDown(idx, e)}
+                                                    className="h-14 w-12 border border-outline-variant bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
                                                 />
                                             ))}
                                         </div>
 
-                                        {otpError && (
-                                            <p className="text-xs font-semibold text-error mb-4">{otpError}</p>
+                                        {mfaTotpError && (
+                                            <p className="text-xs font-semibold text-error mb-4">{mfaTotpError}</p>
                                         )}
 
                                         <button
@@ -413,245 +518,139 @@ export default function Login({ status, canResetPassword }) {
                                             {processing ? 'Verifying...' : 'Verify & Continue'}
                                         </button>
                                     </form>
-
-                                    <div className="mt-6 text-center">
-                                        <button
-                                            type="button"
-                                            onClick={handleResendOtp}
-                                            disabled={resendCooldown > 0 || processing}
-                                            className="text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            {resendCooldown > 0 ? (
-                                                <span className="text-on-surface-variant">
-                                                    Resend code in <span className="text-primary">{resendCooldown}s</span>
-                                                </span>
-                                            ) : (
-                                                <span className="text-primary hover:text-primary/80 underline underline-offset-2">
-                                                    Resend code
-                                                </span>
-                                            )}
-                                        </button>
-                                    </div>
-
-                                    {debug_otp && (
-                                        <div className="mt-4 rounded bg-amber-50 border border-amber-300 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">
-                                            Debug Mode — OTP: {debug_otp}
-                                        </div>
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        onClick={() => { setStep('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); autoFilled.current = false; }}
-                                        className="mt-8 flex items-center justify-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary mx-auto transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                                        Return to Login
-                                    </button>
-                                </div>
-                            )}
-
-                            {step === 'mfa-challenge' && (
-                                <div className="max-w-md mx-auto text-center">
-                                    <div className="mb-8 flex flex-col items-center gap-4">
-                                        <div className="h-20 w-20 bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                                            <span className="material-symbols-outlined text-[40px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>security</span>
-                                        </div>
-                                        <h2 className="font-headline text-2xl font-black uppercase text-primary">VERIFY YOUR SIGN-IN</h2>
-                                        <p className="text-sm text-on-surface-variant leading-relaxed max-w-sm">
-                                            Choose how to verify this sign-in for <span className="font-bold text-on-surface">{hint}</span>. Use an authenticator app or receive a one-time code by email.
+                                ) : mfaMode === 'email' ? (
+                                    <form onSubmit={handleVerifyOtp}>
+                                        <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                                            {mfaEmailSent ? `Enter the 6-digit code sent to ${hint}.` : 'Send a one-time code to your registered email address.'}
                                         </p>
-                                    </div>
 
-                                    <div className="mb-6 grid grid-cols-2 gap-2 rounded-none border border-outline p-2 bg-surface-container/60">
-                                        <button
-                                            type="button"
-                                            onClick={() => { setMfaMode('totp'); setOtp(['', '', '', '', '', '']); setOtpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); }}
-                                            className={`flex flex-col items-center gap-1 px-3 py-3 text-left transition-colors ${mfaMode === 'totp' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
-                                            aria-pressed={mfaMode === 'totp'}
-                                        >
-                                            <span className="material-symbols-outlined text-[20px]">smartphone</span>
-                                            <span className="text-xs font-bold uppercase tracking-wide">Authenticator</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleSelectMfaEmail}
-                                            className={`flex flex-col items-center gap-1 px-3 py-3 text-left transition-colors ${mfaMode === 'email' ? 'bg-primary text-on-primary shadow-lg' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
-                                            aria-pressed={mfaMode === 'email'}
-                                        >
-                                            <span className="material-symbols-outlined text-[20px]">mail</span>
-                                            <span className="text-xs font-bold uppercase tracking-wide">Email Code</span>
-                                        </button>
-                                    </div>
-
-                                    {mfaMode === 'totp' ? (
-                                        <form onSubmit={handleVerifyTotp}>
-                                            <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                                                Enter the 6-digit code from Google Authenticator, Microsoft Authenticator, Authy, or another TOTP app.
-                                            </p>
-                                            <div className="mb-8 flex justify-center gap-3" onPaste={handleMfaPaste}>
-                                                {mfaTotp.map((digit, idx) => (
+                                        {mfaEmailSent && (
+                                            <div className="mb-8 flex justify-center gap-3" onPaste={handlePaste}>
+                                                {otp.map((digit, idx) => (
                                                     <input
                                                         key={idx}
-                                                        ref={(el) => { mfaTotpRefs.current[idx] = el; }}
+                                                        ref={(el) => { otpRefs.current[idx] = el; }}
                                                         type="text"
                                                         inputMode="numeric"
                                                         autoComplete="one-time-code"
                                                         maxLength={1}
                                                         value={digit}
-                                                        onChange={(e) => handleMfaTotpChange(idx, e.target.value)}
-                                                        onKeyDown={(e) => handleMfaTotpKeyDown(idx, e)}
-                                                        className="h-14 w-12 border border-outline bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
+                                                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                                                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                                                        className="h-14 w-12 border border-outline-variant bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
                                                     />
                                                 ))}
                                             </div>
+                                        )}
 
-                                            {mfaTotpError && (
-                                                <p className="text-xs font-semibold text-error mb-4">{mfaTotpError}</p>
-                                            )}
+                                        {otpError && (
+                                            <p className="text-xs font-semibold text-error mb-4">{otpError}</p>
+                                        )}
 
-                                            <button
-                                                type="submit"
-                                                disabled={processing}
-                                                className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
-                                            >
-                                                {processing ? 'Verifying...' : 'Verify & Continue'}
-                                            </button>
-                                        </form>
-                                    ) : mfaMode === 'email' ? (
-                                        <form onSubmit={handleVerifyOtp}>
-                                            <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                                                {mfaEmailSent ? `Enter the 6-digit code sent to ${hint}.` : 'Send a one-time code to your registered email address.'}
-                                            </p>
+                                        {debug_otp && mfaEmailSent && (
+                                            <div className="mb-4 rounded bg-amber-50 border border-amber-300 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">
+                                                Debug Mode — OTP: {debug_otp}
+                                            </div>
+                                        )}
 
-                                            {mfaEmailSent && (
-                                                <div className="mb-8 flex justify-center gap-3" onPaste={handlePaste}>
-                                                    {otp.map((digit, idx) => (
-                                                        <input
-                                                            key={idx}
-                                                            ref={(el) => { otpRefs.current[idx] = el; }}
-                                                            type="text"
-                                                            inputMode="numeric"
-                                                            autoComplete="one-time-code"
-                                                            maxLength={1}
-                                                            value={digit}
-                                                            onChange={(e) => handleOtpChange(idx, e.target.value)}
-                                                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                                                            className="h-14 w-12 border border-outline bg-surface-container text-center text-xl font-bold focus:border-primary focus:outline-none rounded-none"
-                                                        />
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {otpError && (
-                                                <p className="text-xs font-semibold text-error mb-4">{otpError}</p>
-                                            )}
-
-                                            {debug_otp && mfaEmailSent && (
-                                                <div className="mb-4 rounded bg-amber-50 border border-amber-300 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">
-                                                    Debug Mode — OTP: {debug_otp}
-                                                </div>
-                                            )}
-
-                                            {mfaEmailSent ? (
-                                                <>
-                                                    <button
-                                                        type="submit"
-                                                        disabled={processing}
-                                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
-                                                    >
-                                                        {processing ? 'Verifying...' : 'Verify Email Code'}
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleResendOtp}
-                                                        disabled={resendCooldown > 0 || processing}
-                                                        className="mt-5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        {resendCooldown > 0 ? (
-                                                            <span className="text-on-surface-variant">
-                                                                Resend code in <span className="text-primary">{resendCooldown}s</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-primary hover:text-primary/80 underline underline-offset-2">
-                                                                Resend code
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                </>
-                                            ) : (
+                                        {mfaEmailSent ? (
+                                            <>
                                                 <button
-                                                    type="button"
-                                                    onClick={handleSelectMfaEmail}
+                                                    type="submit"
                                                     disabled={processing}
                                                     className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
                                                 >
-                                                    {processing ? 'Sending...' : 'Send Email Code'}
+                                                    {processing ? 'Verifying...' : 'Verify Email Code'}
                                                 </button>
-                                            )}
-                                        </form>
-                                    ) : (
-                                        <form onSubmit={handleVerifyRecoveryCode}>
-                                            <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                                                Use this only if you cannot access your authenticator app or email.
-                                            </p>
-                                            <div className="mb-6">
-                                                <input
-                                                    type="text"
-                                                    value={mfaRecoveryCode}
-                                                    onChange={(e) => { setMfaRecoveryCode(e.target.value.toUpperCase()); setMfaRecoveryError(''); }}
-                                                    placeholder="XXXX-XXXX-XXXX"
-                                                    className="w-full border border-outline bg-surface-container px-4 py-3 text-center text-lg font-mono font-bold tracking-widest focus:border-primary focus:outline-none rounded-none uppercase"
-                                                    disabled={processing}
-                                                    autoComplete="off"
-                                                />
-                                            </div>
 
-                                            {mfaRecoveryError && (
-                                                <p className="text-xs font-semibold text-error mb-4">{mfaRecoveryError}</p>
-                                            )}
-
+                                                <button
+                                                    type="button"
+                                                    onClick={handleResendOtp}
+                                                    disabled={resendCooldown > 0 || processing}
+                                                    className="mt-5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    {resendCooldown > 0 ? (
+                                                        <span className="text-on-surface-variant">
+                                                            Resend code in <span className="text-primary">{resendCooldown}s</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-primary hover:text-primary/80 underline underline-offset-2">
+                                                            Resend code
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            </>
+                                        ) : (
                                             <button
-                                                type="submit"
+                                                type="button"
+                                                onClick={handleSelectMfaEmail}
                                                 disabled={processing}
                                                 className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
                                             >
-                                                {processing ? 'Verifying...' : 'Verify Recovery Code'}
+                                                {processing ? 'Sending...' : 'Send Email Code'}
                                             </button>
-                                        </form>
-                                    )}
-
-                                    {mfaMode !== 'recovery' && (
-                                        <div className="mt-5 text-center">
-                                            <button
-                                                type="button"
-                                                onClick={() => { setMfaMode('recovery'); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setOtp(['', '', '', '', '', '']); setOtpError(''); }}
-                                                className="text-xs font-bold text-primary hover:text-primary/80 underline underline-offset-2"
-                                            >
-                                                Use a recovery code instead
-                                            </button>
+                                        )}
+                                    </form>
+                                ) : (
+                                    <form onSubmit={handleVerifyRecoveryCode}>
+                                        <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                                            Use this only if you cannot access your authenticator app or email.
+                                        </p>
+                                        <div className="mb-6">
+                                            <input
+                                                type="text"
+                                                value={mfaRecoveryCode}
+                                                onChange={(e) => { setMfaRecoveryCode(e.target.value.toUpperCase()); setMfaRecoveryError(''); }}
+                                                placeholder="XXXX-XXXX-XXXX"
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-center text-lg font-mono font-bold tracking-widest focus:border-primary focus:outline-none rounded-none uppercase"
+                                                disabled={processing}
+                                                autoComplete="off"
+                                            />
                                         </div>
-                                    )}
 
-                                    <button
-                                        type="button"
-                                        onClick={() => { setStep('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); setMfaMode('totp'); setMfaEmailSent(false); }}
-                                        className="mt-8 flex items-center justify-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary mx-auto transition-colors"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                                        Return to Login
-                                    </button>
-                                </div>
-                            )}
+                                        {mfaRecoveryError && (
+                                            <p className="text-xs font-semibold text-error mb-4">{mfaRecoveryError}</p>
+                                        )}
 
+                                        <button
+                                            type="submit"
+                                            disabled={processing}
+                                            className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                        >
+                                            {processing ? 'Verifying...' : 'Verify Recovery Code'}
+                                        </button>
+                                    </form>
+                                )}
+
+                                {mfaMode !== 'recovery' && (
+                                    <div className="mt-5 text-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setMfaMode('recovery'); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setOtp(['', '', '', '', '', '']); setOtpError(''); }}
+                                            className="text-xs font-bold text-primary hover:text-primary/80 underline underline-offset-2"
+                                        >
+                                            Use a recovery code instead
+                                        </button>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => { setStep('login'); setOtp(['', '', '', '', '', '']); setOtpError(''); setMfaTotp(['', '', '', '', '', '']); setMfaTotpError(''); setMfaRecoveryCode(''); setMfaRecoveryError(''); setMfaMode('totp'); setMfaEmailSent(false); }}
+                                    className="mt-8 flex items-center justify-center gap-2 text-sm font-bold text-on-surface-variant hover:text-primary mx-auto transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                                    Return to Login
+                                </button>
                             </div>
+                        )}
+
                         </div>
                     </div>
                 </div>
-            </div>
-        </main>
+            </main>
 
-        <AppFooter />
+            <AppFooter />
         </div>
     );
 }

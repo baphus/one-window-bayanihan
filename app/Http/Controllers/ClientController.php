@@ -76,14 +76,14 @@ class ClientController extends Controller
         if (! empty($request->search)) {
             $search = $request->search;
             $clients->where(function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('middle_initial', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('contact_number', 'like', "%{$search}%")
+                $q->where('first_name', 'ilike', "%{$search}%")
+                    ->orWhere('last_name', 'ilike', "%{$search}%")
+                    ->orWhere('middle_initial', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%")
+                    ->orWhere('contact_number', 'ilike', "%{$search}%")
                     ->orWhereHas('caseFile', function ($q) use ($search) {
-                        $q->where('case_number', 'like', "%{$search}%")
-                            ->orWhere('tracker_number', 'like', "%{$search}%");
+                        $q->where('case_number', 'ilike', "%{$search}%")
+                            ->orWhere('tracker_number', 'ilike', "%{$search}%");
                     });
             });
         }

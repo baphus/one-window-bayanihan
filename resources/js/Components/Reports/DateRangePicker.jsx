@@ -58,7 +58,7 @@ export default function DateRangePicker({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex items-center gap-1.5 flex-nowrap">
       <CalendarRange className="h-4 w-4 text-slate-400 shrink-0" />
       <div className="inline-flex overflow-hidden rounded-[2px] divide-x divide-slate-300" style={{ border: `1px solid ${COLORS.border}` }}>
         {quickOptions.map((option) => {

@@ -82,7 +82,9 @@ class PublicSurveyTest extends TestCase
         $question = $invitation->surveyForm->questions->first();
         $payload = ['answers' => [['question_id' => $question->id, 'answer' => 'Great']]];
 
-        $this->post(route('survey.public.submit', $token), $payload)->assertRedirect();
+        $this->post(route('survey.public.submit', $token), $payload)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Survey/PublicFormSubmitted'));
         $this->assertDatabaseHas('survey_responses', ['survey_invitation_id' => $invitation->id]);
         $this->assertNotNull($invitation->fresh()->submitted_at);
         $this->post(route('survey.public.submit', $token), $payload)
@@ -98,7 +100,8 @@ class PublicSurveyTest extends TestCase
 
         $this->post(route('survey.public.submit', $token), [
             'answers' => [['question_id' => $question->id, 'answer' => 'Still valid']],
-        ])->assertRedirect();
+        ])->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Survey/PublicFormSubmitted'));
 
         $this->assertNotNull($invitation->fresh()->submitted_at);
     }
@@ -121,7 +124,9 @@ class PublicSurveyTest extends TestCase
             ['question_id' => $questions[4]->id, 'selected_options' => ['Fast', 'Friendly']],
         ];
 
-        $this->post(route('survey.public.submit', $token), ['answers' => $answers])->assertRedirect();
+        $this->post(route('survey.public.submit', $token), ['answers' => $answers])
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Survey/PublicFormSubmitted'));
         $persisted = SurveyResponse::where('survey_invitation_id', $invitation->id)
             ->get(['survey_question_id', 'answer', 'selected_options'])
             ->keyBy('survey_question_id');
@@ -217,7 +222,9 @@ class PublicSurveyTest extends TestCase
     public function test_optional_only_form_accepts_an_empty_answer_array(): void
     {
         [$invitation, $token] = $this->invitation([['type' => 'text', 'is_required' => false]]);
-        $this->post(route('survey.public.submit', $token), ['answers' => []])->assertRedirect();
+        $this->post(route('survey.public.submit', $token), ['answers' => []])
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Survey/PublicFormSubmitted'));
         $this->assertNotNull($invitation->fresh()->submitted_at);
     }
 
@@ -227,7 +234,9 @@ class PublicSurveyTest extends TestCase
         $question = $invitation->surveyForm->questions->first();
         $this->post(route('survey.public.submit', $token), [
             'answers' => [['question_id' => $question->id, 'answer' => '']],
-        ])->assertRedirect();
+        ])
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Survey/PublicFormSubmitted'));
         $this->assertNotNull($invitation->fresh()->submitted_at);
     }
 

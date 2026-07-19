@@ -126,7 +126,7 @@ function StatusForm({ status, onClose, onBypass }) {
 export default function CaseStatusIndex({ statuses }) {
   const [showForm, setShowForm] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
-  const { UnsavedModal } = useUnsavedChanges(showForm);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const [contextMenu, setContextMenu] = useState(null);
 
   const handleRowContextMenu = (e, row) => {

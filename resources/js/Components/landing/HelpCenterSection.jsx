@@ -44,7 +44,7 @@ export default function HelpCenterSection() {
           </span>
         </div>
 
-        <h2 className="mb-4 text-center font-headline text-3xl font-extrabold text-slate-900 md:text-4xl">
+        <h2 className="mb-4 text-center font-headline text-2xl font-extrabold text-slate-900 md:text-3xl">
           Help Center
         </h2>
         <p className="mx-auto mb-12 max-w-2xl text-center text-base leading-relaxed text-slate-500">

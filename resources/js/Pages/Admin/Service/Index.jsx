@@ -12,7 +12,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
-  const { UnsavedModal } = useUnsavedChanges(showForm);
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
   function handleRowContextMenu(e, row) {
