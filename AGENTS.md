@@ -1,6 +1,6 @@
 # One Window Bayanihan
 
-Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL/Supabase, Tailwind CSS 3, Vite 8, PHP 8.3.
+Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL/Supabase, Tailwind CSS 3, Vite 8, PHP 8.4 (Docker) / 8.3+ (local).
 
 ## Commands
 
@@ -17,6 +17,8 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 | `npm test` | Vitest watch mode |
 | `npm run test:run` | Vitest one-shot |
 | `npm run addresses:sync` | Sync Philippine PSGC address data |
+| `docker compose up -d` | Full local stack (nginx + app + queue + scheduler + Postgres + Redis) |
+| `docker compose --profile migrate run migrate` | Run migrations against local Docker DB |
 
 ## Entrypoints and routing
 
@@ -25,7 +27,21 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 - Auth routes live in `routes/auth.php`; login is custom OTP/MFA via `LoginOtpController`, not default Breeze login flow.
 - Authenticated app routes live in `routes/web.php`. Some session-authenticated `api/*` endpoints are defined there, so do not assume every API-looking route is in `routes/api.php`.
 - Public API routes in `routes/api.php` are only PSGC address lookup and CSP report endpoints, throttled and unauthenticated.
-- Middleware, aliases, routing, and exception rendering are configured in `bootstrap/app.php`, not `app/Http/Kernel.php`.
+- Middleware, aliases, routing, and exception rendering (custom 404/403/500 Inertia pages) are configured in `bootstrap/app.php`, not `app/Http/Kernel.php`.
+
+## CI/CD pipelines (`.github/workflows/`)
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | PR to `main` | Pint lint, Composer audit, NPM audit, build, backend tests (PG 17), frontend tests |
+| `deploy-staging.yml` | Push to `main` + manual | Tests, `npx tsc --noEmit` (continue-on-error), deploy to Render staging, Slack notify |
+| `deploy-production.yml` | Manual (must type "deploy-production") | Tests, deploy to Render production, health gate, Slack notify |
+| `reset-staging-data.yml` | Daily 2AM UTC + manual | Trigger Render deploy with cache clear to reseed staging DB |
+
+- CI uses PHP 8.4, Node 24, Postgres 17 service container.
+- Staging deploy includes TypeScript check (`npx tsc --noEmit`) but failures don't block.
+- Production requires explicit `workflow_dispatch` with confirmation string.
+- All deploys target Render via REST API (`api.render.com/v1/services/...`).
 
 ## Backend conventions
 
@@ -35,24 +51,25 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 - Audit logging belongs in the service layer with `AuditLog::log(...)`; models may define `$auditExclude` and `getAuditModuleName()`.
 - RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`). Admin areas also use `ip.whitelist`.
 - Global/web middleware includes PostgreSQL session context, log context, security headers, CSP, active-user/MFA checks, and Inertia shared props.
+- AI chatbot uses SQLite FTS5 for retrieval (no vector DB); refresh index via `php artisan chatbot:index`.
 
 ## Frontend conventions
 
 - Components are default exports in PascalCase `.jsx` files unless an existing `.tsx` file already owns the area.
 - Use Inertia `useForm()` for mutations, `Link`/`router` for navigation, and Ziggy `route()` for URLs.
 - Tailwind utilities only; design tokens are in `tailwind.config.js`. Material Symbols are the primary icon style.
-- The app is wrapped in `ErrorBoundary`, TanStack `QueryClientProvider` (5 minute stale time), `ToastProvider`, and `OnboardingProvider`.
+- The app is wrapped in `ErrorBoundary`, TanStack `QueryClientProvider` (5 minute stale time, 30 min gcTime, 1 retry, no refetch on focus), `ToastProvider`, and `OnboardingProvider`.
 - Flash messages from backend redirects auto-toast through shared `props.flash`; do not add `seenRef`/dedupe state that suppresses normal navigation flash.
 - Form pages should use `useUnsavedChanges(dirty)` plus `UnsavedChangesModal`. Inertia `router.on('before')` receives a `CustomEvent`; read `event.detail.visit`.
 
 ## Tests and environment gotchas
 
-- PHPUnit uses PostgreSQL database `bayanihan_test` from `phpunit.xml`; ensure it exists before PHP test runs.
+- PHPUnit uses PostgreSQL database `bayanihan_test` from `phpunit.xml`; ensure it exists before PHP test runs. `DB_SSLMODE=disable` in test config.
 - `phpunit.xml` overrides queue/cache/session/storage to sync/array/local, including fake Supabase S3 credentials.
 - Reports/dashboard code uses PostgreSQL functions (`to_char`, `EXTRACT`, `age`); tests need PostgreSQL-compatible data, not SQLite assumptions.
 - `.npmrc` sets `ignore-scripts=true`; use npm and `package-lock.json`, not alternate package managers.
 - `composer run dev` intentionally omits `php artisan pail` because `pcntl` is unavailable on Windows.
-- Vite has a custom pre-resolve `util`/`node:util` stub (`resources/js/vendor-stubs/util-stub.js`) for Rolldown/Vite 8 builds; do not remove it as “unused”.
+- Vite has a custom pre-resolve `util`/`node:util` stub (`resources/js/vendor-stubs/util-stub.js`) for Rolldown/Vite 8 builds; do not remove it as "unused".
 - `.env.example` is generic, but local deployments commonly use database-backed cache, queue, and sessions; verify the active `.env` before changing async/cache behavior.
 
 ## Docs worth checking
@@ -62,4 +79,6 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 - `docs/TESTING_STRATEGY.md` for focused test commands and coverage expectations.
 - `docs/API_CONTRACTS.md` for all ~164 routes with middleware.
 - `docs/DATA_MODEL.md` for complete database schema (31 tables).
+- `docs/SECURITY_REQUIREMENTS.md` for auth, RBAC, MFA, encryption details.
+- `docs/CI_CD_GUIDE.md` for Docker-based CI and deployment workflows.
 - `instructions.md` is stale Copilot-era guidance; prefer executable config and current `docs/` files.

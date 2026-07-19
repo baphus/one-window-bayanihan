@@ -12,7 +12,7 @@ class CaseCategoryFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->word(),
+            'name' => $this->faker->unique()->word(),
             'description' => $this->faker->sentence(),
             'color' => $this->faker->hexColor(),
             'sort_order' => $this->faker->numberBetween(0, 100),

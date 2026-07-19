@@ -441,8 +441,9 @@ class DashboardService
             ");
 
             // Cast to arrays: objects from DB::selectOne silently break across
-            // serialized cache drivers (redis/file/database) — causing an
-            // infinite 409-reload loop.
+            // serialized cache drivers (redis/file/database) — the cached
+            // payload must be plain arrays or scalars to avoid incomplete-object
+            // corruption that causes an infinite 409-reload loop.
             return [(array) $caseCounts, (array) $refCounts];
         });
         $totalCases = (int) ($caseCounts['total'] ?? 0);
@@ -461,8 +462,7 @@ class DashboardService
 
         // Unique client count + OFW/NOK split via DB query (avoids loading all clients into memory)
         $clientCounts = CacheHelper::safeRemember('dashboard:cm_client_counts', 120, function () {
-            // Cast to array: objects from DB::selectOne silently corrupt
-            // across serialized cache drivers, causing a 409-reload loop.
+            // Cache only arrays/scalars, never DB result objects.
             return (array) DB::selectOne('
                 SELECT
                     COUNT(DISTINCT c.client_id) AS total,
@@ -550,7 +550,7 @@ class DashboardService
                 FROM cases WHERE status = 'CLOSED' AND is_deleted = false
             ");
 
-            return round((float) ($result->avg_days ?? 0), 1);
+            return round((float) (($result->avg_days ?? 0)), 1);
         });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:cm_cases_by_category', 300, function () {
@@ -656,8 +656,7 @@ class DashboardService
         // Single aggregated query for agency referral counts (cached 60s)
         $countsKey = 'dashboard:agency_counts:'.$agencyId;
         $refCounts = CacheHelper::safeRemember($countsKey, 60, function () use ($agencyId) {
-            // Cast to array: objects from DB::selectOne silently corrupt
-            // across serialized cache drivers, causing a 409-reload loop.
+            // Cache only arrays/scalars, never DB result objects.
             return (array) DB::selectOne("
                 SELECT
                     COUNT(*) AS total,

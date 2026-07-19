@@ -18,14 +18,17 @@ class CacheHelper
         try {
             $value = Cache::remember($key, $ttl, $callback);
 
-            // PHP's unserialize() may return __PHP_Incomplete_Class silently
-            // (no exception) when the class isn't autoloaded yet — commonly
-            // seen with the database cache driver after bootstrap changes.
-            // Treat the stale entry as a miss so the callback re-runs fresh.
-            if (is_object($value) && get_class($value) === '__PHP_Incomplete_Class') {
-                Cache::forget($key);
+            // If a cached object corrupted into a __PHP_Incomplete_Class
+            // (from serialization glitches, PHP version changes, or
+            // partial writes), evict the stale entry and recompute.
+            if ($value instanceof \stdClass || static::isIncompleteClass($value)) {
+                if (static::isIncompleteClass($value)) {
+                    Cache::forget($key);
 
-                return $callback();
+                    return $callback();
+                }
+
+                return (object) (array) $value;
             }
 
             return $value;
@@ -34,5 +37,19 @@ class CacheHelper
 
             return $callback();
         }
+    }
+
+    /**
+     * Detect a __PHP_Incomplete_Class — a cached object that failed to
+     * unserialize properly (e.g. due to class definition mismatch, PHP
+     * version change, or partial cache write).
+     */
+    private static function isIncompleteClass(mixed $value): bool
+    {
+        if (! is_object($value) || get_class($value) !== '__PHP_Incomplete_Class') {
+            return false;
+        }
+
+        return true;
     }
 }
