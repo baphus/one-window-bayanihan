@@ -37,6 +37,16 @@ class ReportsService
         ?string $province = null,
         ?string $city = null,
     ): array {
+        // Do this before constructing or reading the cache key.  An unassigned
+        // scoped user must never be able to receive a cached report generated
+        // for another identity.
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            $empty = $this->emptyPayload($role);
+            $empty['role'] = $role;
+
+            return $empty;
+        }
+
         // Build cache key from all parameters that affect the output
         $cacheKey = 'reports:payload:'.md5(implode('|', [
             $userId ?? '', $role ?? '', $agencyId ?? '',
@@ -284,16 +294,10 @@ class ReportsService
 
     public function getClientTypeDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('cases.user_id', $userId);
-        }
-        if ($agencyId) {
-            $query->whereIn('cases.id', function ($q) use ($agencyId) {
-                $q->select('case_id')->from('referrals')
-                    ->where('agcy_id', $agencyId)
-                    ->whereNull('deleted_at');
-            });
+        $query = $this->caseQuery($userId, $role, $agencyId);
+
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            return ['labels' => [], 'data' => [], 'colors' => []];
         }
 
         $types = (clone $query)
@@ -362,6 +366,9 @@ class ReportsService
     private function caseQuery(?string $userId = null, ?string $role = null, ?string $agencyId = null, string $dateScope = 'case_created_at')
     {
         $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            return $query->whereRaw('1 = 0');
+        }
         if ($role === 'CASE_MANAGER' && $userId) {
             $query->where('cases.user_id', $userId);
         }
@@ -379,6 +386,10 @@ class ReportsService
     private function referralQuery(?string $userId = null, ?string $role = null, ?string $agencyId = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at')
     {
         $query = Referral::query();
+
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            return $query->whereRaw('1 = 0');
+        }
 
         if ($agencyId) {
             $query->where('referrals.agcy_id', $agencyId);
@@ -996,30 +1007,8 @@ class ReportsService
     {
         // Use Eloquent so the EncryptedString cast decrypts last_country.
         // DB::table() bypasses casts and returns raw ciphertext for encrypted rows.
-        $query = ClientEmployment::query()
-            ->whereNotNull('last_country')
-            ->where('is_deleted', false);
-
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->whereIn('client_id', function ($q) use ($userId) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->where('user_id', $userId)
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
-        if ($agencyId) {
-            $query->whereIn('client_id', function ($q) use ($agencyId) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->whereIn('cases.id', function ($q2) use ($agencyId) {
-                        $q2->select('case_id')->from('referrals')
-                            ->where('agcy_id', $agencyId)
-                            ->whereNull('deleted_at');
-                    })
-                    ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
+        $query = $this->employmentQuery($userId, $role, $agencyId)
+            ->whereNotNull('last_country');
 
         // Decrypt via Eloquent, then group in PHP
         $grouped = $query->pluck('last_country')
@@ -1036,69 +1025,161 @@ class ReportsService
 
     public function getEmploymentPositionBreakdown(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
-        $query = DB::table('client_employments')
-            ->select('last_position', DB::raw('count(distinct client_id) as total'))
+        // last_position is encrypted, so grouping/counting must happen after
+        // Eloquent hydrates the models and applies the EncryptedString cast.
+        // Select only the columns needed for this metric; querying the raw
+        // ciphertext would produce incorrect groups and distinct totals.
+        $rows = $this->employmentQuery($userId, $role, $agencyId)
             ->whereNotNull('last_position')
-            ->where('is_deleted', false);
+            ->select(['id', 'client_id', 'last_position'])
+            ->orderBy('client_id')
+            ->orderBy('id')
+            ->lazy(500);
 
-        if ($role === 'CASE_MANAGER' && $userId) {
+        // Rows are ordered by client, so only the current client's distinct
+        // positions need to remain in memory.  Counts retain one entry per
+        // decoded position, not one entry per employment row or client.
+        $counts = [];
+        $currentClientId = null;
+        $clientPositions = [];
+        $flushClient = function () use (&$counts, &$clientPositions): void {
+            foreach (array_keys($clientPositions) as $position) {
+                $counts[$position] = ($counts[$position] ?? 0) + 1;
+            }
+            $clientPositions = [];
+        };
+
+        foreach ($rows as $employment) {
+            if ($currentClientId !== null && $currentClientId !== $employment->client_id) {
+                $flushClient();
+            }
+            $currentClientId = $employment->client_id;
+
+            $position = $employment->last_position;
+            if (! is_string($position) || $position === '') {
+                continue;
+            }
+
+            $clientPositions[$position] = true;
+        }
+        if ($currentClientId !== null) {
+            $flushClient();
+        }
+
+        $ranked = collect($counts)
+            ->map(fn (int $total, string $position) => [
+                'position' => $position,
+                'total' => $total,
+            ])
+            ->sort(function (array $a, array $b): int {
+                return ($b['total'] <=> $a['total']) ?: strcmp($a['position'], $b['position']);
+            })
+            ->values();
+        $top = $ranked->take(10);
+
+        return [
+            'labels' => $top->pluck('position')->toArray(),
+            'data' => $top->pluck('total')->map(fn (int $total) => (int) $total)->toArray(),
+            'total_distinct' => $ranked->count(),
+        ];
+    }
+
+    /**
+     * Build the encrypted employment query with the same fail-closed role
+     * guards used by the shared case/referral query helpers.
+     */
+    private function employmentQuery(?string $userId, ?string $role, ?string $agencyId)
+    {
+        $query = ClientEmployment::query()
+            ->where('client_employments.is_deleted', false)
+            ->whereNull('client_employments.deleted_at');
+
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($role === 'CASE_MANAGER') {
             $query->whereIn('client_id', function ($q) use ($userId) {
-                $q->select('client_id')
-                    ->from('cases')
+                $q->select('client_id')->from('cases')
                     ->where('user_id', $userId)
+                    ->where('is_deleted', false)
+                    ->whereNull('deleted_at')
                     ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
             });
         }
+
         if ($agencyId) {
             $query->whereIn('client_id', function ($q) use ($agencyId) {
-                $q->select('client_id')
-                    ->from('cases')
+                $q->select('client_id')->from('cases')
+                    ->where('is_deleted', false)
+                    ->whereNull('deleted_at')
+                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
                     ->whereIn('cases.id', function ($q2) use ($agencyId) {
                         $q2->select('case_id')->from('referrals')
                             ->where('agcy_id', $agencyId)
+                            ->where('is_deleted', false)
                             ->whereNull('deleted_at');
-                    })
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+                    });
             });
         }
 
-        $results = $query->groupBy('last_position')
-            ->orderByDesc('total')
-            ->limit(10)
-            ->get();
+        return $query;
+    }
 
-        // Total distinct positions (unlimited) for the metric card.
-        // Clone the base query before groupBy/orderBy/limit — the cloned
-        // query already has the whereIn filter applied above.
-        $totalDistinct = DB::table('client_employments')
-            ->whereNotNull('last_position')
-            ->where('is_deleted', false);
+    /**
+     * A scoped report requires the identity that defines that scope.  Keep
+     * this check centralized so payloads, options, and individual metrics do
+     * not accidentally fall back to an unrestricted query.
+     */
+    private function hasRequiredRoleScope(?string $userId, ?string $role, ?string $agencyId): bool
+    {
+        return ! (($role === 'CASE_MANAGER' && ! $userId) || ($role === 'AGENCY' && ! $agencyId));
+    }
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $totalDistinct->whereIn('client_id', function ($q) use ($userId) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->where('user_id', $userId)
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
-        if ($agencyId) {
-            $totalDistinct->whereIn('client_id', function ($q) use ($agencyId) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->whereIn('cases.id', function ($q2) use ($agencyId) {
-                        $q2->select('case_id')->from('referrals')
-                            ->where('agcy_id', $agencyId)
-                            ->whereNull('deleted_at');
-                    })
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-            });
+    private function emptyPayload(?string $role): array
+    {
+        $zeroKpis = [
+            'totalReferrals' => 0, 'totalCases' => 0, 'openCases' => 0,
+            'completedReferrals' => 0, 'pendingReferrals' => 0,
+            'processingReferrals' => 0, 'forComplianceReferrals' => 0,
+            'rejectedReferrals' => 0, 'completionRate' => 0,
+            'avgCompletionDays' => 0, 'avgResolutionDays' => 0,
+            'kpiChanges' => [
+                'totalReferrals' => 0, 'completedReferrals' => 0,
+                'pendingReferrals' => 0, 'completionRate' => 0,
+                'avgCompletionDays' => 0,
+            ],
+        ];
+
+        if ($role === 'AGENCY') {
+            return [
+                'kpis' => $zeroKpis,
+                'referralStatusDistribution' => ['labels' => ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
+                'referralTrends' => ['labels' => [], 'datasets' => [['label' => 'Referrals Created', 'data' => [], 'borderColor' => '#0b5a8c', 'backgroundColor' => 'rgba(11, 90, 140, 0.1)']]],
+                'avgReferralCompletion' => 0,
+                'cycleTimeDistribution' => ['labels' => [], 'data' => [], 'colors' => []],
+                'agencyScorecard' => [], 'categoryDistribution' => [],
+                'caseStatusDistribution' => ['labels' => ['OPEN', 'CLOSED'], 'data' => [0, 0], 'colors' => []],
+                'genderDistribution' => ['labels' => ['Male', 'Female', 'Unknown'], 'data' => [0, 0, 0], 'colors' => []],
+                'ageGroupDistribution' => ['labels' => ['0-17', '18-25', '26-40', '41-60', '60+'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
+                'clientTypeDistribution' => ['labels' => [], 'data' => [], 'colors' => []],
+                'geographicMapData' => ['provinces' => []],
+            ];
         }
 
         return [
-            'labels' => $results->pluck('last_position')->toArray(),
-            'data' => $results->pluck('total')->toArray(),
-            'total_distinct' => (int) $totalDistinct->distinct()->count('last_position'),
+            'kpis' => $zeroKpis, 'referralStatusDistribution' => [],
+            'referralAgencyDistribution' => [], 'referralTrends' => [],
+            'casesOverTime' => [], 'genderDistribution' => [],
+            'clientTypeDistribution' => [], 'ageGroupDistribution' => [],
+            'mostRequestedService' => ['name' => 'N/A', 'value' => 0],
+            'cycleTimeDistribution' => [], 'referralAging' => [],
+            'agencyScorecard' => [], 'geographicDistribution' => [],
+            'geographicMapData' => ['provinces' => []], 'categoryDistribution' => [],
+            'employmentDistribution' => [], 'employmentPositionBreakdown' => ['labels' => [], 'data' => [], 'total_distinct' => 0],
+            'caseStatusDistribution' => [], 'caseIssueDistribution' => [],
+            'overdueReferrals' => ['count' => 0, 'referrals' => []],
+            'cityDistribution' => [], 'vulnerabilityDistribution' => [],
         ];
     }
 
@@ -1315,7 +1396,9 @@ class ReportsService
      */
     public function getAgencyOptions(?string $userId = null, ?string $role = null): array
     {
-        if ($role === 'AGENCY') {
+        // Never let an unassigned scoped request fall through to the admin
+        // branch after the cache key is built.
+        if (($role === 'CASE_MANAGER' && ! $userId) || $role === 'AGENCY') {
             return [];
         }
 
@@ -1348,6 +1431,10 @@ class ReportsService
 
     public function getProvinceOptions(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            return [];
+        }
+
         $cacheKey = 'reports:province_options:'.md5(($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($userId, $role, $agencyId) {
@@ -1389,6 +1476,10 @@ class ReportsService
 
     public function getCityOptions(?string $province = null, ?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            return [];
+        }
+
         $cacheKey = 'reports:city_options:'.md5(($province ?? '').'|'.($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($province, $userId, $role, $agencyId) {

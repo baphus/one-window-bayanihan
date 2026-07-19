@@ -6,6 +6,7 @@ use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\CaseStatus;
 use App\Models\Client;
+use App\Models\ClientEmployment;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\ReportsService;
@@ -194,5 +195,46 @@ class ReportsMetricsTest extends TestCase
         CaseStatus::create(['name' => 'Temp Inactive', 'slug' => 'ZZ_TEMP', 'type' => 'referral', 'color' => '#000000', 'sort_order' => 99, 'is_active' => false]);
         $after = $this->service->getReferenceData();
         $this->assertNotContains('ZZ_TEMP', array_column($after['referralStatuses'], 'slug'));
+    }
+
+    #[Test]
+    public function employment_position_breakdown_decrypts_groups_by_distinct_client_excludes_invalid_rows_and_is_deterministic(): void
+    {
+        $otherManager = $this->managerB;
+        $ownedClient = Client::factory()->create();
+        $secondOwnedClient = Client::factory()->create();
+        $otherClient = Client::factory()->create();
+
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $ownedClient->id, 'status' => 'OPEN']);
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $secondOwnedClient->id, 'status' => 'OPEN']);
+        CaseFile::factory()->create(['user_id' => $otherManager->id, 'client_id' => $otherClient->id, 'status' => 'OPEN']);
+
+        // Multiple employment rows for one client count once for a position.
+        ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => 'Engineer']);
+        ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => 'Engineer']);
+        ClientEmployment::create(['client_id' => $secondOwnedClient->id, 'last_position' => 'Nurse']);
+        ClientEmployment::create(['client_id' => $otherClient->id, 'last_position' => 'Engineer']);
+
+        $deleted = ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => 'Deleted Position']);
+        $deleted->forceFill(['is_deleted' => true])->save();
+        ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => null]);
+
+        $breakdown = $this->service->getEmploymentPositionBreakdown($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(['Engineer', 'Nurse'], $breakdown['labels']);
+        $this->assertSame([1, 1], array_map('intval', $breakdown['data']));
+        $this->assertSame(2, $breakdown['total_distinct']);
+    }
+
+    #[Test]
+    public function case_manager_report_payload_fails_closed_when_identity_is_missing(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
+
+        $kpis = $this->service->getReferralKpis(null, 'CASE_MANAGER');
+
+        $this->assertSame(0, $kpis['totalReferrals']);
+        $this->assertSame(0, $kpis['totalCases']);
     }
 }

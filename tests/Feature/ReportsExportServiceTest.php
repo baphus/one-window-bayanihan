@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -40,6 +41,59 @@ class ReportsExportServiceTest extends TestCase
 
         $this->assertInstanceOf(RedirectResponse::class, $result);
         $this->assertNotEmpty($result->getSession()->get('error'));
+    }
+
+    #[Test]
+    public function malformed_export_filter_is_rejected_by_the_report_export_endpoint(): void
+    {
+        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+
+        $response = $this->actingAs($user)->get(route('reports.export-excel', [
+            'from' => 'not-a-date',
+            'to' => '2026-12-31',
+        ]));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+    }
+
+    #[Test]
+    public function reports_export_endpoint_returns_the_expected_xlsx_workbook_headers(): void
+    {
+        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+
+        $response = $this->actingAs($user)->get(route('reports.export-excel', [
+            'from' => '2026-01-01',
+            'to' => '2026-12-31',
+        ]));
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            (string) $response->headers->get('content-type'),
+        );
+
+        $file = tempnam(sys_get_temp_dir(), 'reports-xlsx-');
+        ob_start();
+        $response->sendContent();
+        file_put_contents($file, ob_get_clean());
+        $workbook = IOFactory::load($file);
+
+        $this->assertSame(['Report Info', 'Executive Summary'], [
+            $workbook->getSheet(0)->getTitle(),
+            $workbook->getSheet(1)->getTitle(),
+        ]);
+        // Employment fields belong to the case/client/referral and admin
+        // workbooks, not the aggregate Reports workbook.
+        $this->assertNotContains('Client_employments', $workbook->getSheetNames());
+        $this->assertNotContains('Previous Country', $workbook->getSheetByName('Report Info')->toArray()[0]);
+        $this->assertNotContains('Work Position', $workbook->getSheetByName('Report Info')->toArray()[0]);
+        $this->assertSame('Metric', $workbook->getSheetByName('Report Info')->getCell('A1')->getValue());
+        $this->assertSame('Value', $workbook->getSheetByName('Report Info')->getCell('B1')->getValue());
+        $this->assertSame('Metric', $workbook->getSheetByName('Executive Summary')->getCell('A1')->getValue());
+        $this->assertSame('Value', $workbook->getSheetByName('Executive Summary')->getCell('B1')->getValue());
+
+        @unlink($file);
     }
 
     #[Test]

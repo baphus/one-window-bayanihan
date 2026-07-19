@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\CaseFile;
+use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,11 +28,7 @@ class UpdateCaseRequest extends FormRequest
             if ($this->has($field)) {
                 $raw = $this->input($field);
                 if (is_string($raw)) {
-                    $segments = array_map('trim', explode(',', $raw));
-                    $segments = array_filter($segments, fn ($s) => $s !== '');
-                    $valid = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'];
-                    $segments = array_values(array_intersect($segments, $valid));
-                    $this->merge([$field => empty($segments) ? 'None' : implode(', ', $segments)]);
+                    $this->merge([$field => VulnerabilityRule::normalize($raw)]);
                 }
             }
         }
@@ -42,8 +39,8 @@ class UpdateCaseRequest extends FormRequest
         return [
             'status' => ['nullable', Rule::in(['OPEN', 'CLOSED', 'ARCHIVED'])],
             'client_type' => ['required', Rule::in(CaseFile::CLIENT_TYPES)],
-            'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
-            'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255'],
+            'vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
+            'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],
             // Category fields are optional on partial edits; existing assignments
             // remain unchanged when neither field is submitted.

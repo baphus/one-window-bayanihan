@@ -20,6 +20,8 @@ export default function Index({ dates = [] }) {
   const [filters, setFilters] = useState({ level: '', search: '', date_from: '', date_to: '', per_page: 50, page: 1 });
   const [pagination, setPagination] = useState({ total: 0, per_page: 50, current_page: 1, last_page: 1 });
   const [loading, setLoading] = useState(false);
+  const [sourceAvailable, setSourceAvailable] = useState(true);
+  const [unavailableReason, setUnavailableReason] = useState('');
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -39,6 +41,8 @@ export default function Index({ dates = [] }) {
     })
       .then((res) => res.json())
       .then((data) => {
+        setSourceAvailable(data.source_available !== false);
+        setUnavailableReason(data.unavailable_reason || '');
         setEntries(data.entries || []);
         setPagination({
           total: data.total || 0,
@@ -46,6 +50,9 @@ export default function Index({ dates = [] }) {
           current_page: data.current_page || 1,
           last_page: data.last_page || 1,
         });
+      })
+      .catch(() => {
+        // Aborted or network error — keep existing state
       })
       .finally(() => setLoading(false));
 
@@ -94,6 +101,12 @@ export default function Index({ dates = [] }) {
         <input value={filters.search} onChange={(e) => updateFilter('search', e.target.value)} placeholder="Search messages..." className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
       </div>
 
+      {!sourceAvailable && (
+        <div data-tour="logs-unavailable" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {unavailableReason || 'Log source unavailable.'}
+        </div>
+      )}
+
       <div data-tour="logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
@@ -104,7 +117,10 @@ export default function Index({ dates = [] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {!loading && entries.length === 0 && (
+            {!loading && entries.length === 0 && !sourceAvailable && (
+              <tr><td colSpan="3" className="px-4 py-8 text-center text-sm text-slate-500">No log files found in storage.</td></tr>
+            )}
+            {!loading && entries.length === 0 && sourceAvailable && (
               <tr><td colSpan="3" className="px-4 py-8 text-center text-sm text-slate-500">No logs found.</td></tr>
             )}
             {entries.map((entry, idx) => (

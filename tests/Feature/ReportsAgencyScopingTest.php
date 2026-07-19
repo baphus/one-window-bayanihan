@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -33,6 +34,7 @@ class ReportsAgencyScopingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutMiddleware(HandleInertiaRequests::class);
 
         $this->service = app(ReportsService::class);
         $this->agencyA = Agency::factory()->create(['name' => 'Agency A']);
@@ -181,5 +183,75 @@ class ReportsAgencyScopingTest extends TestCase
         // Province options should be available (client factory generates addresses)
         // We just verify the method doesn't error and returns an array
         $this->assertIsArray($options);
+    }
+
+    #[Test]
+    public function agency_user_without_agency_id_gets_an_empty_full_report_payload(): void
+    {
+        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $this->createClientWithCase($this->agencyAUser->id, $this->agencyAId);
+
+        $payload = $this->service->getAll(
+            userId: $agencyless->id,
+            role: 'AGENCY',
+            agencyId: null,
+            fromDate: '2026-01-01',
+            toDate: '2026-12-31',
+        );
+
+        $this->assertSame([
+            'kpis', 'referralStatusDistribution', 'referralTrends',
+            'avgReferralCompletion', 'cycleTimeDistribution', 'agencyScorecard',
+            'categoryDistribution', 'caseStatusDistribution', 'genderDistribution',
+            'ageGroupDistribution', 'clientTypeDistribution', 'geographicMapData',
+            'role',
+        ], array_keys($payload));
+        $this->assertSame(0, $payload['kpis']['totalReferrals']);
+        $this->assertSame(0, array_sum($payload['referralStatusDistribution']['data']));
+        $this->assertSame([], $payload['agencyScorecard']);
+        $this->assertSame([], $payload['clientTypeDistribution']['labels']);
+    }
+
+    #[Test]
+    public function missing_agency_scope_cannot_reuse_cached_payload_or_options(): void
+    {
+        $this->createClientWithCase($this->agencyAUser->id, $this->agencyAId);
+
+        $scoped = $this->service->getAll(
+            userId: $this->agencyAUser->id,
+            role: 'AGENCY',
+            agencyId: $this->agencyAId,
+            fromDate: '2026-01-01',
+            toDate: '2026-12-31',
+        );
+        $this->assertGreaterThan(0, $scoped['kpis']['totalReferrals']);
+
+        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $empty = $this->service->getAll(
+            userId: $agencyless->id,
+            role: 'AGENCY',
+            agencyId: null,
+            fromDate: '2026-01-01',
+            toDate: '2026-12-31',
+        );
+
+        $this->assertSame(0, $empty['kpis']['totalReferrals']);
+        $this->assertSame([], $this->service->getProvinceOptions($agencyless->id, 'AGENCY'));
+        $this->assertSame([], $this->service->getCityOptions(null, $agencyless->id, 'AGENCY'));
+        $this->assertSame([], $this->service->getAgencyOptions(null, 'CASE_MANAGER'));
+        $this->assertSame([], $this->service->getAgencyOptions($agencyless->id, 'AGENCY'));
+    }
+
+    #[Test]
+    public function public_reports_page_is_empty_for_an_agency_user_without_assignment(): void
+    {
+        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $this->createClientWithCase($this->agencyAUser->id, $this->agencyAId);
+
+        $this->actingAs($agencyless)->get(route('reports.index'))
+            ->assertStatus(200)
+            ->assertInertia(fn ($page) => $page
+                ->where('kpis.totalReferrals', 0)
+                ->where('kpis.totalCases', 0));
     }
 }

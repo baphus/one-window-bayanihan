@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\CaseFile;
+use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -48,6 +49,12 @@ class UpdateDraftRequest extends FormRequest
             }
             $this->merge(['next_of_kin' => $noks]);
         }
+
+        foreach (['vulnerability_indicator', 'nok_vulnerability_indicator'] as $field) {
+            if ($this->has($field) && is_string($this->input($field))) {
+                $this->merge([$field => VulnerabilityRule::normalize($this->input($field))]);
+            }
+        }
     }
 
     public function rules(): array
@@ -55,8 +62,8 @@ class UpdateDraftRequest extends FormRequest
         return [
             'is_draft' => ['nullable', 'boolean'],
             'client_type' => ['nullable', Rule::in(CaseFile::CLIENT_TYPES)],
-            'vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
-            'nok_vulnerability_indicator' => ['nullable', 'string', Rule::in(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None'])],
+            'vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
+            'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],
             // Drafts may be saved without a category; publishing performs the
             // completeness check in CaseService.
@@ -108,6 +115,7 @@ class UpdateDraftRequest extends FormRequest
             'employment.last_country' => ['nullable', 'string', 'max:255'],
             'employment.last_position' => ['nullable', 'string', 'max:255'],
             'employment.date_of_arrival' => ['nullable', 'date'],
+            'employment.is_present' => ['nullable', 'boolean'],
         ];
     }
 

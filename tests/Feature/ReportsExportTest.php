@@ -6,12 +6,14 @@ use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
+use App\Models\ClientEmployment;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -113,5 +115,117 @@ class ReportsExportTest extends TestCase
 
         $response->assertOk();
         $this->assertStringContainsString('application/pdf', $response->headers->get('content-type'));
+    }
+
+    #[Test]
+    public function public_report_pdf_and_xlsx_endpoints_are_case_manager_scoped(): void
+    {
+        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $mine = $this->makeCaseWithReferral($this->manager);
+        $theirs = $this->makeCaseWithReferral($other);
+
+        $minePdf = $this->actingAs($this->manager)->get(route('reports.export-pdf'));
+        $otherPdf = $this->actingAs($other)->get(route('reports.export-pdf'));
+        $minePdf->assertOk();
+        $otherPdf->assertOk();
+        $this->assertStringContainsString('application/pdf', $minePdf->headers->get('content-type'));
+        $this->assertStringContainsString('application/pdf', $otherPdf->headers->get('content-type'));
+
+        $mineWorkbook = $this->reportXlsxFor($this->manager);
+        $otherWorkbook = $this->reportXlsxFor($other);
+        $mineDetails = json_encode($mineWorkbook->getSheetByName('Referral Details')->toArray());
+        $otherDetails = json_encode($otherWorkbook->getSheetByName('Referral Details')->toArray());
+
+        $this->assertStringContainsString($mine->case_number, $mineDetails);
+        $this->assertStringNotContainsString($theirs->case_number, $mineDetails);
+        $this->assertStringContainsString($theirs->case_number, $otherDetails);
+        $this->assertStringNotContainsString($mine->case_number, $otherDetails);
+    }
+
+    #[Test]
+    public function all_client_case_and_referral_workbooks_have_decrypted_employment_fields_and_role_scope(): void
+    {
+        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owned = $this->makeCaseWithReferral($this->manager);
+        $otherCase = $this->makeCaseWithReferral($other);
+
+        foreach ([[$owned, 'Canada', 'Welder'], [$otherCase, 'Japan', 'Engineer']] as [$case, $country, $position]) {
+            ClientEmployment::create([
+                'client_id' => $case->client_id,
+                'country' => $country,
+                'position' => $position,
+                'last_country' => $country,
+                'last_position' => $position,
+            ]);
+        }
+
+        foreach (['cases.export-excel', 'clients.export-excel', 'referrals.export-excel'] as $endpoint) {
+            $ownedWorkbook = $this->xlsxFor($this->manager, $endpoint);
+            $otherWorkbook = $this->xlsxFor($other, $endpoint);
+
+            foreach ([$ownedWorkbook, $otherWorkbook] as $workbook) {
+                $sheet = $workbook->getActiveSheet();
+                $headers = array_map('strval', $sheet->rangeToArray('A1:ZZ1')[0]);
+                $this->assertContains('Previous Country', $headers, $endpoint);
+                $this->assertContains('Work Position', $headers, $endpoint);
+            }
+
+            $ownedRows = $ownedWorkbook->getActiveSheet()->toArray();
+            $otherRows = $otherWorkbook->getActiveSheet()->toArray();
+            $this->assertStringContainsString('Canada', json_encode($ownedRows), $endpoint);
+            $this->assertStringContainsString('Welder', json_encode($ownedRows), $endpoint);
+            $this->assertStringNotContainsString('Japan', json_encode($ownedRows), $endpoint);
+            $this->assertStringContainsString('Japan', json_encode($otherRows), $endpoint);
+            $this->assertStringContainsString('Engineer', json_encode($otherRows), $endpoint);
+            $this->assertStringNotContainsString('Canada', json_encode($otherRows), $endpoint);
+        }
+    }
+
+    #[Test]
+    public function admin_full_data_export_includes_a_decrypted_client_employments_workbook(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $client = Client::factory()->create();
+        ClientEmployment::create([
+            'client_id' => $client->id,
+            'country' => 'Canada',
+            'position' => 'Welder',
+            'last_country' => 'Canada',
+            'last_position' => 'Welder',
+        ]);
+
+        $workbook = $this->xlsxFor($admin, 'admin.data-export.export');
+        $sheet = $workbook->getSheetByName('Client_employments');
+        $this->assertNotNull($sheet);
+        $rows = $sheet->toArray();
+        $headers = array_map('strval', $rows[0]);
+
+        $this->assertContains('Position', $headers);
+        $this->assertContains('Last Position', $headers);
+        $this->assertContains('Country', $headers);
+        $this->assertContains('Last Country', $headers);
+        $this->assertStringContainsString('Welder', json_encode($rows));
+        $this->assertStringContainsString('Canada', json_encode($rows));
+        $this->assertStringNotContainsString('eyJ', json_encode($rows));
+    }
+
+    private function xlsxFor(User $user, string $endpoint)
+    {
+        $response = $this->actingAs($user)->get(route($endpoint));
+        $response->assertOk();
+
+        $file = tempnam(sys_get_temp_dir(), 'report-workbook-');
+        ob_start();
+        $response->sendContent();
+        file_put_contents($file, ob_get_clean());
+        $workbook = IOFactory::load($file);
+        @unlink($file);
+
+        return $workbook;
+    }
+
+    private function reportXlsxFor(User $user)
+    {
+        return $this->xlsxFor($user, 'reports.export-excel');
     }
 }

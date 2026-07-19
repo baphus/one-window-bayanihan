@@ -364,6 +364,7 @@ class CaseDraftTest extends TestCase
                 'selected_client_id' => $client->id,
                 'client_type' => 'OFW',
                 'address' => ['region' => 'NCR'],
+                'employment' => ['start_date' => '2020-01-01', 'end_date' => '2024-01-01', 'is_present' => true],
             ],
             ['Accept' => 'application/json']
         );
@@ -374,5 +375,67 @@ class CaseDraftTest extends TestCase
             'client_id' => $client->id,
             'region' => 'NCR',
         ]);
+        $this->assertDatabaseHas('client_employments', [
+            'client_id' => $client->id,
+            'start_date' => '2020-01-01',
+            'end_date' => null,
+        ]);
+    }
+
+    public function test_update_draft_accepts_ofw_none_vulnerability(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->user->id, 'status' => 'DRAFT', 'client_type' => 'OFW']);
+
+        $this->actingAs($this->user)->put(route('cases.save-draft', $case), [
+            'client_type' => 'OFW', 'vulnerability_indicator' => 'None',
+        ], ['Accept' => 'application/json'])->assertOk();
+    }
+
+    public function test_update_draft_accepts_nok_none_vulnerability(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->user->id, 'status' => 'DRAFT', 'client_type' => 'NEXT_OF_KIN']);
+
+        $this->actingAs($this->user)->put(route('cases.save-draft', $case), [
+            'client_type' => 'NEXT_OF_KIN', 'nok_vulnerability_indicator' => 'None',
+        ], ['Accept' => 'application/json'])->assertOk();
+    }
+
+    public function test_update_draft_canonicalizes_multi_value_and_rejects_unknown_vulnerability_segments(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->user->id, 'status' => 'DRAFT', 'client_type' => 'OFW']);
+
+        $this->actingAs($this->user)->put(route('cases.save-draft', $case), [
+            'client_type' => 'OFW', 'vulnerability_indicator' => 'Senior Citizen, PWD, PWD',
+        ], ['Accept' => 'application/json'])->assertOk();
+        $this->assertEquals('PWD, Senior Citizen', $case->fresh()->vulnerability_indicator);
+
+        $this->actingAs($this->user)->put(route('cases.save-draft', $case), [
+            'client_type' => 'OFW', 'vulnerability_indicator' => 'PWD, Unknown Segment',
+        ], ['Accept' => 'application/json'])->assertStatus(422)->assertJsonValidationErrors('vulnerability_indicator');
+    }
+
+    public function test_update_draft_canonicalizes_nok_multi_value_and_rejects_unknown_segments(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->user->id, 'status' => 'DRAFT', 'client_type' => 'NEXT_OF_KIN']);
+
+        $this->actingAs($this->user)->put(route('cases.save-draft', $case), [
+            'client_type' => 'NEXT_OF_KIN', 'nok_vulnerability_indicator' => 'Senior Citizen, PWD, PWD',
+        ], ['Accept' => 'application/json'])->assertOk();
+        $this->assertEquals('PWD, Senior Citizen', $case->fresh()->nok_vulnerability_indicator);
+
+        $this->actingAs($this->user)->put(route('cases.save-draft', $case), [
+            'client_type' => 'NEXT_OF_KIN', 'nok_vulnerability_indicator' => 'PWD, Unknown Segment',
+        ], ['Accept' => 'application/json'])->assertStatus(422)->assertJsonValidationErrors('nok_vulnerability_indicator');
+    }
+
+    public function test_update_draft_rejects_vulnerability_arrays_and_none_combinations(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->user->id, 'status' => 'DRAFT', 'client_type' => 'OFW']);
+
+        foreach ([['PWD'], 'None, PWD'] as $value) {
+            $this->actingAs($this->user)->put(route('cases.save-draft', $case), [
+                'client_type' => 'OFW', 'vulnerability_indicator' => $value,
+            ], ['Accept' => 'application/json'])->assertStatus(422)->assertJsonValidationErrors('vulnerability_indicator');
+        }
     }
 }

@@ -19,10 +19,24 @@ class LogViewerService
         return $dates;
     }
 
-    public function getLogs(int $perPage = 50, ?string $level = null, ?string $search = null, ?string $dateFrom = null, ?string $dateTo = null, bool $redact = true): array
+    public function getLogs(int $perPage = 50, ?string $level = null, ?string $search = null, ?string $dateFrom = null, ?string $dateTo = null, bool $redact = true, int $page = 1): array
     {
         $files = glob(storage_path('logs/laravel-*.log'));
         rsort($files);
+
+        if (empty($files)) {
+            return [
+                'entries' => [],
+                'total' => 0,
+                'per_page' => $perPage,
+                'current_page' => 1,
+                'last_page' => 1,
+                'levels' => ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'],
+                'source_available' => false,
+                'unavailable_reason' => 'Log source unavailable.',
+                'warning' => '⚠️ Logs may contain sensitive data. Handle with care.',
+            ];
+        }
 
         if ($dateFrom || $dateTo) {
             $files = array_filter($files, function ($f) use ($dateFrom, $dateTo) {
@@ -78,7 +92,6 @@ class LogViewerService
         }
 
         $total = count($entries);
-        $page = request()->integer('page', 1);
         $offset = ($page - 1) * $perPage;
         $paginated = array_slice($entries, $offset, $perPage);
 
@@ -89,6 +102,7 @@ class LogViewerService
             'current_page' => $page,
             'last_page' => max(1, (int) ceil($total / $perPage)),
             'levels' => ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'],
+            'source_available' => true,
             'warning' => '⚠️ Logs may contain sensitive data. Handle with care.',
         ];
     }

@@ -31,11 +31,11 @@ class ReferralStatusChanged extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject("Referral Status Updated: {$this->newStatus}")
+            ->subject("Referral Status Updated: {$this->humanizeStatus($this->newStatus)}")
             ->greeting('Referral Status Updated')
             ->line('The status of a referral has been updated.')
             ->line('**Referral:** '.$this->referral->required_services)
-            ->line('**Status Change:** '.$this->oldStatus.' &rarr; **'.$this->newStatus.'**')
+            ->line('**Status Change:** '.$this->humanizeStatus($this->oldStatus).' → **'.$this->humanizeStatus($this->newStatus).'**')
             ->action('View Referral', url("/referrals/{$this->referral->id}"))
             ->line('Please review the updated referral details.');
     }
@@ -48,8 +48,13 @@ class ReferralStatusChanged extends Notification
             'case_id' => $this->referral->case_id,
             'old_status' => $this->oldStatus,
             'new_status' => $this->newStatus,
-            'message' => "Referral status changed from {$this->oldStatus} to {$this->newStatus}",
+            'message' => "Referral status changed from {$this->humanizeStatus($this->oldStatus)} to {$this->humanizeStatus($this->newStatus)}",
             'url' => "/referrals/{$this->referral->id}",
         ];
+    }
+
+    private function humanizeStatus(string $status): string
+    {
+        return ucwords(strtolower(str_replace('_', ' ', $status)));
     }
 }
