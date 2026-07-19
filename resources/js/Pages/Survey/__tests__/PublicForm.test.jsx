@@ -54,7 +54,7 @@ describe('PublicForm', () => {
     fireEvent.click(screen.getByLabelText('Afternoon'));
     fireEvent.change(screen.getByPlaceholderText('Type your answer here...'), { target: { value: 'Helpful service' } });
     fireEvent.click(screen.getByLabelText('SMS'));
-    fireEvent.submit(screen.getByRole('button', { name: 'Submit Survey' }).closest('form'));
+    fireEvent.submit(screen.getByRole('button', { name: /Submit Survey/ }).closest('form'));
 
     expect(state.form.data.answers).toEqual([
       { question_id: 'q1', answer: 'Email', selected_options: null },
@@ -89,11 +89,10 @@ describe('PublicForm', () => {
     expect(screen.getByText('Choose an answer.')).toBeInTheDocument();
   });
 
-  it('renders the success state from the flash message', () => {
+  it('does not render a success state inline (handled by PublicFormSubmitted)', () => {
     state.form = null;
     state.props.flash = { success: 'Your response was recorded.' };
     renderForm();
-    expect(screen.getByText('Thank You!')).toBeInTheDocument();
-    expect(screen.getByText('Your response was recorded.')).toBeInTheDocument();
+    expect(screen.queryByText('Thank You!')).not.toBeInTheDocument();
   });
 });
