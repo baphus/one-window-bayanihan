@@ -191,6 +191,13 @@ class ReferralController extends Controller
                 ->with('error', 'Cannot add milestones to a completed referral.');
         }
 
+        // Agencies may only add milestones after accepting the referral.
+        if ($request->user()->role === 'AGENCY' && ! in_array($referral->status, ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED'], true)) {
+            return redirect()
+                ->back()
+                ->with('error', 'You can only add milestones after accepting the referral.');
+        }
+
         $milestone = $this->referralService->addMilestone(
             $id,
             $request->input('title'),
