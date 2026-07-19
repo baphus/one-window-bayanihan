@@ -841,4 +841,68 @@ class CaseServiceTest extends TestCase
         $this->assertEquals('Alambijud', $result['barangay']);
         $this->assertEquals('456 Oak Ave, Alambijud', $result['full_address']);
     }
+
+    public function test_vulnerability_values_are_characterized_for_multi_value_none_and_unknown_segments(): void
+    {
+        $service = app(CaseService::class);
+        $reflection = new \ReflectionMethod($service, 'normalizeNokData');
+        $reflection->setAccessible(true);
+
+        foreach (['PWD, Senior Citizen', 'None', 'Unknown Segment, PWD', null] as $value) {
+            $result = $reflection->invoke($service, [
+                'first_name' => 'Nok',
+                'nok_vulnerability_indicator' => $value,
+            ]);
+
+            $this->assertSame($value, $result['nok_vulnerability_indicator']);
+        }
+    }
+
+    public function test_employment_period_is_persisted_when_new_draft_is_published(): void
+    {
+        $user = User::factory()->create();
+        $category = CaseCategory::factory()->create();
+        $case = CaseFile::factory()->create([
+            'status' => 'DRAFT', 'user_id' => $user->id, 'category_id' => $category->id,
+            'client_type' => 'OFW',
+            'draft_client_data' => [
+                'first_name' => 'Period', 'last_name' => 'Test', 'date_of_birth' => '1990-01-01',
+                'sex' => 'Male', 'email' => 'period@example.test', 'contact_number' => '09170000000',
+                'consent' => true,
+                'address' => ['region' => 'VII', 'province' => 'Cebu', 'city_municipality' => 'Cebu City', 'barangay' => 'Lahug'],
+                'employment' => [
+                    'employer_name' => 'Employer', 'position' => 'Worker', 'country' => 'UAE',
+                    'start_date' => '2020-01-02', 'end_date' => '2024-03-04',
+                    'last_country' => 'Qatar', 'last_position' => 'CARE GIVER', 'date_of_arrival' => '2024-03-10',
+                ],
+            ],
+        ]);
+        $case->categories()->attach($category->id);
+
+        $result = app(CaseService::class)->publishDraft($case->id, $user->id);
+        $employment = ClientEmployment::where('client_id', $result->client_id)->firstOrFail();
+
+        $this->assertSame('2020-01-02', $employment->start_date->format('Y-m-d'));
+        $this->assertSame('2024-03-04', $employment->end_date->format('Y-m-d'));
+        $this->assertSame('Care Giver', $employment->last_position);
+        $this->assertSame('2024-03-10', $employment->date_of_arrival->format('Y-m-d'));
+    }
+
+    public function test_employment_period_is_hydrated_into_new_client_draft_data(): void
+    {
+        $user = User::factory()->create();
+        $case = CaseFile::factory()->create(['status' => 'DRAFT', 'user_id' => $user->id]);
+
+        app(CaseService::class)->updateDraft($case->id, [
+            'employment' => [
+                'employer_name' => 'Draft Employer', 'start_date' => '2021-02-03',
+                'end_date' => '2022-04-05', 'date_of_arrival' => '2022-04-06',
+            ],
+        ], $user->id);
+
+        $case->refresh();
+        $this->assertSame('2021-02-03', $case->draft_client_data['employment']['start_date']);
+        $this->assertSame('2022-04-05', $case->draft_client_data['employment']['end_date']);
+        $this->assertSame('2022-04-06', $case->draft_client_data['employment']['date_of_arrival']);
+    }
 }

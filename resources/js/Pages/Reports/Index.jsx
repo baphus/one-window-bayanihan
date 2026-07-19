@@ -21,7 +21,6 @@ import AgencyFilter from '@/Components/Reports/AgencyFilter';
 import ReportTabBar from '@/Components/Reports/ReportTabBar';
 import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
 import ExportButtons from '@/Components/Reports/ExportButtons';
-import { suppressCount } from '@/Components/Reports/suppressCount';
 import { useReportFilters } from '@/Hooks/useReportFilters';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 import AgencyScorecardSection from '@/Pages/Reports/sections/AgencyScorecardSection';
@@ -157,10 +156,10 @@ function ReportsDashboard({
 
       {/* ── KPI hero: primary "am I on track" tier ── */}
       <section data-tour="reports-kpis" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
-        <MetricCard label="Active Caseload" value={`${suppressCount(kpis?.openCases ?? 0)}`}
+        <MetricCard label="Active Caseload" value={`${kpis?.openCases ?? 0}`}
           icon={<Users className="w-4 h-4 text-[#0b5a8c]" />}
           sparkline={<Sparkline data={caseSparkline} color={COLORS.primary} />} />
-        <MetricCard label="Completed This Period" value={`${suppressCount(kpis?.completedReferrals ?? 0)}`}
+        <MetricCard label="Completed This Period" value={`${kpis?.completedReferrals ?? 0}`}
           icon={<CheckCircle2 className="w-4 h-4 text-[#3f915f]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.completedReferrals} />} />
         <MetricCard label="Completion Rate" value={`${kpis?.completionRate || 0}%`}
@@ -174,14 +173,14 @@ function ReportsDashboard({
 
       {/* ── KPI hero: volume strip ── */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <MetricCard label="Total Referrals" value={`${suppressCount(kpis?.totalReferrals ?? 0)}`}
+        <MetricCard label="Total Referrals" value={`${kpis?.totalReferrals ?? 0}`}
           icon={<GitFork className="w-4 h-4 text-[#0b5a8c]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />}
           sparkline={<Sparkline data={referralSparkline} color={COLORS.primary} />} />
-        <MetricCard label="Pending" value={`${suppressCount(kpis?.pendingReferrals ?? 0)}`} valueTone="text-[#9a5b1a] dark:text-amber-400"
+        <MetricCard label="Pending" value={`${kpis?.pendingReferrals ?? 0}`} valueTone="text-[#9a5b1a] dark:text-amber-400"
           icon={<Clock className="w-4 h-4 text-[#9a5b1a]" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.pendingReferrals} />} />
-        <MetricCard label="For Compliance" value={`${suppressCount(kpis?.forComplianceReferrals ?? 0)}`} valueTone="text-[#d9663b]"
+        <MetricCard label="For Compliance" value={`${kpis?.forComplianceReferrals ?? 0}`} valueTone="text-[#d9663b]"
           icon={<ClipboardCheck className="w-4 h-4 text-[#d9663b]" />} />
       </section>
 

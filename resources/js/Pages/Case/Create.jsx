@@ -29,6 +29,37 @@ function normalizeCategoryIds(value) {
         .filter((id) => id !== null && id !== undefined && id !== '').map(String))];
 }
 
+function normalizeDateInput(value) {
+    if (!value) return '';
+    const match = String(value).match(/^\d{4}-\d{2}-\d{2}/);
+    return match ? match[0] : '';
+}
+
+function normalizeSelectedNokIndex(value) {
+    return value === null || value === undefined || value === '' ? '' : String(value);
+}
+
+function buildEmployment(value = {}) {
+    const employment = value && typeof value === 'object' ? value : {};
+    const endDate = normalizeDateInput(employment.end_date);
+    const hasExplicitPresent = Object.prototype.hasOwnProperty.call(employment, 'is_present');
+    const isPresent = hasExplicitPresent
+        ? employment.is_present === true
+        : Object.keys(employment).length > 0 && !endDate;
+
+    return {
+        employer_name: employment.employer_name || '',
+        position: employment.position || '',
+        country: employment.country || '',
+        start_date: normalizeDateInput(employment.start_date),
+        end_date: isPresent ? '' : endDate,
+        last_country: employment.last_country || '',
+        last_position: employment.last_position || '',
+        date_of_arrival: normalizeDateInput(employment.date_of_arrival),
+        is_present: isPresent,
+    };
+}
+
 function getDraftCategoryIds(draft) {
     // The relation is authoritative when it is present; category_id is only a
     // compatibility fallback for older drafts.
@@ -305,18 +336,27 @@ export default function CaseCreate() {
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
             next_of_kin: [],
             selected_nok_index: '',
+            selected_client_id: '',
             consent: false,
             is_draft: false,
             case_issue_id: '',
         },
         clientSource: 'new',
     });
+    const [savedSnapshot, setSavedSnapshot] = useState(initialFormRef.current);
+
+    function commitSavedSnapshot(formData, source = clientSource) {
+        const snapshot = { formData, clientSource: source };
+        initialFormRef.current = snapshot;
+        setSavedSnapshot(snapshot);
+    }
 
     function formDataEqual(a, b) {
         return a.client_type === b.client_type
             && JSON.stringify(a.category_ids || []) === JSON.stringify(b.category_ids || [])
             && a.vulnerability_indicator === b.vulnerability_indicator
             && a.nok_vulnerability_indicator === b.nok_vulnerability_indicator
+            && a.selected_client_id === b.selected_client_id
             && a.summary === b.summary
             && a.client.first_name === b.client.first_name
             && a.client.last_name === b.client.last_name
@@ -339,6 +379,7 @@ export default function CaseCreate() {
             && a.employment.last_country === b.employment.last_country
             && a.employment.last_position === b.employment.last_position
             && a.employment.date_of_arrival === b.employment.date_of_arrival
+            && !!a.employment.is_present === !!b.employment.is_present
             && JSON.stringify(a.next_of_kin) === JSON.stringify(b.next_of_kin)
             && a.selected_nok_index === b.selected_nok_index
             && a.consent === b.consent
@@ -347,13 +388,14 @@ export default function CaseCreate() {
     }
 
     const hasDirty = useMemo(() => {
-        return !formDataEqual(data, initialFormRef.current.formData)
-            || clientSource !== initialFormRef.current.clientSource;
-    }, [data, clientSource]);
+        return !formDataEqual(data, savedSnapshot.formData)
+            || clientSource !== savedSnapshot.clientSource;
+    }, [data, clientSource, savedSnapshot]);
 
     const { autoSaveStatus, draftId: autoSaveDraftId, cancelPendingSave } = useAutoSave({
         formData: data,
         draftId: existingDraft?.id || null,
+        onSaveSuccess: (savedData) => commitSavedSnapshot(savedData, clientSource),
     });
 
     const { hasLocalBackup, localBackup, clearLocalBackup } = useLocalStorageDraft({
@@ -450,12 +492,15 @@ export default function CaseCreate() {
             if (client.employments?.[0]) {
                 setData('employment', {
                     ...data.employment,
+                    ...buildEmployment(client.employments[0]),
                     employer_name: client.employments[0].employer_name || '',
                     position: client.employments[0].position || '',
                     country: client.employments[0].country || '',
+                    start_date: normalizeDateInput(client.employments[0].start_date),
+                    end_date: normalizeDateInput(client.employments[0].end_date),
                     last_country: client.employments[0].last_country || '',
                     last_position: client.employments[0].last_position || '',
-                    date_of_arrival: client.employments[0].date_of_arrival || '',
+                    date_of_arrival: normalizeDateInput(client.employments[0].date_of_arrival),
                 });
             }
 
@@ -509,11 +554,12 @@ export default function CaseCreate() {
                         employer_name: client.employments?.[0]?.employer_name || '',
                         position: client.employments?.[0]?.position || '',
                         country: client.employments?.[0]?.country || '',
-                        start_date: client.employments?.[0]?.start_date || '',
-                        end_date: client.employments?.[0]?.end_date || '',
+                        start_date: normalizeDateInput(client.employments?.[0]?.start_date),
+                        end_date: normalizeDateInput(client.employments?.[0]?.end_date),
                         last_country: client.employments?.[0]?.last_country || '',
                         last_position: client.employments?.[0]?.last_position || '',
-                        date_of_arrival: client.employments?.[0]?.date_of_arrival || '',
+                        date_of_arrival: normalizeDateInput(client.employments?.[0]?.date_of_arrival),
+                        is_present: !!client.employments?.[0] && !client.employments?.[0]?.end_date,
                     },
                     next_of_kin: client.nextOfKin?.length
                         ? client.nextOfKin.map(nok => ({
@@ -544,6 +590,7 @@ export default function CaseCreate() {
             };
 
             setSelectedClient(null);
+            setSavedSnapshot(initialFormRef.current);
         }
     }, []);
 
@@ -554,8 +601,9 @@ export default function CaseCreate() {
         // 1. Case-level fields
         setData('client_type', existingDraft.client_type || 'OFW');
         setData('category_ids', getDraftCategoryIds(existingDraft));
-        setData('selected_nok_index', existingDraft.selected_nok_index ?? '');
+        setData('selected_nok_index', normalizeSelectedNokIndex(existingDraft.selected_nok_index));
         setData('vulnerability_indicator', existingDraft.vulnerability_indicator || 'None');
+        setData('nok_vulnerability_indicator', existingDraft.nok_vulnerability_indicator || 'None');
         setData('summary', existingDraft.summary || '');
         setData('is_draft', true);
         if (existingDraft.case_issue_id) setData('case_issue_id', existingDraft.case_issue_id);
@@ -597,12 +645,13 @@ export default function CaseCreate() {
             if (existingDraft.client.employments?.[0]) {
                 setData('employment', {
                     ...data.employment,
+                    ...buildEmployment(existingDraft.client.employments[0]),
                     employer_name: existingDraft.client.employments[0].employer_name || '',
                     position: existingDraft.client.employments[0].position || '',
                     country: existingDraft.client.employments[0].country || '',
                     last_country: existingDraft.client.employments[0].last_country || '',
                     last_position: existingDraft.client.employments[0].last_position || '',
-                    date_of_arrival: existingDraft.client.employments[0].date_of_arrival || '',
+                    date_of_arrival: normalizeDateInput(existingDraft.client.employments[0].date_of_arrival),
                 });
             }
 
@@ -669,12 +718,15 @@ export default function CaseCreate() {
                 if (clientData.employment) {
                     setData('employment', {
                         ...data.employment,
+                        ...buildEmployment(clientData.employment),
                         employer_name: clientData.employment.employer_name || '',
                         position: clientData.employment.position || '',
                         country: clientData.employment.country || '',
+                        start_date: normalizeDateInput(clientData.employment.start_date),
+                        end_date: normalizeDateInput(clientData.employment.end_date),
                         last_country: clientData.employment.last_country || '',
                         last_position: clientData.employment.last_position || '',
-                        date_of_arrival: clientData.employment.date_of_arrival || '',
+                        date_of_arrival: normalizeDateInput(clientData.employment.date_of_arrival),
                     });
                 }
 
@@ -705,7 +757,7 @@ export default function CaseCreate() {
 
         // 3. Client source and selection
         const c = clientData || {};
-        const emps = c.employments || [];
+        const emps = c.employments || (c.employment ? [c.employment] : []);
         const noks = c.nextOfKin || [];
 
         setClientSource(src);
@@ -748,16 +800,7 @@ export default function CaseCreate() {
                     barangay: (c.addresses?.[0]?.barangay || c.address?.barangay) || '',
                     street: (c.addresses?.[0]?.street || c.address?.street) || '',
                 },
-                employment: {
-                    employer_name: (emps[0]?.employer_name || c.employment?.employer_name) || '',
-                    position: (emps[0]?.position || c.employment?.position) || '',
-                    country: (emps[0]?.country || c.employment?.country) || '',
-                    start_date: '',
-                    end_date: '',
-                    last_country: (emps[0]?.last_country || c.employment?.last_country) || '',
-                    last_position: (emps[0]?.last_position || c.employment?.last_position) || '',
-                    date_of_arrival: (emps[0]?.date_of_arrival || c.employment?.date_of_arrival) || '',
-                },
+                employment: buildEmployment(emps[0] || c.employment),
                 next_of_kin: (() => {
                     const rawNoks = noks.length ? noks : (c.next_of_kin ? (Array.isArray(c.next_of_kin) ? c.next_of_kin : [c.next_of_kin]) : []);
                     return rawNoks.map(nok => ({
@@ -779,13 +822,15 @@ export default function CaseCreate() {
                         },
                     }));
                 })(),
-                selected_nok_index: '',
+                selected_nok_index: normalizeSelectedNokIndex(existingDraft.selected_nok_index),
+                selected_client_id: selId,
                 consent: clientData?.consent ?? false,
                 is_draft: true,
                 case_issue_id: existingDraft.case_issue_id || '',
             },
             clientSource: src,
         };
+        setSavedSnapshot(initialFormRef.current);
     }, []);
 
     const stepProgress = Math.round((currentStep / STEPS.length) * 100);
@@ -1223,16 +1268,22 @@ export default function CaseCreate() {
             const msgs = Object.values(errors);
             toast.error(msgs[0] || 'Validation failed.');
         };
+        const onSuccess = () => {
+            cancelPendingSave();
+            commitSavedSnapshot({ ...data, is_draft: true });
+        };
 
         if (existingDraft) {
             put(route('cases.save-draft', existingDraft.id), {
                 preserveScroll: true,
                 onError,
+                onSuccess,
             });
         } else {
             post(route('cases.store'), {
                 preserveScroll: true,
                 onError,
+                onSuccess,
             });
         }
     }
@@ -1240,10 +1291,19 @@ export default function CaseCreate() {
     function handleSubmit(e) {
         e.preventDefault();
         if (currentStep !== 3) return;
+        if (existingDraft && (hasDirty || autoSaveStatus === 'saving')) {
+            toast.error('Save the latest draft changes before publishing.');
+            return;
+        }
         setShowCreateModal(true);
     }
 
     function handleConfirmSubmit() {
+        if (existingDraft && (hasDirty || autoSaveStatus === 'saving')) {
+            setShowCreateModal(false);
+            toast.error('Save the latest draft changes before publishing.');
+            return;
+        }
         setShowCreateModal(false);
         bypassNext();
 
@@ -1303,12 +1363,14 @@ export default function CaseCreate() {
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
                 next_of_kin: [],
                 selected_nok_index: '',
+                selected_client_id: '',
                 consent: false,
                 is_draft: false,
                 case_issue_id: '',
             },
             clientSource: 'new',
         };
+        setSavedSnapshot(initialFormRef.current);
     }
 
     function handleSwitchToExisting() {
@@ -1349,12 +1411,7 @@ function handleConfirmClient(client) {
         const emp = client.employments[0];
         setData('employment', {
             ...data.employment,
-            employer_name: emp.employer_name || '',
-            position: emp.position || '',
-            country: emp.country || '',
-            last_country: emp.last_country || '',
-            last_position: emp.last_position || '',
-            date_of_arrival: emp.date_of_arrival || '',
+            ...buildEmployment(emp),
         });
     }
 
@@ -1405,14 +1462,7 @@ function handleConfirmClient(client) {
                 street: client.addresses?.[0]?.street || '',
             },
             employment: {
-                employer_name: client.employments?.[0]?.employer_name || '',
-                position: client.employments?.[0]?.position || '',
-                country: client.employments?.[0]?.country || '',
-                start_date: '',
-                end_date: '',
-                last_country: client.employments?.[0]?.last_country || '',
-                last_position: client.employments?.[0]?.last_position || '',
-                date_of_arrival: client.employments?.[0]?.date_of_arrival || '',
+                ...buildEmployment(client.employments?.[0]),
             },
             next_of_kin: client.nextOfKin?.length
                 ? client.nextOfKin.map(nok => ({
@@ -1435,6 +1485,7 @@ function handleConfirmClient(client) {
                 }))
                 : [],
             selected_nok_index: '',
+            selected_client_id: client.id,
             consent: false,
             is_draft: false,
             case_issue_id: '',
@@ -1443,6 +1494,7 @@ function handleConfirmClient(client) {
     };
 
     setSelectedClient(null);
+    setSavedSnapshot(initialFormRef.current);
     setCurrentStep(2);
 }
 
@@ -2331,7 +2383,7 @@ function handleConfirmClient(client) {
                                     )}
                                 </div>
                             ) : (
-                                <button type="button" onClick={handleSubmit} disabled={processing || !canSubmit()}
+                                <button type="button" onClick={handleSubmit} disabled={processing || (existingDraft && (hasDirty || autoSaveStatus === 'saving')) || !canSubmit()}
                                     className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
                                     {processing ? (existingDraft ? 'Publishing...' : 'Creating...') : (existingDraft ? 'Publish Draft' : 'Create Case')}
                                 </button>

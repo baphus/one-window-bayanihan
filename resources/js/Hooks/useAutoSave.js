@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
- * useAutoSave — debounced field-change auto-save + page-unload save
+ * useAutoSave — debounced field-change auto-save
  * for the case creation draft system.
  *
  * @param {object}  params
@@ -11,7 +11,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
  * @param {number}  [params.options.debounceMs=2000] — Debounce delay in ms
  * @returns {{ autoSaveStatus, draftId, setDraftId }}
  */
-export default function useAutoSave({ formData, draftId, options = {} }) {
+export default function useAutoSave({ formData, draftId, options = {}, onSaveSuccess }) {
     const { debounceMs = 2000 } = options;
     const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // idle | saving | saved | error
     const [localDraftId, setLocalDraftId] = useState(null);
@@ -22,11 +22,8 @@ export default function useAutoSave({ formData, draftId, options = {} }) {
     const debounceRef = useRef(null);
     const abortRef = useRef(null);
     const lastSavedDataRef = useRef('');
-
-    // Skip first render — set to false after mount
-    useEffect(() => {
-        isFirstRenderRef.current = false;
-    }, []);
+    const onSaveSuccessRef = useRef(onSaveSuccess);
+    onSaveSuccessRef.current = onSaveSuccess;
 
     // --- doSave: the core save function ---
     const doSave = useCallback(async (data, isStepSave = false) => {
@@ -66,6 +63,7 @@ export default function useAutoSave({ formData, draftId, options = {} }) {
             // Remember what we saved so we can skip duplicate saves
             lastSavedDataRef.current = JSON.stringify(data);
             setAutoSaveStatus('saved');
+            onSaveSuccessRef.current?.(data);
 
             // Clear 'saved' status back to 'idle' after 2 seconds
             setTimeout(() => {
@@ -86,8 +84,11 @@ export default function useAutoSave({ formData, draftId, options = {} }) {
 
     // --- Debounced field-change auto-save ---
     useEffect(() => {
-        // Skip the very first render
-        if (isFirstRenderRef.current) return;
+        // Skip the very first render, including draft hydration effects.
+        if (isFirstRenderRef.current) {
+            isFirstRenderRef.current = false;
+            return;
+        }
 
         // Skip if data hasn't actually changed from last saved snapshot
         const currentSerialized = JSON.stringify(formData);
@@ -122,26 +123,6 @@ export default function useAutoSave({ formData, draftId, options = {} }) {
             abortRef.current = null;
         }
     }, []);
-
-    // --- Page-unload auto-save via sendBeacon ---
-    useEffect(() => {
-        const handler = () => {
-            if (!effectiveDraftId) return;
-
-            // Strip UI-only fields
-            const payload = { ...formData };
-            delete payload.has_next_of_kin;
-
-            const blob = new Blob(
-                [JSON.stringify({ ...payload, is_draft: true })],
-                { type: 'application/json' },
-            );
-            navigator.sendBeacon(`/cases/${effectiveDraftId}/save-draft`, blob);
-        };
-
-        window.addEventListener('beforeunload', handler);
-        return () => window.removeEventListener('beforeunload', handler);
-    }, [effectiveDraftId, formData]);
 
     return {
         autoSaveStatus,

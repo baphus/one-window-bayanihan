@@ -86,7 +86,7 @@ class CaseService
                 'selected_nok_index' => $data['selected_nok_index'] ?? null,
                 'selected_nok_id' => $this->selectedNokIdFromData($data),
                 'address' => $data['address'] ?? null,
-                'employment' => $data['employment'] ?? null,
+                'employment' => $this->normalizeDraftEmployment($data['employment'] ?? null),
                 'next_of_kin' => $data['next_of_kin'] ?? null,
                 'consent' => $data['consent'] ?? false,
             ];
@@ -117,7 +117,7 @@ class CaseService
                             'position' => $data['employment']['position'] ?? null,
                             'country' => $data['employment']['country'] ?? null,
                             'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => $data['employment']['end_date'] ?? null,
+                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
                             'last_country' => $data['employment']['last_country'] ?? null,
                             'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
@@ -128,7 +128,7 @@ class CaseService
                             'position' => $data['employment']['position'] ?? null,
                             'country' => $data['employment']['country'] ?? null,
                             'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => $data['employment']['end_date'] ?? null,
+                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
                             'last_country' => $data['employment']['last_country'] ?? null,
                             'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
@@ -274,7 +274,7 @@ class CaseService
                         $draftClientData['address'] = $data['address'];
                     }
                     if (! empty($data['employment'])) {
-                        $draftClientData['employment'] = $data['employment'];
+                        $draftClientData['employment'] = $this->normalizeDraftEmployment($data['employment']);
                     }
                     if (! empty($data['next_of_kin'])) {
                         $draftClientData['next_of_kin'] = $data['next_of_kin'];
@@ -319,7 +319,7 @@ class CaseService
                             'position' => $data['employment']['position'] ?? null,
                             'country' => $data['employment']['country'] ?? null,
                             'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => $data['employment']['end_date'] ?? null,
+                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
                             'last_country' => $data['employment']['last_country'] ?? null,
                             'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
@@ -330,7 +330,7 @@ class CaseService
                             'position' => $data['employment']['position'] ?? null,
                             'country' => $data['employment']['country'] ?? null,
                             'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => $data['employment']['end_date'] ?? null,
+                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
                             'last_country' => $data['employment']['last_country'] ?? null,
                             'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
                             'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
@@ -470,7 +470,7 @@ class CaseService
                         'position' => $draftData['employment']['position'] ?? null,
                         'country' => $draftData['employment']['country'] ?? null,
                         'start_date' => $draftData['employment']['start_date'] ?? null,
-                        'end_date' => $draftData['employment']['end_date'] ?? null,
+                        'end_date' => ! empty($draftData['employment']['is_present']) ? null : ($draftData['employment']['end_date'] ?? null),
                         'last_country' => $draftData['employment']['last_country'] ?? null,
                         'last_position' => $this->normalizePosition($draftData['employment']['last_position'] ?? null),
                         'date_of_arrival' => $draftData['employment']['date_of_arrival'] ?? null,
@@ -644,6 +644,19 @@ class CaseService
         $nokList = $data['next_of_kin'] ?? [];
 
         return $nokList[(int) $index]['id'] ?? null;
+    }
+
+    private function normalizeDraftEmployment(mixed $employment): mixed
+    {
+        if (! is_array($employment)) {
+            return $employment;
+        }
+
+        if (($employment['is_present'] ?? false) === true) {
+            $employment['end_date'] = null;
+        }
+
+        return $employment;
     }
 
     private function resolveCategoryMutation(array $data): ?array

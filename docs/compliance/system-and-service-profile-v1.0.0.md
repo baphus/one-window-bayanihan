@@ -33,7 +33,7 @@ Business processes supported:
 - Inter-agency referrals with status workflow, milestones, comments, versioned attachments, compliance-requirement fulfilment — `routes/web.php:94-108`, migration `..._000003_*`.
 - Public case tracking via tracker number + email OTP — `TrackController`, `routes/web.php:296-306`.
 - Feedback / SERVQUAL surveys via tokenized public links — `PublicFeedbackController`, `routes/web.php:46-51`.
-- Reporting and analytics, including Excel/PDF export and AI-generated insights — `ReportsController`.
+- Reporting and analytics, including Excel/PDF export — `ReportsController`.
 - System administration (users, agencies, services, reference data, logs, sessions, security, maintenance, data export) — `routes/web.php:210-270`.
 - AI helpdesk chatbot "Bayani" — `ChatbotController`.
 
@@ -75,7 +75,7 @@ There is **no citizen/end-user account role**; the public interacts anonymously 
 | Supabase (managed Postgres + S3 storage) | Primary DB + `case-files` bucket | All application data + uploaded case/referral documents | Likely (US) |
 | S3-compatible object storage | Case documents, referral attachments (private) | Uploaded PII documents | Likely |
 | Cloudinary `3.1.3` | User/client avatar images | Profile/client images | Yes |
-| OpenAI (default AI provider) | (a) Chatbot; (b) reports AI insight | Chatbot: user message + static guide (no case PII). Reports: aggregated KPI summary (~300 tokens), not raw records | Yes |
+| OpenAI (default AI provider) | Chatbot | User message + static guide (no case PII) | Yes |
 | Pusher / websockets | Realtime notifications | Notification events | Depends |
 | PSGC API (`psgc.cloud`) | Address lookup (public gov data) | Address query params only | Yes |
 | Mail (log driver default; SES/Postmark/Resend configs present) | OTP, feedback, notifications | Recipient email, OTP codes, content | Depends on provider |

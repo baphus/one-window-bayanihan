@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\CaseFile;
+use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -48,11 +49,7 @@ class StoreCaseRequest extends FormRequest
             if ($this->has($field)) {
                 $raw = $this->input($field);
                 if (is_string($raw)) {
-                    $segments = array_map('trim', explode(',', $raw));
-                    $segments = array_filter($segments, fn ($s) => $s !== '');
-                    $valid = ['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'];
-                    $segments = array_values(array_intersect($segments, $valid));
-                    $this->merge([$field => empty($segments) ? 'None' : implode(', ', $segments)]);
+                    $this->merge([$field => VulnerabilityRule::normalize($raw)]);
                 }
             }
         }
@@ -90,8 +87,8 @@ class StoreCaseRequest extends FormRequest
         return [
             'is_draft' => ['nullable', 'boolean'],
             'client_type' => [$r, 'string', Rule::in(CaseFile::CLIENT_TYPES)],
-            'vulnerability_indicator' => [$r, 'string', 'max:255'],
-            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', 'max:255'],
+            'vulnerability_indicator' => [$r, 'string', 'max:255', new VulnerabilityRule],
+            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],
             // Drafts may be saved before categories are selected. Published case
             // creation must contain at least one category in either format.

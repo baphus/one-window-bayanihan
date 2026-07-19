@@ -95,7 +95,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs');
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:120,1');
-    Route::post('/reports/ai-insight', [ReportsController::class, 'aiInsight'])->name('reports.ai-insight')->middleware('throttle:10,1');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
 

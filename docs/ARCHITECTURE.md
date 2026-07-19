@@ -105,7 +105,6 @@ Controller (thin) → Service (business logic) → Model (data access) → Postg
 | `tracking` | 5/min | Per IP |
 | `api-global` | 60/min | Per user |
 | Reports page | 60/min | Per route |
-| AI insight | 10/min | Per route |
 | Chatbot | 30/min | Per route |
 
 ## 5. Authentication Flow
@@ -200,7 +199,7 @@ Laravel Controller → Inertia::render('Page', $props)
 | Service | Size | Responsibility |
 |---------|------|----------------|
 | `CaseService` | 46KB | Case CRUD, drafts, publishing, archiving, status management |
-| `ReportsService` | 55KB | Analytics queries, KPI calculations, AI insights |
+| `ReportsService` | 55KB | Analytics queries, KPI calculations |
 | `DashboardService` | 37KB | Role-specific dashboard data aggregation |
 | `ReferralService` | 24KB | Referral lifecycle, milestones, comments, attachments |
 | `TrackingService` | 26KB | Public case tracking, OTP verification |
@@ -252,7 +251,7 @@ docker-compose.yml
 | Referrals | `ReferralController` | Referral lifecycle, milestones, comments, attachments |
 | Clients | `ClientController`, `ClientSelectController` | Client profiles & search |
 | Feedback | `FeedbackController`, `PublicFeedbackController`, `AdminFeedbackController`, `AgencyServqualConfigController` | SERVQUAL feedback system |
-| Reports | `ReportsController` | Analytics, exports, AI insights |
+| Reports | `ReportsController` | Analytics and exports |
 | Tracking | `TrackController` | Public OFW case tracking portal |
 | Chatbot | `ChatbotController` | AI helpdesk chatbot |
 | Admin | `AdminUserController`, `AdminAgencyController`, `AdminServiceController`, `AdminCaseCategoryController`, `AdminCaseStatusController`, `AdminCaseIssueController` | Admin CRUD |

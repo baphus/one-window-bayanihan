@@ -104,7 +104,6 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS)
 | Tracking portal | 5/min per IP | Prevents enumeration |
 | API global | 60/min per user | Authenticated API |
 | Reports page | 60/min per route | Expensive queries |
-| AI insights | 10/min per route | API cost control |
 | Chatbot | 30/min per route | API cost control |
 | Public feedback | 30/min (view), 10/min (submit) | Spam prevention |
 | CSP reports | 120/min | High-volume endpoint |

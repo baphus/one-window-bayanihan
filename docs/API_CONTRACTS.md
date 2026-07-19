@@ -155,7 +155,6 @@ All routes below require `auth` middleware (session-based).
 | Method | URI | Controller | Name | Middleware |
 |--------|-----|-----------|------|------------|
 | GET | `/reports` | `ReportsController@index` | `reports.index` | `throttle:60,1` |
-| POST | `/reports/ai-insight` | `ReportsController@aiInsight` | `reports.ai-insight` | `throttle:10,1` |
 | GET | `/reports/export-pdf` | `ReportsController@exportPdf` | `reports.export-pdf` | |
 | GET | `/reports/export-excel` | `ReportsController@exportExcel` | `reports.export-excel` | |
 
