@@ -437,10 +437,6 @@ class ReferralService
                 throw new \InvalidArgumentException('Cannot add milestones to a completed referral.');
             }
 
-            if ($referral->status === 'PENDING' || $referral->status === 'REJECTED') {
-                throw new \InvalidArgumentException('Referral must be accepted before milestones can be added.');
-            }
-
             $milestone = Milestone::create([
                 'title' => $title,
                 'description' => $description,

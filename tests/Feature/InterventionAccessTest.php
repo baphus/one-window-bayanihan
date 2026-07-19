@@ -141,4 +141,24 @@ class InterventionAccessTest extends TestCase
             'status' => 'COMPLETED',
         ]);
     }
+
+    #[Test]
+    public function case_manager_cannot_accept_referral(): void
+    {
+        $response = $this->actingAs($this->caseManager)->patch(
+            route('referrals.update-status', $this->referral),
+            [
+                'status' => 'PROCESSING',
+                'decision' => 'ACCEPT',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $this->assertDatabaseHas('referrals', [
+            'id' => $this->referral->id,
+            'status' => 'PROCESSING',
+        ]);
+    }
 }
