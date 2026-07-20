@@ -17,11 +17,14 @@ class SurveyRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
 
     public string $survey_url;
 
+    public string $caseNumber;
+
     public function __construct(
         public readonly SurveyInvitation $invitation,
         public readonly string $rawToken,
     ) {
         $this->survey_url = route('survey.public.show', $rawToken);
+        $this->caseNumber = $this->invitation->caseFile?->case_number ?? '';
     }
 
     public function envelope(): Envelope
@@ -38,6 +41,7 @@ class SurveyRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
             with: [
                 'invitation' => $this->invitation,
                 'survey_url' => $this->survey_url,
+                'caseNumber' => $this->caseNumber,
             ],
         );
     }

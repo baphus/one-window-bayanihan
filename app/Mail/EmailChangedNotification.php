@@ -30,6 +30,11 @@ class EmailChangedNotification extends Mailable implements ShouldQueue
     {
         return new Content(
             markdown: 'emails.email-changed',
+            with: [
+                'oldEmail' => $this->oldEmail,
+                'newEmail' => $this->newEmail,
+                'userName' => $this->userName,
+            ],
         );
     }
 }

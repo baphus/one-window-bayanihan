@@ -211,7 +211,10 @@ class AppServiceProvider extends ServiceProvider
         // Invalidate cached notification count when a database notification is sent
         Event::listen(NotificationSent::class, function ($event) {
             if ($event->channel === 'database' && $event->notifiable && method_exists($event->notifiable, 'getKey')) {
-                HandleInertiaRequests::invalidateNotificationCount($event->notifiable->getKey());
+                $key = $event->notifiable->getKey();
+                if ($key !== null) {
+                    HandleInertiaRequests::invalidateNotificationCount($key);
+                }
             }
         });
 

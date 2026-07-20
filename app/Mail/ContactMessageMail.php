@@ -31,6 +31,11 @@ class ContactMessageMail extends Mailable implements ShouldQueue
     {
         return new Content(
             markdown: 'emails.contact-message',
+            with: [
+                'senderName' => $this->senderName,
+                'senderEmail' => $this->senderEmail,
+                'messageBody' => $this->messageBody,
+            ],
         );
     }
 }

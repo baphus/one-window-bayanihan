@@ -41,10 +41,9 @@ class NotificationService
 
         // Queue a friendly email to the client with case update details.
         Mail::to($clientEmail)->queue(new ClientUpdateMail(
-            trackingNumber: $case->tracker_number,
-            caseNumber: $case->case_number,
-            title: $title,
+            case: $case,
             message: $message,
+            updatedBy: 'system',
         ));
 
         return CaseNotification::create([

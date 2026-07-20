@@ -1,40 +1,28 @@
 <x-mail::message>
-# Overdue Referral Notice
+<x-mail::status-badge status="rejected" label="Overdue" />
 
-This referral has been pending for over **{{ $overdueDays }} days** without completion.
+<h1 style="font-size: 20px; font-weight: 800; color: #18181b; margin: 0 0 16px 0;">Overdue Referral</h1>
 
-**Case Number:** {{ $referral->caseFile?->case_number ?? 'N/A' }}<br>
-**Client:** {{ $referral->caseFile?->client?->first_name ?? '' }} {{ $referral->caseFile?->client?->last_name ?? 'N/A' }}<br>
-**Agency:** {{ $referral->agency?->name ?? 'N/A' }}<br>
-**Service Required:** {{ $referral->required_services }}<br>
-**Created:** {{ $referral->created_at->format('M d, Y') }}<br>
-**Days Overdue:** {{ $referral->created_at->diffInDays(now()) }}
+<x-mail::detail-table :rows="[
+    ['label' => 'Case Number', 'value' => $caseNumber],
+    ['label' => 'Client', 'value' => $clientName],
+    ['label' => 'Agency', 'value' => $agencyName],
+    ['label' => 'Service Required', 'value' => $requiredServices],
+    ['label' => 'Created', 'value' => $createdAt->format('M d, Y')],
+    ['label' => 'Last Update', 'value' => $lastUpdate->format('M d, Y')],
+    ['label' => 'Days Overdue', 'value' => $overdueDays],
+]" />
 
-<table class="action" align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td align="center">
-<table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td align="center">
-<table border="0" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td>
-<a href="{{ route('referrals.show', $referral) }}" target="_blank" rel="noopener" style="background-color: #0b5384; border-top: 12px solid #0b5384; border-bottom: 12px solid #0b5384; border-left: 28px solid #0b5384; border-right: 28px solid #0b5384; border-radius: 4px; color: #ffffff; display: inline-block; font-size: 14px; text-decoration: none; -webkit-text-size-adjust: none; font-weight: bold;">View Referral</a>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
+@if($milestones->isNotEmpty())
+<h3 style="font-size: 16px; font-weight: 700; color: #18181b; margin: 24px 0 12px 0;">Milestones</h3>
+<x-mail::checklist :items="$milestones->pluck('title')->toArray()" :completed="[]" />
+@endif
 
-Please take the necessary action to process or close this referral at your earliest convenience.
+<x-mail::action-card url="{{ route('referrals.show', $referral) }}" label="View Referral" />
 
----
+<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0;">
+    This referral has been pending for over {{ $overdueDays }} days. Please take the necessary action to process or close this referral at your earliest convenience.
+</p>
 
-Regards,<br>
-**Department of Migrant Workers – Region VII**<br>
-**{{ config('app.name') }}**
+<x-mail::contact-footer />
 </x-mail::message>

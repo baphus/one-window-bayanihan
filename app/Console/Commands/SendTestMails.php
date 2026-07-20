@@ -49,7 +49,7 @@ class SendTestMails extends Command
         $this->components->task('OTP (email_change)', fn () => Mail::to($to)->send(new OtpMail('654321', 'email_change')));
         $this->components->task('OTP (track)', fn () => Mail::to($to)->send(new OtpMail('789012', 'track')));
         $this->components->task('Email Changed', fn () => Mail::to($to)->send(new EmailChangedNotification('old@email.com', 'new@email.com', 'Juan Dela Cruz')));
-        $this->components->task('Client Update', fn () => Mail::to($to)->send(new ClientUpdateMail('TRK-001', 'CASE-001', 'Update on your case', 'Your case has been updated. The agency is now reviewing your documents.')));
+        $this->components->task('Client Update', fn () => Mail::to($to)->send(new ClientUpdateMail($case, 'Your case has been updated. The agency is now reviewing your documents.', 'Case Manager')));
         $this->components->task('Survey Request', function () use ($to, $referral) {
             $invitation = SurveyInvitation::where('agency_id', $referral->agcy_id)->first();
             $rawToken = Str::random(64);
