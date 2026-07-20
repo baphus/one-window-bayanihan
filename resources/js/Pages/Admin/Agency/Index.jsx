@@ -7,6 +7,8 @@ import { Building2, Users, CheckCircle, XCircle, Shield, MapPin, Phone } from 'l
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import usePersistedColumns from '@/Hooks/usePersistedColumns';
+
 
 import AgencyFormModal from '@/Components/Admin/AgencyFormModal';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
@@ -32,6 +34,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
   const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
+
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [contextMenu, setContextMenu] = useState(null);
   const [viewMode, setViewMode] = useState('list');
@@ -45,7 +48,8 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
 
   const searchTimeout = useRef(null);
 
-  const [visibleColumns, setVisibleColumns] = useState(
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns(
+    'admin-agencies',
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
@@ -229,7 +233,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                           router.delete(route('admin.agencies.destroy', row.id), { preserveScroll: true });
                         }
                       }}
-                      className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
+                      className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Deactivate
                     </button>
@@ -241,7 +245,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                           router.patch(route('admin.agencies.reactivate', row.id), {}, { preserveScroll: true });
                         }
                       }}
-                      className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200"
+                      className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Reactivate
                     </button>
@@ -390,6 +394,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         data={agencies.data}
         keyExtractor={(row) => row.id}
         {...paginatorProps(agencies)}
+        emptyStateMessage="No agencies found"
         searchValue={searchValue}
         searchPlaceholder="Search by name, short code, or description..."
         onSearchChange={handleSearchChange}
@@ -424,10 +429,10 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
           }} />
           {isAdmin && (!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
             <RowContextMenuItem icon="restart_alt" label="Reactivate" variant="success" onClick={() => {
-              if (confirm(`Reactivate agency "${contextMenu.row.name}"?`)) {
-                router.patch(route('admin.agencies.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
-              }
-              setContextMenu(null);
+               if (confirm(`Reactivate agency "${contextMenu.row.name}"?`)) {
+                  router.patch(route('admin.agencies.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
+                }
+                setContextMenu(null);
             }} />
           )}
         </RowContextMenu>

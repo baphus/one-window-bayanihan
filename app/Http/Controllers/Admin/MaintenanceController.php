@@ -22,16 +22,19 @@ class MaintenanceController extends Controller
 
         if ($status['active']) {
             $service->disable();
-            $msg = 'Maintenance mode disabled.';
-        } else {
-            $request->validate([
-                'secret' => 'nullable|string|min:3',
-                'retry_minutes' => 'nullable|integer|min:1|max:1440',
-            ]);
-            $service->enable($request->secret, $request->retry_minutes);
-            $msg = 'Maintenance mode enabled.';
+
+            return back()->with('success', 'Maintenance mode disabled.');
         }
 
-        return back()->with('success', $msg);
+        $request->validate([
+            'secret' => 'required|string|min:3',
+            'retry_minutes' => 'nullable|integer|min:1|max:1440',
+        ]);
+
+        $service->enable($request->secret, $request->retry_minutes);
+
+        // Force a full browser navigation so the 503 page renders with
+        // all scripts (CDN Tailwind) loaded.
+        return Inertia::location('/');
     }
 }

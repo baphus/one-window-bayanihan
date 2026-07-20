@@ -8,6 +8,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { Users, UserCheck, Shield, ArrowRightLeft } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
+import usePersistedColumns from '@/Hooks/usePersistedColumns';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -107,7 +108,8 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
 
   const searchTimeout = useRef(null);
 
-  const [visibleColumns, setVisibleColumns] = useState(
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns(
+    'clients',
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
@@ -882,6 +884,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
         keyExtractor={(row) => row.id}
         {...paginatorProps(clients)}
         isLoading={tableLoading}
+        emptyStateMessage="No clients found"
         sortKey={filters?.sort ?? 'created_at'}
         sortDirection={filters?.direction ?? 'desc'}
         onSortChange={handleSortChange}

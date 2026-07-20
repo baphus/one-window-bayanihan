@@ -7,9 +7,25 @@
 Please respond by **{{ $dueDate }}**.
 @endif
 
-<x-mail::button :url="$magicLink">
-View request
-</x-mail::button>
+<table class="action" align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+<tr>
+<td align="center">
+<table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+<tr>
+<td align="center">
+<table border="0" cellpadding="0" cellspacing="0" role="presentation">
+<tr>
+<td>
+<a href="{{ $magicLink }}" target="_blank" rel="noopener" style="background-color: #0b5384; border-top: 12px solid #0b5384; border-bottom: 12px solid #0b5384; border-left: 28px solid #0b5384; border-right: 28px solid #0b5384; border-radius: 4px; color: #ffffff; display: inline-block; font-size: 14px; text-decoration: none; -webkit-text-size-adjust: none; font-weight: bold;">View Request</a>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
 
 This secure link expires in seven days. If you were not expecting this request, you can ignore this email.
 

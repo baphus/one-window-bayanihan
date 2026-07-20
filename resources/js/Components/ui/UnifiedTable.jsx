@@ -519,9 +519,19 @@ export function UnifiedTable({
             </table>
             {sortedData.length === 0 && !isLoading && (
                <div className="flex flex-col items-center justify-center p-12 text-center">
-                 <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
-                 <p className="text-[14px] font-bold text-slate-700">No records found</p>
-                 <p className="mt-1 max-w-sm text-xs text-slate-500">We couldn't find any records matching your current criteria. Try adjusting your filters or search term.</p>
+                 {searchValue || activeFilters.length > 0 ? (
+                   <>
+                     <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">search_off</span>
+                     <p className="text-[14px] font-bold text-slate-700">No results found</p>
+                     <p className="mt-1 max-w-sm text-xs text-slate-500">No records match your current search or filters. Try adjusting your criteria.</p>
+                   </>
+                 ) : (
+                   <>
+                     <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
+                     <p className="text-[14px] font-bold text-slate-700">{emptyStateMessage || 'No records yet'}</p>
+                     <p className="mt-1 max-w-sm text-xs text-slate-500">There are no records to display here yet. Data will appear once it's available.</p>
+                   </>
+                 )}
                </div>
             )}
             {isLoading && (
@@ -570,9 +580,19 @@ export function UnifiedTable({
             </div>
             {sortedData.length === 0 && (
                <div className="flex flex-col items-center justify-center p-12 text-center">
-                 <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
-                 <p className="text-[14px] font-bold text-slate-700">No records found</p>
-                 <p className="mt-1 max-w-sm text-xs text-slate-500">We couldn't find any records matching your current criteria. Try adjusting your filters or search term.</p>
+                 {searchValue || activeFilters.length > 0 ? (
+                   <>
+                     <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">search_off</span>
+                     <p className="text-[14px] font-bold text-slate-700">No results found</p>
+                     <p className="mt-1 max-w-sm text-xs text-slate-500">No records match your current search or filters. Try adjusting your criteria.</p>
+                   </>
+                 ) : (
+                   <>
+                     <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
+                     <p className="text-[14px] font-bold text-slate-700">{emptyStateMessage || 'No records yet'}</p>
+                     <p className="mt-1 max-w-sm text-xs text-slate-500">There are no records to display here yet. Data will appear once it's available.</p>
+                   </>
+                 )}
                </div>
             )}
           </div>

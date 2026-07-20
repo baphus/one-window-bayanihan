@@ -1,5 +1,5 @@
 import { Link, usePage, router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import NotificationPanel from '@/Components/ui/NotificationPanel';
 import PageGuideButton from '@/Components/PageGuideButton';
@@ -7,6 +7,7 @@ import PeerProfileModal from '@/Components/PeerProfileModal';
 import { useOnboarding } from '@/Onboarding/OnboardingProvider';
 import { replayOnboarding } from '@/Onboarding/api';
 import { getTourConfig } from '@/Onboarding/index';
+
 
 export const navByRole = {
   CASE_MANAGER: [
@@ -113,6 +114,19 @@ export default function AppSidebar() {
   const user = usePage().props.auth.user;
   const { startTour } = useOnboarding();
   const [peerProfileUser, setPeerProfileUser] = useState(null);
+  const sidebarNavRef = useRef(null);
+
+  // Restore sidebar scroll position after mount
+  useEffect(() => {
+    const nav = sidebarNavRef.current;
+    if (!nav) return;
+    const saved = sessionStorage.getItem('owb-sidebar-scroll');
+    if (saved) nav.scrollTop = parseInt(saved, 10);
+  }, []);
+
+  const handleSidebarScroll = useCallback((e) => {
+    sessionStorage.setItem('owb-sidebar-scroll', e.target.scrollTop);
+  }, []);
 
   const navigation = useMemo(() => {
     return navByRole[user?.role] || [];
@@ -157,7 +171,7 @@ export default function AppSidebar() {
         </Link>
       </div>
 
-      <nav data-tour="sidebar-nav" className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4">
+      <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} data-tour="sidebar-nav" className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4">
           {navigation.map((group) => (
             <div key={group.label} className="mb-3">
               <p className="px-8 pb-2 text-[10px] font-bold font-label uppercase tracking-[0.09em] text-slate-500">

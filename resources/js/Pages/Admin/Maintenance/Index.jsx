@@ -30,9 +30,9 @@ export default function Index({ status }) {
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <div data-tour="maintenance-status" className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-slate-500">Current Status</p>
+              <p className="text-sm font-medium text-slate-500">Site Status</p>
               <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${isActive ? 'border-red-200 bg-red-100 text-red-800' : 'border-green-200 bg-green-100 text-green-800'}`}>
-                {isActive ? 'Active' : 'Inactive'}
+                {isActive ? 'Inactive' : 'Active'}
               </span>
             </div>
             <div className="text-right text-sm text-slate-500">
@@ -45,7 +45,7 @@ export default function Index({ status }) {
               <p className="font-semibold">Warning: disabling maintenance mode will reopen the site.</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div><span className="font-medium">Secret:</span> {status?.secret ?? 'None'}</div>
-                <div><span className="font-medium">Retry:</span> {status?.retry ? `${status.retry} seconds` : 'None'}</div>
+                <div><span className="font-medium">Retry:</span> {status?.retry ? `${Math.ceil(status.retry / 60)} minute${Math.ceil(status.retry / 60) !== 1 ? 's' : ''}` : 'None'}</div>
               </div>
               <button
                 onClick={toggle}
@@ -59,7 +59,7 @@ export default function Index({ status }) {
               <p className="font-semibold">Warning: enabling maintenance mode will make the site unavailable to most users.</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-amber-900">Secret (optional)</span>
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-amber-900">Bypass Secret (required)</span>
                   <input
                     value={secret}
                     onChange={(e) => setSecret(e.target.value)}
