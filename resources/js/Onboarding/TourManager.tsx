@@ -65,6 +65,46 @@ const BASE_DRIVER_OPTIONS = {
 
 const noop = () => {};
 
+/**
+ * Wait for at least one of the given CSS selectors to appear in the DOM.
+ * Returns a cleanup function that cancels the wait. If anchors are already
+ * present, `onReady` fires synchronously (still returns the no-op cleanup).
+ *
+ * This prevents the tour from starting before React has committed the
+ * page content — especially important on first login when the ChatBot
+ * and other conditionally-mounted components are not yet in the DOM.
+ */
+function waitForAnchors(selectors: string[], onReady: () => void): () => void {
+    if (selectors.some((s) => document.querySelector(s))) {
+        onReady();
+        return noop;
+    }
+
+    let settled = false;
+    const observer = new MutationObserver(() => {
+        if (!settled && selectors.some((s) => document.querySelector(s))) {
+            settled = true;
+            observer.disconnect();
+            clearTimeout(timer);
+            onReady();
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const timer = setTimeout(() => {
+        if (!settled) {
+            settled = true;
+            observer.disconnect();
+            onReady(); // proceed anyway — driver.js will skip missing anchors
+        }
+    }, 2000);
+
+    return () => {
+        settled = true;
+        observer.disconnect();
+        clearTimeout(timer);
+    };
+}
+
 export default function TourManager(): null {
     // Optional so layouts rendered without the app shell (tests) no-op.
     const onboarding = useOnboardingOptional();
@@ -127,101 +167,110 @@ export default function TourManager(): null {
         }
 
         const page = tourConfig.pages[matchedIndex];
-        const { drive: steps, originalIndexes } = presentSteps(page.steps);
-        if (steps.length === 0) {
-            return;
-        }
 
-        const isLastPage = matchedIndex === tourConfig.pages.length - 1;
-        const nextPage = isLastPage ? null : tourConfig.pages[matchedIndex + 1];
-        let userCompleted = false;
-
-        // Map a resume position (full-config step index) to the filtered list.
-        let startAt = 0;
-        if (resumeStepIndex !== null) {
-            const filtered = originalIndexes.findIndex((i) => i >= resumeStepIndex);
-            startAt = filtered >= 0 ? filtered : 0;
-            clearResumeStep();
-        }
-
-        const driverObj = driver({
-            ...BASE_DRIVER_OPTIONS,
-            showButtons: ['next', 'previous', 'close'],
-            doneBtnText: isLastPage ? 'Done' : `Next: ${nextPage!.title} →`,
-            steps,
-
-            onHighlighted: (_element, _step, opts) => {
-                const active = opts.state.activeIndex ?? 0;
-                const original = originalIndexes[active] ?? 0;
-                updateStep(`${matchedIndex}:${original}`).catch(() => {
-                    // Progress persistence is best-effort.
-                });
-            },
-
-            onNextClick: (_element, _step, opts) => {
-                if (opts.driver.hasNextStep()) {
-                    opts.driver.moveNext();
-                } else {
-                    userCompleted = true;
-                    opts.driver.destroy();
-                }
-            },
-
-            onCloseClick: (_element, _step, opts) => {
-                opts.driver.destroy();
-            },
-
-            onDestroyed: () => {
-                driverRef.current = null;
-
-                if (cleaningUpRef.current) return;
-
-                if (userCompleted) {
-                    if (isLastPage) {
-                        completeOnboarding()
-                            .then(() => {
-                                toast.success('Tour complete! Use the ? button on any page for a refresher.');
-                                endTour();
-                            })
-                            .catch(() => {
-                                endTour();
-                            });
-                    } else if (nextPage) {
-                        // Auto-navigate to the next tour page; the tour stays
-                        // active and re-matches once the new URL renders.
-                        router.visit(route(nextPage.route));
-                    }
-                } else {
-                    endTour();
-                }
-            },
-
-            onPopoverRender: (popover, opts) => {
-                if (popover.footer.querySelector('.driver-popover-skip-btn')) {
-                    return;
-                }
-
-                const skipBtn = document.createElement('button');
-                skipBtn.textContent = 'Skip Tour';
-                skipBtn.className = 'driver-popover-skip-btn';
-                skipBtn.onclick = () => {
-                    // Explicit skip: persist so the welcome modal stops nagging.
-                    skipOnboarding().catch(() => {});
-                    opts.driver.destroy();
-                };
-
-                popover.footer.appendChild(skipBtn);
-            },
-        });
-
-        driverRef.current = driverObj;
-        requestAnimationFrame(() => {
-            if (driverRef.current === driverObj) {
-                driverObj.drive(startAt);
+        // Wait for DOM anchors to be present before filtering. On first
+        // login the ChatBot and conditionally-mounted components may not
+        // be in the DOM yet when phase flips to 'touring'.
+        const anchorSelectors = page.steps.map((s) => s.element);
+        const cancelWait = waitForAnchors(anchorSelectors, () => {
+            const { drive: steps, originalIndexes } = presentSteps(page.steps);
+            if (steps.length === 0) {
+                return;
             }
+
+            const isLastPage = matchedIndex === tourConfig.pages.length - 1;
+            const nextPage = isLastPage ? null : tourConfig.pages[matchedIndex + 1];
+            let userCompleted = false;
+
+            // Map a resume position (full-config step index) to the filtered list.
+            let startAt = 0;
+            if (resumeStepIndex !== null) {
+                const filtered = originalIndexes.findIndex((i) => i >= resumeStepIndex);
+                startAt = filtered >= 0 ? filtered : 0;
+                clearResumeStep();
+            }
+
+            const driverObj = driver({
+                ...BASE_DRIVER_OPTIONS,
+                showButtons: ['next', 'previous', 'close'],
+                doneBtnText: isLastPage ? 'Done' : `Next: ${nextPage!.title} →`,
+                steps,
+
+                onHighlighted: (_element, _step, opts) => {
+                    const active = opts.state.activeIndex ?? 0;
+                    const original = originalIndexes[active] ?? 0;
+                    updateStep(`${matchedIndex}:${original}`).catch(() => {
+                        // Progress persistence is best-effort.
+                    });
+                },
+
+                onNextClick: (_element, _step, opts) => {
+                    if (opts.driver.hasNextStep()) {
+                        opts.driver.moveNext();
+                    } else {
+                        userCompleted = true;
+                        opts.driver.destroy();
+                    }
+                },
+
+                onCloseClick: (_element, _step, opts) => {
+                    opts.driver.destroy();
+                },
+
+                onDestroyed: () => {
+                    driverRef.current = null;
+
+                    if (cleaningUpRef.current) return;
+
+                    if (userCompleted) {
+                        if (isLastPage) {
+                            completeOnboarding()
+                                .then(() => {
+                                    toast.success('Tour complete! Use the ? button on any page for a refresher.');
+                                    endTour();
+                                })
+                                .catch(() => {
+                                    endTour();
+                                });
+                        } else if (nextPage) {
+                            // Auto-navigate to the next tour page; the tour stays
+                            // active and re-matches once the new URL renders.
+                            router.visit(route(nextPage.route));
+                        }
+                    } else {
+                        endTour();
+                    }
+                },
+
+                onPopoverRender: (popover, opts) => {
+                    if (popover.footer.querySelector('.driver-popover-skip-btn')) {
+                        return;
+                    }
+
+                    const skipBtn = document.createElement('button');
+                    skipBtn.textContent = 'Skip Tour';
+                    skipBtn.className = 'driver-popover-skip-btn';
+                    skipBtn.onclick = () => {
+                        // Explicit skip: persist so the welcome modal stops nagging.
+                        skipOnboarding().catch(() => {});
+                        opts.driver.destroy();
+                    };
+
+                    popover.footer.appendChild(skipBtn);
+                },
+            });
+
+            driverRef.current = driverObj;
+            requestAnimationFrame(() => {
+                if (driverRef.current === driverObj) {
+                    driverObj.drive(startAt);
+                }
+            });
         });
 
+        // Combined cleanup: cancel the anchor wait AND destroy any active driver.
         return () => {
+            cancelWait();
             cleaningUpRef.current = true;
 
             if (driverRef.current) {
@@ -261,62 +310,70 @@ export default function TourManager(): null {
         }
 
         const { guide } = activePageGuide;
-        const { drive: steps } = presentSteps(guide.steps);
-        if (steps.length === 0) {
-            endPageGuide();
-            return;
-        }
 
-        // Append a "Read more" link to the final step when the guide maps
-        // to a Helpdesk article. driver.js renders descriptions as HTML.
-        if (guide.helpdeskSlug) {
-            const last = steps[steps.length - 1];
-            let articleUrl = `/help/${guide.helpdeskSlug}`;
-            try {
-                articleUrl = route('helpdesk.show', { slug: guide.helpdeskSlug });
-            } catch {
-                // Fall back to the literal path if Ziggy can't resolve.
-            }
-            last.popover.description += `<div class="driver-popover-readmore"><a href="${articleUrl}">Read more in the Help Center →</a></div>`;
-        }
-
-        let finished = false;
-
-        const driverObj = driver({
-            ...BASE_DRIVER_OPTIONS,
-            showButtons: ['next', 'previous', 'close'],
-            doneBtnText: 'Done',
-            steps,
-
-            onNextClick: (_element, _step, opts) => {
-                if (opts.driver.hasNextStep()) {
-                    opts.driver.moveNext();
-                } else {
-                    finished = true;
-                    opts.driver.destroy();
-                }
-            },
-
-            onCloseClick: (_element, _step, opts) => {
-                opts.driver.destroy();
-            },
-
-            onDestroyed: () => {
-                driverRef.current = null;
-                if (cleaningUpRef.current) return;
-                void finished;
+        // Wait for DOM anchors before filtering — the same timing issue
+        // as the welcome tour: the guide may open before all content is
+        // committed to the DOM (e.g. on fast Inertia prefetches).
+        const anchorSelectors = guide.steps.map((s) => s.element);
+        const cancelWait = waitForAnchors(anchorSelectors, () => {
+            const { drive: steps } = presentSteps(guide.steps);
+            if (steps.length === 0) {
                 endPageGuide();
-            },
-        });
-
-        driverRef.current = driverObj;
-        requestAnimationFrame(() => {
-            if (driverRef.current === driverObj) {
-                driverObj.drive();
+                return;
             }
+
+            // Append a "Read more" link to the final step when the guide maps
+            // to a Helpdesk article. driver.js renders descriptions as HTML.
+            if (guide.helpdeskSlug) {
+                const last = steps[steps.length - 1];
+                let articleUrl = `/help/${guide.helpdeskSlug}`;
+                try {
+                    articleUrl = route('helpdesk.show', { slug: guide.helpdeskSlug });
+                } catch {
+                    // Fall back to the literal path if Ziggy can't resolve.
+                }
+                last.popover.description += `<div class="driver-popover-readmore"><a href="${articleUrl}">Read more in the Help Center →</a></div>`;
+            }
+
+            let finished = false;
+
+            const driverObj = driver({
+                ...BASE_DRIVER_OPTIONS,
+                showButtons: ['next', 'previous', 'close'],
+                doneBtnText: 'Done',
+                steps,
+
+                onNextClick: (_element, _step, opts) => {
+                    if (opts.driver.hasNextStep()) {
+                        opts.driver.moveNext();
+                    } else {
+                        finished = true;
+                        opts.driver.destroy();
+                    }
+                },
+
+                onCloseClick: (_element, _step, opts) => {
+                    opts.driver.destroy();
+                },
+
+                onDestroyed: () => {
+                    driverRef.current = null;
+                    if (cleaningUpRef.current) return;
+                    void finished;
+                    endPageGuide();
+                },
+            });
+
+            driverRef.current = driverObj;
+            requestAnimationFrame(() => {
+                if (driverRef.current === driverObj) {
+                    driverObj.drive();
+                }
+            });
         });
 
         return () => {
+            cancelWait();
             cleaningUpRef.current = true;
 
             if (driverRef.current) {

@@ -245,7 +245,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                 }
             }}>
                 <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <div className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-slate-200 bg-slate-50/60 p-8">
+                    <div data-tour="referral-create-steps" className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-slate-200 bg-slate-50/60 p-8">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Step Guide</h3>
                             <p className="mt-2 text-[14px] font-bold text-slate-800">Step {createStep} of {STEPS.length}</p>
@@ -310,7 +310,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col p-8">
+                    <div data-tour="referral-create-form" className="flex-1 flex flex-col p-8">
                         <div className="flex-1">
                             <div className="mb-6 rounded-xl border border-slate-200 bg-gradient-to-br from-indigo-50 via-white to-white p-6">
                                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -799,7 +799,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                             </div>
                         </div>
 
-                        <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
+                        <div data-tour="referral-create-actions" className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={goToPreviousStep} disabled={createStep === 1}
                                     className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">

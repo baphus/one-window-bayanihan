@@ -40,7 +40,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function AdminUserIndex({ users, filters, stats, agencies = [] }) {
+export default function AdminUserIndex({ users, filters, stats, agencies = [], pendingInvites = [] }) {
   const { auth } = usePage().props;
   const isAdmin = auth.user.role === 'ADMIN';
 
@@ -547,7 +547,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         onViewModeChange={setViewMode}
         viewMode={viewMode}
         onNewRecord={() => { setEditingUser(null); setShowForm(true); }}
-        newRecordLabel="New User"
+        newRecordLabel="Invite User"
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
@@ -555,6 +555,91 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [] })
         isLoading={tableLoading}
       />
       </div>
+
+      {/* Pending Invites */}
+      <section className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <details className="group">
+          <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 select-none">
+            <div className="flex items-center gap-2">
+              <span className={`material-symbols-outlined text-[18px] ${pendingInvites.length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>mail</span>
+              <span className="text-sm font-bold text-slate-800">Pending Invites</span>
+              {pendingInvites.length > 0 && (
+                <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-amber-100 text-[11px] font-bold text-amber-800 px-1.5">
+                  {pendingInvites.length}
+                </span>
+              )}
+            </div>
+            <span className="material-symbols-outlined text-slate-400 text-[18px] group-open:rotate-180 transition-transform">expand_more</span>
+          </summary>
+          <div className="border-t border-slate-100">
+            {pendingInvites.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/50">
+                      <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Email</th>
+                      <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Role</th>
+                      <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Agency</th>
+                      <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Invited</th>
+                      <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Expires</th>
+                      <th className="text-right px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingInvites.map((invite) => (
+                      <tr key={invite.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 text-sm font-medium text-slate-800">{invite.email}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
+                            invite.role === 'ADMIN' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                            invite.role === 'CASE_MANAGER' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                            'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}>
+                            {invite.role === 'ADMIN' ? 'System Admin' : invite.role === 'CASE_MANAGER' ? 'Case Manager' : 'Agency Focal'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{invite.agency?.name || <span className="text-slate-400">&mdash;</span>}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{formatDisplayDate(invite.created_at)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-sm ${new Date(invite.expires_at) < new Date() ? 'text-red-600 font-semibold' : 'text-slate-600'}`}>
+                            {formatDisplayDate(invite.expires_at)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => router.post(route('admin.users.invites.resend', invite.id), {}, { preserveScroll: true })}
+                              className="px-2.5 py-1 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+                            >
+                              Resend
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Cancel invitation for ${invite.email}?`)) {
+                                  router.delete(route('admin.users.invites.cancel', invite.id), { preserveScroll: true });
+                                }
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-8 text-slate-400">
+                <span className="material-symbols-outlined text-[32px] mb-2">mail</span>
+                <p className="text-sm font-medium">No pending invites</p>
+                <p className="text-xs mt-1">Use "Invite User" above to send a new invitation.</p>
+              </div>
+            )}
+          </div>
+        </details>
+      </section>
 
       {UnsavedModal}
       <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />

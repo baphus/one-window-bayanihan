@@ -88,11 +88,11 @@ describe('PageGuideButton', () => {
         expect(button.className).not.toContain('owb-guide-nudge');
     });
 
-    it('calls startPageGuide with current route on click', () => {
+    it('calls startPageGuide with current route and role-qualified key on click', () => {
         render(<PageGuideButton />);
 
         fireEvent.click(screen.getByRole('button'));
-        expect(mockStartPageGuide).toHaveBeenCalledWith('dashboard');
+        expect(mockStartPageGuide).toHaveBeenCalledWith('dashboard', 'CASE_MANAGER:dashboard');
     });
 
     it('does NOT call startPageGuide during active overlay', () => {

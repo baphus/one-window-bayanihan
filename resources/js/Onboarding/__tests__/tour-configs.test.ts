@@ -29,11 +29,12 @@ describe('Tour configs — role-specific structure', () => {
         expect(caseManagerTour.pages[0].steps[1].description).toMatch(/dispatch board|work queue/i);
     });
 
-    it('AGENCY tour starts on dashboard and goes to referrals', () => {
+    it('AGENCY tour starts on dashboard, visits services, then goes to referrals', () => {
         expect(agencyTour.role).toBe('AGENCY');
-        expect(agencyTour.pages).toHaveLength(2);
+        expect(agencyTour.pages).toHaveLength(3);
         expect(agencyTour.pages[0].route).toBe('dashboard');
-        expect(agencyTour.pages[1].route).toBe('referrals.index');
+        expect(agencyTour.pages[1].route).toBe('agency.services.index');
+        expect(agencyTour.pages[2].route).toBe('referrals.index');
         // Description references agency-specific content
         expect(agencyTour.pages[0].steps[0].description).toMatch(/agency/i);
     });

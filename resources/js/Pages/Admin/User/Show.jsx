@@ -229,28 +229,29 @@ export default function AdminUserShow({ user }) {
                 <StatusPill label={user.mfa_enabled_at ? 'Enabled' : 'Disabled'} enabled={!!user.mfa_enabled_at} />
               </div>
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Verified</p>
-              <div className="mt-1">
-                {auth && user.id !== auth.user.id ? (
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={!!user.email_verified_at}
-                    title={user.email_verified_at ? 'Verified' : 'Unverified'}
-                    onClick={() => {
-                      if (user.email_verified_at && !confirm('Unverifying this user will lock them out of the system until an admin re-verifies them. Continue?')) return;
-                      router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
-                    }}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${user.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                  >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${user.email_verified_at ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </button>
-                ) : (
-                  <StatusPill label={user.email_verified_at ? 'Verified' : 'Unverified'} enabled={!!user.email_verified_at} />
-                )}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Verified</p>
+                <div className="mt-1">
+                  {auth && user.id !== auth.user.id ? (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!user.email_verified_at}
+                      title={user.email_verified_at ? 'Verified' : 'Unverified'}
+                      onClick={() => {
+                        if (user.email_verified_at && !confirm('Unverifying this user will lock them out of the system until they re-verify via email. Continue?')) return;
+                        router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
+                      }}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${user.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${user.email_verified_at ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  ) : (
+                    <StatusPill label={user.email_verified_at ? 'Verified' : 'Unverified'} enabled={!!user.email_verified_at} />
+                  )}
+                  <p className="text-[10px] text-slate-400 mt-1">Users invited via email are auto-verified upon registration.</p>
+                </div>
               </div>
-            </div>
           </div>
         </div>
 

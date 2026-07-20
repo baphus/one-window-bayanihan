@@ -477,8 +477,9 @@ class DashboardService
         $ofwCount = (int) ($clientCounts['ofw'] ?? 0);
         $nokCount = (int) ($clientCounts['nok'] ?? 0);
 
-        // Recent activity (LIMIT 10, indexed — kept as-is)
+        // Recent activity — DATA category only (no security/admin/system events)
         $recentActivity = AuditLog::with('user')
+            ->where('category', AuditCategory::DATA)
             ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
             ->orderBy('timestamp', 'desc')
             ->take(10)

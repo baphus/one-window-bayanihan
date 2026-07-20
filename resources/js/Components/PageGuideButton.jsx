@@ -13,6 +13,7 @@ export default function PageGuideButton() {
     const { url, props } = usePage();
     const onboarding = useOnboardingOptional();
     const isGuest = !props?.auth?.user;
+    const role = props?.auth?.user?.role;
 
     // Resolve the current Ziggy route name; url is a dependency so the
     // lookup re-runs on every Inertia navigation.
@@ -35,13 +36,23 @@ export default function PageGuideButton() {
     const overlayActive = phase === 'touring' || activePageGuide !== null;
     // Guests (public Helpdesk pages) have no persisted seen-state, so never
     // pulse for them — a nudge that can't be dismissed permanently is noise.
-    const unseen = !isGuest && !seenGuides.includes(currentRoute) && !overlayActive;
+    // Check seen status with role-qualified fallback for backward compat.
+    const isSeen = !currentRoute || !role
+        ? seenGuides.includes(currentRoute ?? '')
+        : seenGuides.includes(`${role}:${currentRoute}`) || seenGuides.includes(currentRoute);
+    const unseen = !isGuest && !isSeen && !overlayActive;
+
+    const handleClick = () => {
+        if (overlayActive) return;
+        const seenKey = role ? `${role}:${currentRoute}` : undefined;
+        startPageGuide(currentRoute, seenKey);
+    };
 
     return (
         <button
             type="button"
             data-tour="page-guide-button"
-            onClick={() => { if (!overlayActive) startPageGuide(currentRoute); }}
+            onClick={handleClick}
             title={`Page guide: ${guide.title}`}
             aria-label={`Open the ${guide.title} page guide`}
             className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:border-indigo-300 hover:text-indigo-600 ${unseen ? 'owb-guide-nudge text-indigo-600 border-indigo-300' : ''}`}

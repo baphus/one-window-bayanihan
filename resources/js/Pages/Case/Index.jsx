@@ -740,15 +740,17 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           </h1>
           <p className="text-sm text-slate-400 font-body mt-0.5">Manage all client cases and track their progress.</p>
         </div>
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={isExporting}
-          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
-          {isExporting ? 'Exporting…' : 'Export Excel'}
-        </button>
+        <div data-tour="cases-export">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting}
+            className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
+            {isExporting ? 'Exporting…' : 'Export Excel'}
+          </button>
+        </div>
       </header>
 
       <div data-tour="cases-filter">

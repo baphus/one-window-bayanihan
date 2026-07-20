@@ -63,6 +63,8 @@ function ContextDisplay() {
             <button data-testid="startGuide-btn" onClick={() => ctx.startPageGuide('cases.index')}>Start Guide</button>
             <button data-testid="startMissingGuide-btn" onClick={() => ctx.startPageGuide('nope.index')}>Start Missing Guide</button>
             <button data-testid="endGuide-btn" onClick={ctx.endPageGuide}>End Guide</button>
+            <button data-testid="markGuideSeen-btn" onClick={() => ctx.markGuideSeen('another.guide')}>Mark Guide Seen</button>
+            <button data-testid="markQualifiedSeen-btn" onClick={() => ctx.markGuideSeen('CASE_MANAGER:dashboard')}>Mark Qualified Seen</button>
             <button data-testid="markItem-btn" onClick={() => ctx.markChecklistItem('create-first-case')}>Mark Item</button>
             <button data-testid="dismissChecklist-btn" onClick={ctx.dismissChecklist}>Dismiss Checklist</button>
         </div>
@@ -151,6 +153,30 @@ describe('OnboardingProvider', () => {
         expect(screen.getByTestId('isOpen')).toHaveTextContent('true');
     });
 
+    it('startPageGuide with seenAs persists the qualified key instead of the route name', () => {
+        const TestButton = () => {
+            const ctx = useOnboarding();
+            return (
+                <button data-testid="qualified-guide-btn" onClick={() => ctx.startPageGuide('cases.index', 'CASE_MANAGER:cases.index')}>
+                    Start Qualified Guide
+                </button>
+            );
+        };
+        render(
+            <OnboardingProvider onboardingRequired={false}>
+                <ContextDisplay />
+                <TestButton />
+            </OnboardingProvider>,
+        );
+        fireEvent.click(screen.getByTestId('qualified-guide-btn'));
+
+        expect(screen.getByTestId('activeGuide')).toHaveTextContent('cases.index');
+        // The qualified key is persisted, not the bare route name
+        const seen = screen.getByTestId('seenGuides').textContent ?? '';
+        expect(seen).toContain('CASE_MANAGER:cases.index');
+        expect(seen?.split(',')).toEqual(['CASE_MANAGER:cases.index']);
+    });
+
     it('startPageGuide is a no-op for unregistered routes', () => {
         renderWithProvider(false);
         fireEvent.click(screen.getByTestId('startMissingGuide-btn'));
@@ -165,6 +191,20 @@ describe('OnboardingProvider', () => {
 
         expect(screen.getByTestId('activeGuide')).toHaveTextContent('none');
         expect(screen.getByTestId('isOpen')).toHaveTextContent('false');
+    });
+
+    it('markGuideSeen adds a route to seenGuides', () => {
+        renderWithProvider(false);
+        fireEvent.click(screen.getByTestId('markGuideSeen-btn'));
+
+        expect(screen.getByTestId('seenGuides')).toHaveTextContent('another.guide');
+    });
+
+    it('markGuideSeen with a qualified key persists it as-is', () => {
+        renderWithProvider(false);
+        fireEvent.click(screen.getByTestId('markQualifiedSeen-btn'));
+
+        expect(screen.getByTestId('seenGuides')).toHaveTextContent('CASE_MANAGER:dashboard');
     });
 
     it('merges server seen guides with local optimistic marks', () => {
