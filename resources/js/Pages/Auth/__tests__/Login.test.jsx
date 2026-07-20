@@ -33,13 +33,15 @@ import Login from '../Login';
 // ---------------------------------------------------------------------------
 
 describe('Login page — login step', () => {
-    it('renders email and password inputs with Sign In button', () => {
+    it('renders email, password, remember me, and Sign In button', () => {
         mockPageProps = { errors: {} };
         render(<Login />);
 
         expect(screen.getByRole('textbox')).toBeInTheDocument(); // email input
         expect(screen.getByText(/email address/i)).toBeInTheDocument();
         expect(screen.getByText(/password/i)).toBeInTheDocument();
+        expect(screen.getByText(/remember me/i)).toBeInTheDocument();
+        expect(screen.getByRole('checkbox')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     });
 

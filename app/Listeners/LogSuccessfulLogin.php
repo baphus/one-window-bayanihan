@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Models\AuditLog;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Support\Str;
 
 class LogSuccessfulLogin
 {
@@ -26,6 +27,11 @@ class LogSuccessfulLogin
             'new_value' => null,
             'user_id' => $event->user->getKey(),
             'timestamp' => now(),
+            'ip_address' => request()?->ip(),
+            'user_agent' => request()?->userAgent(),
+            'request_id' => request()?->attributes->get('correlation_id')
+                ?? request()?->header('X-Request-ID')
+                ?? (string) Str::uuid(),
         ]);
     }
 }

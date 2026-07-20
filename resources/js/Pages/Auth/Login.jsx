@@ -8,6 +8,7 @@ export default function Login({ status, canResetPassword }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [remember, setRemember] = useState(true);
     const [loginError, setLoginError] = useState('');
     const [processing, setProcessing] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
@@ -19,7 +20,7 @@ export default function Login({ status, canResetPassword }) {
         setLoginError('');
         setProcessing(true);
 
-        router.post(route('login'), { email, password, cf_turnstile_response: turnstileToken }, {
+        router.post(route('login'), { email, password, remember, cf_turnstile_response: turnstileToken }, {
             onFinish: () => setProcessing(false),
             onError: (err) => {
                 setLoginError(err.email || 'Invalid email or password.');
@@ -133,6 +134,19 @@ export default function Login({ status, canResetPassword }) {
                                                 <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
                                             </button>
                                         </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            id="remember"
+                                            type="checkbox"
+                                            checked={remember}
+                                            onChange={(e) => setRemember(e.target.checked)}
+                                            className="h-4 w-4 border-outline-variant bg-surface-container text-primary focus:ring-primary rounded-none"
+                                        />
+                                        <label htmlFor="remember" className="text-xs font-bold uppercase tracking-widest text-on-surface-variant cursor-pointer select-none">
+                                            Remember Me
+                                        </label>
                                     </div>
 
                                     <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
