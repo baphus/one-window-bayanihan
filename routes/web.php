@@ -61,7 +61,7 @@ Route::get('/', function () {
     ]);
 });
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -225,7 +225,9 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/services/{service}', [AdminServiceController::class, 'destroy'])->name('services.destroy');
 
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
-        Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
+        Route::post('/users/invite', [AdminUserController::class, 'invite'])->name('users.invite');
+        Route::post('/users/invites/{inviteId}/resend', [AdminUserController::class, 'resendInvite'])->name('users.invites.resend');
+        Route::delete('/users/invites/{inviteId}', [AdminUserController::class, 'cancelInvite'])->name('users.invites.cancel');
         Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
@@ -278,7 +280,7 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-Route::middleware(['auth', 'verified', 'role:ADMIN,CASE_MANAGER,AGENCY'])->group(function () {
+Route::middleware(['auth', 'role:ADMIN,CASE_MANAGER,AGENCY'])->group(function () {
     Route::get('/overdue-referrals', [OverdueReferralController::class, 'index'])->name('overdue-referrals.index');
     Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])->name('overdue-referrals.send-reminders');
 });

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -51,6 +52,21 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        // After successful credential verification, check the account is still
+        // active — prevents recently deactivated/soft-deleted users from logging in
+        // without revealing *why* the account was rejected (same generic message).
+        $user = Auth::user();
+
+        if ($user && (! $user->is_active || $user->is_deleted)) {
+            Auth::guard('web')->logout();
+
+            event(new Failed('web', $user, $this->only('email')));
+
+            throw ValidationException::withMessages([
+                'email' => __('auth.failed'),
+            ]);
+        }
     }
 
     /**

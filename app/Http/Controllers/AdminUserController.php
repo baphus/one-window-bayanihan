@@ -4,17 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
 use App\Mail\EmailChangedNotification;
+use App\Mail\UserInviteMail;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Models\UserInvite;
 use App\Services\DefaultAgencyService;
-use App\Services\OnboardingService;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -74,9 +76,17 @@ class AdminUserController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'logo_url', 'short']);
 
+        $pendingInvites = UserInvite::with('agency')
+            ->whereNull('consumed_at')
+            ->whereNull('cancelled_at')
+            ->where('expires_at', '>', now())
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return Inertia::render('Admin/User/Index', [
             'users' => $users,
             'filters' => $filters,
+            'pendingInvites' => $pendingInvites,
             'agencies' => $agencies,
             'stats' => CacheHelper::safeRemember('admin:user_stats', 120, fn () => [
                 'total' => User::count(),
@@ -95,48 +105,78 @@ class AdminUserController extends Controller
         return Inertia::render('Admin/User/Show', ['user' => $user]);
     }
 
-    public function store(Request $request)
+    public function invite(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()->symbols()],
             'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
             'agcy_id' => 'nullable|exists:agencies,id',
-            'contact_number' => 'nullable|string',
-            'position' => 'nullable|string|max:255',
-            'department' => 'nullable|string|max:255',
-            'office_location' => 'nullable|string|max:500',
-            'bio' => 'nullable|string|max:2000',
-            'emergency_contact' => 'nullable|json',
         ]);
+
+        // Also check for existing pending invite
+        $existingInvite = UserInvite::where('email', $validated['email'])
+            ->whereNull('consumed_at')
+            ->whereNull('cancelled_at')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if ($existingInvite) {
+            return back()->with('warning', 'An invite was already sent to this email. Use the Resend action to send again.');
+        }
 
         $agcyId = $validated['agcy_id'] ?? null;
         if (! $agcyId && $validated['role'] === 'AGENCY') {
             $agcyId = app(DefaultAgencyService::class)->getDefaultAgency()?->id;
         }
 
-        $user = User::create([
-            'name' => $validated['name'],
+        $token = Str::random(64);
+
+        $invite = UserInvite::create([
             'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'agcy_id' => $agcyId,
-            'contact_number' => $validated['contact_number'] ?? null,
-            'position' => $validated['position'] ?? null,
-            'department' => $validated['department'] ?? null,
-            'office_location' => $validated['office_location'] ?? null,
-            'bio' => $validated['bio'] ?? null,
-            'emergency_contact' => $validated['emergency_contact'] ?? null,
-            'is_active' => true,
-            'email_verified_at' => now(),
+            'token' => $token,
+            'expires_at' => now()->addDays(7),
+            'created_by' => $request->user()->id,
         ]);
 
-        app(OnboardingService::class)
-            ->markChecklistItemQuietly($request->user(), 'add-first-user');
+        Mail::to($validated['email'])->queue(new UserInviteMail($invite, $token));
 
-        return redirect()->route('admin.users.index')
-            ->with('success', 'User created successfully.');
+        return back()->with('success', 'Invitation sent to '.$validated['email']);
+    }
+
+    public function resendInvite(string $inviteId)
+    {
+        $invite = UserInvite::findOrFail($inviteId);
+
+        if ($invite->isConsumed() || $invite->isCancelled()) {
+            return back()->with('error', 'This invite can no longer be resent.');
+        }
+
+        // Refresh token and expiry
+        $invite->update([
+            'token' => Str::random(64),
+            'expires_at' => now()->addDays(7),
+            'consumed_at' => null,
+            'cancelled_at' => null,
+        ]);
+
+        Mail::to($invite->email)->queue(new UserInviteMail($invite, $invite->token));
+
+        return back()->with('success', 'Invitation resent to '.$invite->email);
+    }
+
+    public function cancelInvite(string $inviteId)
+    {
+        $invite = UserInvite::findOrFail($inviteId);
+
+        if ($invite->isConsumed()) {
+            return back()->with('error', 'This invite has already been used.');
+        }
+
+        $invite->update(['cancelled_at' => now()]);
+
+        return back()->with('success', 'Invitation cancelled.');
     }
 
     public function update(Request $request, string $id)

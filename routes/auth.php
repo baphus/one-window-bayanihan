@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
@@ -7,46 +8,35 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\RegisterViaInviteController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\EmailChangeController;
-use App\Http\Controllers\LoginOtpController;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 Route::middleware('guest')->group(function () {
-    Route::get('login', function () {
-        return Inertia::render('Auth/Login', [
-            'canResetPassword' => Route::has('password.request'),
-        ]);
-    })->name('login');
+    Route::get('login', [AuthenticatedSessionController::class, 'create'])
+        ->name('login');
+
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware(['turnstile', 'throttle:login'])
+        ->name('login');
+
+    // Invite registration routes
+    Route::get('invite/{token}', [RegisterViaInviteController::class, 'show'])
+        ->name('register-via-invite');
+
+    Route::post('invite/{token}', [RegisterViaInviteController::class, 'store'])
+        ->middleware(['throttle:10,1'])
+        ->name('register-via-invite.store');
 
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
     Route::post('register', [RegisteredUserController::class, 'store'])
         ->middleware(['turnstile', 'throttle:10,1']);
-
-    Route::post('login', [LoginOtpController::class, 'init'])
-        ->middleware(['turnstile', 'throttle:login'])
-        ->name('login.init');
-
-    Route::post('login/verify-otp', [LoginOtpController::class, 'verifyOtp'])
-        ->middleware('throttle:otp')
-        ->name('login.verify-otp');
-
-    Route::post('login/resend-otp', [LoginOtpController::class, 'resendOtp'])
-        ->middleware('throttle:otp')
-        ->name('login.resend-otp');
-
-    Route::post('login/verify-totp', [LoginOtpController::class, 'verifyTotp'])
-        ->middleware('throttle:totp-challenge')
-        ->name('login.verify-totp');
-
-    Route::post('login/verify-recovery-code', [LoginOtpController::class, 'verifyRecoveryCode'])
-        ->middleware('throttle:recovery-code')
-        ->name('login.verify-recovery-code');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');

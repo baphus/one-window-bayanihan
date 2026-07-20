@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,23 @@ class AuthenticatedSessionController extends Controller
             'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
         ]);
+    }
+
+    /**
+     * Handle an incoming authentication request.
+     *
+     * Validation, rate limiting, credential verification, and inactive-account
+     * rejection are all delegated to LoginRequest::authenticate().
+     * Audit logging flows through event listeners (LogSuccessfulLogin /
+     * LogFailedLogin) — the controller itself has zero audit logic.
+     */
+    public function store(LoginRequest $request): RedirectResponse
+    {
+        $request->authenticate();
+
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 
     /**

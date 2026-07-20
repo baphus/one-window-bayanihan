@@ -13,7 +13,7 @@ class TurnstileValidationTest extends TestCase
     {
         config(['turnstile.enabled' => false]);
 
-        $response = $this->post(route('login.init'), [
+        $response = $this->post(route('login'), [
             'email' => 'test@example.com',
             'password' => 'password',
         ]);
@@ -27,7 +27,7 @@ class TurnstileValidationTest extends TestCase
     {
         config(['turnstile.enabled' => true]);
 
-        $response = $this->post(route('login.init'), [
+        $response = $this->post(route('login'), [
             'email' => 'test@example.com',
             'password' => 'password',
         ]);
@@ -47,7 +47,7 @@ class TurnstileValidationTest extends TestCase
             'https://challenges.cloudflare.com/*' => Http::response(['success' => true], 200),
         ]);
 
-        $response = $this->post(route('login.init'), [
+        $response = $this->post(route('login'), [
             'email' => 'test@example.com',
             'password' => 'password',
             'cf_turnstile_response' => 'fake-token',
