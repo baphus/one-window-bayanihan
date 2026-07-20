@@ -1,0 +1,1 @@
+SECURITY NOTICE: If you did not request assistance from the Department of Migrant Workers, please contact us immediately. Never share verification codes or passwords with anyone.

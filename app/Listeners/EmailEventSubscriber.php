@@ -48,12 +48,14 @@ class EmailEventSubscriber
             return;
         }
 
+        $jobUuid = $event->job->getJobId();
+
         EmailLog::create([
             'to_email' => $data['to_email'],
             'subject' => $data['subject'],
             'mailable_type' => $data['mailable_type'],
             'status' => 'failed',
-            'job_uuid' => $event->job->getJobId(),
+            'job_uuid' => $jobUuid ?: null,
             'error_message' => $event->exception->getMessage(),
         ]);
     }

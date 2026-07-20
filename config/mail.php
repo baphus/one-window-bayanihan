@@ -127,4 +127,21 @@ return [
 
     'contact_recipient' => env('CONTACT_RECIPIENT_EMAIL'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configure the Markdown mail renderer. Custom component paths must be
+    | registered here so that x-mail:: components (status-badge, timeline,
+    | action-card, etc.) in published vendor mail views can be resolved.
+    |
+    */
+
+    'markdown' => [
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];

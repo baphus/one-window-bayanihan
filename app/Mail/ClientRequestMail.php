@@ -21,7 +21,24 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
         public readonly string $rawToken,
         /** Build this in the future controller using the opaque token. */
         public readonly string $magicLink,
-    ) {}
+    ) {
+        $this->clientRequest->loadMissing('referral.agency', 'referral.caseFile.client');
+    }
+
+    public function getRequestTypeLabel(): string
+    {
+        return match ($this->clientRequest->type) {
+            'document_request' => 'Document Request',
+            'question' => 'Question',
+            'information_update' => 'Information Update',
+            default => 'Request',
+        };
+    }
+
+    public function getChecklistItems(): array
+    {
+        return $this->clientRequest->items?->pluck('label')->toArray() ?? [];
+    }
 
     public function envelope(): Envelope
     {
@@ -30,14 +47,18 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
 
     public function content(): Content
     {
-        $this->clientRequest->loadMissing('referral.agency');
-
         return new Content(
             markdown: 'emails.client-request',
             with: [
-                'agencyName' => $this->clientRequest->referral?->agency?->name ?? 'the agency',
-                'dueDate' => $this->clientRequest->due_at?->format('F j, Y'),
+                'clientRequest' => $this->clientRequest,
+                'rawToken' => $this->rawToken,
                 'magicLink' => $this->magicLink,
+                'requestTypeLabel' => $this->getRequestTypeLabel(),
+                'checklistItems' => $this->getChecklistItems(),
+                'agencyName' => $this->clientRequest->referral?->agency?->name ?? 'the agency',
+                'clientName' => $this->clientRequest->referral?->caseFile?->client?->first_name ?? '',
+                'caseNumber' => $this->clientRequest->referral?->caseFile?->case_number ?? '',
+                'dueDate' => $this->clientRequest->due_at?->format('F j, Y'),
             ],
         );
     }

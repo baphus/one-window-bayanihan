@@ -25,12 +25,11 @@ class MilestoneAdded extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('New Milestone Added')
-            ->greeting('New Milestone Added')
-            ->line('A new milestone has been added to a referral under your care.')
-            ->line('**Milestone:** '.$this->milestone->title)
-            ->line('**Case Number:** '.($this->referral->caseFile?->case_number ?? 'N/A'))
-            ->action('View Referral', route('referrals.show', $this->referral));
+            ->markdown('emails.notifications.milestone-added', [
+                'milestone' => $this->milestone,
+                'referral' => $this->referral,
+                'url' => url("/referrals/{$this->referral->id}"),
+            ]);
     }
 
     public function toDatabase(object $notifiable): array

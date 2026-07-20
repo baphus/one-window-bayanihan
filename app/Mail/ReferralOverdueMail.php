@@ -28,8 +28,21 @@ class ReferralOverdueMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
+        $this->referral->loadMissing(['milestones', 'caseFile.client', 'agency']);
+
         return new Content(
             markdown: 'mail.referral-overdue',
+            with: [
+                'referral' => $this->referral,
+                'overdueDays' => $this->overdueDays,
+                'clientName' => ($this->referral->caseFile?->client?->first_name.' '.$this->referral->caseFile?->client?->last_name) ?? 'N/A',
+                'agencyName' => $this->referral->agency?->name ?? 'N/A',
+                'caseNumber' => $this->referral->caseFile?->case_number ?? 'N/A',
+                'requiredServices' => $this->referral->required_services,
+                'createdAt' => $this->referral->created_at,
+                'milestones' => $this->referral->milestones,
+                'lastUpdate' => $this->referral->updated_at,
+            ],
         );
     }
 }

@@ -1,25 +1,13 @@
 <x-mail::message>
-# New Contact Form Message
+<h1 style="font-size: 20px; font-weight: 800; color: #18181b; margin: 0 0 16px 0;">New Contact Form Message</h1>
 
-You have received a message from the **{{ config('app.name') }}** contact form.
+<x-mail::detail-table :rows="[
+    ['label' => 'From', 'value' => $senderName],
+    ['label' => 'Email', 'value' => $senderEmail],
+]" />
 
----
+<h3 style="font-size: 16px; font-weight: 700; color: #18181b; margin: 24px 0 12px 0;">Message</h3>
+<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0; white-space: pre-wrap;">{{ $messageBody }}</p>
 
-**From:** {{ $senderName }}
-**Email:** {{ $senderEmail }}
-
----
-
-### Message
-
-{{ $messageBody }}
-
----
-
-<div style="margin: 24px 0; color: #6b7280; font-size: 13px;">
-    <em>This message was submitted through the public contact form. You can reply directly to this email to respond to the sender.</em>
-</div>
-
-Regards,<br>
-**{{ config('app.name') }}**
+<x-mail::contact-footer />
 </x-mail::message>
