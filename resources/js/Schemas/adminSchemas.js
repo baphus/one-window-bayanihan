@@ -120,6 +120,12 @@ export const caseStatusSchema = z.object({
   is_default: z.boolean().optional(),
 });
 
+export const inviteUserFormSchema = z.object({
+    email: z.string().min(1, 'Email is required.').email('Please enter a valid email address.'),
+    role: z.enum(['ADMIN', 'AGENCY', 'CASE_MANAGER'], { required_error: 'Please select a role.' }),
+    agcy_id: z.string().nullable().optional(),
+});
+
 export const caseCategorySchema = z.object({
   name: z
     .string()
