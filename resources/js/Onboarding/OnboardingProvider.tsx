@@ -36,8 +36,8 @@ export interface OnboardingContextValue {
 
     /** The page guide currently being driven, or null */
     activePageGuide: ActivePageGuide | null;
-    /** Launch the registered guide for a route (marks it seen) */
-    startPageGuide: (route: string) => void;
+    /** Launch the registered guide for a route (marks it seen). `seenAs` overrides the persisted identity. */
+    startPageGuide: (route: string, seenAs?: string) => void;
     /** End the active page guide */
     endPageGuide: () => void;
     /** Route names whose guides the user has seen */
@@ -152,10 +152,10 @@ export default function OnboardingProvider({
         });
     }, []);
 
-    const startPageGuide = useCallback((routeName: string) => {
+    const startPageGuide = useCallback((routeName: string, seenAs?: string) => {
         const guide = getPageGuide(routeName);
         if (!guide) return;
-        markGuideSeen(routeName);
+        markGuideSeen(seenAs ?? routeName);
         setActivePageGuide({ route: routeName, guide });
     }, [markGuideSeen]);
 

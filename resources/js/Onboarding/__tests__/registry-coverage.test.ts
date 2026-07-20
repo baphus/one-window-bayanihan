@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pageGuides } from '../registry';
+import { pageGuides, getPageGuide, rolePageGuides } from '../registry';
 import { navByRole } from '@/Components/AppSidebar';
 
 /**
@@ -78,6 +78,45 @@ describe('page guide registry coverage', () => {
                 expect(step.title, `${routeName}: every step needs a title`).toBeTruthy();
                 expect(step.description, `${routeName}: every step needs a description`).toBeTruthy();
             }
+        }
+    });
+
+    it('getPageGuide returns role-specific override when one exists', () => {
+        const caseManagerGuide = getPageGuide('referrals.show', 'CASE_MANAGER');
+        expect(caseManagerGuide).not.toBeNull();
+        expect(caseManagerGuide!.title).toBe('Referral Detail');
+        // Case-manager variant has 5 steps (agency-detail variant has 6 — actions differ)
+        expect(caseManagerGuide!.steps.length).toBe(5);
+    });
+
+    it('getPageGuide without role returns the shared guide', () => {
+        const sharedGuide = getPageGuide('referrals.show');
+        expect(sharedGuide).not.toBeNull();
+        expect(sharedGuide!.title).toBe('Referral Detail');
+        // The shared (agency) variant has different step count
+        expect(sharedGuide!.steps.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('getPageGuide falls back to shared guide when no role override exists', () => {
+        const fallback = getPageGuide('cases.index', 'CASE_MANAGER');
+        expect(fallback).not.toBeNull();
+        expect(fallback!.title).toBe('Cases');
+    });
+
+    it('getPageGuide returns null for unknown routes', () => {
+        expect(getPageGuide('nonexistent.route')).toBeNull();
+        expect(getPageGuide('nonexistent.route', 'CASE_MANAGER')).toBeNull();
+    });
+
+    it('rolePageGuides entries use qualified keys with known route names', () => {
+        for (const [key, guide] of Object.entries(rolePageGuides)) {
+            const match = key.match(/^(\w+):(.+)$/);
+            expect(match, `rolePageGuides key "${key}" must be <ROLE>:<route-name>`).not.toBeNull();
+            const routeName = match![2];
+            // The base guide should exist in pageGuides (ancestor context)
+            expect(pageGuides[routeName], `role override "${key}" has no matching base guide for route "${routeName}"`).toBeDefined();
+            expect(guide.steps.length).toBeGreaterThanOrEqual(3);
+            expect(guide.steps.length).toBeLessThanOrEqual(6);
         }
     });
 });

@@ -11,6 +11,7 @@ import { skipOnboarding } from '@/Onboarding/api';
 import { getTourConfig } from '@/Onboarding/index';
 import { parseStepKey } from '@/Onboarding/types';
 import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
+import useAutoPageGuide from '@/Onboarding/useAutoPageGuide';
 import { route } from 'ziggy-js';
 
 // Module-level variables persist across AppLayout instances (which remount on every navigation)
@@ -29,6 +30,7 @@ export default function AppLayout({ title, children }) {
   const savedPosition = parseStepKey(onboarding?.step, tourConfig);
 
   useChecklistVisitTracking();
+  useAutoPageGuide();
 
   // Start (or resume) the welcome tour. The tour only renders an overlay on
   // pages in its config, so launching from anywhere else must navigate to

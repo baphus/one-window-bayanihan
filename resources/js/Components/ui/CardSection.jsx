@@ -1,6 +1,6 @@
-export function CardSection({ title, children, className = '' }) {
+export function CardSection({ title, children, className = '', ...props }) {
   return (
-    <section className={`rounded-[3px] border border-[#d8dee8] bg-white p-4 shadow-sm ${className}`}>
+    <section {...props} className={`rounded-[3px] border border-[#d8dee8] bg-white p-4 shadow-sm ${className}`}>
       {title && <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-3">{title}</h3>}
       {children}
     </section>

@@ -535,7 +535,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           </CardSection>
 
           {/* Referrals table — unchanged */}
-          <CardSection title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+          <CardSection data-tour="case-referrals" title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Agency Referrals</h4>
@@ -686,7 +686,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
         <aside className="xl:col-span-4 space-y-4">
           {/* Client Profile — compact all-in-one card */}
-          <CardSection title="Client Profile" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+          <CardSection data-tour="case-client-info" title="Client Profile" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="space-y-4">
               {/* Avatar + Name */}
               {client ? (
@@ -841,7 +841,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             </div>
           </CardSection>
 
-          <CardSection title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+          <CardSection data-tour="case-documents" title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="mb-3 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
               <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
               <p className="text-[11px] leading-5 text-blue-800">

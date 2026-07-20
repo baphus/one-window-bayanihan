@@ -21,6 +21,15 @@ export const agencyTour: TourConfig = {
             ],
         },
         {
+            route: 'agency.services.index',
+            title: 'Services',
+            steps: [
+                { element: '[data-tour="services-header"]', title: 'Your Service Catalog', description: 'This is where you define the services your agency offers. Case managers see this list when referring clients to you — keep it accurate and up to date.', side: 'bottom' as const },
+                { element: '[data-tour="services-list"]', title: 'Manage Services', description: 'Each row shows a service and its document requirements. Click + New Service to add an offering, or edit an existing one to update its details.', side: 'top' as const },
+                { element: '[data-tour="sidebar-nav"]', title: 'Next: Your Referrals', description: 'Now that your catalog is set up, head to Referred Cases to see incoming referrals and start processing.', side: 'right' as const },
+            ],
+        },
+        {
             route: 'referrals.index',
             title: 'Referred Cases',
             steps: [

@@ -16,21 +16,20 @@ export const pageGuides: Record<string, PageGuide> = {
         title: 'Dashboard',
         helpdeskSlug: 'using-dashboard-daily-monitoring',
         steps: [
-            { element: '[data-tour="dashboard-header"]', title: 'Your Daily Start', description: 'The dashboard is your starting point every day — a summary of the work that needs attention, scoped to your role.', side: 'bottom' },
-            { element: '[data-tour="getting-started-checklist"]', title: 'Getting Started', description: 'Your first key actions live in this checklist. Items tick off automatically as you complete them, and you can dismiss the card once you feel at home.', side: 'bottom' },
-            { element: '[data-tour="dashboard-stats"]', title: 'Key Numbers', description: 'These tiles summarize your workload. Most are clickable and jump straight to the filtered list behind the number.', side: 'bottom' },
-            { element: '[data-tour="dashboard-work-queue"]', title: 'Your Work Queue', description: 'The dispatch board: the cases and referrals that need movement first, ordered by urgency. Click any tile to jump to the filtered list.', side: 'bottom' },
-            { element: '[data-tour="dashboard-work-queues"]', title: 'Work Queues', description: 'Where to look first: open cases, pending and processing referrals, compliance items, and overdue referrals across the system.', side: 'bottom' },
-            { element: '[data-tour="dashboard-admin-tools"]', title: 'Admin Tools', description: 'Quick access to Users, Agencies, Services, Reports, Audit Logs, and Sessions.', side: 'left' },
+            { element: '[data-tour="dashboard-header"]', title: 'Your Daily Start', description: 'Start here every day. The dashboard shows the work that needs your attention — pending referrals, overdue items, and anything requiring action — all scoped to your role.', side: 'bottom' },
+            { element: '[data-tour="dashboard-stats"]', title: 'Key Numbers at a Glance', description: 'These tiles summarize your caseload, open referrals, and compliance items. Click any tile to jump straight to its filtered list.', side: 'bottom' },
+            { element: '[data-tour="dashboard-work-queue"]', title: 'Triage First', description: 'The dispatch board surfaces cases and referrals that need action right now, ordered by urgency. Start here to decide what to tackle today.', side: 'bottom' },
+            { element: '[data-tour="dashboard-work-queues"]', title: 'Monitor All Queues', description: 'Work queues let you scan open cases, pending and processing referrals, compliance items, and overdue referrals across the system at a glance.', side: 'bottom' },
+            { element: '[data-tour="page-guide-button"]', title: 'Help Is Always Available', description: 'The ? button on every page opens this page guide. Use it anytime you want a refresher on a workspace you haven\'t visited recently.', side: 'left' },
         ],
     },
     'notifications.page': {
         title: 'Notifications',
         helpdeskSlug: 'notifications-staying-on-top-of-updates',
         steps: [
-            { element: '[data-tour="notifications-header"]', title: 'Your Notifications', description: 'Every update that needs your attention lands here — case status changes, referral decisions, reminders, and system alerts.', side: 'bottom' },
-            { element: '[data-tour="notifications-list"]', title: 'Reading the Feed', description: 'Each card shows a severity label, the message, and when it happened. Unread items are tinted blue. Click a card or its View link to jump straight to the related case or referral.', side: 'top' },
-            { element: '[data-tour="notifications-mark-all"]', title: 'Clear the Backlog', description: 'Mark individual items as read from each card, or use Mark All Read to clear everything at once. Check back here whenever the bell icon shows a count.', side: 'bottom', align: 'end' },
+            { element: '[data-tour="notifications-header"]', title: 'Your Notification Feed', description: 'Every update that needs your attention lands here — referral decisions from agencies, case status changes, reminders, and system alerts. Check this page whenever the bell icon shows a count.', side: 'bottom' },
+            { element: '[data-tour="notifications-list"]', title: 'Read and Act', description: 'Each card shows severity, message, and timestamp. Unread notifications are highlighted in blue. Click a card or its View link to jump straight to the related case or referral and take action.', side: 'top' },
+            { element: '[data-tour="notifications-mark-all"]', title: 'Keep the Feed Clean', description: 'Mark individual items as read from each card, or use Mark All Read to clear everything at once. Regular triage here keeps you from missing important updates.', side: 'bottom', align: 'end' },
         ],
     },
     'reports.index': {
@@ -69,10 +68,10 @@ export const pageGuides: Record<string, PageGuide> = {
         title: 'Create a Case',
         helpdeskSlug: 'creating-publishing-cases',
         steps: [
-            { element: '[data-tour="case-create-steps"]', title: 'Step-by-Step Guide', description: 'The left panel tracks your progress through the three stages: Client Profile, Case Setup, and Case Narrative. You can move back and forth freely.', side: 'right' },
-            { element: '[data-tour="case-create-form"]', title: 'The Case Form', description: 'Fill in each section on the right. Required fields are marked with a red asterisk — the Next button stays disabled until they are complete.', side: 'left' },
-            { element: '[data-tour="case-create-client-selection"]', title: 'Pick or Create a Client', description: 'Start by selecting an existing client to pre-fill their details, or switch to New Client to enter everything from scratch.', side: 'bottom' },
-            { element: '[data-tour="case-create-actions"]', title: 'Save or Submit', description: 'Use Save as Draft at any time to come back later. When all three steps are complete, click Create Case to finalize and publish.', side: 'top' },
+            { element: '[data-tour="case-create-steps"]', title: 'Follow the Stages', description: 'The left panel shows the three stages: Client Profile, Case Setup, and Case Narrative. The guide explains only the stage you are on — advance through each stage at your own pace.', side: 'right' },
+            { element: '[data-tour="case-create-client-selection"]', title: 'Select or Add Client', description: 'Start by choosing an existing client to pre-fill their details, or enter a new client from scratch. The visible fields belong to this stage only.', side: 'bottom' },
+            { element: '[data-tour="case-create-form"]', title: 'Current Stage Fields', description: 'Fill in the fields shown on screen. Required fields are marked with a red asterisk. The Next button advances only when the current stage is complete.', side: 'left' },
+            { element: '[data-tour="case-create-actions"]', title: 'Save or Submit at Any Time', description: 'Use Save as Draft to pause and return later. When all stages are complete, click Create Case to finalize and publish.', side: 'top' },
         ],
     },
     'cases.index': {
@@ -81,7 +80,10 @@ export const pageGuides: Record<string, PageGuide> = {
         steps: [
             { element: '[data-tour="cases-header"]', title: 'Case Management', description: 'This is your case workspace — every case you can access, with its number, client, status, and assignment.', side: 'bottom' },
             { element: '[data-tour="cases-filter"]', title: 'Narrow the List', description: 'Search by case number, client, or keyword, and open the advanced filters to slice by status, category, or date range. Active filters show as removable chips.', side: 'bottom' },
-            { element: '[data-tour="cases-table"]', title: 'Open a Case', description: 'Click any row to open the full case record with its timeline, referrals, and documents. Ready to add work? Use New Case to start one.', side: 'top' },
+            { element: '[data-tour="cases-columns"]', title: 'Customize Columns', description: 'Toggle which columns appear in the list — add or remove fields without losing your filters.', side: 'top', align: 'end' },
+            { element: '[data-tour="cases-view-mode"]', title: 'List or Card View', description: 'Switch between a dense list view and a card layout. Choose whichever helps you scan cases faster.', side: 'top', align: 'end' },
+            { element: '[data-tour="cases-table"]', title: 'Open a Case', description: 'Click any row to open the full case record with its timeline, referrals, and documents.', side: 'top' },
+            { element: '[data-tour="cases-export"]', title: 'Export Your Results', description: 'Download the current filtered case list as an Excel file. Filters you applied carry over to the export. Use New Case to start a new one.', side: 'top', align: 'end' },
         ],
     },
     'cases.drafts': {
@@ -130,6 +132,29 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="stakeholders-header"]', title: 'Partner Agencies', description: 'A directory of every agency and organization in the One Window Bayanihan network — useful when deciding where to refer a client.', side: 'bottom' },
             { element: '[data-tour="stakeholders-grid"]', title: 'Browse the Network', description: 'Each card is one partner agency, showing how many services it offers and how many referrals it is actively handling right now.', side: 'top' },
             { element: '[data-tour="stakeholders-card"]', title: 'Dig Into an Agency', description: 'Scan the service tags to see what an agency handles, then click View Details for its full profile before creating a referral to it.', side: 'bottom' },
+        ],
+    },
+
+    // ── Case detail ──────────────────────────────────────────────────
+    'cases.show': {
+        title: 'Case Detail',
+        helpdeskSlug: 'creating-publishing-cases',
+        steps: [
+            { element: '[data-tour="case-header"]', title: 'Case Overview', description: 'The case summary card shows the case number, status, client info, assigned team, and key dates at a glance.', side: 'bottom' },
+            { element: '[data-tour="case-client-info"]', title: 'Client Profile', description: 'Client details including contact information, demographics, and next-of-kin. Use the profile tab to make updates.', side: 'right' },
+            { element: '[data-tour="case-timeline"]', title: 'Activity Timeline', description: 'Every event in chronological order — case creation, status changes, referral activity, and milestone updates. Use it to answer "what happened and when."', side: 'left' },
+            { element: '[data-tour="case-referrals"]', title: 'Referrals', description: 'All referrals from this case, their current status, and receiving agencies. Click any referral to open its detail page and track agency progress.', side: 'top' },
+            { element: '[data-tour="case-documents"]', title: 'Documents', description: 'Upload case-related documents here: intake forms, affidavits, contracts, or any supporting file. Documents are accessible to authorized stakeholders.', side: 'top' },
+            { element: '[data-tour="case-actions"]', title: 'Case Actions', description: 'Update status, archive closed cases, export a case summary PDF, or navigate to create a new referral from this case.', side: 'bottom' },
+        ],
+    },
+    'referrals.create': {
+        title: 'Create a Referral',
+        helpdeskSlug: 'creating-managing-referrals',
+        steps: [
+            { element: '[data-tour="referral-create-steps"]', title: 'Follow the Stages', description: 'The left panel shows the three stages: Select Case, Select Agency, and Select Service. The guide explains only the stage you are on — advance at your own pace.', side: 'right' },
+            { element: '[data-tour="referral-create-form"]', title: 'Current Stage Fields', description: 'Each stage shows the relevant controls on the right. Required fields must be filled before you can proceed. Use Back to revisit previous stages.', side: 'left' },
+            { element: '[data-tour="referral-create-actions"]', title: 'Navigate and Submit', description: 'Move forward with Next or backward with Back. On the final step, click Submit Referral to send it to the agency.', side: 'top' },
         ],
     },
 
@@ -317,7 +342,42 @@ export const pageGuides: Record<string, PageGuide> = {
 // launcher works on both.
 pageGuides['admin.feedbacks.dashboard'] = pageGuides['feedbacks.index'];
 
-/** Look up the guide for a route name, or null when none is registered. */
-export function getPageGuide(routeName: string): PageGuide | null {
+/**
+ * Role‑specific guide overrides keyed by `<ROLE>:<route-name>`.
+ * When a guide is looked up with a role and a matching key exists here,
+ * it takes precedence over the shared guide in `pageGuides`.
+ */
+export const rolePageGuides: Record<string, PageGuide> = {
+    'CASE_MANAGER:referrals.show': {
+        title: 'Referral Detail',
+        helpdeskSlug: 'referral-status-reference',
+        steps: [
+            { element: '[data-tour="referral-info"]', title: 'Referral Overview', description: 'Key details at a glance: the receiving agency, current status, associated case number, and dates. Overdue warnings appear here when action is needed.', side: 'bottom' },
+            { element: '[data-tour="referral-timeline"]', title: 'Track Agency Progress', description: 'The timeline shows every event — when the referral was sent, status changes, and milestones. Use it to monitor how the agency is progressing.', side: 'left' },
+            { element: '[data-tour="referral-documents"]', title: 'Review Compliance Documents', description: 'Required documents are listed per service. Check what has been uploaded and what is still outstanding. Contact the agency if documents are overdue.', side: 'top' },
+            { element: '[data-tour="referral-comments"]', title: 'Communicate', description: 'Use comments to coordinate with the agency or other case managers. Reply threads keep conversations organized.', side: 'left' },
+            { element: '[data-tour="referral-actions"]', title: 'Case-Manager Actions', description: 'View the full audit log for this referral. Return to the related case to continue working.', side: 'bottom' },
+        ],
+    },
+    'AGENCY:referrals.show': {
+        title: 'Referral Detail',
+        helpdeskSlug: 'referral-status-reference',
+        steps: [
+            { element: '[data-tour="referral-info"]', title: 'Referral Overview', description: 'Key details at a glance: the referral status, associated case number, client info, and dates. Check the Required Services section to see what the client needs.', side: 'bottom' },
+            { element: '[data-tour="referral-actions"]', title: 'Your Actions', description: 'Accept pending referrals to begin processing, update status as work progresses, or reject with a reason if the referral is outside your scope.', side: 'bottom' },
+            { element: '[data-tour="referral-timeline"]', title: 'Track Progress', description: 'The timeline shows every event — when the referral was sent, status changes, and milestones. Add milestones to record progress toward completion.', side: 'left' },
+            { element: '[data-tour="referral-documents"]', title: 'Compliance Documents', description: 'Required documents are listed per service. Upload files, mark items as complied, or replace outdated uploads to keep the referral moving.', side: 'top' },
+            { element: '[data-tour="referral-comments"]', title: 'Coordinate with Case Manager', description: 'Use comments to ask questions, share updates, or request additional information. Reply threads keep conversations organized.', side: 'left' },
+        ],
+    },
+};
+
+/** Look up the guide for a route name, optionally scoped to a role. */
+export function getPageGuide(routeName: string, role?: string): PageGuide | null {
+    if (role) {
+        const roleKey = `${role}:${routeName}`;
+        const roleGuide = rolePageGuides[roleKey];
+        if (roleGuide) return roleGuide;
+    }
     return pageGuides[routeName] ?? null;
 }

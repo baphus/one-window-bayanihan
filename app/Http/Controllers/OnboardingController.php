@@ -69,7 +69,7 @@ class OnboardingController extends Controller
     public function markGuideSeen(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'route' => ['required', 'string', 'max:120', 'regex:/^[a-zA-Z0-9._-]+$/'],
+            'route' => ['required', 'string', 'max:120', 'regex:/^[a-zA-Z0-9._:-]+$/'],
         ]);
 
         $this->service->markGuideSeen($request->user(), $validated['route']);
