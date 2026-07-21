@@ -259,9 +259,8 @@ class ReferralClientRequestService
     {
         $isReceivingAgency = $actor->role === 'AGENCY' && $actor->is_active && $actor->agcy_id === $referral->agcy_id;
         $referral->loadMissing('caseFile');
-        $isOwner = $actor->role === 'CASE_MANAGER' && $referral->caseFile?->user_id === $actor->id;
 
-        if (! $isReceivingAgency && ! $isOwner && $actor->role !== 'ADMIN') {
+        if (! $isReceivingAgency && $actor->role !== 'CASE_MANAGER' && $actor->role !== 'ADMIN') {
             throw new AuthorizationException('You may not revoke this access link.');
         }
     }
@@ -271,7 +270,7 @@ class ReferralClientRequestService
         $referral->loadMissing('caseFile');
 
         return ($actor->role === 'AGENCY' && $actor->is_active && $actor->agcy_id === $referral->agcy_id)
-            || ($actor->role === 'CASE_MANAGER' && $referral->caseFile?->user_id === $actor->id)
+            || $actor->role === 'CASE_MANAGER'
             || $actor->role === 'ADMIN';
     }
 

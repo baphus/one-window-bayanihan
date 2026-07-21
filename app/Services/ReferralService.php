@@ -106,26 +106,18 @@ class ReferralService
     {
         $cacheKey = self::referralStatsCacheKey($userAgencyId, $userRole, $userId);
 
-        return CacheHelper::safeRemember($cacheKey, 120, function () use ($userAgencyId, $userRole, $userId) {
+        return CacheHelper::safeRemember($cacheKey, 120, function () use ($userAgencyId, $userRole) {
             if ($userRole === 'AGENCY' && ! $userAgencyId) {
-                return array_fill_keys(['total_referrals', 'pending', 'processing', 'for_compliance', 'completed', 'rejected'], 0);
-            }
-
-            if ($userRole === 'CASE_MANAGER' && ! $userId) {
                 return array_fill_keys(['total_referrals', 'pending', 'processing', 'for_compliance', 'completed', 'rejected'], 0);
             }
 
             $where = 'WHERE is_deleted = false';
             $bindings = [];
 
+            // AGENCY: scoped to own agency referrals. ADMIN/CASE_MANAGER: all referrals.
             if ($userRole === 'AGENCY' && $userAgencyId) {
                 $where .= ' AND agcy_id = ?';
                 $bindings[] = $userAgencyId;
-            }
-
-            if ($userRole === 'CASE_MANAGER') {
-                $where .= ' AND EXISTS (SELECT 1 FROM cases c WHERE c.id = referrals.case_id AND c.user_id = ? AND c.is_deleted = false)';
-                $bindings[] = $userId;
             }
 
             $counts = DB::selectOne("
@@ -170,16 +162,7 @@ class ReferralService
                 $query->where('agcy_id', $userAgencyId);
             }
         }
-
-        if ($userRole === 'CASE_MANAGER') {
-            if (! $userId) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->whereHas('caseFile', fn ($q) => $q
-                    ->where('user_id', $userId)
-                    ->where('is_deleted', false));
-            }
-        }
+        // ADMIN and CASE_MANAGER: no scoping — see all referrals.
 
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -349,8 +332,7 @@ class ReferralService
         $receivingAgency = $actor->isAgency()
             && $actor->is_active
             && $actor->agcy_id === $referral->agcy_id;
-        $oversight = $actor->isAdmin()
-            || ($actor->isCaseManager() && $referral->caseFile?->user_id === $actor->id);
+        $oversight = $actor->isAdmin() || $actor->isCaseManager();
 
         return [
             'canCreate' => $receivingAgency,

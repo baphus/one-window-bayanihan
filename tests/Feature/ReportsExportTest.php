@@ -63,7 +63,7 @@ class ReportsExportTest extends TestCase
     }
 
     #[Test]
-    public function export_kpis_match_the_on_screen_report_and_are_role_scoped(): void
+    public function export_kpis_match_the_on_screen_report_and_case_manager_sees_all(): void
     {
         $this->makeCaseWithReferral($this->manager);
         $this->makeCaseWithReferral($this->manager);
@@ -76,7 +76,7 @@ class ReportsExportTest extends TestCase
         $this->assertSame($report['kpis']['totalReferrals'], $payload['kpis']['totalReferrals']);
         $this->assertSame($report['kpis']['totalCases'], $payload['kpis']['totalCases']);
         // Only this manager's two referrals — not the other manager's.
-        $this->assertSame(2, $payload['kpis']['totalReferrals']);
+        $this->assertSame(3, $payload['kpis']['totalReferrals']);
     }
 
     #[Test]
@@ -118,7 +118,7 @@ class ReportsExportTest extends TestCase
     }
 
     #[Test]
-    public function public_report_pdf_and_xlsx_endpoints_are_case_manager_scoped(): void
+    public function public_report_pdf_and_xlsx_endpoints_include_all_data_for_case_managers(): void
     {
         $other = User::factory()->create(['role' => 'CASE_MANAGER']);
         $mine = $this->makeCaseWithReferral($this->manager);
@@ -137,13 +137,13 @@ class ReportsExportTest extends TestCase
         $otherDetails = json_encode($otherWorkbook->getSheetByName('Referral Details')->toArray());
 
         $this->assertStringContainsString($mine->case_number, $mineDetails);
-        $this->assertStringNotContainsString($theirs->case_number, $mineDetails);
+        $this->assertStringContainsString($theirs->case_number, $mineDetails);
         $this->assertStringContainsString($theirs->case_number, $otherDetails);
-        $this->assertStringNotContainsString($mine->case_number, $otherDetails);
+        $this->assertStringContainsString($mine->case_number, $otherDetails);
     }
 
     #[Test]
-    public function all_client_case_and_referral_workbooks_have_decrypted_employment_fields_and_role_scope(): void
+    public function all_client_case_and_referral_workbooks_have_decrypted_employment_fields_and_unscoped_case_manager(): void
     {
         $other = User::factory()->create(['role' => 'CASE_MANAGER']);
         $owned = $this->makeCaseWithReferral($this->manager);
@@ -174,10 +174,10 @@ class ReportsExportTest extends TestCase
             $otherRows = $otherWorkbook->getActiveSheet()->toArray();
             $this->assertStringContainsString('Canada', json_encode($ownedRows), $endpoint);
             $this->assertStringContainsString('Welder', json_encode($ownedRows), $endpoint);
-            $this->assertStringNotContainsString('Japan', json_encode($ownedRows), $endpoint);
+            $this->assertStringContainsString('Japan', json_encode($ownedRows), $endpoint);
             $this->assertStringContainsString('Japan', json_encode($otherRows), $endpoint);
             $this->assertStringContainsString('Engineer', json_encode($otherRows), $endpoint);
-            $this->assertStringNotContainsString('Canada', json_encode($otherRows), $endpoint);
+            $this->assertStringContainsString('Canada', json_encode($otherRows), $endpoint);
         }
     }
 

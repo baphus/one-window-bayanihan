@@ -174,9 +174,6 @@ class ReportsExportService
             $q->whereBetween('referrals.updated_at', [$c['fromInstant'], $c['toInstant']]);
         }
 
-        if ($c['role'] === 'CASE_MANAGER') {
-            $q->where('cases.user_id', $c['user']->id);
-        }
         if ($c['agency_id']) {
             $q->where('referrals.agcy_id', $c['agency_id']);
         } elseif ($c['role'] === 'AGENCY') {
@@ -200,9 +197,6 @@ class ReportsExportService
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->whereBetween('cases.created_at', [$c['fromInstant'], $c['toInstant']]);
 
-        if ($c['role'] === 'CASE_MANAGER') {
-            $q->where('cases.user_id', $c['user']->id);
-        }
         if ($c['agency_id']) {
             $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->whereNull('referrals.deleted_at')->where('referrals.agcy_id', $c['agency_id']));
         } elseif ($c['role'] === 'AGENCY') {

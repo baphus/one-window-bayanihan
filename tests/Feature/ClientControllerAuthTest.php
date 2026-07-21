@@ -42,7 +42,7 @@ class ClientControllerAuthTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_case_manager_gets_404_for_another_users_client(): void
+    public function test_case_manager_can_view_any_client(): void
     {
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
         $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -56,7 +56,7 @@ class ClientControllerAuthTest extends TestCase
         $response = $this->actingAs($manager)
             ->get(route('clients.show', $client));
 
-        $response->assertStatus(404);
+        $response->assertStatus(200);
     }
 
     public function test_admin_can_view_any_client(): void
@@ -176,7 +176,7 @@ class ClientControllerAuthTest extends TestCase
 
     // ─── index() scoping tests ──────────────────────────────────────────────
 
-    public function test_case_manager_sees_only_own_clients_in_index(): void
+    public function test_case_manager_sees_all_clients_in_index(): void
     {
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
         $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -201,8 +201,7 @@ class ClientControllerAuthTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
             ->component('Client/Index')
-            ->has('clients.data', 1)
-            ->where('clients.data.0.id', $ownClient->id)
+            ->has('clients.data', 2)
         );
     }
 

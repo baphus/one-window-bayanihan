@@ -115,7 +115,7 @@ class ReportsExportServiceTest extends TestCase
     }
 
     #[Test]
-    public function case_manager_export_details_are_scoped_to_owned_cases(): void
+    public function case_manager_export_details_include_all_cases(): void
     {
         [$agency] = $this->seedAgencies();
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -127,7 +127,7 @@ class ReportsExportServiceTest extends TestCase
         $caseNumbers = $this->sheetRows($sheets, 'Referral Details')->pluck('case_number');
 
         $this->assertTrue($caseNumbers->contains($owned->case_number));
-        $this->assertFalse($caseNumbers->contains($other->case_number));
+        $this->assertTrue($caseNumbers->contains($other->case_number));
     }
 
     #[Test]

@@ -78,9 +78,7 @@ class SurveyResponseController extends Controller
 
         return match ($user->role) {
             'AGENCY' => SurveyInvitation::query()->where('agency_id', $user->agcy_id),
-            'CASE_MANAGER' => SurveyInvitation::query()->whereHas(
-                'caseFile', fn ($cases) => $cases->where('user_id', $user->id)
-            ),
+            'CASE_MANAGER' => SurveyInvitation::query(),
             'ADMIN' => SurveyInvitation::query()->when(
                 $request->filled('agency_id'),
                 fn ($query) => $query->where('agency_id', $request->input('agency_id')),

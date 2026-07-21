@@ -24,16 +24,21 @@ class CaseDocumentAuthorizationRemediationTest extends TestCase
         ]);
     }
 
-    public function test_non_owning_case_manager_cannot_list_show_or_download(): void
+    public function test_any_case_manager_can_list_show_or_download(): void
     {
         $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
         $other = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
         $document = $this->document($case, $owner->id);
 
-        $this->actingAs($other)->getJson(route('cases.documents.index', $case->id))->assertForbidden();
-        $this->actingAs($other)->getJson(route('cases.documents.show', [$case->id, $document->id]))->assertForbidden();
-        $this->actingAs($other)->get(route('cases.documents.download', [$case->id, $document->id]))->assertForbidden();
+        $this->actingAs($other)->getJson(route('cases.documents.index', $case->id))->assertOk();
+        $this->actingAs($other)->getJson(route('cases.documents.show', [$case->id, $document->id]))->assertOk();
+
+        $this->mock(StorageService::class, function ($mock): void {
+            $mock->shouldReceive('temporaryUrl')->once()->andReturn('https://storage.test/document.pdf');
+        });
+
+        $this->actingAs($other)->get(route('cases.documents.download', [$case->id, $document->id]))->assertRedirect('https://storage.test/document.pdf');
     }
 
     public function test_document_json_never_contains_file_url(): void

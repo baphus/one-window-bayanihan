@@ -145,18 +145,9 @@ class CaseDocumentController extends Controller
 
     private function authorizeAccess(CaseFile $case, $user)
     {
-        if ($case->user_id === $user->id) {
+        // ADMIN and CASE_MANAGER: full access to all cases
+        if ($user->isAdmin() || $user->isCaseManager()) {
             return;
-        }
-        if ($user->isAdmin()) {
-            return;
-        }
-        if ($user->isCaseManager()) {
-            if ($case->user_id === $user->id) {
-                return;
-            }
-
-            abort(403, 'You do not have access to documents for this case.');
         }
 
         $hasActiveReferral = $case->referrals()
@@ -178,22 +169,8 @@ class CaseDocumentController extends Controller
 
     private function authorizeDocumentAccess(CaseDocument $document, $user)
     {
-        // Case-level documents are only available to administrators and case managers.
-        if (! $document->referral_id) {
-            if ($user->isAdmin() || ($user->isCaseManager() && $document->caseFile?->user_id === $user->id)) {
-                return;
-            }
-
-            abort(403, 'You do not have access to this document.');
-        }
-
-        // Admin can access any document
-        if ($user->isAdmin()) {
-            return;
-        }
-
-        // Case manager who owns the case can access
-        if ($user->isCaseManager() && $document->caseFile && $document->caseFile->user_id === $user->id) {
+        // ADMIN and CASE_MANAGER: full access to all documents
+        if ($user->isAdmin() || $user->isCaseManager()) {
             return;
         }
 

@@ -37,7 +37,7 @@ class CaseServiceScopeTest extends TestCase
         $this->assertCount(5, $cases);
     }
 
-    public function test_case_manager_sees_only_own_cases(): void
+    public function test_case_manager_sees_all_cases(): void
     {
         $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
         $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -48,25 +48,21 @@ class CaseServiceScopeTest extends TestCase
         $this->actingAs($manager1);
         $cases = $this->service->getCases();
 
-        $this->assertCount(3, $cases);
-        foreach ($cases as $case) {
-            $this->assertEquals($manager1->id, $case->user_id);
-        }
+        $this->assertCount(5, $cases);
     }
 
-    public function test_case_manager_does_not_see_other_managers_cases(): void
+    public function test_case_manager_sees_other_managers_cases(): void
     {
         $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
         $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $case1 = CaseFile::factory()->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
-        CaseFile::factory()->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
+        $case2 = CaseFile::factory()->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
 
         $this->actingAs($manager1);
         $cases = $this->service->getCases();
 
-        $this->assertCount(1, $cases);
-        $this->assertEquals($case1->id, $cases->first()->id);
+        $this->assertCount(2, $cases);
     }
 
     public function test_agency_sees_cases_referred_to_their_agency(): void
@@ -147,7 +143,7 @@ class CaseServiceScopeTest extends TestCase
         $this->assertCount(0, $cases);
     }
 
-    public function test_case_manager_cannot_filter_by_other_user_id(): void
+    public function test_case_manager_can_filter_by_user_id(): void
     {
         $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
         $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -156,12 +152,12 @@ class CaseServiceScopeTest extends TestCase
         CaseFile::factory(3)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
 
         $this->actingAs($manager1);
-        // Passing another user's ID should have no effect — CASE_MANAGER is scoped to self
+        // CASE_MANAGER sees all cases but can filter by user_id to narrow down
         $cases = $this->service->getCases(['user_id' => $manager2->id]);
 
-        $this->assertCount(2, $cases);
+        $this->assertCount(3, $cases);
         foreach ($cases as $case) {
-            $this->assertEquals($manager1->id, $case->user_id);
+            $this->assertEquals($manager2->id, $case->user_id);
         }
     }
 
