@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CaseIssue;
@@ -89,8 +91,8 @@ class AdminCaseIssueController extends Controller
         $issue->save();
 
         AuditLog::create([
-            'action' => 'UPDATE',
-            'module' => 'case_issue',
+            'action' => AuditAction::UPDATE->value,
+            'module' => AuditModule::CASE_ISSUE->value,
             'entity_id' => $issue->id,
             'user_id' => auth()->id(),
             'timestamp' => now(),

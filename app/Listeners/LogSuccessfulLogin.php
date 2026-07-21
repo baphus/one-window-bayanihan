@@ -2,6 +2,8 @@
 
 namespace App\Listeners;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Models\AuditLog;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Str;
@@ -11,7 +13,7 @@ class LogSuccessfulLogin
     public function handle(Login $event): void
     {
         $recent = AuditLog::where('user_id', $event->user->getKey())
-            ->where('action', 'LOGIN')
+            ->where('action', AuditAction::LOGIN->value)
             ->where('timestamp', '>=', now()->subSeconds(5))
             ->exists();
 
@@ -20,8 +22,8 @@ class LogSuccessfulLogin
         }
 
         AuditLog::create([
-            'action' => 'LOGIN',
-            'module' => 'auth',
+            'action' => AuditAction::LOGIN->value,
+            'module' => AuditModule::AUTH->value,
             'entity_id' => $event->user->getKey(),
             'old_value' => null,
             'new_value' => null,

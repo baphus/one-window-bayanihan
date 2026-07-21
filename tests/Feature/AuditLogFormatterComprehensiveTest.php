@@ -202,12 +202,15 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 ['Service', 'New Service'],
             ],
 
-            // ---- UPDATE: Email (EmailChangeController) ----
+            // ---- UPDATE: legacy admin email-change module ----
+            // The legacy AdminUserController spelling 'email' canonicalises to
+            // the 'user' module (an email address is a user attribute), so the
+            // rendered module label is now "User" rather than "Email".
             'UPDATE / email' => [
                 'UPDATE', 'email',
                 ['email' => 'old@example.com'],
                 ['email' => 'new@example.com'],
-                ['Email', 'email address', 'new@example.com'],
+                ['User', 'email address', 'new@example.com'],
             ],
 
             // ---- DELETE: Case ----
@@ -401,7 +404,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 [
                     'messageContains' => 'signed in',
                     'hasChanges' => false,
-                    'module' => 'Auth',
+                    'module' => 'Authentication',
                 ],
             ],
 
@@ -979,7 +982,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
     public function test_module_fallback_for_unknown_module(): void
     {
         $result = $this->formatter->formatModule('custom_entity');
-        $this->assertEquals('Custom entity', $result);
+        $this->assertEquals('Custom Entity', $result);
     }
 
     public function test_field_name_fallback(): void

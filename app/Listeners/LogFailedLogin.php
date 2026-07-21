@@ -2,6 +2,8 @@
 
 namespace App\Listeners;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Models\AuditLog;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Support\Str;
@@ -15,8 +17,8 @@ class LogFailedLogin
         $email = $event->credentials['email'] ?? null;
 
         AuditLog::create([
-            'action' => 'LOGIN_FAILED',
-            'module' => 'auth',
+            'action' => AuditAction::LOGIN_FAILED->value,
+            'module' => AuditModule::AUTH->value,
             'entity_id' => $event->user?->getKey(),
             'description' => sprintf('Failed sign-in attempt for %s', $email ?? 'unknown account'),
             'new_value' => ['email' => $email],

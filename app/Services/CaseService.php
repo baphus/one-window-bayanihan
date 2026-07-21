@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
@@ -717,7 +719,7 @@ class CaseService
         array $oldCategoryIds,
         array $newCategoryIds,
         string $userId,
-        string $action = 'UPDATE',
+        string $action = AuditAction::UPDATE->value,
         bool $force = false,
     ): void {
         $oldCategoryIds = $this->sortedCategoryIds($oldCategoryIds);
@@ -729,7 +731,7 @@ class CaseService
 
         AuditLog::create([
             'action' => $action,
-            'module' => 'case',
+            'module' => AuditModule::CASE->value,
             'entity_id' => $case->id,
             'description' => 'Case category assignments changed.',
             'old_value' => ['category_ids' => $oldCategoryIds],

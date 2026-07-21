@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Events\ReferralCompleted;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
@@ -735,8 +737,8 @@ class ReferralService
             $attachment->saveQuietly();
 
             AuditLog::create([
-                'action' => 'DELETE',
-                'module' => 'referral_attachment',
+                'action' => AuditAction::DELETE->value,
+                'module' => AuditModule::REFERRAL_ATTACHMENT->value,
                 'entity_id' => $attachmentId,
                 'old_value' => ['file_name' => $fileName, 'referral_id' => $referralId],
                 'new_value' => null,

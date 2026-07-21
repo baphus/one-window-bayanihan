@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\AuditLog;
@@ -274,8 +276,8 @@ class AdminAgencyController extends Controller
         $agency->save();
 
         AuditLog::create([
-            'action' => 'UPDATE',
-            'module' => 'agency',
+            'action' => AuditAction::UPDATE->value,
+            'module' => AuditModule::AGENCY->value,
             'entity_id' => $agency->id,
             'user_id' => auth()->id(),
             'timestamp' => now(),

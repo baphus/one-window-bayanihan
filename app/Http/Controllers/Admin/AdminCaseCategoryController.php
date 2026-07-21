@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -111,8 +114,8 @@ class AdminCaseCategoryController extends Controller
         $category->save();
 
         AuditLog::create([
-            'action' => 'UPDATE',
-            'module' => 'case_category',
+            'action' => AuditAction::UPDATE->value,
+            'module' => AuditModule::CASE_CATEGORY->value,
             'entity_id' => $category->id,
             'user_id' => auth()->id(),
             'timestamp' => now(),

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { formatDisplayDateTime } from '@/lib/utils';
+import { ChangesTable, getActivityType } from '@/lib/audit';
 
 /**
  * AuditLogModal — full-screen modal displaying paginated audit log entries
@@ -165,15 +166,13 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
  * Individual audit log entry card.
  */
 function LogEntry({ log }) {
-    const activityType = getActivityType(
-        log.formattedAction || log.action,
-        log.formattedModule || log.module,
-    );
-    const description = log.formattedDescription || log.message || log.description || '';
-    const changes = log.changes || [];
-    const timestamp = log.formattedTimestamp || log.timestamp;
+    const activityType = getActivityType(log.action, log.module);
+    const description = log.message || log.description || '';
+    const changes = Array.isArray(log.changes) ? log.changes : [];
+    const timestamp = log.timestamp;
     const actor = log.actor || log.user?.name || 'System';
-    const module = log.formattedModule || log.module || '';
+    // Human module label; falls back to the raw module only if unformatted.
+    const module = log.formatted_module || log.module || '';
 
     return (
         <div className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
@@ -188,7 +187,7 @@ function LogEntry({ log }) {
             )}
 
             {/* Changes table */}
-            <ChangesTable changes={changes} />
+            <ChangesTable changes={changes} variant="compact" maxRows={5} />
 
             {/* Metadata line */}
             <p className="mt-1 text-[10px] text-slate-500">
@@ -198,76 +197,6 @@ function LogEntry({ log }) {
             </p>
         </div>
     );
-}
-
-/**
- * Changes table showing field-level differences (old → new).
- */
-function ChangesTable({ changes }) {
-    if (!changes || changes.length === 0) return null;
-
-    const visible = changes.slice(0, 5);
-    const remaining = changes.length - 5;
-
-    return (
-        <div className="mt-2 overflow-hidden rounded-[2px] border border-slate-200 bg-white/60">
-            <table className="w-full border-collapse text-[11px] leading-tight">
-                <tbody>
-                    {visible.map((change, idx) => (
-                        <tr key={idx} className={idx > 0 ? 'border-t border-slate-100' : ''}>
-                            <td className="min-w-[80px] max-w-[100px] truncate px-2 py-[3px] font-medium text-slate-500">
-                                {change.fieldLabel || change.field}
-                            </td>
-                            <td className="px-1 py-[3px] text-slate-400 line-through">
-                                {change.old ?? '—'}
-                            </td>
-                            <td className="px-1 py-[3px] text-slate-700">
-                                {change.new ?? '—'}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            {remaining > 0 && (
-                <p className="border-t border-slate-100 px-2 py-[3px] text-[10px] text-slate-400">
-                    +{remaining} more
-                </p>
-            )}
-        </div>
-    );
-}
-
-/**
- * Map action + module to a human-readable activity label.
- */
-function getActivityType(action, module) {
-    const act = (action || '').toUpperCase();
-    const mod = (module || '').toUpperCase();
-
-    if (act === 'LOGIN') return 'USER LOGIN';
-    if (act === 'LOGOUT') return 'USER LOGOUT';
-    if (act === 'PUBLISH') return 'PUBLISHED';
-    if (act === 'ARCHIVE') return 'ARCHIVED';
-    if (act === 'UNARCHIVE') return 'UNARCHIVED';
-
-    if (['CASE', 'CASES', 'CASE_FILES'].includes(mod)) {
-        if (act === 'CREATE') return 'CASE OPENED';
-        if (act === 'UPDATE') return 'CASE UPDATED';
-        if (act === 'DELETE') return 'CASE DELETED';
-    }
-
-    if (['REFERRAL', 'REFERRALS'].includes(mod)) {
-        if (act === 'CREATE') return 'REFERRAL CREATED';
-        if (act === 'UPDATE') return 'REFERRAL UPDATED';
-        if (act === 'DELETE') return 'REFERRAL DELETED';
-    }
-
-    if (['MILESTONE', 'MILESTONES'].includes(mod)) {
-        if (act === 'CREATE') return 'MILESTONE ACHIEVED';
-        if (act === 'UPDATE') return 'MILESTONE UPDATED';
-    }
-
-    return act || 'ACTIVITY';
 }
 
 function LoadingState() {

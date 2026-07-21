@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AuditAction;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use App\Services\AuditCategory;
@@ -40,40 +41,76 @@ class AuditLog extends Model
         'request_id' => 'string',
     ];
 
-    private static array $sensitiveFields = [
-        'password',
-        'remember_token',
-        'mfa_secret',
-        'mfa_recovery_codes',
-        'mfa_enabled_at',
-    ];
+    /**
+     * Recursively scrub sensitive values to '[REDACTED]' using the central
+     * redaction policy (config/audit.php 'redact'). Both the exact-key list
+     * and the substring patterns are matched case-insensitively.
+     *
+     * A matching key redacts its ENTIRE value — scalar or array — so a
+     * sensitive field holding an array (e.g. mfa_recovery_codes => [...]) is
+     * fully scrubbed rather than leaking its elements. Non-matching arrays are
+     * walked so nested sensitive keys at any depth are still caught. (This is
+     * why array_walk_recursive is not used: it visits only scalar leaves and
+     * would never see a key whose value is an array.)
+     */
+    public static function redact(array $value): array
+    {
+        $keys = array_map('strtolower', (array) config('audit.redact.keys', []));
+        $patterns = array_map('strtolower', (array) config('audit.redact.patterns', []));
+
+        $isSensitive = static function ($key) use ($keys, $patterns): bool {
+            $lowerKey = strtolower((string) $key);
+
+            if (in_array($lowerKey, $keys, true)) {
+                return true;
+            }
+
+            foreach ($patterns as $pattern) {
+                if ($pattern !== '' && str_contains($lowerKey, $pattern)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        $walk = static function (array $arr) use (&$walk, $isSensitive) {
+            foreach ($arr as $key => $val) {
+                if ($isSensitive($key)) {
+                    $arr[$key] = '[REDACTED]';
+                } elseif (is_array($val)) {
+                    $arr[$key] = $walk($val);
+                }
+            }
+
+            return $arr;
+        };
+
+        return $walk($value);
+    }
 
     protected static function boot(): void
     {
         parent::boot();
 
         static::saving(function (self $auditLog) {
+            // Fail fast on an unrecognised action verb with a clear message,
+            // rather than letting the write hit the database CHECK constraint
+            // (which raises an opaque SQL error). The stored value is left
+            // untouched — action remains a plain string, never an enum object,
+            // so the frozen chainDigest() serialisation is unaffected.
+            if ($auditLog->action !== null && ! AuditAction::isValid((string) $auditLog->action)) {
+                throw new \InvalidArgumentException(
+                    "Unknown audit action '{$auditLog->action}'. Use an App\\Enums\\AuditAction value."
+                );
+            }
+
             foreach (['old_value', 'new_value'] as $column) {
                 $value = $auditLog->$column;
                 if (! is_array($value)) {
                     continue;
                 }
-                array_walk_recursive($value, function (&$v, $k) {
-                    // Exact match on known sensitive fields
-                    if (in_array($k, self::$sensitiveFields, true)) {
-                        $v = '[REDACTED]';
-
-                        return;
-                    }
-                    // Pattern match: any key containing password/secret/token
-                    $lowerKey = strtolower($k);
-                    if (str_contains($lowerKey, 'password') ||
-                        str_contains($lowerKey, 'secret') ||
-                        str_contains($lowerKey, 'token')) {
-                        $v = '[REDACTED]';
-                    }
-                });
-                $auditLog->$column = $value;
+                $auditLog->$column = self::redact($value);
             }
 
             // CR/LF sanitization to prevent log injection
