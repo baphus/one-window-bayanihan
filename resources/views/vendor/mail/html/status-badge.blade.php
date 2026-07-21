@@ -11,4 +11,4 @@
   $c = $colors[$status] ?? ['bg' => '#f4f4f5', 'text' => '#3f3f46'];
 @endphp
 
-<span style="display: inline-block; border-radius: 3px; padding: 4px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; background-color: {{ $c['bg'] }}; color: {{ $c['text'] }};">{{ $label }}</span>
+<span class="status-badge status-badge-{{ $status }}" style="display: inline-block; border-radius: 3px; padding: 4px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; background-color: {{ $c['bg'] }}; color: {{ $c['text'] }};">{{ $label }}</span>
