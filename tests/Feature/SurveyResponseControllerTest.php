@@ -31,7 +31,7 @@ class SurveyResponseControllerTest extends TestCase
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$submitted->id], 2, 1, 50));
     }
 
-    public function test_case_manager_scope_has_exact_stats_and_submitted_only_rows(): void
+    public function test_case_manager_sees_all_survey_responses(): void
     {
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
         $mine = $this->makeInvitation(Agency::factory()->create(), true, $manager);
@@ -39,10 +39,11 @@ class SurveyResponseControllerTest extends TestCase
         $other = $this->makeInvitation(Agency::factory()->create(), true, User::factory()->create(['role' => 'CASE_MANAGER']));
 
         $this->actingAs($manager)->get(route('survey.responses.index'))
-            ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$mine->id], 2, 1, 50));
+            ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$other->id, $mine->id], 3, 2, 66.7));
         $this->actingAs($manager)->get(route('survey.responses.show', $mine))
             ->assertInertia(fn (Assert $page) => $this->assertDetail($page));
-        $this->actingAs($manager)->get(route('survey.responses.show', $other))->assertForbidden();
+        $this->actingAs($manager)->get(route('survey.responses.show', $other))
+            ->assertInertia(fn (Assert $page) => $this->assertDetail($page));
         $this->assertNotSame($mine->id, $ownUnsubmitted->id);
     }
 

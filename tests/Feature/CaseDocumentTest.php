@@ -89,7 +89,7 @@ class CaseDocumentTest extends TestCase
             ->assertJsonCount(1);
     }
 
-    public function test_non_owning_case_manager_cannot_list_show_or_download_documents()
+    public function test_any_case_manager_can_list_show_or_download_documents()
     {
         $document = $this->createDocument();
 
@@ -97,15 +97,20 @@ class CaseDocumentTest extends TestCase
 
         $this->actingAs($otherManager)
             ->getJson(route('cases.documents.index', $this->case->id))
-            ->assertForbidden();
+            ->assertOk()
+            ->assertJsonCount(1);
 
         $this->actingAs($otherManager)
             ->getJson(route('cases.documents.show', [$this->case->id, $document->id]))
-            ->assertForbidden();
+            ->assertOk();
+
+        $this->mock(StorageService::class, function ($mock): void {
+            $mock->shouldReceive('temporaryUrl')->once()->andReturn('https://storage.test/document.pdf');
+        });
 
         $this->actingAs($otherManager)
             ->get(route('cases.documents.download', [$this->case->id, $document->id]))
-            ->assertForbidden();
+            ->assertRedirect('https://storage.test/document.pdf');
     }
 
     public function test_document_soft_delete()

@@ -31,9 +31,8 @@ class ClientController extends Controller
 
         $clients = Client::where('is_deleted', false)->with([
             'caseFile' => function ($q) use ($user) {
-                if ($user?->isCaseManager()) {
-                    $q->where('user_id', $user->id);
-                } elseif ($user?->isAgency()) {
+                // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
+                if ($user?->isAgency()) {
                     $q->whereHas('referrals', fn ($referrals) => $referrals
                         ->where('agcy_id', $user->agcy_id)
                         ->where('is_deleted', false));
@@ -59,17 +58,11 @@ class ClientController extends Controller
             $clients->whereRaw('1 = 0');
         }
 
-        // Role-based scoping
-        if ($user && ! $user->isAdmin()) {
-            if ($user->isCaseManager()) {
-                $clients->whereHas('caseFile', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
-            } elseif ($user->isAgency() && $user->agcy_id) {
-                $clients->whereHas('caseFile.referrals', function ($q) use ($user) {
-                    $q->where('agcy_id', $user->agcy_id);
-                });
-            }
+        // Role-based scoping — ADMIN/CASE_MANAGER: all. AGENCY: own referrals.
+        if ($user?->isAgency() && $user->agcy_id) {
+            $clients->whereHas('caseFile.referrals', function ($q) use ($user) {
+                $q->where('agcy_id', $user->agcy_id);
+            });
         }
 
         // --- Search ---
@@ -204,14 +197,12 @@ class ClientController extends Controller
                 ];
             }
 
-            if ($user && ! $user->isAdmin()) {
-                if ($user->isCaseManager()) {
-                    $sql .= ' AND c.user_id = ?';
-                    $bindings[] = $user->id;
-                } elseif ($user->isAgency() && $user->agcy_id) {
-                    $sql .= ' AND c.id IN (SELECT ref.case_id FROM referrals ref WHERE ref.agcy_id = ? AND ref.is_deleted = false)';
-                    $bindings[] = $user->agcy_id;
-                }
+            // AGENCY users see only cases with referrals to their agency; ADMIN and CASE_MANAGER see all
+            if ($user && $user->isAgency() && $user->agcy_id) {
+                $sql .= ' AND c.id IN (SELECT ref.case_id FROM referrals ref WHERE ref.agcy_id = ? AND ref.is_deleted = false)';
+                $bindings[] = $user->agcy_id;
+            } elseif ($user && $user->isAgency() && ! $user->agcy_id) {
+                $sql .= ' AND 1 = 0';
             }
 
             $row = DB::selectOne($sql, $bindings);
@@ -222,14 +213,11 @@ class ClientController extends Controller
                 WHERE r.is_deleted = false';
             $refBindings = [];
 
-            if ($user && ! $user->isAdmin()) {
-                if ($user->isCaseManager()) {
-                    $refSql .= ' AND c.user_id = ?';
-                    $refBindings[] = $user->id;
-                } elseif ($user->isAgency() && $user->agcy_id) {
-                    $refSql .= ' AND c.id IN (SELECT ref2.case_id FROM referrals ref2 WHERE ref2.agcy_id = ? AND ref2.is_deleted = false)';
-                    $refBindings[] = $user->agcy_id;
-                }
+            if ($user && $user->isAgency() && $user->agcy_id) {
+                $refSql .= ' AND r.agcy_id = ?';
+                $refBindings[] = $user->agcy_id;
+            } elseif ($user && $user->isAgency() && ! $user->agcy_id) {
+                $refSql .= ' AND 1 = 0';
             }
 
             $refRow = DB::selectOne($refSql, $refBindings);
@@ -262,9 +250,8 @@ class ClientController extends Controller
             ->where('cases.is_deleted', false)
             ->with(['user']);
 
-        if ($user->isCaseManager()) {
-            $caseQuery->where('user_id', $user->id);
-        } elseif ($user->isAgency()) {
+        // ADMIN/CASE_MANAGER: all cases. AGENCY: own referral cases only.
+        if ($user?->isAgency()) {
             if (! $user->agcy_id) {
                 abort(404, 'Client not found.');
             }
@@ -272,8 +259,6 @@ class ClientController extends Controller
             $caseQuery->whereHas('referrals', fn ($q) => $q
                 ->where('agcy_id', $user->agcy_id)
                 ->where('is_deleted', false));
-        } elseif (! $user->isAdmin()) {
-            abort(404, 'Client not found.');
         }
 
         $caseQuery->with(['referrals' => function ($q) use ($user) {
@@ -449,19 +434,8 @@ class ClientController extends Controller
      */
     private function authorizeClientAccess(Client $client, User $user): void
     {
-        if ($user->isAdmin()) {
-            return;
-        }
-
-        if ($user->isCaseManager()) {
-            $hasAccess = $client->caseFiles()
-                ->where('user_id', $user->id)
-                ->exists();
-
-            if (! $hasAccess) {
-                abort(404, 'Client not found.');
-            }
-
+        // ADMIN and CASE_MANAGER: full access to all clients
+        if ($user->isAdmin() || $user->isCaseManager()) {
             return;
         }
 

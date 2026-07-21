@@ -130,26 +130,25 @@ class CategoryVisibilityHardeningTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
+        // CASE_MANAGER sees all referrals (full access, same as ADMIN)
         $managerResponse = $this->actingAs($manager)->get(route('referrals.index'));
         $managerResponse->assertInertia(fn ($page) => $page
-            ->has('referrals.data', 1)
-            ->where('referrals.data.0.id', $managerReferral->id)
-            ->where('stats.total_referrals', 1)
-            ->where('exportRowCount', 1));
+            ->has('referrals.data', 2)
+            ->where('stats.total_referrals', 2)
+            ->where('exportRowCount', 2));
 
         $managerExports = new DataExportQueries;
-        $this->assertCount(1, $managerExports->getReferralsExport($manager));
-        $this->assertSame(1, $managerExports->countReferralsExport($manager));
+        $this->assertCount(2, $managerExports->getReferralsExport($manager));
+        $this->assertSame(2, $managerExports->countReferralsExport($manager));
 
         $otherResponse = $this->actingAs($otherManager)->get(route('referrals.index'));
         $otherResponse->assertInertia(fn ($page) => $page
-            ->has('referrals.data', 1)
-            ->where('referrals.data.0.id', $otherReferral->id)
-            ->where('stats.total_referrals', 1)
-            ->where('exportRowCount', 1));
+            ->has('referrals.data', 2)
+            ->where('stats.total_referrals', 2)
+            ->where('exportRowCount', 2));
 
-        $this->assertCount(1, $managerExports->getReferralsExport($otherManager));
-        $this->assertSame(1, $managerExports->countReferralsExport($otherManager));
+        $this->assertCount(2, $managerExports->getReferralsExport($otherManager));
+        $this->assertSame(2, $managerExports->countReferralsExport($otherManager));
     }
 
     public function test_agency_user_sees_only_its_referrals_in_list_stats_and_export(): void

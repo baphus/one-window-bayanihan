@@ -318,9 +318,6 @@ class ReportsService
     public function getVulnerabilityDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
         $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('cases.user_id', $userId);
-        }
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -369,9 +366,6 @@ class ReportsService
         if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
             return $query->whereRaw('1 = 0');
         }
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('cases.user_id', $userId);
-        }
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -397,12 +391,9 @@ class ReportsService
 
         if ($dateScope === 'case_created_at') {
             // Subquery avoids JOIN — prevents ambiguous column errors
-            $query->whereIn('referrals.case_id', function ($q) use ($userId, $role, $fromDate, $toDate) {
+            $query->whereIn('referrals.case_id', function ($q) use ($fromDate, $toDate) {
                 $q->select('cases.id')->from('cases')
                     ->whereNull('cases.deleted_at');
-                if ($role === 'CASE_MANAGER' && $userId) {
-                    $q->where('cases.user_id', $userId);
-                }
                 if ($fromDate) {
                     $q->whereDate('cases.created_at', '>=', $fromDate);
                 }
@@ -411,9 +402,6 @@ class ReportsService
                 }
             });
         } else {
-            if ($role === 'CASE_MANAGER' && $userId) {
-                $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
-            }
             if ($fromDate) {
                 $query->whereDate($dateScope === 'referral_created_at' ? 'referrals.created_at' : 'referrals.updated_at', '>=', $fromDate);
             }
@@ -612,9 +600,6 @@ class ReportsService
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->whereNull('cases.deleted_at');
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $q->where('cases.user_id', $userId);
-        }
         if ($agencyId) {
             $q->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -957,9 +942,6 @@ class ReportsService
             ->whereNotNull('ca.province')
             ->where('ca.province', '!=', '');
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('cases.user_id', $userId);
-        }
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -1098,16 +1080,6 @@ class ReportsService
             return $query->whereRaw('1 = 0');
         }
 
-        if ($role === 'CASE_MANAGER') {
-            $query->whereIn('client_id', function ($q) use ($userId) {
-                $q->select('client_id')->from('cases')
-                    ->where('user_id', $userId)
-                    ->where('is_deleted', false)
-                    ->whereNull('deleted_at')
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-            });
-        }
-
         if ($agencyId) {
             $query->whereIn('client_id', function ($q) use ($agencyId) {
                 $q->select('client_id')->from('cases')
@@ -1130,10 +1102,13 @@ class ReportsService
      * A scoped report requires the identity that defines that scope.  Keep
      * this check centralized so payloads, options, and individual metrics do
      * not accidentally fall back to an unrestricted query.
+     *
+     * CASE_MANAGER sees all (no userId needed for scoping).
+     * AGENCY must have an agencyId.
      */
     private function hasRequiredRoleScope(?string $userId, ?string $role, ?string $agencyId): bool
     {
-        return ! (($role === 'CASE_MANAGER' && ! $userId) || ($role === 'AGENCY' && ! $agencyId));
+        return $role !== 'AGENCY' || (bool) $agencyId;
     }
 
     private function emptyPayload(?string $role): array
@@ -1188,9 +1163,6 @@ class ReportsService
         $query = CaseFile::select('status', DB::raw('count(*) as total'))
             ->whereIn('status', ['OPEN', 'CLOSED']);
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('user_id', $userId);
-        }
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -1226,9 +1198,6 @@ class ReportsService
             ->groupBy('case_categories.name', 'case_categories.color')
             ->orderBy('case_categories.name');
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('cases.user_id', $userId);
-        }
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -1302,9 +1271,6 @@ class ReportsService
         $query = Referral::whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
             ->whereRaw('EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400 > 14');
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'));
-        }
         if ($agencyId) {
             $query->where('agcy_id', $agencyId);
         }
@@ -1344,9 +1310,6 @@ class ReportsService
             ->whereNotNull('ca.city_municipality')
             ->where('ca.city_municipality', '!=', '');
 
-        if ($role === 'CASE_MANAGER' && $userId) {
-            $query->where('cases.user_id', $userId);
-        }
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -1388,8 +1351,7 @@ class ReportsService
     /**
      * Role-scoped agency options for the agency filter dropdown.
      *
-     * Admin: all active agencies.
-     * Case Manager: active agencies that have referrals tied to the manager's cases.
+     * Admin and CASE_MANAGER: all active agencies.
      * Agency: empty array — the selector is hidden for Agency users.
      *
      * @return array<int, array{value: string, label: string}>
@@ -1398,28 +1360,14 @@ class ReportsService
     {
         // Never let an unassigned scoped request fall through to the admin
         // branch after the cache key is built.
-        if (($role === 'CASE_MANAGER' && ! $userId) || $role === 'AGENCY') {
+        if ($role === 'AGENCY') {
             return [];
         }
 
         $cacheKey = 'reports:agency_options:'.md5(($userId ?? '').'|'.($role ?? ''));
 
-        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($userId, $role) {
-            if ($role === 'CASE_MANAGER' && $userId) {
-                $agencyIds = Referral::whereNull('deleted_at')
-                    ->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'))
-                    ->select('agcy_id')->distinct()->pluck('agcy_id');
-
-                return Agency::where('is_active', true)
-                    ->whereIn('id', $agencyIds)
-                    ->orderBy('name')
-                    ->get(['id', 'name'])
-                    ->map(fn (Agency $a) => ['value' => $a->id, 'label' => $a->name])
-                    ->values()
-                    ->toArray();
-            }
-
-            // Admin: all active agencies.
+        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () {
+            // Admin / CASE_MANAGER: all active agencies.
             return Agency::where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name'])
@@ -1437,7 +1385,7 @@ class ReportsService
 
         $cacheKey = 'reports:province_options:'.md5(($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
-        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($userId, $role, $agencyId) {
+        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($agencyId) {
             $query = DB::table('client_addresses')
                 ->select('province')
                 ->whereNotNull('province')
@@ -1446,13 +1394,6 @@ class ReportsService
                 ->distinct()
                 ->orderBy('province');
 
-            if ($role === 'CASE_MANAGER' && $userId) {
-                $query->whereIn('client_id', function ($q) use ($userId) {
-                    $q->select('client_id')->from('cases')
-                        ->where('user_id', $userId)
-                        ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-                });
-            }
             if ($agencyId) {
                 $query->whereIn('client_id', function ($q) use ($agencyId) {
                     $q->select('c.client_id')->from('cases as c')
@@ -1482,7 +1423,7 @@ class ReportsService
 
         $cacheKey = 'reports:city_options:'.md5(($province ?? '').'|'.($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
-        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($province, $userId, $role, $agencyId) {
+        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($province, $agencyId) {
             $query = DB::table('client_addresses')
                 ->select('city_municipality')
                 ->whereNotNull('city_municipality')
@@ -1495,13 +1436,6 @@ class ReportsService
                 $query->where('province', $province);
             }
 
-            if ($role === 'CASE_MANAGER' && $userId) {
-                $query->whereIn('client_id', function ($q) use ($userId) {
-                    $q->select('client_id')->from('cases')
-                        ->where('user_id', $userId)
-                        ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-                });
-            }
             if ($agencyId) {
                 $query->whereIn('client_id', function ($q) use ($agencyId) {
                     $q->select('c.client_id')->from('cases as c')

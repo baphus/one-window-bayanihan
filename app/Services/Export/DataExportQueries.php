@@ -76,11 +76,11 @@ class DataExportQueries
 
     private function isAdmin(?User $user): bool
     {
-        return $user === null || $user->role === 'ADMIN';
+        return $user === null || $user->role === 'ADMIN' || $user->role === 'CASE_MANAGER';
     }
 
     /**
-     * Get cases. ADMIN: all. CASE_MANAGER: own cases only (via user_id).
+     * Get cases. ADMIN/CASE_MANAGER: all. AGENCY: own referral cases only.
      */
     public function getCases(?User $user = null): Collection
     {
@@ -123,7 +123,7 @@ class DataExportQueries
     /**
      * Get enriched cases for business export — joins related client data,
      * addresses, employments, next-of-kin, case issues, and referral parties.
-     * No IDs or system fields. Administrators see all; Case Managers see own.
+     * No IDs or system fields. ADMIN/CASE_MANAGER see all; AGENCY sees own.
      *
      * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
      *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
@@ -184,8 +184,18 @@ class DataExportQueries
             ->where('c.status', '!=', 'ARCHIVED')
             ->orderBy('c.created_at', 'desc');
 
-        if (! $this->isAdmin($user)) {
-            $query->where('c.user_id', $user->id);
+        // ADMIN/CASE_MANAGER: all. AGENCY: own referral cases only.
+        if ($user?->role === 'AGENCY') {
+            if ($user->agcy_id) {
+                $query->whereIn('c.id', function ($q) use ($user) {
+                    $q->select('case_id')
+                        ->from('referrals')
+                        ->where('agcy_id', $user->agcy_id)
+                        ->where('is_deleted', false);
+                });
+            } else {
+                $query->whereRaw('1=0');
+            }
         }
 
         // --- Apply optional filters ---
@@ -322,7 +332,7 @@ class DataExportQueries
     }
 
     /**
-     * Get clients. ADMIN: all. CASE_MANAGER: clients linked to their cases (via cases.client_id).
+     * Get clients. ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
      */
     public function getClients(?User $user = null): Collection
     {
@@ -342,8 +352,9 @@ class DataExportQueries
             ])
             ->where('is_deleted', false);
 
-        if (! $this->isAdmin($user)) {
-            if ($user && $user->role === 'AGENCY' && $user->agcy_id) {
+        // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
+        if ($user?->role === 'AGENCY') {
+            if ($user->agcy_id) {
                 $query->whereIn('id', function ($q) use ($user) {
                     $q->select('client_id')
                         ->from('cases')
@@ -356,13 +367,7 @@ class DataExportQueries
                         });
                 });
             } else {
-                $query->whereIn('id', function ($q) use ($user) {
-                    $q->select('client_id')
-                        ->from('cases')
-                        ->where('user_id', $user->id)
-                        ->where('is_deleted', false)
-                        ->whereNotNull('client_id');
-                });
+                $query->whereRaw('1=0');
             }
         }
 
@@ -372,7 +377,7 @@ class DataExportQueries
     /**
      * Get enriched clients for business export — no IDs or system fields.
      * Joins case info, addresses, employments, next-of-kin, and referral parties.
-     * ADMIN: all. CASE_MANAGER: clients on their cases. AGENCY: clients with referrals to their agency.
+     * ADMIN/CASE_MANAGER: all. AGENCY: clients on their referrals.
      *
      * @param  array  $filters  Optional: search, sex, client_type
      */
@@ -428,9 +433,9 @@ class DataExportQueries
             ->where('cl.is_deleted', false)
             ->orderBy('cl.created_at', 'desc');
 
-        // Role-based scoping
-        if (! $this->isAdmin($user)) {
-            if ($user && $user->role === 'AGENCY' && $user->agcy_id) {
+        // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
+        if ($user?->role === 'AGENCY') {
+            if ($user->agcy_id) {
                 $query->whereIn('cl.id', function ($q) use ($user) {
                     $q->select('c5.client_id')
                         ->from('cases AS c5')
@@ -443,13 +448,7 @@ class DataExportQueries
                         });
                 });
             } else {
-                $query->whereIn('cl.id', function ($q) use ($user) {
-                    $q->select('c6.client_id')
-                        ->from('cases AS c6')
-                        ->where('c6.user_id', $user->id)
-                        ->where('c6.is_deleted', false)
-                        ->whereNotNull('c6.client_id');
-                });
+                $query->whereRaw('1=0');
             }
         }
 
@@ -620,7 +619,7 @@ class DataExportQueries
     }
 
     /**
-     * Get referrals. ADMIN: all. CASE_MANAGER: referrals on their cases (via case_id → cases.user_id).
+     * Get referrals. ADMIN/CASE_MANAGER: all. AGENCY: own referral agency only.
      */
     public function getReferrals(?User $user = null): Collection
     {
@@ -759,21 +758,11 @@ class DataExportQueries
 
         $this->applyCategoryFilter($query, 'c', $filters);
 
-        if (! $this->isAdmin($user)) {
-            if ($user?->role === 'CASE_MANAGER') {
-                $query->whereIn('r.case_id', function ($q) use ($user) {
-                    $q->select('id')
-                        ->from('cases')
-                        ->where('user_id', $user->id)
-                        ->where('is_deleted', false);
-                });
-            } elseif ($user?->role === 'AGENCY' && $user->agcy_id) {
-                $query->where('r.agcy_id', $user->agcy_id);
-            } else {
-                // AGENCY users without an assigned agency, and unknown
-                // non-admin roles, must not receive an unrestricted export.
-                $query->whereRaw('1 = 0');
-            }
+        // ADMIN/CASE_MANAGER: all referrals. AGENCY: own agency referrals only.
+        if ($user?->role === 'AGENCY' && $user->agcy_id) {
+            $query->where('r.agcy_id', $user->agcy_id);
+        } elseif ($user?->role === 'AGENCY') {
+            $query->whereRaw('1 = 0');
         }
 
         // Safety cap — prevents memory exhaustion on unbounded exports.
@@ -977,7 +966,7 @@ class DataExportQueries
     }
 
     /**
-     * Get milestones. ADMIN: all. CASE_MANAGER: via referrals → cases → user_id.
+     * Get milestones. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
      */
     public function getMilestones(?User $user = null): Collection
     {
@@ -1011,7 +1000,7 @@ class DataExportQueries
     }
 
     /**
-     * Get next-of-kin. ADMIN: all. CASE_MANAGER: via clients → cases → user_id.
+     * Get next-of-kin. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
      */
     public function getNextOfKins(?User $user = null): Collection
     {
@@ -1068,7 +1057,7 @@ class DataExportQueries
     }
 
     /**
-     * Get feedback. ADMIN: all. CASE_MANAGER: via case_id → cases → user_id.
+     * Get feedback. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
      * Note: feedback table does not use SoftDeleteFlag — no is_deleted filter.
      */
     public function getFeedbacks(?User $user = null): Collection
@@ -1099,7 +1088,7 @@ class DataExportQueries
 
     /**
      * Get feedback with SERVQUAL dimension averages for export.
-     * ADMIN: all. CASE_MANAGER/AGENCY: scoped.
+     * ADMIN/CASE_MANAGER: all. AGENCY: scoped.
      * Uses the feedback_servqual_responses table for dimension calculations.
      *
      * @param  array  $filters  Optional filters: agency_id, date_from, date_to, window
@@ -1173,7 +1162,7 @@ class DataExportQueries
     }
 
     /**
-     * Get case documents. ADMIN: all. CASE_MANAGER: via case_id → cases → user_id.
+     * Get case documents. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
      */
     public function getCaseDocuments(?User $user = null): Collection
     {
@@ -1203,7 +1192,7 @@ class DataExportQueries
     }
 
     /**
-     * Get client addresses. ADMIN: all. CASE_MANAGER: via client_id → cases → user_id.
+     * Get client addresses. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
      */
     public function getClientAddresses(?User $user = null): Collection
     {
@@ -1243,7 +1232,7 @@ class DataExportQueries
     }
 
     /**
-     * Get client employments. ADMIN: all. CASE_MANAGER: via client_id → cases → user_id.
+     * Get client employments. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
      */
     public function getClientEmployments(?User $user = null): Collection
     {

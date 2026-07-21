@@ -801,11 +801,9 @@ class CaseService
 
         // Role-based scoping — restrict which cases the current user can see
         $user = auth()->user();
-        if ($user && $user->role !== 'ADMIN') {
+        if ($user && $user->role !== 'ADMIN' && $user->role !== 'CASE_MANAGER') {
             $query->where(function ($q) use ($user) {
-                if ($user->role === 'CASE_MANAGER') {
-                    $q->where('user_id', $user->id);
-                } elseif ($user->role === 'AGENCY') {
+                if ($user->role === 'AGENCY') {
                     if ($user->agcy_id) {
                         $q->whereHas('referrals', function ($rq) use ($user) {
                             $rq->where('agcy_id', $user->agcy_id);
@@ -815,8 +813,8 @@ class CaseService
                     }
                 }
             });
-        } elseif ($user && $user->role === 'ADMIN' && ! empty($filters['user_id'])) {
-            // ADMIN can still filter by user_id
+        } elseif ($user && in_array($user->role, ['ADMIN', 'CASE_MANAGER']) && ! empty($filters['user_id'])) {
+            // ADMIN and CASE_MANAGER can filter by user_id
             $query->where('user_id', $filters['user_id']);
         }
 
@@ -1324,24 +1322,48 @@ class CaseService
         return 'OWBAP-'.strtoupper(Str::random(7));
     }
 
-    public function getCaseStats(): array
+    public function getCaseStats(?User $user = null): array
     {
-        return CacheHelper::safeRemember('stats:cases', 120, function () {
-            $counts = DB::selectOne("
-                SELECT
+        // AGENCY users see only their agency's cases; ADMIN and CASE_MANAGER see all.
+        // Cache key is role+ID for AGENCY (each agency sees different data), global for others.
+        $isScoped = $user && $user->role === 'AGENCY';
+        $cacheKey = $isScoped ? 'stats:cases:AGENCY:'.$user->id : 'stats:cases';
+
+        return CacheHelper::safeRemember($cacheKey, 120, function () use ($user) {
+            // Build the scoped case query — same role logic as getCases()
+            // Qualify is_deleted to avoid ambiguity when joining case_categories (which also has is_deleted via SoftDeleteFlag)
+            $caseQuery = CaseFile::where('cases.is_deleted', false);
+
+            if ($user && $user->role === 'AGENCY') {
+                if ($user->agcy_id) {
+                    $caseQuery->whereHas('referrals', function ($rq) use ($user) {
+                        $rq->where('agcy_id', $user->agcy_id);
+                    });
+                } else {
+                    $caseQuery->whereRaw('1=0');
+                }
+            }
+
+            // Aggregate counts via PostgreSQL FILTER clauses
+            $counts = (clone $caseQuery)->selectRaw("
                     COUNT(*) FILTER (WHERE status NOT IN ('DRAFT','ARCHIVED')) AS active,
                     COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed,
                     COUNT(*) FILTER (WHERE status = 'ARCHIVED') AS archived,
                     COUNT(*) FILTER (WHERE client_type = 'OFW' AND status NOT IN ('DRAFT','ARCHIVED')) AS ofw,
                     COUNT(*) FILTER (WHERE client_type = 'NEXT_OF_KIN' AND status NOT IN ('DRAFT','ARCHIVED')) AS nok
-                FROM cases
-                WHERE is_deleted = false
-            ");
+                ")->first();
 
-            $totalReferrals = Referral::count();
+            // Total referrals — ADMIN and CASE_MANAGER see all; AGENCY sees own only
+            $totalReferrals = match (true) {
+                ! $user || $user->role === 'ADMIN' || $user->role === 'CASE_MANAGER' => Referral::count(),
+                $user->role === 'AGENCY' => $user->agcy_id ? Referral::where('agcy_id', $user->agcy_id)->count() : 0,
+                default => Referral::count(),
+            };
 
-            $categoryBreakdown = CaseFile::join('case_category', 'cases.id', '=', 'case_category.case_id')
+            // Category breakdown — scoped
+            $categoryBreakdown = (clone $caseQuery)
+                ->join('case_category', 'cases.id', '=', 'case_category.case_id')
                 ->join('case_categories as pivot_categories', 'case_category.case_category_id', '=', 'pivot_categories.id')
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
                 ->where('cases.is_deleted', false)

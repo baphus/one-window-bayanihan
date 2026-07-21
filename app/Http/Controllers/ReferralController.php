@@ -464,14 +464,9 @@ class ReferralController extends Controller
 
     private function authorizeReferralAccess($referral, $user)
     {
-        if ($user->isAdmin()) {
+        // ADMIN and CASE_MANAGER: full access to all referrals
+        if ($user->isAdmin() || $user->isCaseManager()) {
             return;
-        }
-        if ($user->isCaseManager()) {
-            if ($referral->caseFile && $referral->caseFile->user_id === $user->id) {
-                return;
-            }
-            abort(403, 'You do not have access to this referral.');
         }
         if ($user->isAgency() && ! $user->agcy_id) {
             abort(403, 'You do not have access to this referral.');

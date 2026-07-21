@@ -44,7 +44,7 @@ class CaseController extends Controller
         return Inertia::render('Case/Index', [
             'cases' => $cases,
             'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters),
-            'stats' => $this->caseService->getCaseStats(),
+            'stats' => $this->caseService->getCaseStats($request->user()),
             'users' => $this->referenceData->getCaseManagerUsers(),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),

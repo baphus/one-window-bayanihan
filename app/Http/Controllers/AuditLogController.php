@@ -51,7 +51,7 @@ class AuditLogController extends Controller
         // Filter facets. Admins draw from the whole table (cached, shared);
         // scoped roles draw only from the rows they can actually see, so the
         // filter chips never offer options that would return nothing.
-        if ($isAdmin) {
+        if ($isAdmin || $user->isCaseManager()) {
             $availableActions = CacheHelper::safeRemember(
                 'audit_log_available_actions',
                 now()->addHours(24),
@@ -85,7 +85,7 @@ class AuditLogController extends Controller
         $viewTitle = $isAdmin ? 'Audit Logs' : 'Activity Log';
         $viewSubtitle = match (true) {
             $isAdmin => 'Complete, tamper-evident record of all system activity.',
-            $user->isCaseManager() => 'Activity on the cases you manage and their referrals.',
+            $user->isCaseManager() => 'Complete, tamper-evident record of all system activity.',
             $user->isAgency() => "Activity on your agency's referrals and the cases they belong to.",
             default => 'Your recorded activity.',
         };
@@ -205,8 +205,9 @@ class AuditLogController extends Controller
     {
         $query = AuditLog::query();
 
-        if (! $user->isAdmin()) {
-            $query->whereIn('entity_id', $this->scopedEntityIds($user));
+        $entityIds = $this->scopedEntityIds($user);
+        if (! empty($entityIds)) {
+            $query->whereIn('entity_id', $entityIds);
         }
 
         $categories = $this->requestedCategories($request);
@@ -265,11 +266,9 @@ class AuditLogController extends Controller
      */
     private function scopedEntityIds($user): array
     {
-        if ($user->isCaseManager()) {
-            $caseIds = CaseFile::where('user_id', $user->id)->pluck('id');
-            $referralIds = Referral::whereIn('case_id', $caseIds)->pluck('id');
-
-            return $this->caseScopeEntityIds($caseIds, $referralIds);
+        // ADMIN and CASE_MANAGER: see all audit logs
+        if ($user->isAdmin() || $user->isCaseManager()) {
+            return []; // Empty array = no filter applied (caller skips filter when empty)
         }
 
         if ($user->isAgency()) {

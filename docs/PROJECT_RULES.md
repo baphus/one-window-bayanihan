@@ -151,11 +151,13 @@ PENDING → PROCESSING → FOR_COMPLIANCE → COMPLETED
 | Rule | CASE_MANAGER | AGENCY | ADMIN |
 |------|:---:|:---:|:---:|
 | Create cases | ✅ | ❌ | ✅ |
+| View all cases | ✅ | ❌ (only cases with own referral) | ✅ |
+| Edit/update all cases | ✅ | ❌ | ✅ |
 | Create referrals | ✅ | ❌ | ✅ |
+| View all referrals | ✅ | ❌ (own agency only) | ✅ |
 | Accept/reject referrals | ❌ | ✅ (own agency) | ❌ |
 | Add milestones | ❌ | ✅ (own referral) | ❌ |
-| View all cases | ✅ | ❌ (only cases with own referral) | ✅ |
-| View all referrals | ✅ | ❌ (own agency only) | ✅ |
+| View all clients | ✅ | ❌ (only clients with own referral) | ✅ |
 | Manage agencies/users | ❌ | ❌ | ✅ |
 | View audit logs | ✅ | ❌ | ✅ |
 | Export data | ✅ | ✅ (own data) | ✅ |
