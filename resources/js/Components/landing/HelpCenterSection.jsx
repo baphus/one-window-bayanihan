@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import useInView from '@/Hooks/useInView';
 
 const features = [
   {
@@ -34,29 +35,37 @@ const features = [
 ];
 
 export default function HelpCenterSection() {
+  const [badgeRef, badgeVisible] = useInView();
+  const [headingRef, headingVisible] = useInView();
+  const [subtitleRef, subtitleVisible] = useInView();
+  const [gridRef, gridVisible] = useInView();
+  const [ctaRef, ctaVisible] = useInView();
+
   return (
     <section id="help-center" className="bg-white px-8 py-24">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-4 text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
-            <span className="material-symbols-outlined text-sm">help</span>
-            Knowledge Base
-          </span>
+        <div className="text-center">
+          <div ref={badgeRef} className={`mb-4 owb-reveal ${badgeVisible ? 'is-visible' : ''}`}>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+              <span className="material-symbols-outlined text-sm">help</span>
+              Knowledge Base
+            </span>
+          </div>
+
+          <h2 ref={headingRef} className={`mb-4 font-headline text-2xl font-extrabold text-slate-900 md:text-3xl owb-reveal ${headingVisible ? 'is-visible' : ''}`}>
+            Help Center
+          </h2>
+          <p ref={subtitleRef} className={`mx-auto mb-12 max-w-2xl text-base leading-relaxed text-slate-500 owb-reveal ${subtitleVisible ? 'is-visible' : ''}`}>
+            A centralized self-service knowledge hub with guides, procedures, and troubleshooting
+            information for all system users.
+          </p>
         </div>
 
-        <h2 className="mb-4 text-center font-headline text-2xl font-extrabold text-slate-900 md:text-3xl">
-          Help Center
-        </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-base leading-relaxed text-slate-500">
-          A centralized self-service knowledge hub with guides, procedures, and troubleshooting
-          information for all system users.
-        </p>
-
-        <div className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div ref={gridRef} className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 owb-stagger">
           {features.map((f) => (
             <div
               key={f.title}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-6 transition-all hover:border-primary/20 hover:shadow-sm"
+              className={`owb-reveal rounded-lg border border-slate-200 bg-slate-50 p-6 transition-all hover:border-primary/20 hover:shadow-sm ${gridVisible ? 'is-visible' : ''}`}
             >
               <span className="material-symbols-outlined mb-3 inline-block text-2xl text-primary">
                 {f.icon}
@@ -67,7 +76,7 @@ export default function HelpCenterSection() {
           ))}
         </div>
 
-        <div className="text-center">
+        <div ref={ctaRef} className={`text-center owb-reveal ${ctaVisible ? 'is-visible' : ''}`}>
           <Link
             href={route('helpdesk.index')}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3.5 text-sm font-bold uppercase tracking-widest text-white shadow-sm transition-all hover:bg-primary/90 active:scale-95"

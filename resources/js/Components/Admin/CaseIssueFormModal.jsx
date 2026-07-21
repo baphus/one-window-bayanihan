@@ -26,7 +26,7 @@ export default function CaseIssueFormModal({ issue, onClose, onBypass }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900">{isEdit ? 'Edit Issue' : 'New Issue'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>

@@ -81,7 +81,7 @@ export default function AgencyScorecardSection({ pageHeadingStyles, role }) {
                 })()}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto owb-scroll-wide">
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr

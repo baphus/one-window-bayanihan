@@ -230,7 +230,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
 
             {isEditOpen && selectedService && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
                         <div className="border-b border-slate-200 px-6 py-5">
                             <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Edit Service</p>
                             <h2 className="text-xl font-bold text-slate-900">{selectedService.name}</h2>
@@ -284,7 +284,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
 
             {isCreateOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
                         <div className="border-b border-slate-200 px-6 py-5">
                             <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Create Service</p>
                             <h2 className="text-xl font-bold text-slate-900">Add New Service</h2>
@@ -343,7 +343,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
 
             {deleteTarget && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl">
+                    <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
                         <div className="border-b border-slate-200 px-6 py-5">
                             <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-red-600">Delete Service</p>
                             <h2 className="text-lg font-bold text-slate-900">Confirm Deletion</h2>

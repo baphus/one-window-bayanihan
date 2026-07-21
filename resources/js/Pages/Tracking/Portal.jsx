@@ -8,6 +8,7 @@ import ChatBot from '@/Components/ChatBot';
 import InputError from '@/Components/InputError';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import TurnstileWidget from '@/Components/TurnstileWidget';
+import useInView from '@/Hooks/useInView';
 
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
@@ -15,6 +16,7 @@ import { z } from 'zod';
 export default function TrackingPortal() {
   const { turnstile } = usePage().props;
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [formRef, formVisible] = useInView();
   const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
     tracker_number: '',
     email: '',
@@ -78,7 +80,7 @@ export default function TrackingPortal() {
 
         <section className="relative -mt-12 md:-mt-16 pb-24 px-4">
           <div className="mx-auto max-w-3xl">
-            <div className="bg-white p-5 md:p-8 shadow-lg md:shadow-2xl border border-slate-200 rounded-xl">
+            <div ref={formRef} className={`bg-white p-5 md:p-8 shadow-lg md:shadow-2xl border border-slate-200 rounded-xl owb-reveal ${formVisible ? 'is-visible' : ''}`}>
               <div className="mb-6 flex items-center gap-3 border-b border-slate-200 pb-4">
                 <span className="material-symbols-outlined text-blue-900 text-2xl">confirmation_number</span>
                 <h2 className="font-headline text-lg font-bold text-slate-900">Tracking ID Details</h2>

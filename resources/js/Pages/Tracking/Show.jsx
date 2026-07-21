@@ -16,11 +16,11 @@ import ChatBot from '@/Components/ChatBot';
  */
 
 const REFERRAL_STAMP = {
-  PENDING:        { label: 'Awaiting receipt',  border: 'border-outline',            text: 'text-on-surface-variant' },
-  PROCESSING:     { label: 'In process',        border: 'border-primary',            text: 'text-primary' },
-  FOR_COMPLIANCE: { label: 'Needs documents',   border: 'border-on-tertiary-fixed-variant', text: 'text-on-tertiary-fixed-variant' },
-  COMPLETED:      { label: 'Completed',         border: 'border-secondary',          text: 'text-secondary' },
-  REJECTED:       { label: 'Unable to assist',  border: 'border-error',              text: 'text-error' },
+  PENDING:        { label: 'Awaiting receipt',  border: 'border-slate-300',            text: 'text-slate-500' },
+  PROCESSING:     { label: 'In process',        border: 'border-primary',              text: 'text-primary' },
+  FOR_COMPLIANCE: { label: 'Needs documents',   border: 'border-amber-500',            text: 'text-amber-600' },
+  COMPLETED:      { label: 'Completed',         border: 'border-emerald-500',          text: 'text-emerald-600' },
+  REJECTED:       { label: 'Unable to assist',  border: 'border-red-400',              text: 'text-red-500' },
 };
 
 const EVENT_ICON = {
@@ -30,6 +30,15 @@ const EVENT_ICON = {
   milestone_added: 'flag',
   case_closed: 'verified',
   case_reopened: 'restart_alt',
+};
+
+const EVENT_ICON_COLOR = {
+  case_opened: 'text-blue-500',
+  referral_sent: 'text-emerald-500',
+  referral_status_changed: 'text-amber-500',
+  milestone_added: 'text-orange-500',
+  case_closed: 'text-green-600',
+  case_reopened: 'text-purple-500',
 };
 
 function formatLongDate(dateStr) {
@@ -68,22 +77,22 @@ function relativeDays(dateStr) {
 /** Two-column ledger row: fixed date column, entry on the right. */
 function EventRow({ item }) {
   return (
-    <li className="grid grid-cols-1 gap-x-5 gap-y-0.5 border-t border-outline-variant/60 py-3 first:border-t-0 sm:grid-cols-[7.5rem_1fr]">
+    <li className="grid grid-cols-1 gap-x-5 gap-y-0.5 border-t border-slate-200 py-3 first:border-t-0 sm:grid-cols-[7.5rem_1fr]">
       <div className="pt-0.5">
-        <p className="font-mono text-xs tabular-nums text-on-surface-variant">{formatShortDate(item.date)}</p>
-        <p className="hidden font-mono text-[11px] tabular-nums text-on-surface-variant/60 sm:block">{formatTime(item.date)}</p>
+        <p className="font-mono text-xs tabular-nums text-slate-500">{formatShortDate(item.date)}</p>
+        <p className="hidden font-mono text-[11px] tabular-nums text-slate-400 sm:block">{formatTime(item.date)}</p>
       </div>
       <div className="min-w-0">
         <div className="flex items-start gap-2">
-          <span aria-hidden="true" className="material-symbols-outlined mt-px text-[16px] text-on-surface-variant/70">
+          <span aria-hidden="true" className={`material-symbols-outlined mt-px text-[16px] ${EVENT_ICON_COLOR[item.type] ?? 'text-slate-400'}`}>
             {EVENT_ICON[item.type] ?? 'flag'}
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-snug text-on-surface">{item.title}</p>
+            <p className="text-sm font-semibold leading-snug text-slate-800">{item.title}</p>
             {item.description && (
-              <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-on-surface-variant">{item.description}</p>
+              <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-slate-600">{item.description}</p>
             )}
-            <p className="mt-0.5 text-[11px] text-on-surface-variant/60">{relativeDays(item.date)}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{relativeDays(item.date)}</p>
           </div>
         </div>
       </div>
@@ -104,7 +113,7 @@ function StepBar({ steps }) {
 
   return (
     <div className="relative px-1">
-      <div className="absolute left-0 right-0 top-[9px] h-px bg-outline-variant" />
+      <div className="absolute left-0 right-0 top-[9px] h-px bg-slate-200" />
       <div
         className="absolute left-0 top-[9px] h-px bg-primary transition-all duration-500 ease-out"
         style={{ width: `${progressPercent}%` }}
@@ -120,10 +129,10 @@ function StepBar({ steps }) {
           return (
             <li key={step.label} className="flex flex-col items-center">
               <span
-                className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ring-4 ring-surface-container-lowest ${
+                className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ring-4 ring-white ${
                   isComplete ? 'bg-primary text-white' :
                   isActive ? 'border-2 border-primary bg-white' :
-                  'bg-surface-container-high'
+                  'bg-slate-200'
                 }`}
               >
                 {isComplete && <span aria-hidden="true" className="material-symbols-outlined text-[11px] font-bold">check</span>}
@@ -131,7 +140,7 @@ function StepBar({ steps }) {
               </span>
               <span
                 className={`mt-1.5 hidden max-w-[90px] px-1 text-center text-[10px] font-semibold leading-tight tracking-tight sm:line-clamp-2 ${
-                  isActive ? 'text-primary' : isComplete ? 'text-on-surface' : 'text-on-surface-variant/70'
+                  isActive ? 'text-primary' : isComplete ? 'text-slate-800' : 'text-slate-400'
                 }`}
                 title={step.label}
               >
@@ -158,9 +167,9 @@ function AgencyChapter({ agency, events }) {
   const requirements = agency.requirements ?? [];
 
   return (
-    <section className="border border-outline-variant bg-surface-container-lowest">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-5 py-3.5">
-        <h3 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{agency.name}</h3>
+    <section className="rounded-md border border-slate-300 bg-white shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-slate-50 px-5 py-3.5">
+        <h3 className="font-headline text-sm font-extrabold tracking-tight text-slate-800">{agency.name}</h3>
         <span className={`border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${stamp.border} ${stamp.text}`}>
           {stamp.label}
         </span>
@@ -169,21 +178,21 @@ function AgencyChapter({ agency, events }) {
       <div className="px-5 py-5">
         <StepBar steps={agency.steps ?? []} />
         {isRejected && (
-          <p className="mt-4 text-[13px] leading-relaxed text-on-surface-variant">
+          <p className="mt-4 text-[13px] leading-relaxed text-slate-600">
             This office was unable to process the referral. Your case manager will advise you on the next steps.
           </p>
         )}
 
         {requirements.length > 0 && (
-          <div className="mt-5 border border-outline-variant/60 bg-surface-container-low p-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+          <div className="mt-5 border border-slate-300 bg-slate-50 p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
               Required documents
             </p>
             <ul className="mt-2.5 space-y-1.5">
               {requirements.map((req, idx) => (
                 <li key={idx} className="flex items-baseline gap-2 text-[13px]">
-                  <span className="material-symbols-outlined text-[14px] text-on-surface-variant/60 shrink-0 mt-0.5">chevron_right</span>
-                  <span className="text-on-surface">{req}</span>
+                  <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0 mt-0.5">chevron_right</span>
+                  <span className="text-slate-700">{req}</span>
                 </li>
               ))}
             </ul>
@@ -199,13 +208,13 @@ function AgencyChapter({ agency, events }) {
         )}
 
         {agency.status === 'PENDING' && (
-          <p className="mt-5 border-t border-outline-variant/60 pt-3 text-[13px] text-on-surface-variant">
+          <p className="mt-5 border-t border-slate-300 pt-3 text-[13px] text-slate-500">
             Waiting for {agency.name} to receive your referral. Updates will appear here.
           </p>
         )}
 
         {agency.milestonesUrl && (
-          <div className="mt-4 flex justify-end border-t border-outline-variant/60 pt-3">
+          <div className="mt-4 flex justify-end border-t border-slate-300 pt-3">
             <Link
               href={agency.milestonesUrl}
               className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
@@ -334,7 +343,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
   }
 
   return (
-    <div className="min-h-screen bg-surface font-body text-on-surface">
+    <div className="min-h-screen bg-slate-50 font-body text-slate-800">
       <Head title="Client Request" />
       <AppHeader />
 
@@ -353,12 +362,12 @@ function ClientRequestPanel({ clientRequestPanel }) {
         </header>
 
         {!request ? (
-          <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-8 text-center">
-            <span className={`material-symbols-outlined text-4xl ${stateCopy.tone === 'amber' ? 'text-amber-600' : 'text-on-surface-variant/60'}`}>
+          <section className="mt-8 rounded-md border border-slate-300 bg-white px-5 py-8 text-center shadow-sm">
+            <span className={`material-symbols-outlined text-4xl ${stateCopy.tone === 'amber' ? 'text-amber-600' : 'text-slate-400'}`}>
               {stateCopy.icon}
             </span>
-            <h2 className="mt-3 text-sm font-bold text-on-surface">{stateCopy.title}</h2>
-            <p className="mx-auto mt-1 max-w-md text-[13px] leading-relaxed text-on-surface-variant">{stateCopy.description}</p>
+            <h2 className="mt-3 text-sm font-bold text-slate-800">{stateCopy.title}</h2>
+            <p className="mx-auto mt-1 max-w-md text-[13px] leading-relaxed text-slate-500">{stateCopy.description}</p>
             {replacementAction && (
               <button
                 type="button"
@@ -370,34 +379,34 @@ function ClientRequestPanel({ clientRequestPanel }) {
                 {requestingReplacement ? 'Sending request…' : 'Request a new link'}
               </button>
             )}
-            {replacementAction && <p className="mt-2 text-[11px] text-on-surface-variant">This notifies the agency. No email destination is required.</p>}
+            {replacementAction && <p className="mt-2 text-[11px] text-slate-500">This notifies the agency. No email destination is required.</p>}
           </section>
         ) : (
           <div className="mt-8 space-y-6">
-            <section className="border border-outline-variant bg-surface-container-lowest px-5 py-5">
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant/60 pb-4">
+            <section className="rounded-md border border-slate-300 bg-white px-5 py-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-300 pb-4">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Request details</p>
-                  <p className="mt-2 text-sm font-semibold text-on-surface">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Request details</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-800">
                     {CLIENT_REQUEST_TYPE_LABELS[request.type] ?? 'Information requested'}
                   </p>
-                  {request.agency_name && <p className="mt-1 text-[13px] text-on-surface-variant">Agency: {request.agency_name}</p>}
+                  {request.agency_name && <p className="mt-1 text-[13px] text-slate-500">Agency: {request.agency_name}</p>}
                 </div>
                 <span className="border border-primary px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
                   {CLIENT_REQUEST_STATUS_LABELS[request.status] ?? 'Request status unavailable'}
                 </span>
               </div>
 
-              {dueDate && <p className="mt-4 text-[13px] text-on-surface-variant"><span className="font-semibold text-on-surface">Due date:</span> {dueDate}</p>}
-              {request.instructions && <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{request.instructions}</p>}
+              {dueDate && <p className="mt-4 text-[13px] text-slate-500"><span className="font-semibold text-slate-800">Due date:</span> {dueDate}</p>}
+              {request.instructions && <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{request.instructions}</p>}
 
               {request.checklist?.length > 0 && (
-                <div className="mt-5 border border-outline-variant/60 bg-surface-container-low p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Documents to prepare</p>
+                <div className="mt-5 border border-slate-300 bg-slate-50 p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Documents to prepare</p>
                   <ul className="mt-2.5 space-y-2">
                     {request.checklist.map((item) => (
-                      <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[13px] text-on-surface">
-                        <span className="material-symbols-outlined mt-px text-[16px] text-on-surface-variant/70">description</span>
+                      <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[13px] text-slate-800">
+                        <span className="material-symbols-outlined mt-px text-[16px] text-slate-400">description</span>
                         <span>{item.label}</span>
                       </li>
                     ))}
@@ -406,30 +415,30 @@ function ClientRequestPanel({ clientRequestPanel }) {
               )}
             </section>
 
-            <section className="border border-outline-variant bg-surface-container-lowest px-5 py-5">
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Messages</h2>
+            <section className="rounded-md border border-slate-300 bg-white px-5 py-5 shadow-sm">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Messages</h2>
               {request.messages?.length > 0 ? (
                 <div className="mt-4 space-y-3">
                   {request.messages.map((message) => {
                     const isClient = message.sender_kind === 'CLIENT_ACCESS';
                     return (
-                      <article key={message.id} className={`border px-3 py-3 ${isClient ? 'border-primary/20 bg-primary/5' : 'border-outline-variant/60 bg-surface-container-low'}`}>
+                      <article key={message.id} className={`border px-3 py-3 ${isClient ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}>
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <p className="text-[11px] font-bold text-on-surface">{isClient ? 'You' : 'Agency'}</p>
-                          {formatRequestDate(message.created_at) && <time className="text-[10px] text-on-surface-variant/70">{formatRequestDate(message.created_at)}</time>}
+                          <p className="text-[11px] font-bold text-slate-800">{isClient ? 'You' : 'Agency'}</p>
+                          {formatRequestDate(message.created_at) && <time className="text-[10px] text-slate-400">{formatRequestDate(message.created_at)}</time>}
                         </div>
-                        <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-on-surface">{message.body}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800">{message.body}</p>
                       </article>
                     );
                   })}
                 </div>
               ) : (
-                <p className="mt-3 text-[13px] text-on-surface-variant">No messages yet. You can reply below.</p>
+                <p className="mt-3 text-[13px] text-slate-500">No messages yet. You can reply below.</p>
               )}
 
               {canReply && (
-                <form onSubmit={handleReply} className="mt-5 border-t border-outline-variant/60 pt-4">
-                  <label htmlFor="client-request-reply" className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Your reply</label>
+                <form onSubmit={handleReply} className="mt-5 border-t border-slate-300 pt-4">
+                  <label htmlFor="client-request-reply" className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Your reply</label>
                   <textarea
                     id="client-request-reply"
                     value={body}
@@ -438,12 +447,12 @@ function ClientRequestPanel({ clientRequestPanel }) {
                     maxLength={5000}
                     disabled={replying}
                     aria-describedby={error ? 'client-request-error' : undefined}
-                    className="mt-2 w-full resize-y border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-2 w-full resize-y border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
                     placeholder="Write a message to the agency…"
                   />
                   {error && <p id="client-request-error" role="alert" className="mt-2 text-[12px] font-semibold text-error">{error}</p>}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[11px] text-on-surface-variant">Your reply will be shared with the agency.</p>
+                    <p className="text-[11px] text-slate-500">Your reply will be shared with the agency.</p>
                     <button type="submit" disabled={replying || !body.trim()} className="inline-flex items-center gap-2 bg-blue-900 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
                       <span className="material-symbols-outlined text-[17px]">{replying ? 'progress_activity' : 'send'}</span>
                       {replying ? 'Sending…' : 'Send reply'}
@@ -452,7 +461,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
                 </form>
               )}
               {!canReply && !['COMPLETED', 'CANCELLED'].includes(request.status) && !replyAction && (
-                <p className="mt-4 border-t border-outline-variant/60 pt-4 text-[12px] text-on-surface-variant">Replies are not available for this request.</p>
+                <p className="mt-4 border-t border-slate-300 pt-4 text-[12px] text-slate-500">Replies are not available for this request.</p>
               )}
             </section>
           </div>
@@ -516,7 +525,7 @@ export default function TrackingShow({
 
   if (!trackedCase) {
     return (
-      <div className="min-h-screen bg-surface font-body text-on-surface">
+        <div className="min-h-screen bg-slate-50 font-body text-slate-800">
         <Head title="Tracking ID Not Found" />
         <AppHeader />
         <main className="mx-auto w-full max-w-xl px-4 pt-24 pb-12 sm:px-6">
@@ -532,7 +541,7 @@ export default function TrackingShow({
   const showFeedback = completedAgencies > 0 && feedbackNtfn;
 
   return (
-    <div className="min-h-screen bg-surface font-body text-on-surface">
+    <div className="min-h-screen bg-slate-50 font-body text-slate-800">
       <Head title={`Case Record — ${trackingId}`} />
       <AppHeader />
 
@@ -566,10 +575,12 @@ export default function TrackingShow({
                   <span
                     key={a.referralId ?? a.name}
                     title={`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}
-                    className={`flex-1 ${
-                      a.status === 'COMPLETED' ? 'bg-secondary-fixed-dim' :
+                    className={`flex-1 rounded-sm ${
+                      a.status === 'COMPLETED' ? 'bg-emerald-300' :
                       a.status === 'REJECTED' ? 'bg-white/20' :
-                      'bg-primary-fixed-dim/40'
+                      a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/60' :
+                      a.status === 'PROCESSING' ? 'bg-blue-300/70' :
+                      'bg-white/30'
                     }`}
                   />
                 ))}
@@ -588,15 +599,16 @@ export default function TrackingShow({
           <div className="min-w-0">
             {/* Overview narrative */}
             {caseOverview?.narrative && (
-              <section className="border border-outline-variant bg-surface-container-lowest px-5 py-4">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">Case summary</h2>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{caseOverview.narrative}</p>
+              <section className="rounded-md border border-slate-300 bg-white px-5 py-4 shadow-sm">
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">Case summary</h2>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{caseOverview.narrative}</p>
               </section>
             )}
 
             {/* Agency chapters */}
             <section className="mt-8">
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+              <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                <span className="h-2 w-2 rounded-full bg-primary"></span>
                 What each office has done
               </h2>
               {totalAgencies > 0 ? (
@@ -610,9 +622,10 @@ export default function TrackingShow({
                   ))}
                 </div>
               ) : (
-                <div className="mt-3 border border-outline-variant bg-surface-container-lowest px-5 py-8 text-center">
-                  <p className="text-sm font-semibold text-on-surface">No partner offices assigned yet</p>
-                  <p className="mx-auto mt-1 max-w-xs text-[13px] text-on-surface-variant">
+                <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50/50 px-5 py-8 text-center">
+                  <span className="material-symbols-outlined text-3xl text-slate-300">hourglass_empty</span>
+                  <p className="mt-2 text-sm font-semibold text-slate-700">No partner offices assigned yet</p>
+                  <p className="mx-auto mt-1 max-w-xs text-[13px] text-slate-500">
                     Your case manager is reviewing the case. Referrals will appear here once they are sent.
                   </p>
                 </div>
@@ -622,9 +635,9 @@ export default function TrackingShow({
             {/* Feedback request */}
             {showFeedback && (() => {
               return (
-                <section className="mt-8 border border-outline-variant bg-surface-container-lowest px-5 py-5">
-                  <h2 className="text-sm font-bold text-on-surface">How was the service?</h2>
-                  <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-on-surface-variant">
+                <section className="mt-8 rounded-md border border-slate-300 bg-amber-50/50 px-5 py-5 shadow-sm">
+                  <h2 className="text-sm font-bold text-slate-800">How was the service?</h2>
+                  <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-slate-500">
                     An office has completed its part of your case. A survey has been sent to your registered email address. Please check your inbox to provide your feedback.
                   </p>
                 </section>
@@ -635,16 +648,16 @@ export default function TrackingShow({
           {/* Right column — Complete case history (sidebar on desktop) */}
           {milestoneTimeline.length > 0 && (
             <aside className="lg:sticky lg:top-24 lg:self-start">
-              <section className="border border-outline-variant bg-surface-container-lowest">
-                <header className="border-b border-outline-variant bg-surface-container-low px-4 py-3">
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+              <section className="rounded-md border border-slate-300 bg-white shadow-sm">
+                <header className="border-b border-slate-300 bg-blue-50/60 px-4 py-3 rounded-t-md">
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">
                     Complete case history
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-on-surface-variant/60">
+                  <p className="mt-0.5 text-[11px] text-slate-400">
                     {milestoneTimeline.length} {milestoneTimeline.length === 1 ? 'entry' : 'entries'}
                   </p>
                 </header>
-                <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto px-4 pb-4 pt-2">
+                <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto px-4 pb-4 pt-2 owb-scroll-wide rounded-b-md">
                   {milestoneTimeline.map((item, index) => (
                     <EventRow key={`${item.date}-${index}`} item={item} />
                   ))}

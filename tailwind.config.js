@@ -85,7 +85,7 @@ export default {
 
             fontFamily: {
                 sans: ['Public Sans', ...defaultTheme.fontFamily.sans],
-                headline: ['Public Sans', 'sans-serif'],
+                headline: ['Outfit', 'sans-serif'],
                 body: ['Public Sans', 'sans-serif'],
                 label: ['Public Sans', 'sans-serif'],
                 serif: ['Outfit', 'sans-serif'],

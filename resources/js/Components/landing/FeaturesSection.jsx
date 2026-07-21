@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { BAYANIHAN_PHOTOS, FEATURE_SCREENSHOTS } from './appData';
+import useInView from '@/Hooks/useInView';
 
 export default function FeaturesSection() {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [headingRef, headingVisible] = useInView();
+  const [galleryRef, galleryVisible] = useInView();
+  const [textRef, textVisible] = useInView();
+  const [cardsRef, cardsVisible] = useInView();
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -19,13 +24,13 @@ export default function FeaturesSection() {
   return (
     <section id="features" className="bg-surface-container px-8 pt-8 pb-24">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-12 max-w-4xl">
+        <div ref={headingRef} className={`mb-12 max-w-4xl owb-reveal ${headingVisible ? 'is-visible' : ''}`}>
           <h2 className="font-headline text-2xl font-extrabold text-primary md:text-3xl">
             What is One Window Bayanihan and Why It Matters
           </h2>
         </div>
 
-        <div className="relative overflow-hidden border border-outline-variant/30 bg-surface-container-lowest shadow-md">
+        <div ref={galleryRef} className={`relative overflow-hidden border border-outline-variant/30 bg-surface-container-lowest shadow-md owb-reveal-scale ${galleryVisible ? 'is-visible' : ''}`}>
           <figure className="relative">
             <img src={photo.src} alt={photo.alt} className="h-[340px] w-full object-cover md:h-[520px]" loading="lazy" referrerPolicy="no-referrer" />
             <button type="button" onClick={handlePrev} className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-circle bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous photo">
@@ -51,7 +56,7 @@ export default function FeaturesSection() {
           </div>
         </div>
 
-        <div className="mt-12 mb-12 grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-start">
+        <div ref={textRef} className={`mt-12 mb-12 grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-start owb-reveal ${textVisible ? 'is-visible' : ''}`}>
           {/* Text */}
           <article className="space-y-4 text-sm leading-relaxed text-on-surface-variant md:text-base">
             <p>One Window Bayanihan Assistance Program (OWBAP) is a unified, ICT-enabled platform designed to transform how assistance is delivered to Overseas Filipino Workers (OFWs).</p>
@@ -72,9 +77,9 @@ export default function FeaturesSection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div ref={cardsRef} className="owb-stagger grid grid-cols-1 gap-6 md:grid-cols-3">
           {FEATURE_SCREENSHOTS.map((f) => (
-            <div key={f.title} className="border border-outline-variant/30 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div key={f.title} className={`owb-reveal border border-outline-variant/30 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${cardsVisible ? 'is-visible' : ''}`}>
               {f.src ? (
                 <img src={f.src} alt={f.alt} className="h-48 w-full object-cover md:h-56" loading="lazy" />
               ) : (

@@ -4,6 +4,7 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 import AgencyMapView from '@/Components/AgencyMapView';
+import useInView from '@/Hooks/useInView';
 
 function AgencyLogo({ agency }) {
   const [hasError, setHasError] = useState(false);
@@ -31,6 +32,8 @@ function getAgencyRouteParam(agency) {
 }
 
 export default function PublicAgencies({ agencies }) {
+  const [gridRef, gridVisible] = useInView();
+
   return (
     <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface">
       <Head title="Partner Agencies" />
@@ -52,9 +55,9 @@ export default function PublicAgencies({ agencies }) {
 
         <section className="py-16 px-4">
           <div className="mx-auto max-w-7xl">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div ref={gridRef} className={`grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 owb-stagger`}>
               {agencies.map((agency) => (
-                <div key={agency.id} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div key={agency.id} className={`rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow owb-reveal ${gridVisible ? 'is-visible' : ''}`}>
                   <div className="flex items-center gap-4 mb-4">
                     <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white border border-slate-100">
                       <AgencyLogo agency={agency} />

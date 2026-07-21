@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 
 import ChatBot from '@/Components/ChatBot';
 import AppHeader from '@/Components/landing/AppHeader';
+import AppFooter from '@/Components/landing/AppFooter';
 import PageGuideButton from '@/Components/PageGuideButton';
 import TourManager from '@/Onboarding/TourManager';
 import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
@@ -311,27 +312,17 @@ export default function HelpdeskLayout({
         </div>
       </div>
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between">
-            <div>
-              <p className="font-headline text-sm font-bold text-slate-900">Still need help?</p>
-              <p className="text-xs text-slate-500">
-                Contact our support team and we'll get back to you promptly.
-              </p>
-            </div>
-            <Link
-              href={route('contact')}
-              className="rounded-none bg-primary px-6 py-2.5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              Contact Support
-            </Link>
-          </div>
-          <div className="mt-6 border-t border-slate-200 pt-4 text-center text-xs text-slate-600">
-            &copy; {new Date().getFullYear()} DMW Region VII — One Window Bayanihan
-          </div>
-        </div>
-      </footer>
+      <div className="bg-surface px-4 py-10 text-center">
+        <p className="font-headline text-sm font-bold text-slate-900">Still need help?</p>
+        <p className="mt-1 text-xs text-slate-500">Contact our support team and we'll get back to you promptly.</p>
+        <Link
+          href={route('contact')}
+          className="mt-4 inline-block rounded-none bg-primary px-6 py-2.5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Contact Support
+        </Link>
+      </div>
+      <AppFooter showImage={false} />
     </div>
   );
 }

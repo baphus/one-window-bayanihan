@@ -8,6 +8,7 @@ import { formatDisplayDate } from '@/lib/utils';
 import { Delete } from 'lucide-react';
 import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import { useToast } from '@/Hooks/useToast';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '—';
@@ -51,6 +52,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   const [dateFrom, setDateFrom] = useState(initialFilters?.date_from ?? '');
   const [dateTo, setDateTo] = useState(initialFilters?.date_to ?? '');
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
+  const toast = useToast();
 
   const searchTimeout = useRef(null);
 
@@ -98,6 +100,13 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   function handlePublish(id) {
     setPublishing(id);
     router.post(route('cases.publish', id), {}, {
+      onSuccess: () => {
+        toast.success('Draft published successfully.');
+      },
+      onError: (errors) => {
+        const msg = errors?.draft || Object.values(errors)[0] || 'Publish failed. Complete the draft before publishing.';
+        toast.error(msg);
+      },
       onFinish: () => setPublishing(null),
     });
   }

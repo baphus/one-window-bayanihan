@@ -116,7 +116,7 @@ class StoreCaseRequest extends FormRequest
             'next_of_kin.*.email' => ['required_with:next_of_kin', 'email', 'max:255'],
             'next_of_kin.*.full_address' => ['nullable', 'string'],
             'next_of_kin.*.nok_address.region' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.province' => ['required_with:next_of_kin', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.province' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.nok_address.city_municipality' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.nok_address.barangay' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
@@ -127,7 +127,7 @@ class StoreCaseRequest extends FormRequest
             'consent' => ['nullable', 'boolean'],
 
             'address.region' => [$r, 'string', 'max:255'],
-            'address.province' => [$r, 'string', 'max:255'],
+            'address.province' => ['nullable', 'string', 'max:255'],
             'address.city_municipality' => [$r, 'string', 'max:255'],
             'address.barangay' => [$r, 'string', 'max:255'],
             'address.street' => ['nullable', 'string'],
