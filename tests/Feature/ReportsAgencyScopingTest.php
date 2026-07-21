@@ -238,7 +238,10 @@ class ReportsAgencyScopingTest extends TestCase
         $this->assertSame(0, $empty['kpis']['totalReferrals']);
         $this->assertSame([], $this->service->getProvinceOptions($agencyless->id, 'AGENCY'));
         $this->assertSame([], $this->service->getCityOptions(null, $agencyless->id, 'AGENCY'));
-        $this->assertSame([], $this->service->getAgencyOptions(null, 'CASE_MANAGER'));
+        $this->assertEqualsCanonicalizing([
+            ['value' => $this->agencyA->id, 'label' => 'Agency A'],
+            ['value' => $this->agencyB->id, 'label' => 'Agency B'],
+        ], $this->service->getAgencyOptions(null, 'CASE_MANAGER'));
         $this->assertSame([], $this->service->getAgencyOptions($agencyless->id, 'AGENCY'));
     }
 

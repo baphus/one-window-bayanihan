@@ -39,7 +39,7 @@ class ReferralAccessTest extends TestCase
     }
 
     #[Test]
-    public function non_owner_case_manager_gets_forbidden(): void
+    public function any_case_manager_can_access_referral(): void
     {
         $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
         $intruder = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -55,7 +55,7 @@ class ReferralAccessTest extends TestCase
 
         $response = $this->actingAs($intruder)->get("/referrals/{$referral->id}");
 
-        $response->assertForbidden();
+        $response->assertOk();
     }
 
     #[Test]

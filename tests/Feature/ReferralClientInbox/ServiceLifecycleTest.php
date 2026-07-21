@@ -75,12 +75,13 @@ class ServiceLifecycleTest extends ReferralClientInboxTestCase
         $service->sendAgencyMessage($context['clientRequest'], $context['agencyUser'], 'No longer allowed.');
     }
 
-    public function test_other_agency_and_non_owner_case_manager_are_denied(): void
+    public function test_other_agency_is_denied_but_case_manager_can_read(): void
     {
         $context = $this->context();
         $service = app(ReferralClientRequestService::class);
         $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
 
+        // Other agency user cannot create requests on behalf of a different agency.
         try {
             $service->createRequest($context['referral'], $context['otherAgencyUser'], [
                 'type' => ReferralClientRequest::TYPE_QUESTION,
@@ -92,7 +93,7 @@ class ServiceLifecycleTest extends ReferralClientInboxTestCase
             $this->assertTrue(true);
         }
 
-        $this->expectException(AuthorizationException::class);
+        // Case Manager now has full read access to all referral data (same as ADMIN).
         $service->assertCanRead($context['referral'], $otherManager);
     }
 }

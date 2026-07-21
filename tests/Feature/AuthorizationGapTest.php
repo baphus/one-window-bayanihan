@@ -118,7 +118,7 @@ class AuthorizationGapTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_case_manager_cannot_get_other_case_manager_referral_attachment_versions(): void
+    public function test_case_manager_can_get_any_referral_attachment_versions(): void
     {
         $managerA = User::factory()->create(['role' => 'CASE_MANAGER']);
         $managerB = User::factory()->create(['role' => 'CASE_MANAGER']);
@@ -132,7 +132,7 @@ class AuthorizationGapTest extends TestCase
         $response = $this->actingAs($managerA)
             ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
-        $response->assertStatus(403);
+        $response->assertStatus(200);
     }
 
     // ──────────────────────────────────────────────
@@ -196,7 +196,7 @@ class AuthorizationGapTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_case_manager_sees_only_own_case_audit_logs(): void
+    public function test_case_manager_sees_all_case_activity_logs(): void
     {
         $this->withoutMiddleware([HandleInertiaRequests::class, SetPostgresSession::class]);
 
@@ -229,9 +229,9 @@ class AuthorizationGapTest extends TestCase
 
         $entityIds = collect($data)->pluck('entity_id')->all();
 
-        // The manager sees activity on their own case, never another manager's.
+        // The manager sees activity on all cases, including other managers'.
         $this->assertContains($ownCase->id, $entityIds);
-        $this->assertNotContains($otherCase->id, $entityIds);
+        $this->assertContains($otherCase->id, $entityIds);
     }
 
     public function test_case_manager_sees_milestone_activity_on_their_referrals(): void

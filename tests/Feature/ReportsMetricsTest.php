@@ -57,7 +57,7 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
-    public function kpis_are_scoped_to_the_case_manager(): void
+    public function case_manager_kpis_include_all_referrals(): void
     {
         $caseA = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
         Referral::factory()->count(2)->pending()->create(['case_id' => $caseA->id, 'agcy_id' => $this->agency->id]);
@@ -65,12 +65,12 @@ class ReportsMetricsTest extends TestCase
         $caseB = CaseFile::factory()->create(['user_id' => $this->managerB->id, 'status' => 'OPEN']);
         Referral::factory()->count(3)->pending()->create(['case_id' => $caseB->id, 'agcy_id' => $this->agency->id]);
 
-        $this->assertSame(2, $this->kpisFor($this->managerA)['totalReferrals']);
-        $this->assertSame(3, $this->kpisFor($this->managerB)['totalReferrals']);
+        $this->assertSame(5, $this->kpisFor($this->managerA)['totalReferrals']);
+        $this->assertSame(5, $this->kpisFor($this->managerB)['totalReferrals']);
     }
 
     #[Test]
-    public function referral_trends_are_scoped_to_the_case_manager_and_include_month_counts(): void
+    public function case_manager_referral_trends_include_all_referrals_and_month_counts(): void
     {
         $caseA = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
         $caseB = CaseFile::factory()->create(['user_id' => $this->managerB->id, 'status' => 'OPEN']);
@@ -104,7 +104,7 @@ class ReportsMetricsTest extends TestCase
 
         $this->assertSame(['2026-02', '2026-03'], $trends['labels']);
         $this->assertSame('Referrals Created', $trends['datasets'][0]['label']);
-        $this->assertSame([2, 1], array_map('intval', $trends['datasets'][0]['data']));
+        $this->assertSame([5, 1], array_map('intval', $trends['datasets'][0]['data']));
     }
 
     #[Test]
@@ -159,7 +159,7 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
-    public function gender_distribution_reports_unknown_not_other_and_respects_scope(): void
+    public function gender_distribution_reports_unknown_not_other_and_unscoped_for_case_manager(): void
     {
         $male = Client::factory()->create(['sex' => 'MALE']);
         $female = Client::factory()->create(['sex' => 'FEMALE']);
@@ -175,7 +175,7 @@ class ReportsMetricsTest extends TestCase
         $dist = $this->service->getGenderDistribution($this->managerA->id, 'CASE_MANAGER');
 
         $this->assertSame(['Male', 'Female', 'Unknown'], $dist['labels']);
-        $this->assertSame([1, 1, 1], $dist['data']);
+        $this->assertSame([2, 1, 1], $dist['data']);
         $this->assertNotContains('Other', $dist['labels']);
     }
 
@@ -198,7 +198,7 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
-    public function employment_position_breakdown_decrypts_groups_by_distinct_client_excludes_invalid_rows_and_is_deterministic(): void
+    public function employment_position_breakdown_is_unscoped_for_case_manager_and_is_deterministic(): void
     {
         $otherManager = $this->managerB;
         $ownedClient = Client::factory()->create();
@@ -222,19 +222,19 @@ class ReportsMetricsTest extends TestCase
         $breakdown = $this->service->getEmploymentPositionBreakdown($this->managerA->id, 'CASE_MANAGER');
 
         $this->assertSame(['Engineer', 'Nurse'], $breakdown['labels']);
-        $this->assertSame([1, 1], array_map('intval', $breakdown['data']));
+        $this->assertSame([2, 1], array_map('intval', $breakdown['data']));
         $this->assertSame(2, $breakdown['total_distinct']);
     }
 
     #[Test]
-    public function case_manager_report_payload_fails_closed_when_identity_is_missing(): void
+    public function case_manager_report_payload_falls_back_to_global_when_user_id_absent(): void
     {
         $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
         Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
 
         $kpis = $this->service->getReferralKpis(null, 'CASE_MANAGER');
 
-        $this->assertSame(0, $kpis['totalReferrals']);
-        $this->assertSame(0, $kpis['totalCases']);
+        $this->assertSame(1, $kpis['totalReferrals']);
+        $this->assertSame(1, $kpis['totalCases']);
     }
 }

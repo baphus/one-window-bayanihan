@@ -272,9 +272,12 @@ class AuditLogController extends Controller
         }
 
         if ($user->isAgency()) {
-            // An agency user with no agency sees nothing.
+            // An agency user with no agency sees nothing. Use a sentinel that
+            // never matches a real UUID so the caller's whereIn filter is
+            // applied but matches zero rows (returning [] would mean "no
+            // filter" — the same signal ADMIN/CASE_MANAGER use to see all).
             if (! $user->agcy_id) {
-                return [];
+                return ['00000000-0000-0000-0000-000000000000'];
             }
 
             $agencyReferrals = Referral::where('agcy_id', $user->agcy_id)->get(['id', 'case_id']);
