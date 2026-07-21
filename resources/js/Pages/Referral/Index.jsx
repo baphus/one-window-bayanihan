@@ -674,7 +674,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
             {pendingDecision && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">
                                 {pendingDecision.action === 'ACCEPT' ? 'Accept' : 'Reject'} Referral

@@ -265,7 +265,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
 
             {showCreate && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setShowCreate(false)}>
-                    <div className="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-lg" onClick={(event) => event.stopPropagation()}>
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(event) => event.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4"><h3 className="text-[16px] font-extrabold text-slate-900">Request client</h3><p className="mt-1 text-[12px] text-slate-500">Ask the client for information or documents needed by the agency.</p></div>
                         <form onSubmit={submitCreate}>
                             <div className="space-y-4 px-5 py-4">
@@ -893,7 +893,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
                     <div data-tour="referral-comments">
                     <CardSection title="Referral Comments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="max-h-[340px] overflow-y-auto space-y-3">
+                        <div className="max-h-[340px] overflow-y-auto space-y-3 owb-scroll-wide">
                             {topLevelComments.length > 0 ? (
                                 topLevelComments.map((comment) => {
                                     const replies = comment.replies ?? [];
@@ -997,7 +997,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
             {pendingDecision && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate">
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">
                                 {pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'} Referral
@@ -1058,7 +1058,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
             {showUpdateStatus && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg">
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate">
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">Update Status</h2>
                             <p className="mt-1 text-xs text-slate-500">Update the referral status and provide a remark.</p>
@@ -1111,7 +1111,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
             {showMilestoneModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => { setShowMilestoneModal(false); milestoneForm.reset(); }}>
-                    <div className="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h3 className="text-[16px] font-extrabold text-slate-900">Add Milestone</h3>
                             <p className="mt-1 text-[12px] text-slate-500">Record a new milestone for this referral.</p>

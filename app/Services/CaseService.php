@@ -565,12 +565,19 @@ class CaseService
         }
 
         $draftAddress = $draftData['address'] ?? [];
+        $regionCode = $address?->region ?? $draftAddress['region'] ?? null;
+        $provinces = $this->addressService->getProvinces($regionCode);
+        $regionRequiresProvince = count($provinces) > 0;
+
         $addressFields = [
-            'Region' => $address?->region ?? $draftAddress['region'] ?? null,
-            'Province' => $address?->province ?? $draftAddress['province'] ?? null,
+            'Region' => $regionCode,
             'City/Municipality' => $address?->city_municipality ?? $draftAddress['city_municipality'] ?? null,
             'Barangay' => $address?->barangay ?? $draftAddress['barangay'] ?? null,
         ];
+
+        if ($regionRequiresProvince) {
+            $addressFields['Province'] = $address?->province ?? $draftAddress['province'] ?? null;
+        }
 
         foreach ($addressFields as $label => $value) {
             if ($this->isBlank($value)) {

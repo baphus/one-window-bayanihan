@@ -580,7 +580,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
           </summary>
           <div className="border-t border-slate-100">
             {pendingInvites.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto owb-scroll-wide">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50">

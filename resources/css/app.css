@@ -8,6 +8,33 @@ body {
     color: #181c20;
 }
 
+/* ── Custom scrollbar for multi-select inputs ──────────────────── */
+select[multiple] {
+    --sb-track-color: transparent;
+    --sb-thumb-color: #94a3b8; /* slate-400 */
+    --sb-size: 6px;
+}
+
+select[multiple]::-webkit-scrollbar {
+    width: var(--sb-size);
+}
+
+select[multiple]::-webkit-scrollbar-track {
+    background: var(--sb-track-color);
+    border-radius: 3px;
+}
+
+select[multiple]::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb-color);
+    border-radius: 3px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    select[multiple] {
+        scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+    }
+}
+
 .material-symbols-outlined {
     font-variation-settings:
         'FILL' 0,
@@ -112,6 +139,103 @@ body {
     text-underline-offset: 2px;
 }
 
+/* ── Modal slide-in-bottom animation ──────────────────────────── */
+@keyframes owb-modal-slide-in {
+    from {
+        transform: translateY(24px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+.owb-modal-animate {
+    animation: owb-modal-slide-in 0.2s ease-out;
+}
+
+/* ── Custom scrollbar for modal panels ────────────────────────── */
+.owb-modal-animate {
+    --sb-track-color: transparent;
+    --sb-thumb-color: #cbd5e1; /* slate-300 */
+    --sb-size: 6px;
+}
+
+.owb-modal-animate::-webkit-scrollbar {
+    width: var(--sb-size);
+}
+
+.owb-modal-animate::-webkit-scrollbar-track {
+    background: var(--sb-track-color);
+    border-radius: 3px;
+}
+
+.owb-modal-animate::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb-color);
+    border-radius: 3px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    .owb-modal-animate {
+        scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+    }
+}
+
+/* ── Custom scrollbar for page content ─────────────────────────── */
+.owb-scroll {
+    --sb-track-color: transparent;
+    --sb-thumb-color: #cbd5e1; /* slate-300 */
+    --sb-size: 6px;
+}
+
+.owb-scroll::-webkit-scrollbar {
+    width: var(--sb-size);
+}
+
+.owb-scroll::-webkit-scrollbar-track {
+    background: var(--sb-track-color);
+    border-radius: 3px;
+}
+
+.owb-scroll::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb-color);
+    border-radius: 3px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    .owb-scroll {
+        scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+    }
+}
+
+/* ── Wider scrollbar for main content area ─────────────────────── */
+.owb-scroll-wide {
+    --sb-track-color: transparent;
+    --sb-thumb-color: #94a3b8; /* slate-400 */
+    --sb-size: 8px;
+}
+
+.owb-scroll-wide::-webkit-scrollbar {
+    width: var(--sb-size);
+    height: var(--sb-size);
+}
+
+.owb-scroll-wide::-webkit-scrollbar-track {
+    background: var(--sb-track-color);
+    border-radius: 3px;
+}
+
+.owb-scroll-wide::-webkit-scrollbar-thumb {
+    background: var(--sb-thumb-color);
+    border-radius: 3px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    .owb-scroll-wide {
+        scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+    }
+}
+
 /* Pulse nudge on the [?] page-guide launcher for unseen guides */
 @keyframes owb-guide-pulse {
     0% { box-shadow: 0 0 0 0 rgb(79 70 229 / 0.45); }
@@ -120,4 +244,59 @@ body {
 }
 .owb-guide-nudge {
     animation: owb-guide-pulse 2s ease-out infinite;
+}
+
+/* ── Scroll-triggered animations (driven by useInView hook) ───── */
+.owb-reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.owb-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* stagger children: add .owb-reveal to each child, this sets delays */
+.owb-stagger > .owb-reveal:nth-child(1) { transition-delay: 0ms; }
+.owb-stagger > .owb-reveal:nth-child(2) { transition-delay: 100ms; }
+.owb-stagger > .owb-reveal:nth-child(3) { transition-delay: 200ms; }
+.owb-stagger > .owb-reveal:nth-child(4) { transition-delay: 300ms; }
+.owb-stagger > .owb-reveal:nth-child(5) { transition-delay: 400ms; }
+.owb-stagger > .owb-reveal:nth-child(6) { transition-delay: 500ms; }
+
+/* fade-in-left / right variants */
+.owb-reveal-left {
+    opacity: 0;
+    transform: translateX(-32px);
+    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.owb-reveal-left.is-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.owb-reveal-right {
+    opacity: 0;
+    transform: translateX(32px);
+    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.owb-reveal-right.is-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* scale-up variant */
+.owb-reveal-scale {
+    opacity: 0;
+    transform: scale(0.92);
+    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.owb-reveal-scale.is-visible {
+    opacity: 1;
+    transform: scale(1);
 }

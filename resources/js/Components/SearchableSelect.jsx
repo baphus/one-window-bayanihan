@@ -139,7 +139,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
             </span>
 
             {open && !disabled && (
-                <ul ref={listRef} className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                <ul ref={listRef} className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg owb-scroll-wide">
                     {filtered.length > 0 ? (
                         filtered.map((option, idx) => (
                             <li

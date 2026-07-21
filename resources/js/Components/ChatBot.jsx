@@ -619,7 +619,7 @@ export default function ChatBot() {
                         <div
                             ref={listRef}
                             onScroll={handleScroll}
-                            className="flex-1 overflow-y-auto px-5 py-4 scroll-smooth"
+                            className="flex-1 overflow-y-auto px-5 py-4 scroll-smooth owb-scroll-wide"
                         >
                             {messages.map(renderMessage)}
                             {loading && (

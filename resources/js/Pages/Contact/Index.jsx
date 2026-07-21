@@ -5,11 +5,13 @@ import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 import InputError from '@/Components/InputError';
 import TurnstileWidget from '@/Components/TurnstileWidget';
+import useInView from '@/Hooks/useInView';
 
 export default function Contact() {
   const { turnstile } = usePage().props;
   const [turnstileToken, setTurnstileToken] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [contentRef, contentVisible] = useInView();
 
   const { data, setData, post, processing, errors, reset } = useForm({
     name: '',
@@ -51,7 +53,7 @@ export default function Contact() {
 
         <section className="py-16 px-4">
           <div className="mx-auto max-w-7xl">
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <div ref={contentRef} className={`grid grid-cols-1 gap-8 lg:grid-cols-2 owb-reveal ${contentVisible ? 'is-visible' : ''}`}>
               <div className="space-y-8">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 mb-6">Get in Touch</h2>
