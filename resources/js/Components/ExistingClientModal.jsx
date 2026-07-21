@@ -237,7 +237,7 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                             </p>
 
                             {/* Card grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[400px] overflow-y-auto pr-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[400px] overflow-y-auto pr-1 owb-scroll-wide">
                                 {clients.map((client) => (
                                     <ClientCard
                                         key={client.id}

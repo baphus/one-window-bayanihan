@@ -21,7 +21,7 @@ export default function UnsavedChangesModal({ show, onConfirm, onCancel, onSaveD
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title" aria-describedby="unsaved-changes-desc">
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative z-10 w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-2xl owb-modal-animate">
         <div className="px-6 py-5">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">

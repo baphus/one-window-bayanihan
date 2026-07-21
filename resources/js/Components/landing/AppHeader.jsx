@@ -78,31 +78,33 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               })}
             </div>
 
-            <div className="hidden items-center gap-6 md:flex">
-              {onTrackCaseClick ? (
-                <AppButton
-                  variant="primary"
-                  onClick={onTrackCaseClick}
-                >
-                  Track Case
-                </AppButton>
-              ) : (
-                <AppButton
-                  href="#tracker"
-                  variant="primary"
-                >
-                  Track Case
-                </AppButton>
+            <div className="hidden items-center gap-3 md:flex">
+              {!user && (
+                onTrackCaseClick ? (
+                  <AppButton
+                    variant="primary"
+                    onClick={onTrackCaseClick}
+                  >
+                    Track Case
+                  </AppButton>
+                ) : (
+                  <AppButton
+                    href="#tracker"
+                    variant="primary"
+                  >
+                    Track Case
+                  </AppButton>
+                )
               )}
 
               {user ? (
                 <div className="flex items-center gap-3">
-                  <Link
-                      href={route('dashboard')}
-                      className="text-sm font-semibold text-slate-700 hover:text-primary"
-                    >
-                      Dashboard
-                    </Link>
+                  <AppButton
+                    href={route('dashboard')}
+                    variant="primary"
+                  >
+                    Dashboard
+                  </AppButton>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
                     <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-circle bg-primary">
@@ -282,37 +284,50 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               </div>
 
               <div className="mt-4 grid gap-2 border-t border-gray-100 pt-3">
-                {onTrackCaseClick ? (
-                  <AppButton
-                    variant="primary"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      onTrackCaseClick();
-                    }}
-                  >
-                    Track Case
-                  </AppButton>
-                ) : (
-                  <AppButton
-                    href="#tracker"
-                    variant="primary"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Track Case
-                  </AppButton>
+                {!user && (
+                  onTrackCaseClick ? (
+                    <AppButton
+                      variant="primary"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onTrackCaseClick();
+                      }}
+                    >
+                      Track Case
+                    </AppButton>
+                  ) : (
+                    <AppButton
+                      href="#tracker"
+                      variant="primary"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Track Case
+                    </AppButton>
+                  )
                 )}
 
-                <Link
-                  href={mobileActionHref}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+                {user ? (
                   <AppButton
-                    variant="outline"
+                    href={route('dashboard')}
+                    variant="primary"
                     className="w-full"
+                    onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    {mobileActionLabel}
+                    Dashboard
                   </AppButton>
-                </Link>
+                ) : (
+                  <Link
+                    href={route('login')}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <AppButton
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Login
+                    </AppButton>
+                  </Link>
+                )}
 
                 {user && (
                   <button

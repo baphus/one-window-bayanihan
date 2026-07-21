@@ -417,7 +417,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
       {/* Confirmation Dialog */}
       {confirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setConfirmDialog(null)}>
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4 owb-modal-animate" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
               <span className="material-symbols-outlined text-2xl text-amber-600">notifications</span>
               <h3 className="text-base font-bold text-slate-900">Send Reminder</h3>

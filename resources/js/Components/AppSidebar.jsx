@@ -171,7 +171,7 @@ export default function AppSidebar() {
         </Link>
       </div>
 
-      <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} data-tour="sidebar-nav" className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4">
+      <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} data-tour="sidebar-nav" className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4 owb-scroll">
           {navigation.map((group) => (
             <div key={group.label} className="mb-3">
               <p className="px-8 pb-2 text-[10px] font-bold font-label uppercase tracking-[0.09em] text-slate-500">

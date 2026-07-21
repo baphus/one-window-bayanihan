@@ -53,7 +53,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4">
+      <div className="relative bg-white rounded-lg shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4 owb-modal-animate">
         <h2 className="text-lg font-semibold text-slate-900 mb-1">Export audit logs</h2>
         <p className="text-sm text-slate-500 mb-4">
           Exports a CSV of the current filter selection. An explicit date range is required

@@ -13,6 +13,7 @@ vi.mock('@/Components/ui/RowContextMenu', () => ({
 }));
 vi.mock('@/Components/ui/TableLoadingOverlay', () => ({ default: () => null }));
 vi.mock('@/Hooks/useTableVisitLoading', () => ({ default: () => ({ isLoading: false, withLoading: (x) => x }) }));
+vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }) }));
 vi.mock('@inertiajs/react', () => ({ Head: () => null, router: { post, visit, get: vi.fn(), delete: vi.fn() } }));
 
 globalThis.route = (name, id) => id ? `/cases/${id}/${name.split('.').at(-1)}` : `/${name}`;

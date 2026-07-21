@@ -112,7 +112,7 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
             onClick={handleBackdropClick}
         >
-            <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-md border border-slate-200 bg-white shadow-lg">
+            <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
@@ -131,7 +131,7 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="flex-1 overflow-y-auto px-5 py-4 owb-scroll-wide">
                     {loading ? (
                         <LoadingState />
                     ) : logs.length === 0 ? (

@@ -33,7 +33,6 @@ function handleSearch(q) {
 // ---------------------------------------------------------------------------
 function LandingView({ categoryTree }) {
   const popular = useMemo(() => resolvePopularArticles(allArticles), []);
-
   return (
     <div className="mx-auto max-w-5xl">
       <div data-tour="helpdesk-header" className="flex flex-col items-center pb-10 pt-6 text-center">

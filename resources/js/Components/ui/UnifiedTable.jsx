@@ -355,7 +355,7 @@ export function UnifiedTable({
                 </button>
 
                 {isAdvancedFiltersOpen && advancedFiltersContent ? (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-h-[calc(100vh-180px)] overflow-y-auto rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-h-[calc(100vh-180px)] overflow-y-auto rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg owb-scroll-wide">
                     {advancedFiltersContent}
                   </div>
                 ) : null}
@@ -372,7 +372,7 @@ export function UnifiedTable({
                 </button>
 
                 {isColumnsControlOpen && columnsControlContent ? (
-                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-h-[calc(100vh-180px)] overflow-y-auto rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg">
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 max-h-[calc(100vh-180px)] overflow-y-auto rounded-[3px] border border-slate-300 bg-white p-5 shadow-lg owb-scroll-wide">
                     {columnsControlContent}
                   </div>
                 ) : null}
@@ -454,7 +454,7 @@ export function UnifiedTable({
         )}
 
         {viewMode === 'list' ? (
-          <div className="overflow-x-auto relative">
+          <div className="overflow-x-auto relative owb-scroll-wide">
             <table className={`w-full text-left border-collapse ${isLoading ? 'opacity-30 pointer-events-none' : ''}`}>
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-300">

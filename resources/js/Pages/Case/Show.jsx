@@ -917,7 +917,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
       {isEditOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={() => setIsEditOpen(false)}>
-          <div className="w-full max-w-2xl rounded-md border border-slate-200 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-[16px] font-extrabold text-slate-900">Edit Case Details</h2>
               <p className="mt-1 text-[12px] text-slate-500">Update visible case details for this record.</p>

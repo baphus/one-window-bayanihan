@@ -132,7 +132,7 @@ export default function NotificationPanel() {
           </div>
 
           {/* Body — capped by viewport height so the flyout never clips off-screen on short windows */}
-          <div className="max-h-[min(24rem,calc(100vh-14rem))] overflow-y-auto">
+          <div className="max-h-[min(24rem,calc(100vh-14rem))] overflow-y-auto owb-scroll-wide">
             {isLoading && mergedItems.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Loader2 className="w-6 h-6 animate-spin text-slate-300 mx-auto" />

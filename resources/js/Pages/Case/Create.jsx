@@ -3,6 +3,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useAutoSave from '@/Hooks/useAutoSave';
+import { getProvincesByRegion } from '@/data/philippine-addresses';
 import useLocalStorageDraft from '@/Hooks/useLocalStorageDraft';
 
 import AddressDropdowns from '@/Components/AddressDropdowns';
@@ -223,7 +224,7 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
                     role="listbox"
                     aria-multiselectable="true"
                     aria-label="Categories"
-                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg focus:outline-none"
+                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg focus:outline-none owb-scroll-wide"
                 >
                     {categories.map((cat) => {
                         const checked = selectedIds.includes(String(cat.id));
@@ -279,7 +280,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="relative z-10 w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-2xl owb-modal-animate">
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                     <div>
                         <h3 className="text-lg font-bold text-slate-900">Confirm Case Creation</h3>
@@ -290,7 +291,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
                     </button>
                 </div>
 
-                <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-4">
+                <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-4 owb-scroll-wide">
                     <div className="grid grid-cols-2 gap-4 text-[13px]">
                         <div>
                             <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Case No.</span>
@@ -1085,6 +1086,10 @@ export default function CaseCreate() {
         }
     }
 
+    function regionRequiresProvince(regionCode) {
+        return getProvincesByRegion(regionCode).length > 0;
+    }
+
     function canProceed() {
         if (currentStep === 1) {
             const clientOk = data.client.first_name.trim().length > 0
@@ -1095,7 +1100,7 @@ export default function CaseCreate() {
                 && data.client.email.trim().length > 0;
 
             const addressOk = data.address.region.length > 0
-                && data.address.province.length > 0
+                && (!regionRequiresProvince(data.address.region) || data.address.province.length > 0)
                 && data.address.city_municipality.length > 0
                 && data.address.barangay.length > 0;
 
@@ -1112,7 +1117,7 @@ export default function CaseCreate() {
                 && nok.phone_number.trim().length > 0
                 && nok.email.trim().length > 0
                 && (nok.nok_address?.region || '').length > 0
-                && (nok.nok_address?.province || '').length > 0
+                && (!regionRequiresProvince(nok.nok_address?.region || '') || (nok.nok_address?.province || '').length > 0)
                 && (nok.nok_address?.city_municipality || '').length > 0
                 && (nok.nok_address?.barangay || '').length > 0
             );
@@ -1140,7 +1145,7 @@ export default function CaseCreate() {
             if (!data.client.contact_number.trim()) missing.push('Contact Number');
             if (!data.client.email.trim()) missing.push('OFW Email');
             if (!data.address.region) missing.push('Region');
-            if (!data.address.province) missing.push('Province');
+            if (regionRequiresProvince(data.address.region) && !data.address.province) missing.push('Province');
             if (!data.address.city_municipality) missing.push('City/Municipality');
             if (!data.address.barangay) missing.push('Barangay');
             if (!data.employment.employer_name.trim()) missing.push('Employer Name');
@@ -1154,7 +1159,7 @@ export default function CaseCreate() {
                 if (!nok.phone_number.trim()) missing.push(`NOK #${idx + 1} Phone Number`);
                 if (!nok.email.trim()) missing.push(`NOK #${idx + 1} Email`);
                 if (!(nok.nok_address?.region || '')) missing.push(`NOK #${idx + 1} Region`);
-                if (!(nok.nok_address?.province || '')) missing.push(`NOK #${idx + 1} Province`);
+                if (regionRequiresProvince(nok.nok_address?.region || '') && !(nok.nok_address?.province || '')) missing.push(`NOK #${idx + 1} Province`);
                 if (!(nok.nok_address?.city_municipality || '')) missing.push(`NOK #${idx + 1} City/Municipality`);
                 if (!(nok.nok_address?.barangay || '')) missing.push(`NOK #${idx + 1} Barangay`);
             });
@@ -1217,7 +1222,7 @@ export default function CaseCreate() {
                 isValid = false;
                 missing.push('Region');
             }
-            if (!data.address.province) {
+            if (regionRequiresProvince(data.address.region) && !data.address.province) {
                 setError('address.province', 'Province is required.');
                 isValid = false;
                 missing.push('Province');
@@ -1299,7 +1304,7 @@ export default function CaseCreate() {
                     isValid = false;
                     missing.push(`NOK #${idx + 1} Region`);
                 }
-                if (!(nok.nok_address?.province || '')) {
+                if (regionRequiresProvince(nok.nok_address?.region || '') && !(nok.nok_address?.province || '')) {
                     setError(`next_of_kin.${idx}.nok_address.province`, 'Province is required.');
                     isValid = false;
                     missing.push(`NOK #${idx + 1} Province`);

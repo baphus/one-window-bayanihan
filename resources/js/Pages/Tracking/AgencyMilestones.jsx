@@ -11,6 +11,14 @@ const STATUS_CONFIG = {
   UNKNOWN: { label: 'Status Unavailable', icon: 'help_outline', bg: 'bg-slate-100 text-slate-600 border-slate-200' },
 };
 
+const REFERRAL_STATUS_CONFIG = {
+  PENDING:        { label: 'Awaiting receipt',    icon: 'schedule',              bg: 'bg-slate-100 text-slate-600 border-slate-200' },
+  PROCESSING:     { label: 'In process',          icon: 'radio_button_checked',  bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  FOR_COMPLIANCE: { label: 'Needs documents',     icon: 'description',           bg: 'bg-amber-50 text-amber-700 border-amber-200' },
+  COMPLETED:      { label: 'Completed',           icon: 'check_circle',          bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  REJECTED:       { label: 'Unable to assist',    icon: 'cancel',                bg: 'bg-red-50 text-red-600 border-red-200' },
+};
+
 function formatHumanDate(dateStr) {
   const date = new Date(dateStr);
 
@@ -43,7 +51,7 @@ function InfoCard({ icon, label, value, tone = 'slate' }) {
   }[tone];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-md border border-slate-300 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
@@ -64,12 +72,12 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
   const latestUpdate = agencyMilestones?.latestUpdate;
 
   return (
-    <div className="min-h-screen bg-surface font-body text-on-surface">
+    <div className="min-h-screen bg-slate-50 font-body text-slate-800">
       <Head title={`${agencyMilestones?.agencyName ?? 'Agency'} milestones`} />
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-5xl px-4 pt-24 pb-12 sm:px-6 lg:px-8 space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <main className="mx-auto w-full max-w-5xl px-4 pt-8 pb-12 sm:px-6 lg:px-8 space-y-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-20">
           <Link
             href={route('track.show', { tracker_number: trackingId })}
             className="inline-flex items-center gap-2 text-sm font-semibold text-blue-800 hover:text-blue-900 transition-colors"
@@ -78,53 +86,49 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             Back to case tracking
           </Link>
 
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold shadow-sm ${config.bg}`}>
-            <span className="material-symbols-outlined text-[16px]">{config.icon}</span>
-            {config.label}
-          </span>
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span className="text-slate-400">Case status:</span>
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold shadow-sm ${config.bg}`}>
+              <span className="material-symbols-outlined text-[14px]">{config.icon}</span>
+              {config.label}
+            </span>
+          </div>
         </div>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50/60 px-5 py-6 sm:px-8 sm:py-8">
-            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-              <div className="max-w-3xl space-y-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-slate-400">Agency milestones</p>
-                <h1 className="font-headline text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-                  {agencyMilestones?.agencyName ?? 'Agency'}
-                </h1>
-                <p className="max-w-2xl text-sm leading-relaxed text-slate-600">
-                  A clear view of the milestones for this agency’s referral, with the latest update and current status in one place.
-                </p>
-                {trackedCase?.clientName && (
-                  <p className="text-sm font-semibold text-slate-700">Case holder: {trackedCase.clientName}</p>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold">Tracking ID: {trackingId}</span>
-                  {trackedCase?.caseNo && (
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold">Case No. {trackedCase.caseNo}</span>
-                  )}
-                  {milestoneCount > 0 && (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">{milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:min-w-[240px]">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Case status</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${config.bg}`}>
-                    <span className="material-symbols-outlined text-[16px]">{config.icon}</span>
-                    {config.label}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  {agencyMilestones?.status ? `Referral status: ${formatStatusLabel(agencyMilestones.status)}` : 'Referral status is unavailable.'}
-                </p>
-              </div>
+        <header className="bg-primary px-6 py-8 text-white shadow-2xl sm:px-10 sm:py-10">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Agency milestones</p>
+              <h1 className="mt-2 font-headline text-2xl font-extrabold tracking-tight sm:text-3xl">
+                {agencyMilestones?.agencyName ?? 'Agency'}
+              </h1>
+              {trackedCase?.clientName && (
+                <p className="mt-1.5 text-sm text-primary-fixed/90">{trackedCase.clientName} · Tracking ID: {trackingId}</p>
+              )}
             </div>
+            {agencyMilestones?.status && (() => {
+              const refConfig = REFERRAL_STATUS_CONFIG[agencyMilestones.status] ?? REFERRAL_STATUS_CONFIG.PENDING;
+              return (
+                <p className="shrink-0 text-sm text-primary-fixed/70">
+                  Referral status: <span className={`ml-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold ${refConfig.bg}`}><span className="material-symbols-outlined text-[14px]">{refConfig.icon}</span>{formatStatusLabel(agencyMilestones.status)}</span>
+                </p>
+              );
+            })()}
           </div>
-        </section>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+            {trackedCase?.caseNo && (
+              <span className="rounded-full border border-white/30 px-3 py-1.5 font-semibold">{trackedCase.caseNo}</span>
+            )}
+            {milestoneCount > 0 && (
+              <span className="rounded-full border border-emerald-300/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100">{milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-primary-fixed/80">
+            A clear view of the milestones for this agency's referral, with the latest update and current status in one place.
+          </p>
+        </header>
 
         <section className="grid gap-4 md:grid-cols-2">
           <InfoCard
@@ -148,7 +152,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             Latest update
           </h2>
 
-          <article className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-sm">
+          <article className="rounded-md border border-emerald-200 bg-emerald-50/50 p-5 shadow-sm">
             {latestUpdate ? (
               <div className="flex items-start gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-600 shadow-sm">
@@ -184,7 +188,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
           </h2>
 
           {milestones.length === 0 ? (
-            <article className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <article className="rounded-md border border-slate-300 bg-white p-10 text-center shadow-sm">
               <span className="material-symbols-outlined block text-4xl text-slate-300">hourglass_empty</span>
               <h3 className="mt-3 text-sm font-bold text-slate-900">No milestones recorded yet</h3>
               <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-slate-500">
@@ -192,7 +196,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
               </p>
             </article>
           ) : (
-            <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <article className="rounded-md border border-slate-300 bg-white p-6 shadow-sm sm:p-8">
               <div className="relative">
                 <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
                 <div className="space-y-6">
@@ -216,16 +220,6 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             </article>
           )}
         </section>
-
-        <div>
-          <Link
-            href={route('track.show', { tracker_number: trackingId })}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-800"
-          >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-            Back to tracking overview
-          </Link>
-        </div>
       </main>
 
       <AppFooter />

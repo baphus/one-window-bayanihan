@@ -102,7 +102,7 @@ export default function EmploymentAnalytics({
             Position Breakdown
           </h3>
           {employmentPositionBreakdown?.labels?.length > 0 ? (
-            <div className="max-h-64 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto owb-scroll-wide">
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-slate-300 dark:border-slate-700 text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 dark:text-slate-400">

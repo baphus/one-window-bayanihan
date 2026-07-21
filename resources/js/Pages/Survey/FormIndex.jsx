@@ -149,7 +149,7 @@ export default function FormIndex({ forms = [] }) {
 
         {deleteTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
               <div className="border-b border-slate-200 px-6 py-5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-red-600">Delete survey form</p>
                 <h2 className="mt-2 text-lg font-bold text-slate-900">Confirm deletion</h2>
