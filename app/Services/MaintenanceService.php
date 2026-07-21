@@ -27,20 +27,16 @@ class MaintenanceService
         ];
     }
 
-    public function enable(?string $secret = null, ?int $retryMinutes = null): void
+    public function enable(string $secret, ?int $retryMinutes = null): void
     {
         if ($this->getStatus()['active']) {
             throw new \RuntimeException('Maintenance mode is already enabled.');
         }
 
-        $params = [];
-
-        if ($secret) {
-            $params['--secret'] = $secret;
-        }
+        $params = ['--secret' => $secret];
 
         if ($retryMinutes) {
-            $params['--retry'] = $retryMinutes;
+            $params['--retry'] = $retryMinutes * 60;
         }
 
         Artisan::call('down', $params);

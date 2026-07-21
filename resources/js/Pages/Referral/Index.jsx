@@ -8,6 +8,7 @@ import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
+import usePersistedColumns from '@/Hooks/usePersistedColumns';
 
 const COLUMN_DEFS = [
     { key: 'case_number', label: 'Case #', default: true },
@@ -50,8 +51,9 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
     const searchTimeout = useRef(null);
 
-    const [visibleColumns, setVisibleColumns] = useState(
-        COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
+    const [visibleColumns, setVisibleColumns] = usePersistedColumns(
+      'referrals',
+      COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
     );
 
     const [pendingDecision, setPendingDecision] = useState(null);
@@ -646,6 +648,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 keyExtractor={(row) => row.id}
                 {...paginatorProps(referrals)}
                 isLoading={tableLoading}
+                emptyStateMessage="No referrals found"
                 searchValue={searchValue}
                 searchPlaceholder="Search by referral ID, client, agency, or service..."
                 onSearchChange={handleSearchChange}

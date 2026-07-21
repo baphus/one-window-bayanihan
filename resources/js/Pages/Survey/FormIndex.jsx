@@ -5,18 +5,26 @@ import { formatDisplayDate } from '@/lib/utils';
 
 export default function FormIndex({ forms = [] }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [activatingId, setActivatingId] = useState(null);
 
   const handleDelete = () => {
     if (!deleteTarget) return;
+    setDeleting(true);
     router.delete(route('survey.forms.destroy', deleteTarget.id), {
       preserveScroll: true,
       onSuccess: () => setDeleteTarget(null),
       onError: () => setDeleteTarget(null),
+      onFinish: () => setDeleting(false),
     });
   };
 
   const handleActivate = (form) => {
-    router.patch(route('survey.forms.activate', form.id), {}, { preserveScroll: true });
+    setActivatingId(form.id);
+    router.patch(route('survey.forms.activate', form.id), {}, {
+      preserveScroll: true,
+      onFinish: () => setActivatingId(null),
+    });
   };
 
   return (
@@ -104,10 +112,11 @@ export default function FormIndex({ forms = [] }) {
                           {!form.is_active && (
                             <button
                               type="button"
+                              disabled={activatingId === form.id}
                               onClick={() => handleActivate(form)}
-                              className="inline-flex h-8 items-center rounded-md bg-blue-900 px-3 text-[11px] font-semibold text-white hover:bg-blue-800"
+                              className="inline-flex h-8 items-center rounded-md bg-blue-900 px-3 text-[11px] font-semibold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Activate
+                              {activatingId === form.id ? 'Activating…' : 'Activate'}
                             </button>
                           )}
                           {form.is_active && (
@@ -166,10 +175,11 @@ export default function FormIndex({ forms = [] }) {
                 </button>
                 <button
                   type="button"
+                  disabled={deleting}
                   onClick={handleDelete}
-                  className="inline-flex h-9 items-center rounded-md bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700"
+                  className="inline-flex h-9 items-center rounded-md bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Delete
+                  {deleting ? 'Deleting…' : 'Delete'}
                 </button>
               </div>
             </div>
