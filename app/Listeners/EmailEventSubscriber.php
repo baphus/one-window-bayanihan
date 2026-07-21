@@ -50,12 +50,16 @@ class EmailEventSubscriber
 
         $jobUuid = $event->job->getJobId();
 
+        // Redis job IDs are not UUIDs — only store values that PostgreSQL accepts.
+        $validUuid = ($jobUuid && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $jobUuid))
+            ? $jobUuid : null;
+
         EmailLog::create([
             'to_email' => $data['to_email'],
             'subject' => $data['subject'],
             'mailable_type' => $data['mailable_type'],
             'status' => 'failed',
-            'job_uuid' => $jobUuid ?: null,
+            'job_uuid' => $validUuid,
             'error_message' => $event->exception->getMessage(),
         ]);
     }

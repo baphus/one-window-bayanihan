@@ -2,7 +2,10 @@
 # System Access Invitation
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 20px 0;">
-    You have been invited to join the One Window Bayanihan case management system@if($agencyName) as a member of <strong>{{ $agencyName }}</strong>@endif.
+    You have been invited to join the One Window Bayanihan case management system
+    @if($agencyName)
+    as a member of <strong>{{ $agencyName }}</strong>
+    @endif.
 </p>
 
 <x-mail::detail-table :rows="[
