@@ -1,33 +1,41 @@
 <x-mail::message>
-# Action needed
+<x-mail::status-badge
+    status="{{ $clientRequest->type === \App\Models\ReferralClientRequest::TYPE_DOCUMENT_REQUEST ? 'pending' : 'processing' }}"
+    label="{{ $requestTypeLabel }}"
+/>
 
-**{{ $agencyName }}** has a request that needs your attention.
+<p style="color: #a1a1aa; font-size: 13px; margin: 0 0 16px 0;">
+    Case {{ $caseNumber }}
+</p>
 
-@if ($dueDate)
-Please respond by **{{ $dueDate }}**.
+<p style="font-size: 16px; line-height: 1.6; color: #18181b; margin: 0 0 16px 0;">
+    Hi {{ $clientName }},
+</p>
+
+<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0;">
+    <strong>{{ $agencyName }}</strong> needs the following from you regarding your case:
+</p>
+
+@if($clientRequest->type === \App\Models\ReferralClientRequest::TYPE_DOCUMENT_REQUEST && count($checklistItems) > 0)
+<h3 style="font-size: 16px; font-weight: 700; color: #18181b; margin: 0 0 12px 0;">Required Documents</h3>
+<x-mail::checklist :items="$checklistItems" />
 @endif
 
-<table class="action" align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td align="center">
-<table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td align="center">
-<table border="0" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td>
-<a href="{{ $magicLink }}" target="_blank" rel="noopener" style="background-color: #0b5384; border-top: 12px solid #0b5384; border-bottom: 12px solid #0b5384; border-left: 28px solid #0b5384; border-right: 28px solid #0b5384; border-radius: 4px; color: #ffffff; display: inline-block; font-size: 14px; text-decoration: none; -webkit-text-size-adjust: none; font-weight: bold;">View Request</a>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
+@if($clientRequest->instructions)
+<h3 style="font-size: 16px; font-weight: 700; color: #18181b; margin: 24px 0 12px 0;">Instructions</h3>
+<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0;">{{ $clientRequest->instructions }}</p>
+@endif
 
-This secure link expires in seven days. If you were not expecting this request, you can ignore this email.
+<x-mail::action-card
+    url="{{ $magicLink }}"
+    label="Submit Documents"
+    :deadline="$dueDate"
+    :urgency="!is_null($dueDate)"
+/>
 
-{{ config('app.name') }}
+<p style="font-size: 13px; line-height: 1.5; color: #52525b; margin: 16px 0 0 0;">
+    Need more time? Reply to this email or contact the agency directly. This secure link expires in seven days.
+</p>
+
+<x-mail::contact-footer />
 </x-mail::message>

@@ -31,38 +31,36 @@ To continue, enter the verification code below:
         letter-spacing: 12px;
         color: #005288;
         font-family: Arial, Helvetica, sans-serif;
+        background-color: #e8f4fd;
+        padding: 16px 28px;
+        border-radius: 4px;
+        border: 1px solid #005288;
     ">
         {{ $otp }}
     </div>
 </div>
 
-<div style="margin: 24px 0; text-align: center; color: #6b7280; font-size: 14px;">
+<p style="font-size: 14px; text-align: center; color: #52525b; margin: 24px 0;">
     <strong>This verification code will expire in 5 minutes.</strong>
-</div>
+</p>
 
----
+<x-mail::security-notice />
 
-### For your security
+<p style="font-size: 14px; line-height: 1.6; color: #52525b; margin: 24px 0 0 0;">
+    @switch($purpose)
+        @case('login')
+    If you did not request this sign-in attempt, you may safely ignore this email. Your account remains secure.
+            @break
+        @case('track')
+    If you did not request this verification, you may safely ignore this email.
+            @break
+        @case('email_change')
+    If you did not request this email change, you may safely ignore this email. Your email address has not been altered.
+            @break
+        @default
+    If you did not request this, you may safely ignore this email.
+    @endswitch
+</p>
 
-- Never share this code with anyone.
-- DMW personnel will **never** ask for your verification code.
-@switch($purpose)
-    @case('login')
-- If you did not request this sign-in attempt, you may safely ignore this email.
-        @break
-    @case('track')
-- If you did not request this verification, you may safely ignore this email.
-        @break
-    @case('email_change')
-- If you did not request this email change, you may safely ignore this email.
-        @break
-    @default
-- If you did not request this, you may safely ignore this email.
-@endswitch
-
-<br>
-
-Regards,<br>
-**Department of Migrant Workers – Region VII**<br>
-**{{ config('app.name') }}**
+<x-mail::contact-footer />
 </x-mail::message>

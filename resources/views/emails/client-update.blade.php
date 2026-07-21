@@ -1,37 +1,34 @@
 <x-mail::message>
-# Update on Your Case
+<x-mail::status-badge
+    status="{{ strtolower($case->status) }}"
+    label="{{ ucwords(strtolower(str_replace('_', ' ', $case->status))) }}"
+/>
 
-{{ $message }}
+<p style="color: #a1a1aa; font-size: 13px; margin: 0 0 16px 0;">
+    Case {{ $case->case_number }} · Updated {{ $case->updated_at->format('M d, Y') }}
+</p>
 
-@if($trackingNumber)
-**Your tracking number:** {{ $trackingNumber }}
-@endif
+<p style="font-size: 16px; line-height: 1.6; color: #18181b; margin: 0 0 16px 0;">
+    Hi {{ $case->client->first_name ?? 'there' }},
+</p>
 
-<table class="action" align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td align="center">
-<table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td align="center">
-<table border="0" cellpadding="0" cellspacing="0" role="presentation">
-<tr>
-<td>
-<a href="{{ route('track.index') }}" target="_blank" rel="noopener" style="background-color: #0b5384; border-top: 12px solid #0b5384; border-bottom: 12px solid #0b5384; border-left: 28px solid #0b5384; border-right: 28px solid #0b5384; border-radius: 4px; color: #ffffff; display: inline-block; font-size: 14px; text-decoration: none; -webkit-text-size-adjust: none; font-weight: bold;">Track Your Case</a>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
+<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0;">
+    {{ $message }}
+</p>
 
-If you have any questions, please contact the DMW Region VII office.
+<x-mail::timeline :events="$case->caseEvents" />
 
----
+<h3 style="font-size: 16px; font-weight: 700; color: #18181b; margin: 32px 0 12px 0;">What happens next</h3>
 
-Regards,<br>
-**Department of Migrant Workers – Region VII**<br>
-**{{ config('app.name') }}**
+<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0;">
+    You don't need to do anything right now. We'll send you another update when there's progress on your case.
+</p>
+
+<x-mail::action-card
+    url="{{ route('track.show', $case->tracker_number) }}"
+    label="Track Your Case"
+/>
+
+<x-mail::security-notice />
+<x-mail::contact-footer />
 </x-mail::message>

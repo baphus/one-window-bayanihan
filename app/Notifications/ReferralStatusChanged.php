@@ -31,13 +31,12 @@ class ReferralStatusChanged extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject("Referral Status Updated: {$this->humanizeStatus($this->newStatus)}")
-            ->greeting('Referral Status Updated')
-            ->line('The status of a referral has been updated.')
-            ->line('**Referral:** '.$this->referral->required_services)
-            ->line('**Status Change:** '.$this->humanizeStatus($this->oldStatus).' → **'.$this->humanizeStatus($this->newStatus).'**')
-            ->action('View Referral', url("/referrals/{$this->referral->id}"))
-            ->line('Please review the updated referral details.');
+            ->markdown('emails.notifications.referral-status-changed', [
+                'referral' => $this->referral,
+                'oldStatus' => $this->oldStatus,
+                'newStatus' => $this->newStatus,
+                'url' => url("/referrals/{$this->referral->id}"),
+            ]);
     }
 
     public function toDatabase(object $notifiable): array

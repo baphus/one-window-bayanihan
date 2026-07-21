@@ -29,13 +29,10 @@ class ReferralCreated extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('New Referral Assigned')
-            ->greeting('New Referral Assigned')
-            ->line('A new referral has been assigned to your agency for processing.')
-            ->line('**Required Services:** '.$this->referral->required_services)
-            ->line('**Status:** '.$this->referral->status)
-            ->action('View Referral', url("/referrals/{$this->referral->id}"))
-            ->line('Please review and process this referral at your earliest convenience.');
+            ->markdown('emails.notifications.referral-created', [
+                'referral' => $this->referral,
+                'url' => url("/referrals/{$this->referral->id}"),
+            ]);
     }
 
     public function toDatabase(object $notifiable): array
