@@ -8,6 +8,7 @@ import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-re
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ExportDialog from '@/Components/ExportDialog';
+import usePersistedColumns from '@/Hooks/usePersistedColumns';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -107,7 +108,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const searchTimeout = useRef(null);
 
-  const [visibleColumns, setVisibleColumns] = useState(
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns(
+    'cases',
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
@@ -818,6 +820,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         keyExtractor={(row) => row.id}
         {...paginatorProps(cases)}
         isLoading={tableLoading}
+        emptyStateMessage="No cases found"
         sortKey={filters?.sort ?? 'created_at'}
         sortDirection={filters?.direction ?? 'desc'}
         onSortChange={handleSortChange}

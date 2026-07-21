@@ -21,6 +21,7 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\ViewErrorBag;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -65,6 +66,26 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() === 503) {
+                $retry = $e->getHeaders()['Retry-After'] ?? null;
+
+                if (is_numeric($retry)) {
+                    $retryMinutes = (int) ceil((int) $retry / 60);
+                } else {
+                    $retryMinutes = null;
+                }
+
+                return response()->view('errors.503', [
+                    'errors' => new ViewErrorBag,
+                    'exception' => $e,
+                    'retry' => $retryMinutes,
+                ], 503, $e->getHeaders());
+            }
+
+            return null;
+        });
+
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->is(['api/*', '*/api/*'])) {
                 return response()->json(['message' => 'Resource not found.'], 404);

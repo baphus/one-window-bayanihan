@@ -27,6 +27,9 @@ export default function AgencyServicesIndex({ services, allServices }) {
 
     const [deleteTarget, setDeleteTarget] = useState(null);
     const submitRef = useRef(null);
+    const [creating, setCreating] = useState(false);
+    const [updating, setUpdating] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const searchTimeout = useRef(null);
 
@@ -87,6 +90,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
 
     const handleCreate = () => {
         if (!newName.trim() || !newDescription.trim()) return;
+        setCreating(true);
         router.post(route('agency.services.store'), {
             name: newName.trim(),
             description: newDescription.trim(),
@@ -100,11 +104,13 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 setNewRequirements([]);
                 setNewReqInput('');
             },
+            onFinish: () => setCreating(false),
         });
     };
 
     const handleUpdate = () => {
         if (!draftName.trim() || !draftDescription.trim() || !selectedServiceId) return;
+        setUpdating(true);
         router.patch(route('agency.services.update', selectedServiceId), {
             name: draftName.trim(),
             description: draftDescription.trim(),
@@ -112,14 +118,17 @@ export default function AgencyServicesIndex({ services, allServices }) {
         }, {
             preserveScroll: true,
             onSuccess: closeEdit,
+            onFinish: () => setUpdating(false),
         });
     };
 
     const handleDelete = () => {
         if (!deleteTarget) return;
+        setDeleting(true);
         router.delete(route('agency.services.destroy', deleteTarget.id), {
             preserveScroll: true,
             onSuccess: () => setDeleteTarget(null),
+            onFinish: () => setDeleting(false),
         });
     };
 
@@ -266,7 +275,8 @@ export default function AgencyServicesIndex({ services, allServices }) {
                             <button type="button" onClick={closeEdit}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button type="button" onClick={handleUpdate}
-                                className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800">Save Changes</button>
+                                disabled={updating}
+                                className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">{updating ? 'Saving…' : 'Save Changes'}</button>
                         </div>
                     </div>
                 </div>
@@ -324,7 +334,8 @@ export default function AgencyServicesIndex({ services, allServices }) {
                             <button type="button" onClick={() => { setIsCreateOpen(false); setNewName(''); setNewDescription(''); setNewRequirements([]); setNewReqInput(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button type="button" onClick={handleCreate}
-                                className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800">Create Service</button>
+                                disabled={creating}
+                                className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">{creating ? 'Creating…' : 'Create Service'}</button>
                         </div>
                     </div>
                 </div>
@@ -346,7 +357,8 @@ export default function AgencyServicesIndex({ services, allServices }) {
                             <button type="button" onClick={() => setDeleteTarget(null)}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button type="button" onClick={handleDelete}
-                                className="h-9 rounded bg-red-600 px-4 text-xs font-bold text-white hover:bg-red-700">Delete Service</button>
+                                disabled={deleting}
+                                className="h-9 rounded bg-red-600 px-4 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">{deleting ? 'Deleting…' : 'Delete Service'}</button>
                         </div>
                     </div>
                 </div>

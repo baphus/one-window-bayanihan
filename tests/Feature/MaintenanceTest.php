@@ -34,7 +34,7 @@ class MaintenanceTest extends TestCase
                 return ['active' => false, 'secret' => null, 'retry' => null, 'since' => null];
             }
 
-            public function enable(?string $secret = null, ?int $retryMinutes = null): void {}
+            public function enable(string $secret, ?int $retryMinutes = null): void {}
 
             public function disable(): void {}
         });
@@ -55,13 +55,15 @@ class MaintenanceTest extends TestCase
             $mock->shouldReceive('enable')->once()->with('bypass123', 60);
         }));
 
-        $response = $this->actingAs($this->admin)->post(route('admin.system.maintenance.toggle'), [
-            'secret' => 'bypass123',
-            'retry_minutes' => 60,
-        ]);
+        $response = $this->actingAs($this->admin)
+            ->withHeader('X-Inertia', 'true')
+            ->post(route('admin.system.maintenance.toggle'), [
+                'secret' => 'bypass123',
+                'retry_minutes' => 60,
+            ]);
 
-        $response->assertRedirect();
-        $response->assertSessionHas('success', 'Maintenance mode enabled.');
+        $response->assertStatus(409);
+        $response->assertHeader('X-Inertia-Location', '/');
 
         $this->app->instance(MaintenanceService::class, Mockery::mock(MaintenanceService::class, function ($mock) {
             $mock->shouldReceive('getStatus')->once()->andReturn(['active' => true, 'secret' => 'bypass123', 'retry' => 60, 'since' => now()->toDateTimeString()]);

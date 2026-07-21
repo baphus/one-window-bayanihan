@@ -8,6 +8,8 @@ import { Users, UserCheck, Briefcase, Building2, Shield } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import usePersistedColumns from '@/Hooks/usePersistedColumns';
+
 
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import PeerProfileModal from '@/Components/PeerProfileModal';
@@ -63,7 +65,8 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
 
   const searchTimeout = useRef(null);
 
-  const [visibleColumns, setVisibleColumns] = useState(
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns(
+    'admin-users',
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
@@ -72,6 +75,9 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
   const [mfaFilter, setMfaFilter] = useState(filters?.mfa_status ?? '');
   const [showDeleted, setShowDeleted] = useState(filters?.show_deleted ?? false);
+  const [resendingInviteId, setResendingInviteId] = useState(null);
+  const [cancellingInviteId, setCancellingInviteId] = useState(null);
+
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
@@ -535,6 +541,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         data={users.data}
         keyExtractor={(row) => row.id}
         {...paginatorProps(users)}
+        emptyStateMessage="No users found"
         searchValue={searchValue}
         searchPlaceholder="Search by name, email, or position..."
         onSearchChange={handleSearchChange}
@@ -608,10 +615,17 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
-                              onClick={() => router.post(route('admin.users.invites.resend', invite.id), {}, { preserveScroll: true })}
-                              className="px-2.5 py-1 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+                              disabled={resendingInviteId === invite.id}
+                              onClick={() => {
+                                setResendingInviteId(invite.id);
+                                router.post(route('admin.users.invites.resend', invite.id), {
+                                  preserveScroll: true,
+                                  onFinish: () => setResendingInviteId(null),
+                                });
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Resend
+                              {resendingInviteId === invite.id ? '…' : 'Resend'}
                             </button>
                             <button
                               onClick={() => {
@@ -621,7 +635,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                               }}
                               className="px-2.5 py-1 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
                             >
-                              Cancel
+                              {cancellingInviteId === invite.id ? '…' : 'Cancel'}
                             </button>
                           </div>
                         </td>
@@ -656,25 +670,25 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
           }} />
           {contextMenu.row.is_active && !contextMenu.row.is_deleted && (
             <RowContextMenuItem icon="block" label="Deactivate" variant="danger" onClick={() => {
-              if (confirm(`Deactivate user ${contextMenu.row.name}?`)) {
-                router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
-              }
-              setContextMenu(null);
+               if (confirm(`Deactivate user ${contextMenu.row.name}?`)) {
+                  router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
+                }
+                setContextMenu(null);
             }} />
           )}
           {(!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
             <>
             <RowContextMenuItem icon="restart_alt" label="Reactivate" variant="success" onClick={() => {
-              if (confirm(`Reactivate user "${contextMenu.row.name}"?`)) {
-                router.patch(route('admin.users.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
-              }
-              setContextMenu(null);
+               if (confirm(`Reactivate user "${contextMenu.row.name}"?`)) {
+                  router.patch(route('admin.users.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
+                }
+                setContextMenu(null);
             }} />
             <RowContextMenuItem icon="delete" label="Delete permanently" variant="danger" onClick={() => {
-              if (confirm(`Permanently delete user "${contextMenu.row.name}"? This cannot be undone.`)) {
-                router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
-              }
-              setContextMenu(null);
+               if (confirm(`Permanently delete user "${contextMenu.row.name}"? This cannot be undone.`)) {
+                  router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
+                }
+                setContextMenu(null);
             }} />
             </>
           )}
