@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Services\AuditCategory;
@@ -24,6 +27,7 @@ class AuditLogController extends Controller
     {
         $user = $request->user();
         $formatter = app(AuditLogFormatter::class);
+        $isAdmin = $user->isAdmin();
 
         $query = $this->buildFilteredQuery($request, $user)->with('user');
 
@@ -44,38 +48,30 @@ class AuditLogController extends Controller
             return $log;
         });
 
-        $availableActions = CacheHelper::safeRemember(
-            'audit_log_available_actions',
-            now()->addHours(24),
-            fn () => AuditLog::distinct()->pluck('action')->values()->toArray()
-        );
+        // Filter facets. Admins draw from the whole table (cached, shared);
+        // scoped roles draw only from the rows they can actually see, so the
+        // filter chips never offer options that would return nothing.
+        if ($isAdmin) {
+            $availableActions = CacheHelper::safeRemember(
+                'audit_log_available_actions',
+                now()->addHours(24),
+                fn () => AuditLog::distinct()->pluck('action')->values()->toArray()
+            );
+            $availableModulesRaw = CacheHelper::safeRemember(
+                'audit_log_available_modules',
+                now()->addHours(24),
+                fn () => AuditLog::distinct()->pluck('module')->values()->toArray()
+            );
+        } else {
+            $scopedIds = $this->scopedEntityIds($user);
+            $availableActions = AuditLog::whereIn('entity_id', $scopedIds)->distinct()->pluck('action')->values()->toArray();
+            $availableModulesRaw = AuditLog::whereIn('entity_id', $scopedIds)->distinct()->pluck('module')->values()->toArray();
+        }
 
-        $canonicalMap = [
-            'case_files' => 'case', 'case' => 'case', 'cases' => 'case',
-            'clients' => 'client', 'client' => 'client',
-            'client_addresses' => 'client_address', 'client_address' => 'client_address',
-            'client_employments' => 'client_employment', 'client_employment' => 'client_employment',
-            'referrals' => 'referral', 'referral' => 'referral',
-            'milestones' => 'milestone', 'milestone' => 'milestone',
-            'referral_attachments' => 'referral_attachment', 'referral_attachment' => 'referral_attachment',
-            'agencies' => 'agency', 'agency' => 'agency',
-            'users' => 'user', 'user' => 'user',
-            'services' => 'service', 'service' => 'service',
-            'service_requirements' => 'service_requirement', 'service_requirement' => 'service_requirement',
-            'case_categories' => 'case_category', 'case_category' => 'case_category',
-            'case_issues' => 'case_issue', 'case_issue' => 'case_issue',
-            'case_statuses' => 'case_status', 'case_status' => 'case_status',
-            'feedbacks' => 'feedback', 'feedback' => 'feedback',
-            'helpdesk_articles' => 'helpdesk_article', 'helpdesk_article' => 'helpdesk_article',
-        ];
-
-        $availableModulesRaw = CacheHelper::safeRemember(
-            'audit_log_available_modules',
-            now()->addHours(24),
-            fn () => AuditLog::distinct()->pluck('module')->values()->toArray()
-        );
+        // Collapse every stored spelling to its canonical module (AuditModule),
+        // falling back to a lower-cased spelling for anything unrecognised.
         $availableModules = collect($availableModulesRaw)
-            ->map(fn ($m) => $canonicalMap[strtolower($m)] ?? strtolower($m))
+            ->map(fn ($m) => AuditModule::tryFromLegacy((string) $m)?->value ?? strtolower((string) $m))
             ->unique()
             ->sort()
             ->values()
@@ -84,6 +80,16 @@ class AuditLogController extends Controller
             $m => $formatter->formatModule($m),
         ])->toArray();
 
+        // Admins see the full audit trail ("Audit Logs"); scoped roles see a
+        // filtered "Activity Log" of what they are responsible for.
+        $viewTitle = $isAdmin ? 'Audit Logs' : 'Activity Log';
+        $viewSubtitle = match (true) {
+            $isAdmin => 'Complete, tamper-evident record of all system activity.',
+            $user->isCaseManager() => 'Activity on the cases you manage and their referrals.',
+            $user->isAgency() => "Activity on your agency's referrals and the cases they belong to.",
+            default => 'Your recorded activity.',
+        };
+
         return Inertia::render('AuditLog/Index', [
             'logs' => $logs,
             'availableActions' => Inertia::lazy(fn () => $availableActions),
@@ -91,7 +97,10 @@ class AuditLogController extends Controller
             'availableModulesLabels' => Inertia::lazy(fn () => $availableModulesLabels),
             'availableCategories' => AuditCategory::ALL,
             'activeCategories' => $this->requestedCategories($request),
-            'canExport' => $user->isAdmin(),
+            'canExport' => $isAdmin,
+            'isScoped' => ! $isAdmin,
+            'viewTitle' => $viewTitle,
+            'viewSubtitle' => $viewSubtitle,
             'exportDefaultDays' => (int) config('audit.export.default_days'),
             'exportMaxDays' => (int) config('audit.retention_days'),
             'filterValues' => (object) $request->only(['action', 'module', 'category', 'user_id', 'date_from', 'date_to', 'search', 'per_page']),
@@ -184,18 +193,20 @@ class AuditLogController extends Controller
     }
 
     /**
-     * Shared filter pipeline for the viewer and the export, including role
-     * scoping (agency users have no audit access — enforced at the route).
+     * Shared filter pipeline for the viewer and the export, including per-role
+     * scoping:
+     *   ADMIN         — the complete audit trail.
+     *   CASE_MANAGER  — activity on the cases they own and those cases' referrals.
+     *   AGENCY        — their agency's referrals (+ milestones & attachments)
+     *                   and the parent cases those referrals belong to.
+     *   anything else — nothing (deny by default).
      */
     private function buildFilteredQuery(Request $request, $user)
     {
         $query = AuditLog::query();
 
-        if (! $user->isAdmin() && $user->isCaseManager()) {
-            $caseIds = CaseFile::where('user_id', $user->id)->pluck('id');
-            $referralIds = Referral::whereIn('case_id', $caseIds)->pluck('id');
-            $entityIds = $caseIds->concat($referralIds)->unique()->values()->toArray();
-            $query->whereIn('entity_id', $entityIds);
+        if (! $user->isAdmin()) {
+            $query->whereIn('entity_id', $this->scopedEntityIds($user));
         }
 
         $categories = $this->requestedCategories($request);
@@ -229,11 +240,13 @@ class AuditLogController extends Controller
             $q->where('user_id', $request->input('user_id'));
         });
 
-        $query->when($request->filled('date_from'), function ($q) use ($request) {
+        // Only apply date bounds when they are well-formed Y-m-d values, so a
+        // malformed query param is ignored rather than raising a SQL cast error.
+        $query->when($this->isValidYmd($request->input('date_from')), function ($q) use ($request) {
             $q->where('timestamp', '>=', $request->input('date_from'));
         });
 
-        $query->when($request->filled('date_to'), function ($q) use ($request) {
+        $query->when($this->isValidYmd($request->input('date_to')), function ($q) use ($request) {
             $q->where('timestamp', '<=', $request->input('date_to').' 23:59:59');
         });
 
@@ -243,6 +256,74 @@ class AuditLogController extends Controller
         });
 
         return $query;
+    }
+
+    /**
+     * The audit-log entity_ids a non-admin user is allowed to see. Entity ids
+     * are globally-unique UUIDs, so an id-set filter fully isolates each role.
+     * An empty set means "see nothing" (whereIn([]) matches no rows).
+     */
+    private function scopedEntityIds($user): array
+    {
+        if ($user->isCaseManager()) {
+            $caseIds = CaseFile::where('user_id', $user->id)->pluck('id');
+            $referralIds = Referral::whereIn('case_id', $caseIds)->pluck('id');
+
+            return $this->caseScopeEntityIds($caseIds, $referralIds);
+        }
+
+        if ($user->isAgency()) {
+            // An agency user with no agency sees nothing.
+            if (! $user->agcy_id) {
+                return [];
+            }
+
+            $agencyReferrals = Referral::where('agcy_id', $user->agcy_id)->get(['id', 'case_id']);
+            $referralIds = $agencyReferrals->pluck('id');
+            $caseIds = $agencyReferrals->pluck('case_id')->filter()->unique();
+
+            return $this->caseScopeEntityIds($caseIds, $referralIds);
+        }
+
+        return [];
+    }
+
+    /**
+     * Expand a set of cases + referrals to every audit entity_id under them:
+     * the cases and referrals themselves plus those referrals' milestones and
+     * attachments (soft-deleted attachments included for a complete trail).
+     * Shared by the case-manager and agency scopes so both are equally complete.
+     */
+    private function caseScopeEntityIds($caseIds, $referralIds): array
+    {
+        $milestoneIds = Milestone::whereIn('refr_id', $referralIds)->pluck('id');
+        $attachmentIds = ReferralAttachment::withTrashed()
+            ->whereIn('referral_id', $referralIds)
+            ->pluck('id');
+
+        return collect($caseIds)
+            ->concat($referralIds)
+            ->concat($milestoneIds)
+            ->concat($attachmentIds)
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    /** True only for a strict, well-formed Y-m-d date string. */
+    private function isValidYmd(?string $value): bool
+    {
+        if (! $value) {
+            return false;
+        }
+
+        try {
+            $parsed = Carbon::createFromFormat('Y-m-d', $value);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $parsed !== false && $parsed->format('Y-m-d') === $value;
     }
 
     /**
@@ -278,8 +359,8 @@ class AuditLogController extends Controller
     private function logExportAttempt(Request $request, string $result): void
     {
         AuditLog::create([
-            'action' => 'EXPORT',
-            'module' => 'audit',
+            'action' => AuditAction::EXPORT->value,
+            'module' => AuditModule::AUDIT->value,
             'entity_id' => $request->user()->id,
             'description' => sprintf('%s requested an audit log export — %s', $request->user()->name, $result),
             'new_value' => [
@@ -424,26 +505,12 @@ class AuditLogController extends Controller
         return response()->json($logs);
     }
 
+    /**
+     * Every stored spelling (canonical + legacy aliases) a module filter should
+     * match. Delegates to AuditModule; unrecognised modules match themselves.
+     */
     public static function moduleAliases(string $module): array
     {
-        return match (strtolower($module)) {
-            'case_files', 'case', 'cases' => ['case_files', 'case', 'cases', 'CASE'],
-            'clients', 'client' => ['clients', 'client'],
-            'client_addresses', 'client_address' => ['client_addresses', 'client_address'],
-            'client_employments', 'client_employment' => ['client_employments', 'client_employment'],
-            'referrals', 'referral' => ['referrals', 'referral', 'REFERRAL'],
-            'milestones', 'milestone' => ['milestones', 'milestone'],
-            'referral_attachments', 'referral_attachment' => ['referral_attachments', 'referral_attachment'],
-            'agencies', 'agency' => ['agencies', 'agency'],
-            'users', 'user' => ['users', 'user'],
-            'services', 'service' => ['services', 'service'],
-            'service_requirements', 'service_requirement' => ['service_requirements', 'service_requirement'],
-            'case_categories', 'case_category' => ['case_categories', 'case_category'],
-            'case_issues', 'case_issue' => ['case_issues', 'case_issue'],
-            'case_statuses', 'case_status' => ['case_statuses', 'case_status'],
-            'feedbacks', 'feedback' => ['feedbacks', 'feedback'],
-            'helpdesk_articles', 'helpdesk_article' => ['helpdesk_articles', 'helpdesk_article'],
-            default => [$module],
-        };
+        return AuditModule::tryFromLegacy($module)?->aliases() ?? [$module];
     }
 }

@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { formatRelativeTime, formatDateGroup, formatTimeAgo } from '@/lib/relativeTime';
+import { ChangesTable, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
 
 /**
  * @param {Object} props
@@ -105,62 +106,8 @@ export function AuditTimeline({
     );
 }
 
-const ACTION_STYLES = {
-    CREATE: { dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', icon: 'add_circle' },
-    UPDATE: { dot: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700', icon: 'edit' },
-    DELETE: { dot: 'bg-red-500', badge: 'bg-red-100 text-red-700', icon: 'delete' },
-    LOGIN: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'login' },
-    LOGOUT: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'logout' },
-    LOGIN_FAILED: { dot: 'bg-amber-500', badge: 'bg-amber-100 text-amber-800', icon: 'gpp_maybe' },
-    EXPORT: { dot: 'bg-violet-500', badge: 'bg-violet-100 text-violet-700', icon: 'download' },
-    PUBLISH: { dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', icon: 'publish' },
-};
-
-const CATEGORY_LABELS = {
-    security: 'Security',
-    data: 'Data',
-    admin: 'Admin',
-    system: 'System',
-};
-
-function ChangesTable({ changes, compact }) {
-    if (!changes || changes.length === 0) return null;
-
-    if (compact && changes.length > 3) {
-        return (
-            <p className="text-xs text-slate-500">
-                {changes.slice(0, 3).map(c => `${c.field}: ${c.old} → ${c.new}`).join(', ')}
-                <span className="text-slate-400 ml-1">+{changes.length - 3} more</span>
-            </p>
-        );
-    }
-
-    return (
-        <div className="border border-slate-200 rounded-md overflow-hidden">
-            <table className="w-full text-xs text-slate-600">
-                <thead className="bg-slate-50 text-slate-700 uppercase text-[11px]">
-                    <tr>
-                        <th className="px-3 py-1.5 border-b border-slate-200 text-left">Field</th>
-                        <th className="px-3 py-1.5 border-b border-slate-200 text-left">Old Value</th>
-                        <th className="px-3 py-1.5 border-b border-slate-200 text-left">New Value</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                    {changes.map((c, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
-                            <td className="px-3 py-1.5 font-mono text-[11px] font-medium text-slate-700">{c.fieldLabel || c.field}</td>
-                            <td className="px-3 py-1.5 text-red-600 break-words max-w-[200px] bg-red-50/30">{c.old || '-'}</td>
-                            <td className="px-3 py-1.5 text-emerald-600 break-words max-w-[200px] bg-emerald-50/30">{c.new || '-'}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-}
-
 function TimelineEntry({ log }) {
-    const style = ACTION_STYLES[log.action] || { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'info' };
+    const style = actionStyle(log.action);
 
     const actorName = log.actor || log.user?.name || '??';
 

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Services\Export\ColumnMaps;
@@ -55,8 +57,8 @@ class DataExportController extends Controller
         $filename = 'bayanihan-full-export-'.now()->format('Ymd-His').'.xlsx';
 
         AuditLog::create([
-            'action' => 'EXPORT',
-            'module' => 'data_export',
+            'action' => AuditAction::EXPORT->value,
+            'module' => AuditModule::DATA_EXPORT->value,
             'entity_id' => $user->id,
             'description' => sprintf('%s exported the full data workbook (%d tables)', $user->name, count(ColumnMaps::getAllTables())),
             'new_value' => ['tables' => ColumnMaps::getAllTables(), 'filename' => $filename],

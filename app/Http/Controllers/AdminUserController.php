@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
 use App\Mail\EmailChangedNotification;
 use App\Mail\UserInviteMail;
@@ -10,6 +12,7 @@ use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Services\AuditCategory;
 use App\Services\DefaultAgencyService;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
@@ -228,11 +231,15 @@ class AdminUserController extends Controller
             );
 
             AuditLog::create([
-                'action' => 'UPDATE',
-                'module' => 'email',
+                'action' => AuditAction::UPDATE->value,
+                'module' => AuditModule::USER->value,
+                // Account-credential change: must appear in the Security view
+                // (matches EmailChangeController).
+                'category' => AuditCategory::SECURITY,
                 'entity_id' => $user->id,
                 'old_value' => ['email' => $oldEmail],
                 'new_value' => ['email' => $validated['email']],
+                'description' => 'Email changed from '.$oldEmail.' to '.$validated['email'].' by administrator',
                 'user_id' => $request->user()->id,
                 'timestamp' => now(),
             ]);
@@ -371,8 +378,8 @@ class AdminUserController extends Controller
         $user->save();
 
         AuditLog::create([
-            'action' => 'UPDATE',
-            'module' => 'user',
+            'action' => AuditAction::UPDATE->value,
+            'module' => AuditModule::USER->value,
             'entity_id' => $user->id,
             'user_id' => auth()->id(),
             'timestamp' => now(),

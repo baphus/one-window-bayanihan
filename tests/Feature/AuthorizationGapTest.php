@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -195,6 +198,8 @@ class AuthorizationGapTest extends TestCase
 
     public function test_case_manager_sees_only_own_case_audit_logs(): void
     {
+        $this->withoutMiddleware([HandleInertiaRequests::class, SetPostgresSession::class]);
+
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
         $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
 
@@ -217,13 +222,43 @@ class AuthorizationGapTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $response = $this->actingAs($manager)->get('/audit-logs');
+        $data = $this->actingAs($manager)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs')
+            ->json('props.logs.data');
 
-        $response->assertStatus(200);
+        $entityIds = collect($data)->pluck('entity_id')->all();
 
-        // Use DOM to verify scoped audit log data in Inertia page
-        $content = $response->getContent();
-        $this->assertNotNull($content);
+        // The manager sees activity on their own case, never another manager's.
+        $this->assertContains($ownCase->id, $entityIds);
+        $this->assertNotContains($otherCase->id, $entityIds);
+    }
+
+    public function test_case_manager_sees_milestone_activity_on_their_referrals(): void
+    {
+        $this->withoutMiddleware([HandleInertiaRequests::class, SetPostgresSession::class]);
+
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $case = CaseFile::factory()->create(['user_id' => $manager->id]);
+        $referral = Referral::factory()->create(['case_id' => $case->id]);
+        $milestone = Milestone::factory()->create(['refr_id' => $referral->id]);
+
+        AuditLog::truncate();
+        AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'milestone',
+            'entity_id' => $milestone->id,
+            'description' => 'MILESTONE ON MY CASE',
+            'category' => 'data',
+            'timestamp' => now(),
+        ]);
+
+        $data = $this->actingAs($manager)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs')
+            ->json('props.logs.data');
+
+        $this->assertContains($milestone->id, collect($data)->pluck('entity_id')->all());
     }
 
     // ──────────────────────────────────────────────

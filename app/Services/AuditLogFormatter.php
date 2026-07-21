@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditModule;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseIssue;
@@ -60,34 +61,10 @@ class AuditLogFormatter
 
     public function formatModule(string $module): string
     {
-        $normalized = strtolower($module);
-
-        return match ($normalized) {
-            'case_files' => 'Case',
-            'cases' => 'Case',
-            'case' => 'Case',
-            'clients' => 'Client',
-            'client' => 'Client',
-            'client_addresses' => 'Address',
-            'client_address' => 'Address',
-            'client_employments' => 'Employment Record',
-            'client_employment' => 'Employment Record',
-            'referrals' => 'Referral',
-            'referral' => 'Referral',
-            'milestones' => 'Milestone',
-            'milestone' => 'Milestone',
-            'referral_attachments' => 'Attachment',
-            'referral_attachment' => 'Attachment',
-            'agencies' => 'Agency',
-            'agency' => 'Agency',
-            'users' => 'User',
-            'user' => 'User',
-            'services' => 'Service',
-            'service' => 'Service',
-            'helpdesk_articles' => 'Helpdesk Article',
-            'helpdesk_article' => 'Helpdesk Article',
-            default => ucfirst(str_replace('_', ' ', $normalized)),
-        };
+        // Module identity, aliases and labels are centralised on AuditModule.
+        // Unrecognised modules fall back to a Title-Cased spelling.
+        return AuditModule::tryFromLegacy($module)?->label()
+            ?? ucwords(str_replace('_', ' ', strtolower($module)));
     }
 
     public function formatFieldName(string $field): string
@@ -234,6 +211,20 @@ class AuditLogFormatter
         return $stringValue;
     }
 
+    /**
+     * Stable display contract consumed by every frontend audit surface
+     * (resources/js/lib/audit.jsx and the three renderers). Controllers attach
+     * these keys onto each row; the shape must not drift without updating the
+     * JS side:
+     *   message    string  human-readable description
+     *   detail     string  reserved secondary line (currently empty)
+     *   changes    array   [{ field, fieldLabel, old, new }]
+     *   action     string  raw AuditAction value (e.g. "UPDATE")
+     *   module     string  human module label (e.g. "Case")
+     *   actor      string  actor name, or "System"
+     *   timestamp  string  ISO-8601
+     *   hasChanges bool
+     */
     public function formatForDisplay(AuditLog $log): array
     {
         $description = $this->format($log);

@@ -50,11 +50,13 @@ class AuditLogExportTest extends TestCase
             ->assertStatus(403);
     }
 
-    public function test_agency_cannot_access_audit_logs_at_all(): void
+    public function test_agency_can_view_scoped_logs_but_cannot_export(): void
     {
         $agencyUser = User::factory()->create(['role' => 'AGENCY']);
 
-        $this->actingAs($agencyUser)->get('/audit-logs')->assertStatus(403);
+        // Agency Focal may open the scoped activity log …
+        $this->actingAs($agencyUser)->get('/audit-logs')->assertStatus(200);
+        // … but exporting remains an admin-only action (route-gated).
         $this->actingAs($agencyUser)->get('/audit-logs/export')->assertStatus(403);
     }
 

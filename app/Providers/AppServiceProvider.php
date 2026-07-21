@@ -6,21 +6,15 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Listeners\EmailEventSubscriber;
 use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
+use App\Listeners\LogSuccessfulLogout;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\CaseStatus;
-use App\Models\Client;
-use App\Models\ClientAddress;
-use App\Models\ClientEmployment;
 use App\Models\Milestone;
 use App\Models\Referral;
-use App\Models\ReferralAttachment;
-use App\Models\ReferralClientAccessLink;
-use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientRequest;
-use App\Models\ReferralClientRequestItem;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
 use App\Models\SurveyInvitation;
@@ -33,6 +27,7 @@ use App\Services\Malware\NullScanner;
 use Cloudinary\Configuration\Configuration;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationSent;
@@ -74,28 +69,9 @@ class AppServiceProvider extends ServiceProvider
             return Password::min(8)->mixedCase()->numbers()->symbols();
         });
 
-        $auditableModels = [
-            CaseFile::class,
-            Client::class,
-            ClientAddress::class,
-            ClientEmployment::class,
-            Referral::class,
-            Milestone::class,
-            ReferralAttachment::class,
-            Agency::class,
-            User::class,
-            Service::class,
-            ServiceRequirement::class,
-            CaseCategory::class,
-            CaseIssue::class,
-            CaseStatus::class,
-            ReferralClientRequest::class,
-            ReferralClientRequestItem::class,
-            ReferralClientMessage::class,
-            ReferralClientAccessLink::class,
-        ];
-
-        foreach ($auditableModels as $model) {
+        // Audited models are declared in config/audit.php (single source of
+        // truth, asserted by AuditModelCoverageTest).
+        foreach (config('audit.observed_models', []) as $model) {
             $model::observe(AuditObserver::class);
         }
 
@@ -201,6 +177,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
+        Event::listen(Logout::class, LogSuccessfulLogout::class);
         Event::listen(Failed::class, LogFailedLogin::class);
         // SendSurveyRequest is auto-discovered (handle() type-hints ReferralCompleted);
         // registering it here as well would make it run twice per completion and violate

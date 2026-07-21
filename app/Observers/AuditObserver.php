@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Enums\AuditAction;
 use App\Models\AuditLog;
 use App\Services\AuditLogFormatter;
 use Illuminate\Support\Facades\Auth;
@@ -12,7 +13,7 @@ class AuditObserver
 {
     public function created($model): void
     {
-        $this->log('CREATE', $model, null, $this->filterKeys($model->getAttributes(), $model));
+        $this->log(AuditAction::CREATE->value, $model, null, $this->filterKeys($model->getAttributes(), $model));
     }
 
     public function updated($model): void
@@ -29,17 +30,17 @@ class AuditObserver
             return;
         }
 
-        $this->log('UPDATE', $model, $old, $new);
+        $this->log(AuditAction::UPDATE->value, $model, $old, $new);
     }
 
     public function deleted($model): void
     {
-        $this->log('DELETE', $model, $this->filterKeys($model->getAttributes(), $model), null);
+        $this->log(AuditAction::DELETE->value, $model, $this->filterKeys($model->getAttributes(), $model), null);
     }
 
     public function restored($model): void
     {
-        $this->log('UPDATE', $model, ['is_deleted' => true], ['is_deleted' => false]);
+        $this->log(AuditAction::UPDATE->value, $model, ['is_deleted' => true], ['is_deleted' => false]);
     }
 
     private function log(string $action, $model, ?array $old, ?array $new): void

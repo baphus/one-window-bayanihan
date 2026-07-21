@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Http\Requests\EmailChangeInitRequest;
 use App\Http\Requests\EmailChangeSendOtpRequest;
 use App\Http\Requests\EmailChangeVerifyOtpRequest;
@@ -98,8 +100,8 @@ class EmailChangeController extends Controller
 
         // Audit the email change (email is excluded from AuditObserver to prevent noise in general updates)
         AuditLog::create([
-            'action' => 'UPDATE',
-            'module' => 'user',
+            'action' => AuditAction::UPDATE->value,
+            'module' => AuditModule::USER->value,
             // Account-credential change: must appear in the Security view
             'category' => AuditCategory::SECURITY,
             'entity_id' => $user->id,

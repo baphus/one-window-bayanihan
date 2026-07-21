@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use Illuminate\Auth\Events\PasswordReset;
@@ -56,8 +58,8 @@ class NewPasswordController extends Controller
                 event(new PasswordReset($user));
 
                 AuditLog::create([
-                    'action' => 'UPDATE',
-                    'module' => 'auth',
+                    'action' => AuditAction::UPDATE->value,
+                    'module' => AuditModule::AUTH->value,
                     'entity_id' => $user->id,
                     'description' => 'Password reset via email link',
                     'user_id' => $user->id,

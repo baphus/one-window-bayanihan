@@ -128,10 +128,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
         Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
 
-        Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+        // Export stays admin-only (controller enforces isAdmin); route kept
+        // here so Agency Focal never sees an export surface.
         Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
 
         Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs');
+    });
+
+    // Activity/Audit log viewer — CASE_MANAGER + ADMIN + AGENCY. Each role's
+    // visible rows are scoped in AuditLogController::buildFilteredQuery:
+    // admin sees all, case manager sees their cases, agency sees their
+    // agency's referrals and the cases those referrals belong to.
+    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });
 
     // Case show: AGENCY can view cases with active referrals (authorized in controller)

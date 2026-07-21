@@ -2,10 +2,18 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
+
 /**
  * Single source of truth for audit event categories (see design D5).
  * Stamped at write time in AuditLog::saving and reused by the
  * audit:backfill-categories command.
+ *
+ * Module identity, aliases and the module->category mapping now live on the
+ * App\Enums\AuditModule enum; action-based security promotion lives on
+ * App\Enums\AuditAction. This class composes those into the runtime and
+ * backfill classification rules.
  */
 final class AuditCategory
 {
@@ -19,45 +27,9 @@ final class AuditCategory
 
     public const ALL = [self::SECURITY, self::DATA, self::ADMIN, self::SYSTEM];
 
-    /** Auth/account-security surfaces, regardless of action. */
-    private const SECURITY_MODULES = ['auth', 'security', 'session', 'mfa'];
-
-    private const SECURITY_ACTIONS = ['LOGIN', 'LOGOUT', 'LOGIN_FAILED'];
-
-    /** Business entities (canonical names + legacy aliases found in data). */
-    private const DATA_MODULES = [
-        'case', 'cases', 'case_files',
-        'client', 'clients',
-        'client_address', 'client_addresses',
-        'client_employment', 'client_employments',
-        'referral', 'referrals',
-        'milestone', 'milestones',
-        'referral_attachment', 'referral_attachments',
-        'feedback', 'feedbacks',
-        'next_of_kin', 'next_of_kins',
-    ];
-
-    /** Configuration and administration surfaces. */
-    private const ADMIN_MODULES = [
-        'user', 'users',
-        'agency', 'agencies',
-        'service', 'services',
-        'service_requirement', 'service_requirements',
-        'case_category', 'case_categories',
-        'case_issue', 'case_issues',
-        'case_status', 'case_statuses',
-        'helpdesk_article', 'helpdesk_articles',
-        'audit', 'data_export',
-        'email_log', 'email_logs',
-        'system_setting', 'system_settings',
-    ];
-
     public static function for(string $module, string $action, ?string $userId): string
     {
-        $module = strtolower($module);
-
-        if (in_array($module, self::SECURITY_MODULES, true)
-            || in_array(strtoupper($action), self::SECURITY_ACTIONS, true)) {
+        if (self::isSecurity($module, $action)) {
             return self::SECURITY;
         }
 
@@ -67,16 +39,7 @@ final class AuditCategory
             return self::SYSTEM;
         }
 
-        if (in_array($module, self::DATA_MODULES, true)) {
-            return self::DATA;
-        }
-
-        if (in_array($module, self::ADMIN_MODULES, true)) {
-            return self::ADMIN;
-        }
-
-        // Unknown modules stay visible in the default admin view.
-        return self::DATA;
+        return self::moduleCategory($module);
     }
 
     /**
@@ -85,10 +48,7 @@ final class AuditCategory
      */
     public static function forBackfill(string $module, string $action, ?string $userId): string
     {
-        $module = strtolower($module);
-
-        if (in_array($module, self::SECURITY_MODULES, true)
-            || in_array(strtoupper($action), self::SECURITY_ACTIONS, true)) {
+        if (self::isSecurity($module, $action)) {
             return self::SECURITY;
         }
 
@@ -96,14 +56,22 @@ final class AuditCategory
             return self::SYSTEM;
         }
 
-        if (in_array($module, self::DATA_MODULES, true)) {
-            return self::DATA;
+        return self::moduleCategory($module);
+    }
+
+    /** Security when the module is a security surface OR the action is a security event. */
+    private static function isSecurity(string $module, string $action): bool
+    {
+        if (AuditModule::tryFromLegacy($module)?->isSecurity() === true) {
+            return true;
         }
 
-        if (in_array($module, self::ADMIN_MODULES, true)) {
-            return self::ADMIN;
-        }
+        return AuditAction::tryFrom(strtoupper($action))?->isSecurityEvent() === true;
+    }
 
-        return self::DATA;
+    /** Module's intrinsic category; unknown modules stay visible in the default view (data). */
+    private static function moduleCategory(string $module): string
+    {
+        return AuditModule::tryFromLegacy($module)?->category() ?? self::DATA;
     }
 }

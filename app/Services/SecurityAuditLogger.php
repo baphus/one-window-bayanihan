@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ use Illuminate\Support\Str;
  */
 class SecurityAuditLogger
 {
-    public static function log(string $module, string $description, ?string $entityId = null, string $action = 'UPDATE'): void
+    public static function log(string $module, string $description, ?string $entityId = null, string $action = AuditAction::UPDATE->value): void
     {
         $request = request();
 
