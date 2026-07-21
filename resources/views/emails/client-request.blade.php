@@ -1,40 +1,33 @@
 <x-mail::message>
-<x-mail::status-badge
-    status="{{ $clientRequest->type === \App\Models\ReferralClientRequest::TYPE_DOCUMENT_REQUEST ? 'pending' : 'processing' }}"
-    label="{{ $requestTypeLabel }}"
-/>
+<x-mail::status-badge status="{{ $clientRequest->type === \App\Models\ReferralClientRequest::TYPE_DOCUMENT_REQUEST ? 'pending' : 'processing' }}" label="{{ $requestTypeLabel }}" />
 
-<p style="color: #a1a1aa; font-size: 13px; margin: 0 0 16px 0;">
-    Case {{ $caseNumber }}
+<p style="color: #a1a1aa; font-size: 12px; margin: 12px 0 24px 0;">Case {{ $caseNumber }}</p>
+
+# Action Required
+
+<p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 20px 0;">
+    Dear {{ $clientName }},
 </p>
 
-<p style="font-size: 16px; line-height: 1.6; color: #18181b; margin: 0 0 16px 0;">
-    Hi {{ $clientName }},
-</p>
-
-<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0;">
-    <strong>{{ $agencyName }}</strong> needs the following from you regarding your case:
+<p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 20px 0;">
+    {{ $agencyName }} requires the following from you to continue processing your case.
 </p>
 
 @if($clientRequest->type === \App\Models\ReferralClientRequest::TYPE_DOCUMENT_REQUEST && count($checklistItems) > 0)
-<h3 style="font-size: 16px; font-weight: 700; color: #18181b; margin: 0 0 12px 0;">Required Documents</h3>
+<p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 24px 0 8px 0;">Required Documents</p>
+
 <x-mail::checklist :items="$checklistItems" />
 @endif
 
 @if($clientRequest->instructions)
-<h3 style="font-size: 16px; font-weight: 700; color: #18181b; margin: 24px 0 12px 0;">Instructions</h3>
-<p style="font-size: 15px; line-height: 1.6; color: #52525b; margin: 0 0 24px 0;">{{ $clientRequest->instructions }}</p>
+<p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 24px 0 8px 0;">Instructions</p>
+<p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 24px 0;">{{ $clientRequest->instructions }}</p>
 @endif
 
-<x-mail::action-card
-    url="{{ $magicLink }}"
-    label="Submit Documents"
-    :deadline="$dueDate"
-    :urgency="!is_null($dueDate)"
-/>
+<x-mail::action-card url="{{ $magicLink }}" label="Submit Documents" :deadline="$dueDate" :urgency="!is_null($dueDate)" />
 
-<p style="font-size: 13px; line-height: 1.5; color: #52525b; margin: 16px 0 0 0;">
-    Need more time? Reply to this email or contact the agency directly. This secure link expires in seven days.
+<p style="font-size: 13px; line-height: 1.7; color: #71717a; margin: 0;">
+    This secure link expires in seven days. If you need more time or have questions, reply to this email or contact our office directly.
 </p>
 
 <x-mail::contact-footer />

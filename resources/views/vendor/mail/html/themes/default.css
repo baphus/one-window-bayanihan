@@ -1,126 +1,103 @@
 /*
 |--------------------------------------------------------------------------
-| One Window Bayanihan — Email Design System
+| One Window Bayanihan — Email Theme
 |--------------------------------------------------------------------------
-| DMW Region VII case-management emails.
-| Tailwind-aligned tokens. Table-safe only — no flexbox/grid.
-| These styles are auto-inlined by Laravel's CssToInlineStyles.
-| Defensive inline styles mirror every class for clients that strip <style>.
+| DMW Region VII. Table-safe, auto-inlined by CssToInlineStyles.
 |--------------------------------------------------------------------------
 */
 
-/* =========================================================================
-   Design Tokens (mapped to Tailwind config)
-   ========================================================================= */
-
-:root {
-  --color-primary: #005288;
-  --color-primary-light: #e8f4fd;
-  --color-success: #16a34a;
-  --color-success-light: #f0fdf4;
-  --color-warning: #d97706;
-  --color-warning-light: #fffbeb;
-  --color-danger: #dc2626;
-  --color-danger-light: #fef2f2;
-  --color-text: #18181b;
-  --color-text-muted: #52525b;
-  --color-text-faint: #a1a1aa;
-  --color-border: #e4e4e7;
-  --color-bg-subtle: #fafafa;
-}
-
-/* =========================================================================
-   Base
-   ========================================================================= */
+/* Base */
 
 body,
 body *:not(html):not(style):not(br):not(tr):not(code) {
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   position: relative;
 }
 
 body {
   -webkit-text-size-adjust: none;
-  background-color: #ffffff;
-  color: #52525b;
+  background-color: #f4f6f9;
+  color: #18181b;
   height: 100%;
-  line-height: 1.4;
+  line-height: 1.7;
   margin: 0;
   padding: 0;
   width: 100% !important;
+  font-size: 15px;
 }
 
-p,
-ul,
-ol,
-blockquote {
-  line-height: 1.4;
-  text-align: start;
+p, ul, ol, blockquote {
+  line-height: 1.7;
+  text-align: left;
 }
 
 a {
   color: #005288;
+  text-decoration: underline;
 }
 
 a img {
   border: none;
 }
 
-/* =========================================================================
-   Typography
-   ========================================================================= */
+/* Typography */
 
 h1 {
   color: #18181b;
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 700;
   margin-top: 0;
-  text-align: start;
+  margin-bottom: 20px;
+  text-align: left;
+  line-height: 1.35;
 }
 
 h2 {
   color: #18181b;
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 17px;
+  font-weight: 700;
   margin-top: 0;
-  text-align: start;
+  margin-bottom: 14px;
+  text-align: left;
+  line-height: 1.35;
 }
 
 h3 {
   color: #18181b;
-  font-size: 14px;
-  font-weight: bold;
+  font-size: 15px;
+  font-weight: 600;
   margin-top: 0;
+  margin-bottom: 10px;
   text-align: left;
+  line-height: 1.4;
 }
 
 p {
-  font-size: 16px;
-  line-height: 1.5em;
+  font-size: 15px;
+  line-height: 1.7;
   margin-top: 0;
+  margin-bottom: 18px;
   text-align: left;
-  color: #52525b;
+  color: #3f3f46;
 }
 
 p.sub {
-  font-size: 12px;
+  font-size: 13px;
+  color: #71717a;
 }
 
 img {
   max-width: 100%;
 }
 
-/* =========================================================================
-   Layout
-   ========================================================================= */
+/* Layout */
 
 .wrapper {
   -premailer-cellpadding: 0;
   -premailer-cellspacing: 0;
   -premailer-width: 100%;
-  background-color: #fafafa;
+  background-color: #f4f6f9;
   margin: 0;
   padding: 0;
   width: 100%;
@@ -135,44 +112,38 @@ img {
   width: 100%;
 }
 
-/* =========================================================================
-   Header
-   ========================================================================= */
+/* Header */
 
 .header {
-  padding: 25px 0;
+  padding: 40px 0 28px 0;
   text-align: center;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e4e4e7;
 }
 
 .header a {
   color: #005288;
   font-size: 19px;
-  font-weight: bold;
+  font-weight: 700;
   text-decoration: none;
+  display: inline-block;
 }
-
-/* =========================================================================
-   Logo
-   ========================================================================= */
 
 .logo {
-  height: 72px;
-  margin-top: 15px;
-  margin-bottom: 10px;
-  max-height: 72px;
+  height: 56px;
+  max-height: 56px;
+  margin-bottom: 12px;
 }
 
-/* =========================================================================
-   Body
-   ========================================================================= */
+/* Body */
 
 .body {
   -premailer-cellpadding: 0;
   -premailer-cellspacing: 0;
   -premailer-width: 100%;
-  background-color: #fafafa;
-  border-bottom: 1px solid #fafafa;
-  border-top: 1px solid #fafafa;
+  background-color: #f4f6f9;
+  border-bottom: 1px solid #f4f6f9;
+  border-top: 1px solid #f4f6f9;
   margin: 0;
   padding: 0;
   width: 100%;
@@ -181,298 +152,183 @@ img {
 .inner-body {
   -premailer-cellpadding: 0;
   -premailer-cellspacing: 0;
-  -premailer-width: 570px;
+  -premailer-width: 600px;
   background-color: #ffffff;
-  border-color: #e4e4e7;
-  border-radius: 4px;
-  border-width: 1px;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   margin: 0 auto;
   padding: 0;
-  width: 570px;
+  width: 600px;
+  overflow: hidden;
 }
 
 .inner-body a {
   word-break: break-all;
 }
 
-/* =========================================================================
-   Subcopy
-   ========================================================================= */
+/* Content */
+
+.content-cell {
+  max-width: 100vw;
+  padding: 44px 48px;
+}
+
+/* Subcopy */
 
 .subcopy {
   border-top: 1px solid #e4e4e7;
-  margin-top: 25px;
-  padding-top: 25px;
+  margin-top: 32px;
+  padding-top: 20px;
 }
 
 .subcopy p {
-  font-size: 14px;
+  font-size: 13px;
+  color: #71717a;
 }
 
-/* =========================================================================
-   Footer
-   ========================================================================= */
+/* Footer */
 
 .footer {
   -premailer-cellpadding: 0;
   -premailer-cellspacing: 0;
-  -premailer-width: 570px;
+  -premailer-width: 600px;
   margin: 0 auto;
-  padding: 0;
+  padding: 32px 0 48px 0;
   text-align: center;
-  width: 570px;
+  width: 600px;
 }
 
 .footer p {
   color: #a1a1aa;
   font-size: 12px;
   text-align: center;
+  line-height: 1.6;
+  margin-bottom: 0;
 }
 
 .footer a {
-  color: #a1a1aa;
+  color: #71717a;
   text-decoration: underline;
 }
 
-/* =========================================================================
-   Tables
-   ========================================================================= */
+/* Tables */
 
 .table table {
   -premailer-cellpadding: 0;
   -premailer-cellspacing: 0;
   -premailer-width: 100%;
-  margin: 30px auto;
+  margin: 24px auto;
   width: 100%;
 }
 
 .table th {
-  border-bottom: 1px solid #e4e4e7;
-  margin: 0;
-  padding-bottom: 8px;
+  border-bottom: 2px solid #e4e4e7;
+  padding-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
 }
 
 .table td {
-  color: #52525b;
+  color: #18181b;
   font-size: 15px;
-  line-height: 18px;
-  margin: 0;
-  padding: 10px 0;
+  line-height: 1.5;
+  padding: 12px 0;
+  border-bottom: 1px solid #f4f4f5;
 }
 
-.content-cell {
-  max-width: 100vw;
-  padding: 32px;
-}
-
-/* =========================================================================
-   Buttons
-   ========================================================================= */
+/* Buttons */
 
 .action {
   -premailer-cellpadding: 0;
   -premailer-cellspacing: 0;
   -premailer-width: 100%;
-  margin: 30px auto;
+  margin: 32px auto;
   padding: 0;
   text-align: center;
   width: 100%;
-  float: unset;
 }
 
 .button {
   -webkit-text-size-adjust: none;
-  border-radius: 4px;
-  color: #fff;
+  border-radius: 6px;
+  color: #ffffff;
   display: inline-block;
   overflow: hidden;
   text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
 }
 
 .button-blue,
 .button-primary {
   background-color: #005288;
-  border-bottom: 8px solid #005288;
-  border-left: 18px solid #005288;
-  border-right: 18px solid #005288;
-  border-top: 8px solid #005288;
+  border-bottom: 12px solid #005288;
+  border-left: 28px solid #005288;
+  border-right: 28px solid #005288;
+  border-top: 12px solid #005288;
 }
 
 .button-green,
 .button-success {
   background-color: #16a34a;
-  border-bottom: 8px solid #16a34a;
-  border-left: 18px solid #16a34a;
-  border-right: 18px solid #16a34a;
-  border-top: 8px solid #16a34a;
+  border-bottom: 12px solid #16a34a;
+  border-left: 28px solid #16a34a;
+  border-right: 28px solid #16a34a;
+  border-top: 12px solid #16a34a;
 }
 
 .button-red,
 .button-error {
   background-color: #dc2626;
-  border-bottom: 8px solid #dc2626;
-  border-left: 18px solid #dc2626;
-  border-right: 18px solid #dc2626;
-  border-top: 8px solid #dc2626;
+  border-bottom: 12px solid #dc2626;
+  border-left: 28px solid #dc2626;
+  border-right: 28px solid #dc2626;
+  border-top: 12px solid #dc2626;
 }
 
-/* =========================================================================
-   Panels
-   ========================================================================= */
+/* Panels */
 
 .panel {
-  border-left: #005288 solid 4px;
-  margin: 21px 0;
+  border-left: 3px solid #005288;
+  margin: 24px 0;
 }
 
 .panel-content {
-  background-color: #fafafa;
-  color: #52525b;
-  padding: 16px;
+  background-color: #f8fafc;
+  color: #18181b;
+  padding: 20px 24px;
 }
 
 .panel-content p {
-  color: #52525b;
+  color: #3f3f46;
+  font-size: 15px;
 }
 
-.panel-item {
-  padding: 0;
-}
-
-.panel-item p:last-of-type {
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-/* =========================================================================
-   Status Badges
-   ========================================================================= */
+/* Status Badges */
 
 .status-badge {
   display: inline-block;
-  border-radius: 4px;
-  padding: 4px 12px;
-  font-size: 12px;
+  border-radius: 3px;
+  padding: 4px 10px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  mso-line-height-rule: exactly;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
 }
 
-.status-badge-processing {
-  background-color: #e8f4fd;
-  color: #005288;
-}
+.status-badge-processing { background-color: #dbeafe; color: #1e40af; }
+.status-badge-completed  { background-color: #dcfce7; color: #166534; }
+.status-badge-rejected   { background-color: #fee2e2; color: #991b1b; }
+.status-badge-pending    { background-color: #fef9c3; color: #854d0e; }
+.status-badge-referred   { background-color: #e0e7ff; color: #3730a3; }
 
-.status-badge-completed {
-  background-color: #f0fdf4;
-  color: #16a34a;
-}
-
-.status-badge-rejected {
-  background-color: #fef2f2;
-  color: #dc2626;
-}
-
-.status-badge-pending {
-  background-color: #fffbeb;
-  color: #d97706;
-}
-
-/* =========================================================================
-   Timeline
-   ========================================================================= */
-
-.timeline {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.timeline-step {
-  vertical-align: top;
-}
-
-.timeline-circle-completed {
-  background-color: #16a34a;
-  color: #ffffff;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 20px;
-  mso-line-height-rule: exactly;
-}
-
-.timeline-circle-current {
-  border: 2px solid #005288;
-  background-color: #e8f4fd;
-  color: #005288;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 16px;
-  mso-line-height-rule: exactly;
-}
-
-.timeline-circle-pending {
-  border: 2px solid #e4e4e7;
-  background-color: #fafafa;
-  color: #a1a1aa;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 16px;
-  mso-line-height-rule: exactly;
-}
-
-.timeline-connector {
-  width: 1px;
-  height: 30px;
-  background-color: #e4e4e7;
-  margin: 0 auto;
-}
-
-.timeline-label-completed {
-  font-weight: 600;
-  color: #18181b;
-  font-size: 14px;
-}
-
-.timeline-label-current {
-  font-weight: 700;
-  color: #18181b;
-  font-size: 14px;
-}
-
-.timeline-label-pending {
-  font-weight: 400;
-  color: #a1a1aa;
-  font-size: 14px;
-}
-
-.timeline-date {
-  color: #a1a1aa;
-  font-size: 12px;
-}
-
-.timeline-description {
-  color: #52525b;
-  font-size: 13px;
-}
-
-/* =========================================================================
-   Detail Table
-   ========================================================================= */
+/* Detail Table */
 
 .detail-table {
   width: 100%;
@@ -480,46 +336,26 @@ img {
 }
 
 .detail-label {
-  color: #52525b;
+  color: #71717a;
   font-size: 13px;
-  padding: 4px 8px 4px 0;
+  padding: 10px 16px 10px 0;
   white-space: nowrap;
   vertical-align: top;
   text-align: left;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .detail-value {
   color: #18181b;
   font-size: 15px;
   font-weight: 600;
-  padding: 4px 0;
+  padding: 10px 0;
   vertical-align: top;
   text-align: left;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
-/* =========================================================================
-   Action Card
-   ========================================================================= */
-
-.action-card {
-  border: 1px solid #e4e4e7;
-  border-radius: 4px;
-  padding: 24px;
-  background-color: #fafafa;
-  margin: 24px 0;
-  width: 100%;
-  border-collapse: separate;
-}
-
-.action-card-urgent {
-  border-left: 4px solid #dc2626;
-}
-
-/* =========================================================================
-   Checklist
-   ========================================================================= */
+/* Checklist */
 
 .checklist {
   width: 100%;
@@ -527,11 +363,12 @@ img {
 }
 
 .checklist-item {
-  padding: 6px 0;
+  padding: 8px 0;
   color: #18181b;
   font-size: 15px;
-  line-height: 1.4;
+  line-height: 1.5;
   vertical-align: top;
+  border-bottom: 1px solid #f4f4f5;
 }
 
 .checklist-done {
@@ -539,40 +376,90 @@ img {
   text-decoration: line-through;
 }
 
-/* =========================================================================
-   Security Notice
-   ========================================================================= */
+/* Timeline */
 
-.security-notice {
-  border: 1px solid #e4e4e7;
-  border-radius: 4px;
-  padding: 16px;
-  margin: 24px 0;
-  font-size: 13px;
-  color: #52525b;
-  background-color: #fafafa;
-  width: 100%;
-  border-collapse: separate;
-}
-
-/* =========================================================================
-   Contact Footer
-   ========================================================================= */
-
-.contact-footer {
-  border-top: 1px solid #e4e4e7;
-  margin-top: 24px;
-  padding-top: 16px;
-  font-size: 13px;
-  color: #52525b;
+.timeline {
   width: 100%;
   border-collapse: collapse;
 }
 
-/* =========================================================================
-   Utilities
-   ========================================================================= */
-
-.break-all {
-  word-break: break-all;
+.timeline-circle-completed {
+  background-color: #16a34a;
+  color: #ffffff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 22px;
 }
+
+.timeline-circle-current {
+  border: 2px solid #005288;
+  background-color: #eff6ff;
+  color: #005288;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.timeline-circle-pending {
+  border: 2px solid #e4e4e7;
+  background-color: #fafafa;
+  color: #a1a1aa;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.timeline-connector {
+  width: 2px;
+  height: 28px;
+  background-color: #e4e4e7;
+  margin: 0 auto;
+}
+
+.timeline-label-completed { font-weight: 600; color: #18181b; font-size: 14px; }
+.timeline-label-current   { font-weight: 700; color: #005288; font-size: 14px; }
+.timeline-label-pending   { font-weight: 400; color: #a1a1aa; font-size: 14px; }
+.timeline-date            { color: #a1a1aa; font-size: 12px; margin-top: 2px; }
+.timeline-description     { color: #71717a; font-size: 13px; margin-top: 2px; }
+
+/* Responsive — Mobile First */
+
+@media only screen and (max-width: 620px) {
+  .inner-body {
+    width: 100% !important;
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+  }
+  .footer { width: 100% !important; }
+  .content-cell { padding: 24px 20px !important; }
+  .header { padding: 28px 16px 20px 16px !important; }
+  h1 { font-size: 18px !important; }
+  p, td { font-size: 14px !important; }
+  .button, .button-blue, .button-primary {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    padding: 14px 16px !important;
+  }
+  .detail-label { font-size: 12px !important; padding-right: 8px !important; }
+  .detail-value { font-size: 14px !important; }
+  img.logo { height: 44px !important; max-height: 44px !important; }
+}
+
+/* Utilities */
+
+.break-all { word-break: break-all; }
