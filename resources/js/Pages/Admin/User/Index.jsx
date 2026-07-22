@@ -14,6 +14,7 @@ import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 const roleBadgeStyles = {
   ADMIN: 'bg-purple-100 text-purple-800 border-purple-300',
@@ -55,6 +56,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [contextMenu, setContextMenu] = useState(null);
   const [viewMode, setViewMode] = useState('list');
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
@@ -249,7 +251,10 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                   aria-checked={!!row.email_verified_at}
                   title={row.email_verified_at ? 'Verified' : 'Unverified'}
                   onClick={() => {
-                    if (row.email_verified_at && !confirm('Unverifying this user will lock them out until an admin re-verifies them. Continue?')) return;
+                    if (row.email_verified_at) {
+                      setConfirmAction({ type: 'unverify', id: row.id });
+                      return;
+                    }
                     router.patch(route('admin.users.verify', row.id), {}, { preserveScroll: true });
                   }}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${row.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300'}`}
@@ -308,9 +313,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                   {isAdmin && row.is_active && !row.is_deleted && (
                     <button
                       onClick={() => {
-                        if (confirm('Deactivate this user? They will lose access to the system.')) {
-                          router.delete(route('admin.users.destroy', row.id), { preserveScroll: true });
-                        }
+                        setConfirmAction({ type: 'deactivate', id: row.id, name: row.name });
                       }}
                       className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
                     >
@@ -321,9 +324,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                     <>
                     <button
                       onClick={() => {
-                        if (confirm(`Reactivate user "${row.name}"?`)) {
-                          router.patch(route('admin.users.reactivate', row.id), {}, { preserveScroll: true });
-                        }
+                        setConfirmAction({ type: 'reactivate', id: row.id, name: row.name });
                       }}
                       className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200"
                     >
@@ -331,9 +332,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Permanently delete user "${row.name}"? This action cannot be undone.`)) {
-                          router.delete(route('admin.users.destroy', row.id), { preserveScroll: true });
-                        }
+                        setConfirmAction({ type: 'delete', id: row.id, name: row.name });
                       }}
                       className="min-h-[28px] px-2.5 bg-red-600 text-white hover:bg-red-700 text-[11px] font-bold rounded-md transition-colors border border-red-700"
                     >
@@ -629,9 +628,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                             </button>
                             <button
                               onClick={() => {
-                                if (confirm(`Cancel invitation for ${invite.email}?`)) {
-                                  router.delete(route('admin.users.invites.cancel', invite.id), { preserveScroll: true });
-                                }
+                                setConfirmAction({ type: 'cancel-invite', id: invite.id, email: invite.email });
                               }}
                               className="px-2.5 py-1 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
                             >
@@ -670,30 +667,59 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
           }} />
           {contextMenu.row.is_active && !contextMenu.row.is_deleted && (
             <RowContextMenuItem icon="block" label="Deactivate" variant="danger" onClick={() => {
-               if (confirm(`Deactivate user ${contextMenu.row.name}?`)) {
-                  router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
-                }
+               setConfirmAction({ type: 'deactivate', id: contextMenu.row.id, name: contextMenu.row.name });
                 setContextMenu(null);
             }} />
           )}
           {(!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
             <>
             <RowContextMenuItem icon="restart_alt" label="Reactivate" variant="success" onClick={() => {
-               if (confirm(`Reactivate user "${contextMenu.row.name}"?`)) {
-                  router.patch(route('admin.users.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
-                }
+               setConfirmAction({ type: 'reactivate', id: contextMenu.row.id, name: contextMenu.row.name });
                 setContextMenu(null);
             }} />
             <RowContextMenuItem icon="delete" label="Delete permanently" variant="danger" onClick={() => {
-               if (confirm(`Permanently delete user "${contextMenu.row.name}"? This cannot be undone.`)) {
-                  router.delete(route('admin.users.destroy', contextMenu.row.id), { preserveScroll: true });
-                }
+               setConfirmAction({ type: 'delete', id: contextMenu.row.id, name: contextMenu.row.name });
                 setContextMenu(null);
             }} />
             </>
           )}
         </RowContextMenu>
       )}
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.type === 'unverify' ? 'Unverify User'
+          : confirmAction?.type === 'deactivate' ? 'Deactivate User'
+          : confirmAction?.type === 'reactivate' ? 'Reactivate User'
+          : confirmAction?.type === 'delete' ? 'Delete User'
+          : 'Cancel Invitation'}
+        message={confirmAction?.type === 'unverify' ? 'Unverifying this user will lock them out until an admin re-verifies them. Continue?'
+          : confirmAction?.type === 'deactivate' ? `Deactivate user ${confirmAction?.name}? They will lose access to the system.`
+          : confirmAction?.type === 'reactivate' ? `Reactivate user "${confirmAction?.name}"?`
+          : confirmAction?.type === 'delete' ? `Permanently delete user "${confirmAction?.name}"? This cannot be undone.`
+          : `Cancel invitation for ${confirmAction?.email}?`}
+        confirmLabel={confirmAction?.type === 'unverify' ? 'Unverify'
+          : confirmAction?.type === 'deactivate' ? 'Deactivate'
+          : confirmAction?.type === 'reactivate' ? 'Reactivate'
+          : confirmAction?.type === 'delete' ? 'Delete'
+          : 'Cancel'}
+        tone={confirmAction?.type === 'reactivate' ? 'default' : 'danger'}
+        onConfirm={() => {
+          const a = confirmAction;
+          if (a.type === 'unverify') {
+            router.patch(route('admin.users.verify', a.id), {}, { preserveScroll: true });
+          } else if (a.type === 'deactivate') {
+            router.delete(route('admin.users.destroy', a.id), { preserveScroll: true });
+          } else if (a.type === 'reactivate') {
+            router.patch(route('admin.users.reactivate', a.id), {}, { preserveScroll: true });
+          } else if (a.type === 'delete') {
+            router.delete(route('admin.users.destroy', a.id), { preserveScroll: true });
+          } else if (a.type === 'cancel-invite') {
+            router.delete(route('admin.users.invites.cancel', a.id), { preserveScroll: true });
+          }
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </AppLayout>
   );
 }

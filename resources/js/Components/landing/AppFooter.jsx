@@ -6,7 +6,7 @@ export default function AppFooter({ showImage = true }) {
   const [ref, isVisible] = useInView();
 
   return (
-    <footer ref={ref} className={`w-full border-t-4 border-sky-900 bg-slate-100 owb-reveal ${isVisible ? 'is-visible' : ''}`}>
+    <footer ref={ref} className={`w-full border-t-4 border-sky-900 bg-slate-100 owb-fade ${isVisible ? 'is-visible' : ''}`}>
       {showImage && (
         <figure className="relative w-full overflow-hidden border-b border-slate-200/80">
           <img src={FOOTER_COVER} alt="OWBAP cover photo"
@@ -16,11 +16,14 @@ export default function AppFooter({ showImage = true }) {
         </figure>
       )}
 
-      <div className="flex w-full flex-col items-center justify-between gap-8 px-12 py-12 md:flex-row">
+      <div className="flex w-full flex-col items-start justify-between gap-8 px-12 py-12 md:flex-row">
         <div className="flex max-w-md flex-col gap-4">
-          <span className="font-headline text-lg font-bold text-sky-900">One Window Bayanihan Assistance Program</span>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="One Window Bayanihan Logo" className="h-10 w-10 object-contain" />
+            <span className="font-headline text-lg font-bold leading-tight text-sky-900">One Window Bayanihan<span className="block text-[13px] font-semibold uppercase tracking-wider">Assistance Program</span></span>
+          </div>
           <p className="text-[12px] leading-relaxed text-slate-500">
-            A centralized digital infrastructure for the Bureau of Migrant Workers, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
+            A centralized digital infrastructure for the Department of Migrant Workers, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
           </p>
           <p className="mt-2 text-[10px] font-medium tracking-tight text-slate-400">
             In compliance with the Data Privacy Act of 2012 (RA 10173).
@@ -37,7 +40,7 @@ export default function AppFooter({ showImage = true }) {
             <Link href={route('track.index')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Track Your Case</Link>
           </div>
           <div className="text-center text-[9px] uppercase tracking-widest text-slate-500 md:text-right">
-            &copy; 2026 One Window Bayanihan Assistance Program. All Rights Reserved. Bureau of Migrant Workers.
+            &copy; 2026 One Window Bayanihan Assistance Program. All Rights Reserved. Department of Migrant Workers.
           </div>
         </div>
       </div>

@@ -22,7 +22,7 @@ export default function FeaturesSection() {
   const handleNext = () => setActivePhotoIndex((c) => (c + 1) % BAYANIHAN_PHOTOS.length);
 
   return (
-    <section id="features" className="bg-surface-container px-8 pt-8 pb-24">
+    <section id="features" className="scroll-mt-24 bg-surface px-8 pt-4 pb-24">
       <div className="mx-auto max-w-7xl">
         <div ref={headingRef} className={`mb-12 max-w-4xl owb-reveal ${headingVisible ? 'is-visible' : ''}`}>
           <h2 className="font-headline text-2xl font-extrabold text-primary md:text-3xl">
@@ -56,25 +56,54 @@ export default function FeaturesSection() {
           </div>
         </div>
 
-        <div ref={textRef} className={`mt-12 mb-12 grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-start owb-reveal ${textVisible ? 'is-visible' : ''}`}>
-          {/* Text */}
-          <article className="space-y-4 text-sm leading-relaxed text-on-surface-variant md:text-base">
-            <p>One Window Bayanihan Assistance Program (OWBAP) is a unified, ICT-enabled platform designed to transform how assistance is delivered to Overseas Filipino Workers (OFWs).</p>
-            <p>It serves as a centralized inter-agency referral and tracking system, enabling the Department of Migrant Workers (DMW), local government units, and partner agencies to work together through one coordinated digital platform.</p>
-            <p>Built on the principle of<br />&quot;One OFW. One Entry. One Coordinated System.&quot;<br />OWBAP eliminates fragmented processes by introducing a single-entry, assisted case intake, where case managers handle encoding, service assignment, and document management, removing the need for OFWs to repeatedly submit information or navigate multiple offices.</p>
-            <p>Through automated referrals, standardized workflows, and real-time case tracking via a unique tracker number, the system ensures faster response, improved transparency, and seamless coordination from assistance to reintegration.</p>
-            <p>By centralizing case visibility and strengthening inter-agency collaboration, OWBAP delivers efficient, accountable, and people-centered support, ensuring that every OFW receives timely help and that no case is left behind.</p>
-          </article>
-
-          {/* Logo */}
-          <div className="flex items-center justify-center drop-shadow-2xl">
+        <div ref={textRef} className={`mt-12 mb-12 grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:items-start owb-reveal ${textVisible ? 'is-visible' : ''}`}>
+          {/* Diagram */}
+          <div className="flex items-center justify-center">
             <img
-              src="/logo.png"
-              alt="One Window Bayanihan Assistance Program Logo"
-              className="w-full max-w-sm animate-float object-contain"
+              src="/diagram.png"
+              alt="One Window Bayanihan Assistance Program Diagram"
+              className="w-full object-contain"
               loading="lazy"
             />
           </div>
+
+          {/* Text */}
+          <article className="space-y-6 text-sm leading-relaxed text-on-surface-variant md:text-base">
+            <div>
+              <p>
+                <strong> One Window Bayanihan Assistance Program (OWBAP) </strong> is a unified, ICT-enabled platform designed to transform how assistance is delivered to Overseas Filipino Workers (OFWs).
+              </p>
+
+              <p className="mt-3">
+                It serves as a centralized inter-agency referral and tracking system, enabling the Department of Migrant Workers (DMW), local government units, and partner agencies to work together through one coordinated digital platform.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-lg font-semibold text-on-surface">
+                One OFW. One Entry. One Coordinated System.
+              </h3>
+
+              <p>
+                Built on this principle, OWBAP eliminates fragmented processes by introducing a single-entry, assisted case intake.
+              </p>
+
+              <p className="mt-3">
+                Case managers handle case encoding, service assignment, and document management, allowing OFWs to avoid repeatedly submitting the same information or navigating multiple government offices.
+              </p>
+            </div>
+
+
+            <div>
+              <h3 className="mb-2 text-lg font-semibold text-on-surface">
+                Why It Matters
+              </h3>
+
+              <p>
+                By centralizing case visibility and strengthening inter-agency collaboration, OWBAP delivers efficient, accountable, and people-centered support—ensuring that every OFW receives timely assistance and that <strong>no case is left behind.</strong>
+              </p>
+            </div>
+          </article>
         </div>
 
         <div ref={cardsRef} className="owb-stagger grid grid-cols-1 gap-6 md:grid-cols-3">

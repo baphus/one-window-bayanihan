@@ -5,6 +5,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 
@@ -12,6 +13,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [confirmDeleteService, setConfirmDeleteService] = useState(null);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
@@ -75,7 +77,7 @@ export default function AdminServiceIndex({ services, allAgencies }) {
       render: (row) => (
         <div className="flex items-center gap-1.5">
           <button onClick={() => { setEditingService(row); setShowForm(true); }} className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300">Edit</button>
-          <button onClick={() => { if (confirm(`Delete service "${row.name}"?`)) router.delete(route('admin.services.destroy', row.id), { preserveScroll: true }); }} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200">Delete</button>
+          <button onClick={() => { setConfirmDeleteService(row); }} className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200">Delete</button>
         </div>
       ),
     },
@@ -114,13 +116,23 @@ export default function AdminServiceIndex({ services, allAgencies }) {
             setContextMenu(null);
           }} />
           <RowContextMenuItem icon="delete" label="Delete" variant="danger" onClick={() => {
-            if (confirm(`Delete service "${contextMenu.row.name}"?`)) {
-              router.delete(route('admin.services.destroy', contextMenu.row.id), { preserveScroll: true });
-            }
+            setConfirmDeleteService(contextMenu.row);
             setContextMenu(null);
           }} />
         </RowContextMenu>
       )}
+      <ConfirmDialog
+        open={!!confirmDeleteService}
+        title="Delete Service"
+        message={`Delete service "${confirmDeleteService?.name}"?`}
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={() => {
+          router.delete(route('admin.services.destroy', confirmDeleteService.id), { preserveScroll: true });
+          setConfirmDeleteService(null);
+        }}
+        onCancel={() => setConfirmDeleteService(null)}
+      />
     </AppLayout>
   );
 }

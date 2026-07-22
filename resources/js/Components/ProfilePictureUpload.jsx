@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 const sizeMap = {
     sm: 'h-12 w-12 text-sm',
@@ -23,6 +24,7 @@ export default function ProfilePictureUpload({
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
     const [imgError, setImgError] = useState(false);
+    const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
     const fileInputRef = useRef(null);
 
     const displayUrl = preview || currentUrl;
@@ -80,10 +82,11 @@ export default function ProfilePictureUpload({
 
     function handleRemove() {
         if (!clientId) return;
+        setShowRemoveConfirm(true);
+    }
 
-        const confirmed = window.confirm('Are you sure you want to remove this profile picture?');
-        if (!confirmed) return;
-
+    function confirmRemove() {
+        setShowRemoveConfirm(false);
         setUploading(true);
         setError(null);
 
@@ -240,6 +243,16 @@ export default function ProfilePictureUpload({
                     Remove
                 </button>
             )}
+        
+        <ConfirmDialog
+            open={showRemoveConfirm}
+            title="Remove Profile Picture"
+            message="Are you sure you want to remove this profile picture?"
+            confirmLabel="Remove"
+            tone="danger"
+            onConfirm={confirmRemove}
+            onCancel={() => setShowRemoveConfirm(false)}
+        />
         </div>
     );
 }

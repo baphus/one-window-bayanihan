@@ -56,8 +56,8 @@ export default function PublicAgencies({ agencies }) {
         <section className="py-16 px-4">
           <div className="mx-auto max-w-7xl">
             <div ref={gridRef} className={`grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 owb-stagger`}>
-              {agencies.map((agency) => (
-                <div key={agency.id} className={`rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow owb-reveal ${gridVisible ? 'is-visible' : ''}`}>
+              {agencies.map((agency, index) => (
+                <div key={agency.id} className={`rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow ${index < 3 ? 'owb-reveal is-visible' : `owb-reveal ${gridVisible ? 'is-visible' : ''}`}`}>
                   <div className="flex items-center gap-4 mb-4">
                     <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white border border-slate-100">
                       <AgencyLogo agency={agency} />

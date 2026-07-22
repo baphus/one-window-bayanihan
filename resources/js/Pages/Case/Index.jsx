@@ -9,6 +9,7 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ExportDialog from '@/Components/ExportDialog';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -117,6 +118,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   const [isExporting, setIsExporting] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
+  const [confirmArchiveId, setConfirmArchiveId] = useState(null);
   const toast = useToast();
 
   const handleExport = useCallback(() => {
@@ -471,7 +473,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                   </button>
                   {canArchiveCase(row) && (
                     <button
-                      onClick={() => router.post(route('cases.archive', row.id))}
+                      onClick={() => setConfirmArchiveId(row.id)}
                       className="min-h-[28px] px-2.5 bg-gray-100 text-gray-600 hover:bg-gray-200 text-[11px] font-bold rounded-[3px] transition-colors border border-gray-300"
                     >
                       Archive
@@ -868,7 +870,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           }} />
           {canArchiveCase(contextMenu.row) && (
             <RowContextMenuItem icon="archive" label="Archive" onClick={() => {
-              router.post(route('cases.archive', contextMenu.row.id), {}, { preserveScroll: true });
+              setConfirmArchiveId(contextMenu.row.id);
               setContextMenu(null);
             }} />
           )}
@@ -882,6 +884,19 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         activeFilters={activeFilterChips}
         rowCount={exportRowCount}
         onExport={handleExportConfirm}
+      />
+      <ConfirmDialog
+        open={!!confirmArchiveId}
+        title="Archive Case"
+        message="Are you sure you want to archive this case? It will be hidden from the main list but can be unarchived later."
+        confirmLabel="Archive"
+        cancelLabel="Cancel"
+        tone="danger"
+        onConfirm={() => {
+          router.post(route('cases.archive', confirmArchiveId), {}, { preserveScroll: true });
+          setConfirmArchiveId(null);
+        }}
+        onCancel={() => setConfirmArchiveId(null)}
       />
     </AppLayout>
   );

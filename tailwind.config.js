@@ -57,7 +57,7 @@ export default {
                 'on-tertiary-fixed-variant': '#6f3800',
 
                 background: '#f7f9ff',
-                surface: '#f7f9ff',
+                surface: '#f9fafc',
                 'surface-bright': '#ffffff',
                 'surface-dim': '#d7dae0',
                 'surface-container-lowest': '#ffffff',

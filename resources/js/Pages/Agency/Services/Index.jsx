@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react';
 import KpiCard from '@/Components/ui/KpiCard';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 export default function AgencyServicesIndex({ services, allServices }) {
     const { auth } = usePage().props;
@@ -26,6 +27,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
     const [newReqInput, setNewReqInput] = useState('');
 
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const submitRef = useRef(null);
     const [creating, setCreating] = useState(false);
     const [updating, setUpdating] = useState(false);
@@ -179,7 +181,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setDeleteTarget(row)}
+                        onClick={() => { setDeleteTarget(row); setConfirmDeleteOpen(true); }}
                         className="h-8 rounded border border-red-200 bg-red-50 px-3 text-[11px] font-bold text-red-700 hover:bg-red-100"
                     >
                         Delete
@@ -341,28 +343,16 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 </div>
             )}
 
-            {deleteTarget && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
-                        <div className="border-b border-slate-200 px-6 py-5">
-                            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-red-600">Delete Service</p>
-                            <h2 className="text-lg font-bold text-slate-900">Confirm Deletion</h2>
-                        </div>
-                        <div className="px-6 py-5">
-                            <p className="text-sm text-slate-600">
-                                You are about to delete <span className="font-bold text-slate-900">{deleteTarget.name}</span>. This action cannot be undone.
-                            </p>
-                        </div>
-                        <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
-                            <button type="button" onClick={() => setDeleteTarget(null)}
-                                className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-                            <button type="button" onClick={handleDelete}
-                                disabled={deleting}
-                                className="h-9 rounded bg-red-600 px-4 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">{deleting ? 'Deleting…' : 'Delete Service'}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmDialog
+                open={confirmDeleteOpen && !!deleteTarget}
+                title="Delete Service"
+                message={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.` : ''}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                tone="danger"
+                onConfirm={() => { handleDelete(); setConfirmDeleteOpen(false); }}
+                onCancel={() => { setDeleteTarget(null); setConfirmDeleteOpen(false); }}
+            />
             {contextMenu && (
                 <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
                     <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
@@ -371,6 +361,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                     }} />
                     <RowContextMenuItem icon="delete" label="Delete" variant="danger" onClick={() => {
                         setDeleteTarget(contextMenu.row);
+                        setConfirmDeleteOpen(true);
                         setContextMenu(null);
                     }} />
                 </RowContextMenu>
