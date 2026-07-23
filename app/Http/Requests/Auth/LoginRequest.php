@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -39,16 +41,23 @@ class LoginRequest extends FormRequest
      *
      * @throws ValidationException
      */
-    public function authenticate(): void
+    public function authenticate(): ?User
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $user = User::where('email', $this->string('email')->toString())->first();
+        if (! $user || ! Hash::check($this->string('password')->toString(), $user->password)) {
             RateLimiter::hit($this->throttleKey());
+            event(new Failed('web', $user, $this->only('email')));
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
+        }
+
+        if (Hash::needsRehash($user->password)) {
+            $user->forceFill(['password' => $this->string('password')->toString()])->save();
+            $user->refresh();
         }
 
         RateLimiter::clear($this->throttleKey());
@@ -56,17 +65,21 @@ class LoginRequest extends FormRequest
         // After successful credential verification, check the account is still
         // active — prevents recently deactivated/soft-deleted users from logging in
         // without revealing *why* the account was rejected (same generic message).
-        $user = Auth::user();
-
-        if ($user && (! $user->is_active || $user->is_deleted)) {
-            Auth::guard('web')->logout();
-
+        if (! $user->is_active || $user->is_deleted) {
             event(new Failed('web', $user, $this->only('email')));
 
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
             ]);
         }
+
+        if (config('mfa.login_challenge_enabled') && $user->mfa_enabled_at !== null) {
+            return $user;
+        }
+
+        Auth::guard('web')->login($user, $this->boolean('remember'));
+
+        return null;
     }
 
     /**

@@ -221,7 +221,11 @@ export default function NotificationsIndex() {
     mutationFn: (rawId) =>
       fetch(`/notifications/${rawId}/read`, {
         method: 'PATCH',
-        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+        },
       }).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications-page'] });
@@ -234,7 +238,11 @@ export default function NotificationsIndex() {
     mutationFn: () =>
       fetch('/notifications/mark-all-read', {
         method: 'PATCH',
-        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+        },
       }).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications-page'] });

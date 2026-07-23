@@ -10,6 +10,7 @@ use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
+use App\Models\ReferralComment;
 use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -253,12 +254,17 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
+        // Do not let an accessible referral be used as a pivot to another
+        // referral's comment tree.
+        ReferralComment::where('refr_id', $id)->where('id', $commentId)->firstOrFail();
+
         $validated = $request->validate([
             'content' => 'required|string|max:5000',
             'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY',
         ]);
 
         $reply = $this->referralService->replyToComment(
+            $id,
             $commentId,
             $validated['content'],
             $request->user()->id,
@@ -311,6 +317,12 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
+        // The attachment must belong to the referral whose access was checked.
+        ReferralAttachment::where('referral_id', $id)
+            ->where('id', $attachmentId)
+            ->where('is_deleted', false)
+            ->firstOrFail();
+
         $file = $request->file('file');
 
         $errors = app(StorageService::class)->validate($file, 'referral_attachment');
@@ -325,6 +337,7 @@ class ReferralController extends Controller
         }
 
         $attachment = $this->referralService->replaceAttachment(
+            $id,
             $attachmentId,
             [
                 'name' => $request->input('document_label')
@@ -387,7 +400,7 @@ class ReferralController extends Controller
     {
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
-        $versions = $this->referralService->getAttachmentVersions($versionGroupId);
+        $versions = $this->referralService->getAttachmentVersions($id, $versionGroupId);
 
         return response()->json($versions);
     }

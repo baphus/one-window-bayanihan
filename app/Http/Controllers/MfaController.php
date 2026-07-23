@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\MfaPendingState;
 use App\Services\MfaService;
 use App\Services\SecurityAuditLogger;
 use Illuminate\Http\JsonResponse;
@@ -22,8 +23,11 @@ class MfaController extends Controller
         ]);
     }
 
-    public function generateSecret(Request $request): JsonResponse
+    public function generateSecret(Request $request, MfaPendingState $pendingState): JsonResponse
     {
+        if ($request->user()->mfa_enabled_at !== null) {
+            return response()->json(['message' => 'MFA is already enabled.'], 409);
+        }
         /** @var Google2FA $google2fa */
         $google2fa = app('pragmarx.google2fa');
 
@@ -38,7 +42,7 @@ class MfaController extends Controller
         // Wrap SVG as a data URL for use in <img src>
         $qrCodeUrl = 'data:image/svg+xml;base64,'.base64_encode($qrCodeSvg);
 
-        $request->session()->put('mfa_pending_secret', $secret);
+        $request->session()->put(MfaPendingState::SECRET_KEY, $secret);
 
         return response()->json([
             'secret' => $secret,
@@ -46,13 +50,18 @@ class MfaController extends Controller
         ]);
     }
 
-    public function verifyAndEnable(Request $request): JsonResponse
+    public function verifyAndEnable(Request $request, MfaPendingState $pendingState): JsonResponse
     {
         $request->validate([
             'otp' => ['required', 'string', 'size:6'],
         ]);
 
-        $secret = $request->session()->get('mfa_pending_secret');
+        $user = $request->user();
+        if ($user->mfa_enabled_at !== null) {
+            return response()->json(['message' => 'MFA is already enabled.'], 409);
+        }
+
+        $secret = $request->session()->get(MfaPendingState::SECRET_KEY);
 
         if (! $secret) {
             throw ValidationException::withMessages([
@@ -74,13 +83,13 @@ class MfaController extends Controller
         $mfaService = app(MfaService::class);
         $codes = $mfaService->generateRecoveryCodes();
 
-        $user = $request->user();
         $user->mfa_secret = $secret;
         $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
         $user->mfa_enabled_at = now();
         $user->save();
 
-        $request->session()->forget('mfa_pending_secret');
+        $pendingState->clear($request);
+        $pendingState->markAuthenticated($request, $user);
 
         SecurityAuditLogger::log('mfa', sprintf('%s enabled two-factor authentication', $user->name));
 
@@ -113,30 +122,6 @@ class MfaController extends Controller
 
         return response()->json([
             'message' => 'Two-factor authentication has been disabled.',
-        ]);
-    }
-
-    public function getRecoveryCodes(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        if ($user->mfa_enabled_at === null) {
-            return response()->json(['message' => 'MFA is not enabled.'], 403);
-        }
-
-        if (! $request->has('password') || ! Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Password confirmation is required.'], 403);
-        }
-
-        $mfaService = app(MfaService::class);
-        $codes = $mfaService->generateRecoveryCodes();
-        $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
-        $user->save();
-
-        SecurityAuditLogger::log('mfa', sprintf('%s regenerated MFA recovery codes', $user->name));
-
-        return response()->json([
-            'recovery_codes' => $codes,
         ]);
     }
 

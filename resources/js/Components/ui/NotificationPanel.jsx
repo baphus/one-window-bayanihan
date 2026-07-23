@@ -73,7 +73,11 @@ export default function NotificationPanel() {
     mutationFn: (rawId) =>
       fetch(`/notifications/${rawId}/read`, {
         method: 'PATCH',
-        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+        },
       }).then((res) => {
         if (!res.ok) throw new Error(`Failed to mark as read: ${res.status}`);
         return res.json();

@@ -72,7 +72,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/profile/mfa/generate', [MfaController::class, 'generateSecret'])->name('profile.mfa.generate');
     Route::post('/profile/mfa/verify', [MfaController::class, 'verifyAndEnable'])->name('profile.mfa.verify');
     Route::post('/profile/mfa/disable', [MfaController::class, 'disable'])->name('profile.mfa.disable');
-    Route::get('/profile/mfa/recovery-codes', [MfaController::class, 'getRecoveryCodes'])->name('profile.mfa.recovery-codes');
     Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate');
 
     // All-roles routes: referrals, reports, notifications

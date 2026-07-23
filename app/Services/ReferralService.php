@@ -717,9 +717,11 @@ class ReferralService
         return $comment->load('user');
     }
 
-    public function replyToComment(string $commentId, string $content, string $userId, string $visibility = 'INTERNAL'): ReferralComment
+    public function replyToComment(string $referralId, string $commentId, string $content, string $userId, string $visibility = 'INTERNAL'): ReferralComment
     {
-        $parent = ReferralComment::findOrFail($commentId);
+        $parent = ReferralComment::where('refr_id', $referralId)
+            ->where('id', $commentId)
+            ->firstOrFail();
 
         $reply = ReferralComment::create([
             'refr_id' => $parent->refr_id,
@@ -751,10 +753,13 @@ class ReferralService
         return $attachment->load('user');
     }
 
-    public function replaceAttachment(string $attachmentId, array $fileData, string $userId): ReferralAttachment
+    public function replaceAttachment(string $referralId, string $attachmentId, array $fileData, string $userId): ReferralAttachment
     {
-        return DB::transaction(function () use ($attachmentId, $fileData, $userId) {
-            $oldAttachment = ReferralAttachment::findOrFail($attachmentId);
+        return DB::transaction(function () use ($referralId, $attachmentId, $fileData, $userId) {
+            $oldAttachment = ReferralAttachment::where('referral_id', $referralId)
+                ->where('id', $attachmentId)
+                ->where('is_deleted', false)
+                ->firstOrFail();
             $versionGroupId = $oldAttachment->version_group_id ?? (string) Str::uuid();
 
             $oldAttachment->update([
@@ -923,9 +928,10 @@ class ReferralService
         return $events->sortBy('timestamp')->values()->toArray();
     }
 
-    public function getAttachmentVersions(string $versionGroupId)
+    public function getAttachmentVersions(string $referralId, string $versionGroupId)
     {
-        return ReferralAttachment::where('version_group_id', $versionGroupId)
+        return ReferralAttachment::where('referral_id', $referralId)
+            ->where('version_group_id', $versionGroupId)
             ->with('user')
             ->orderBy('created_at', 'desc')
             ->get();
