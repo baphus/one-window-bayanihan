@@ -37,6 +37,7 @@ const HREF_TO_ROUTE: Record<string, string> = {
     '/admin/system/maintenance': 'admin.system.maintenance',
     '/admin/system-settings': 'admin.system-settings.index',
     '/admin/system/security': 'admin.system.security',
+    '/admin/system/active-sessions': 'admin.system.active-sessions',
 };
 
 function sidebarItems(): { role: string; name: string; href: string }[] {

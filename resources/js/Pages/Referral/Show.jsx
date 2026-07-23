@@ -452,7 +452,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-                <main className="xl:col-span-8 space-y-4">
+                <div className="xl:col-span-8 space-y-4">
                     <div data-tour="referral-info">
                     <CardSection title="Referral Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {isOverdue && (
@@ -832,7 +832,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         isCaseManager={isCaseManager}
                         isAdmin={isAdmin}
                     />
-                </main>
+                </div>
 
                 <aside className="xl:col-span-4 space-y-4">
                     <div data-tour="referral-timeline">
@@ -893,7 +893,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
                     <div data-tour="referral-comments">
                     <CardSection title="Referral Comments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="max-h-[340px] overflow-y-auto space-y-3 owb-scroll-wide">
+                        <div className="space-y-3">
                             {topLevelComments.length > 0 ? (
                                 topLevelComments.map((comment) => {
                                     const replies = comment.replies ?? [];

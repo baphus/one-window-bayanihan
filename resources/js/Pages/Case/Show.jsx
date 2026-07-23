@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import { useToast } from '@/Hooks/useToast';
 import { Eye, Trash2 } from 'lucide-react';
@@ -158,6 +159,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [showReferralPrompt, setShowReferralPrompt] = useState(!!page.props.just_published);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState(null);
+  const [confirmToggleStatus, setConfirmToggleStatus] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmUnarchive, setConfirmUnarchive] = useState(false);
   const [formStatus, setFormStatus] = useState(caseFile.status);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
@@ -167,11 +172,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [uploadingDoc, setUploadingDoc] = useState(false);
 
   function handleDocumentDelete(docId) {
-    if (confirm('Are you sure you want to delete this document?')) {
-      router.delete(route('cases.documents.destroy', [caseFile.id, docId]), {
-        preserveScroll: true,
-      });
-    }
+    setConfirmDeleteDoc(docId);
   }
 
   const initialEditRef = useRef({ status: caseFile.status, clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
@@ -438,7 +439,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           </button>
           <button
             type="button"
-            onClick={handleToggleStatus}
+            onClick={() => setConfirmToggleStatus(true)}
             disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
             title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
             className={`px-3 min-h-[32px] text-[12px] font-bold rounded-md transition-colors border ${
@@ -452,7 +453,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           {caseFile.status === 'ARCHIVED' ? (
             <button
               type="button"
-              onClick={handleUnarchive}
+              onClick={() => setConfirmUnarchive(true)}
               className="px-3 min-h-[32px] bg-gray-200 text-gray-700 hover:bg-gray-300 text-[12px] font-bold rounded-md transition-colors border border-gray-300"
             >
               Restore from Archive
@@ -1038,6 +1039,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         entityType="case"
         entityId={caseFile.id}
         title={`Audit Log — ${caseFile.case_number}`}
+      />
+      <ConfirmDialog
+        open={!!confirmDeleteDoc}
+        title="Delete Document"
+        message="Are you sure you want to delete this document?"
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={() => {
+          router.delete(route('cases.documents.destroy', [caseFile.id, confirmDeleteDoc]), { preserveScroll: true });
+          setConfirmDeleteDoc(null);
+        }}
+        onCancel={() => setConfirmDeleteDoc(null)}
       />
     </AppLayout>
   );

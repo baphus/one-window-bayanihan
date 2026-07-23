@@ -4,7 +4,7 @@
 
 body {
     font-family: 'Public Sans', sans-serif;
-    background: #f7f9ff;
+    background: #f9fafc;
     color: #181c20;
 }
 
@@ -299,4 +299,23 @@ select[multiple]::-webkit-scrollbar-thumb {
 .owb-reveal-scale.is-visible {
     opacity: 1;
     transform: scale(1);
+}
+
+/* fade-only variant (no slide/scale) */
+.owb-fade {
+    opacity: 0;
+    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.owb-fade.is-visible {
+    opacity: 1;
+}
+
+/* ── Sidebar icon pop animation ─────────────────────────────────── */
+@keyframes owb-icon-pop {
+    0%   { transform: scale(0.7); }
+    50%  { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+.owb-icon-active-pop {
+    animation: owb-icon-pop 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }

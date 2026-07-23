@@ -76,11 +76,11 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
       <Head title={`${agencyMilestones?.agencyName ?? 'Agency'} milestones`} />
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-5xl px-4 pt-8 pb-12 sm:px-6 lg:px-8 space-y-8">
+      <main className="mx-auto w-full max-w-7xl px-4 pt-8 pb-12 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-3 pt-20">
           <Link
             href={route('track.show', { tracker_number: trackingId })}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-800 hover:text-blue-900 transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Back to case tracking

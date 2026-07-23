@@ -96,6 +96,7 @@ export const navByRole = {
     { label: 'Settings', items: [
       { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
       { name: 'Security & Auth', href: '/admin/system/security', icon: 'security' },
+      { name: 'Active Sessions', href: '/admin/system/active-sessions', icon: 'phonelink' },
     ]},
     { label: 'Resources', items: [
       { name: 'Help Center', href: '/help', icon: 'help', external: true },
@@ -114,6 +115,15 @@ export default function AppSidebar() {
   const user = usePage().props.auth.user;
   const { startTour } = useOnboarding();
   const [peerProfileUser, setPeerProfileUser] = useState(null);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('owb-sidebar-collapsed') === 'true'; }
+    catch { return false; }
+  });
+  const [unreadCount, setUnreadCount] = useState(() => {
+    try { return parseInt(localStorage.getItem('owb-unread-count') || '0', 10) || 0; }
+    catch { return 0; }
+  });
+  const [hoveredItem, setHoveredItem] = useState(null);
   const sidebarNavRef = useRef(null);
 
   // Restore sidebar scroll position after mount
@@ -126,6 +136,37 @@ export default function AppSidebar() {
 
   const handleSidebarScroll = useCallback((e) => {
     sessionStorage.setItem('owb-sidebar-scroll', e.target.scrollTop);
+  }, []);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    let timer;
+    const fetchCount = () => {
+      fetch('/notifications/unread-count', {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      })
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data?.count != null) {
+            setUnreadCount(data.count);
+            try { localStorage.setItem('owb-unread-count', String(data.count)); }
+            catch { /* noop */ }
+          }
+        })
+        .catch(() => {});
+    };
+    fetchCount();
+    timer = setInterval(fetchCount, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('owb-sidebar-collapsed', String(next)); }
+      catch { /* noop */ }
+      return next;
+    });
   }, []);
 
   const navigation = useMemo(() => {
@@ -158,88 +199,174 @@ export default function AppSidebar() {
   };
 
   return (
-    <aside className="w-64 bg-[#f8f9fa] border-r border-slate-200 hidden md:flex shrink-0 h-screen font-body flex-col">
-      <div className="h-24 flex items-center px-8 border-b border-transparent shrink-0">
-        <Link href="/" className="flex items-center gap-3 w-full">
+    <aside className={`${collapsed ? 'w-16' : 'w-72'} transition-[width] duration-200 ease-in-out bg-white border-r border-slate-200 hidden md:flex shrink-0 h-screen font-body flex-col`}>
+      {/* Logo */}
+      <div className={`h-24 flex items-center border-b border-transparent shrink-0 ${collapsed ? 'flex-col justify-center px-2 gap-2' : 'px-6'}`}>
+        <Link href="/" className={`flex items-center gap-2 min-w-0 ${collapsed ? 'justify-center' : 'flex-1'}`}>
           <div className="w-10 h-10 flex items-center justify-center shrink-0">
             <img src="/logo.png" alt="One Window Bayanihan Logo" className="w-full h-full object-contain" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-[13px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan</span>
-            <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
-          </div>
+          {!collapsed && (
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-[13px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
+            </div>
+          )}
         </Link>
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="shrink-0 ml-1 p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            title="Collapse sidebar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="10.2" y1="3" x2="10.2" y2="21" />
+            </svg>
+          </button>
+        )}
       </div>
+      {collapsed && (
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="flex items-center justify-center py-2 border-b border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          title="Expand sidebar"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="10.2" y1="3" x2="10.2" y2="21" />
+          </svg>
+        </button>
+      )}
 
+      {/* Nav */}
       <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} data-tour="sidebar-nav" className="flex-1 min-h-0 overflow-y-auto pt-3 pb-4 owb-scroll">
-          {navigation.map((group) => (
-            <div key={group.label} className="mb-3">
+        {navigation.map((group) => (
+          <div key={group.label} className="mb-3">
+            {!collapsed && (
               <p className="px-8 pb-2 text-[10px] font-bold font-label uppercase tracking-[0.09em] text-slate-500">
                 {group.label}
               </p>
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const active = isActive(item.href);
-                  const linkClass = `flex items-center gap-4 px-8 py-3.5 text-[14px] font-label transition-colors border-l-4 ${
-                    active
-                      ? 'bg-slate-100/60 text-blue-900 font-bold border-blue-900'
-                      : 'text-slate-600 font-medium hover:bg-slate-100/40 hover:text-slate-900 border-transparent'
-                  }`;
+            )}
+            <div className={`space-y-1 ${collapsed ? 'pl-0' : 'pl-2'}`}>
+              {group.items.map((item) => {
+                const active = isActive(item.href);
+                const isNotification = item.name === 'Notifications';
 
-                  const content = (
-                    <>
-                      <span className={`material-symbols-outlined text-[22px] ${active ? 'text-blue-900' : 'text-slate-600'}`} style={{ fontVariationSettings: `'FILL' ${active ? '1' : '0'}, 'wght' ${active ? '700' : '400'}` }}>
-                        {item.icon}
-                      </span>
-                      {item.name}
-                    </>
-                  );
+                const linkClass = collapsed
+                  ? `group relative flex items-center justify-center py-3.5 text-[14px] font-label transition-all duration-200 ${
+                      active
+                        ? 'bg-slate-100/60 text-blue-900 font-bold pl-[18px] pr-[14px] before:content-[""] before:absolute before:left-0 before:inset-y-2 before:w-1 before:bg-blue-900 before:rounded-r'
+                        : 'text-slate-600 font-medium hover:bg-slate-100/40 hover:text-slate-900 px-[18px]'
+                    }`
+                  : `group relative flex items-center gap-4 py-3.5 text-[14px] font-label transition-all duration-200 ${
+                      active
+                        ? 'bg-slate-100/60 text-blue-900 font-bold pl-10 pr-8 before:content-[""] before:absolute before:left-0 before:inset-y-2 before:w-1 before:bg-blue-900 before:rounded-r'
+                        : 'text-slate-600 font-medium hover:bg-slate-100/40 hover:text-slate-900 px-8'
+                    }`;
 
-                  if (item.external) {
-                    return (
-                      <a
-                        key={item.name}
-                        href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={linkClass}
-                        {...(item.name === 'Help Center' ? { 'data-tour': 'sidebar-help' } : {})}
-                      >
-                        {content}
-                      </a>
-                    );
-                  }
+                const icon = (
+                  <span
+                    key={`icon-${item.name}-${active}`}
+                    className={`material-symbols-outlined text-[22px] shrink-0 transition-transform duration-150 group-hover:scale-110 ${
+                      active ? 'text-blue-900 owb-icon-active-pop' : 'text-slate-600'
+                    }`}
+                    style={{ fontVariationSettings: `'FILL' ${active ? '1' : '0'}, 'wght' ${active ? '700' : '400'}` }}
+                  >
+                    {item.icon}
+                  </span>
+                );
 
+                const badge = isNotification && unreadCount > 0 && (
+                  collapsed ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex items-center justify-center min-w-[16px] h-[16px] px-0.5 text-[9px] font-bold text-white bg-red-500 rounded-full leading-none">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  ) : (
+                    <span className="ml-auto flex items-center justify-center min-w-[20px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none shrink-0">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )
+                );
+
+                const content = collapsed ? (
+                  <>
+                    <span className="relative">
+                      {icon}
+                      {badge}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="relative">
+                      {icon}
+                    </span>
+                    <span className="flex-1 min-w-0 truncate">{item.name}</span>
+                    {badge}
+                  </>
+                );
+
+                const sharedAttrs = {
+                  className: linkClass,
+                  ...(item.name === 'Help Center' ? { 'data-tour': 'sidebar-help' } : {}),
+                  ...(collapsed ? {
+                    onMouseEnter: (e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredItem({ name: item.name, top: rect.top + rect.height / 2 });
+                    },
+                    onMouseLeave: () => setHoveredItem(null),
+                  } : {}),
+                };
+
+                if (item.external) {
                   return (
-                    <Link
+                    <a
                       key={item.name}
                       href={item.href}
-                      className={linkClass}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...sharedAttrs}
                     >
                       {content}
-                    </Link>
+                    </a>
                   );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
+                }
 
-      <div className="flex flex-col shrink-0">
-        <div className="px-5 py-5 bg-white border-t border-slate-200">
-          <div className="flex items-center gap-3">
-            <UserAvatar user={user} size="lg" onClick={() => setPeerProfileUser(user)} />
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[13px] text-blue-950 font-bold leading-none truncate">{user?.name}</span>
-              <span className="text-[10px] font-bold tracking-[0.06em] text-slate-500 mt-1 uppercase truncate">
-                {roleLabels[user?.role] || user?.role}
-              </span>
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    {...sharedAttrs}
+                  >
+                    {content}
+                  </Link>
+                );
+              })}
             </div>
-            <PageGuideButton />
-            <NotificationPanel />
+          </div>
+        ))}
+      </nav>
+
+      {/* User section */}
+      <div className="flex flex-col shrink-0">
+        <div className={`bg-white border-t border-slate-200 ${collapsed ? 'px-2 py-4' : 'px-5 py-5'}`}>
+          <div className={`flex items-center ${collapsed ? 'justify-center gap-0' : 'gap-3'}`}>
+            <UserAvatar user={user} size={collapsed ? 'md' : 'lg'} onClick={() => setPeerProfileUser(user)} />
+            {!collapsed && (
+            <div className="flex flex-col min-w-0">
+                <span className="text-[13px] text-blue-950 font-bold leading-none truncate">{user?.name}</span>
+                <span className="text-[10px] font-bold tracking-[0.06em] text-slate-500 mt-1 uppercase truncate">
+                  {roleLabels[user?.role] || user?.role}
+                </span>
+              </div>
+            )}
+            {!collapsed && <PageGuideButton />}
+            {!collapsed && <NotificationPanel />}
           </div>
 
-          {user?.onboarding_completed_at && (
+          {!collapsed && user?.onboarding_completed_at && (
             <button
               data-tour="sidebar-tour-replay"
               onClick={handleReplayTour}
@@ -250,13 +377,16 @@ export default function AppSidebar() {
             </button>
           )}
 
-          <div className="mt-4 flex items-center gap-2">
+          <div className={`mt-4 flex items-center ${collapsed ? 'flex-col gap-2' : 'gap-2'}`}>
             <Link
               href={route('profile.edit')}
-              className="flex flex-1 items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-900 transition-all"
+              className={`flex items-center justify-center rounded-md border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-900 transition-all ${
+                collapsed ? 'w-10 h-8' : 'flex-1 gap-2 px-3 py-1.5'
+              }`}
+              title={collapsed ? 'Edit Profile' : undefined}
             >
               <span className="material-symbols-outlined text-[14px]">edit</span>
-              <span>EDIT PROFILE</span>
+              {!collapsed && <span>EDIT PROFILE</span>}
             </Link>
             <button
               onClick={() => router.post(route('logout'))}
@@ -270,6 +400,16 @@ export default function AppSidebar() {
       </div>
 
       <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
+
+      {/* Collapsed nav tooltip */}
+      {collapsed && hoveredItem && (
+        <div
+          className="fixed z-50 px-2.5 py-1 rounded-md bg-white text-slate-700 text-[13px] font-medium whitespace-nowrap shadow-sm pointer-events-none"
+          style={{ top: `${hoveredItem.top}px`, left: '4.5rem', transform: 'translateY(-50%)' }}
+        >
+          {hoveredItem.name}
+        </div>
+      )}
     </aside>
   );
 }

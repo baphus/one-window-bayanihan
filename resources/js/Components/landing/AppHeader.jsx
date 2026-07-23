@@ -42,7 +42,7 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-circle bg-white">
+          <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden bg-white">
             <img
               src="/logo.png"
               alt="One Window Bayanihan Logo"

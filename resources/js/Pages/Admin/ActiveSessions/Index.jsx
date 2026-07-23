@@ -1,90 +1,140 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
-function truncateUserAgent(userAgent) {
-  if (!userAgent) return '—';
+function parseUserAgent(ua) {
+  if (!ua) return { browser: '—', os: '' };
 
-  return userAgent.length > 80 ? `${userAgent.slice(0, 80)}…` : userAgent;
+  let browser = 'Unknown';
+  if (ua.includes('Edg/')) browser = 'Edge';
+  else if (ua.includes('OPR/') || ua.includes('Opera')) browser = 'Opera';
+  else if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
+  else if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+
+  let os = '';
+  if (ua.includes('Windows NT 10')) os = 'Windows 10/11';
+  else if (ua.includes('Windows NT 6.3')) os = 'Windows 8.1';
+  else if (ua.includes('Windows')) os = 'Windows';
+  else if (ua.includes('Mac OS X')) os = 'macOS';
+  else if (ua.includes('Linux')) os = 'Linux';
+  else if (ua.includes('Android')) os = 'Android';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+
+  return { browser, os };
 }
 
 export default function Index({ sessions = [] }) {
-  const terminate = (sessionId, isCurrent) => {
-    if (isCurrent) return;
+  const [confirmSession, setConfirmSession] = useState(null);
 
-    if (!window.confirm('Terminate this session?')) return;
-
-    router.post(route('admin.system.active-sessions.terminate', sessionId), {}, {
+  const handleConfirmTerminate = () => {
+    if (!confirmSession) return;
+    router.post(route('admin.system.active-sessions.terminate', confirmSession), {}, {
       preserveScroll: true,
     });
+    setConfirmSession(null);
   };
+
+  const columns = useMemo(() => [
+    {
+      key: 'user',
+      title: 'User',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">{row.user_name}</div>
+            <div className="text-xs text-slate-500">{row.user_email}</div>
+          </div>
+          {row.is_current && (
+            <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 border border-emerald-200">
+              Current
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'ip_address',
+      title: 'IP Address',
+      render: (row) => (
+        <span className="text-sm text-slate-600 whitespace-nowrap font-mono">{row.ip_address || '—'}</span>
+      ),
+    },
+    {
+      key: 'device',
+      title: 'Device & Browser',
+      render: (row) => {
+        const { browser, os } = parseUserAgent(row.user_agent);
+        return (
+          <div className="max-w-xs" title={row.user_agent || ''}>
+            <span className="text-sm font-medium text-slate-700">{browser}</span>
+            {os && <span className="text-xs text-slate-500 ml-1.5">{os}</span>}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'last_activity',
+      title: 'Last Activity',
+      render: (row) => (
+        <span className="text-sm text-slate-600 whitespace-nowrap">{row.last_activity}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      title: 'Actions',
+      sortable: false,
+      render: (row) => (
+        <div className="text-right">
+          <button
+            type="button"
+            disabled={row.is_current}
+            onClick={() => setConfirmSession(row.id)}
+            className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+          >
+            Terminate
+          </button>
+        </div>
+      ),
+    },
+  ], []);
 
   return (
     <AppLayout title="Active Sessions">
       <Head title="Active Sessions" />
 
-      <div className="mb-8 flex items-center justify-between gap-4">
+      <div className="mb-8 flex items-center justify-between gap-4" data-tour="active-sessions-header">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Active Sessions</h1>
           <p className="mt-1 text-sm text-slate-500">Monitor signed-in users and end inactive or suspicious sessions.</p>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-widest text-slate-500">Active Sessions</div>
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm" data-tour="active-sessions-stats">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Sessions</div>
           <div className="mt-1 text-2xl font-bold text-slate-900">{sessions.length}</div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">User</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">IP Address</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">User Agent</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Last Activity</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
-            {sessions.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="px-4 py-8 text-center text-sm text-slate-500">No active sessions found.</td>
-              </tr>
-            ) : sessions.map((session) => (
-              <tr key={session.id}>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">{session.user_name}</div>
-                      <div className="text-xs text-slate-500">{session.user_email}</div>
-                    </div>
-                    {session.is_current && (
-                      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">Current</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">{session.ip_address || '—'}</td>
-                <td className="px-4 py-4 text-sm text-slate-600">
-                  <div className="max-w-2xl truncate" title={session.user_agent || ''}>
-                    {truncateUserAgent(session.user_agent)}
-                  </div>
-                </td>
-                <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">{session.last_activity}</td>
-                <td className="px-4 py-4 text-right">
-                  <button
-                    type="button"
-                    disabled={session.is_current}
-                    onClick={() => terminate(session.id, session.is_current)}
-                    className="rounded-md bg-red-600 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-                  >
-                    Terminate
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div data-tour="active-sessions-table">
+        <UnifiedTable
+          columns={columns}
+          data={sessions}
+          keyExtractor={(row) => row.id}
+          emptyStateMessage="No active sessions found."
+        />
       </div>
+
+      <ConfirmDialog
+        open={!!confirmSession}
+        title="Terminate Session"
+        message="Are you sure you want to terminate this session? The user will be signed out immediately."
+        confirmLabel="Terminate"
+        tone="danger"
+        onConfirm={handleConfirmTerminate}
+        onCancel={() => setConfirmSession(null)}
+      />
     </AppLayout>
   );
 }

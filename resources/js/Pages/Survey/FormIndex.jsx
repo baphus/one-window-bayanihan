@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { formatDisplayDate } from '@/lib/utils';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 export default function FormIndex({ forms = [] }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -147,44 +148,18 @@ export default function FormIndex({ forms = [] }) {
           </section>
         )}
 
-        {deleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
-              <div className="border-b border-slate-200 px-6 py-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-red-600">Delete survey form</p>
-                <h2 className="mt-2 text-lg font-bold text-slate-900">Confirm deletion</h2>
-              </div>
-              <div className="px-6 py-5">
-                <p className="text-sm text-slate-600">
-                  Are you sure you want to delete <span className="font-semibold text-slate-900">{deleteTarget.title}</span>?
-                  This will remove the form and all its questions. This cannot be undone.
-                </p>
-                {deleteTarget.is_active && (
-                  <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    This is your active form. Deleting it means no survey will be sent after referral completion until you activate another form.
-                  </div>
-                )}
-              </div>
-              <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(null)}
-                  className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={deleting}
-                  onClick={handleDelete}
-                  className="inline-flex h-9 items-center rounded-md bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {deleting ? 'Deleting…' : 'Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          open={!!deleteTarget}
+          title="Delete Survey Form"
+          message={deleteTarget
+            ? `Are you sure you want to delete "${deleteTarget.title}"? This will remove the form and all its questions. This cannot be undone.${deleteTarget.is_active ? ' This is your active form — deleting it means no survey will be sent until you activate another form.' : ''}`
+            : ''}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          tone="danger"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       </div>
     </AppLayout>
   );

@@ -11066,5 +11066,5 @@
         "php": ">=8.4.1 <9.0"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
