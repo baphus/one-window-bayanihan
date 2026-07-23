@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -153,7 +154,21 @@ class ReferralService
             'milestones' => fn ($q) => $q->latest(),
         ];
         $relations[] = 'caseFile.categories';
-        $query = Referral::with($relations)->orderBy('created_at', 'desc');
+        $sortMap = [
+            'case_number' => '(SELECT case_number FROM cases WHERE cases.id = referrals.case_id)',
+            'client' => "(SELECT CONCAT_WS(' ', clients.first_name, clients.last_name) FROM clients WHERE clients.id = (SELECT client_id FROM cases WHERE cases.id = referrals.case_id))",
+            'case_issue' => '(SELECT name FROM case_issues WHERE case_issues.id = (SELECT case_issue_id FROM cases WHERE cases.id = referrals.case_id))',
+            'agency' => '(SELECT name FROM agencies WHERE agencies.id = referrals.agcy_id)',
+            'status' => 'status',
+        ];
+        $sort = $filters['sort'] ?? 'created_at';
+        $sortExpression = $sortMap[$sort] ?? 'created_at';
+        $direction = strtolower($filters['direction'] ?? 'desc');
+        $direction = in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
+        $query = Referral::with($relations)
+            ->orderByRaw($sortExpression.' '.$direction)
+            // A unique, deterministic tie-breaker prevents rows moving between pages.
+            ->orderBy('id', $direction);
 
         if ($userRole === 'AGENCY') {
             if (! $userAgencyId) {
@@ -229,7 +244,9 @@ class ReferralService
             });
         }
 
-        return $query->paginate(15)->through(fn ($referral) => $referral->append('latest_update'));
+        $perPage = min(max((int) ($filters['per_page'] ?? 15), 10), 100);
+
+        return $query->paginate($perPage)->withQueryString()->through(fn ($referral) => $referral->append('latest_update'));
     }
 
     public function getReferral(string $id): Referral
@@ -467,24 +484,81 @@ class ReferralService
         });
     }
 
+    /**
+     * The single source of truth for overdue referrals. Keep authorization and
+     * inactivity semantics here so every consumer gets the same result.
+     */
+    public function overdueReferralsQuery(
+        string $userRole,
+        ?string $userId,
+        ?string $userAgencyId,
+        int $overdueDays = 7,
+    ): Builder {
+        $query = Referral::query()
+            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
+                (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
+                GREATEST(referrals.updated_at, referrals.created_at)
+            ))) / 86400 > ?', [$overdueDays]);
+
+        match ($userRole) {
+            'ADMIN' => null,
+            'CASE_MANAGER' => $userId
+                ? $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'))
+                : $query->whereRaw('1 = 0'),
+            'AGENCY' => $userAgencyId
+                ? $query->where('agcy_id', $userAgencyId)
+                : $query->whereRaw('1 = 0'),
+            default => $query->whereRaw('1 = 0'),
+        };
+
+        return $query;
+    }
+
     public function getOverdueReferrals(int $overdueDays = 7, ?string $userAgencyId = null, ?string $userRole = null)
     {
-        $cutoff = now()->subDays($overdueDays);
-
-        $query = Referral::with([
+        $query = $this->overdueReferralsQuery(
+            userRole: $userRole ?? 'ADMIN',
+            userId: null,
+            userAgencyId: $userAgencyId,
+            overdueDays: $overdueDays,
+        )->with([
             'caseFile.client',
             'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
-        ])
-            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
-            ->where('created_at', '<', $cutoff);
-
-        if ($userRole === 'AGENCY') {
-            $userAgencyId
-                ? $query->where('agcy_id', $userAgencyId)
-                : $query->whereRaw('1 = 0');
-        }
+        ]);
 
         return $query->orderBy('created_at')->paginate(15);
+    }
+
+    public function getOverdueReferralsForReminders(
+        string $userRole,
+        ?string $userId,
+        ?string $userAgencyId,
+        int $overdueDays,
+        array $filters = [],
+        array $referralIds = [],
+    ) {
+        $query = $this->overdueReferralsQuery($userRole, $userId, $userAgencyId, $overdueDays)
+            ->with([
+                'caseFile.client',
+                'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
+            ]);
+
+        $this->applyOverdueFilters($query, $filters);
+
+        if ($referralIds !== []) {
+            $query->whereIn('id', $referralIds);
+        }
+
+        return $query->get();
+    }
+
+    private function applyOverdueFilters(Builder $query, array $filters): void
+    {
+        $statusFilter = $filters['status_filter'] ?? 'all';
+        if ($statusFilter !== 'all') {
+            $query->where('status', strtoupper($statusFilter));
+        }
     }
 
     /**
@@ -500,28 +574,12 @@ class ReferralService
         int $overdueDays = 7,
         array $filters = [],
     ): array {
-        $query = Referral::with([
+        $query = $this->overdueReferralsQuery($userRole, $userId, $userAgencyId, $overdueDays)->with([
             'caseFile.client:id,first_name,last_name',
             'caseFile.user:id,name',
             'agency:id,name',
             'milestones' => fn ($q) => $q->latest()->limit(1),
-        ])
-            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
-            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
-                (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
-                GREATEST(referrals.updated_at, referrals.created_at)
-            ))) / 86400 > ?', [$overdueDays]);
-
-        // Role-scoping
-        match ($userRole) {
-            'ADMIN' => null,
-            'CASE_MANAGER' => $query->whereIn(
-                'case_id', CaseFile::where('user_id', $userId)->select('id'),
-            ),
-            'AGENCY' => $userAgencyId
-                ? $query->where('agcy_id', $userAgencyId)
-                : $query->whereRaw('1 = 0'),
-        };
+        ]);
 
         // Status filter
         $statusFilter = $filters['status_filter'] ?? 'all';
@@ -546,6 +604,9 @@ class ReferralService
             },
         );
 
+        // Stats and pagination intentionally derive from the same scoped and
+        // filtered query. Stats must not be limited to the current page.
+        $allReferrals = (clone $query)->get();
         $perPage = (int) ($filters['per_page'] ?? 15);
         $referrals = $query->paginate($perPage);
 
@@ -595,7 +656,22 @@ class ReferralService
         $referrals->setCollection($transformed);
 
         // Aggregate stats
-        $allItems = $transformed;
+        $allItems = $allReferrals->map(function (Referral $referral) use ($now) {
+            $latestMilestone = $referral->milestones->first();
+            $lastActivityDate = $latestMilestone
+                ? $latestMilestone->created_at
+                : ($referral->updated_at ?? $referral->created_at);
+            $daysSinceLastActivity = (int) $lastActivityDate->diffInDays($now);
+
+            return [
+                'status' => $referral->status,
+                'severity' => match (true) {
+                    $daysSinceLastActivity >= 30 => 'severe',
+                    $daysSinceLastActivity >= 15 => 'moderate',
+                    default => 'mild',
+                },
+            ];
+        });
         $total = $allItems->count();
         $stats = [
             'total' => $total,

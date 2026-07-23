@@ -31,10 +31,13 @@ class AuditLogController extends Controller
 
         $query = $this->buildFilteredQuery($request, $user)->with('user');
 
-        $query->orderBy('timestamp', 'desc');
+        // Make cursor boundaries deterministic when events share a timestamp.
+        $query->orderBy('timestamp', 'desc')->orderBy('id', 'desc');
 
-        $perPage = min((int) $request->input('per_page', 15), 100);
-        $logs = $query->cursorPaginate($perPage);
+        $perPage = $this->perPage($request, 15);
+        // Cursor links must carry the active filters and page size; omit only
+        // the current cursor, which the paginator replaces for each link.
+        $logs = $query->cursorPaginate($perPage)->appends($request->except('cursor'));
 
         $logs->getCollection()->transform(function ($log) use ($formatter) {
             $display = $formatter->formatForDisplay($log);
@@ -326,6 +329,13 @@ class AuditLogController extends Controller
         }
 
         return $parsed !== false && $parsed->format('Y-m-d') === $value;
+    }
+
+    private function perPage(Request $request, int $default): int
+    {
+        $requested = (int) $request->input('per_page', $default);
+
+        return in_array($requested, [15, 25, 50, 100], true) ? $requested : $default;
     }
 
     /**

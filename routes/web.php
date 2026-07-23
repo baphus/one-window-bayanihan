@@ -235,15 +235,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('/users/invite', [AdminUserController::class, 'invite'])->name('users.invite');
-        Route::post('/users/invites/{inviteId}/resend', [AdminUserController::class, 'resendInvite'])->name('users.invites.resend');
-        Route::delete('/users/invites/{inviteId}', [AdminUserController::class, 'cancelInvite'])->name('users.invites.cancel');
-        Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
-        Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
-        Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
-        Route::patch('/users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
-        Route::patch('/users/{user}/verify', [AdminUserController::class, 'verify'])->name('users.verify');
-        Route::post('/users/{user}/email-change/send-otp', [AdminUserController::class, 'sendEmailChangeOtp'])->name('users.email-change.send-otp');
-        Route::post('/users/{user}/email-change/verify-otp', [AdminUserController::class, 'verifyEmailChangeOtp'])->name('users.email-change.verify-otp');
+        // Invite is submitted from the users modal; there is intentionally no GET invite page.
+        Route::get('/users/invite', fn () => abort(404));
+        Route::post('/users/invites/{inviteId}/resend', [AdminUserController::class, 'resendInvite'])->name('users.invites.resend')->whereUuid('inviteId');
+        Route::delete('/users/invites/{inviteId}', [AdminUserController::class, 'cancelInvite'])->name('users.invites.cancel')->whereUuid('inviteId');
+        Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update')->whereUuid('user');
+        Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show')->whereUuid('user');
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy')->whereUuid('user');
+        Route::patch('/users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate')->whereUuid('user');
+        Route::patch('/users/{user}/verify', [AdminUserController::class, 'verify'])->name('users.verify')->whereUuid('user');
+        Route::post('/users/{user}/email-change/send-otp', [AdminUserController::class, 'sendEmailChangeOtp'])->name('users.email-change.send-otp')->whereUuid('user');
+        Route::post('/users/{user}/email-change/verify-otp', [AdminUserController::class, 'verifyEmailChangeOtp'])->name('users.email-change.verify-otp')->whereUuid('user');
 
         Route::get('/system-settings', [SystemSettingsController::class, 'index'])->name('system-settings.index');
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');

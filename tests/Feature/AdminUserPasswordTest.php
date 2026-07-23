@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\CheckMfaEnrolled;
+use App\Http\Middleware\CheckUserActive;
 use App\Models\User;
 use App\Models\UserInvite;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,6 +17,16 @@ class AdminUserPasswordTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+    }
+
+    public function test_getting_invite_as_a_user_route_is_not_a_valid_user_lookup(): void
+    {
+        $admin = User::factory()->mfaEnabled()->create(['role' => 'ADMIN']);
+
+        $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class])
+            ->actingAs($admin)
+            ->get('/admin/users/invite')
+            ->assertNotFound();
     }
 
     public function test_admin_invite_requires_valid_email(): void

@@ -182,6 +182,10 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, category_ids: undefined, case_issue_id: undefined, age_min_days: undefined, age_max_days: undefined, page: undefined });
     };
 
+    const handleSortChange = (sortKey, sortDirection) => {
+        updateTable({ ...filters, sort: sortKey, direction: sortDirection, page: undefined });
+    };
+
     const handleStatusQuickFilter = (status) => {
         updateTable({ ...filters, status: status || undefined, page: undefined });
     };
@@ -647,6 +651,12 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 data={referrals.data}
                 keyExtractor={(row) => row.id}
                 {...paginatorProps(referrals)}
+                // The API defaults to created_at DESC. Keep that server-side
+                // default controlled until the user chooses a visible column.
+                sortKey={filters?.sort ?? 'created_at'}
+                sortDirection={filters?.direction ?? 'desc'}
+                onSortChange={handleSortChange}
+                showSortReset={false}
                 isLoading={tableLoading}
                 emptyStateMessage="No referrals found"
                 searchValue={searchValue}

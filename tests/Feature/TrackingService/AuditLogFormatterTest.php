@@ -165,6 +165,18 @@ class AuditLogFormatterTest extends TestCase
         $this->assertStringContainsString('tracker number', $result);
     }
 
+    public function test_client_create_uses_client_wording(): void
+    {
+        $log = AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'client',
+            'new_value' => ['first_name' => 'Maria', 'last_name' => 'Santos'],
+            'timestamp' => now(),
+        ]);
+
+        $this->assertSame('Maria Santos was added as a client', $this->formatter->format($log));
+    }
+
     public function test_output_is_human_readable(): void
     {
         $user = User::factory()->create();

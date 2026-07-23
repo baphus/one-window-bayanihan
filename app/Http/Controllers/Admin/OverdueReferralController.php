@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ReferralOverdueMail;
-use App\Models\Referral;
 use App\Models\SystemSetting;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
@@ -38,26 +37,26 @@ class OverdueReferralController extends Controller
 
     public function sendReminders(Request $request)
     {
+        $user = $request->user();
+        abort_if($user->role === 'AGENCY', 403);
+
+        $validated = $request->validate([
+            'referral_ids' => ['sometimes', 'array', 'max:500'],
+            'referral_ids.*' => ['bail', 'uuid', 'distinct'],
+            'status_filter' => ['sometimes', 'nullable', 'string', 'in:all,pending,processing,for_compliance,PENDING,PROCESSING,FOR_COMPLIANCE'],
+        ]);
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
-        $cutoff = now()->subDays($overdueDays);
 
-        $query = Referral::with([
-            'caseFile.client',
-            'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
-        ])
-            ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
-            ->where('created_at', '<', $cutoff);
-
-        if ($request->user()->role === 'AGENCY' && $request->user()->agcy_id) {
-            $query->where('agcy_id', $request->user()->agcy_id);
-        }
-
-        $referralIds = $request->input('referral_ids', []);
-        if (! empty($referralIds)) {
-            $query->whereIn('id', $referralIds);
-        }
-
-        $referrals = $query->get();
+        // An empty selection deliberately means the complete display set.
+        // The service applies the same inactivity and role scope in both cases.
+        $referrals = $this->referralService->getOverdueReferralsForReminders(
+            userRole: $user->role,
+            userId: $user->id,
+            userAgencyId: $user->agcy_id,
+            overdueDays: $overdueDays,
+            filters: ['status_filter' => $validated['status_filter'] ?? 'all'],
+            referralIds: $validated['referral_ids'] ?? [],
+        );
 
         $sentCount = 0;
         foreach ($referrals as $referral) {

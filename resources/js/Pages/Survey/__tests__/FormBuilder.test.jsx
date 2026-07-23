@@ -70,4 +70,33 @@ describe('FormBuilder', () => {
     expect(state.form.submitted.data.questions.map((question) => question.label)).toEqual(['Second', 'First']);
     expect(state.form.patch).toHaveBeenCalledWith('/survey.forms.update/form-1');
   });
+
+  it('submits the FormBuilder shape for every supported question type', () => {
+    state.form = null;
+    render(<FormBuilder form={{
+      title: 'All question types',
+      description: 'Description',
+      questions: [
+        { type: 'likert', label: 'Likert', options: [], is_required: true, order: 0 },
+        { type: 'text', label: 'Text', options: [], is_required: false, order: 1 },
+        { type: 'radio', label: 'Radio', options: ['Yes', 'No'], is_required: true, order: 2 },
+        { type: 'checkbox', label: 'Checkbox', options: ['One', 'Two'], is_required: false, order: 3 },
+        { type: 'rating', label: 'Rating', options: [], is_required: true, order: 4 },
+      ],
+    }} questionTypes={['likert', 'text', 'radio', 'checkbox', 'rating']} likertLabels={{}} />);
+
+    fireEvent.submit(screen.getByRole('button', { name: 'Update Form' }).closest('form'));
+
+    expect(state.form.submitted.data).toEqual({
+      title: 'All question types',
+      description: 'Description',
+      questions: [
+        { type: 'likert', label: 'Likert', options: [], is_required: true, order: 0 },
+        { type: 'text', label: 'Text', options: [], is_required: false, order: 1 },
+        { type: 'radio', label: 'Radio', options: ['Yes', 'No'], is_required: true, order: 2 },
+        { type: 'checkbox', label: 'Checkbox', options: ['One', 'Two'], is_required: false, order: 3 },
+        { type: 'rating', label: 'Rating', options: [], is_required: true, order: 4 },
+      ],
+    });
+  });
 });

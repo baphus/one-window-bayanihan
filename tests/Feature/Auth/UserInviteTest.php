@@ -118,6 +118,17 @@ class UserInviteTest extends TestCase
         Mail::assertQueued(UserInviteMail::class, 1);
     }
 
+    public function test_invite_management_routes_reject_non_uuid_ids(): void
+    {
+        $this->actingAs($this->admin)
+            ->post('/admin/users/invites/not-a-uuid/resend')
+            ->assertNotFound();
+
+        $this->actingAs($this->admin)
+            ->delete('/admin/users/invites/not-a-uuid')
+            ->assertNotFound();
+    }
+
     public function test_admin_cannot_resend_consumed_invite(): void
     {
         $invite = UserInvite::create([

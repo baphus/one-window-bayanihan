@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\Referral;
 use App\Models\SurveyForm;
@@ -46,6 +47,48 @@ class SurveyFormControllerTest extends TestCase
         $form = SurveyForm::where('agency_id', $agency->id)->firstOrFail();
         $this->assertSame(['Second', 'First'], $form->questions()->orderBy('order')->pluck('label')->all());
         $this->assertSame(['Yes', 'No'], $form->questions()->where('label', 'Second')->first()->options);
+    }
+
+    public function test_form_builder_payload_with_every_question_type_saves_and_reaches_final_inertia_page(): void
+    {
+        [$user, $agency] = $this->agencyUser();
+        $payload = [
+            'title' => 'All question types',
+            'description' => 'Created from the Agency form builder.',
+            'questions' => [
+                ['type' => 'likert', 'label' => 'Likert question', 'options' => [], 'is_required' => true, 'order' => 0],
+                ['type' => 'text', 'label' => 'Text question', 'options' => [], 'is_required' => false, 'order' => 1],
+                ['type' => 'radio', 'label' => 'Radio question', 'options' => ['Yes', 'No'], 'is_required' => true, 'order' => 2],
+                ['type' => 'checkbox', 'label' => 'Checkbox question', 'options' => ['One', 'Two'], 'is_required' => false, 'order' => 3],
+                ['type' => 'rating', 'label' => 'Rating question', 'options' => [], 'is_required' => true, 'order' => 4],
+            ],
+        ];
+
+        $response = $this->actingAs($user)
+            ->withHeader('X-Inertia', 'true')
+            ->post(route('survey.forms.store'), $payload);
+
+        $response->assertRedirect(route('survey.forms.index'));
+
+        $form = SurveyForm::where('agency_id', $agency->id)->firstOrFail();
+        $this->assertSame(
+            ['likert', 'text', 'radio', 'checkbox', 'rating'],
+            $form->questions()->orderBy('order')->pluck('type')->all(),
+        );
+        $this->assertSame(['Yes', 'No'], $form->questions()->where('type', 'radio')->first()->options);
+        $this->assertFalse($form->questions()->where('type', 'checkbox')->first()->is_required);
+
+        $this->actingAs($user)
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
+            ])
+            ->get(route('survey.forms.index'))
+            ->assertOk()
+            ->assertHeader('X-Inertia', 'true')
+            ->assertJsonPath('component', 'Survey/FormIndex')
+            ->assertJsonCount(1, 'props.forms')
+            ->assertJsonPath('props.flash.success', 'Survey form created successfully.');
     }
 
     public function test_update_replaces_form_metadata_and_questions(): void

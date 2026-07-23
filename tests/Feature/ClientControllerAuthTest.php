@@ -87,6 +87,17 @@ class ClientControllerAuthTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_case_manager_can_view_client_without_case_file(): void
+    {
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $client = Client::factory()->create();
+
+        $response = $this->actingAs($manager)
+            ->get(route('clients.show', $client));
+
+        $response->assertStatus(200);
+    }
+
     public function test_agency_can_view_client_with_referral_to_their_agency(): void
     {
         $agency = Agency::create([

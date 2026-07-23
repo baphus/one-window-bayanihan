@@ -18,15 +18,6 @@ vi.mock('@/Components/ui/RowContextMenu', () => ({
     RowContextMenu: ({ children }) => <div>{children}</div>,
     RowContextMenuItem: () => null,
 }));
-vi.mock('@/Components/ui/UnifiedTable', () => ({
-    UnifiedTable: ({ data, quickFilters, onPageChange }) => (
-        <section>
-            {quickFilters}
-            <button onClick={() => onPageChange(2)}>Go to page 2</button>
-            {data.map((row) => <div key={row.id}>{row.required_services} / {row.agency?.name}</div>)}
-        </section>
-    ),
-}));
 
 describe('Referral Index agency filtering', () => {
     it('resets a stale page to one when Rejected is selected and keeps another agency invisible', () => {
@@ -48,5 +39,26 @@ describe('Referral Index agency filtering', () => {
 
         expect(routerGet).toHaveBeenCalledWith('/referrals', { status: 'REJECTED' }, expect.objectContaining({ replace: true }));
         expect(routerGet.mock.calls[0][1]).not.toHaveProperty('page');
+    });
+
+    it('controls the table with the server default and starts the first column sort ascending', () => {
+        globalThis.route = vi.fn(() => '/referrals');
+        routerGet.mockClear();
+
+        render(<ReferralIndex
+            referrals={{ data: [{ id: 'ref-a', required_services: 'Service', status: 'PENDING', agency: { name: 'Agency A' }, case_file: { case_number: 'CASE-1' } }], total: 1, from: 1, to: 1, current_page: 1, last_page: 1, per_page: 15 }}
+            filters={{}}
+            stats={{}}
+            agencies={[]}
+            categories={[]}
+            caseIssues={[]}
+        />);
+
+        const caseNumberHeader = screen.getByRole('button', { name: /Case #/ });
+        expect(caseNumberHeader).toHaveTextContent('unfold_more');
+        expect(screen.queryByRole('button', { name: /Reset Sort/ })).not.toBeInTheDocument();
+        fireEvent.click(caseNumberHeader);
+
+        expect(routerGet).toHaveBeenCalledWith('/referrals', { sort: 'case_number', direction: 'asc' }, expect.objectContaining({ replace: true }));
     });
 });

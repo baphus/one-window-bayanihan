@@ -427,20 +427,14 @@ class CaseService
             }
 
             $case->loadMissing(['client.addresses', 'client.nextOfKin']);
-            $oldCategoryIds = $case->categories()->pluck('case_categories.id')->all();
-            $this->revalidatePublishedCategories($case);
-            $this->recordCategoryMutation(
-                $case,
-                $oldCategoryIds,
-                $case->categories()->pluck('case_categories.id')->all(),
-                $userId,
-                'PUBLISH',
-                true,
-            );
-            $this->assertDraftCompleteForPublishing($case);
-
-            // Capture the draft state before publishing (for audit diff)
+            // Capture the draft state for a lifecycle PUBLISH event. Category
+            // validation must not masquerade as that event in the audit trail.
             $old = $case->toArray();
+            $this->revalidatePublishedCategories($case);
+            $this->assertDraftCompleteForPublishing($case);
+            $finalCategoryIds = $this->sortedCategoryIds(
+                $case->categories()->pluck('case_categories.id')->all()
+            );
 
             // Create client from draft_client_data if no client_id exists (new-client draft)
             if (empty($case->client_id) && ! empty($case->draft_client_data)) {
@@ -515,7 +509,26 @@ class CaseService
                 $description .= ' — '.$case->summary;
             }
 
-            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
+            AuditLog::create([
+                'action' => AuditAction::PUBLISH->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $case->id,
+                'description' => $description,
+                // Include the final category set on the lifecycle event. A
+                // draft's category pivot can have changed without producing
+                // its own audit row before publication.
+                'old_value' => [
+                    'status' => $old['status'] ?? 'DRAFT',
+                    'category_ids' => $finalCategoryIds,
+                ],
+                'new_value' => [
+                    'status' => $case->status,
+                    'case_number' => $case->case_number,
+                    'category_ids' => $finalCategoryIds,
+                ],
+                'user_id' => $userId,
+                'timestamp' => now(),
+            ]);
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });

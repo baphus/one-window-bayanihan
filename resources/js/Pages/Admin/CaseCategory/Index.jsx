@@ -111,11 +111,13 @@ export default function AdminCaseCategoryIndex({ categories }) {
       </div>
 
       <div data-tour="case-categories-table">
-      <UnifiedTable
-        columns={columns}
-        data={categories}
-        keyExtractor={(row) => row.id}
-      />
+        <UnifiedTable
+          columns={columns}
+          data={categories}
+          keyExtractor={(row) => row.id}
+          hideControlBar
+          hidePagination
+        />
       </div>
       {UnsavedModal}
     </AppLayout>

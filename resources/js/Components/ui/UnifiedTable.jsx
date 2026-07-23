@@ -11,6 +11,7 @@ export function UnifiedTable({
   searchPlaceholder = "Search records...",
   searchValue = "",
   onSearchChange,
+  hideSearch = false,
 
   onAdvancedFilters,
   isAdvancedFiltersOpen = false,
@@ -318,7 +319,7 @@ export function UnifiedTable({
         
         {!hideControlBar && (
         <div className="p-4 bg-slate-50 flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-300 min-h-[72px]">
-          <div className="relative flex-1 w-full max-w-md h-[40px]">
+          {!hideSearch && <div className="relative flex-1 w-full max-w-md h-[40px]">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">
               search
             </span>
@@ -338,7 +339,7 @@ export function UnifiedTable({
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             )}
-          </div>
+          </div>}
           
           <div className="flex w-full flex-wrap items-center gap-3 pb-2 lg:w-auto lg:flex-nowrap lg:pb-0">
             {onAdvancedFilters && (
