@@ -62,7 +62,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
             </PageHeader>
 
             <StatRow
-                dataTour="dashboard-agency-metrics"
+                dataTour="dashboard-stats"
                 stats={[
                     { title: 'Pending', value: dashboard.pendingReferrals, icon: 'schedule', iconBg: 'bg-amber-50', iconColor: 'text-amber-700' },
                     { title: 'Processing', value: dashboard.processingReferrals, icon: 'sync', iconBg: 'bg-cyan-50', iconColor: 'text-cyan-700' },

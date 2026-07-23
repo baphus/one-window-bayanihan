@@ -32,10 +32,15 @@ class ReferralController extends Controller
     {
         $user = $request->user();
         $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to'];
+        $queryOptions = $request->validate([
+            'sort' => ['sometimes', 'string', 'in:case_number,client,case_issue,agency,status'],
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
+            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+        ]);
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
         $referrals = $this->referralService->getReferrals(
-            array_merge($request->only($filterKeys), $categoryFilters),
+            array_merge($request->only($filterKeys), $categoryFilters, $queryOptions),
             $user->agcy_id,
             $user->role,
             $user->id,
@@ -43,7 +48,7 @@ class ReferralController extends Controller
 
         return Inertia::render('Referral/Index', [
             'referrals' => $referrals,
-            'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters),
+            'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters, $queryOptions),
             'stats' => $this->referralService->getReferralStats($user->agcy_id, $user->role, $user->id),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),

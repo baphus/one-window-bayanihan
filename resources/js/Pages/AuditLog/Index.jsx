@@ -125,7 +125,7 @@ export default function AuditLogIndex({
 
   const handleFilterChange = useCallback((filters) => {
     const url = new URL(window.location);
-    const filterKeys = ['action', 'module', 'category', 'user_id', 'date_from', 'date_to', 'search', 'per_page', 'page'];
+    const filterKeys = ['action', 'module', 'category', 'user_id', 'date_from', 'date_to', 'search', 'per_page', 'page', 'cursor'];
     filterKeys.forEach(k => url.searchParams.delete(k));
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== '' && value !== null && value !== undefined) {
@@ -135,7 +135,18 @@ export default function AuditLogIndex({
     router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs', 'filterValues', 'activeCategories'] }));
   }, [withLoading]);
 
-  const handlePageChange = useCallback((page) => {
+  const handleCursorChange = useCallback((cursorUrl) => {
+    if (!cursorUrl) return;
+    router.get(cursorUrl, {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs'] }));
+  }, [withLoading]);
+
+  const handlePerPageChange = useCallback((event) => {
+    handleFilterChange({ ...(filterValues ?? {}), per_page: event.target.value });
+  }, [filterValues, handleFilterChange]);
+
+  /* Cursor pagination has no numeric page/current page metadata. */
+  const pagination = null;
+  /*
     const url = new URL(window.location);
     url.searchParams.set('page', page);
     router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs'] }));
@@ -149,6 +160,7 @@ export default function AuditLogIndex({
     to: logs.to,
     perPage: logs.per_page,
   };
+  */
 
   return (
     <AppLayout title={viewTitle}>
@@ -196,9 +208,22 @@ export default function AuditLogIndex({
             activeCategories={activeCategories ?? []}
             filterValues={filterValues ?? {}}
             onFilterChange={handleFilterChange}
-            pagination={pagination}
-            onPageChange={handlePageChange}
           />
+          <div className="mt-6 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <label className="flex items-center gap-2">
+              <span>Per page</span>
+              <select value={filterValues?.per_page ?? logs.per_page ?? 15} onChange={handlePerPageChange}
+                className="rounded-md border border-slate-300 bg-white px-2 py-1">
+                {[15, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <button type="button" disabled={!logs.prev_page_url} onClick={() => handleCursorChange(logs.prev_page_url)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+              <button type="button" disabled={!logs.next_page_url} onClick={() => handleCursorChange(logs.next_page_url)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+            </div>
+          </div>
           {tableLoading && <TableLoadingOverlay variant="list" />}
         </div>
       </div>

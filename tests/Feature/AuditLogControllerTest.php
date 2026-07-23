@@ -49,6 +49,46 @@ class AuditLogControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_advances_cursor_and_honours_per_page(): void
+    {
+        foreach (range(1, 17) as $i) {
+            AuditLog::create([
+                'user_id' => $this->user->id,
+                'action' => $i === 1 ? 'DELETE' : 'UPDATE',
+                'module' => 'clients',
+                'timestamp' => now()->subMinutes($i),
+            ]);
+        }
+
+        $first = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?action=UPDATE&per_page=15');
+
+        $first->assertStatus(200);
+        $payload = $first->json('props.logs');
+        $this->assertCount(15, $payload['data']);
+        $this->assertNotEmpty($payload['next_page_url']);
+        $this->assertStringContainsString('action=UPDATE', $payload['next_page_url']);
+        $this->assertStringContainsString('per_page=15', $payload['next_page_url']);
+
+        $second = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get($payload['next_page_url']);
+
+        $second->assertStatus(200);
+        $secondPayload = $second->json('props.logs');
+        $this->assertCount(1, $secondPayload['data']);
+        $this->assertStringContainsString('action=UPDATE', $secondPayload['prev_page_url']);
+        $this->assertStringContainsString('per_page=15', $secondPayload['prev_page_url']);
+        $this->assertNotSame($payload['data'][0]['id'], $second->json('props.logs.data.0.id'));
+
+        $previous = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get($secondPayload['prev_page_url']);
+        $this->assertSame($payload['data'][0]['id'], $previous->json('props.logs.data.0.id'));
+    }
+
+    #[Test]
     public function it_filters_by_action()
     {
         AuditLog::create([

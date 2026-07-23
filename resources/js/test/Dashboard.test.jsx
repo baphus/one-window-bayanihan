@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Dashboard from '../Pages/Dashboard.jsx';
+import { agencyTour } from '../Onboarding/configs/agency';
 
 const { pageProps } = vi.hoisted(() => ({ pageProps: {} }));
 
@@ -29,7 +30,16 @@ vi.mock('react-chartjs-2', () => ({
 }));
 
 vi.mock('@/Layouts/AppLayout', () => ({
-    default: ({ children }) => <main>{children}</main>,
+    default: ({ children }) => (
+        <main>
+            <nav data-tour="sidebar-nav">
+                <a data-tour="sidebar-help" href="/help">Help</a>
+            </nav>
+            <button data-tour="page-guide-button" type="button">?</button>
+            <div data-tour="chatbot-launcher" />
+            {children}
+        </main>
+    ),
 }));
 
 vi.mock('@/Components/DashboardBanner', () => ({
@@ -37,7 +47,7 @@ vi.mock('@/Components/DashboardBanner', () => ({
 }));
 
 vi.mock('@/Components/GettingStartedChecklist', () => ({
-    default: () => <div data-testid="getting-started-checklist" />,
+    default: () => <div data-tour="getting-started-checklist" data-testid="getting-started-checklist" />,
 }));
 
 vi.mock('../Pages/Dashboard/Admin', () => ({
@@ -57,6 +67,20 @@ vi.mock('@/Components/ui/RecentTable', () => ({
 }));
 
 describe('Dashboard role insights', () => {
+    it('renders every configured Agency dashboard onboarding anchor', () => {
+        Object.assign(pageProps, {
+            auth: { user: { role: 'AGENCY', name: 'Agency Focal' } },
+            dashboard: { workQueue: [] },
+        });
+
+        render(<Dashboard />);
+
+        const dashboardPage = agencyTour.pages.find((page) => page.route === 'dashboard');
+        for (const step of dashboardPage.steps) {
+            expect(document.querySelector(step.element), `Missing Agency anchor: ${step.element}`).toBeInTheDocument();
+        }
+    });
+
     it('renders the agency focal work queue and sparse feedback empty state', () => {
         Object.assign(pageProps, {
             auth: { user: { role: 'AGENCY' } },

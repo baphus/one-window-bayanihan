@@ -84,7 +84,10 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
 
     router.post(
       route('overdue-referrals.send-reminders'),
-      { referral_ids: confirmDialog.type === 'all' ? [] : ids },
+      {
+        referral_ids: confirmDialog.type === 'all' ? [] : ids,
+        status_filter: currentFilter,
+      },
       {
         preserveScroll: true,
         preserveState: true,
@@ -94,7 +97,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
         },
       },
     );
-  }, [confirmDialog, selectedIds]);
+  }, [confirmDialog, currentFilter, selectedIds]);
 
   const handleSortChange = useCallback((e) => {
     const url = new URL(window.location);

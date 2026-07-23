@@ -219,6 +219,7 @@ class CaseServiceTest extends TestCase
             'user_id' => $user->id,
             'category_id' => $category->id,
             'client_type' => 'OFW',
+            'summary' => 'Needs assistance',
             'draft_client_data' => [
                 'first_name' => 'Juan',
                 'last_name' => 'Dela Cruz',
@@ -246,9 +247,16 @@ class CaseServiceTest extends TestCase
         ]);
         $this->assertDatabaseHas('audit_logs', [
             'entity_id' => $case->id,
-            'action' => 'UPDATE',
+            'action' => 'PUBLISH',
             'module' => 'case',
+            'description' => 'Case '.$case->case_number.' published — Needs assistance',
         ]);
+        $publishAudit = AuditLog::where('entity_id', $case->id)
+            ->where('action', 'PUBLISH')
+            ->latest('timestamp')
+            ->first();
+        $this->assertSame([$category->id], $publishAudit->old_value['category_ids']);
+        $this->assertSame([$category->id], $publishAudit->new_value['category_ids']);
     }
 
     public function test_incomplete_draft_cannot_be_published(): void

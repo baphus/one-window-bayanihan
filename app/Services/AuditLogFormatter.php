@@ -390,6 +390,12 @@ class AuditLogFormatter
             }
         }
 
+        if (in_array($moduleRaw, ['client', 'clients'])) {
+            $name = $this->extractEntityDetail($newValues, $moduleRaw);
+
+            return $name ? sprintf('%s was added as a client', $name) : 'A new client was added';
+        }
+
         // Specific template: Referral creation
         if (in_array($moduleRaw, ['referrals', 'referral'])) {
             $serviceType = $newValues['required_services'] ?? null;

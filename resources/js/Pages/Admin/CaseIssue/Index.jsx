@@ -107,6 +107,8 @@ export default function AdminCaseIssueIndex({ issues, filters }) {
         columns={columns}
         data={issues}
         keyExtractor={(row) => row.id}
+        hideSearch
+        hidePagination
         extraActions={(
           <label className="flex items-center gap-2 cursor-pointer ml-auto shrink-0">
             <input

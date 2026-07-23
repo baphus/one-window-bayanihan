@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Security;
 
+use App\Mail\ReferralOverdueMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -189,5 +191,117 @@ class OverdueReferralsAccessTest extends TestCase
                 ->has('referrals.data', 1)
                 ->where('referrals.data.0.id', $staleReferral->id)
             );
+    }
+
+    #[Test]
+    public function case_manager_cannot_send_a_reminder_for_another_managers_referral(): void
+    {
+        Mail::fake();
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherCm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agency = Agency::factory()->create();
+        User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+
+        $ownCase = CaseFile::factory()->create(['user_id' => $cm->id]);
+        $otherCase = CaseFile::factory()->create(['user_id' => $otherCm->id]);
+        $own = $this->createReferralWithAge(['case_id' => $ownCase->id, 'agcy_id' => $agency->id], 12);
+        $other = $this->createReferralWithAge(['case_id' => $otherCase->id, 'agcy_id' => $agency->id], 12);
+
+        $this->actingAs($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => [$other->id]])->assertRedirect();
+        Mail::assertQueued(ReferralOverdueMail::class, 0);
+
+        $this->actingAs($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => [$own->id]])->assertRedirect();
+        Mail::assertQueued(ReferralOverdueMail::class, 1);
+        Mail::assertQueued(ReferralOverdueMail::class, fn (ReferralOverdueMail $mail) => $mail->referral->is($own));
+    }
+
+    #[Test]
+    public function empty_reminder_selection_targets_the_same_scoped_inactive_set_as_display(): void
+    {
+        Mail::fake();
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherCm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agency = Agency::factory()->create();
+        User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $ownCase = CaseFile::factory()->create(['user_id' => $cm->id]);
+        $otherCase = CaseFile::factory()->create(['user_id' => $otherCm->id]);
+        $this->createReferralWithAge(['case_id' => $ownCase->id, 'agcy_id' => $agency->id], 12);
+        $recentlyMilestoned = $this->createReferralWithAge(['case_id' => $ownCase->id, 'agcy_id' => $agency->id], 30);
+        Milestone::factory()->create([
+            'refr_id' => $recentlyMilestoned->id,
+            'created_at' => now()->subDays(2),
+        ]);
+        $other = $this->createReferralWithAge(['case_id' => $otherCase->id, 'agcy_id' => $agency->id], 12);
+
+        $this->actingAs($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => []])->assertRedirect();
+
+        Mail::assertQueued(ReferralOverdueMail::class, 1);
+        Mail::assertQueued(ReferralOverdueMail::class, fn (ReferralOverdueMail $mail) => $mail->referral->id !== $other->id);
+        Mail::assertQueued(ReferralOverdueMail::class, fn (ReferralOverdueMail $mail) => $mail->referral->id !== $recentlyMilestoned->id);
+    }
+
+    #[Test]
+    public function stats_cover_the_full_overdue_query_when_results_are_paginated(): void
+    {
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $agency = Agency::factory()->create();
+        $caseFile = CaseFile::factory()->create();
+
+        foreach (range(1, 16) as $unused) {
+            $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id], 12);
+        }
+
+        $this->actingAs($admin)->get(route('overdue-referrals.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('stats.total', 16)
+                ->has('referrals.data', 15)
+                ->where('referrals.total', 16)
+            );
+    }
+
+    #[Test]
+    public function filtered_bulk_reminders_send_only_matching_status(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $agency = Agency::factory()->create();
+        User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $caseFile = CaseFile::factory()->create();
+        $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id, 'status' => 'PENDING'], 12);
+        $processing = $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id, 'status' => 'PROCESSING'], 12);
+
+        $this->actingAs($admin)->post(route('overdue-referrals.send-reminders'), [
+            'status_filter' => 'pending',
+        ])->assertRedirect();
+
+        Mail::assertQueued(ReferralOverdueMail::class, 1);
+        Mail::assertQueued(ReferralOverdueMail::class, fn (ReferralOverdueMail $mail) => $mail->referral->id !== $processing->id);
+    }
+
+    #[Test]
+    public function agency_cannot_post_overdue_reminders(): void
+    {
+        Mail::fake();
+        $agency = Agency::factory()->create();
+        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+
+        $this->actingAs($agencyUser)
+            ->post(route('overdue-referrals.send-reminders'))
+            ->assertForbidden();
+
+        Mail::assertNothingQueued();
+    }
+
+    #[Test]
+    public function malformed_reminder_ids_fail_validation_instead_of_querying(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+
+        $this->actingAs($admin)
+            ->post(route('overdue-referrals.send-reminders'), ['referral_ids' => ['not-a-uuid']])
+            ->assertSessionHasErrors('referral_ids.0');
+
+        Mail::assertNothingQueued();
     }
 }
