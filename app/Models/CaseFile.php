@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\CascadeSoftDeletes;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,9 +10,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class CaseFile extends Model
 {
-    use HasFactory, SoftDeleteFlag, UsesUuid;
+    use CascadeSoftDeletes, HasFactory, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
+    /**
+     * Relationships to cascade on soft-delete and restore.
+     */
+    protected array $cascadeSoftDeletes = ['referrals', 'documents'];
+
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'deletion_reason'];
 
     public const CLIENT_TYPE_OFW = 'OFW';
 
@@ -44,6 +50,7 @@ class CaseFile extends Model
         'category_id',
         'case_issue_id',
         'draft_client_data',
+        'deletion_reason',
     ];
 
     protected $casts = [

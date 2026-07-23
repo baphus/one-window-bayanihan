@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Trash Retention Period
+    |--------------------------------------------------------------------------
+    |
+    | Number of days soft-deleted cases are retained in the trash before the
+    | scheduled auto-purge permanently removes them. Override per deployment
+    | via APP_TRASH_RETENTION_DAYS in .env.
+    |
+    */
+    'trash_retention_days' => (int) env('APP_TRASH_RETENTION_DAYS', 90),
+
 ];

@@ -19,6 +19,7 @@ use App\Notifications\CaseUpdated;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -1410,5 +1411,165 @@ class CaseService
         }
 
         return ucwords(strtolower(trim($position)));
+    }
+
+    // -------------------------------------------------------------------------
+    // Soft-delete (Trash) methods
+    // -------------------------------------------------------------------------
+
+    /**
+     * Soft-delete an archived case with a mandatory reason.
+     *
+     * Only ARCHIVED cases may be deleted. The case and all cascaded child
+     * records (referrals → comments, attachments; documents) are soft-deleted
+     * via the CascadeSoftDeletes trait on the model. The deletion reason is
+     * stored on the case row and in the audit log.
+     *
+     * @throws HttpResponseException 422 if not ARCHIVED
+     */
+    public function deleteArchivedCase(CaseFile $case, string $reason, string $userId): void
+    {
+        abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be deleted.');
+
+        DB::transaction(function () use ($case, $reason, $userId) {
+            // Store reason directly on the row before soft-delete so it
+            // persists even if only the trashed record is inspected.
+            $case->deletion_reason = $reason;
+            $case->saveQuietly();
+
+            // Trigger soft-delete cascade (CascadeSoftDeletes fires on the
+            // SoftDeletes-powered delete() call).
+            $case->delete();
+
+            // Explicit audit entry with the deletion reason for COA compliance.
+            // AuditObserver::deleted() also fires, but that captures field diffs;
+            // this entry captures the human-provided reason.
+            AuditLog::create([
+                'action' => AuditAction::DELETE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $case->id,
+                'description' => "Case {$case->case_number} deleted — {$reason}",
+                'old_value' => ['status' => $case->status, 'case_number' => $case->case_number],
+                'new_value' => ['is_deleted' => true, 'deletion_reason' => $reason],
+                'user_id' => $userId,
+                'timestamp' => now(),
+            ]);
+        });
+    }
+
+    /**
+     * Restore a soft-deleted case back to ARCHIVED status.
+     *
+     * Cascaded restore is triggered by the CascadeSoftDeletes trait on restore().
+     */
+    public function restoreTrashedCase(CaseFile $case, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($case, $userId) {
+            // Restore case (and cascaded referrals/documents via CascadeSoftDeletes)
+            $case->restore();
+
+            // Ensure case returns to ARCHIVED, not some other status
+            $case->update(['status' => 'ARCHIVED', 'deletion_reason' => null]);
+
+            AuditLog::create([
+                'action' => AuditAction::RESTORE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $case->id,
+                'description' => "Case {$case->case_number} restored from trash",
+                'old_value' => ['is_deleted' => true],
+                'new_value' => ['is_deleted' => false, 'status' => 'ARCHIVED'],
+                'user_id' => $userId,
+                'timestamp' => now(),
+            ]);
+
+            return $case->load([
+                'client.addresses',
+                'client.employments',
+                'client.nextOfKin',
+                'referrals.milestones',
+                'referrals.agency',
+                'referrals.attachments.user',
+                'user',
+                'category',
+                'categories',
+                'caseIssue',
+            ]);
+        });
+    }
+
+    /**
+     * Paginated list of soft-deleted cases for the trash view.
+     *
+     * CASE_MANAGER role sees only their own trashed cases.
+     * ADMIN sees all.
+     */
+    public function getTrashedCases(array $filters = [], ?User $user = null): LengthAwarePaginator
+    {
+        $query = CaseFile::onlyTrashed()
+            ->with(['client', 'user'])
+            ->orderBy('deleted_at', 'desc');
+
+        // Role-based ownership filter
+        if ($user && $user->isCaseManager()) {
+            $query->where('user_id', $user->id);
+        }
+
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('case_number', 'ilike', "%{$search}%")
+                    ->orWhereHas('client', function ($q) use ($search) {
+                        $q->where('first_name', 'ilike', "%{$search}%")
+                            ->orWhere('last_name', 'ilike', "%{$search}%")
+                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
+                    });
+            });
+        }
+
+        $perPage = isset($filters['per_page']) ? min(max((int) $filters['per_page'], 10), 100) : 15;
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Permanently delete soft-deleted cases older than the retention period.
+     *
+     * Called by the PurgeTrashedCases artisan command. Returns the count of
+     * purged cases.
+     */
+    public function purgeTrashedCases(int $retentionDays): int
+    {
+        $cutoff = now()->subDays($retentionDays);
+
+        $cases = CaseFile::onlyTrashed()
+            ->where('deleted_at', '<', $cutoff)
+            ->get();
+
+        $count = $cases->count();
+
+        if ($count === 0) {
+            return 0;
+        }
+
+        DB::transaction(function () use ($cases, $cutoff, $count) {
+            foreach ($cases as $case) {
+                // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
+                $case->forceDelete();
+            }
+
+            // Audit the purge batch
+            AuditLog::create([
+                'action' => AuditAction::PURGE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => null,
+                'description' => "Auto-purged {$count} case(s) with deleted_at before {$cutoff->toDateString()}",
+                'old_value' => ['purged_count' => $count, 'cutoff_date' => $cutoff->toDateString()],
+                'new_value' => [],
+                'user_id' => null,
+                'timestamp' => now(),
+            ]);
+        });
+
+        return $count;
     }
 }
