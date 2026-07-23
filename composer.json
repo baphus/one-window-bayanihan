@@ -18,7 +18,7 @@
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "3.34.0",
         "openai-php/client": "^0.19.2",
-        "phpoffice/phpspreadsheet": "5.8.0",
+        "phpoffice/phpspreadsheet": "5.9.0",
         "pragmarx/google2fa-laravel": "3.0.1",
         "sentry/sentry-laravel": "^4.8",
         "tightenco/ziggy": "^2.0"

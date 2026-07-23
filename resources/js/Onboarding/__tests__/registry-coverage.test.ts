@@ -13,6 +13,7 @@ const HREF_TO_ROUTE: Record<string, string> = {
     '/notifications/page': 'notifications.page',
     '/cases': 'cases.index',
     '/cases/drafts': 'cases.drafts',
+    '/cases/trash': 'cases.trash',
     '/clients': 'clients.index',
     '/referrals': 'referrals.index',
     '/overdue-referrals': 'overdue-referrals.index',

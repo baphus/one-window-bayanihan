@@ -340,6 +340,48 @@ class CaseController extends Controller
         return $pdf->download('case-report-'.$case->case_number.'-'.now()->format('Ymd-His').'.pdf');
     }
 
+    public function trashIndex(Request $request)
+    {
+        $filters = $request->only(['search', 'per_page']);
+        $trashedCases = $this->caseService->getTrashedCases($filters, $request->user());
+
+        return Inertia::render('Case/Trash', [
+            'cases' => $trashedCases,
+            'filters' => (object) $filters,
+        ]);
+    }
+
+    public function deleteArchived(Request $request, string $id)
+    {
+        $request->validate([
+            'deletion_reason' => ['required', 'string', 'min:10'],
+        ]);
+
+        $case = CaseFile::findOrFail($id);
+        $this->authorizeCaseAccess($case, $request->user());
+
+        $this->caseService->deleteArchivedCase(
+            $case,
+            $request->input('deletion_reason'),
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->route('cases.index')
+            ->with('success', 'Case moved to trash successfully.');
+    }
+
+    public function restore(Request $request, string $id)
+    {
+        $case = CaseFile::onlyTrashed()->findOrFail($id);
+
+        $this->caseService->restoreTrashedCase($case, $request->user()->id);
+
+        return redirect()
+            ->route('cases.trash')
+            ->with('success', 'Case restored successfully.');
+    }
+
     private function authorizeCaseAccess($case, $user)
     {
         if ($user->isAdmin()) {

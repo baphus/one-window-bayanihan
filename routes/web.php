@@ -111,6 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
         Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
         Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
+        Route::get('/cases/trash', [CaseController::class, 'trashIndex'])->name('cases.trash');
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
         Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
@@ -119,6 +120,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
         Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
         Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
+        Route::delete('/cases/{case}/delete-archived', [CaseController::class, 'deleteArchived'])->name('cases.delete-archived');
+        Route::post('/cases/{case}/restore', [CaseController::class, 'restore'])->name('cases.restore');
         Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
         Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
 

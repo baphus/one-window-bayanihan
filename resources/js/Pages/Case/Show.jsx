@@ -163,6 +163,9 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [confirmToggleStatus, setConfirmToggleStatus] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmUnarchive, setConfirmUnarchive] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
+  const [deletionReasonError, setDeletionReasonError] = useState('');
   const [formStatus, setFormStatus] = useState(caseFile.status);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
@@ -360,6 +363,25 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     });
   }
 
+  function handleDeleteArchived() {
+    if (deletionReason.trim().length < 10) {
+      setDeletionReasonError('Deletion reason must be at least 10 characters.');
+      return;
+    }
+    setDeletionReasonError('');
+    router.delete(route('cases.delete-archived', caseFile.id), {
+      data: { deletion_reason: deletionReason.trim() },
+      onSuccess: () => {
+        setShowDeleteModal(false);
+        setDeletionReason('');
+      },
+      onError: (errors) => {
+        const msg = errors?.deletion_reason || Object.values(errors)[0] || 'Delete failed.';
+        setDeletionReasonError(msg);
+      },
+    });
+  }
+
   return (
     <AppLayout title="Case Details">
       <Head title="Case Details" />
@@ -451,13 +473,25 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
           </button>
           {caseFile.status === 'ARCHIVED' ? (
-            <button
-              type="button"
-              onClick={() => setConfirmUnarchive(true)}
-              className="px-3 min-h-[32px] bg-gray-200 text-gray-700 hover:bg-gray-300 text-[12px] font-bold rounded-md transition-colors border border-gray-300"
-            >
-              Restore from Archive
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmUnarchive(true)}
+                className="px-3 min-h-[32px] bg-gray-200 text-gray-700 hover:bg-gray-300 text-[12px] font-bold rounded-md transition-colors border border-gray-300"
+              >
+                Restore from Archive
+              </button>
+              {(auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN') && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="px-3 min-h-[32px] bg-red-50 text-red-700 hover:bg-red-100 text-[12px] font-bold rounded-md transition-colors border border-red-200 inline-flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[15px]">delete_forever</span>
+                  Delete Case
+                </button>
+              )}
+            </>
           ) : caseFile.status === 'CLOSED' && !hasActiveReferrals ? (
             <button
               type="button"
@@ -1052,6 +1086,72 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         }}
         onCancel={() => setConfirmDeleteDoc(null)}
       />
+
+      {/* Deletion reason modal for archived cases */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-red-500 text-[22px]">warning</span>
+                <h3 className="text-[16px] font-bold text-slate-900">Delete Archived Case</h3>
+              </div>
+              <p className="mt-2 text-[13px] text-slate-600">
+                This will move case <span className="font-bold">{caseFile.case_number}</span> to trash.
+                It can be restored from the trash view within the retention period.
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600 mb-1.5">
+                  Deletion Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={deletionReason}
+                  onChange={(e) => {
+                    setDeletionReason(e.target.value);
+                    if (e.target.value.trim().length >= 10) setDeletionReasonError('');
+                  }}
+                  placeholder="Explain why this case is being deleted (min 10 characters)..."
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-red-400 resize-none"
+                />
+                <div className="flex items-center justify-between mt-1">
+                  {deletionReasonError ? (
+                    <span className="text-[11px] text-red-600">{deletionReasonError}</span>
+                  ) : (
+                    <span className="text-[11px] text-slate-400">Required for audit compliance (COA)</span>
+                  )}
+                  <span className={`text-[11px] ${deletionReason.trim().length < 10 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {deletionReason.trim().length}/10 min
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-200 bg-slate-50 rounded-b-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletionReason('');
+                  setDeletionReasonError('');
+                }}
+                className="h-9 rounded-md border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteArchived}
+                disabled={deletionReason.trim().length < 10}
+                className="h-9 rounded-md bg-red-600 px-4 text-[12px] font-bold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Delete Case
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

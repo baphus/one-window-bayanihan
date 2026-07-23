@@ -96,6 +96,15 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="drafts-new-case"]', title: 'Start a New Case', description: 'Ready to begin? Click New Case to open the case creation form. You can save it as a draft at any point and return here later.', side: 'bottom', align: 'end' },
         ],
     },
+    'cases.trash': {
+        title: 'Case Trash',
+        helpdeskSlug: 'managing-draft-cases',
+        steps: [
+            { element: '[data-tour="trash-header"]', title: 'Trashed Cases', description: 'Archived cases that have been soft-deleted appear here. They remain recoverable until the auto-purge retention period expires.', side: 'bottom' },
+            { element: '[data-tour="trash-filters"]', title: 'Search Trash', description: 'Search by client name or case number to find a specific deleted case.', side: 'bottom' },
+            { element: '[data-tour="trash-table"]', title: 'Restore or Wait', description: 'Each row shows when the case was deleted, by whom, and why. Click Restore to return a case to active ARCHIVED status — or leave it to be automatically purged after the retention period.', side: 'top' },
+        ],
+    },
     'clients.index': {
         title: 'Clients',
         helpdeskSlug: 'getting-started-case-managers',

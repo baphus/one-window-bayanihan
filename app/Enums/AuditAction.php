@@ -29,6 +29,8 @@ enum AuditAction: string
     case ARCHIVE = 'ARCHIVE';
     case UNARCHIVE = 'UNARCHIVE';
     case PUBLISH = 'PUBLISH';
+    case RESTORE = 'RESTORE';
+    case PURGE = 'PURGE';
 
     /** All backing values — convenience for validation and tests. */
     public static function values(): array
@@ -65,6 +67,8 @@ enum AuditAction: string
             self::ARCHIVE => 'Archived',
             self::UNARCHIVE => 'Unarchived',
             self::PUBLISH => 'Published',
+            self::RESTORE => 'Restored',
+            self::PURGE => 'Purged',
         };
     }
 }
