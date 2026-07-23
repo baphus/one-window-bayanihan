@@ -31,14 +31,14 @@ function AgencyLogo({ agency, className = '' }) {
 
 function InfoCard({ icon, label, children }) {
   return (
-    <div className="border border-outline-variant/70 bg-surface-container-lowest p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-on-surface-variant">
+    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-slate-500">
         <span className="material-symbols-outlined text-[18px] text-primary">{icon}</span>
         <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
           {label}
         </span>
       </div>
-      <div className="mt-3 text-sm leading-6 text-on-surface">{children}</div>
+      <div className="mt-3 text-sm leading-6 text-slate-700">{children}</div>
     </div>
   );
 }
@@ -84,7 +84,7 @@ export default function PublicAgencyShow({ agency }) {
       <Head title={agency?.name ? `${agency.name} | Partner Agency` : 'Partner Agency'} />
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
 
-      <main className="flex-1 pt-20">
+      <main className="flex-1 pt-20 owb-scroll-wide">
         <section className="relative overflow-hidden bg-[#0b5c92]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0b5c92] via-[#0b5c92]/95 to-blue-800/35" />
 
@@ -124,7 +124,7 @@ export default function PublicAgencyShow({ agency }) {
           </div>
         </section>
 
-        <section className="border-b border-outline-variant bg-white">
+        <section className="bg-surface-container py-6">
           <div className="mx-auto grid max-w-7xl gap-4 px-4 py-6 md:grid-cols-3 md:gap-5 md:px-8">
             <InfoCard icon="call" label="Contact info">
               {hasContactInfo ? (
@@ -174,7 +174,7 @@ export default function PublicAgencyShow({ agency }) {
               <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-secondary">
                 Public service directory
               </p>
-              <h2 className="mt-2 font-headline text-2xl font-extrabold tracking-tight text-on-surface md:text-3xl">
+              <h2 className="mt-2 font-headline text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">
                 Services &amp; Offerings
               </h2>
             </div>
@@ -192,7 +192,7 @@ export default function PublicAgencyShow({ agency }) {
                 return (
                   <article
                     key={service.id}
-                    className="relative border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(11,92,146,0.08)]"
+                    className="relative bg-white border border-slate-200 rounded-xl p-5 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md"
                   >
                     {processingDays && (
                       <span className="absolute right-4 top-4 border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
@@ -206,18 +206,18 @@ export default function PublicAgencyShow({ agency }) {
                       </h3>
 
                       {serviceDescription && (
-                        <p className="mt-3 text-sm leading-6 text-on-surface-variant">
+                        <p className="mt-3 text-sm leading-6 text-slate-600">
                           {serviceDescription}
                         </p>
                       )}
 
                       {requirements.length > 0 && (
                         <div className="mt-4">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
                             Requirements
                           </p>
 
-                          <ul className="mt-2 list-disc space-y-1 pl-4 text-[12px] leading-5 text-on-surface-variant marker:text-primary">
+                          <ul className="mt-2 list-disc space-y-1 pl-4 text-[12px] leading-5 text-slate-600 marker:text-primary">
                             {requirements.map((requirement) => (
                               <li key={requirement.id}>{requirement.name}</li>
                             ))}
@@ -230,7 +230,7 @@ export default function PublicAgencyShow({ agency }) {
               })}
             </div>
           ) : (
-            <div className="border border-outline-variant/30 bg-surface-container-lowest p-6 text-sm text-on-surface-variant">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 text-sm text-slate-500">
               No services listed yet.
             </div>
           )}

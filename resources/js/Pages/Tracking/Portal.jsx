@@ -59,7 +59,7 @@ export default function TrackingPortal() {
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
 
       <main className="flex-1 pt-20">
-        <section className="relative flex min-h-[400px] w-full items-center justify-center overflow-hidden py-12 md:py-20 bg-primary">
+        <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-primary">
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary-container/30"></div>
           </div>
@@ -125,7 +125,7 @@ export default function TrackingPortal() {
                 <button
                   type="submit"
                   disabled={processing}
-                  className="w-full bg-blue-900 text-white rounded-lg px-8 py-4 text-sm font-bold shadow-md hover:bg-blue-800 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full bg-primary text-white rounded-lg px-8 py-4 text-sm font-bold shadow-md hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   <span className="material-symbols-outlined text-[18px]">search</span>
                   {processing ? 'Sending OTP...' : 'Go to Tracking'}

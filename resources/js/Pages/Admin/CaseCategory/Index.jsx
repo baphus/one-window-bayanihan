@@ -3,6 +3,7 @@ import { Head, router, Link } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import StatusBadge from '@/Components/ui/StatusBadge';
 import CaseCategoryFormModal from '@/Components/Admin/CaseCategoryFormModal';
@@ -10,6 +11,7 @@ import CaseCategoryFormModal from '@/Components/Admin/CaseCategoryFormModal';
 export default function AdminCaseCategoryIndex({ categories }) {
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
 
   const columns = useMemo(() => [
@@ -65,9 +67,7 @@ export default function AdminCaseCategoryIndex({ categories }) {
           {row.is_active ? (
             <button
               onClick={() => {
-                if (confirm('Deactivate this category?')) {
-                  router.delete(route('admin.case-categories.destroy', row.id), { preserveScroll: true });
-                }
+                setConfirmAction({ type: 'deactivate', id: row.id });
               }}
               className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200"
             >
@@ -76,9 +76,7 @@ export default function AdminCaseCategoryIndex({ categories }) {
           ) : (
             <button
               onClick={() => {
-                if (confirm(`Reactivate category "${row.name}"?`)) {
-                  router.patch(route('admin.case-categories.reactivate', row.id), {}, { preserveScroll: true });
-                }
+                setConfirmAction({ type: 'reactivate', id: row.id, name: row.name });
               }}
               className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200"
             >
@@ -120,6 +118,24 @@ export default function AdminCaseCategoryIndex({ categories }) {
         />
       </div>
       {UnsavedModal}
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.type === 'deactivate' ? 'Deactivate Category' : 'Reactivate Category'}
+        message={confirmAction?.type === 'deactivate'
+          ? 'Deactivate this category?'
+          : `Reactivate category "${confirmAction?.name}"?`}
+        confirmLabel={confirmAction?.type === 'deactivate' ? 'Deactivate' : 'Reactivate'}
+        tone={confirmAction?.type === 'deactivate' ? 'danger' : 'default'}
+        onConfirm={() => {
+          if (confirmAction.type === 'deactivate') {
+            router.delete(route('admin.case-categories.destroy', confirmAction.id), { preserveScroll: true });
+          } else {
+            router.patch(route('admin.case-categories.reactivate', confirmAction.id), {}, { preserveScroll: true });
+          }
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </AppLayout>
   );
 }

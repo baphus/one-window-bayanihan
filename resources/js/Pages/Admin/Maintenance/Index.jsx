@@ -1,10 +1,12 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 export default function Index({ status }) {
   const [secret, setSecret] = useState('');
   const [retryMinutes, setRetryMinutes] = useState('');
+  const [confirmToggle, setConfirmToggle] = useState(false);
 
   const isActive = !!status?.active;
 
@@ -48,7 +50,7 @@ export default function Index({ status }) {
                 <div><span className="font-medium">Retry:</span> {status?.retry ? `${Math.ceil(status.retry / 60)} minute${Math.ceil(status.retry / 60) !== 1 ? 's' : ''}` : 'None'}</div>
               </div>
               <button
-                onClick={toggle}
+                onClick={() => setConfirmToggle(true)}
                 className="rounded-md bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-red-500"
               >
                 Disable Maintenance Mode
@@ -81,7 +83,7 @@ export default function Index({ status }) {
                 </label>
               </div>
               <button
-                onClick={toggle}
+                onClick={() => setConfirmToggle(true)}
                 className="rounded-md bg-gray-900 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-800"
               >
                 Enable Maintenance Mode
@@ -90,6 +92,18 @@ export default function Index({ status }) {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmToggle}
+        title={isActive ? 'Disable Maintenance Mode' : 'Enable Maintenance Mode'}
+        message={isActive
+          ? 'Are you sure you want to disable maintenance mode? This will reopen the site to all users.'
+          : 'Are you sure you want to enable maintenance mode? This will make the site unavailable to all users.'}
+        confirmLabel={isActive ? 'Disable' : 'Enable'}
+        cancelLabel="Cancel"
+        tone="danger"
+        onConfirm={() => { toggle(); setConfirmToggle(false); }}
+        onCancel={() => setConfirmToggle(false)}
+      />
     </AppLayout>
   );
 }

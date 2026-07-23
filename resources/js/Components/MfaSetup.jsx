@@ -7,6 +7,7 @@ import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
 import TextInput from '@/Components/TextInput';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 export default function MfaSetup({ mfaEnabled }) {
     const [enabled, setEnabled] = useState(mfaEnabled);
@@ -19,6 +20,7 @@ export default function MfaSetup({ mfaEnabled }) {
     const [showRecovery, setShowRecovery] = useState(false);
     const toast = useToast();
     const [loading, setLoading] = useState(false);
+    const [showDisableConfirm, setShowDisableConfirm] = useState(false);
 
     function handleEnable() {
         setLoading(true);
@@ -68,7 +70,11 @@ export default function MfaSetup({ mfaEnabled }) {
     }
 
     function handleDisable() {
-        if (!confirm('Are you sure you want to disable two-factor authentication?')) return;
+        setShowDisableConfirm(true);
+    }
+
+    function confirmDisable() {
+        setShowDisableConfirm(false);
         setLoading(true);
         setError('');
 
@@ -118,6 +124,7 @@ export default function MfaSetup({ mfaEnabled }) {
     }
 
     return (
+        <>
         <CardSection title="Two-Factor Authentication">
             <div className="space-y-4" aria-live="polite">
                 {error && <InputError message={error} className="mb-3" />}
@@ -230,5 +237,16 @@ export default function MfaSetup({ mfaEnabled }) {
                 )}
             </div>
         </CardSection>
+
+        <ConfirmDialog
+            open={showDisableConfirm}
+            title="Disable Two-Factor Authentication"
+            message="Are you sure you want to disable two-factor authentication? Your account will be less secure."
+            confirmLabel="Disable"
+            tone="danger"
+            onConfirm={confirmDisable}
+            onCancel={() => setShowDisableConfirm(false)}
+        />
+        </>
     );
 }

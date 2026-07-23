@@ -54,6 +54,12 @@ export default function AppLayout({ title, children }) {
     }
   };
 
+  // Lock body scroll — only the inner <main> should scroll.
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   useEffect(() => {
     const onBefore = () => {
       navIdCounter += 1;
@@ -83,7 +89,7 @@ export default function AppLayout({ title, children }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100">
+    <div className="flex h-screen overflow-hidden bg-[#f9fafc]">
       <Head title={title} />
       <FlashMessageWatcher />
       <AppSidebar />

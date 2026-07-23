@@ -160,70 +160,88 @@ function StepBar({ steps }) {
   );
 }
 
-/** One chapter per partner office: stamp, step bar, that office's ledger. */
-function AgencyChapter({ agency, events }) {
+/** One chapter per partner office — accordion: header always visible, body collapsible. */
+function AgencyChapter({ agency, events, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   const stamp = REFERRAL_STAMP[agency.status] ?? REFERRAL_STAMP.PENDING;
   const isRejected = agency.status === 'REJECTED';
   const requirements = agency.requirements ?? [];
 
   return (
     <section className="rounded-md border border-slate-300 bg-white shadow-sm">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-slate-50 px-5 py-3.5">
-        <h3 className="font-headline text-sm font-extrabold tracking-tight text-slate-800">{agency.name}</h3>
-        <span className={`border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${stamp.border} ${stamp.text}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 bg-slate-50 px-5 py-3.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        aria-expanded={open}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            aria-hidden="true"
+            className={`material-symbols-outlined text-[18px] transition-transform duration-200 ${open ? 'rotate-90' : ''} text-slate-400`}
+          >
+            chevron_right
+          </span>
+          <h3 className="truncate font-headline text-sm font-extrabold tracking-tight text-slate-800">{agency.name}</h3>
+        </div>
+        <span className={`shrink-0 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${stamp.border} ${stamp.text}`}>
           {stamp.label}
         </span>
-      </header>
+      </button>
 
-      <div className="px-5 py-5">
-        <StepBar steps={agency.steps ?? []} />
-        {isRejected && (
-          <p className="mt-4 text-[13px] leading-relaxed text-slate-600">
-            This office was unable to process the referral. Your case manager will advise you on the next steps.
-          </p>
-        )}
+      <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className="border-t border-slate-200 px-5 py-5">
+            <StepBar steps={agency.steps ?? []} />
+            {isRejected && (
+              <p className="mt-4 text-[13px] leading-relaxed text-slate-600">
+                This office was unable to process the referral. Your case manager will advise you on the next steps.
+              </p>
+            )}
 
-        {requirements.length > 0 && (
-          <div className="mt-5 border border-slate-300 bg-slate-50 p-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-              Required documents
-            </p>
-            <ul className="mt-2.5 space-y-1.5">
-              {requirements.map((req, idx) => (
-                <li key={idx} className="flex items-baseline gap-2 text-[13px]">
-                  <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0 mt-0.5">chevron_right</span>
-                  <span className="text-slate-700">{req}</span>
-                </li>
-              ))}
-            </ul>
+            {requirements.length > 0 && (
+              <div className="mt-5 border border-slate-300 bg-slate-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Required documents
+                </p>
+                <ul className="mt-2.5 space-y-1.5">
+                  {requirements.map((req, idx) => (
+                    <li key={idx} className="flex items-baseline gap-2 text-[13px]">
+                      <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0 mt-0.5">chevron_right</span>
+                      <span className="text-slate-700">{req}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {events.length > 0 && (
+              <ul className="mt-5">
+                {events.map((item, index) => (
+                  <EventRow key={`${item.date}-${index}`} item={item} />
+                ))}
+              </ul>
+            )}
+
+            {agency.status === 'PENDING' && (
+              <p className="mt-5 border-t border-slate-300 pt-3 text-[13px] text-slate-500">
+                Waiting for {agency.name} to receive your referral. Updates will appear here.
+              </p>
+            )}
+
+            {agency.milestonesUrl && (
+              <div className="mt-4 flex justify-end border-t border-slate-300 pt-3">
+                <Link
+                  href={agency.milestonesUrl}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                >
+                  View all updates from {agency.name}
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
+                </Link>
+              </div>
+            )}
           </div>
-        )}
-
-        {events.length > 0 && (
-          <ul className="mt-5">
-            {events.map((item, index) => (
-              <EventRow key={`${item.date}-${index}`} item={item} />
-            ))}
-          </ul>
-        )}
-
-        {agency.status === 'PENDING' && (
-          <p className="mt-5 border-t border-slate-300 pt-3 text-[13px] text-slate-500">
-            Waiting for {agency.name} to receive your referral. Updates will appear here.
-          </p>
-        )}
-
-        {agency.milestonesUrl && (
-          <div className="mt-4 flex justify-end border-t border-slate-300 pt-3">
-            <Link
-              href={agency.milestonesUrl}
-              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-            >
-              View all updates from {agency.name}
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
-            </Link>
-          </div>
-        )}
+        </div>
       </div>
     </section>
   );
@@ -610,14 +628,21 @@ export default function TrackingShow({
               <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
                 <span className="h-2 w-2 rounded-full bg-primary"></span>
                 What each office has done
+                <span className="group relative">
+                  <span className="material-symbols-outlined cursor-help text-[14px] text-slate-400">info</span>
+                  <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-normal normal-case tracking-normal text-slate-600 shadow-lg opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                    Each agency is shown as an expandable card. Press to expand and view details.
+                  </span>
+                </span>
               </h2>
               {totalAgencies > 0 ? (
-                <div className="mt-3 space-y-5">
-                  {trackingAgencies.map((agency) => (
+                <div className="mt-3 space-y-2">
+                  {trackingAgencies.map((agency, index) => (
                     <AgencyChapter
                       key={agency.referralId ?? agency.name}
                       agency={agency}
                       events={eventsByReferral[agency.referralId] ?? []}
+                      defaultOpen={index === 0 || agency.status === 'PROCESSING' || agency.status === 'FOR_COMPLIANCE'}
                     />
                   ))}
                 </div>

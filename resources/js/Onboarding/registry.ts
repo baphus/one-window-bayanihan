@@ -324,6 +324,15 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="settings-otp-debug"]', title: 'OTP Debug Modes', description: 'These toggles auto-fill OTP codes for testing and expose them in responses. Keep both switched off in production — check them after every deployment.', side: 'top' },
         ],
     },
+    'admin.system.active-sessions': {
+        title: 'Active Sessions',
+        helpdeskSlug: 'monitoring-queue-jobs-system-health',
+        steps: [
+            { element: '[data-tour="active-sessions-header"]', title: 'Active Sessions', description: 'Monitor every signed-in user across the system. Use this page to spot unusual activity and terminate compromised or stale sessions.', side: 'bottom' },
+            { element: '[data-tour="active-sessions-stats"]', title: 'Session Count', description: 'The counter shows how many sessions are currently active. A sudden spike may indicate unauthorized access.', side: 'bottom' },
+            { element: '[data-tour="active-sessions-table"]', title: 'Session Details', description: 'Each row shows the user, IP address, browser, OS, and last activity. The Current badge marks your own session. Click Terminate on any other session to sign that user out immediately.', side: 'top' },
+        ],
+    },
     'admin.system.security': {
         title: 'Security Settings',
         helpdeskSlug: 'securing-your-account-password-and-mfa',

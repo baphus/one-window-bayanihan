@@ -80,7 +80,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
       </div>
 
       {/* Partner marquee strip */}
-      <div className="relative z-10 -mt-12 bg-gradient-to-b from-transparent via-primary-container/60 to-primary-container pt-8 pb-14">
+      <div className="relative z-10 -mt-12 bg-gradient-to-b from-transparent via-primary-container/60 to-primary-container pt-2 pb-6">
         <h3
           className="animate-fade-in-up mb-4 px-8 text-center font-headline text-[11px] font-bold uppercase tracking-[0.25em] text-white/40"
           style={{ animationDelay: '0.6s', animationFillMode: 'both' }}

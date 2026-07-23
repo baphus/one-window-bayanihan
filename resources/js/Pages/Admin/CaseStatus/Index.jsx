@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import StatusBadge from '@/Components/ui/StatusBadge';
 import InputError from '@/Components/InputError';
@@ -128,6 +129,7 @@ export default function CaseStatusIndex({ statuses }) {
   const [editingStatus, setEditingStatus] = useState(null);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const [contextMenu, setContextMenu] = useState(null);
+  const [confirmDeleteStatus, setConfirmDeleteStatus] = useState(null);
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
@@ -138,10 +140,7 @@ export default function CaseStatusIndex({ statuses }) {
   const referralStatuses = useMemo(() => statuses.filter((s) => s.type === 'referral'), [statuses]);
 
   function handleDelete(status) {
-    if (!confirm(`Delete "${status.name}"? This action cannot be undone.`)) return;
-    router.delete(route('admin.case-statuses.destroy', status.id), {
-      preserveScroll: true,
-    });
+    setConfirmDeleteStatus(status);
   }
 
   const statusColumns = useMemo(() => [
@@ -226,6 +225,18 @@ export default function CaseStatusIndex({ statuses }) {
           }} />
         </RowContextMenu>
       )}
+      <ConfirmDialog
+        open={!!confirmDeleteStatus}
+        title="Delete Status"
+        message={`Delete "${confirmDeleteStatus?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={() => {
+          router.delete(route('admin.case-statuses.destroy', confirmDeleteStatus.id), { preserveScroll: true });
+          setConfirmDeleteStatus(null);
+        }}
+        onCancel={() => setConfirmDeleteStatus(null)}
+      />
     </AppLayout>
   );
 }

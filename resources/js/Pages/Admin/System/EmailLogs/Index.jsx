@@ -2,6 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import { useState } from 'react';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 const STATUS_TABS = [
   { label: 'All', value: '' },
@@ -15,6 +17,7 @@ const STATUS_BADGE = {
 };
 
 export default function Index({ logs, filters }) {
+  const [confirmResendId, setConfirmResendId] = useState(null);
   const { data, current_page, last_page, total } = logs;
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
@@ -26,12 +29,7 @@ export default function Index({ logs, filters }) {
   };
 
   const handleResend = (id) => {
-    if (!confirm('Resend this email?')) return;
-
-    router.post(route('admin.system.email-logs.resend', id), {}, {
-      preserveScroll: true,
-      onSuccess: () => router.reload({ only: ['logs'] }),
-    });
+    setConfirmResendId(id);
   };
 
   const goPage = (page) => {
@@ -162,6 +160,20 @@ export default function Index({ logs, filters }) {
       )}
         {tableLoading && <TableLoadingOverlay variant="table" />}
       </div>
+      <ConfirmDialog
+        open={!!confirmResendId}
+        title="Resend Email"
+        message="Are you sure you want to resend this email?"
+        confirmLabel="Resend"
+        onConfirm={() => {
+          router.post(route('admin.system.email-logs.resend', confirmResendId), {}, {
+            preserveScroll: true,
+            onSuccess: () => router.reload({ only: ['logs'] }),
+          });
+          setConfirmResendId(null);
+        }}
+        onCancel={() => setConfirmResendId(null)}
+      />
     </AppLayout>
   );
 }

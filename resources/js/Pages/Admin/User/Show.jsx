@@ -1,6 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 function formatNotificationLabel(key) {
   return key
@@ -38,6 +40,7 @@ function StatusPill({ label, enabled }) {
 }
 
 export default function AdminUserShow({ user }) {
+  const [confirmUnverify, setConfirmUnverify] = useState(false);
   const roleLabels = {
     CASE_MANAGER: 'Case Manager',
     AGENCY: 'Agency Focal',
@@ -239,7 +242,7 @@ export default function AdminUserShow({ user }) {
                       aria-checked={!!user.email_verified_at}
                       title={user.email_verified_at ? 'Verified' : 'Unverified'}
                       onClick={() => {
-                        if (user.email_verified_at && !confirm('Unverifying this user will lock them out of the system until they re-verify via email. Continue?')) return;
+                        if (user.email_verified_at) { setConfirmUnverify(true); return; }
                         router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
                       }}
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${user.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300'}`}
@@ -277,6 +280,18 @@ export default function AdminUserShow({ user }) {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmUnverify}
+        title="Unverify User"
+        message="Unverifying this user will lock them out of the system until they re-verify via email. Continue?"
+        confirmLabel="Unverify"
+        tone="danger"
+        onConfirm={() => {
+          router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
+          setConfirmUnverify(false);
+        }}
+        onCancel={() => setConfirmUnverify(false)}
+      />
     </AppLayout>
   );
 }

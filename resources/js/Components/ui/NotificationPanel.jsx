@@ -33,6 +33,18 @@ export default function NotificationPanel() {
       if (!res.ok) throw new Error(`Failed: ${res.status}`);
       return res.json();
     },
+    initialData: () => {
+      try {
+        const cached = parseInt(localStorage.getItem('owb-unread-count') || '0', 10) || 0;
+        return cached > 0 ? { count: cached } : undefined;
+      } catch { return undefined; }
+    },
+    onSuccess: (data) => {
+      if (data?.count != null) {
+        try { localStorage.setItem('owb-unread-count', String(data.count)); }
+        catch { /* noop */ }
+      }
+    },
     refetchInterval: 60000,
     staleTime: 30000,
   });

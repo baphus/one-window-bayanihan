@@ -5,6 +5,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import LogoUpload from '@/Components/LogoUpload';
 import AgencyMapView from '@/Components/AgencyMapView';
@@ -22,6 +23,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
   const [editingService, setEditingService] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [showUserForm, setShowUserForm] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   // Agency inline editor (ADMIN only)
   const [isEditing, setIsEditing] = useState(false);
@@ -93,13 +95,11 @@ export default function AdminAgencyShow({ agency, referrals }) {
   // ── Service / User modal handlers ──
 
   function handleDeleteService(service) {
-    if (!confirm(`Delete service "${service.name}"? This action cannot be undone.`)) return;
-    router.delete(route('admin.services.destroy', service.id), { preserveScroll: true });
+    setConfirmAction({ type: 'delete-service', payload: service });
   }
 
   function handleDeleteUser(user) {
-    if (!confirm(`Deactivate user "${user.name}"?`)) return;
-    router.delete(route('admin.users.destroy', user.id), { preserveScroll: true });
+    setConfirmAction({ type: 'deactivate-user', payload: user });
   }
 
   function openAddService()    { setEditingService({ agcy_id: agency.id }); setShowForm(true); }
@@ -525,6 +525,24 @@ export default function AdminAgencyShow({ agency, referrals }) {
       )}
 
       {UnsavedModal}
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.type === 'delete-service' ? 'Delete Service' : 'Deactivate User'}
+        message={confirmAction?.type === 'delete-service'
+          ? `Delete service "${confirmAction?.payload?.name}"? This action cannot be undone.`
+          : `Deactivate user "${confirmAction?.payload?.name}"?`}
+        confirmLabel={confirmAction?.type === 'delete-service' ? 'Delete' : 'Deactivate'}
+        tone="danger"
+        onConfirm={() => {
+          if (confirmAction.type === 'delete-service') {
+            router.delete(route('admin.services.destroy', confirmAction.payload.id), { preserveScroll: true });
+          } else {
+            router.delete(route('admin.users.destroy', confirmAction.payload.id), { preserveScroll: true });
+          }
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </AppLayout>
   );
 }

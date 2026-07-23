@@ -8,6 +8,7 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 
 import AgencyFormModal from '@/Components/Admin/AgencyFormModal';
@@ -38,6 +39,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [contextMenu, setContextMenu] = useState(null);
   const [viewMode, setViewMode] = useState('list');
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
@@ -229,9 +231,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                   {isAdmin && row.is_active && !row.is_default && (
                     <button
                       onClick={() => {
-                        if (confirm('Deactivate this agency? It will no longer be available for referrals.')) {
-                          router.delete(route('admin.agencies.destroy', row.id), { preserveScroll: true });
-                        }
+                        setConfirmAction({ type: 'deactivate', id: row.id });
                       }}
                       className="min-h-[28px] px-2.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-md transition-colors border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -241,9 +241,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
                   {isAdmin && (!row.is_active || row.is_deleted) && (
                     <button
                       onClick={() => {
-                        if (confirm(`Reactivate agency "${row.name}"?`)) {
-                          router.patch(route('admin.agencies.reactivate', row.id), {}, { preserveScroll: true });
-                        }
+                        setConfirmAction({ type: 'reactivate', id: row.id, name: row.name });
                       }}
                       className="min-h-[28px] px-2.5 bg-green-50 text-green-600 hover:bg-green-100 text-[11px] font-bold rounded-md transition-colors border border-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -429,14 +427,30 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
           }} />
           {isAdmin && (!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
             <RowContextMenuItem icon="restart_alt" label="Reactivate" variant="success" onClick={() => {
-               if (confirm(`Reactivate agency "${contextMenu.row.name}"?`)) {
-                  router.patch(route('admin.agencies.reactivate', contextMenu.row.id), {}, { preserveScroll: true });
-                }
+               setConfirmAction({ type: 'reactivate', id: contextMenu.row.id, name: contextMenu.row.name });
                 setContextMenu(null);
             }} />
           )}
         </RowContextMenu>
       )}
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.type === 'deactivate' ? 'Deactivate Agency' : 'Reactivate Agency'}
+        message={confirmAction?.type === 'deactivate'
+          ? 'Deactivate this agency? It will no longer be available for referrals.'
+          : `Reactivate agency "${confirmAction?.name}"?`}
+        confirmLabel={confirmAction?.type === 'deactivate' ? 'Deactivate' : 'Reactivate'}
+        tone={confirmAction?.type === 'deactivate' ? 'danger' : 'default'}
+        onConfirm={() => {
+          if (confirmAction.type === 'deactivate') {
+            router.delete(route('admin.agencies.destroy', confirmAction.id), { preserveScroll: true });
+          } else {
+            router.patch(route('admin.agencies.reactivate', confirmAction.id), {}, { preserveScroll: true });
+          }
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </AppLayout>
   );
 }
