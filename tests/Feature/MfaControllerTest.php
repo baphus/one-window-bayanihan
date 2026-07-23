@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\MfaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\TestCase;
 
@@ -26,6 +28,15 @@ class MfaControllerTest extends TestCase
             ->assertJsonStructure(['secret', 'qr_code_url']);
     }
 
+    public function test_mfa_rebinding_is_rejected_for_enrolled_accounts(): void
+    {
+        $user = User::factory()->mfaEnabled()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('profile.mfa.generate'))
+            ->assertStatus(409);
+    }
+
     public function test_verify_valid_otp_enables_mfa(): void
     {
         $user = User::factory()->create();
@@ -43,6 +54,8 @@ class MfaControllerTest extends TestCase
 
         $user->refresh();
         $this->assertNotNull($user->mfa_enabled_at);
+        $this->assertSame((string) $user->getKey(), (string) session('mfa_authenticated.user_id'));
+        $this->assertNotEmpty(session('mfa_authenticated.credential_fingerprint'));
     }
 
     public function test_verify_invalid_otp_rejected(): void
@@ -79,7 +92,12 @@ class MfaControllerTest extends TestCase
         $this->assertNull($user->mfa_enabled_at);
     }
 
-    public function test_recovery_codes_available_after_mfa_enabled(): void
+    public function test_recovery_codes_cannot_be_retrieved_via_get(): void
+    {
+        $this->assertFalse(Route::has('profile.mfa.recovery-codes'));
+    }
+
+    public function test_recovery_code_regeneration_requires_password_confirmation(): void
     {
         $user = User::factory()->create([
             'mfa_secret' => 'test-secret',
@@ -88,17 +106,7 @@ class MfaControllerTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson(route('profile.mfa.recovery-codes', ['password' => 'P@ssw0rd!']))
-            ->assertOk()
-            ->assertJsonStructure(['recovery_codes']);
-    }
-
-    public function test_recovery_codes_not_available_without_mfa(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user)
-            ->getJson(route('profile.mfa.recovery-codes'))
+            ->postJson(route('profile.mfa.recovery-codes.regenerate'))
             ->assertStatus(403);
     }
 
@@ -123,6 +131,21 @@ class MfaControllerTest extends TestCase
 
         $this->assertNotEquals(['old-code-1', 'old-code-2'], $response->json('recovery_codes'));
         $this->assertCount(8, $response->json('recovery_codes'));
+    }
+
+    public function test_recovery_code_is_normalized_and_consumed_once(): void
+    {
+        $service = app(MfaService::class);
+        $code = 'abcd-efgh-ijkl';
+        $user = User::factory()->create([
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => $service->hashRecoveryCodes([$code]),
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->assertTrue($service->consumeRecoveryCode($user, '  ABCD-EFGH-IJKL '));
+        $this->assertFalse($service->consumeRecoveryCode($user->fresh(), $code));
+        $this->assertCount(0, $user->fresh()->mfa_recovery_codes);
     }
 
     public function test_mfa_status_returns_correct_state(): void

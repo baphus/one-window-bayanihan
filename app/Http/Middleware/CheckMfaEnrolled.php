@@ -28,7 +28,6 @@ class CheckMfaEnrolled
         'password.*',
         'register',
         'verification.*',
-        'dashboard',
     ];
 
     /**
@@ -36,10 +35,7 @@ class CheckMfaEnrolled
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Not enforced in local/testing — local dev doesn't have MFA set up
-        // for every account. Add explicit tests for this middleware in
-        // a dedicated test class.
-        if (app()->environment('local', 'testing')) {
+        if (! config('mfa.enrollment_enforcement_enabled')) {
             return $next($request);
         }
 
@@ -48,7 +44,7 @@ class CheckMfaEnrolled
             return $next($request);
         }
 
-        // Only enforce for ADMIN role
+        // Enrollment policy is intentionally separate from login challenge policy.
         if ($request->user()->role !== 'ADMIN') {
             return $next($request);
         }

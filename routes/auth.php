@@ -4,14 +4,15 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\MfaChallengeController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\RegisterViaInviteController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\EmailChangeController;
 use App\Models\AuditLog;
+use App\Services\MfaPendingState;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -24,6 +25,15 @@ Route::middleware('guest')->group(function () {
         ->middleware(['turnstile', 'throttle:login'])
         ->name('login');
 
+    Route::get('login/mfa', [MfaChallengeController::class, 'show'])
+        ->middleware('mfa.pending')->name('mfa.challenge.show');
+    Route::post('login/mfa/totp', [MfaChallengeController::class, 'totp'])
+        ->middleware(['mfa.pending', 'throttle:totp-challenge'])->name('mfa.challenge.totp');
+    Route::post('login/mfa/recovery', [MfaChallengeController::class, 'recovery'])
+        ->middleware(['mfa.pending', 'throttle:recovery-code'])->name('mfa.challenge.recovery');
+    Route::post('login/mfa/cancel', [MfaChallengeController::class, 'cancel'])
+        ->middleware('mfa.pending')->name('mfa.challenge.cancel');
+
     // Invite registration routes
     Route::get('invite/{token}', [RegisterViaInviteController::class, 'show'])
         ->name('register-via-invite');
@@ -31,12 +41,6 @@ Route::middleware('guest')->group(function () {
     Route::post('invite/{token}', [RegisterViaInviteController::class, 'store'])
         ->middleware(['throttle:10,1'])
         ->name('register-via-invite.store');
-
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
-
-    Route::post('register', [RegisteredUserController::class, 'store'])
-        ->middleware(['turnstile', 'throttle:10,1']);
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
@@ -101,6 +105,8 @@ Route::middleware('auth')->group(function () {
         ]);
 
         auth()->guard('web')->logout();
+        app(MfaPendingState::class)->clear(request());
+        request()->session()->forget(MfaPendingState::MARKER_KEY);
         request()->session()->invalidate();
         request()->session()->regenerateToken();
 

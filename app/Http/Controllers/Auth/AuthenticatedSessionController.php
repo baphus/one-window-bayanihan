@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\MfaPendingState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,9 +33,16 @@ class AuthenticatedSessionController extends Controller
      * Audit logging flows through event listeners (LogSuccessfulLogin /
      * LogFailedLogin) — the controller itself has zero audit logic.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request, MfaPendingState $pendingState): RedirectResponse
     {
-        $request->authenticate();
+        $pendingState->clear($request);
+        $user = $request->authenticate();
+
+        if ($user) {
+            $pendingState->startChallenge($request, $user, $request->boolean('remember'), $request->session()->pull('url.intended'));
+
+            return redirect()->route('mfa.challenge.show');
+        }
 
         $request->session()->regenerate();
 
@@ -48,6 +56,8 @@ class AuthenticatedSessionController extends Controller
     {
         Auth::guard('web')->logout();
 
+        app(MfaPendingState::class)->clear($request);
+        $request->session()->forget(MfaPendingState::MARKER_KEY);
         $request->session()->invalidate();
 
         $request->session()->regenerateToken();

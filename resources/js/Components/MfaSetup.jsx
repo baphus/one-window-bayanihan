@@ -7,7 +7,6 @@ import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
 import TextInput from '@/Components/TextInput';
-import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 export default function MfaSetup({ mfaEnabled }) {
     const [enabled, setEnabled] = useState(mfaEnabled);
@@ -20,7 +19,15 @@ export default function MfaSetup({ mfaEnabled }) {
     const [showRecovery, setShowRecovery] = useState(false);
     const toast = useToast();
     const [loading, setLoading] = useState(false);
-    const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+
+    // Password-confirm dialog state (replaces simple ConfirmDialog for disable/regenerate)
+    const [confirmAction, setConfirmAction] = useState(null); // null | 'disable' | 'regenerate'
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [confirmError, setConfirmError] = useState('');
+
+    function csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
 
     function handleEnable() {
         setLoading(true);
@@ -28,7 +35,11 @@ export default function MfaSetup({ mfaEnabled }) {
 
         fetch(route('profile.mfa.generate'), {
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+            },
         })
         .then(r => r.json())
         .then(data => {
@@ -50,7 +61,12 @@ export default function MfaSetup({ mfaEnabled }) {
 
         fetch(route('profile.mfa.verify'), {
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+            },
             body: JSON.stringify({ otp }),
         })
         .then(r => r.json().then(data => ({ ok: r.ok, data })))
@@ -70,20 +86,33 @@ export default function MfaSetup({ mfaEnabled }) {
     }
 
     function handleDisable() {
-        setShowDisableConfirm(true);
+        setConfirmAction('disable');
+        setConfirmPassword('');
+        setConfirmError('');
     }
 
     function confirmDisable() {
-        setShowDisableConfirm(false);
+        if (!confirmPassword) {
+            setConfirmError('Please enter your password.');
+            return;
+        }
         setLoading(true);
-        setError('');
+        setConfirmError('');
 
         fetch(route('profile.mfa.disable'), {
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+            },
+            body: JSON.stringify({ password: confirmPassword }),
         })
         .then(r => {
-            if (!r.ok) throw new Error('Failed to disable MFA.');
+            if (!r.ok) {
+                return r.json().then(data => { throw new Error(data.message || 'Incorrect password.'); });
+            }
             setEnabled(false);
             setStep('idle');
             setSecret('');
@@ -91,22 +120,64 @@ export default function MfaSetup({ mfaEnabled }) {
             setOtp('');
             setRecoveryCodes([]);
             setShowRecovery(false);
+            setConfirmAction(null);
+            setConfirmPassword('');
             toast.success('Two-factor authentication disabled.');
         })
-        .catch((e) => { console.error('MFA setup failed:', e); setError('An error occurred. Please try again.'); toast.error('An error occurred. Please try again.'); })
+        .catch((e) => {
+            setConfirmError(e.message || 'An error occurred. Please try again.');
+            toast.error(e.message || 'An error occurred. Please try again.');
+        })
         .finally(() => setLoading(false));
     }
 
     function handleRegenerateCodes() {
+        setConfirmAction('regenerate');
+        setConfirmPassword('');
+        setConfirmError('');
+    }
+
+    function confirmRegenerate() {
+        if (!confirmPassword) {
+            setConfirmError('Please enter your password.');
+            return;
+        }
         setLoading(true);
+        setConfirmError('');
+
         fetch(route('profile.mfa.recovery-codes.regenerate'), {
             method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+            },
+            body: JSON.stringify({ password: confirmPassword }),
         })
-        .then(r => r.json())
-        .then(data => setRecoveryCodes(data.recovery_codes || []))
-        .catch(() => { setError('Failed to regenerate codes.'); toast.error('Failed to regenerate codes.'); })
+        .then(r => {
+            if (!r.ok) {
+                return r.json().then(data => { throw new Error(data.message || 'Incorrect password.'); });
+            }
+            return r.json();
+        })
+        .then(data => {
+            setRecoveryCodes(data.recovery_codes || []);
+            setConfirmAction(null);
+            setConfirmPassword('');
+            toast.success('Recovery codes regenerated. Save them in a safe place.');
+        })
+        .catch((e) => {
+            setConfirmError(e.message || 'Failed to regenerate codes.');
+            toast.error(e.message || 'Failed to regenerate codes.');
+        })
         .finally(() => setLoading(false));
+    }
+
+    function cancelConfirm() {
+        setConfirmAction(null);
+        setConfirmPassword('');
+        setConfirmError('');
     }
 
     function handleCopyCodes() {
@@ -226,9 +297,6 @@ export default function MfaSetup({ mfaEnabled }) {
                             Your account is protected with two-factor authentication.
                         </p>
                         <div className="flex flex-wrap items-center gap-2">
-                            <SecondaryButton onClick={() => { setShowRecovery(true); fetch(route('profile.mfa.recovery-codes')).then(r => r.json()).then(d => setRecoveryCodes(d.recovery_codes || [])).catch(() => {}); }}>
-                                View Recovery Codes
-                            </SecondaryButton>
                             <DangerButton onClick={handleDisable} disabled={loading}>
                                 {loading ? 'Disabling...' : 'Disable MFA'}
                             </DangerButton>
@@ -238,15 +306,63 @@ export default function MfaSetup({ mfaEnabled }) {
             </div>
         </CardSection>
 
-        <ConfirmDialog
-            open={showDisableConfirm}
-            title="Disable Two-Factor Authentication"
-            message="Are you sure you want to disable two-factor authentication? Your account will be less secure."
-            confirmLabel="Disable"
-            tone="danger"
-            onConfirm={confirmDisable}
-            onCancel={() => setShowDisableConfirm(false)}
-        />
+        {/* Password confirmation dialog for Disable / Regenerate */}
+        {confirmAction && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+                <div className="w-full max-w-md rounded-lg owb-modal-animate bg-white shadow-xl">
+                    <div className="flex flex-col items-center px-6 py-5 text-center">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${confirmAction === 'disable' ? 'bg-red-50' : 'bg-blue-50'}`}>
+                            <span className={`material-symbols-outlined text-[22px] ${confirmAction === 'disable' ? 'text-red-600' : 'text-blue-600'}`}>
+                                {confirmAction === 'disable' ? 'warning' : 'key'}
+                            </span>
+                        </div>
+                        <h2 className="mt-3 text-[16px] font-extrabold text-slate-900">
+                            {confirmAction === 'disable' ? 'Disable Two-Factor Authentication' : 'Regenerate Recovery Codes'}
+                        </h2>
+                        <p className="mt-1.5 text-[13px] text-slate-600 leading-relaxed">
+                            {confirmAction === 'disable'
+                                ? 'Your account will be less secure without two-factor authentication. Enter your password to confirm.'
+                                : 'Your existing recovery codes will stop working. Enter your password to generate new codes.'
+                            }
+                        </p>
+                    </div>
+
+                    <div className="px-6 pb-4">
+                        <InputLabel htmlFor="confirm-mfa-password" value="Your Password" />
+                        <TextInput
+                            id="confirm-mfa-password"
+                            type="password"
+                            className="mt-1 block w-full"
+                            value={confirmPassword}
+                            onChange={(e) => { setConfirmPassword(e.target.value); setConfirmError(''); }}
+                            placeholder="Enter your current password"
+                            autoComplete="current-password"
+                        />
+                        {confirmError && <InputError message={confirmError} className="mt-2" />}
+                    </div>
+
+                    <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                        <button
+                            onClick={cancelConfirm}
+                            className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={confirmAction === 'disable' ? confirmDisable : confirmRegenerate}
+                            disabled={loading || !confirmPassword}
+                            className={`h-9 rounded-[3px] px-4 text-[12px] font-bold text-white transition-colors disabled:opacity-60 ${
+                                confirmAction === 'disable'
+                                    ? 'bg-red-600 hover:bg-red-700'
+                                    : 'bg-blue-900 hover:bg-blue-800'
+                            }`}
+                        >
+                            {loading ? 'Confirming...' : confirmAction === 'disable' ? 'Disable MFA' : 'Regenerate Codes'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 }

@@ -2,8 +2,7 @@ import '../css/app.css';
 import './bootstrap';
 
 import { createInertiaApp, router, App as InertiaAppComponent } from '@inertiajs/react';
-import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { lazy, useState, useEffect, type ComponentProps, type ComponentType } from 'react';
+import { useState, useEffect, type ComponentProps, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import ErrorBoundary from '@/Components/ErrorBoundary';
 import ToastProvider from '@/Components/ToastProvider';
@@ -28,17 +27,6 @@ const queryClient = new QueryClient({
 });
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-
-/**
- * Lazy DevTools component — only loaded in DEV mode.
- * Static import of @tanstack/react-query-devtools causes build issues
- * because it depends on Node.js modules that get externalized with an empty name.
- */
-const DevTools = lazy(() =>
-    import('@tanstack/react-query-devtools').then((m) => ({
-        default: () => <m.ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />,
-    }))
-);
 
 /**
  * Wraps the app tree, feeding OnboardingProvider with the current page's
@@ -95,7 +83,6 @@ function AppWithOnboarding({
                 <ToastProvider>
                     <App {...appProps} />
                 </ToastProvider>
-                {/* DevTools hidden — remove comment to restore <DevTools /> */}
             </QueryClientProvider>
         </OnboardingProvider>
     );

@@ -9,8 +9,11 @@ use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
+use App\Models\ReferralComment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AuthorizationGapTest extends TestCase
@@ -133,6 +136,82 @@ class AuthorizationGapTest extends TestCase
             ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         $response->assertStatus(200);
+    }
+
+    public function test_reply_cannot_use_comment_from_another_referral(): void
+    {
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $parentCase = CaseFile::factory()->create(['user_id' => $manager->id]);
+        $foreignCase = CaseFile::factory()->create();
+        $referral = Referral::factory()->create(['case_id' => $parentCase->id]);
+        $foreignReferral = Referral::factory()->create(['case_id' => $foreignCase->id]);
+        $comment = ReferralComment::create([
+            'refr_id' => $foreignReferral->id,
+            'content' => 'Foreign comment',
+            'visibility' => 'INTERNAL',
+            'user_id' => $manager->id,
+        ]);
+
+        $response = $this->actingAs($manager)->post(
+            route('referrals.comments.reply', [$referral->id, $comment->id]),
+            ['content' => 'Attempted reply'],
+        );
+
+        $response->assertNotFound();
+        $this->assertDatabaseMissing('referral_comments', ['parent_id' => $comment->id]);
+    }
+
+    public function test_attachment_replacement_cannot_use_attachment_from_another_referral(): void
+    {
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $parentCase = CaseFile::factory()->create(['user_id' => $manager->id]);
+        $foreignCase = CaseFile::factory()->create();
+        $referral = Referral::factory()->create(['case_id' => $parentCase->id]);
+        $foreignReferral = Referral::factory()->create(['case_id' => $foreignCase->id]);
+        $attachment = ReferralAttachment::create([
+            'referral_id' => $foreignReferral->id,
+            'file_name' => 'foreign.txt',
+            'file_path' => 'foreign/foreign.txt',
+            'file_type' => 'text/plain',
+            'size' => 10,
+            'user_id' => $manager->id,
+            'version_group_id' => (string) Str::uuid(),
+        ]);
+
+        $response = $this->actingAs($manager)->post(
+            route('referrals.attachments.replace', [$referral->id, $attachment->id]),
+        );
+
+        $response->assertNotFound();
+        $this->assertDatabaseHas('referral_attachments', [
+            'id' => $attachment->id,
+            'is_archived' => false,
+        ]);
+    }
+
+    public function test_attachment_version_history_does_not_return_another_referrals_group(): void
+    {
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $parentCase = CaseFile::factory()->create(['user_id' => $manager->id]);
+        $foreignCase = CaseFile::factory()->create();
+        $referral = Referral::factory()->create(['case_id' => $parentCase->id]);
+        $foreignReferral = Referral::factory()->create(['case_id' => $foreignCase->id]);
+        $groupId = (string) Str::uuid();
+        ReferralAttachment::create([
+            'referral_id' => $foreignReferral->id,
+            'file_name' => 'foreign.txt',
+            'file_path' => 'foreign/foreign.txt',
+            'file_type' => 'text/plain',
+            'size' => 10,
+            'user_id' => $manager->id,
+            'version_group_id' => $groupId,
+        ]);
+
+        $response = $this->actingAs($manager)->getJson(
+            route('referrals.attachments.versions', [$referral->id, $groupId]),
+        );
+
+        $response->assertOk()->assertExactJson([]);
     }
 
     // ──────────────────────────────────────────────
