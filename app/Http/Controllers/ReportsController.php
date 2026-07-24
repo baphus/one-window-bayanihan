@@ -3,10 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportsFilterRequest;
-use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -118,25 +116,58 @@ class ReportsController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $data = $this->reportsExportService->buildPdfPayload($request);
-        if ($data instanceof RedirectResponse) {
-            return $data;
+        $criteria = $this->reportsExportService->extractCriteria($request);
+        if ($criteria instanceof RedirectResponse) {
+            return $criteria;
         }
 
-        $pdf = Pdf::loadView('pdf.report', $data);
+        $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.pdf';
 
-        return $pdf->download('bayanihan-report-'.now()->format('Ymd-His').'.pdf');
+        $document = \App\Models\GeneratedDocument::create([
+            'user_id' => $request->user()->id,
+            'type' => 'system_report_pdf',
+            'filename' => $filename,
+            'status' => 'pending',
+        ]);
+
+        \App\Jobs\GenerateSystemReport::dispatch(
+            $criteria,
+            $request->user()->id,
+            $document->id,
+        );
+
+        return response()->json([
+            'id' => $document->id,
+            'status' => 'pending',
+        ]);
     }
 
     public function exportExcel(Request $request)
     {
-        $sheets = $this->reportsExportService->buildExcelSheets($request);
-        if ($sheets instanceof RedirectResponse) {
-            return $sheets;
+        $criteria = $this->reportsExportService->extractCriteria($request);
+        if ($criteria instanceof RedirectResponse) {
+            return $criteria;
         }
 
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.xlsx';
 
-        return (new DataExportService)->generateMultiSheet($sheets, $filename);
+        $document = \App\Models\GeneratedDocument::create([
+            'user_id' => $request->user()->id,
+            'type' => 'reports_export',
+            'filename' => $filename,
+            'status' => 'pending',
+        ]);
+
+        \App\Jobs\ExportDataToExcel::dispatch(
+            'reports_export',
+            $criteria,
+            $request->user()->id,
+            $document->id,
+        );
+
+        return response()->json([
+            'id' => $document->id,
+            'status' => 'pending',
+        ]);
     }
 }

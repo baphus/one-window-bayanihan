@@ -4,10 +4,11 @@ namespace App\Notifications;
 
 use App\Models\Referral;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ReferralStatusChanged extends Notification
+class ReferralStatusChanged extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -26,6 +27,14 @@ class ReferralStatusChanged extends Notification
         }
 
         return $channels;
+    }
+
+    public function viaQueues(): array
+    {
+        return [
+            'database' => 'default',
+            'mail' => 'notifications',
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage

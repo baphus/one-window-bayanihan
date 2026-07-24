@@ -111,6 +111,59 @@ class DataExportService
     }
 
     // -------------------------------------------------------------------------
+    // File-based exports (for queue jobs that write to disk then upload to S3)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Generate a single-sheet XLSX to a local file path.
+     */
+    public function generateSingleSheetToFile(
+        string $title,
+        array $columnMap,
+        Collection $rows,
+        string $filePath
+    ): void {
+        $spreadsheet = $this->createSpreadsheet($title.'.xlsx');
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle($this->sanitizeSheetTitle($title));
+
+        $this->populateSheet($sheet, $columnMap, $rows);
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+    }
+
+    /**
+     * Generate a multi-sheet XLSX to a local file path.
+     */
+    public function generateMultiSheetToFile(
+        array $sheets,
+        string $filePath
+    ): void {
+        $spreadsheet = $this->createSpreadsheet('export.xlsx');
+
+        foreach ($sheets as $index => $sheetDef) {
+            $sheetTitle = $sheetDef['title'] ?? ('Sheet '.($index + 1));
+            $columnMap = $sheetDef['columnMap'] ?? [];
+            $rows = $sheetDef['rows'] ?? collect();
+
+            if ($index === 0) {
+                $sheet = $spreadsheet->getActiveSheet();
+            } else {
+                $sheet = $spreadsheet->createSheet($index);
+            }
+
+            $sheet->setTitle($this->sanitizeSheetTitle($sheetTitle));
+            $this->populateSheet($sheet, $columnMap, $rows);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+    }
+
+    // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 

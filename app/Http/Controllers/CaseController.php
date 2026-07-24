@@ -16,7 +16,6 @@ use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
 use App\Services\TrackingService;
 use App\Support\CategoryFilter;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -254,29 +253,33 @@ class CaseController extends Controller
     public function exportExcel(Request $request)
     {
         $user = auth()->user();
-        $queries = new DataExportQueries;
 
-        $filters = array_merge($request->only([
+        $filters = array_filter(array_merge($request->only([
             'status', 'search', 'client_type', 'vulnerability_indicator',
             'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
             'age_min_days', 'referral_state', 'date_from', 'date_to',
-        ]), CategoryFilter::fromRequest($request)->toArray());
-
-        $cases = $queries->getCasesExport($user, array_filter($filters));
-
-        $columnMap = self::casesExportColumnMap();
-
-        // Tag each row with the export timestamp for provenance
-        $now = now()->format('Y-m-d H:i:s');
-        $cases = $cases->map(function ($row) use ($now) {
-            $row->exported_at = $now;
-
-            return $row;
-        });
+        ]), CategoryFilter::fromRequest($request)->toArray()));
 
         $filename = 'cases-export-'.now()->format('Ymd-His').'.xlsx';
 
-        return (new DataExportService)->generateSingleSheet('Cases', $columnMap, $cases, $filename);
+        $document = \App\Models\GeneratedDocument::create([
+            'user_id' => $user->id,
+            'type' => 'cases_export',
+            'filename' => $filename,
+            'status' => 'pending',
+        ]);
+
+        \App\Jobs\ExportDataToExcel::dispatch(
+            'cases_export',
+            ['filters' => $filters],
+            $user->id,
+            $document->id,
+        );
+
+        return response()->json([
+            'id' => $document->id,
+            'status' => 'pending',
+        ]);
     }
 
     /**
@@ -319,25 +322,26 @@ class CaseController extends Controller
         $case = $this->caseService->getCase($id);
         $this->authorizeCaseAccess($case, $request->user());
 
-        $client = $case->client;
-        $primaryEmployment = $client->employments->first();
-        $primaryAddress = $client->addresses->first();
-        $primaryNok = $client->nextOfKin->first();
+        $filename = 'case-report-'.$case->case_number.'-'.now()->format('Ymd-His').'.pdf';
 
-        $data = [
-            'case' => $case,
-            'client' => $client,
-            'employment' => $primaryEmployment,
-            'address' => $primaryAddress,
-            'nok' => $primaryNok,
-            'referrals' => $case->referrals()->with('agency')->get(),
-            'milestones' => $case->caseEvents()->latest('occurred_at')->get(),
-            'exportedAt' => now()->format('M d, Y h:i A'),
-        ];
+        $document = \App\Models\GeneratedDocument::create([
+            'user_id' => $request->user()->id,
+            'case_id' => $case->id,
+            'type' => 'case_report_pdf',
+            'filename' => $filename,
+            'status' => 'pending',
+        ]);
 
-        $pdf = Pdf::loadView('pdf.case-report', $data);
+        \App\Jobs\GenerateCaseReport::dispatch(
+            $case->id,
+            $request->user()->id,
+            $document->id,
+        );
 
-        return $pdf->download('case-report-'.$case->case_number.'-'.now()->format('Ymd-His').'.pdf');
+        return response()->json([
+            'id' => $document->id,
+            'status' => 'pending',
+        ]);
     }
 
     public function trashIndex(Request $request)

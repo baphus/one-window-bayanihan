@@ -55,14 +55,15 @@ class DataExportTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 
         $response->assertStatus(200);
-        $this->assertStringContainsString(
-            'spreadsheetml.sheet',
-            $response->headers->get('Content-Type')
-        );
-        $this->assertStringContainsString(
-            '.xlsx',
-            $response->headers->get('Content-Disposition')
-        );
+        $response->assertJson(['status' => 'pending']);
+        $this->assertArrayHasKey('id', $response->json());
+
+        $this->assertDatabaseHas('generated_documents', [
+            'id' => $response->json('id'),
+            'user_id' => $admin->id,
+            'type' => 'admin_full_export',
+            'status' => 'pending',
+        ]);
     }
 
     #[Test]
@@ -72,9 +73,9 @@ class DataExportTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 
-        $this->assertStringContainsString(
-            'bayanihan-full-export-',
-            $response->headers->get('Content-Disposition')
-        );
+        $response->assertStatus(200);
+        $document = \App\Models\GeneratedDocument::find($response->json('id'));
+        $this->assertNotNull($document);
+        $this->assertStringContainsString('bayanihan-full-export-', $document->filename);
     }
 }

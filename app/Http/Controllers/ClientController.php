@@ -373,28 +373,31 @@ class ClientController extends Controller
     public function exportExcel(Request $request)
     {
         $user = auth()->user();
-        $queries = new DataExportQueries;
 
-        $filters = $request->only([
+        $filters = array_filter(array_merge($request->only([
             'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
-        ]);
-        $filters = array_merge($filters, CategoryFilter::fromRequest($request)->toArray());
-
-        $clients = $queries->getClientsExport($user, array_filter($filters));
-
-        $columnMap = self::clientsExportColumnMap();
-
-        // Tag each row with the export timestamp for provenance
-        $now = now()->format('Y-m-d H:i:s');
-        $clients = $clients->map(function ($row) use ($now) {
-            $row->exported_at = $now;
-
-            return $row;
-        });
+        ]), CategoryFilter::fromRequest($request)->toArray()));
 
         $filename = 'clients-export-'.now()->format('Ymd-His').'.xlsx';
 
-        return (new DataExportService)->generateSingleSheet('Clients', $columnMap, $clients, $filename);
+        $document = \App\Models\GeneratedDocument::create([
+            'user_id' => $user->id,
+            'type' => 'clients_export',
+            'filename' => $filename,
+            'status' => 'pending',
+        ]);
+
+        \App\Jobs\ExportDataToExcel::dispatch(
+            'clients_export',
+            ['filters' => $filters],
+            $user->id,
+            $document->id,
+        );
+
+        return response()->json([
+            'id' => $document->id,
+            'status' => 'pending',
+        ]);
     }
 
     /**

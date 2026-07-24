@@ -39,10 +39,15 @@ class PageExportTest extends TestCase
         $response = $this->actingAs($user)->get(route('cases.export-excel'));
 
         $response->assertStatus(200);
-        $this->assertStringContainsString(
-            'spreadsheetml.sheet',
-            $response->headers->get('Content-Type')
-        );
+        $response->assertJson(['status' => 'pending']);
+        $this->assertArrayHasKey('id', $response->json());
+
+        $this->assertDatabaseHas('generated_documents', [
+            'id' => $response->json('id'),
+            'user_id' => $user->id,
+            'type' => 'cases_export',
+            'status' => 'pending',
+        ]);
     }
 
     // -------------------------------------------------------------------------
@@ -66,10 +71,15 @@ class PageExportTest extends TestCase
         $response = $this->actingAs($user)->get(route('clients.export-excel'));
 
         $response->assertStatus(200);
-        $this->assertStringContainsString(
-            'spreadsheetml.sheet',
-            $response->headers->get('Content-Type')
-        );
+        $response->assertJson(['status' => 'pending']);
+        $this->assertArrayHasKey('id', $response->json());
+
+        $this->assertDatabaseHas('generated_documents', [
+            'id' => $response->json('id'),
+            'user_id' => $user->id,
+            'type' => 'clients_export',
+            'status' => 'pending',
+        ]);
     }
 
     // -------------------------------------------------------------------------
@@ -93,10 +103,15 @@ class PageExportTest extends TestCase
         $response = $this->actingAs($user)->get(route('referrals.export-excel'));
 
         $response->assertStatus(200);
-        $this->assertStringContainsString(
-            'spreadsheetml.sheet',
-            $response->headers->get('Content-Type')
-        );
+        $response->assertJson(['status' => 'pending']);
+        $this->assertArrayHasKey('id', $response->json());
+
+        $this->assertDatabaseHas('generated_documents', [
+            'id' => $response->json('id'),
+            'user_id' => $user->id,
+            'type' => 'referrals_export',
+            'status' => 'pending',
+        ]);
     }
 
     // -------------------------------------------------------------------------

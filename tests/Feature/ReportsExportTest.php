@@ -114,7 +114,13 @@ class ReportsExportTest extends TestCase
         $response = $this->actingAs($this->manager)->get(route('reports.export-pdf'));
 
         $response->assertOk();
-        $this->assertStringContainsString('application/pdf', $response->headers->get('content-type'));
+        $response->assertJson(['status' => 'pending']);
+        $this->assertDatabaseHas('generated_documents', [
+            'id' => $response->json('id'),
+            'user_id' => $this->manager->id,
+            'type' => 'system_report_pdf',
+            'status' => 'pending',
+        ]);
     }
 
     #[Test]
@@ -124,22 +130,30 @@ class ReportsExportTest extends TestCase
         $mine = $this->makeCaseWithReferral($this->manager);
         $theirs = $this->makeCaseWithReferral($other);
 
-        $minePdf = $this->actingAs($this->manager)->get(route('reports.export-pdf'));
-        $otherPdf = $this->actingAs($other)->get(route('reports.export-pdf'));
-        $minePdf->assertOk();
-        $otherPdf->assertOk();
-        $this->assertStringContainsString('application/pdf', $minePdf->headers->get('content-type'));
-        $this->assertStringContainsString('application/pdf', $otherPdf->headers->get('content-type'));
+        // Test via the service layer directly since endpoints are now async
+        $service = app(ReportsExportService::class);
 
-        $mineWorkbook = $this->reportXlsxFor($this->manager);
-        $otherWorkbook = $this->reportXlsxFor($other);
-        $mineDetails = json_encode($mineWorkbook->getSheetByName('Referral Details')->toArray());
-        $otherDetails = json_encode($otherWorkbook->getSheetByName('Referral Details')->toArray());
+        $mineRequest = Request::create('/reports/export-excel', 'GET');
+        $mineRequest->setUserResolver(fn () => $this->manager);
+        $mineCriteria = $service->extractCriteria($mineRequest);
+        $mineSheets = $service->buildExcelSheetsFromCriteria($mineCriteria);
 
-        $this->assertStringContainsString($mine->case_number, $mineDetails);
-        $this->assertStringContainsString($theirs->case_number, $mineDetails);
-        $this->assertStringContainsString($theirs->case_number, $otherDetails);
-        $this->assertStringContainsString($mine->case_number, $otherDetails);
+        $otherRequest = Request::create('/reports/export-excel', 'GET');
+        $otherRequest->setUserResolver(fn () => $other);
+        $otherCriteria = $service->extractCriteria($otherRequest);
+        $otherSheets = $service->buildExcelSheetsFromCriteria($otherCriteria);
+
+        // Both case managers see all data (unscoped)
+        $mineRefSheet = collect($mineSheets)->firstWhere('title', 'Referral Details');
+        $otherRefSheet = collect($otherSheets)->firstWhere('title', 'Referral Details');
+
+        $mineJson = json_encode($mineRefSheet['rows']->toArray());
+        $otherJson = json_encode($otherRefSheet['rows']->toArray());
+
+        $this->assertStringContainsString($mine->case_number, $mineJson);
+        $this->assertStringContainsString($theirs->case_number, $mineJson);
+        $this->assertStringContainsString($theirs->case_number, $otherJson);
+        $this->assertStringContainsString($mine->case_number, $otherJson);
     }
 
     #[Test]
@@ -159,25 +173,22 @@ class ReportsExportTest extends TestCase
             ]);
         }
 
-        foreach (['cases.export-excel', 'clients.export-excel', 'referrals.export-excel'] as $endpoint) {
-            $ownedWorkbook = $this->xlsxFor($this->manager, $endpoint);
-            $otherWorkbook = $this->xlsxFor($other, $endpoint);
+        // Test via service layer directly since endpoints are now async
+        $queries = new \App\Services\Export\DataExportQueries;
 
-            foreach ([$ownedWorkbook, $otherWorkbook] as $workbook) {
-                $sheet = $workbook->getActiveSheet();
-                $headers = array_map('strval', $sheet->rangeToArray('A1:ZZ1')[0]);
-                $this->assertContains('Previous Country', $headers, $endpoint);
-                $this->assertContains('Work Position', $headers, $endpoint);
-            }
+        foreach (['getCasesExport', 'getClientsExport', 'getReferralsExport'] as $method) {
+            $ownedData = $queries->$method($this->manager, []);
+            $otherData = $queries->$method($other, []);
 
-            $ownedRows = $ownedWorkbook->getActiveSheet()->toArray();
-            $otherRows = $otherWorkbook->getActiveSheet()->toArray();
-            $this->assertStringContainsString('Canada', json_encode($ownedRows), $endpoint);
-            $this->assertStringContainsString('Welder', json_encode($ownedRows), $endpoint);
-            $this->assertStringContainsString('Japan', json_encode($ownedRows), $endpoint);
-            $this->assertStringContainsString('Japan', json_encode($otherRows), $endpoint);
-            $this->assertStringContainsString('Engineer', json_encode($otherRows), $endpoint);
-            $this->assertStringContainsString('Canada', json_encode($otherRows), $endpoint);
+            $ownedJson = json_encode($ownedData->toArray());
+            $otherJson = json_encode($otherData->toArray());
+
+            $this->assertStringContainsString('Canada', $ownedJson, $method);
+            $this->assertStringContainsString('Welder', $ownedJson, $method);
+            $this->assertStringContainsString('Japan', $ownedJson, $method);
+            $this->assertStringContainsString('Japan', $otherJson, $method);
+            $this->assertStringContainsString('Engineer', $otherJson, $method);
+            $this->assertStringContainsString('Canada', $otherJson, $method);
         }
     }
 
@@ -194,38 +205,18 @@ class ReportsExportTest extends TestCase
             'last_position' => 'Welder',
         ]);
 
-        $workbook = $this->xlsxFor($admin, 'admin.data-export.export');
-        $sheet = $workbook->getSheetByName('Client_employments');
-        $this->assertNotNull($sheet);
-        $rows = $sheet->toArray();
-        $headers = array_map('strval', $rows[0]);
-
-        $this->assertContains('Position', $headers);
-        $this->assertContains('Last Position', $headers);
-        $this->assertContains('Country', $headers);
-        $this->assertContains('Last Country', $headers);
-        $this->assertStringContainsString('Welder', json_encode($rows));
-        $this->assertStringContainsString('Canada', json_encode($rows));
-        $this->assertStringNotContainsString('eyJ', json_encode($rows));
-    }
-
-    private function xlsxFor(User $user, string $endpoint)
-    {
-        $response = $this->actingAs($user)->get(route($endpoint));
+        // Test the export endpoint returns async response
+        $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
         $response->assertOk();
+        $response->assertJson(['status' => 'pending']);
 
-        $file = tempnam(sys_get_temp_dir(), 'report-workbook-');
-        ob_start();
-        $response->sendContent();
-        file_put_contents($file, ob_get_clean());
-        $workbook = IOFactory::load($file);
-        @unlink($file);
+        // Verify employment data via the queries layer directly
+        $queries = new \App\Services\Export\DataExportQueries;
+        $employments = $queries->getClientEmployments($admin);
+        $json = json_encode($employments->toArray());
 
-        return $workbook;
-    }
-
-    private function reportXlsxFor(User $user)
-    {
-        return $this->xlsxFor($user, 'reports.export-excel');
+        $this->assertStringContainsString('Welder', $json);
+        $this->assertStringContainsString('Canada', $json);
+        $this->assertStringNotContainsString('eyJ', $json);
     }
 }

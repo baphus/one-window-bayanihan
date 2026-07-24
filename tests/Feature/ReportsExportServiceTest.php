@@ -68,32 +68,18 @@ class ReportsExportServiceTest extends TestCase
         ]));
 
         $response->assertOk();
-        $this->assertStringContainsString(
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            (string) $response->headers->get('content-type'),
-        );
-
-        $file = tempnam(sys_get_temp_dir(), 'reports-xlsx-');
-        ob_start();
-        $response->sendContent();
-        file_put_contents($file, ob_get_clean());
-        $workbook = IOFactory::load($file);
-
-        $this->assertSame(['Report Info', 'Executive Summary'], [
-            $workbook->getSheet(0)->getTitle(),
-            $workbook->getSheet(1)->getTitle(),
+        $response->assertJson([
+            'status' => 'pending',
         ]);
-        // Employment fields belong to the case/client/referral and admin
-        // workbooks, not the aggregate Reports workbook.
-        $this->assertNotContains('Client_employments', $workbook->getSheetNames());
-        $this->assertNotContains('Previous Country', $workbook->getSheetByName('Report Info')->toArray()[0]);
-        $this->assertNotContains('Work Position', $workbook->getSheetByName('Report Info')->toArray()[0]);
-        $this->assertSame('Metric', $workbook->getSheetByName('Report Info')->getCell('A1')->getValue());
-        $this->assertSame('Value', $workbook->getSheetByName('Report Info')->getCell('B1')->getValue());
-        $this->assertSame('Metric', $workbook->getSheetByName('Executive Summary')->getCell('A1')->getValue());
-        $this->assertSame('Value', $workbook->getSheetByName('Executive Summary')->getCell('B1')->getValue());
+        $this->assertArrayHasKey('id', $response->json());
 
-        @unlink($file);
+        // Verify a GeneratedDocument was created
+        $this->assertDatabaseHas('generated_documents', [
+            'id' => $response->json('id'),
+            'user_id' => $user->id,
+            'type' => 'reports_export',
+            'status' => 'pending',
+        ]);
     }
 
     #[Test]
