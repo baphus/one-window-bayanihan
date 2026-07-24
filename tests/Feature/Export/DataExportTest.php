@@ -3,8 +3,11 @@
 namespace Tests\Feature\Export;
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Jobs\ExportDataToExcel;
+use App\Models\GeneratedDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -50,6 +53,8 @@ class DataExportTest extends TestCase
     #[Test]
     public function admin_export_returns_xlsx_headers(): void
     {
+        Queue::fake();
+
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
@@ -64,6 +69,8 @@ class DataExportTest extends TestCase
             'type' => 'admin_full_export',
             'status' => 'pending',
         ]);
+
+        Queue::assertPushed(ExportDataToExcel::class);
     }
 
     #[Test]
@@ -74,7 +81,7 @@ class DataExportTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 
         $response->assertStatus(200);
-        $document = \App\Models\GeneratedDocument::find($response->json('id'));
+        $document = GeneratedDocument::find($response->json('id'));
         $this->assertNotNull($document);
         $this->assertStringContainsString('bayanihan-full-export-', $document->filename);
     }

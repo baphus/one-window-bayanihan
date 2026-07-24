@@ -4,15 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
 use App\Http\Requests\ProfilePictureRequest;
+use App\Jobs\ExportDataToExcel;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\Client;
+use App\Models\GeneratedDocument;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
 use App\Services\CloudinaryAvatarService;
 use App\Services\Export\DataExportQueries;
-use App\Services\Export\DataExportService;
 use App\Services\ReferenceDataService;
 use App\Support\CategoryFilter;
 use Illuminate\Http\Request;
@@ -380,14 +381,14 @@ class ClientController extends Controller
 
         $filename = 'clients-export-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = \App\Models\GeneratedDocument::create([
+        $document = GeneratedDocument::create([
             'user_id' => $user->id,
             'type' => 'clients_export',
             'filename' => $filename,
             'status' => 'pending',
         ]);
 
-        \App\Jobs\ExportDataToExcel::dispatch(
+        ExportDataToExcel::dispatch(
             'clients_export',
             ['filters' => $filters],
             $user->id,

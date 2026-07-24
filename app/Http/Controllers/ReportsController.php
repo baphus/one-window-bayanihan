@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportsFilterRequest;
+use App\Jobs\ExportDataToExcel;
+use App\Jobs\GenerateSystemReport;
+use App\Models\GeneratedDocument;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Http\RedirectResponse;
@@ -123,14 +126,14 @@ class ReportsController extends Controller
 
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.pdf';
 
-        $document = \App\Models\GeneratedDocument::create([
+        $document = GeneratedDocument::create([
             'user_id' => $request->user()->id,
             'type' => 'system_report_pdf',
             'filename' => $filename,
             'status' => 'pending',
         ]);
 
-        \App\Jobs\GenerateSystemReport::dispatch(
+        GenerateSystemReport::dispatch(
             $criteria,
             $request->user()->id,
             $document->id,
@@ -151,14 +154,14 @@ class ReportsController extends Controller
 
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = \App\Models\GeneratedDocument::create([
+        $document = GeneratedDocument::create([
             'user_id' => $request->user()->id,
             'type' => 'reports_export',
             'filename' => $filename,
             'status' => 'pending',
         ]);
 
-        \App\Jobs\ExportDataToExcel::dispatch(
+        ExportDataToExcel::dispatch(
             'reports_export',
             $criteria,
             $request->user()->id,

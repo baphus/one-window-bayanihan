@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ExportDataToExcel;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -13,8 +14,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -60,6 +61,8 @@ class ReportsExportServiceTest extends TestCase
     #[Test]
     public function reports_export_endpoint_returns_the_expected_xlsx_workbook_headers(): void
     {
+        Queue::fake();
+
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->get(route('reports.export-excel', [
@@ -80,6 +83,8 @@ class ReportsExportServiceTest extends TestCase
             'type' => 'reports_export',
             'status' => 'pending',
         ]);
+
+        Queue::assertPushed(ExportDataToExcel::class);
     }
 
     #[Test]

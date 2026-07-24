@@ -5,15 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
+use App\Jobs\ExportDataToExcel;
 use App\Models\Agency;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
+use App\Models\GeneratedDocument;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
 use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
-use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
@@ -416,14 +417,14 @@ class ReferralController extends Controller
 
         $filename = 'referrals-export-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = \App\Models\GeneratedDocument::create([
+        $document = GeneratedDocument::create([
             'user_id' => $user->id,
             'type' => 'referrals_export',
             'filename' => $filename,
             'status' => 'pending',
         ]);
 
-        \App\Jobs\ExportDataToExcel::dispatch(
+        ExportDataToExcel::dispatch(
             'referrals_export',
             ['filters' => $filters],
             $user->id,

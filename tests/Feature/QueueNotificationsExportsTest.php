@@ -2,10 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ExportDataToExcel;
+use App\Jobs\GenerateSystemReport;
 use App\Models\GeneratedDocument;
 use App\Models\User;
+use App\Notifications\CaseStatusUpdated;
+use App\Notifications\CaseUpdated;
 use App\Notifications\DownloadReady;
+use App\Notifications\MilestoneAdded;
+use App\Notifications\ReferralClientRequestActivity;
 use App\Notifications\ReferralCreated;
+use App\Notifications\ReferralStatusChanged;
+use App\Notifications\SystemAlertNotification;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -150,19 +159,19 @@ class QueueNotificationsExportsTest extends TestCase
     public function notification_classes_implement_should_queue(): void
     {
         $notifications = [
-            \App\Notifications\ReferralCreated::class,
-            \App\Notifications\ReferralStatusChanged::class,
-            \App\Notifications\CaseStatusUpdated::class,
-            \App\Notifications\CaseUpdated::class,
-            \App\Notifications\MilestoneAdded::class,
-            \App\Notifications\SystemAlertNotification::class,
-            \App\Notifications\ReferralClientRequestActivity::class,
-            \App\Notifications\DownloadReady::class,
+            ReferralCreated::class,
+            ReferralStatusChanged::class,
+            CaseStatusUpdated::class,
+            CaseUpdated::class,
+            MilestoneAdded::class,
+            SystemAlertNotification::class,
+            ReferralClientRequestActivity::class,
+            DownloadReady::class,
         ];
 
         foreach ($notifications as $class) {
             $this->assertTrue(
-                in_array(\Illuminate\Contracts\Queue\ShouldQueue::class, class_implements($class)),
+                in_array(ShouldQueue::class, class_implements($class)),
                 "{$class} does not implement ShouldQueue"
             );
         }
@@ -183,7 +192,7 @@ class QueueNotificationsExportsTest extends TestCase
         $response->assertOk();
         $response->assertJson(['status' => 'pending']);
 
-        Queue::assertPushed(\App\Jobs\ExportDataToExcel::class, function ($job) {
+        Queue::assertPushed(ExportDataToExcel::class, function ($job) {
             return $job->type === 'cases_export';
         });
     }
@@ -202,7 +211,7 @@ class QueueNotificationsExportsTest extends TestCase
         $response->assertOk();
         $response->assertJson(['status' => 'pending']);
 
-        Queue::assertPushed(\App\Jobs\GenerateSystemReport::class);
+        Queue::assertPushed(GenerateSystemReport::class);
     }
 
     // -------------------------------------------------------------------------

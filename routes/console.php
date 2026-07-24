@@ -17,6 +17,5 @@ Schedule::command('storage:cleanup-orphans')->daily();
 // Permanently delete soft-deleted cases older than the retention window.
 Schedule::command('cases:purge-trashed')->dailyAt('02:00')->withoutOverlapping();
 
-
 // Prune old generated documents (completed > 30 days, failed > 7 days).
 Schedule::command('documents:prune')->dailyAt('03:30')->withoutOverlapping();

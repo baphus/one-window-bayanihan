@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\GenerateSystemReport;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -9,11 +10,12 @@ use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\Referral;
 use App\Models\User;
+use App\Services\Export\DataExportQueries;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\IOFactory;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -109,6 +111,8 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function pdf_export_endpoint_returns_a_download(): void
     {
+        Queue::fake();
+
         $this->makeCaseWithReferral($this->manager);
 
         $response = $this->actingAs($this->manager)->get(route('reports.export-pdf'));
@@ -121,6 +125,8 @@ class ReportsExportTest extends TestCase
             'type' => 'system_report_pdf',
             'status' => 'pending',
         ]);
+
+        Queue::assertPushed(GenerateSystemReport::class);
     }
 
     #[Test]
@@ -174,7 +180,7 @@ class ReportsExportTest extends TestCase
         }
 
         // Test via service layer directly since endpoints are now async
-        $queries = new \App\Services\Export\DataExportQueries;
+        $queries = new DataExportQueries;
 
         foreach (['getCasesExport', 'getClientsExport', 'getReferralsExport'] as $method) {
             $ownedData = $queries->$method($this->manager, []);
@@ -211,7 +217,7 @@ class ReportsExportTest extends TestCase
         $response->assertJson(['status' => 'pending']);
 
         // Verify employment data via the queries layer directly
-        $queries = new \App\Services\Export\DataExportQueries;
+        $queries = new DataExportQueries;
         $employments = $queries->getClientEmployments($admin);
         $json = json_encode($employments->toArray());
 

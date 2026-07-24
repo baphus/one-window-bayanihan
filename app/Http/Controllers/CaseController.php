@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Http\Requests\UpdateDraftRequest;
+use App\Jobs\ExportDataToExcel;
+use App\Jobs\GenerateCaseReport;
 use App\Models\CaseFile;
 use App\Models\Client;
+use App\Models\GeneratedDocument;
 use App\Models\SystemSetting;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
-use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
@@ -262,14 +264,14 @@ class CaseController extends Controller
 
         $filename = 'cases-export-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = \App\Models\GeneratedDocument::create([
+        $document = GeneratedDocument::create([
             'user_id' => $user->id,
             'type' => 'cases_export',
             'filename' => $filename,
             'status' => 'pending',
         ]);
 
-        \App\Jobs\ExportDataToExcel::dispatch(
+        ExportDataToExcel::dispatch(
             'cases_export',
             ['filters' => $filters],
             $user->id,
@@ -324,7 +326,7 @@ class CaseController extends Controller
 
         $filename = 'case-report-'.$case->case_number.'-'.now()->format('Ymd-His').'.pdf';
 
-        $document = \App\Models\GeneratedDocument::create([
+        $document = GeneratedDocument::create([
             'user_id' => $request->user()->id,
             'case_id' => $case->id,
             'type' => 'case_report_pdf',
@@ -332,7 +334,7 @@ class CaseController extends Controller
             'status' => 'pending',
         ]);
 
-        \App\Jobs\GenerateCaseReport::dispatch(
+        GenerateCaseReport::dispatch(
             $case->id,
             $request->user()->id,
             $document->id,

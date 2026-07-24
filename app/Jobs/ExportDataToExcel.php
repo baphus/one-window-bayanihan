@@ -2,6 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Http\Controllers\CaseController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ReferralController;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Notifications\DownloadReady;
@@ -50,19 +53,19 @@ class ExportDataToExcel implements ShouldQueue
                     $exportService, $queries, $user, $tempPath,
                     'Cases',
                     fn () => $queries->getCasesExport($user, $this->criteria['filters'] ?? []),
-                    \App\Http\Controllers\CaseController::casesExportColumnMap(),
+                    CaseController::casesExportColumnMap(),
                 ),
                 'clients_export' => $this->generateSingleSheetExport(
                     $exportService, $queries, $user, $tempPath,
                     'Clients',
                     fn () => $queries->getClientsExport($user, $this->criteria['filters'] ?? []),
-                    \App\Http\Controllers\ClientController::clientsExportColumnMap(),
+                    ClientController::clientsExportColumnMap(),
                 ),
                 'referrals_export' => $this->generateSingleSheetExport(
                     $exportService, $queries, $user, $tempPath,
                     'Referrals',
                     fn () => $queries->getReferralsExport($user, $this->criteria['filters'] ?? []),
-                    \App\Http\Controllers\ReferralController::referralsExportColumnMap(),
+                    ReferralController::referralsExportColumnMap(),
                 ),
                 'reports_export' => $this->generateReportsExport(
                     $exportService, $reportsExportService, $tempPath,

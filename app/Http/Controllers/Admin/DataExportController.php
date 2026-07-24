@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
+use App\Jobs\ExportDataToExcel;
 use App\Models\AuditLog;
+use App\Models\GeneratedDocument;
 use App\Services\Export\ColumnMaps;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -25,7 +27,7 @@ class DataExportController extends Controller
 
         $filename = 'bayanihan-full-export-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = \App\Models\GeneratedDocument::create([
+        $document = GeneratedDocument::create([
             'user_id' => $user->id,
             'type' => 'admin_full_export',
             'filename' => $filename,
@@ -45,7 +47,7 @@ class DataExportController extends Controller
             'request_id' => request()->attributes->get('correlation_id') ?? request()->header('X-Request-ID') ?? (string) Str::uuid(),
         ]);
 
-        \App\Jobs\ExportDataToExcel::dispatch(
+        ExportDataToExcel::dispatch(
             'admin_full_export',
             [],
             $user->id,
