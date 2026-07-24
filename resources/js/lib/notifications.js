@@ -22,6 +22,8 @@ export const NOTIFICATION_TYPE_SEVERITY = {
   'UserUpdated': 'info',
   'AlertGenerated': 'warning',
   'SystemAlert': 'critical',
+  'DownloadReady': 'success',
+  'DownloadFailed': 'warning',
 };
 
 export function getSeverityConfig(severity) {

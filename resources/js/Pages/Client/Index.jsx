@@ -123,7 +123,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     setExportDialogOpen(true);
   }, []);
 
-  const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
+  const handleExportConfirm = useCallback(async ({ dateFrom, dateTo }) => {
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
     if (filters.sex) params.set('sex', filters.sex);
@@ -139,18 +139,13 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     const qs = params.toString();
     const url = route('clients.export-excel') + (qs ? '?' + qs : '');
 
-    setIsExporting(true);
     setExportDialogOpen(false);
-    toast.info('Preparing your export\u2026');
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    setTimeout(() => setIsExporting(false), 5000);
+    const { dispatchAsyncExport } = await import('@/lib/async-export');
+    await dispatchAsyncExport(url, toast, {
+      onStart: () => setIsExporting(true),
+      onDone: () => setIsExporting(false),
+    });
   }, [filters, toast]);
 
   const activeFilterChips = useMemo(() => {

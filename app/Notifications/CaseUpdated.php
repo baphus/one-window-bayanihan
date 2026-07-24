@@ -4,10 +4,11 @@ namespace App\Notifications;
 
 use App\Models\CaseFile;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class CaseUpdated extends Notification
+class CaseUpdated extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -20,6 +21,14 @@ class CaseUpdated extends Notification
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];
+    }
+
+    public function viaQueues(): array
+    {
+        return [
+            'database' => 'default',
+            'mail' => 'notifications',
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage

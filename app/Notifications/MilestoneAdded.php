@@ -5,10 +5,11 @@ namespace App\Notifications;
 use App\Models\Milestone;
 use App\Models\Referral;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class MilestoneAdded extends Notification
+class MilestoneAdded extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -20,6 +21,14 @@ class MilestoneAdded extends Notification
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];
+    }
+
+    public function viaQueues(): array
+    {
+        return [
+            'database' => 'default',
+            'mail' => 'notifications',
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage

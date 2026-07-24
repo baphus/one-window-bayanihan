@@ -27,76 +27,49 @@ class ReportsExportService
 
     public function buildPdfPayload(Request $request): array|RedirectResponse
     {
-        return $this->buildPayload($request, false);
-    }
-
-    public function buildExcelSheets(Request $request): array|RedirectResponse
-    {
-        $payload = $this->buildPayload($request, true);
-        if ($payload instanceof RedirectResponse) {
-            return $payload;
-        }
-
-        return $payload['sheets'];
-    }
-
-    private function buildPayload(Request $request, bool $withDetails): array|RedirectResponse
-    {
-        $criteria = $this->criteria($request);
+        $criteria = $this->extractCriteria($request);
         if ($criteria instanceof RedirectResponse) {
             return $criteria;
         }
 
-        // Single source of truth: the exact same computed dataset as the
-        // on-screen report, honoring all filters (date range, date scope,
-        // province, city, role, agency). Summary/KPI/distribution sections are
-        // mapped from this so an export can never diverge from the screen.
-        $report = $this->reports->getAll(
-            userId: $criteria['user']->id,
-            role: $criteria['role'],
-            agencyId: $criteria['agency_id'],
-            fromDate: $criteria['from']->toDateString(),
-            toDate: $criteria['to']->toDateString(),
-            dateScope: $criteria['dateScope'],
-            province: $criteria['province'],
-            city: $criteria['city'],
-        );
-
-        // Detail rows / risk tables use bases that mirror the same filter set.
-        $refBase = $this->referralBase($criteria);
-        $caseBase = $this->caseBase($criteria);
-        $refCount = (int) ($report['kpis']['totalReferrals'] ?? 0);
-        $caseCount = (int) ($report['kpis']['totalCases'] ?? 0);
-        $refDetailCount = (clone $refBase)->count();
-        $caseDetailCount = (clone $caseBase)->count();
-
-        $rowCap = $this->rowCap();
-        $refRows = $withDetails ? $this->referralRows($refBase)->limit($rowCap)->get() : collect();
-        $caseRows = $withDetails ? $this->caseRows($caseBase)->limit($rowCap)->get() : collect();
-
-        $warnings = [];
-        if ($withDetails && $refDetailCount > $rowCap) {
-            $warnings[] = 'Referral Details capped at '.$rowCap.' of '.$refDetailCount.' matching rows.';
-        }
-        if ($withDetails && $caseDetailCount > $rowCap) {
-            $warnings[] = 'Case Details capped at '.$rowCap.' of '.$caseDetailCount.' matching rows.';
-        }
-
-        $summary = $this->summaryFromReport($report, $refBase, $caseBase);
-        $metadata = $this->metadata($request, $criteria, $refDetailCount, $caseDetailCount, $warnings, $withDetails);
-
-        $payload = $summary + [
-            'metadata' => $metadata,
-            'capWarnings' => $warnings,
-            'topReferrals' => $this->riskRows($this->referralRows($refBase), 'referral')->take(self::PDF_TOP_N)->values()->all(),
-            'topCases' => $this->riskRows($this->caseRows($caseBase), 'case')->take(self::PDF_TOP_N)->values()->all(),
-        ];
-        $payload['sheets'] = $this->sheets($payload, $refRows, $caseRows);
-
-        return $payload;
+        return $this->buildPayloadFromCriteria($criteria, false);
     }
 
-    private function criteria(Request $request): array|RedirectResponse
+    public function buildExcelSheets(Request $request): array|RedirectResponse
+    {
+        $criteria = $this->extractCriteria($request);
+        if ($criteria instanceof RedirectResponse) {
+            return $criteria;
+        }
+
+        $payload = $this->buildPayloadFromCriteria($criteria, true);
+
+        return $payload['sheets'];
+    }
+
+    /**
+     * Build PDF payload from pre-extracted criteria (for queue jobs).
+     */
+    public function buildPdfPayloadFromCriteria(array $criteria): array
+    {
+        return $this->buildPayloadFromCriteria($criteria, false);
+    }
+
+    /**
+     * Build Excel sheets from pre-extracted criteria (for queue jobs).
+     */
+    public function buildExcelSheetsFromCriteria(array $criteria): array
+    {
+        $payload = $this->buildPayloadFromCriteria($criteria, true);
+
+        return $payload['sheets'];
+    }
+
+    /**
+     * Extract criteria from a Request into a serializable array.
+     * This can be stored and passed to a queue job.
+     */
+    public function extractCriteria(Request $request): array|RedirectResponse
     {
         $today = CarbonImmutable::today(self::TZ);
         foreach (['from', 'to'] as $key) {
@@ -131,8 +104,6 @@ class ReportsExportService
             $dateScope = 'case_created_at';
         }
 
-        // Resolve effective agency scope: AGENCY users are locked to their own
-        // agency; ADMIN and CASE_MANAGER may select one via query param.
         $agencyId = match ($user->role) {
             'AGENCY' => $user->agcy_id,
             'ADMIN', 'CASE_MANAGER' => $request->query('agency_id') ?: null,
@@ -140,18 +111,82 @@ class ReportsExportService
         };
 
         return [
-            'user' => $user,
+            'user_id' => $user->id,
+            'user_name' => $user->name,
             'role' => $user->role,
             'agency_id' => $agencyId,
             'user_agcy_id' => $user->agcy_id,
-            'from' => $from,
-            'to' => $to,
-            'fromInstant' => $from->startOfDay()->utc(),
-            'toInstant' => $to->endOfDay()->utc(),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
             'dateScope' => $dateScope,
             'province' => $request->query('province') ?: null,
             'city' => $request->query('city') ?: null,
         ];
+    }
+
+    private function buildPayloadFromCriteria(array $criteria, bool $withDetails): array
+    {
+        // Hydrate date objects from serializable strings
+        $from = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['from'], self::TZ);
+        $to = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['to'], self::TZ);
+
+        $c = [
+            'user_id' => $criteria['user_id'],
+            'user_name' => $criteria['user_name'],
+            'role' => $criteria['role'],
+            'agency_id' => $criteria['agency_id'],
+            'user_agcy_id' => $criteria['user_agcy_id'],
+            'from' => $from,
+            'to' => $to,
+            'fromInstant' => $from->startOfDay()->utc(),
+            'toInstant' => $to->endOfDay()->utc(),
+            'dateScope' => $criteria['dateScope'],
+            'province' => $criteria['province'],
+            'city' => $criteria['city'],
+        ];
+
+        $report = $this->reports->getAll(
+            userId: $c['user_id'],
+            role: $c['role'],
+            agencyId: $c['agency_id'],
+            fromDate: $c['from']->toDateString(),
+            toDate: $c['to']->toDateString(),
+            dateScope: $c['dateScope'],
+            province: $c['province'],
+            city: $c['city'],
+        );
+
+        $refBase = $this->referralBase($c);
+        $caseBase = $this->caseBase($c);
+        $refCount = (int) ($report['kpis']['totalReferrals'] ?? 0);
+        $caseCount = (int) ($report['kpis']['totalCases'] ?? 0);
+        $refDetailCount = (clone $refBase)->count();
+        $caseDetailCount = (clone $caseBase)->count();
+
+        $rowCap = $this->rowCap();
+        $refRows = $withDetails ? $this->referralRows($refBase)->limit($rowCap)->get() : collect();
+        $caseRows = $withDetails ? $this->caseRows($caseBase)->limit($rowCap)->get() : collect();
+
+        $warnings = [];
+        if ($withDetails && $refDetailCount > $rowCap) {
+            $warnings[] = 'Referral Details capped at '.$rowCap.' of '.$refDetailCount.' matching rows.';
+        }
+        if ($withDetails && $caseDetailCount > $rowCap) {
+            $warnings[] = 'Case Details capped at '.$rowCap.' of '.$caseDetailCount.' matching rows.';
+        }
+
+        $summary = $this->summaryFromReport($report, $refBase, $caseBase);
+        $metadata = $this->buildMetadata($c, $refDetailCount, $caseDetailCount, $warnings, $withDetails);
+
+        $payload = $summary + [
+            'metadata' => $metadata,
+            'capWarnings' => $warnings,
+            'topReferrals' => $this->riskRows($this->referralRows($refBase), 'referral')->take(self::PDF_TOP_N)->values()->all(),
+            'topCases' => $this->riskRows($this->caseRows($caseBase), 'case')->take(self::PDF_TOP_N)->values()->all(),
+        ];
+        $payload['sheets'] = $this->sheets($payload, $refRows, $caseRows);
+
+        return $payload;
     }
 
     /**
@@ -321,7 +356,7 @@ class ReportsExportService
         return max(1, (int) config('reports.export_row_cap', self::DEFAULT_ROW_CAP));
     }
 
-    private function metadata(Request $request, array $c, int $refCount, int $caseCount, array $warnings, bool $withDetails): array
+    private function buildMetadata(array $c, int $refCount, int $caseCount, array $warnings, bool $withDetails): array
     {
         $utc = CarbonImmutable::now('UTC');
         $rowCap = $this->rowCap();
@@ -338,10 +373,9 @@ class ReportsExportService
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at_utc' => $utc->toIso8601String(),
             'generated_at_manila' => $utc->setTimezone(self::TZ)->toDateTimeString(),
-            'generated_by' => $request->user()->name,
+            'generated_by' => $c['user_name'],
             'scope' => $c['role'],
             'timezone' => self::TZ,
-            // Full filter set so an exported file ties back to the exact filtered view.
             'filters' => [
                 'from' => $c['from']->toDateString(),
                 'to' => $c['to']->toDateString(),

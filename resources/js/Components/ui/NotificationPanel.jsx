@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
+import { Bell, CheckCircle2, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { getSeverityConfig, normalizeNotification, formatDetailedTimestamp } from '@/lib/notifications';
 
@@ -200,6 +200,17 @@ export default function NotificationPanel() {
                           <p className="mt-0.5 text-[11px] text-slate-500 leading-relaxed line-clamp-2">
                             {item.message}
                           </p>
+                        )}
+                        {/* Download button for download-ready notifications */}
+                        {item.action_url && item.action_url.startsWith('/documents/') && (
+                          <a
+                            href={item.action_url}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                          >
+                            <Download className="w-3 h-3" />
+                            Download
+                          </a>
                         )}
                         <div className="mt-1.5 flex items-center justify-between">
                           <span className="text-[10px] text-slate-400">

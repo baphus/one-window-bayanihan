@@ -3,8 +3,11 @@
 namespace Tests\Feature\Export;
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Jobs\ExportDataToExcel;
+use App\Models\GeneratedDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -50,19 +53,24 @@ class DataExportTest extends TestCase
     #[Test]
     public function admin_export_returns_xlsx_headers(): void
     {
+        Queue::fake();
+
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 
         $response->assertStatus(200);
-        $this->assertStringContainsString(
-            'spreadsheetml.sheet',
-            $response->headers->get('Content-Type')
-        );
-        $this->assertStringContainsString(
-            '.xlsx',
-            $response->headers->get('Content-Disposition')
-        );
+        $response->assertJson(['status' => 'pending']);
+        $this->assertArrayHasKey('id', $response->json());
+
+        $this->assertDatabaseHas('generated_documents', [
+            'id' => $response->json('id'),
+            'user_id' => $admin->id,
+            'type' => 'admin_full_export',
+            'status' => 'pending',
+        ]);
+
+        Queue::assertPushed(ExportDataToExcel::class);
     }
 
     #[Test]
@@ -72,9 +80,9 @@ class DataExportTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 
-        $this->assertStringContainsString(
-            'bayanihan-full-export-',
-            $response->headers->get('Content-Disposition')
-        );
+        $response->assertStatus(200);
+        $document = GeneratedDocument::find($response->json('id'));
+        $this->assertNotNull($document);
+        $this->assertStringContainsString('bayanihan-full-export-', $document->filename);
     }
 }

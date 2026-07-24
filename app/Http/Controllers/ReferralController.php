@@ -5,15 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
+use App\Jobs\ExportDataToExcel;
 use App\Models\Agency;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
+use App\Models\GeneratedDocument;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
 use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
-use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
@@ -408,28 +409,32 @@ class ReferralController extends Controller
     public function exportExcel(Request $request)
     {
         $user = auth()->user();
-        $queries = new DataExportQueries;
 
-        $filters = array_merge($request->only([
+        $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
             'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
-        ]), CategoryFilter::fromRequest($request)->toArray());
-
-        $referrals = $queries->getReferralsExport($user, array_filter($filters));
-
-        $columnMap = self::referralsExportColumnMap();
-
-        // Tag each row with the export timestamp for provenance
-        $now = now()->format('Y-m-d H:i:s');
-        $referrals = $referrals->map(function ($row) use ($now) {
-            $row->exported_at = $now;
-
-            return $row;
-        });
+        ]), CategoryFilter::fromRequest($request)->toArray()));
 
         $filename = 'referrals-export-'.now()->format('Ymd-His').'.xlsx';
 
-        return (new DataExportService)->generateSingleSheet('Referrals', $columnMap, $referrals, $filename);
+        $document = GeneratedDocument::create([
+            'user_id' => $user->id,
+            'type' => 'referrals_export',
+            'filename' => $filename,
+            'status' => 'pending',
+        ]);
+
+        ExportDataToExcel::dispatch(
+            'referrals_export',
+            ['filters' => $filters],
+            $user->id,
+            $document->id,
+        );
+
+        return response()->json([
+            'id' => $document->id,
+            'status' => 'pending',
+        ]);
     }
 
     /**

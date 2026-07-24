@@ -3,10 +3,11 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class SystemAlertNotification extends Notification
+class SystemAlertNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -19,6 +20,14 @@ class SystemAlertNotification extends Notification
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];
+    }
+
+    public function viaQueues(): array
+    {
+        return [
+            'database' => 'default',
+            'mail' => 'notifications',
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage

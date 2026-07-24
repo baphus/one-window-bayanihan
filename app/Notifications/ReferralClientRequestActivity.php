@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -10,7 +11,7 @@ use Illuminate\Notifications\Notification;
  * presentation-safe status only; never request instructions, message bodies,
  * recipient snapshots, or access tokens.
  */
-class ReferralClientRequestActivity extends Notification
+class ReferralClientRequestActivity extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -25,6 +26,13 @@ class ReferralClientRequestActivity extends Notification
     public function via(object $notifiable): array
     {
         return ['database'];
+    }
+
+    public function viaQueues(): array
+    {
+        return [
+            'database' => 'default',
+        ];
     }
 
     public function toDatabase(object $notifiable): array
