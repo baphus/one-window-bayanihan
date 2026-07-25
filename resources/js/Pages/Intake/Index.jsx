@@ -659,6 +659,21 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Address</label>
+              <button
+                type="button"
+                onClick={() => {
+                  const addr = formData.address;
+                  updateNok(i, 'region', addr.region);
+                  updateNok(i, 'province', addr.province);
+                  updateNok(i, 'city_municipality', addr.city_municipality);
+                  updateNok(i, 'barangay', addr.barangay);
+                  updateNok(i, 'street', addr.street);
+                }}
+                className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+              >
+                <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                Same as client address
+              </button>
               <AddressDropdowns
                 values={{ region: nok.region, province: nok.province, city_municipality: nok.city_municipality, barangay: nok.barangay, street: nok.street }}
                 onChange={(field, value) => handleNokAddressChange(i, field, value)}
