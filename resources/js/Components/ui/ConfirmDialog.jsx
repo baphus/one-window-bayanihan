@@ -10,11 +10,16 @@ export default function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   tone = 'default',
+  confirmVariant,
   onConfirm,
   onCancel,
+  onClose,
+  disabled = false,
+  children,
 }) {
   if (!open) return null;
-  const t = toneConfig[tone];
+  const t = toneConfig[confirmVariant || tone];
+  const handleCancel = onCancel || onClose;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
@@ -24,13 +29,17 @@ export default function ConfirmDialog({
             <span className={`material-symbols-outlined text-[22px] ${t.iconColor}`}>{t.icon}</span>
           </div>
           <h2 className="mt-3 text-[16px] font-extrabold text-slate-900">{title}</h2>
-          <p className="mt-1.5 text-[13px] text-slate-600 leading-relaxed">{message}</p>
+          {children ? (
+            <div className="mt-3 w-full text-left">{children}</div>
+          ) : (
+            <p className="mt-1.5 text-[13px] text-slate-600 leading-relaxed">{message}</p>
+          )}
         </div>
         <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
-          <button onClick={onCancel} className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+          <button onClick={handleCancel} className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
             {cancelLabel}
           </button>
-          <button onClick={onConfirm} className={`h-9 rounded-[3px] px-4 text-[12px] font-bold text-white transition-colors ${t.button}`}>
+          <button onClick={onConfirm} disabled={disabled} className={`h-9 rounded-[3px] px-4 text-[12px] font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${t.button}`}>
             {confirmLabel}
           </button>
         </div>

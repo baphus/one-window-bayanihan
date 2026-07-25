@@ -448,15 +448,6 @@ class CaseService
             $clientEmail = $case->client?->email;
             if ($clientEmail) {
                 Mail::to($clientEmail)->queue(new IntakeRejectedMail($case, $reason));
-
-                $this->notificationService->notifyOfw(
-                    $case,
-                    $clientEmail,
-                    'intake_rejected',
-                    'Submission Not Processed',
-                    "Your submitted case could not be processed. Reason: {$reason}",
-                    ['reason' => $reason],
-                );
             }
 
             return $case;
