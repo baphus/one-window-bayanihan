@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,10 +25,10 @@ class IntakePublishTest extends TestCase
         parent::setUp();
         Mail::fake();
         $this->withoutMiddleware([
-                    \App\Http\Middleware\VerifyTurnstile::class,
-                    \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
-                    \Illuminate\Routing\Middleware\ThrottleRequests::class,
-                ]);
+            VerifyTurnstile::class,
+            PreventRequestForgery::class,
+            ThrottleRequests::class,
+        ]);
     }
 
     #[Test]
@@ -42,7 +45,7 @@ class IntakePublishTest extends TestCase
         ]);
 
         // Add address so publishing validation passes
-        \App\Models\ClientAddress::create([
+        ClientAddress::create([
             'client_id' => $client->id,
             'region' => 'Region VII',
             'city_municipality' => 'Cebu City',

@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
@@ -20,10 +23,10 @@ class IntakeDuplicateDetectionTest extends TestCase
         parent::setUp();
         Mail::fake();
         $this->withoutMiddleware([
-                    \App\Http\Middleware\VerifyTurnstile::class,
-                    \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
-                    \Illuminate\Routing\Middleware\ThrottleRequests::class,
-                ]);
+            VerifyTurnstile::class,
+            PreventRequestForgery::class,
+            ThrottleRequests::class,
+        ]);
         Mail::fake();
     }
 
