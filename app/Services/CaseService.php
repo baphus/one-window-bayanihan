@@ -417,10 +417,9 @@ class CaseService
         $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'asc';
 
         if ($sort === 'client_name') {
-            $query->leftJoin('clients', 'cases.client_id', '=', 'clients.id')
-                ->select('cases.*')
-                ->orderBy('clients.last_name', $direction)
-                ->orderBy('clients.first_name', $direction);
+            $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+            $query->orderByRaw('(SELECT last_name FROM clients WHERE clients.id = cases.client_id) '.$dir)
+                ->orderByRaw('(SELECT first_name FROM clients WHERE clients.id = cases.client_id) '.$dir);
         } else {
             $sortColumn = match ($sort) {
                 'vulnerability_indicator' => 'cases.vulnerability_indicator',
@@ -484,11 +483,10 @@ class CaseService
 
         $total = (clone $base)->count();
 
-        $withEmail = (clone $base)->where(function ($q) {
-            $q->whereHas('client', function ($cq) {
-                $cq->whereNotNull('email')->where('email', '!=', '');
-            })
-                ->orWhereRaw("draft_client_data->>'email' IS NOT NULL AND draft_client_data->>'email' != ''");
+        $vulnerable = (clone $base)->where(function ($q) {
+            $q->where('vulnerability_indicator', '!=', 'None')
+                ->whereNotNull('vulnerability_indicator')
+                ->where('vulnerability_indicator', '!=', '');
         })->count();
 
         $thisWeek = (clone $base)->where('created_at', '>=', now()->subDays(7))->count();
@@ -503,7 +501,7 @@ class CaseService
 
         return [
             'total' => $total,
-            'withEmail' => $withEmail,
+            'vulnerable' => $vulnerable,
             'thisWeek' => $thisWeek,
             'categoryCount' => $categoryCount,
         ];

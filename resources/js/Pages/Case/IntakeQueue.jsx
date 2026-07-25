@@ -8,7 +8,7 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { useToast } from '@/Hooks/useToast';
-import { Inbox, Mail, CalendarClock, Tag } from 'lucide-react';
+import { Inbox, ShieldAlert, CalendarClock, Tag } from 'lucide-react';
 
 /* ── Helpers ────────────────────────────────────────────────── */
 
@@ -48,10 +48,6 @@ function getClientAge(caseItem) {
   return `${age} yrs`;
 }
 
-function hasEmail(caseItem) {
-  return getClientEmail(caseItem) !== '—';
-}
-
 /* ── Vulnerability styles ───────────────────────────────────── */
 
 const vulnStyles = {
@@ -81,7 +77,7 @@ export default function IntakeQueue({ cases, filters: initialFilters = {}, stats
   const filters = initialFilters && !Array.isArray(initialFilters) ? initialFilters : {};
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
-  const [emailFilter, setEmailFilter] = useState('');
+  const [vulnFilter, setVulnFilter] = useState('');
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
@@ -153,23 +149,28 @@ export default function IntakeQueue({ cases, filters: initialFilters = {}, stats
     setContextMenu({ x: e.clientX, y: e.clientY, row });
   }, []);
 
-  /* ── Email quick-filter (client-side) ──────────────────────── */
+  /* ── Vulnerability quick-filter (client-side) ────────────── */
 
-  const handleEmailFilter = useCallback((value) => {
-    setEmailFilter((prev) => (prev === value ? '' : value));
+  function isVulnerable(caseItem) {
+    const val = caseItem.vulnerability_indicator;
+    return val && val !== 'None' && val.trim() !== '';
+  }
+
+  const handleVulnFilter = useCallback((value) => {
+    setVulnFilter((prev) => (prev === value ? '' : value));
   }, []);
 
   const filteredData = useMemo(() => {
-    if (!emailFilter) return cases.data;
+    if (!vulnFilter) return cases.data;
     return cases.data.filter((c) => {
-      return emailFilter === 'yes' ? hasEmail(c) : !hasEmail(c);
+      return vulnFilter === 'vulnerable' ? isVulnerable(c) : !isVulnerable(c);
     });
-  }, [cases.data, emailFilter]);
+  }, [cases.data, vulnFilter]);
 
   const quickFilterCounts = useMemo(() => {
     const data = cases.data || [];
-    const withEmail = data.filter((c) => hasEmail(c)).length;
-    return { all: cases.total, withEmail, noEmail: data.length - withEmail };
+    const vulnerable = data.filter((c) => isVulnerable(c)).length;
+    return { all: cases.total, vulnerable, noVuln: data.length - vulnerable };
   }, [cases]);
 
   /* ── Reject handler ────────────────────────────────────────── */
@@ -306,20 +307,20 @@ export default function IntakeQueue({ cases, filters: initialFilters = {}, stats
   /* ── Quick-filter pills ─────────────────────────────────────── */
 
   const quickFilterPills = useMemo(() => {
-    const currentFilter = emailFilter;
+    const currentFilter = vulnFilter;
     return (
-      <div className="flex items-center gap-1.5" role="group" aria-label="Quick email filters">
+      <div className="flex items-center gap-1.5" role="group" aria-label="Quick vulnerability filters">
         <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
         {[
           { label: 'All', value: '', count: quickFilterCounts.all },
-          { label: 'With Email', value: 'yes', count: quickFilterCounts.withEmail },
-          { label: 'No Email', value: 'no', count: quickFilterCounts.noEmail },
+          { label: 'Vulnerable', value: 'vulnerable', count: quickFilterCounts.vulnerable },
+          { label: 'No Vulnerability', value: 'none', count: quickFilterCounts.noVuln },
         ].map((f) => {
           const isActive = currentFilter === f.value || (f.value === '' && currentFilter === '');
           return (
             <button
               key={f.label}
-              onClick={() => handleEmailFilter(f.value)}
+              onClick={() => handleVulnFilter(f.value)}
               className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
                 isActive
                   ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
@@ -333,7 +334,7 @@ export default function IntakeQueue({ cases, filters: initialFilters = {}, stats
         })}
       </div>
     );
-  }, [emailFilter, quickFilterCounts, handleEmailFilter]);
+  }, [vulnFilter, quickFilterCounts, handleVulnFilter]);
 
   /* ── Column visibility control ──────────────────────────────── */
 
@@ -368,7 +369,7 @@ export default function IntakeQueue({ cases, filters: initialFilters = {}, stats
     if (stats) return stats;
     // Fallback: compute from page data if server stats not available
     const data = cases.data || [];
-    const withEmailCount = data.filter((c) => hasEmail(c)).length;
+    const vulnerableCount = data.filter((c) => isVulnerable(c)).length;
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thisWeekCount = data.filter((c) => {
@@ -377,7 +378,7 @@ export default function IntakeQueue({ cases, filters: initialFilters = {}, stats
     }).length;
     return {
       total: cases.total,
-      withEmail: withEmailCount,
+      vulnerable: vulnerableCount,
       thisWeek: thisWeekCount,
       categoryCount: 0,
     };
@@ -415,11 +416,11 @@ export default function IntakeQueue({ cases, filters: initialFilters = {}, stats
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-start justify-between mb-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">With Email</p>
-              <span className="p-1.5 bg-emerald-50 rounded-lg"><Mail className="w-4 h-4 text-emerald-600" /></span>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Vulnerable</p>
+              <span className="p-1.5 bg-emerald-50 rounded-lg"><ShieldAlert className="w-4 h-4 text-emerald-600" /></span>
             </div>
-            <p className="text-2xl font-black text-slate-900">{pageStats.withEmail}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">On this page</p>
+            <p className="text-2xl font-black text-slate-900">{pageStats.vulnerable}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Need priority</p>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
