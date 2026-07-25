@@ -365,11 +365,17 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
 }
 
 function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
+  const [stepErrors, setStepErrors] = useState({});
+
   const validate = () => {
-    if (!formData.client.first_name.trim()) return false;
-    if (!formData.client.last_name.trim()) return false;
-    return true;
+    const errs = {};
+    if (!formData.client.first_name.trim()) errs.first_name = 'Please provide your first name.';
+    if (!formData.client.last_name.trim()) errs.last_name = 'Please provide your last name.';
+    setStepErrors(errs);
+    return Object.keys(errs).length === 0;
   };
+
+  const clearError = (key) => setStepErrors(prev => ({ ...prev, [key]: undefined }));
 
   return (
     <div>
@@ -379,13 +385,15 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">First Name *</label>
-          <input type="text" value={formData.client.first_name} onChange={e => updateField('client.first_name', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <input type="text" value={formData.client.first_name} onChange={e => { updateField('client.first_name', e.target.value); clearError('first_name'); }}
+            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.first_name ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+          {stepErrors.first_name && <p className="mt-1 text-xs text-error">{stepErrors.first_name}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Name *</label>
-          <input type="text" value={formData.client.last_name} onChange={e => updateField('client.last_name', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <input type="text" value={formData.client.last_name} onChange={e => { updateField('client.last_name', e.target.value); clearError('last_name'); }}
+            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.last_name ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+          {stepErrors.last_name && <p className="mt-1 text-xs text-error">{stepErrors.last_name}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Initial</label>
@@ -420,7 +428,7 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Contact Number</label>
-          <PhoneInput value={formData.client.contact_number} onChange={val => updateField('client.contact_number', val)} placeholder="09XX XXX XXXX" />
+          <PhoneInput value={formData.client.contact_number} onChange={val => updateField('client.contact_number', val)} />
         </div>
       </div>
 
@@ -550,6 +558,8 @@ function EmploymentStep({ formData, updateField, errors, positionOptions, onNext
 
 
 function NokStep({ formData, setFormData, errors, onNext, onBack }) {
+  const [stepErrors, setStepErrors] = useState({});
+
   const addNok = () => {
     setFormData(prev => ({
       ...prev,
@@ -563,6 +573,9 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
       nok[index] = { ...nok[index], [field]: value };
       return { ...prev, next_of_kin: nok };
     });
+    if (index === 0 && field === 'first_name') {
+      setStepErrors(prev => ({ ...prev, nok0_first_name: undefined }));
+    }
   };
 
   const setPrimaryNok = (idx) => {
@@ -593,7 +606,12 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
     }));
   };
 
-  const validate = () => formData.next_of_kin[0]?.first_name?.trim();
+  const validate = () => {
+    const errs = {};
+    if (!formData.next_of_kin[0]?.first_name?.trim()) errs.nok0_first_name = 'Emergency contact name is required.';
+    setStepErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   return (
     <div>
@@ -624,7 +642,8 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">First Name *</label>
               <input type="text" value={nok.first_name} onChange={e => updateNok(i, 'first_name', e.target.value)}
-                className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                className={`w-full border bg-surface-container px-3 py-2 text-sm focus:outline-none ${i === 0 && stepErrors.nok0_first_name ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+              {i === 0 && stepErrors.nok0_first_name && <p className="mt-1 text-xs text-error">{stepErrors.nok0_first_name}</p>}
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Initial</label>
@@ -698,6 +717,7 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
   const [newIssueName, setNewIssueName] = useState('');
   const [addingIssue, setAddingIssue] = useState(false);
   const [localIssues, setLocalIssues] = useState(caseIssues);
+  const [stepErrors, setStepErrors] = useState({});
 
   useEffect(() => { setLocalIssues(caseIssues); }, [caseIssues]);
 
@@ -708,6 +728,7 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
         : [...prev.category_ids, id];
       return { ...prev, category_ids: ids };
     });
+    setStepErrors(prev => ({ ...prev, category_ids: undefined }));
   };
 
   const handleQuickAddIssue = async () => {
@@ -737,7 +758,11 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
   };
 
   const validate = () => {
-    return formData.category_ids.length > 0 && formData.summary.trim().length >= 20;
+    const errs = {};
+    if (formData.category_ids.length === 0) errs.category_ids = 'Please select at least one category.';
+    if (formData.summary.trim().length < 20) errs.summary = 'Please provide at least 20 characters.';
+    setStepErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   return (
@@ -761,7 +786,7 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
               </label>
             ))}
           </div>
-          {errors['category_ids'] && <p className="mt-1 text-xs text-error">{errors['category_ids']}</p>}
+          {(errors['category_ids'] || stepErrors.category_ids) && <p className="mt-1 text-xs text-error">{stepErrors.category_ids || errors['category_ids']}</p>}
         </div>
 
         {localIssues.length > 0 && (
@@ -822,13 +847,13 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Tell us what happened *</label>
           <textarea
             value={formData.summary}
-            onChange={e => updateField('summary', e.target.value)}
+            onChange={e => { updateField('summary', e.target.value); setStepErrors(prev => ({ ...prev, summary: undefined })); }}
             rows={5}
             placeholder="Please describe your situation, what happened, and what kind of assistance you need..."
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
           />
           <p className="mt-1 text-xs text-slate-400">{formData.summary.length}/20 minimum characters</p>
-          {errors.summary && <p className="mt-1 text-xs text-error">{errors.summary}</p>}
+          {(stepErrors.summary || errors.summary) && <p className="mt-1 text-xs text-error">{stepErrors.summary || errors.summary}</p>}
         </div>
 
         <div>
@@ -867,6 +892,23 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
 }
 
 function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBack }) {
+  const [stepErrors, setStepErrors] = useState({});
+
+  const validate = () => {
+    const errs = {};
+    if (!formData.consent) errs.consent = 'You must consent to data processing to submit this form.';
+    if (!formData.password) errs.password = 'Please create a password for your account.';
+    else if (formData.password.length < 8) errs.password = 'Password must be at least 8 characters long.';
+    if (!formData.password_confirmation) errs.password_confirmation = 'Please confirm your password.';
+    else if (formData.password !== formData.password_confirmation) errs.password_confirmation = 'Password confirmation does not match.';
+    setStepErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (validate()) onSubmit();
+  };
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Consent & Account</h2>
@@ -881,11 +923,11 @@ function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBa
             government partner agencies as necessary for my case resolution, in compliance with the Data Privacy Act of 2012 (RA 10173).
           </p>
           <label className="flex cursor-pointer items-center gap-3">
-            <input type="checkbox" checked={formData.consent} onChange={e => updateField('consent', e.target.checked)}
+            <input type="checkbox" checked={formData.consent} onChange={e => { updateField('consent', e.target.checked); setStepErrors(prev => ({ ...prev, consent: undefined })); }}
               className="h-4 w-4 border-outline-variant text-primary focus:ring-primary" />
             <span className="text-sm font-medium text-slate-700">I agree to the data processing terms above *</span>
           </label>
-          {errors.consent && <p className="mt-1 text-xs text-error">{errors.consent}</p>}
+          {stepErrors.consent && <p className="mt-1 text-xs text-error">{stepErrors.consent}</p>}
         </div>
 
         <div>
@@ -896,16 +938,16 @@ function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBa
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Password *</label>
-              <input type="password" value={formData.password} onChange={e => updateField('password', e.target.value)}
+              <input type="password" value={formData.password} onChange={e => { updateField('password', e.target.value); setStepErrors(prev => ({ ...prev, password: undefined })); }}
                 placeholder="Min. 8 characters"
-                className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-              {errors.password && <p className="mt-1 text-xs text-error">{errors.password}</p>}
+                className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.password ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+              {stepErrors.password && <p className="mt-1 text-xs text-error">{stepErrors.password}</p>}
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Confirm Password *</label>
-              <input type="password" value={formData.password_confirmation} onChange={e => updateField('password_confirmation', e.target.value)}
-                className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-              {errors.password_confirmation && <p className="mt-1 text-xs text-error">{errors.password_confirmation}</p>}
+              <input type="password" value={formData.password_confirmation} onChange={e => { updateField('password_confirmation', e.target.value); setStepErrors(prev => ({ ...prev, password_confirmation: undefined })); }}
+                className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.password_confirmation ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+              {stepErrors.password_confirmation && <p className="mt-1 text-xs text-error">{stepErrors.password_confirmation}</p>}
             </div>
           </div>
         </div>
@@ -919,8 +961,8 @@ function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBa
         <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
         <button
           type="button"
-          onClick={onSubmit}
-          disabled={processing || !formData.consent}
+          onClick={handleSubmit}
+          disabled={processing}
           className="bg-primary px-8 py-3 text-sm font-bold text-white hover:brightness-110 disabled:opacity-50"
         >
           {processing ? 'Submitting...' : 'Submit Request'}
