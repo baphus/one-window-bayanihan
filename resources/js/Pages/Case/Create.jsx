@@ -1938,7 +1938,7 @@ function handleConfirmClient(client) {
                                                         <Input value={data.client.first_name} onChange={(e) => handleClientChange('first_name', e.target.value)} required maxLength={255} />
                                                     </Field>
                                                     <Field label="Middle Initial">
-                                                        <Input value={data.client.middle_initial} onChange={(e) => handleClientChange('middle_initial', e.target.value)} maxLength={1} />
+                                                        <Input value={data.client.middle_initial} onChange={(e) => handleClientChange('middle_initial', e.target.value.toUpperCase())} maxLength={1} className="uppercase" />
                                                     </Field>
                                                     <Field label="Last Name" required>
                                                         <Input value={data.client.last_name} onChange={(e) => handleClientChange('last_name', e.target.value)} required maxLength={255} />
@@ -2104,7 +2104,7 @@ function handleConfirmClient(client) {
                                                                 <Input value={nok.first_name} onChange={(e) => updateNokField(idx, 'first_name', e.target.value)} />
                                                             </Field>
                                                             <Field label="Middle Initial">
-                                                                <Input value={nok.middle_initial} onChange={(e) => updateNokField(idx, 'middle_initial', e.target.value)} maxLength={1} />
+                                                                <Input value={nok.middle_initial} onChange={(e) => updateNokField(idx, 'middle_initial', e.target.value.toUpperCase())} maxLength={1} className="uppercase" />
                                                             </Field>
                                                             <Field label="Last Name">
                                                                 <Input value={nok.last_name} onChange={(e) => updateNokField(idx, 'last_name', e.target.value)} />

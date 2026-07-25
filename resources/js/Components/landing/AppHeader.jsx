@@ -22,7 +22,7 @@ function isActive(currentPath, link) {
   return currentPath.startsWith(link.href);
 }
 
-export default function AppHeader({ onTrackCaseClick, minimal }) {
+export default function AppHeader({ minimal }) {
   const { url, props } = usePage();
   const user = props.auth?.user ?? null;
 
@@ -85,21 +85,14 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
 
             <div className="hidden items-center gap-3 md:flex">
               {!user && (
-                onTrackCaseClick ? (
-                  <AppButton
-                    variant="primary"
-                    onClick={onTrackCaseClick}
-                  >
-                    Track Case
-                  </AppButton>
-                ) : (
-                  <AppButton
-                    href="#tracker"
-                    variant="primary"
-                  >
-                    Track Case
-                  </AppButton>
-                )
+                <AppButton
+                  as="link"
+                  href={route('intake.index')}
+                  variant="primary"
+                  icon="edit_note"
+                >
+                  File a Case
+                </AppButton>
               )}
 
               {user ? (
@@ -290,25 +283,16 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
 
               <div className="mt-4 grid gap-2 border-t border-gray-100 pt-3">
                 {!user && (
-                  onTrackCaseClick ? (
-                    <AppButton
-                      variant="primary"
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                        onTrackCaseClick();
-                      }}
-                    >
-                      Track Case
-                    </AppButton>
-                  ) : (
-                    <AppButton
-                      href="#tracker"
-                      variant="primary"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Track Case
-                    </AppButton>
-                  )
+                  <AppButton
+                    as="link"
+                    href={route('intake.index')}
+                    variant="primary"
+                    icon="edit_note"
+                    className="w-full"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    File a Case
+                  </AppButton>
                 )}
 
                 {user ? (

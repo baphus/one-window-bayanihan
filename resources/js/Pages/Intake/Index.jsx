@@ -4,6 +4,10 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import ChatBot from '@/Components/ChatBot';
+import AddressDropdowns from '@/Components/AddressDropdowns';
+import PhoneInput from '@/Components/PhoneInput';
+import CountrySelect from '@/Components/CountrySelect';
+import SearchableSelect from '@/Components/SearchableSelect';
 
 const STEPS = [
   { id: 'email', label: 'Email Verification' },
@@ -56,10 +60,10 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
       client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', contact_number: '' },
       address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
       employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
-      next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+      next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
       category_ids: [],
       case_issue_id: '',
-      vulnerability_indicator: '',
+      vulnerability_indicator: 'None',
       summary: '',
       consent: false,
       password: '',
@@ -239,6 +243,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
                 otpHint={otpHint}
                 debugOtp={debugOtp}
                 duplicateMessage={duplicateMessage}
+                turnstile={turnstile}
                 turnstileToken={turnstileToken}
                 setTurnstileToken={setTurnstileToken}
                 onSendOtp={handleSendOtp}
@@ -275,7 +280,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
 
 // --- Step Components ---
 
-function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp }) {
+function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp }) {
   if (duplicateMessage) {
     return (
       <div className="text-center">
@@ -316,7 +321,7 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
           <button
             type="button"
             onClick={onSendOtp}
-            disabled={processing || !turnstileToken}
+            disabled={processing || (turnstile?.enabled && !turnstileToken)}
             className="w-full bg-primary px-6 py-3 text-sm font-bold text-white hover:brightness-110 disabled:opacity-50"
           >
             {processing ? 'Sending...' : 'Send Verification Code'}
@@ -384,13 +389,21 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Initial</label>
-          <input type="text" maxLength={1} value={formData.client.middle_initial} onChange={e => updateField('client.middle_initial', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <input type="text" maxLength={1} value={formData.client.middle_initial} onChange={e => updateField('client.middle_initial', e.target.value.toUpperCase())}
+            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm uppercase focus:border-primary focus:outline-none" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Suffix</label>
-          <input type="text" value={formData.client.suffix} onChange={e => updateField('client.suffix', e.target.value)} placeholder="Jr., Sr., III"
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <select value={formData.client.suffix} onChange={e => updateField('client.suffix', e.target.value)}
+            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
+            <option value="">None</option>
+            <option value="Jr">Jr</option>
+            <option value="Sr">Sr</option>
+            <option value="II">II</option>
+            <option value="III">III</option>
+            <option value="IV">IV</option>
+            <option value="V">V</option>
+          </select>
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Birth</label>
@@ -401,15 +414,13 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Sex</label>
           <select value={formData.client.sex} onChange={e => updateField('client.sex', e.target.value)}
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
-            <option value="">Select...</option>
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
           </select>
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Contact Number</label>
-          <input type="tel" value={formData.client.contact_number} onChange={e => updateField('client.contact_number', e.target.value)} placeholder="09XX XXX XXXX"
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <PhoneInput value={formData.client.contact_number} onChange={val => updateField('client.contact_number', val)} placeholder="09XX XXX XXXX" />
         </div>
       </div>
 
@@ -422,38 +433,30 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
 }
 
 function AddressStep({ formData, updateField, errors, onNext, onBack }) {
+  const handleAddressChange = (field, value) => {
+    if (typeof field === 'object') {
+      // Batch update from AddressDropdowns cascade
+      Object.entries(field).forEach(([key, val]) => updateField('address.' + key, val));
+    } else {
+      updateField('address.' + field, value);
+    }
+  };
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Home Address</h2>
       <p className="mb-6 text-sm text-slate-500">Your current address in the Philippines.</p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Region</label>
-          <input type="text" value={formData.address.region} onChange={e => updateField('address.region', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Province</label>
-          <input type="text" value={formData.address.province} onChange={e => updateField('address.province', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">City / Municipality</label>
-          <input type="text" value={formData.address.city_municipality} onChange={e => updateField('address.city_municipality', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Barangay</label>
-          <input type="text" value={formData.address.barangay} onChange={e => updateField('address.barangay', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Street Address</label>
-          <input type="text" value={formData.address.street} onChange={e => updateField('address.street', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-        </div>
-      </div>
+      <AddressDropdowns
+        values={formData.address}
+        onChange={handleAddressChange}
+        errors={{
+          region: errors['address.region'],
+          province: errors['address.province'],
+          city_municipality: errors['address.city_municipality'],
+          barangay: errors['address.barangay'],
+        }}
+      />
 
       <div className="mt-8 flex justify-between">
         <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
@@ -464,6 +467,19 @@ function AddressStep({ formData, updateField, errors, onNext, onBack }) {
 }
 
 function EmploymentStep({ formData, updateField, errors, positionOptions, onNext, onBack }) {
+  // Merge position options for SearchableSelect
+  const mergedPositionOptions = (positionOptions || []).map(p => ({
+    value: p.label || p,
+    label: p.label || p,
+  }));
+
+  const handleEmploymentPresentChange = (checked) => {
+    updateField('employment.is_present', checked);
+    if (checked) {
+      updateField('employment.end_date', '');
+    }
+  };
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Employment Details</h2>
@@ -471,29 +487,51 @@ function EmploymentStep({ formData, updateField, errors, positionOptions, onNext
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Country of Work</label>
-          <input type="text" value={formData.employment.last_country} onChange={e => updateField('employment.last_country', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Position/Job</label>
-          <input type="text" value={formData.employment.last_position} onChange={e => updateField('employment.last_position', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
-        </div>
-        <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Employer Name</label>
           <input type="text" value={formData.employment.employer_name} onChange={e => updateField('employment.employer_name', e.target.value)}
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Current/Recent Position</label>
-          <input type="text" value={formData.employment.position} onChange={e => updateField('employment.position', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Country of Work</label>
+          <CountrySelect value={formData.employment.last_country} onChange={v => updateField('employment.last_country', v)} placeholder="Select country..." />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Country</label>
-          <input type="text" value={formData.employment.country} onChange={e => updateField('employment.country', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Position/Job</label>
+          <SearchableSelect value={formData.employment.last_position} onChange={v => updateField('employment.last_position', v)} options={mergedPositionOptions} placeholder="Select or type position..." allowCustom />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Employment Period</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={formData.employment.start_date}
+              onChange={e => updateField('employment.start_date', e.target.value)}
+              className="h-10 flex-1 min-w-0 rounded border border-outline-variant bg-surface-container px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+            <span className="text-xs font-bold text-slate-400 shrink-0">to</span>
+            {formData.employment.is_present ? (
+              <span className="h-10 flex-1 min-w-0 rounded border border-outline-variant bg-surface-container/50 px-3 flex items-center text-sm font-medium text-emerald-700">
+                Present
+              </span>
+            ) : (
+              <input
+                type="date"
+                value={formData.employment.end_date}
+                onChange={e => updateField('employment.end_date', e.target.value)}
+                min={formData.employment.start_date || undefined}
+                className="h-10 flex-1 min-w-0 rounded border border-outline-variant bg-surface-container px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            )}
+          </div>
+          <label className="mt-2 inline-flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={!!formData.employment.is_present}
+              onChange={e => handleEmploymentPresentChange(e.target.checked)}
+              className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary"
+            />
+            <span className="text-xs text-slate-600">Presently employed</span>
+          </label>
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Arrival in PH</label>
@@ -515,7 +553,7 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   const addNok = () => {
     setFormData(prev => ({
       ...prev,
-      next_of_kin: [...prev.next_of_kin, { first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+      next_of_kin: [...prev.next_of_kin, { first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: false, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
     }));
   };
 
@@ -525,6 +563,26 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
       nok[index] = { ...nok[index], [field]: value };
       return { ...prev, next_of_kin: nok };
     });
+  };
+
+  const setPrimaryNok = (idx) => {
+    setFormData(prev => {
+      const nok = prev.next_of_kin.map((n, i) => ({ ...n, is_primary: i === idx }));
+      return { ...prev, next_of_kin: nok };
+    });
+  };
+
+  const handleNokAddressChange = (idx, fieldOrObject, value) => {
+    if (typeof fieldOrObject === 'object') {
+      // Batch update from AddressDropdowns cascade
+      setFormData(prev => {
+        const nok = [...prev.next_of_kin];
+        nok[idx] = { ...nok[idx], ...fieldOrObject };
+        return { ...prev, next_of_kin: nok };
+      });
+    } else {
+      updateNok(idx, fieldOrObject, value);
+    }
   };
 
   const removeNok = (index) => {
@@ -546,9 +604,21 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
         <div key={i} className="mb-6 rounded border border-outline-variant p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-xs font-bold uppercase text-slate-500">Contact #{i + 1}</span>
-            {formData.next_of_kin.length > 1 && (
-              <button type="button" onClick={() => removeNok(i)} className="text-xs text-error hover:underline">Remove</button>
-            )}
+            <div className="flex items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs font-bold text-slate-600">
+                <input
+                  type="radio"
+                  name="primary-nok"
+                  checked={nok.is_primary}
+                  onChange={() => setPrimaryNok(i)}
+                  className="h-3.5 w-3.5 border-outline-variant text-primary focus:ring-primary"
+                />
+                Primary
+              </label>
+              {formData.next_of_kin.length > 1 && (
+                <button type="button" onClick={() => removeNok(i)} className="text-xs text-error hover:underline">Remove</button>
+              )}
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -557,24 +627,42 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
                 className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none" />
             </div>
             <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Initial</label>
+              <input type="text" value={nok.middle_initial} onChange={e => updateNok(i, 'middle_initial', e.target.value.toUpperCase())} maxLength={1}
+                className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm uppercase focus:border-primary focus:outline-none" />
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Name</label>
               <input type="text" value={nok.last_name} onChange={e => updateNok(i, 'last_name', e.target.value)}
                 className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Relationship</label>
-              <input type="text" value={nok.relationship} onChange={e => updateNok(i, 'relationship', e.target.value)} placeholder="e.g. Spouse, Parent"
-                className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+              <select value={nok.relationship} onChange={e => updateNok(i, 'relationship', e.target.value)}
+                className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none">
+                <option value="">Select relationship...</option>
+                <option value="Mother">Mother</option>
+                <option value="Father">Father</option>
+                <option value="Spouse">Spouse</option>
+                <option value="Sibling">Sibling</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Phone Number</label>
-              <input type="tel" value={nok.phone_number} onChange={e => updateNok(i, 'phone_number', e.target.value)}
-                className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+              <PhoneInput value={nok.phone_number} onChange={val => updateNok(i, 'phone_number', val)} placeholder="Phone number" />
             </div>
-            <div className="sm:col-span-2">
+            <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Email</label>
               <input type="email" value={nok.email} onChange={e => updateNok(i, 'email', e.target.value)}
                 className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Address</label>
+              <AddressDropdowns
+                values={{ region: nok.region, province: nok.province, city_municipality: nok.city_municipality, barangay: nok.barangay, street: nok.street }}
+                onChange={(field, value) => handleNokAddressChange(i, field, value)}
+              />
             </div>
           </div>
         </div>
@@ -591,6 +679,13 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
 }
 
 function CaseDetailsStep({ formData, updateField, setFormData, errors, categories, caseIssues, onNext, onBack }) {
+  const [showAddIssue, setShowAddIssue] = useState(false);
+  const [newIssueName, setNewIssueName] = useState('');
+  const [addingIssue, setAddingIssue] = useState(false);
+  const [localIssues, setLocalIssues] = useState(caseIssues);
+
+  useEffect(() => { setLocalIssues(caseIssues); }, [caseIssues]);
+
   const toggleCategory = (id) => {
     setFormData(prev => {
       const ids = prev.category_ids.includes(id)
@@ -598,6 +693,32 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
         : [...prev.category_ids, id];
       return { ...prev, category_ids: ids };
     });
+  };
+
+  const handleQuickAddIssue = async () => {
+    const name = newIssueName.trim();
+    if (!name || addingIssue) return;
+    setAddingIssue(true);
+    try {
+      const res = await fetch(route('case-issues.quick'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content },
+        body: JSON.stringify({ name }),
+      });
+      const newIssue = await res.json();
+      if (!res.ok) {
+        alert(newIssue.errors?.name?.[0] || 'Failed to add issue.');
+        return;
+      }
+      setLocalIssues(prev => [...prev, newIssue]);
+      updateField('case_issue_id', newIssue.id);
+      setNewIssueName('');
+      setShowAddIssue(false);
+    } catch (e) {
+      alert('Failed to add issue. Please try again.');
+    } finally {
+      setAddingIssue(false);
+    }
   };
 
   const validate = () => {
@@ -628,16 +749,57 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
           {errors['category_ids'] && <p className="mt-1 text-xs text-error">{errors['category_ids']}</p>}
         </div>
 
-        {caseIssues.length > 0 && (
+        {localIssues.length > 0 && (
           <div>
             <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Specific Issue (optional)</label>
-            <select value={formData.case_issue_id} onChange={e => updateField('case_issue_id', e.target.value)}
-              className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
-              <option value="">Select an issue...</option>
-              {caseIssues.map(issue => (
-                <option key={issue.id} value={issue.id}>{issue.name}</option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select value={formData.case_issue_id} onChange={e => updateField('case_issue_id', e.target.value)}
+                className="flex-1 border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
+                <option value="">Select an issue...</option>
+                {localIssues.map(issue => (
+                  <option key={issue.id} value={issue.id}>{issue.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
+                className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center border border-dashed border-primary/40 text-primary transition hover:bg-primary/5"
+                title="Add new issue"
+              >
+                <span className="material-symbols-outlined text-[20px]">add</span>
+              </button>
+            </div>
+            {showAddIssue && (
+              <div className="mt-3 rounded border border-primary/20 bg-primary/5 p-3">
+                <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">New Issue Name</label>
+                <input
+                  type="text"
+                  value={newIssueName}
+                  onChange={e => setNewIssueName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
+                  placeholder="Enter new issue name..."
+                  className="w-full border border-outline-variant bg-surface-container px-4 py-2 text-sm focus:border-primary focus:outline-none"
+                  autoFocus
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleQuickAddIssue}
+                    disabled={addingIssue || !newIssueName.trim()}
+                    className="bg-primary px-4 py-1.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50"
+                  >
+                    {addingIssue ? 'Adding...' : 'Add'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
+                    className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -655,10 +817,29 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Special Circumstances (optional)</label>
-          <input type="text" value={formData.vulnerability_indicator} onChange={e => updateField('vulnerability_indicator', e.target.value)}
-            placeholder="e.g. Victim of abuse, Medical emergency, Undocumented"
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Vulnerability Indicator (optional)</label>
+          <div className="flex flex-wrap gap-3 mt-1">
+            {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
+              const checked = formData.vulnerability_indicator && formData.vulnerability_indicator !== 'None' && formData.vulnerability_indicator.split(',').map(s => s.trim()).includes(opt);
+              return (
+                <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      const current = formData.vulnerability_indicator && formData.vulnerability_indicator !== 'None'
+                        ? formData.vulnerability_indicator.split(',').map(s => s.trim()).filter(Boolean)
+                        : [];
+                      const next = checked ? current.filter(v => v !== opt) : [...current, opt];
+                      updateField('vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
+                    }}
+                    className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm text-slate-700">{opt}</span>
+                </label>
+              );
+            })}
+          </div>
         </div>
       </div>
 

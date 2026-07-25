@@ -28,7 +28,7 @@ class StoreIntakeRequest extends FormRequest
             'client.middle_initial' => ['nullable', 'string', 'max:1'],
             'client.suffix' => ['nullable', 'string', 'max:20'],
             'client.date_of_birth' => ['nullable', 'date'],
-            'client.sex' => ['nullable', 'string', 'in:MALE,FEMALE'],
+            'client.sex' => ['nullable', 'string', 'in:Male,Female,male,female,MALE,FEMALE'],
             'client.contact_number' => ['nullable', 'string', 'max:20'],
             'address.region' => ['nullable', 'string'],
             'address.province' => ['nullable', 'string'],
