@@ -6,6 +6,7 @@ const roleLabels = {
   CASE_MANAGER: 'Case Manager',
   AGENCY: 'Agency Focal',
   ADMIN: 'System Admin',
+  OFW: 'OFW',
 };
 
 const navLinks = [
@@ -31,8 +32,12 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
     setIsMobileMenuOpen(false);
   }, [url]);
 
-  const mobileActionHref = user ? route('dashboard') : route('login');
-  const mobileActionLabel = user ? 'Dashboard' : 'Login';
+  const mobileActionHref = user
+    ? (user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard'))
+    : route('login');
+  const mobileActionLabel = user
+    ? (user.role === 'OFW' ? 'My Cases' : 'Dashboard')
+    : 'Login';
 
   return (
     <nav
@@ -100,10 +105,10 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
               {user ? (
                 <div className="flex items-center gap-3">
                   <AppButton
-                    href={route('dashboard')}
+                    href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
                     variant="primary"
                   >
-                    Dashboard
+                    {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
                   </AppButton>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
@@ -308,12 +313,12 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
 
                 {user ? (
                   <AppButton
-                    href={route('dashboard')}
+                    href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
                     variant="primary"
                     className="w-full"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    Dashboard
+                    {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
                   </AppButton>
                 ) : (
                   <Link

@@ -46,6 +46,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // OFW users go directly to their portal
+        if ($request->user()->isOfw()) {
+            return redirect()->intended(route('ofw.dashboard', absolute: false));
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

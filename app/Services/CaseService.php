@@ -14,8 +14,11 @@ use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
 use App\Models\Referral;
 use App\Models\User;
+use App\Mail\IntakePublishedMail;
+use App\Mail\IntakeRejectedMail;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
@@ -223,7 +226,9 @@ class CaseService
         return DB::transaction(function () use ($id, $data, $userId) {
             $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
-            if ($case->user_id !== $userId) {
+            // Self-filed cases have no owner — allow any CM/ADMIN to edit
+            $isSelfFiled = $case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null;
+            if (! $isSelfFiled && $case->user_id !== $userId) {
                 throw new AuthorizationException('You do not own this draft.');
             }
 
@@ -388,6 +393,84 @@ class CaseService
         });
     }
 
+    public function getIntakeQueue(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = CaseFile::with('client', 'category', 'categories')
+            ->where('source', CaseFile::SOURCE_SELF_FILED)
+            ->where('status', 'DRAFT')
+            ->where('is_deleted', false);
+
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('case_number', 'ilike', "%{$search}%")
+                    ->orWhereHas('client', function ($q) use ($search) {
+                        $q->where('first_name', 'ilike', "%{$search}%")
+                            ->orWhere('last_name', 'ilike', "%{$search}%")
+                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
+                    })
+                    ->orWhereRaw("draft_client_data->>'first_name' ILIKE ?", ["%{$search}%"])
+                    ->orWhereRaw("draft_client_data->>'last_name' ILIKE ?", ["%{$search}%"]);
+            });
+        }
+
+        return $query->orderBy('created_at', 'asc')
+            ->paginate($perPage);
+    }
+
+    public function rejectIntake(string $id, string $reason, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($id, $reason, $userId) {
+            $case = CaseFile::where('source', CaseFile::SOURCE_SELF_FILED)
+                ->where('status', 'DRAFT')
+                ->findOrFail($id);
+
+            // Set deletion metadata before triggering the soft-delete
+            $case->deletion_reason = $reason;
+            $case->deleted_by = $userId;
+            $case->save();
+
+            // Use the model's delete() which triggers SoftDeleteFlag listener
+            $case->delete();
+
+            AuditLog::create([
+                'action' => AuditAction::DELETE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $case->id,
+                'description' => "Self-filed intake {$case->case_number} rejected — {$reason}",
+                'old_value' => ['status' => 'DRAFT', 'source' => CaseFile::SOURCE_SELF_FILED],
+                'new_value' => ['is_deleted' => true, 'deletion_reason' => $reason],
+                'user_id' => $userId,
+                'timestamp' => now(),
+            ]);
+
+            // Notify OFW about the rejection via email
+            $clientEmail = $case->client?->email;
+            if ($clientEmail) {
+                Mail::to($clientEmail)->queue(new IntakeRejectedMail($case, $reason));
+
+                $this->notificationService->notifyOfw(
+                    $case,
+                    $clientEmail,
+                    'intake_rejected',
+                    'Submission Not Processed',
+                    "Your submitted case could not be processed. Reason: {$reason}",
+                    ['reason' => $reason],
+                );
+            }
+
+            return $case;
+        });
+    }
+
+    public function getIntakeQueueCount(): int
+    {
+        return CaseFile::where('source', CaseFile::SOURCE_SELF_FILED)
+            ->where('status', 'DRAFT')
+            ->where('is_deleted', false)
+            ->count();
+    }
+
     public function getUserDrafts(string $userId, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = CaseFile::with('client', 'category', 'categories')
@@ -423,7 +506,12 @@ class CaseService
         return DB::transaction(function () use ($id, $userId) {
             $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
-            if ($case->user_id !== $userId) {
+            // Self-filed cases have no owner yet — allow any CM/ADMIN to publish
+            if ($case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null) {
+                $case->user_id = $userId;
+                $case->intake_reviewed_by = $userId;
+                $case->save();
+            } elseif ($case->user_id !== $userId) {
                 throw new AuthorizationException('You do not own this draft.');
             }
 
@@ -530,6 +618,28 @@ class CaseService
                 'user_id' => $userId,
                 'timestamp' => now(),
             ]);
+
+            // Notify OFW when their self-filed intake is accepted/published
+            if ($case->source === CaseFile::SOURCE_SELF_FILED) {
+                $clientEmail = $case->client?->email;
+
+                if ($clientEmail) {
+                    $this->notificationService->notifyOfw(
+                        $case,
+                        $clientEmail,
+                        'intake_published',
+                        'Case Accepted',
+                        "Your case has been accepted. Your tracker number is {$case->tracker_number}. A Case Manager has been assigned to coordinate your case.",
+                        [
+                            'case_number' => $case->case_number,
+                            'tracker_number' => $case->tracker_number,
+                        ],
+                        route('track.show', $case->tracker_number),
+                    );
+
+                    Mail::to($clientEmail)->queue(new IntakePublishedMail($case));
+                }
+            }
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });

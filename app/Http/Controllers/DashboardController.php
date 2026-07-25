@@ -16,6 +16,11 @@ class DashboardController extends Controller
     {
         $user = request()->user();
 
+        // OFW users have their own portal — redirect them away from the staff dashboard.
+        if ($user->isOfw()) {
+            return redirect('/my-cases');
+        }
+
         return Inertia::render('Dashboard', [
             'role' => $user->role,
             'dashboard' => Inertia::defer(fn () => $this->loadDashboardData($user), 'dashboard'),

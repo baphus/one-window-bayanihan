@@ -54,6 +54,9 @@ class AdminUserController extends Controller
 
         if ($role = $request->role) {
             $query->where('role', $role);
+        } else {
+            // Exclude OFW accounts from the default staff user list
+            $query->where('role', '!=', 'OFW');
         }
 
         if ($request->has('status')) {
