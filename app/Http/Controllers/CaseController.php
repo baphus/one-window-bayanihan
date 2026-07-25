@@ -284,11 +284,22 @@ class CaseController extends Controller
     public function intakeQueue(Request $request)
     {
         $filters = $request->only(['search']);
-        $cases = $this->caseService->getIntakeQueue($filters, (int) $request->input('per_page', 15));
+        $sort = $request->query('sort', 'created_at');
+        $direction = $request->query('direction', 'asc');
+
+        $cases = $this->caseService->getIntakeQueue(
+            $filters,
+            (int) $request->input('per_page', 15),
+            $sort,
+            $direction,
+        );
 
         return Inertia::render('Case/IntakeQueue', [
             'cases' => $cases,
             'filters' => (object) $filters,
+            'stats' => $this->caseService->getIntakeQueueStats(),
+            'sort' => $sort,
+            'direction' => $direction,
         ]);
     }
 

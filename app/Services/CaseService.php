@@ -393,7 +393,7 @@ class CaseService
         });
     }
 
-    public function getIntakeQueue(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    public function getIntakeQueue(array $filters = [], int $perPage = 15, string $sort = 'created_at', string $direction = 'asc'): LengthAwarePaginator
     {
         $query = CaseFile::with('client', 'category', 'categories')
             ->where('source', CaseFile::SOURCE_SELF_FILED)
@@ -414,8 +414,22 @@ class CaseService
             });
         }
 
-        return $query->orderBy('created_at', 'asc')
-            ->paginate($perPage);
+        $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'asc';
+
+        if ($sort === 'client_name') {
+            $query->leftJoin('clients', 'cases.client_id', '=', 'clients.id')
+                ->select('cases.*')
+                ->orderBy('clients.last_name', $direction)
+                ->orderBy('clients.first_name', $direction);
+        } else {
+            $sortColumn = match ($sort) {
+                'vulnerability_indicator' => 'cases.vulnerability_indicator',
+                default => 'cases.created_at',
+            };
+            $query->orderBy($sortColumn, $direction);
+        }
+
+        return $query->paginate($perPage);
     }
 
     public function rejectIntake(string $id, string $reason, string $userId): CaseFile
@@ -460,6 +474,39 @@ class CaseService
             ->where('status', 'DRAFT')
             ->where('is_deleted', false)
             ->count();
+    }
+
+    public function getIntakeQueueStats(): array
+    {
+        $base = CaseFile::where('source', CaseFile::SOURCE_SELF_FILED)
+            ->where('status', 'DRAFT')
+            ->where('is_deleted', false);
+
+        $total = (clone $base)->count();
+
+        $withEmail = (clone $base)->where(function ($q) {
+            $q->whereHas('client', function ($cq) {
+                $cq->whereNotNull('email')->where('email', '!=', '');
+            })
+                ->orWhereRaw("draft_client_data->>'email' IS NOT NULL AND draft_client_data->>'email' != ''");
+        })->count();
+
+        $thisWeek = (clone $base)->where('created_at', '>=', now()->subDays(7))->count();
+
+        $categoryCount = DB::table('case_category')
+            ->join('cases', 'cases.id', '=', 'case_category.case_id')
+            ->where('cases.source', CaseFile::SOURCE_SELF_FILED)
+            ->where('cases.status', 'DRAFT')
+            ->where('cases.is_deleted', false)
+            ->distinct()
+            ->count('case_category.case_category_id');
+
+        return [
+            'total' => $total,
+            'withEmail' => $withEmail,
+            'thisWeek' => $thisWeek,
+            'categoryCount' => $categoryCount,
+        ];
     }
 
     public function getUserDrafts(string $userId, array $filters = [], int $perPage = 15): LengthAwarePaginator

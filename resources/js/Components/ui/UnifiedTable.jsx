@@ -315,7 +315,7 @@ export function UnifiedTable({
         </div>
       )}
 
-      <div className={variant === "embedded" ? "bg-white overflow-hidden w-full" : "bg-white border border-slate-300 overflow-hidden w-full rounded-md shadow-sm"} aria-busy={isLoading}>
+      <div className={variant === "embedded" ? "bg-white w-full" : "bg-white border border-slate-300 w-full rounded-md shadow-sm"} aria-busy={isLoading}>
         
         {!hideControlBar && (
         <div className="p-4 bg-slate-50 flex flex-col lg:flex-row items-center justify-between gap-4 border-b border-slate-300 min-h-[72px]">
@@ -455,7 +455,7 @@ export function UnifiedTable({
         )}
 
         {viewMode === 'list' ? (
-          <div className="overflow-x-auto relative owb-scroll-wide">
+          <div className="overflow-x-auto relative owb-scroll-wide rounded-b-md">
             <table className={`w-full text-left border-collapse ${isLoading ? 'opacity-30 pointer-events-none' : ''}`}>
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-300">

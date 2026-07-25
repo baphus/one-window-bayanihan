@@ -1,12 +1,16 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { formatDisplayDate } from '@/lib/utils';
-import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
-import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import usePersistedColumns from '@/Hooks/usePersistedColumns';
+import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
+import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { useToast } from '@/Hooks/useToast';
 import { Inbox, Mail, CalendarClock, Tag } from 'lucide-react';
+
+/* ── Helpers ────────────────────────────────────────────────── */
 
 function getClientName(caseItem) {
   if (caseItem.client) {
@@ -24,97 +28,137 @@ function getClientEmail(caseItem) {
   return '—';
 }
 
-function getCategoryNames(caseItem) {
-  if (caseItem.categories && caseItem.categories.length > 0) {
-    return caseItem.categories.map((c) => c.name).join(', ');
-  }
-  if (caseItem.category) return caseItem.category.name;
+function getClientPhone(caseItem) {
+  if (caseItem.client?.contact_number) return caseItem.client.contact_number;
+  if (caseItem.draft_client_data?.contact_number) return caseItem.draft_client_data.contact_number;
   return '—';
+}
+
+function getClientAge(caseItem) {
+  const dob = caseItem.client?.date_of_birth || caseItem.draft_client_data?.date_of_birth;
+  if (!dob) return '—';
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return '—';
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return `${age} yrs`;
 }
 
 function hasEmail(caseItem) {
   return getClientEmail(caseItem) !== '—';
 }
 
-export default function IntakeQueue({ cases, filters: initialFilters = {} }) {
-  const [searchValue, setSearchValue] = useState(initialFilters?.search ?? '');
+/* ── Vulnerability styles ───────────────────────────────────── */
+
+const vulnStyles = {
+  'PWD': 'bg-purple-100 text-purple-800',
+  'Senior Citizen': 'bg-orange-100 text-orange-800',
+  'Solo Parent': 'bg-pink-100 text-pink-800',
+  'Indigenous Person': 'bg-teal-100 text-teal-800',
+  'None': 'bg-slate-100 text-slate-500',
+};
+
+/* ── Column definitions ─────────────────────────────────────── */
+
+const COLUMN_DEFS = [
+  { key: 'case_number', label: 'Case Number', default: true },
+  { key: 'client_name', label: 'OFW Name', default: true },
+  { key: 'vulnerability', label: 'Vulnerability', default: true },
+  { key: 'email', label: 'Email', default: true },
+  { key: 'phone', label: 'Phone', default: true },
+  { key: 'age', label: 'Age', default: true },
+  { key: 'submitted', label: 'Submitted', default: true },
+  { key: 'actions', label: 'Actions', default: true },
+];
+
+/* ── Component ──────────────────────────────────────────────── */
+
+export default function IntakeQueue({ cases, filters: initialFilters = {}, stats, sort: initialSort, direction: initialDirection }) {
+  const filters = initialFilters && !Array.isArray(initialFilters) ? initialFilters : {};
+
+  const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [emailFilter, setEmailFilter] = useState('');
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
-  const [perPage, setPerPage] = useState(cases.per_page ?? 15);
-  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
-  const toast = useToast();
+  const [contextMenu, setContextMenu] = useState(null);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
   const searchTimeout = useRef(null);
+  const toast = useToast();
+
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns(
+    'intake-queue',
+    COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
+  );
+
+  /* ── Lifecycle ──────────────────────────────────────────────── */
 
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
   }, []);
 
+  useEffect(() => {
+    const onStart = () => setTableLoading(true);
+    const onFinish = () => setTableLoading(false);
+    const removeStart = router.on('start', onStart);
+    const removeFinish = router.on('finish', onFinish);
+    return () => {
+      if (typeof removeStart === 'function') removeStart();
+      if (typeof removeFinish === 'function') removeFinish();
+    };
+  }, []);
+
   /* ── Navigation helpers ─────────────────────────────────────── */
 
-  function navigateWith(overrides) {
-    const url = new URL(window.location);
-    Object.entries(overrides).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
-      else url.searchParams.delete(k);
+  function updateTable(params) {
+    const clean = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+    );
+    router.get(route('cases.intake-queue'), clean, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      only: ['cases', 'filters', 'stats', 'sort', 'direction'],
+      showProgress: false,
     });
-    url.searchParams.delete('page');
-    router.get(url.toString(), {}, withLoading({ preserveState: true, replace: true }));
   }
 
-  function handleSearchChange(value) {
+  const handleSearchChange = useCallback((value) => {
     setSearchValue(value);
     clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      navigateWith({ search: value || undefined });
-    }, 300);
-  }
+      updateTable({ ...filters, search: value || undefined, page: undefined });
+    }, 400);
+  }, [filters]);
 
-  function goToPage(page) {
-    const url = new URL(window.location);
-    url.searchParams.set('page', page);
-    router.get(url.toString(), {}, withLoading({ preserveState: true, replace: true }));
-  }
+  const handleSearchClear = useCallback(() => {
+    setSearchValue('');
+    clearTimeout(searchTimeout.current);
+    updateTable({ ...filters, search: undefined, page: undefined });
+  }, [filters]);
 
-  function handlePerPageChange(newPerPage) {
-    setPerPage(newPerPage);
-    navigateWith({ per_page: newPerPage, page: undefined });
-  }
+  const handleSortChange = useCallback((sortKey, sortDirection) => {
+    updateTable({ ...filters, sort: sortKey, direction: sortDirection, page: undefined });
+  }, [filters]);
+
+  /* ── Context menu ───────────────────────────────────────────── */
+
+  const handleRowContextMenu = useCallback((e, row) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, row });
+  }, []);
 
   /* ── Email quick-filter (client-side) ──────────────────────── */
-  // TODO: For proper cross-page filtering, add a server-side `email_filter`
-  // param to CaseController::intakeQueue and CaseService::getIntakeQueue.
+
   const handleEmailFilter = useCallback((value) => {
     setEmailFilter((prev) => (prev === value ? '' : value));
   }, []);
 
-  /* ── Stats (computed from current page — approximate) ───────── */
-  // TODO: Add a dedicated `getIntakeQueueStats()` method to CaseService
-  // that returns accurate cross-page counts, similar to getCaseStats().
-  const pageStats = useMemo(() => {
-    const data = cases.data || [];
-    const withEmailCount = data.filter((c) => hasEmail(c)).length;
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const thisWeekCount = data.filter((c) => {
-      if (!c.created_at) return false;
-      return new Date(c.created_at) >= weekAgo;
-    }).length;
-    const categories = new Set();
-    data.forEach((c) => {
-      if (c.categories?.length) c.categories.forEach((cat) => categories.add(cat.name));
-      else if (c.category?.name) categories.add(c.category.name);
-    });
-    return {
-      total: cases.total,
-      withEmail: withEmailCount,
-      thisWeek: thisWeekCount,
-      categoryCount: categories.size,
-    };
-  }, [cases]);
-
-  /* ── Client-side filtered rows ─────────────────────────────── */
   const filteredData = useMemo(() => {
     if (!emailFilter) return cases.data;
     return cases.data.filter((c) => {
@@ -122,8 +166,6 @@ export default function IntakeQueue({ cases, filters: initialFilters = {} }) {
     });
   }, [cases.data, emailFilter]);
 
-  /* ── Quick-filter pill counts ──────────────────────────────── */
-  // "All" uses the accurate server total; email-based counts are page-level.
   const quickFilterCounts = useMemo(() => {
     const data = cases.data || [];
     const withEmail = data.filter((c) => hasEmail(c)).length;
@@ -151,29 +193,195 @@ export default function IntakeQueue({ cases, filters: initialFilters = {} }) {
     });
   }
 
-  /* ── Pagination helpers ────────────────────────────────────── */
+  /* ── Column renderers ───────────────────────────────────────── */
 
-  const totalPages = cases.last_page;
-  const currentPage = cases.current_page;
+  const columns = useMemo(() =>
+    COLUMN_DEFS
+      .filter((col) => visibleColumns.includes(col.key))
+      .map((col) => {
+        const base = { key: col.key, title: col.label, sortable: true };
+        switch (col.key) {
+          case 'case_number':
+            return {
+              ...base,
+              render: (row) => (
+                <span className="font-mono text-xs font-bold text-slate-700">{row.case_number}</span>
+              ),
+            };
+          case 'client_name':
+            return {
+              ...base,
+              sortAccessor: (row) => {
+                const first = row.client?.first_name || row.draft_client_data?.first_name || '';
+                const last = row.client?.last_name || row.draft_client_data?.last_name || '';
+                return `${last}, ${first}`;
+              },
+              render: (row) => (
+                <span className="text-xs font-medium text-slate-800">{getClientName(row)}</span>
+              ),
+            };
+          case 'vulnerability':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => {
+                const val = row.vulnerability_indicator;
+                if (!val || val === 'None') return <span className="text-slate-400">&mdash;</span>;
+                const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+                return (
+                  <div className="flex flex-wrap gap-1">
+                    {parts.map((v) => (
+                      <span key={v} className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold leading-none ${vulnStyles[v] || 'bg-slate-100 text-slate-700'}`}>
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                );
+              },
+            };
+          case 'email':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className="text-xs text-slate-600">{getClientEmail(row)}</span>
+              ),
+            };
+          case 'phone':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className="text-xs text-slate-600">{getClientPhone(row)}</span>
+              ),
+            };
+          case 'age':
+            return {
+              ...base,
+              sortAccessor: (row) => {
+                const dob = row.client?.date_of_birth || row.draft_client_data?.date_of_birth;
+                return dob ? new Date(dob).getTime() : 0;
+              },
+              render: (row) => (
+                <span className="text-xs text-slate-600">{getClientAge(row)}</span>
+              ),
+            };
+          case 'submitted':
+            return {
+              ...base,
+              render: (row) => (
+                <div>
+                  <div className="text-xs text-slate-700">{formatDisplayDate(row.created_at)}</div>
+                  <div className="text-[10px] text-slate-500">{formatDisplayTime(row.created_at)}</div>
+                </div>
+              ),
+            };
+          case 'actions':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => router.visit(route('cases.review-intake', row.id))}
+                    className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors border border-blue-900"
+                  >
+                    Review
+                  </button>
+                  <button
+                    onClick={() => setRejectTarget(row.id)}
+                    className="min-h-[28px] px-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 text-[11px] font-bold rounded-[3px] transition-colors"
+                  >
+                    Reject
+                  </button>
+                </div>
+              ),
+            };
+          default:
+            return { ...base, render: (row) => row[col.key] };
+        }
+      }),
+  [visibleColumns]);
 
-  const pageNumbers = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(2, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages - 1, start + maxVisible - 1);
-    if (end - start < maxVisible - 1) {
-      start = Math.max(2, end - maxVisible + 1);
-    }
-    pages.push(1);
-    if (start > 2) pages.push('…s');
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (end < totalPages - 1) pages.push('…e');
-    pages.push(totalPages);
-    return pages;
-  }, [currentPage, totalPages]);
+  /* ── Quick-filter pills ─────────────────────────────────────── */
+
+  const quickFilterPills = useMemo(() => {
+    const currentFilter = emailFilter;
+    return (
+      <div className="flex items-center gap-1.5" role="group" aria-label="Quick email filters">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
+        {[
+          { label: 'All', value: '', count: quickFilterCounts.all },
+          { label: 'With Email', value: 'yes', count: quickFilterCounts.withEmail },
+          { label: 'No Email', value: 'no', count: quickFilterCounts.noEmail },
+        ].map((f) => {
+          const isActive = currentFilter === f.value || (f.value === '' && currentFilter === '');
+          return (
+            <button
+              key={f.label}
+              onClick={() => handleEmailFilter(f.value)}
+              className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
+                isActive
+                  ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+            >
+              {f.label}
+              {f.count > 0 && ` (${f.count})`}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }, [emailFilter, quickFilterCounts, handleEmailFilter]);
+
+  /* ── Column visibility control ──────────────────────────────── */
+
+  const columnControlContent = useMemo(() => (
+    <div className="space-y-2">
+      {COLUMN_DEFS.map((col) => (
+        <label
+          key={col.key}
+          className="flex items-center gap-2.5 text-[13px] text-slate-700 cursor-pointer select-none hover:text-slate-900 transition-colors"
+        >
+          <input
+            type="checkbox"
+            checked={visibleColumns.includes(col.key)}
+            onChange={() => {
+              setVisibleColumns((prev) =>
+                prev.includes(col.key)
+                  ? prev.filter((k) => k !== col.key)
+                  : [...prev, col.key],
+              );
+            }}
+            className="rounded border-slate-300 text-blue-900 focus:ring-blue-900 focus:ring-offset-0"
+          />
+          {col.label}
+        </label>
+      ))}
+    </div>
+  ), [visibleColumns, setVisibleColumns]);
+
+  /* ── Stats from server prop ─────────────────────────────────── */
+
+  const pageStats = useMemo(() => {
+    if (stats) return stats;
+    // Fallback: compute from page data if server stats not available
+    const data = cases.data || [];
+    const withEmailCount = data.filter((c) => hasEmail(c)).length;
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thisWeekCount = data.filter((c) => {
+      if (!c.created_at) return false;
+      return new Date(c.created_at) >= weekAgo;
+    }).length;
+    return {
+      total: cases.total,
+      withEmail: withEmailCount,
+      thisWeek: thisWeekCount,
+      categoryCount: 0,
+    };
+  }, [stats, cases]);
 
   /* ── Render ────────────────────────────────────────────────── */
 
@@ -233,206 +441,59 @@ export default function IntakeQueue({ cases, filters: initialFilters = {} }) {
           </div>
         </section>
 
-        {/* ── Table card ───────────────────────────────────── */}
-        <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
-          {/* Toolbar: quick filters + search */}
-          <div className="p-4 bg-slate-50 border-b border-slate-300">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Quick filter pills */}
-              <div className="flex items-center gap-1.5" role="group" aria-label="Quick email filters">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
-                {[
-                  { label: 'All', value: '', count: quickFilterCounts.all },
-                  { label: 'With Email', value: 'yes', count: quickFilterCounts.withEmail },
-                  { label: 'No Email', value: 'no', count: quickFilterCounts.noEmail },
-                ].map((f) => {
-                  const isActive = emailFilter === f.value || (f.value === '' && emailFilter === '');
-                  return (
-                    <button
-                      key={f.label}
-                      onClick={() => handleEmailFilter(f.value)}
-                      className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
-                        isActive
-                          ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
-                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-                      }`}
-                    >
-                      {f.label}
-                      {f.count > 0 && ` (${f.count})`}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Search */}
-              <div className="relative flex-1 min-w-[200px]">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">
-                  search
-                </span>
-                <input
-                  type="text"
-                  value={searchValue}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Search by OFW name..."
-                  className="w-full h-[40px] pl-10 pr-10 bg-white border border-slate-300 rounded-[2px] text-[14px] text-slate-600 placeholder-slate-400 outline-none focus:ring-1 focus:ring-blue-900 transition-all"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Table body */}
-          <div className="relative" aria-busy={tableLoading}>
-            {tableLoading && <TableLoadingOverlay />}
-
-            {filteredData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center">
-                <span className="material-symbols-outlined mb-3 text-4xl text-slate-300">inbox</span>
-                <p className="text-[14px] font-bold text-slate-700">
-                  {emailFilter ? 'No matching submissions' : 'No Pending Intake Submissions'}
-                </p>
-                <p className="mt-1 max-w-sm text-xs text-slate-500">
-                  {emailFilter
-                    ? 'Try adjusting your filters to see more results.'
-                    : 'When OFWs submit a case through the self-filing portal, their submissions will appear here for review.'}
-                </p>
-              </div>
-            ) : (
-              <>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-300">
-                      <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">OFW Name</th>
-                      <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Email</th>
-                      <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Submitted</th>
-                      <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Categories</th>
-                      <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-300 bg-white">
-                    {filteredData.map((caseItem) => (
-                      <tr key={caseItem.id} className="hover:bg-slate-100 transition-colors">
-                        <td className="px-5 py-4 text-xs font-medium text-slate-800">
-                          {getClientName(caseItem)}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-600">
-                          {getClientEmail(caseItem)}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-500">
-                          {caseItem.created_at ? formatDisplayDate(caseItem.created_at) : '—'}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-600">
-                          <span className="truncate max-w-[200px] inline-block">
-                            {getCategoryNames(caseItem)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => router.visit(route('cases.review-intake', caseItem.id))}
-                              className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors border border-blue-900"
-                            >
-                              Review
-                            </button>
-                            <button
-                              onClick={() => setRejectTarget(caseItem.id)}
-                              className="min-h-[28px] px-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 text-[11px] font-bold rounded-[3px] transition-colors"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* ── Pagination footer ──────────────────────── */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-300 flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500">
-                      Showing {cases.from}&ndash;{cases.to} of {cases.total} records
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <label htmlFor="intake-queue-per-page" className="text-xs text-slate-500">Rows:</label>
-                      <select
-                        id="intake-queue-per-page"
-                        value={perPage}
-                        onChange={(e) => handlePerPageChange(Number(e.target.value))}
-                        className="h-8 border border-slate-300 rounded-[2px] px-2 text-xs font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900 bg-white"
-                      >
-                        <option value={15}>15</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {totalPages > 1 && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => goToPage(1)}
-                        disabled={currentPage === 1}
-                        className="px-2 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="First page"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">first_page</span>
-                      </button>
-                      <button
-                        onClick={() => goToPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="px-2 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="Previous page"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-                      </button>
-
-                      {pageNumbers.map((page) => {
-                        if (typeof page === 'string') {
-                          return (
-                            <span key={page} className="px-1 text-xs text-slate-400 select-none">
-                              &hellip;
-                            </span>
-                          );
-                        }
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => goToPage(page)}
-                            className={`min-w-[32px] px-2 py-1.5 text-xs font-bold rounded transition-colors border ${
-                              page === currentPage
-                                ? 'bg-blue-900 text-white border-blue-900'
-                                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      })}
-
-                      <button
-                        onClick={() => goToPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="px-2 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="Next page"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                      </button>
-                      <button
-                        onClick={() => goToPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                        className="px-2 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="Last page"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">last_page</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        {/* ── UnifiedTable ─────────────────────────────────── */}
+        <UnifiedTable
+          columns={columns}
+          data={cases.data}
+          keyExtractor={(row) => row.id}
+          // Pagination
+          totalRecords={cases.total}
+          startIndex={cases.from}
+          endIndex={cases.to}
+          currentPage={cases.current_page}
+          totalPages={cases.last_page}
+          rowsPerPage={cases.per_page}
+          onPageChange={(page) => updateTable({ ...filters, page })}
+          onRowsPerPageChange={(n) => updateTable({ ...filters, per_page: n, page: undefined })}
+          // Sort
+          sortKey={initialSort ?? 'created_at'}
+          sortDirection={initialDirection ?? 'asc'}
+          onSortChange={handleSortChange}
+          defaultSortKey="created_at"
+          defaultSortDirection="asc"
+          // Search
+          searchValue={searchValue}
+          searchPlaceholder="Search by OFW name..."
+          onSearchChange={handleSearchChange}
+          onSearchClear={handleSearchClear}
+          // Quick filters
+          quickFilters={quickFilterPills}
+          // Context menu
+          onRowContextMenu={handleRowContextMenu}
+          // Columns control
+          onColumnsControl={() => setColumnsOpen((v) => !v)}
+          isColumnsControlOpen={columnsOpen}
+          columnsControlContent={columnControlContent}
+          // Loading & empty state
+          isLoading={tableLoading}
+          emptyStateMessage="No Pending Intake Submissions"
+          hideSearch={false}
+        />
       </div>
+
+      {/* ── Context Menu ───────────────────────────────────── */}
+      {contextMenu && (
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <RowContextMenuItem icon="visibility" label="Review" onClick={() => {
+            router.visit(route('cases.review-intake', contextMenu.row.id));
+            setContextMenu(null);
+          }} />
+          <RowContextMenuItem icon="block" label="Reject" variant="danger" onClick={() => {
+            setRejectTarget(contextMenu.row.id);
+            setContextMenu(null);
+          }} />
+        </RowContextMenu>
+      )}
 
       {/* ── Reject Confirmation Dialog ──────────────────────── */}
       <ConfirmDialog
