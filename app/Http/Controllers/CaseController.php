@@ -133,6 +133,39 @@ class CaseController extends Controller
         ]);
     }
 
+    public function reviewIntake(Request $request, string $id)
+    {
+        $case = $this->caseService->getCase($id);
+
+        // Only self-filed DRAFT cases can be reviewed via this route
+        abort_unless(
+            $case->source === CaseFile::SOURCE_SELF_FILED && $case->status === 'DRAFT',
+            404,
+        );
+
+        $categories = $this->referenceData->getActiveCategories();
+        $caseIssues = $this->referenceData->getActiveIssues();
+
+        // Resolve draft address names to codes for cascade dropdown pre-population
+        $draftResolvedAddress = [];
+        $draftData = $case->draft_client_data;
+        if (! empty($draftData['address'])) {
+            $region = $draftData['address']['region'] ?? '';
+            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
+                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
+            } else {
+                $draftResolvedAddress = $draftData['address'];
+            }
+        }
+
+        return Inertia::render('Case/ReviewIntake', [
+            'case' => $case,
+            'categories' => $categories,
+            'caseIssues' => $caseIssues,
+            'draftResolvedAddress' => $draftResolvedAddress,
+        ]);
+    }
+
     public function updateDraft(UpdateDraftRequest $request, string $id)
     {
         $case = $this->caseService->updateDraft($id, $request->validated(), $request->user()->id);

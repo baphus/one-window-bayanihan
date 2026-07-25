@@ -15,7 +15,7 @@ const STEPS = [
   { id: 'address', label: 'Address' },
   { id: 'employment', label: 'Employment' },
   { id: 'nok', label: 'Next of Kin' },
-  { id: 'case', label: 'Case Details' },
+  { id: 'case', label: 'Case Summary' },
   { id: 'consent', label: 'Consent & Password' },
 ];
 
@@ -61,7 +61,6 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
       address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
       employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
       next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
-      category_ids: [],
       case_issue_id: '',
       vulnerability_indicator: 'None',
       summary: '',
@@ -263,7 +262,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
               <NokStep formData={formData} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 5 && (
-              <CaseDetailsStep formData={formData} updateField={updateField} setFormData={setFormData} errors={errors} categories={categories} caseIssues={caseIssues} onNext={goNext} onBack={goBack} />
+              <CaseDetailsStep formData={formData} updateField={updateField} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 6 && (
               <ConsentStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} />
@@ -712,54 +711,11 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   );
 }
 
-function CaseDetailsStep({ formData, updateField, setFormData, errors, categories, caseIssues, onNext, onBack }) {
-  const [showAddIssue, setShowAddIssue] = useState(false);
-  const [newIssueName, setNewIssueName] = useState('');
-  const [addingIssue, setAddingIssue] = useState(false);
-  const [localIssues, setLocalIssues] = useState(caseIssues);
+function CaseDetailsStep({ formData, updateField, setFormData, errors, onNext, onBack }) {
   const [stepErrors, setStepErrors] = useState({});
-
-  useEffect(() => { setLocalIssues(caseIssues); }, [caseIssues]);
-
-  const toggleCategory = (id) => {
-    setFormData(prev => {
-      const ids = prev.category_ids.includes(id)
-        ? prev.category_ids.filter(c => c !== id)
-        : [...prev.category_ids, id];
-      return { ...prev, category_ids: ids };
-    });
-    setStepErrors(prev => ({ ...prev, category_ids: undefined }));
-  };
-
-  const handleQuickAddIssue = async () => {
-    const name = newIssueName.trim();
-    if (!name || addingIssue) return;
-    setAddingIssue(true);
-    try {
-      const res = await fetch(route('case-issues.quick'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content },
-        body: JSON.stringify({ name }),
-      });
-      const newIssue = await res.json();
-      if (!res.ok) {
-        alert(newIssue.errors?.name?.[0] || 'Failed to add issue.');
-        return;
-      }
-      setLocalIssues(prev => [...prev, newIssue]);
-      updateField('case_issue_id', newIssue.id);
-      setNewIssueName('');
-      setShowAddIssue(false);
-    } catch (e) {
-      alert('Failed to add issue. Please try again.');
-    } finally {
-      setAddingIssue(false);
-    }
-  };
 
   const validate = () => {
     const errs = {};
-    if (formData.category_ids.length === 0) errs.category_ids = 'Please select at least one category.';
     if (formData.summary.trim().length < 100) errs.summary = 'Please provide at least 100 characters.';
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
@@ -767,82 +723,10 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
 
   return (
     <div>
-      <h2 className="mb-1 text-lg font-bold text-slate-900">Case Details</h2>
-      <p className="mb-6 text-sm text-slate-500">Tell us about your situation and what help you need.</p>
+      <h2 className="mb-1 text-lg font-bold text-slate-900">Case Summary</h2>
+      <p className="mb-6 text-sm text-slate-500">Describe your case situation.</p>
 
       <div className="space-y-6">
-        <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-600">What kind of help do you need? *</label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {categories.map(cat => (
-              <label key={cat.id} className={`flex cursor-pointer items-center gap-2 rounded border p-3 text-sm transition ${
-                formData.category_ids.includes(cat.id) ? 'border-primary bg-primary/5 font-medium text-primary' : 'border-outline-variant hover:border-primary/50'
-              }`}>
-                <input type="checkbox" checked={formData.category_ids.includes(cat.id)} onChange={() => toggleCategory(cat.id)} className="sr-only" />
-                <span className={`flex h-4 w-4 items-center justify-center rounded border ${formData.category_ids.includes(cat.id) ? 'border-primary bg-primary text-white' : 'border-slate-300'}`}>
-                  {formData.category_ids.includes(cat.id) && <span className="text-[10px]">✓</span>}
-                </span>
-                {cat.name}
-              </label>
-            ))}
-          </div>
-          {(errors['category_ids'] || stepErrors.category_ids) && <p className="mt-1 text-xs text-error">{stepErrors.category_ids || errors['category_ids']}</p>}
-        </div>
-
-        {localIssues.length > 0 && (
-          <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Specific Issue (optional)</label>
-            <div className="flex gap-2">
-              <select value={formData.case_issue_id} onChange={e => updateField('case_issue_id', e.target.value)}
-                className="flex-1 border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
-                <option value="">Select an issue...</option>
-                {localIssues.map(issue => (
-                  <option key={issue.id} value={issue.id}>{issue.name}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
-                className="inline-flex h-[46px] w-[46px] shrink-0 items-center justify-center border border-dashed border-primary/40 text-primary transition hover:bg-primary/5"
-                title="Add new issue"
-              >
-                <span className="material-symbols-outlined text-[20px]">add</span>
-              </button>
-            </div>
-            {showAddIssue && (
-              <div className="mt-3 rounded border border-primary/20 bg-primary/5 p-3">
-                <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">New Issue Name</label>
-                <input
-                  type="text"
-                  value={newIssueName}
-                  onChange={e => setNewIssueName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
-                  placeholder="Enter new issue name..."
-                  className="w-full border border-outline-variant bg-surface-container px-4 py-2 text-sm focus:border-primary focus:outline-none"
-                  autoFocus
-                />
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleQuickAddIssue}
-                    disabled={addingIssue || !newIssueName.trim()}
-                    className="bg-primary px-4 py-1.5 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50"
-                  >
-                    {addingIssue ? 'Adding...' : 'Add'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
-                    className="text-xs font-medium text-slate-500 hover:text-slate-700"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Tell us what happened *</label>
           <textarea

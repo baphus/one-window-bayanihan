@@ -123,6 +123,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
         Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
         Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
+        Route::get('/cases/{case}/review-intake', [CaseController::class, 'reviewIntake'])->name('cases.review-intake');
         Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
         Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
         Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');

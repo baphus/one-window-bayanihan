@@ -328,7 +328,7 @@ export default function IntakeQueue({ cases, filters: initialFilters = {} }) {
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => router.visit(route('cases.edit-draft', caseItem.id))}
+                              onClick={() => router.visit(route('cases.review-intake', caseItem.id))}
                               className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors border border-blue-900"
                             >
                               Review
