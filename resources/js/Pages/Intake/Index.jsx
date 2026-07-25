@@ -760,7 +760,7 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
   const validate = () => {
     const errs = {};
     if (formData.category_ids.length === 0) errs.category_ids = 'Please select at least one category.';
-    if (formData.summary.trim().length < 20) errs.summary = 'Please provide at least 20 characters.';
+    if (formData.summary.trim().length < 100) errs.summary = 'Please provide at least 100 characters.';
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -852,7 +852,7 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
             placeholder="Please describe your situation, what happened, and what kind of assistance you need..."
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
           />
-          <p className="mt-1 text-xs text-slate-400">{formData.summary.length}/20 minimum characters</p>
+          <p className="mt-1 text-xs text-slate-400">{formData.summary.length}/100 minimum characters</p>
           {(stepErrors.summary || errors.summary) && <p className="mt-1 text-xs text-error">{stepErrors.summary || errors.summary}</p>}
         </div>
 
@@ -978,23 +978,23 @@ function IntakeSuccess() {
       <Head title="Submission Received" />
       <AppHeader />
 
-      <main className="flex flex-1 items-center justify-center px-4 pt-20">
-        <div className="mx-auto max-w-lg text-center">
-          <div className="mb-6 flex justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-              <span className="material-symbols-outlined text-4xl text-green-600">check_circle</span>
+      <main className="flex flex-1 flex-col items-center justify-center px-6 pb-16 pt-28 md:px-8 md:pb-20 md:pt-32">
+        <div className="mx-auto w-full max-w-lg text-center">
+          <div className="mb-8 flex justify-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100">
+              <span className="material-symbols-outlined text-5xl text-green-600">check_circle</span>
             </div>
           </div>
-          <h1 className="mb-3 font-headline text-2xl font-bold text-slate-900">Request Submitted Successfully</h1>
-          <p className="mb-8 text-sm leading-relaxed text-slate-600">
+          <h1 className="mb-4 font-headline text-2xl font-bold text-slate-900 md:text-3xl">Request Submitted Successfully</h1>
+          <p className="mx-auto mb-10 max-w-md text-sm leading-relaxed text-slate-600 md:text-base">
             Your assistance request has been submitted. A Case Manager will review your information and you will be notified once your case is processed.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <a href={route('login')} className="inline-flex items-center justify-center gap-2 bg-primary px-6 py-3 text-sm font-bold text-white hover:brightness-110">
+            <a href={route('login')} className="inline-flex items-center justify-center gap-2 bg-primary px-6 py-3.5 text-sm font-bold text-white hover:brightness-110">
               <span className="material-symbols-outlined text-[18px]">login</span>
               Log In to Track Status
             </a>
-            <a href="/" className="inline-flex items-center justify-center gap-2 border border-outline-variant px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <a href="/" className="inline-flex items-center justify-center gap-2 border border-outline-variant px-6 py-3.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
               Return to Home
             </a>
           </div>
