@@ -69,13 +69,38 @@ and make `save-draft` persist `sex` rather than returning 200 while discarding i
 A `save-draft` endpoint that returns success without writing the submitted field
 is the more serious of the two — it silently loses data.
 
-### D2 — Employment `position` and `last_position` are also discarded
+### D2 — WITHDRAWN (tester error), leaving a minor UX note
 
-Typed "Construction Worker" into the "Select or type position…" control, whose
-placeholder invites free text. `draft_client_data.employment.position` and
-`.last_position` are both `null`. Same silent-loss class as D1; likely the same
-root cause in the draft persistence path. `employer_name` and `last_country`
-persisted correctly, so the loss is field-specific rather than wholesale.
+Originally reported as employment `position` being silently discarded. On
+re-testing this was **my input error, not a defect**. The "Select or type
+position…" control offers two options once you type: the canonical entry
+(e.g. "Domestic Helper / Household Service Worker") and an explicit
+`Use "<your text>"` option for free text. Typing alone does not commit a value;
+one of the options must be chosen. When selected properly the value persists
+correctly.
+
+The remaining note is minor UX: a required field where typing *looks* sufficient
+but silently registers nothing is easy to get wrong, and the intake wizard gave
+no validation warning about the empty position on submit.
+
+### D2b — Case-creation wizard displays identifiers that are then discarded
+
+Step 2 of the case-creation wizard displays two "auto-generated identifiers" in
+editable-looking text boxes:
+
+```
+Case No.     CM-20260727-8598
+Tracking ID  OWBAP-XY57RYX
+```
+
+The values actually persisted were **`OWB-2026-00002`** and **`OWBAP-WNURBAA`**.
+Both displayed identifiers are thrown away and regenerated server-side on save,
+and the case number even uses a different prefix scheme (`CM-` vs `OWB-`).
+
+**Impact:** a case manager who notes the tracking ID during intake to give the
+client — which the surrounding copy invites, since tracking is how the OFW checks
+status — will hand over an ID that does not exist. Either show the real values
+after creation, or do not show them until they are final.
 
 ### D3 — Intake review page shows raw PSGC codes instead of place names
 
@@ -123,20 +148,39 @@ request inbox. Not necessarily wrong, but it means an OFW cannot attach a
 contract or payslip at the moment they file, and the S3 write path stays
 unverified until a document request happens.
 
-## 4. Blocked by D1
+## 4. Second pass — routing around D1 via direct case creation
 
-These could not be exercised because no case can be published, and referrals are
-created from published cases:
+The case-manager creation path **does** persist `sex` correctly, which both
+confirms D1 is specific to the self-filed intake plus `save-draft`, and unblocked
+the remaining flows.
 
-- Referral creation (case manager → agency)
-- Referral acceptance and compliance requirements (agency)
-- Agency RLS scoping across the 33 policies on 11 tables
-- Client request inbox and the S3 document upload path
-- Overdue referrals
+| Case | Status | Source | `clients.sex` |
+|---|---|---|---|
+| `OWB-2026-00001` | DRAFT | `self_filed` | **NULL** — blocked by D1 |
+| `OWB-2026-00002` | OPEN | `internal` | `'FEMALE'` |
 
-The direct case-creation path (case manager creating a case rather than reviewing
-a self-filed one) may set `sex` correctly and offer a way around D1; that is the
-next thing to try.
+| Flow | Result | Evidence |
+|---|---|---|
+| Case creation, 3-step wizard | PASS | `OWB-2026-00002` created with status OPEN; confirmation dialog required before commit |
+| Multi-service referral creation | PASS | `referrals` 0 → 1, DMW selected, 2 services attached |
+| Referral notification job | PASS | `jobs` returned to 0, `failed_jobs` stayed 0 — the queue path that was dead before the `HOME` fix |
+| Agency sees only its own referral | PASS | Agency user's list showed exactly 1 referral, its own agency's; RLS scoping holds |
+| Referral acceptance, with mandatory remark | PASS | `PENDING` → `PROCESSING`; a remark is enforced before confirmation |
+| Case timeline / `case_events` | PASS | 3 events recorded across open → refer → accept |
+| Audit chain across the whole sequence | PASS | `audit_logs` 0 → 32, no gaps |
+
+## 5. Still not exercised
+
+- **Admin flows** — users/invites, agencies, services, statuses/categories/issues,
+  system and security settings, data export, maintenance mode, active sessions.
+  The admin dashboard and audit log views were confirmed working, but the
+  mutating admin screens were not driven.
+- **Client request inbox and S3 document upload.** No document was uploaded in
+  any flow, so the S3 write path remains unverified end to end. The bucket
+  itself was proven writable with the application's IAM credentials during
+  provisioning, but not through the application.
+- **Overdue referrals** — needs a referral older than five days.
+- **Survey / feedback invitations**, reports export, case trash and restore.
 
 ## 5. Changelog
 
