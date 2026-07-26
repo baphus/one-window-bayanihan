@@ -62,8 +62,7 @@ class StoreIntakeRequest extends FormRequest
             'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
             'summary' => ['required', 'string', 'min:20'],
             'consent' => ['required', 'accepted'],
-            'password' => ['required', 'string', 'min:8'],
-            'password_confirmation' => ['required', 'string', 'same:password'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -82,9 +81,8 @@ class StoreIntakeRequest extends FormRequest
             'summary.min' => 'Please provide more details about your situation (at least 20 characters).',
             'consent.required' => 'You must consent to data processing to submit this form.',
             'consent.accepted' => 'You must consent to data processing to submit this form.',
-            'password.required' => 'Please create a password for your account.',
             'password.min' => 'Password must be at least 8 characters long.',
-            'password_confirmation.same' => 'Password confirmation does not match.',
+            'password.confirmed' => 'Password confirmation does not match.',
         ];
     }
 }

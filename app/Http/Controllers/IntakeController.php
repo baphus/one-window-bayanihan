@@ -138,7 +138,7 @@ class IntakeController extends Controller
         $case = $this->intakeService->createIntakeCase(
             $validated,
             $verifiedEmail,
-            $validated['password'],
+            $validated['password'] ?? null,
         );
 
         // Clear the verified email from session

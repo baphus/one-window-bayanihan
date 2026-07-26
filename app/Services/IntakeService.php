@@ -91,8 +91,11 @@ class IntakeService
 
     /**
      * Create the full intake case atomically: client + user + case.
+     *
+     * The $password is required for first-time OFWs but should be null/empty
+     * for returning OFWs who already have an account.
      */
-    public function createIntakeCase(array $data, string $verifiedEmail, string $password): CaseFile
+    public function createIntakeCase(array $data, string $verifiedEmail, ?string $password = null): CaseFile
     {
         $maxAttempts = 3;
 
@@ -181,22 +184,33 @@ class IntakeService
 
     /**
      * Find or create an OFW user account.
+     *
+     * For returning OFWs (existing user) the $password may be null — their
+     * existing password is kept unchanged. For new users, $password is required.
      */
-    public function findOrCreateOfwUser(string $email, string $password, string $clientId, array $data): User
+    public function findOrCreateOfwUser(string $email, ?string $password, string $clientId, array $data): User
     {
         $existingUser = User::where('email', $email)
             ->where('role', 'OFW')
             ->first();
 
         if ($existingUser) {
-            // Update password if provided, ensure client_id is linked
-            $existingUser->update([
-                'password' => Hash::make($password),
-                'client_id' => $clientId,
-            ]);
+            $updateData = ['client_id' => $clientId];
+
+            // Only update password when the user chose to set a new one
+            if ($password !== null && $password !== '') {
+                $updateData['password'] = Hash::make($password);
+            }
+
+            $existingUser->update($updateData);
 
             return $existingUser;
         }
+
+        // New OFW user — password is required
+        $password ?? throw new \InvalidArgumentException(
+            'Password is required when creating a new OFW user account.'
+        );
 
         $name = trim(($data['client']['first_name'] ?? '').' '.($data['client']['last_name'] ?? ''));
 

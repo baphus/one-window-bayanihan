@@ -50,6 +50,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
   const [otpHint, setOtpHint] = useState('');
   const [debugOtp, setDebugOtp] = useState(null);
   const [duplicateMessage, setDuplicateMessage] = useState('');
+  const [hasExistingAccount, setHasExistingAccount] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const [formData, setFormData] = useState(() => {
@@ -148,8 +149,9 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
         setDuplicateMessage(json.message);
       } else {
         setEmailVerified(true);
-        // Pre-fill from existing client if available
+        // Track whether this is a returning OFW (existing account)
         if (json.existing_client) {
+          setHasExistingAccount(true);
           setFormData(prev => ({
             ...prev,
             client: { ...prev.client, ...json.existing_client },
@@ -281,7 +283,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
               <CaseDetailsStep formData={formData} updateField={updateField} setFormData={setFormData} errors={errors} categories={categories} caseIssues={caseIssues} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 6 && (
-              <ConsentStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} />
+              <ConsentStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} hasExistingAccount={hasExistingAccount} />
             )}
           </div>
         </div>
@@ -948,16 +950,18 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, categorie
   );
 }
 
-function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBack }) {
+function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBack, hasExistingAccount = false }) {
   const [stepErrors, setStepErrors] = useState({});
 
   const validate = () => {
     const errs = {};
     if (!formData.consent) errs.consent = 'You must consent to data processing to submit this form.';
-    if (!formData.password) errs.password = 'Please create a password for your account.';
-    else if (formData.password.length < 8) errs.password = 'Password must be at least 8 characters long.';
-    if (!formData.password_confirmation) errs.password_confirmation = 'Please confirm your password.';
-    else if (formData.password !== formData.password_confirmation) errs.password_confirmation = 'Password confirmation does not match.';
+    if (formData.password || !hasExistingAccount) {
+      if (!formData.password) errs.password = 'Please create a password for your account.';
+      else if (formData.password.length < 8) errs.password = 'Password must be at least 8 characters long.';
+      if (!formData.password_confirmation) errs.password_confirmation = 'Please confirm your password.';
+      else if (formData.password !== formData.password_confirmation) errs.password_confirmation = 'Password confirmation does not match.';
+    }
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -966,10 +970,12 @@ function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBa
     if (validate()) onSubmit();
   };
 
+  const isReturning = hasExistingAccount;
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Consent & Account</h2>
-      <p className="mb-6 text-sm text-slate-500">Review, consent to data processing, and create your account password.</p>
+      <p className="mb-6 text-sm text-slate-500">Review, consent to data processing, and {isReturning ? 'optionally update' : 'create'} your account password.</p>
 
       <div className="space-y-6">
         <div className="rounded border border-outline-variant bg-slate-50 p-4">
@@ -988,22 +994,25 @@ function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBa
         </div>
 
         <div>
-          <h3 className="mb-3 text-sm font-bold text-slate-700">Create Account Password</h3>
+          <h3 className="mb-3 text-sm font-bold text-slate-700">{isReturning ? 'Update Account Password' : 'Create Account Password'}</h3>
           <p className="mb-4 text-xs text-slate-500">
-            This password will let you log in later to track your case status.
+            {isReturning
+              ? 'Leave blank to keep your existing password. Enter a new one only if you want to change it.'
+              : 'This password will let you log in later to track your case status.'}
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Password *</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">{isReturning ? 'New Password' : 'Password'} {!isReturning && '* '}</label>
               <input type="password" value={formData.password} onChange={e => { updateField('password', e.target.value); setStepErrors(prev => ({ ...prev, password: undefined })); }}
-                placeholder="Min. 8 characters"
+                placeholder={isReturning ? 'Leave blank to keep current' : 'Min. 8 characters'}
                 className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.password ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
               {stepErrors.password && <p className="mt-1 text-xs text-error">{stepErrors.password}</p>}
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Confirm Password *</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Confirm {isReturning ? 'New ' : ''}Password {!isReturning && '* '}</label>
               <input type="password" value={formData.password_confirmation} onChange={e => { updateField('password_confirmation', e.target.value); setStepErrors(prev => ({ ...prev, password_confirmation: undefined })); }}
-                className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.password_confirmation ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+                disabled={!formData.password}
+                className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${stepErrors.password_confirmation ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
               {stepErrors.password_confirmation && <p className="mt-1 text-xs text-error">{stepErrors.password_confirmation}</p>}
             </div>
           </div>
