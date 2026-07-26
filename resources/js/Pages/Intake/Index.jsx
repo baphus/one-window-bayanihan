@@ -113,7 +113,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
         setOtpHint(json.hint);
         setDebugOtp(json.debug_otp);
       } else {
-        setErrors({ email: json.message || 'Failed to send verification code.' });
+        setErrors({ email: json.error || json.errors?.email?.[0] || json.message || 'Failed to send verification code.' });
       }
     } catch (e) {
       setErrors({ email: 'Network error. Please try again.' });
@@ -136,7 +136,13 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
       });
       const json = await res.json();
       if (!res.ok) {
-        setErrors({ otp: json.error || 'Invalid or expired OTP.' });
+        // Handle 422 from either OTP failure ({ error: '...' }) or Laravel validation ({ errors: { ... } })
+        const msg = json.error
+          || (json.errors?.otp?.[0])
+          || (json.errors?.email?.[0])
+          || (json.message)
+          || 'Invalid or expired OTP.';
+        setErrors({ otp: msg });
       } else if (json.duplicate) {
         setDuplicateMessage(json.message);
       } else {
@@ -177,8 +183,10 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
         // Validation errors
         const validationErrors = json.errors || {};
         setErrors(validationErrors);
+      } else if (res.status === 429) {
+        setErrors({ submit: 'Too many attempts. Please wait a minute and try again.' });
       } else {
-        setErrors({ submit: json.error || 'Submission failed. Please try again.' });
+        setErrors({ submit: json.error || json.message || 'Submission failed. Please try again.' });
       }
     } catch (e) {
       setErrors({ submit: 'Network error. Please try again.' });
@@ -247,6 +255,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
                 setTurnstileToken={setTurnstileToken}
                 onSendOtp={handleSendOtp}
                 onVerifyOtp={handleVerifyOtp}
+                onBackToEmail={() => setOtpSent(false)}
               />
             )}
             {currentStep === 1 && (
@@ -279,7 +288,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
 
 // --- Step Components ---
 
-function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp }) {
+function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail }) {
   if (duplicateMessage) {
     return (
       <div className="text-center">
@@ -357,6 +366,16 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
           >
             {processing ? 'Verifying...' : 'Verify & Continue'}
           </button>
+
+          <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
+            <button type="button" onClick={onSendOtp} disabled={processing} className="text-primary hover:underline disabled:opacity-50">
+              Resend code
+            </button>
+            <span aria-hidden>&middot;</span>
+            <button type="button" onClick={() => { updateField('otp', ''); setTurnstileToken(''); onBackToEmail?.(); }} className="text-slate-500 hover:text-primary hover:underline">
+              Use a different email
+            </button>
+          </div>
         </div>
       )}
     </div>
