@@ -437,9 +437,14 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Sex</label>
-          <select value={formData.client.sex} onChange={e => updateField('client.sex', e.target.value)}
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Sex *</label>
+          {/* Without an empty first option the browser renders "Male" as
+              selected while state is still empty, so the filer sees an
+              answered control and submits nothing. Case managers cannot
+              publish a case with no sex, so the submission dead-ends. */}
+          <select value={formData.client.sex ?? ''} onChange={e => updateField('client.sex', e.target.value)}
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
+            <option value="">Select…</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
           </select>

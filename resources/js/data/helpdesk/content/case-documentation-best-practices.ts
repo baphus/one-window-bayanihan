@@ -6,7 +6,7 @@ Good documentation makes a case easier to act on, review, and close. A case reco
 
 ## Keep key fields accurate
 
-- **case_number**: internal reference, **CASE-YYYYMMDD-XXXX**.
+- **case_number**: internal reference, **OWB-YYYY-NNNNN**.
 - **tracker_number**: public reference, **OWBAP-XXXXXXX**.
 - **client_type** and client profile: identify who is assisted.
 - **vulnerability_indicator** and **nok_vulnerability_indicator**: record relevant risks factually.

@@ -69,7 +69,10 @@ return [
             'endpoint' => env('STORAGE_ENDPOINT', env('SUPABASE_S3_ENDPOINT')),
             'root' => env('STORAGE_ROOT', env('SUPABASE_S3_ROOT', storage_path('app/storage'))),
             'url' => env('STORAGE_URL', env('SUPABASE_S3_URL')),
-            'use_path_style_endpoint' => true,
+            // Path-style suits MinIO and Supabase S3. Amazon Lightsail buckets are
+            // addressed virtual-hosted style, so this must be switchable rather
+            // than hardcoded. Default stays true to preserve existing behaviour.
+            'use_path_style_endpoint' => (bool) env('STORAGE_USE_PATH_STYLE', true),
             'visibility' => 'private',
             'throw' => false,
             'report' => false,
@@ -111,7 +114,7 @@ return [
             'region' => env('AUDIT_ARCHIVE_REGION', env('STORAGE_REGION', 'ap-southeast-1')),
             'bucket' => env('AUDIT_ARCHIVE_BUCKET', env('STORAGE_BUCKET')),
             'endpoint' => env('AUDIT_ARCHIVE_ENDPOINT', env('STORAGE_ENDPOINT')),
-            'use_path_style_endpoint' => true,
+            'use_path_style_endpoint' => (bool) env('AUDIT_ARCHIVE_USE_PATH_STYLE', env('STORAGE_USE_PATH_STYLE', true)),
             'visibility' => 'private',
             'throw' => true,
             'report' => false,
