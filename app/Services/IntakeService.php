@@ -285,7 +285,21 @@ class IntakeService
             'client_id' => $clientId,
             'category_id' => $data['category_ids'][0] ?? $data['category_id'] ?? null,
             'case_issue_id' => $data['case_issue_id'] ?? null,
-            'draft_client_data' => $data['client'] ?? null,
+            'draft_client_data' => [
+                'first_name' => $data['client']['first_name'] ?? null,
+                'last_name' => $data['client']['last_name'] ?? null,
+                'middle_initial' => $data['client']['middle_initial'] ?? null,
+                'suffix' => $data['client']['suffix'] ?? null,
+                'date_of_birth' => $data['client']['date_of_birth'] ?? null,
+                'sex' => $data['client']['sex'] ?? null,
+                'email' => $data['client']['email'] ?? null,
+                'contact_number' => $data['client']['contact_number'] ?? null,
+                'address' => $data['address'] ?? null,
+                'employment' => $data['employment'] ?? null,
+                'next_of_kin' => $data['next_of_kin'] ?? null,
+                'summary' => $data['summary'] ?? null,
+                'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
+            ],
         ]);
 
         // Sync categories to pivot table
@@ -376,13 +390,22 @@ class IntakeService
     }
 
     /**
-     * Generate a unique case number. Mirrors CaseService logic.
+     * Generate a unique case number. Mirrors CaseService logic — both must use
+     * the same format (OWB-{YEAR}-{NNNNN}) so the shared sequence is consistent
+     * across intakes and case-manager-created cases.
      */
     private function generateCaseNumber(): string
     {
         $year = now()->format('Y');
+        $prefix = "OWB-{$year}-";
+
+        // Advisory lock shares the same lock key as CaseService, serializing the
+        // sequence across both creation paths for the current year.
+        $lockKey = crc32("case_number_{$year}");
+        DB::statement('SELECT pg_advisory_xact_lock(?)', [$lockKey]);
+
         $latest = CaseFile::withoutGlobalScope(SoftDeletingScope::class)
-            ->where('case_number', 'like', "OWB-{$year}-%")
+            ->where('case_number', 'like', "{$prefix}%")
             ->orderByRaw("CAST(SUBSTRING(case_number FROM 'OWB-\\d{4}-(\\d+)') AS INTEGER) DESC")
             ->value('case_number');
 
@@ -391,7 +414,7 @@ class IntakeService
             $nextNum = (int) $matches[1] + 1;
         }
 
-        return "OWB-{$year}-".str_pad((string) $nextNum, 5, '0', STR_PAD_LEFT);
+        return "{$prefix}".str_pad((string) $nextNum, 5, '0', STR_PAD_LEFT);
     }
 
     /**

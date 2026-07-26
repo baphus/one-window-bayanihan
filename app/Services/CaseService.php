@@ -20,6 +20,7 @@ use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
@@ -1457,24 +1458,26 @@ class CaseService
 
     private function generateCaseNumber(): string
     {
-        $date = now()->format('Ymd');
-        $prefix = "CASE-{$date}-";
+        $year = now()->format('Y');
+        $prefix = "OWB-{$year}-";
 
-        // Use PostgreSQL advisory lock to serialize case number generation for today
-        // This prevents duplicate case numbers under concurrent requests
-        $lockKey = crc32("case_number_{$date}");
+        // Use PostgreSQL advisory lock to serialize case number generation for the year.
+        // This prevents duplicate case numbers under concurrent requests from both
+        // CaseService (case-manager-created) and IntakeService (OFW self-filed).
+        $lockKey = crc32("case_number_{$year}");
         DB::statement('SELECT pg_advisory_xact_lock(?)', [$lockKey]);
 
-        $maxCaseNumber = CaseFile::where('case_number', 'like', "{$prefix}%")
-            ->max('case_number');
+        $latest = CaseFile::withoutGlobalScope(SoftDeletingScope::class)
+            ->where('case_number', 'like', "{$prefix}%")
+            ->orderByRaw("CAST(SUBSTRING(case_number FROM 'OWB-\\d{4}-(\\d+)') AS INTEGER) DESC")
+            ->value('case_number');
 
-        if ($maxCaseNumber) {
-            $lastNumber = (int) substr($maxCaseNumber, -4);
-
-            return $prefix.str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        $nextNum = 1;
+        if ($latest && preg_match('/OWB-\d{4}-(\d+)/', $latest, $matches)) {
+            $nextNum = (int) $matches[1] + 1;
         }
 
-        return "{$prefix}0001";
+        return $prefix.str_pad((string) $nextNum, 5, '0', STR_PAD_LEFT);
     }
 
     private function generateTrackerNumber(): string
