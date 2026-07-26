@@ -489,7 +489,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
         {/* ═══ OFW SUBMISSION SECTION ══════════════════════════ */}
         <div className="space-y-4">
           {/* ── Personal Info ──────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
@@ -581,7 +581,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Address ────────────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Address</span>
               {editingSection !== 'address' && (
@@ -621,7 +621,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Employment ─────────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Employment</span>
               {editingSection !== 'employment' && (
@@ -711,7 +711,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Next of Kin ────────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Next of Kin</span>
             </div>
@@ -808,7 +808,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Case Summary ───────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Case Summary</span>
               {editingSection !== 'summary' && (
@@ -847,7 +847,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Vulnerability Indicators ───────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-300">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Vulnerability Indicators</span>
             </div>
@@ -869,7 +869,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
 
         {/* ═══ CM CLASSIFICATION SECTION ══════════════════════ */}
         <div className="mt-6">
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md overflow-hidden">
+          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-300">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
                 Case Manager Classification
