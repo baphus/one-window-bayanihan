@@ -527,7 +527,7 @@ class TestingSeeder extends Seeder
         $casesToCreate = 850;
         $caseCounter = 1;
         $usedTrackers = [];
-        $datePrefix = now()->format('Ymd');
+        $yearPrefix = now()->format('Y');
 
         // Status distribution: 40% OPEN, 30% CLOSED, 15% DRAFT, 15% ARCHIVED
         $caseStatusDistribution = [];
@@ -548,6 +548,7 @@ class TestingSeeder extends Seeder
         $caseIds = [];
         $caseClientMap = []; // case_id => client_id
         $caseCreatedDates = []; // case_id => Carbon
+        $caseCategoryPivot = []; // case_category pivot records
 
         DB::beginTransaction();
 
@@ -556,8 +557,8 @@ class TestingSeeder extends Seeder
             $caseIds[] = $caseId;
             $status = $caseStatusDistribution[$i];
 
-            // Unique case_number
-            $caseNumber = 'CASE-'.$datePrefix.'-'.str_pad($caseCounter++, 4, '0', STR_PAD_LEFT);
+            // Unique case_number — OWB-{YEAR}-{NNNNN} format to match CaseService/IntakeService
+            $caseNumber = 'OWB-'.$yearPrefix.'-'.str_pad($caseCounter++, 5, '0', STR_PAD_LEFT);
 
             // Unique tracker_number
             do {
@@ -577,6 +578,7 @@ class TestingSeeder extends Seeder
             $caseCreatedDates[$caseId] = $caseCreatedAt;
 
             $hasCategory = rand(0, 100) < 80;
+            $selectedCatId = $hasCategory ? \array_slice($categoryIds, \array_rand($categoryIds), 1)[0] : null;
             $hasIssue = rand(0, 100) < 70;
             $closedAt = null;
 
@@ -584,9 +586,21 @@ class TestingSeeder extends Seeder
                 $closedAt = $caseCreatedAt->copy()->addDays(rand(7, 60));
             }
 
+            // Collect pivot record for the case_category junction table
+            if ($selectedCatId) {
+                $caseCategoryPivot[] = [
+                    'id' => (string) Str::uuid(),
+                    'case_id' => $caseId,
+                    'case_category_id' => $selectedCatId,
+                    'created_at' => $caseCreatedAt,
+                    'updated_at' => $caseCreatedAt,
+                ];
+            }
+
             $cases[] = [
                 'id' => $caseId,
                 'case_number' => $caseNumber,
+                'source' => CaseFile::SOURCE_INTERNAL,
                 'client_type' => $this->randomClientType(),
                 'vulnerability_indicator' => $vulnerabilities[array_rand($vulnerabilities)],
                 'nok_vulnerability_indicator' => null,
@@ -597,7 +611,7 @@ class TestingSeeder extends Seeder
                 'consent_given_at' => null,
                 'user_id' => $caseManagerId,
                 'client_id' => $clientId,
-                'category_id' => $hasCategory ? $categoryIds[array_rand($categoryIds)] : null,
+                'category_id' => $selectedCatId,
                 'case_issue_id' => $hasIssue ? $issueIds[array_rand($issueIds)] : null,
                 'created_at' => $caseCreatedAt,
                 'updated_at' => $closedAt ?? $caseCreatedAt->copy()->addDays(rand(0, 14)),
@@ -608,9 +622,14 @@ class TestingSeeder extends Seeder
             DB::table('cases')->insert($chunk);
         }
 
+        // Insert case_category pivot records (matches migration 2026_07_17_000001)
+        foreach (array_chunk($caseCategoryPivot, 100) as $chunk) {
+            DB::table('case_category')->insert($chunk);
+        }
+
         DB::commit();
 
-        unset($cases);
+        unset($cases, $caseCategoryPivot);
 
         // =====================================================================
         // 6. REFERRALS  (variable — target 896)

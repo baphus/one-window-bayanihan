@@ -409,7 +409,7 @@ class CaseServiceTest extends TestCase
         $case = CaseFile::factory()->create([
             'status' => 'DRAFT',
             'user_id' => $user->id,
-            'case_number' => 'CASE-20260603-0001',
+            'case_number' => 'OWB-2026-00001',
             'tracker_number' => 'OWBAP-ABC1234',
         ]);
         $client = Client::factory()->create();
@@ -421,7 +421,7 @@ class CaseServiceTest extends TestCase
             'client_type' => 'NOK',
         ], $user->id);
 
-        $this->assertEquals('CASE-20260603-0001', $result->case_number);
+        $this->assertEquals('OWB-2026-00001', $result->case_number);
         $this->assertEquals('OWBAP-ABC1234', $result->tracker_number);
     }
 

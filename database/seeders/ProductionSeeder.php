@@ -27,6 +27,10 @@ class ProductionSeeder extends Seeder
                 'role' => 'ADMIN',
                 'is_active' => true,
                 'email_verified_at' => $now,
+                'onboarding_completed_at' => null,
+                'onboarding_step' => null,
+                'seen_page_guides' => null,
+                'checklist_progress' => null,
                 'updated_at' => $now,
                 'created_at' => $now,
             ]
