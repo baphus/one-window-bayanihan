@@ -39,3 +39,6 @@ openspec
 # Playwright artifacts
 /test-results
 /playwright-report
+
+# Subagent-driven-development scratch ledger
+/.superpowers/
