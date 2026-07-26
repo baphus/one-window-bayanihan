@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\VerifyTurnstile;
-use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
@@ -11,7 +10,6 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -30,18 +28,8 @@ class IntakeSubmissionTest extends TestCase
         ]);
     }
 
-    private function validIntakeData(?string $categoryId = null): array
+    private function validIntakeData(): array
     {
-        if (! $categoryId) {
-            $category = CaseCategory::create([
-                'id' => Str::uuid()->toString(),
-                'name' => 'Labor Dispute',
-                'is_active' => true,
-                'sort_order' => 1,
-            ]);
-            $categoryId = $category->id;
-        }
-
         return [
             'client' => [
                 'first_name' => 'Juan',
@@ -75,17 +63,13 @@ class IntakeSubmissionTest extends TestCase
                     'phone_number' => '+639181234567',
                 ],
             ],
-            'category_ids' => [$categoryId],
-            'vulnerability_indicator' => null,
             'summary' => 'I need help with unpaid wages from my employer for the past 3 months.',
             'consent' => true,
-            'password' => 'SecureP@ss123',
-            'password_confirmation' => 'SecureP@ss123',
         ];
     }
 
     #[Test]
-    public function test_intake_creates_client_user_and_case(): void
+    public function test_intake_creates_client_and_case(): void
     {
         $email = 'test@example.com';
 
@@ -103,10 +87,9 @@ class IntakeSubmissionTest extends TestCase
         $this->assertEquals('Juan', $client->first_name);
         $this->assertEquals('Dela Cruz', $client->last_name);
 
-        // Assert OFW user was created
+        // Assert no User account was created (accountless flow)
         $user = User::where('email', $email)->where('role', 'OFW')->first();
-        $this->assertNotNull($user, 'OFW user should have been created');
-        $this->assertEquals($client->id, $user->client_id);
+        $this->assertNull($user, 'OFW user should NOT be created in accountless intake');
 
         // Assert case was created
         $case = CaseFile::where('client_id', $client->id)

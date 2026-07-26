@@ -361,7 +361,7 @@ Route::post('/intake/check-duplicate', [IntakeController::class, 'checkDuplicate
     ->middleware('throttle:10,1');
 Route::post('/intake/submit', [IntakeController::class, 'submit'])
     ->name('intake.submit')
-    ->middleware('throttle:3,1');
+    ->middleware('throttle:5,1');
 
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
