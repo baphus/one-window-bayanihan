@@ -25,13 +25,13 @@ Bayanihan One Window coordinates case management across multiple government agen
 |---|---|
 | Backend | Laravel 13, PHP 8.3 |
 | Frontend | React 18, Inertia.js v2, Tailwind CSS 3 |
-| Database | PostgreSQL 17 (Supabase) |
-| File Storage | Supabase Storage (S3-compatible) |
+| Database | PostgreSQL 17 |
+| File Storage | S3-compatible object storage |
 | Build Tool | Vite 8 |
 | Auth | Custom OTP + TOTP MFA |
 | RBAC | Custom CheckRole middleware (`users.role` column) |
-| Queue | Redis |
-| Hosting | Render (Docker) |
+| Cache / Queue | Redis 7 |
+| Packaging | OCI container image (Docker) — runs on any compliant runtime |
 
 ## Quick Start
 
@@ -39,8 +39,8 @@ Bayanihan One Window coordinates case management across multiple government agen
 
 - PHP 8.3+ (with `ext-redis` extension)
 - Node.js 18+
-- PostgreSQL 17 (or Supabase account)
-- Redis 7+ (or Memurai on Windows)
+- PostgreSQL 17 (local or networked)
+- Redis 7+ (native, container, or a Windows-compatible Redis-protocol server)
 - Composer
 
 ### Setup
@@ -72,15 +72,19 @@ Key `.env` settings:
 ```env
 # Database
 DB_CONNECTION=pgsql
-DB_HOST=your-supabase-host
-DB_DATABASE=postgres
+DB_HOST=127.0.0.1          # networked host in staging/production
+DB_DATABASE=one_window
 DB_USERNAME=your-user
 DB_PASSWORD=your-password
+DB_SSLMODE=prefer          # 'require' for any networked database
 
-# Storage (Supabase S3-compatible)
-FILESYSTEM_DISK=supabase
-SUPABASE_URL=your-supabase-url
-SUPABASE_KEY=your-service-role-key
+# Storage (S3-compatible object storage)
+FILESYSTEM_DISK=object-storage
+STORAGE_ENDPOINT=https://your-object-storage-endpoint
+STORAGE_ACCESS_KEY=your-access-key
+STORAGE_SECRET_KEY=your-secret-key
+STORAGE_BUCKET=case-files
+STORAGE_REGION=ap-southeast-1
 
 # Cache/Queue/Session (Redis-backed — falls back to database if Redis unavailable)
 CACHE_STORE=redis
@@ -190,15 +194,22 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design.
 
 | Document | Description |
 |---|---|
-| [Architecture](docs/ARCHITECTURE.md) | System design, middleware, deployment topology |
-| [Project Rules](docs/PROJECT_RULES.md) | Business rules, conventions, decisions |
+| [Architecture](docs/ARCHITECTURE_v2.1.0.md) | System design, middleware, deployment topology |
+| [Project Rules](docs/PROJECT_RULES_v2.1.0.md) | Business rules, conventions, decisions |
 | [Data Model](docs/DATA_MODEL.md) | Database schema — 31 tables, all columns |
 | [API Contracts](docs/API_CONTRACTS.md) | All ~164 routes with middleware |
-| [Testing Strategy](docs/TESTING_STRATEGY.md) | Test approach, patterns, coverage |
-| [Security](docs/SECURITY_REQUIREMENTS.md) | Auth, RBAC, MFA, encryption, rate limiting |
-| [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) | Docker, Render, Supabase setup |
-| [Redis Integration](docs/REDIS_INTEGRATION.md) | Redis setup, performance gains, architecture |
-| [Audit Strategy](docs/AUDIT_STRATEGY.md) | Audit log design and retention |
+| [Testing Strategy](docs/TESTING_STRATEGY_v2.0.1.md) | Test approach, patterns, coverage |
+| [Security](docs/SECURITY_REQUIREMENTS_v2.1.0.md) | Auth, RBAC, MFA, encryption, rate limiting |
+| [Deployment Guide](docs/DEPLOYMENT_GUIDE_v3.0.0.md) | Platform capability contract, container/orchestrator/VM deployment, scaling, rollback |
+| [CI/CD Guide](docs/CI_CD_GUIDE_v2.0.0.md) | Pipeline stages, deploy-trigger contract, branch protection |
+| [Email Delivery](docs/EMAIL_DELIVERY_v2.0.0.md) | Domain, SPF/DKIM/DMARC, SMTP vs HTTPS-API transport |
+| [Redis Integration](docs/REDIS_INTEGRATION_v2.0.0.md) | Redis setup, performance gains, architecture |
+| [Audit Strategy](docs/AUDIT_STRATEGY_v2.2.0.md) | Audit log design and retention |
+
+> Infrastructure is documented by **technology and capability**, not by hosting
+> vendor. What a deployment target must provide is specified in
+> [Deployment Guide §1](docs/DEPLOYMENT_GUIDE_v3.0.0.md); provider-specific
+> values live only in environment variables and pipeline settings (§12).
 
 ## License
 

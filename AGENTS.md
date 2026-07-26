@@ -1,6 +1,8 @@
 # One Window Bayanihan
 
-Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL/Supabase, Tailwind CSS 3, Vite 8, PHP 8.4 (Docker) / 8.3+ (local).
+Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL 17, Redis 7, S3-compatible object storage, Tailwind CSS 3, Vite 8, PHP 8.4 (Docker) / 8.3+ (local).
+
+Documentation is platform-neutral: describe infrastructure by technology and capability, not by hosting or managed-service vendor. See `docs/DEPLOYMENT_GUIDE_v3.0.0.md` §1 (what a target must provide) and §12 (the only places a provider may be named).
 
 ## Commands
 
@@ -34,14 +36,14 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `ci.yml` | PR to `main` | Pint lint, Composer audit, NPM audit, build, backend tests (PG 17), frontend tests |
-| `deploy-staging.yml` | Push to `main` + manual | Tests, `npx tsc --noEmit` (continue-on-error), deploy to Render staging, Slack notify |
-| `deploy-production.yml` | Manual (must type "deploy-production") | Tests, deploy to Render production, health gate, Slack notify |
-| `reset-staging-data.yml` | Daily 2AM UTC + manual | Trigger Render deploy with cache clear to reseed staging DB |
+| `deploy-staging.yml` | Push to `main` + manual | Tests, `npx tsc --noEmit` (continue-on-error), staging rollout, health gate, chat notify |
+| `deploy-production.yml` | Manual (must type "deploy-production") | Tests, production rollout, health gate, chat notify |
+| `reset-staging-data.yml` | Daily 2AM UTC + manual | Trigger a staging rollout with cache clear to reseed the staging DB |
 
 - CI uses PHP 8.4, Node 24, Postgres 17 service container.
 - Staging deploy includes TypeScript check (`npx tsc --noEmit`) but failures don't block.
 - Production requires explicit `workflow_dispatch` with confirmation string.
-- All deploys target Render via REST API (`api.render.com/v1/services/...`).
+- The deploy step calls the hosting platform's deploy REST API with credentials from repository secrets, then health-gates `/up`. This API call is the **only** platform-specific step in the pipeline — the provider-named secrets in the workflow files are the last remaining vendor binding in the repo (`docs/CI_CD_GUIDE_v2.0.0.md` §4). Read the workflow file for the current endpoint; do not re-introduce provider names into docs.
 
 ## Backend conventions
 
@@ -65,7 +67,7 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 ## Tests and environment gotchas
 
 - PHPUnit uses PostgreSQL database `bayanihan_test` from `phpunit.xml`; ensure it exists before PHP test runs. `DB_SSLMODE=disable` in test config.
-- `phpunit.xml` overrides queue/cache/session/storage to sync/array/local, including fake Supabase S3 credentials.
+- `phpunit.xml` overrides queue/cache/session/storage to sync/array/local, including fake S3 credentials (set through the legacy `SUPABASE_S3_*` alias keys that `config/filesystems.php` still reads as fallbacks for the canonical `STORAGE_*` vars). Storage fakes in tests use the `object-storage` disk.
 - Reports/dashboard code uses PostgreSQL functions (`to_char`, `EXTRACT`, `age`); tests need PostgreSQL-compatible data, not SQLite assumptions.
 - `.npmrc` sets `ignore-scripts=true`; use npm and `package-lock.json`, not alternate package managers.
 - `composer run dev` intentionally omits `php artisan pail` because `pcntl` is unavailable on Windows.
@@ -74,11 +76,13 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 
 ## Docs worth checking
 
-- `docs/PROJECT_RULES.md` for domain/business constraints and role rules.
-- `docs/ARCHITECTURE.md` for system flow and deployment topology.
-- `docs/TESTING_STRATEGY.md` for focused test commands and coverage expectations.
+- `docs/PROJECT_RULES_v2.1.0.md` for domain/business constraints, role rules, and the platform-neutrality rule.
+- `docs/ARCHITECTURE_v2.1.0.md` for system flow and deployment topology.
+- `docs/TESTING_STRATEGY_v2.0.1.md` for focused test commands and coverage expectations.
 - `docs/API_CONTRACTS.md` for all ~164 routes with middleware.
 - `docs/DATA_MODEL.md` for complete database schema (31 tables).
-- `docs/SECURITY_REQUIREMENTS.md` for auth, RBAC, MFA, encryption details.
-- `docs/CI_CD_GUIDE.md` for Docker-based CI and deployment workflows.
+- `docs/SECURITY_REQUIREMENTS_v2.1.0.md` for auth, RBAC, MFA, encryption details.
+- `docs/DEPLOYMENT_GUIDE_v3.0.0.md` for the platform capability contract, env contract, scaling, and migration policy.
+- `docs/CI_CD_GUIDE_v2.0.0.md` for CI stages and the deploy-trigger contract.
+- Superseded unversioned copies of the docs above are kept as history; always read the highest version.
 - `instructions.md` is stale Copilot-era guidance; prefer executable config and current `docs/` files.

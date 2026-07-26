@@ -1,8 +1,11 @@
 # One Window Bayanihan — Documentation
 
-> **Version:** 2.0.0  
-> **Last Updated:** 2026-07-11  
+> **Version:** 2.1.0  
+> **Last Updated:** 2026-07-27  
 > **Source of Truth:** This `docs/` folder is the single authoritative documentation source.
+> **Platform neutrality:** Infrastructure is documented by technology and capability, never by
+> hosting or managed-service vendor. See [DEPLOYMENT_GUIDE_v3.0.0.md](DEPLOYMENT_GUIDE_v3.0.0.md) §1
+> for what a deployment target must provide and §12 for the only places a provider may be named.
 
 ## Overview
 
@@ -16,7 +19,7 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System design, middleware stack, deployment topology, data flow |
+| [ARCHITECTURE_v2.1.0.md](ARCHITECTURE_v2.1.0.md) | System design, middleware stack, deployment topology, data flow |
 | [DATA_MODEL.md](DATA_MODEL.md) | Complete database schema — all tables, columns, relationships, indexes |
 | [API_CONTRACTS.md](API_CONTRACTS.md) | All HTTP routes, methods, middleware, request/response shapes |
 
@@ -24,18 +27,19 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 
 | Document | Description |
 |----------|-------------|
-| [PROJECT_RULES.md](PROJECT_RULES.md) | Coding conventions, business rules, naming patterns, decisions |
-| [FRONTEND.md](FRONTEND.md) | React/Inertia pages, components, hooks, state management |
-| [TESTING_STRATEGY.md](TESTING_STRATEGY.md) | Test approach, commands, patterns, coverage |
+| [PROJECT_RULES_v2.1.0.md](PROJECT_RULES_v2.1.0.md) | Coding conventions, business rules, naming patterns, decisions |
+| [TESTING_STRATEGY_v2.0.1.md](TESTING_STRATEGY_v2.0.1.md) | Test approach, commands, patterns, coverage |
 
 ### Operations & Security
 
 | Document | Description |
 |----------|-------------|
-| [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Build, deploy, Docker, Render, environment configuration |
-| [EMAIL_DOMAIN_RESEND.md](EMAIL_DOMAIN_RESEND.md) | MVP requirement for domain purchase and Resend API-based email delivery |
-| [SECURITY_REQUIREMENTS.md](SECURITY_REQUIREMENTS.md) | Auth flow, RBAC, MFA, CSP, rate limiting, encryption |
-| [AUDIT_STRATEGY.md](AUDIT_STRATEGY.md) | Audit log design, append-only enforcement, hash chain |
+| [DEPLOYMENT_GUIDE_v3.0.0.md](DEPLOYMENT_GUIDE_v3.0.0.md) | Platform capability contract, environment matrix, container/orchestrator/VM deployment, migrations, scaling, rollback |
+| [CI_CD_GUIDE_v2.0.0.md](CI_CD_GUIDE_v2.0.0.md) | Pipeline stages, provider-agnostic deploy-trigger contract, branch protection |
+| [EMAIL_DELIVERY_v2.0.0.md](EMAIL_DELIVERY_v2.0.0.md) | MVP domain requirement, SPF/DKIM/DMARC, SMTP vs HTTPS-API transport selection |
+| [REDIS_INTEGRATION_v2.0.0.md](REDIS_INTEGRATION_v2.0.0.md) | Cache/queue/OTP backend, provisioning criteria, rollout order |
+| [SECURITY_REQUIREMENTS_v2.1.0.md](SECURITY_REQUIREMENTS_v2.1.0.md) | Auth flow, RBAC, MFA, CSP, rate limiting, encryption |
+| [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) | Audit log design, append-only enforcement, hash chain |
 
 ### Supplementary
 
@@ -54,18 +58,18 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 | SPA Bridge | Inertia.js | 2.0 |
 | Styling | Tailwind CSS | 3.2 |
 | Build Tool | Vite | 8.0 |
-| Database | PostgreSQL | 17 (Supabase) / 15 (Docker local) |
-| File Storage | Supabase Storage (S3-compatible) |
-| Auth | Custom OTP + TOTP MFA (email-based OTP, Google Authenticator TOTP) |
+| Database | PostgreSQL | 17 (production) / 15 (Docker local) |
+| File Storage | S3-compatible object storage |
+| Auth | Custom OTP + TOTP MFA (email OTP, RFC 6238 authenticator app) |
 | RBAC | Custom `CheckRole` middleware (`users.role` column) |
-| CAPTCHA | Cloudflare Turnstile |
-| Queue | Database-driven (Laravel queue) |
+| CAPTCHA | Bot-protection verify API (`TURNSTILE_*` keys) |
+| Cache / Queue | Redis 7 (database driver as degraded fallback) |
 | PDF Reports | DomPDF |
 | Excel Export | PhpSpreadsheet |
-| AI/Chatbot | OpenAI GPT API |
-| Error Tracking | Sentry |
-| Image Storage | Cloudinary (avatars) |
-| Hosting | Render (production), Docker (local/staging) |
+| AI/Chatbot | LLM API via configurable provider |
+| Error Tracking | Sentry SDK → any compatible ingest endpoint |
+| Image Storage | Image CDN for avatars (optional; falls back to object storage) |
+| Packaging | OCI container image (Docker) — production, staging, and local |
 
 ## Roles
 
@@ -76,6 +80,17 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 | Administrator | `ADMIN` | System admin — manages users, agencies, settings (IP-whitelisted) |
 
 ## Changelog
+
+### v2.1.0 (2026-07-27)
+- Generalised all deployment documentation: infrastructure is now described by technology and capability (PostgreSQL, S3-compatible object storage, Redis, OCI container, SMTP/HTTPS mail), never by hosting or managed-service vendor
+- Added: `DEPLOYMENT_GUIDE_v3.0.0.md` (platform capability contract, environment matrix, four deployment models, migration policy, scaling model, platform-binding inventory, standards-readiness check)
+- Added: `CI_CD_GUIDE_v2.0.0.md` (provider-agnostic deploy-trigger contract, CI-portability guide)
+- Added: `EMAIL_DELIVERY_v2.0.0.md` — supersedes `EMAIL_DOMAIN_RESEND.md` (transport selection by platform egress instead of a named provider)
+- Added: `ARCHITECTURE_v2.1.0.md`, `SECURITY_REQUIREMENTS_v2.1.0.md`, `PROJECT_RULES_v2.1.0.md`, `REDIS_INTEGRATION_v2.0.0.md`, `TESTING_STRATEGY_v2.0.1.md`
+- Added: platform-neutrality rule as a project rule (`PROJECT_RULES_v2.1.0.md` §9)
+- Fixed: storage configuration documented as `FILESYSTEM_DISK=object-storage` + `STORAGE_*` (the canonical names in `config/filesystems.php`); legacy `SUPABASE_S3_*` keys noted as fallbacks
+- Fixed: index links now point at the current versioned documents; removed the link to the non-existent `FRONTEND.md`
+- Note: superseded unversioned files are retained as history and still contain vendor names; the compliance artefacts under `docs/compliance/` and `docs/management/` intentionally keep named suppliers as audit evidence
 
 ### v2.0.0 (2026-07-11)
 - Consolidated from `docs/` + `documentation/` into single source of truth
