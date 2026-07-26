@@ -92,7 +92,24 @@ COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # ── Cleanup build-only files ──
-RUN rm -rf node_modules resources/js resources/css tailwind.config.js vite.config.js postcss.config.ts tsconfig.json vitest.config.ts playwright.config.ts
+# resources/js/data must survive: AddressNameResolver reads the PSGC lookup
+# table from resource_path('js/data/philippine-addresses.ts') at runtime to turn
+# stored codes into place names. Deleting all of resources/js made every
+# resolve() fall through to returning the raw code, so case managers saw
+# "0730600041, 0730600000, ..." instead of "Lahug, City of Cebu, Cebu, Region VII".
+# The failure was silent because resolve() falls back to its input.
+RUN find resources/js -mindepth 1 -maxdepth 1 ! -name data -exec rm -rf {} + \
+    && rm -rf node_modules resources/css tailwind.config.js vite.config.js postcss.config.ts tsconfig.json vitest.config.ts playwright.config.ts
+
+# ── HOME for non-root processes ──
+# libpq probes for an OPTIONAL client certificate at $HOME/.postgresql/postgresql.crt
+# on every connection. supervisord runs as root, so its `user=www-data` children
+# (queue-worker, scheduler) inherit HOME=/root, which is mode 700 — the traversal
+# returns EACCES and libpq treats that as a fatal connection error:
+#   SQLSTATE[08006] ... could not open certificate file ".../postgresql.crt": Permission denied
+# php-fpm is unaffected because it sets HOME from the pool user's passwd entry.
+# Pointing HOME at a world-readable directory makes the optional lookup miss cleanly.
+ENV HOME=/tmp
 
 # ── Storage directories with proper permissions ──
 RUN mkdir -p /var/www/html/storage/framework/cache/data \
