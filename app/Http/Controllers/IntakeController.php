@@ -22,8 +22,6 @@ class IntakeController extends Controller
     public function index()
     {
         return Inertia::render('Intake/Index', [
-            'categories' => $this->referenceData->getActiveCategories(),
-            'caseIssues' => $this->referenceData->getActiveIssues(),
             'positionOptions' => $this->referenceData->getPositionOptions(),
         ]);
     }
@@ -125,8 +123,6 @@ class IntakeController extends Controller
             ], 422);
         }
 
-        $validated = $request->validated();
-
         // Final duplicate check before submission
         $duplicateCheck = $this->intakeService->checkDuplicate($verifiedEmail);
         if ($duplicateCheck['duplicate']) {
@@ -136,9 +132,8 @@ class IntakeController extends Controller
         }
 
         $case = $this->intakeService->createIntakeCase(
-            $validated,
+            $request->validated(),
             $verifiedEmail,
-            $validated['password'] ?? null,
         );
 
         // Clear the verified email from session

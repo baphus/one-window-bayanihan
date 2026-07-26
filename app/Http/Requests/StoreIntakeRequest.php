@@ -56,13 +56,9 @@ class StoreIntakeRequest extends FormRequest
             'next_of_kin.*.city_municipality' => ['nullable', 'string'],
             'next_of_kin.*.barangay' => ['nullable', 'string'],
             'next_of_kin.*.street' => ['nullable', 'string'],
-            'category_ids' => ['required', 'array', 'min:1'],
-            'category_ids.*' => ['required', 'uuid'],
-            'case_issue_id' => ['nullable', 'uuid'],
-            'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
-            'summary' => ['required', 'string', 'min:20'],
+            'summary' => ['nullable', 'string', 'max:5000'],
             'consent' => ['required', 'accepted'],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+
         ];
     }
 
@@ -76,13 +72,9 @@ class StoreIntakeRequest extends FormRequest
             'client.last_name.required' => 'Please provide your last name.',
             'next_of_kin.required' => 'Please provide at least one emergency contact.',
             'next_of_kin.*.first_name.required' => 'Emergency contact name is required.',
-            'category_ids.required' => 'Please select at least one type of help you need.',
-            'summary.required' => 'Please describe your situation.',
-            'summary.min' => 'Please provide more details about your situation (at least 20 characters).',
             'consent.required' => 'You must consent to data processing to submit this form.',
             'consent.accepted' => 'You must consent to data processing to submit this form.',
-            'password.min' => 'Password must be at least 8 characters long.',
-            'password.confirmed' => 'Password confirmation does not match.',
+
         ];
     }
 }

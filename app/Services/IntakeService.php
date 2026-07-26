@@ -12,7 +12,6 @@ use App\Notifications\NewIntakeSubmission;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 
 class IntakeService
@@ -90,23 +89,20 @@ class IntakeService
     }
 
     /**
-     * Create the full intake case atomically: client + user + case.
-     *
-     * The $password is required for first-time OFWs but should be null/empty
-     * for returning OFWs who already have an account.
+     * Create the self-filed intake case: find/create the client, create the draft case.
+     * No User account is created — tracking is handled via OTP + tracker number.
      */
-    public function createIntakeCase(array $data, string $verifiedEmail, ?string $password = null): CaseFile
+    public function createIntakeCase(array $data, string $verifiedEmail): CaseFile
     {
         $maxAttempts = 3;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $case = DB::transaction(function () use ($data, $verifiedEmail, $password) {
+                $case = DB::transaction(function () use ($data, $verifiedEmail) {
                     $client = $this->findOrCreateClient($data, $verifiedEmail);
-                    $user = $this->findOrCreateOfwUser($verifiedEmail, $password, $client->id, $data);
-                    $case = $this->createDraftCase($data, $client->id);
+                    $case = $this->createDraftCase($data, $client->id, $verifiedEmail);
 
-                    return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'categories', 'caseIssue']);
+                    return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin']);
                 });
                 // Success — exit retry loop
                 break;
@@ -183,53 +179,6 @@ class IntakeService
     }
 
     /**
-     * Find or create an OFW user account.
-     *
-     * For returning OFWs (existing user) the $password may be null — their
-     * existing password is kept unchanged. For new users, $password is required.
-     */
-    public function findOrCreateOfwUser(string $email, ?string $password, string $clientId, array $data): User
-    {
-        $existingUser = User::where('email', $email)
-            ->where('role', 'OFW')
-            ->first();
-
-        if ($existingUser) {
-            $updateData = ['client_id' => $clientId];
-
-            // Only update password when the user chose to set a new one
-            if ($password !== null && $password !== '') {
-                $updateData['password'] = Hash::make($password);
-            }
-
-            $existingUser->update($updateData);
-
-            return $existingUser;
-        }
-
-        // New OFW user — password is required
-        $password ?? throw new \InvalidArgumentException(
-            'Password is required when creating a new OFW user account.'
-        );
-
-        $name = trim(($data['client']['first_name'] ?? '').' '.($data['client']['last_name'] ?? ''));
-
-        $user = User::create([
-            'name' => $name ?: 'OFW User',
-            'email' => $email,
-            'password' => Hash::make($password),
-            'role' => 'OFW',
-            'client_id' => $clientId,
-            'is_active' => true,
-        ]);
-
-        $user->email_verified_at = now();
-        $user->save();
-
-        return $user;
-    }
-
-    /**
      * Generate OTP for intake email verification.
      */
     public function generateOtp(string $email): string
@@ -284,42 +233,36 @@ class IntakeService
     /**
      * Create the draft case record for a self-filed intake.
      */
-    private function createDraftCase(array $data, string $clientId): CaseFile
+    private function createDraftCase(array $data, string $clientId, string $email): CaseFile
     {
+        // Build a complete snapshot for the review page.
+        // ReviewIntake reads draft.address, draft.employment, draft.next_of_kin
+        // and draft.email directly from this JSON, so all submitted data must live here.
+        $clientData = $data['client'] ?? [];
+        $clientData['email'] = $email;
+
+        if (! empty($data['address'])) {
+            $clientData['address'] = $data['address'];
+        }
+        if (! empty($data['employment'])) {
+            $clientData['employment'] = $data['employment'];
+        }
+        if (! empty($data['next_of_kin'])) {
+            $clientData['next_of_kin'] = $data['next_of_kin'];
+        }
+
         $case = CaseFile::create([
             'case_number' => $this->generateCaseNumber(),
             'tracker_number' => $this->generateTrackerNumber(),
             'client_type' => 'OFW',
-            'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
             'summary' => $data['summary'] ?? null,
             'status' => 'DRAFT',
             'source' => CaseFile::SOURCE_SELF_FILED,
             'consent_given_at' => ! empty($data['consent']) ? now() : null,
-            'user_id' => null, // No CM assigned yet
+            'user_id' => null,
             'client_id' => $clientId,
-            'category_id' => $data['category_ids'][0] ?? $data['category_id'] ?? null,
-            'case_issue_id' => $data['case_issue_id'] ?? null,
-            'draft_client_data' => [
-                'first_name' => $data['client']['first_name'] ?? null,
-                'last_name' => $data['client']['last_name'] ?? null,
-                'middle_initial' => $data['client']['middle_initial'] ?? null,
-                'suffix' => $data['client']['suffix'] ?? null,
-                'date_of_birth' => $data['client']['date_of_birth'] ?? null,
-                'sex' => $data['client']['sex'] ?? null,
-                'email' => $data['client']['email'] ?? null,
-                'contact_number' => $data['client']['contact_number'] ?? null,
-                'address' => $data['address'] ?? null,
-                'employment' => $data['employment'] ?? null,
-                'next_of_kin' => $data['next_of_kin'] ?? null,
-                'summary' => $data['summary'] ?? null,
-                'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
-            ],
+            'draft_client_data' => $clientData,
         ]);
-
-        // Sync categories to pivot table
-        if (! empty($data['category_ids'])) {
-            $case->categories()->sync($data['category_ids']);
-        }
 
         return $case;
     }

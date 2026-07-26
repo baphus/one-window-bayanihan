@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Head, router, usePage } from '@inertiajs/react';
+import { useState, useCallback, useEffect } from 'react';
+import { Head, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TurnstileWidget from '@/Components/TurnstileWidget';
@@ -15,8 +15,7 @@ const STEPS = [
   { id: 'address', label: 'Address' },
   { id: 'employment', label: 'Employment' },
   { id: 'nok', label: 'Next of Kin' },
-  { id: 'case', label: 'Case Summary' },
-  { id: 'consent', label: 'Consent & Password' },
+  { id: 'submit', label: 'Submit Request' },
 ];
 
 const STORAGE_KEY = 'ofw_intake_form_data';
@@ -38,7 +37,7 @@ function clearSession() {
   sessionStorage.removeItem(STORAGE_KEY);
 }
 
-export default function IntakeIndex({ categories, caseIssues, positionOptions }) {
+export default function IntakeIndex({ positionOptions }) {
   const { turnstile } = usePage().props;
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -62,13 +61,8 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
       address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
       employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
       next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
-      category_ids: [],
-      case_issue_id: '',
-      vulnerability_indicator: 'None',
       summary: '',
       consent: false,
-      password: '',
-      password_confirmation: '',
     };
   });
 
@@ -280,10 +274,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
               <NokStep formData={formData} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 5 && (
-              <CaseDetailsStep formData={formData} updateField={updateField} setFormData={setFormData} errors={errors} categories={categories} caseIssues={caseIssues} onNext={goNext} onBack={goBack} />
-            )}
-            {currentStep === 6 && (
-              <ConsentStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} hasExistingAccount={hasExistingAccount} />
+              <SubmitReviewStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} />
             )}
           </div>
         </div>
@@ -739,229 +730,15 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   );
 }
 
-function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef(null);
-  const panelRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e) {
-      if (
-        panelRef.current && !panelRef.current.contains(e.target) &&
-        triggerRef.current && !triggerRef.current.contains(e.target)
-      ) {
-        setOpen(false);
-      }
-    }
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); }
-    }
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
-
-  function toggle(id) {
-    const sid = String(id);
-    const next = selectedIds.includes(sid)
-      ? selectedIds.filter((x) => x !== sid)
-      : [...selectedIds, sid];
-    onChange(next);
-  }
-
-  const count = selectedIds.length;
-  let summary;
-  if (count === 0) {
-    summary = 'Select categories\u2026';
-  } else if (count <= 2) {
-    summary = selectedIds
-      .map((id) => categories.find((c) => String(c.id) === String(id))?.name || id)
-      .join(', ');
-  } else {
-    summary = `${count} categories selected`;
-  }
-
-  return (
-    <div className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
-        role="combobox"
-        aria-label="Case categories"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex h-10 w-full items-center justify-between gap-2 rounded border px-3 text-left text-sm outline-none transition-colors bg-surface-container ${
-          error
-            ? 'border-error focus:border-error focus:ring-1 focus:ring-error'
-            : 'border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary'
-        } ${count === 0 ? 'text-slate-400' : 'text-slate-700'}`}
-      >
-        <span className="truncate">{summary}</span>
-        <span className="material-symbols-outlined text-[18px] text-slate-400">{open ? 'expand_less' : 'expand_more'}</span>
-      </button>
-      {open && (
-        <div
-          ref={panelRef}
-          role="listbox"
-          aria-multiselectable="true"
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded border border-outline-variant bg-white shadow-lg focus:outline-none"
-        >
-          {categories.map((cat) => {
-            const checked = selectedIds.includes(String(cat.id));
-            return (
-              <div
-                key={cat.id}
-                role="option"
-                aria-selected={checked}
-                onClick={() => toggle(cat.id)}
-                onKeyDown={(e) => {
-                  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(cat.id); }
-                }}
-                tabIndex={-1}
-                className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors ${
-                  checked ? 'bg-primary/5 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                  checked ? 'border-primary bg-primary' : 'border-outline-variant bg-white'
-                }`}>
-                  {checked && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
-                </div>
-                {cat.color && (
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cat.color }} />
-                )}
-                <span className="truncate">{cat.name}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CaseDetailsStep({ formData, updateField, setFormData, errors, categories, caseIssues, onNext, onBack }) {
+function SubmitReviewStep({ formData, updateField, errors, processing, onSubmit, onBack }) {
   const [stepErrors, setStepErrors] = useState({});
 
   const validate = () => {
     const errs = {};
-    if (!formData.category_ids?.length) errs.category_ids = 'Please select at least one type of help you need.';
-    if (formData.summary.trim().length < 20) errs.summary = 'Please provide at least 20 characters.';
-    setStepErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleCategoryChange = (ids) => {
-    updateField('category_ids', ids);
-    setStepErrors(prev => ({ ...prev, category_ids: undefined }));
-  };
-
-  const handleIssueChange = (e) => {
-    updateField('case_issue_id', e.target.value);
-  };
-
-  return (
-    <div>
-      <h2 className="mb-1 text-lg font-bold text-slate-900">Case Summary</h2>
-      <p className="mb-6 text-sm text-slate-500">Describe your case situation and what type of assistance you need.</p>
-
-      <div className="space-y-6">
-        {/* Categories */}
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Type of Assistance Needed *</label>
-          <p className="mb-2 text-xs text-slate-500">Select one or more categories that best describe your situation.</p>
-          <CategoryCheckboxDropdown
-            categories={categories || []}
-            selectedIds={formData.category_ids || []}
-            onChange={handleCategoryChange}
-            error={stepErrors.category_ids || errors.category_ids}
-          />
-          {(stepErrors.category_ids || errors.category_ids) && (
-            <p className="mt-1 text-xs text-error">{stepErrors.category_ids || errors.category_ids}</p>
-          )}
-        </div>
-
-        {/* Case Issue */}
-        {caseIssues?.length > 0 && (
-          <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Specific Issue (optional)</label>
-            <select
-              value={formData.case_issue_id}
-              onChange={handleIssueChange}
-              className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Select an issue...</option>
-              {caseIssues.map((issue) => (
-                <option key={issue.id} value={issue.id}>{issue.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Tell us what happened *</label>
-          <textarea
-            value={formData.summary}
-            onChange={e => { updateField('summary', e.target.value); setStepErrors(prev => ({ ...prev, summary: undefined })); }}
-            rows={5}
-            placeholder="Please describe your situation, what happened, and what kind of assistance you need..."
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
-          />
-          <p className="mt-1 text-xs text-slate-400">{formData.summary.length}/20 minimum characters</p>
-          {(stepErrors.summary || errors.summary) && <p className="mt-1 text-xs text-error">{stepErrors.summary || errors.summary}</p>}
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Vulnerability Indicator (optional)</label>
-          <div className="flex flex-wrap gap-3 mt-1">
-            {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
-              const checked = formData.vulnerability_indicator && formData.vulnerability_indicator !== 'None' && formData.vulnerability_indicator.split(',').map(s => s.trim()).includes(opt);
-              return (
-                <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => {
-                      const current = formData.vulnerability_indicator && formData.vulnerability_indicator !== 'None'
-                        ? formData.vulnerability_indicator.split(',').map(s => s.trim()).filter(Boolean)
-                        : [];
-                      const next = checked ? current.filter(v => v !== opt) : [...current, opt];
-                      updateField('vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
-                    }}
-                    className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm text-slate-700">{opt}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 flex justify-between">
-        <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
-        <button type="button" onClick={() => validate() && onNext()} className="bg-primary px-8 py-3 text-sm font-bold text-white hover:brightness-110">Continue</button>
-      </div>
-    </div>
-  );
-}
-
-function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBack, hasExistingAccount = false }) {
-  const [stepErrors, setStepErrors] = useState({});
-
-  const validate = () => {
-    const errs = {};
+    if (formData.summary && formData.summary.trim().length > 0 && formData.summary.trim().length < 20) {
+      errs.summary = 'If provided, summary must be at least 20 characters.';
+    }
     if (!formData.consent) errs.consent = 'You must consent to data processing to submit this form.';
-    if (formData.password || !hasExistingAccount) {
-      if (!formData.password) errs.password = 'Please create a password for your account.';
-      else if (formData.password.length < 8) errs.password = 'Password must be at least 8 characters long.';
-      if (!formData.password_confirmation) errs.password_confirmation = 'Please confirm your password.';
-      else if (formData.password !== formData.password_confirmation) errs.password_confirmation = 'Password confirmation does not match.';
-    }
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -970,14 +747,30 @@ function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBa
     if (validate()) onSubmit();
   };
 
-  const isReturning = hasExistingAccount;
-
   return (
     <div>
-      <h2 className="mb-1 text-lg font-bold text-slate-900">Consent & Account</h2>
-      <p className="mb-6 text-sm text-slate-500">Review, consent to data processing, and {isReturning ? 'optionally update' : 'create'} your account password.</p>
+      <h2 className="mb-1 text-lg font-bold text-slate-900">Review & Submit</h2>
+      <p className="mb-6 text-sm text-slate-500">Provide a brief description of your situation, then give consent to submit.</p>
 
       <div className="space-y-6">
+        <div>
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Tell us what happened (optional)</label>
+          <p className="mb-2 text-xs text-slate-500">
+            Briefly describe your situation. A Case Manager will follow up for more details.
+          </p>
+          <textarea
+            value={formData.summary}
+            onChange={e => { updateField('summary', e.target.value); setStepErrors(prev => ({ ...prev, summary: undefined })); }}
+            rows={4}
+            placeholder="Describe your situation briefly, or leave blank to discuss with a Case Manager..."
+            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
+          />
+          {formData.summary && formData.summary.length > 0 && formData.summary.length < 20 && (
+            <p className="mt-1 text-xs text-slate-400">Minimum 20 characters if providing a summary.</p>
+          )}
+          {(stepErrors.summary || errors.summary) && <p className="mt-1 text-xs text-error">{stepErrors.summary || errors.summary}</p>}
+        </div>
+
         <div className="rounded border border-outline-variant bg-slate-50 p-4">
           <h3 className="mb-2 text-sm font-bold text-slate-700">Data Processing Consent</h3>
           <p className="mb-4 text-xs leading-relaxed text-slate-600">
@@ -991,31 +784,6 @@ function ConsentStep({ formData, updateField, errors, processing, onSubmit, onBa
             <span className="text-sm font-medium text-slate-700">I agree to the data processing terms above *</span>
           </label>
           {stepErrors.consent && <p className="mt-1 text-xs text-error">{stepErrors.consent}</p>}
-        </div>
-
-        <div>
-          <h3 className="mb-3 text-sm font-bold text-slate-700">{isReturning ? 'Update Account Password' : 'Create Account Password'}</h3>
-          <p className="mb-4 text-xs text-slate-500">
-            {isReturning
-              ? 'Leave blank to keep your existing password. Enter a new one only if you want to change it.'
-              : 'This password will let you log in later to track your case status.'}
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">{isReturning ? 'New Password' : 'Password'} {!isReturning && '* '}</label>
-              <input type="password" value={formData.password} onChange={e => { updateField('password', e.target.value); setStepErrors(prev => ({ ...prev, password: undefined })); }}
-                placeholder={isReturning ? 'Leave blank to keep current' : 'Min. 8 characters'}
-                className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.password ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
-              {stepErrors.password && <p className="mt-1 text-xs text-error">{stepErrors.password}</p>}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Confirm {isReturning ? 'New ' : ''}Password {!isReturning && '* '}</label>
-              <input type="password" value={formData.password_confirmation} onChange={e => { updateField('password_confirmation', e.target.value); setStepErrors(prev => ({ ...prev, password_confirmation: undefined })); }}
-                disabled={!formData.password}
-                className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${stepErrors.password_confirmation ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
-              {stepErrors.password_confirmation && <p className="mt-1 text-xs text-error">{stepErrors.password_confirmation}</p>}
-            </div>
-          </div>
         </div>
 
         {errors.submit && (
@@ -1056,9 +824,9 @@ function IntakeSuccess() {
             Your assistance request has been submitted. A Case Manager will review your information and you will be notified once your case is processed.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <a href={route('login')} className="inline-flex items-center justify-center gap-2 bg-primary px-6 py-3.5 text-sm font-bold text-white hover:brightness-110">
-              <span className="material-symbols-outlined text-[18px]">login</span>
-              Log In to Track Status
+            <a href={route('track.index')} className="inline-flex items-center justify-center gap-2 bg-primary px-6 py-3.5 text-sm font-bold text-white hover:brightness-110">
+              <span className="material-symbols-outlined text-[18px]">search</span>
+              Track Your Case
             </a>
             <a href="/" className="inline-flex items-center justify-center gap-2 border border-outline-variant px-6 py-3.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
               Return to Home
