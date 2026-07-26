@@ -79,7 +79,7 @@ class StoreIntakeRequest extends FormRequest
             'next_of_kin.*.first_name.required' => 'Emergency contact name is required.',
             'category_ids.required' => 'Please select at least one type of help you need.',
             'summary.required' => 'Please describe your situation.',
-            'summary.min' => 'Please provide more details about your situation (at least 100 characters).',
+            'summary.min' => 'Please provide more details about your situation (at least 20 characters).',
             'consent.required' => 'You must consent to data processing to submit this form.',
             'consent.accepted' => 'You must consent to data processing to submit this form.',
             'password.required' => 'Please create a password for your account.',
