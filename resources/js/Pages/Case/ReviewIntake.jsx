@@ -347,7 +347,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
       let payload = {};
 
       if (editingSection === 'personal' && editPersonal) {
-        payload = {
+        // UpdateDraftRequest validates these as client.* — sending them flat
+        // means validated() strips every one of them and the save silently
+        // succeeds with 200 while persisting nothing. That left clients.sex
+        // NULL on self-filed intakes, which publish then rejects.
+        const client = {
           first_name: editPersonal.first_name,
           last_name: editPersonal.last_name,
           middle_initial: editPersonal.middle_initial,
@@ -357,9 +361,10 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           email: editPersonal.email,
           contact_number: editPersonal.contact_number,
         };
+        payload = { client };
         await window.axios.put(route('cases.save-draft', caseFile.id), payload);
         // Update local draft data
-        Object.assign(draft, payload);
+        Object.assign(draft, client);
       } else if (editingSection === 'address' && editAddress) {
         payload = { address: editAddress };
         await window.axios.put(route('cases.save-draft', caseFile.id), payload);
