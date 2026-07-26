@@ -735,7 +735,7 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, onNext, o
 
   const validate = () => {
     const errs = {};
-    if (formData.summary.trim().length < 100) errs.summary = 'Please provide at least 100 characters.';
+    if (formData.summary.trim().length < 20) errs.summary = 'Please provide at least 20 characters.';
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -755,7 +755,7 @@ function CaseDetailsStep({ formData, updateField, setFormData, errors, onNext, o
             placeholder="Please describe your situation, what happened, and what kind of assistance you need..."
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
           />
-          <p className="mt-1 text-xs text-slate-400">{formData.summary.length}/100 minimum characters</p>
+          <p className="mt-1 text-xs text-slate-400">{formData.summary.length}/20 minimum characters</p>
           {(stepErrors.summary || errors.summary) && <p className="mt-1 text-xs text-error">{stepErrors.summary || errors.summary}</p>}
         </div>
 
