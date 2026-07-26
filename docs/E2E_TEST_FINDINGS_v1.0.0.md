@@ -169,6 +169,64 @@ the remaining flows.
 | Case timeline / `case_events` | PASS | 3 events recorded across open → refer → accept |
 | Audit chain across the whole sequence | PASS | `audit_logs` 0 → 32, no gaps |
 
+## 4a. D1 fixed — root cause was a request-contract mismatch
+
+The original diagnosis ("save-draft discards `sex`") was correct in effect but
+incomplete in cause. `UpdateDraftRequest` validates client fields as `client.*`
+(`client.sex`, `client.first_name`, …). `ReviewIntake.jsx` sent them **flat at the
+top level**, so `validated()` stripped **every** client field. Because all those
+rules are `nullable`, the request passed validation and returned 200 OK while
+writing nothing.
+
+The other fields were invisible casualties — they already held values from
+intake, so losing the update changed nothing observable. Only `sex`, never set in
+the first place, surfaced, and publish refuses a case without it.
+
+Fixes committed in `a1ccff8`:
+
+1. `ReviewIntake.jsx` nests the personal payload under `client`, matching the contract.
+2. The intake wizard's Sex `<select>` gains an empty `Select…` option and a `*`
+   marker, so the browser can no longer render a phantom "Male" over empty state.
+
+Two regression tests added to `CaseDraftTest.php`. Note the pre-existing draft
+tests all passed both before and after the fix, because **every one of them sent
+the correct nested shape** — the contract mismatch was untested in either
+direction. One new test pins `sex` round-tripping; the other documents that flat
+client fields are silently ignored, so widening the contract must be deliberate.
+
+## 4b. Admin flows
+
+| Screen | Result | Evidence |
+|---|---|---|
+| Manage Users | PASS | All 3 users listed with correct role labels (System Admin / Case Manager / Agency Focal), agency linkage, Verified toggles, Edit/Deactivate, Invite User, Pending Invites |
+| Manage Agencies | PASS | Renders, no console errors |
+| System Settings | PASS | Renders |
+| Active Sessions | PASS | Renders |
+| Audit Logs | PASS | Renders |
+| Reports | PASS | Renders |
+| **Email Logs** | PASS | Five outbound emails, all `sent`, none failed — see below |
+| MFA challenge on login | PASS | Admin sign-in required TOTP at `/login/mfa`; generated code accepted |
+
+Email Logs is the strongest single piece of evidence that the notification
+pipeline works end to end, because it shows both sides of the referral being
+notified:
+
+```
+ofw.e2e@example.com          Your Verification Code                    sent
+agency.e2e@bayanihan.gov.ph  Referral Created                          sent
+rosa.santos.e2e@example.com  Update on Your Case (OWB-2026-00002)      sent (x2)
+cm.e2e@bayanihan.gov.ph      Referral Status Changed                   sent
+```
+
+This is precisely the path that was dead before the `Dockerfile` `HOME` fix, when
+the queue worker could not reach the database and `/up` still reported healthy.
+
+**Caveat on coverage:** the admin screens above were verified to render with real
+data and no console errors. Except for Manage Users, their **mutating**
+operations (create/edit/delete an agency, change a setting, revoke a session,
+run an export) were **not** driven. Treat this as a render-and-read sweep, not
+full CRUD coverage.
+
 ## 5. Still not exercised
 
 - **Admin flows** — users/invites, agencies, services, statuses/categories/issues,
