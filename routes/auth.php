@@ -21,9 +21,12 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
+    // Named login.store, not login: two routes sharing the name breaks
+    // `route:cache` with "Unable to prepare route [login] for serialization".
+    // route('login') still resolves to this same /login path for form actions.
     Route::post('login', [AuthenticatedSessionController::class, 'store'])
         ->middleware(['turnstile', 'throttle:login'])
-        ->name('login');
+        ->name('login.store');
 
     Route::get('login/mfa', [MfaChallengeController::class, 'show'])
         ->middleware('mfa.pending')->name('mfa.challenge.show');
