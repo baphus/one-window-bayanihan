@@ -48,13 +48,14 @@ function formatAddress(resolved, raw) {
   if (resolved?.province) parts.push(resolved.province);
   if (resolved?.region) parts.push(resolved.region);
   if (parts.length > 0) return parts.join(', ');
-  // Fallback: show raw PSGC codes
+  // Last resort only. These values are PSGC codes, which are meaningless to a
+  // reviewer, so surface them as clearly unresolved rather than as an address.
   const rawParts = [];
   if (raw?.barangay) rawParts.push(raw.barangay);
   if (raw?.city_municipality) rawParts.push(raw.city_municipality);
   if (raw?.province) rawParts.push(raw.province);
   if (raw?.region) rawParts.push(raw.region);
-  return rawParts.length > 0 ? rawParts.join(', ') : '—';
+  return rawParts.length > 0 ? `Unresolved address codes: ${rawParts.join(', ')}` : '—';
 }
 
 /* ── CategoryCheckboxDropdown ─────────────────────────────────── */
@@ -221,7 +222,7 @@ function InfoRow({ label, value }) {
    MAIN PAGE COMPONENT
    ════════════════════════════════════════════════════════════════ */
 
-export default function ReviewIntake({ case: caseFile, categories = [], caseIssues = [], draftResolvedAddress = {} }) {
+export default function ReviewIntake({ case: caseFile, categories = [], caseIssues = [], draftResolvedAddress = {}, draftAddressNames = {} }) {
   const toast = useToast();
   const draft = caseFile.draft_client_data || {};
   const address = draft.address || {};
@@ -455,9 +456,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
     return '—';
   }, [employment.start_date, employment.end_date, employment.is_present]);
 
+  // Prefer the server-resolved place names. draftResolvedAddress holds PSGC
+  // codes for the cascade dropdowns, so using it here rendered raw numbers.
   const resolvedAddress = useMemo(() => {
-    return formatAddress(draftResolvedAddress, address);
-  }, [draftResolvedAddress, address]);
+    return formatAddress(draftAddressNames, address);
+  }, [draftAddressNames, address]);
 
   const canPublish = categoryIds.length > 0;
 

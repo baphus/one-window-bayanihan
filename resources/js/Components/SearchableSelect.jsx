@@ -1,5 +1,39 @@
 import { useState, useRef, useEffect } from 'react';
 
+// Words that carry no distinguishing meaning in PSGC place names. PSGC stores
+// highly urbanised cities as "City of Cebu", but users type "Cebu City", so a
+// plain substring match returned "No results found" for the most natural input.
+// Stripping these lets either word order match.
+const PLACE_NOISE_WORDS = new Set(['city', 'municipality', 'of', 'the']);
+
+function significantTokens(text) {
+    return String(text ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((t) => t && !PLACE_NOISE_WORDS.has(t));
+}
+
+/**
+ * True when the option label matches the query. Falls back from a plain
+ * substring test to a token-subset test so "Cebu City" finds "City of Cebu"
+ * and "Lapu-Lapu City" finds "City of Lapu-Lapu".
+ */
+export function matchesQuery(label, query) {
+    const q = String(query ?? '').trim().toLowerCase();
+    if (!q) return true;
+
+    const lower = String(label ?? '').toLowerCase();
+    if (lower.includes(q)) return true;
+
+    const queryTokens = significantTokens(q);
+    if (queryTokens.length === 0) return false;
+
+    const labelTokens = significantTokens(label);
+
+    return queryTokens.every((qt) => labelTokens.some((lt) => lt.startsWith(qt)));
+}
+
 /**
  * Searchable dropdown that also supports freeform typing when `allowCustom` is true.
  *
@@ -19,7 +53,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     const selectedOption = options.find((o) => o.value === value);
 
     const filtered = query.trim()
-        ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+        ? options.filter((o) => matchesQuery(o.label, query))
         : options;
 
     // When allowCustom is on, the typed query may not match any option exactly.

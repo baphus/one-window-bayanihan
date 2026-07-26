@@ -71,21 +71,14 @@ function getDraftCategoryIds(draft) {
     return normalizeCategoryIds(draft?.category_ids ?? draft?.category_id ?? draft?.category);
 }
 
-function GenerateCaseId() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = `${now.getMonth() + 1}`.padStart(2, '0');
-    const d = `${now.getDate()}`.padStart(2, '0');
-    const s = `${Math.floor(Math.random() * 9000) + 1000}`;
-    return `CM-${y}${m}${d}-${s}`;
-}
-
-function GenerateTrackingId() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let token = '';
-    for (let i = 0; i < 7; i++) token += chars[Math.floor(Math.random() * chars.length)];
-    return `OWBAP-${token}`;
-}
+// The case number and tracker number are assigned by the server on save
+// (CaseService::generateCaseNumber / generateTrackerNumber) using the canonical
+// OWB-{YEAR}-{NNNNN} and OWBAP-XXXXXXX formats. This screen used to generate and
+// display look-alike values (CM-YYYYMMDD-NNNN plus a random OWBAP token) which
+// were then thrown away, so a case manager who noted the tracker number to give
+// the client handed over an identifier that did not exist. Show a placeholder
+// instead of inventing one.
+const PENDING_IDENTIFIER = 'Assigned on save';
 
 function Field({ label, required, children, className }) {
     return (
@@ -447,8 +440,10 @@ export default function CaseCreate() {
     const toast = useToast();
 
     const [currentStep, setCurrentStep] = useState(1);
-    const [caseId, setCaseId] = useState(() => GenerateCaseId());
-    const [trackingId, setTrackingId] = useState(() => GenerateTrackingId());
+    // Placeholders for a new case; replaced with the draft's real identifiers
+    // when an existing draft is loaded (see the resume path below).
+    const [caseId, setCaseId] = useState(PENDING_IDENTIFIER);
+    const [trackingId, setTrackingId] = useState(PENDING_IDENTIFIER);
     const [clientSource, setClientSource] = useState('new');
     const [selectedClient, setSelectedClient] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
@@ -913,9 +908,10 @@ export default function CaseCreate() {
             setCurrentStep(2);
         }
 
-        // 5. Generated IDs — override with existing draft's real IDs
-        setCaseId(existingDraft.case_number);
-        setTrackingId(existingDraft.tracker_number);
+        // 5. Real, server-assigned identifiers for a draft being resumed.
+        //    Fall back to the placeholder if the draft predates assignment.
+        setCaseId(existingDraft.case_number || PENDING_IDENTIFIER);
+        setTrackingId(existingDraft.tracker_number || PENDING_IDENTIFIER);
 
         // 5. Dirty tracking reset — follow handleConfirmClient pattern
         initialFormRef.current = {

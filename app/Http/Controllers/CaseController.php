@@ -11,6 +11,7 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\GeneratedDocument;
 use App\Models\SystemSetting;
+use App\Services\AddressNameResolver;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\OnboardingService;
@@ -28,6 +29,7 @@ class CaseController extends Controller
         private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
         private readonly ReferenceDataService $referenceData,
+        private readonly AddressNameResolver $addressNames,
     ) {}
 
     public function index(Request $request)
@@ -158,11 +160,28 @@ class CaseController extends Controller
             }
         }
 
+        // draftResolvedAddress carries PSGC *codes* so the cascade dropdowns can
+        // pre-select. The review screen also needs human-readable *names*, and
+        // reusing the codes prop there rendered the reviewer four raw numbers
+        // (e.g. "0730600041, 0730600000, ...") instead of the OFW's address.
+        $draftAddressNames = [];
+        if (! empty($draftData['address'])) {
+            $a = $draftData['address'];
+            $draftAddressNames = [
+                'barangay' => $this->addressNames->resolve($a['barangay'] ?? null),
+                'city_municipality' => $this->addressNames->resolve($a['city_municipality'] ?? null),
+                'province' => $this->addressNames->resolve($a['province'] ?? null),
+                'region' => $this->addressNames->resolve($a['region'] ?? null),
+                'street' => $a['street'] ?? '',
+            ];
+        }
+
         return Inertia::render('Case/ReviewIntake', [
             'case' => $case,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
             'draftResolvedAddress' => $draftResolvedAddress,
+            'draftAddressNames' => $draftAddressNames,
         ]);
     }
 
