@@ -45,7 +45,7 @@ class OfwDashboardTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('component', 'OFW/Dashboard');
 
-        $cases = $response->json('props.cases');
+        $cases = $response->json('props.cases.data');
         $this->assertCount(2, $cases);
     }
 

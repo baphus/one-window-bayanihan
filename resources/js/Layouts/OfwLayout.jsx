@@ -27,7 +27,7 @@ export default function OfwLayout({ children, title }) {
                                 className="h-8 w-8"
                             />
                             <span className="hidden text-sm font-bold text-gray-800 sm:block">
-                                Bayanihan
+                                One Window Bayanihan
                             </span>
                         </Link>
 

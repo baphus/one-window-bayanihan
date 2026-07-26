@@ -108,7 +108,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return null; // Let Inertia handle it
         });
         $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
+            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
                 return response()->json(['message' => 'Forbidden.'], 403);
             }
 
@@ -122,7 +122,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return redirect()->guest(route('login'));
         });
         $exceptions->render(function (TooManyRequestsHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
+            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
                 return response()->json(['message' => 'Too many requests. Please slow down.'], 429);
             }
 
@@ -168,7 +168,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 'incident_id' => $incidentId,
                 'exception' => $e,
             ]);
-            if ($request->is(['api/*', '*/api/*'])) {
+            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'An unexpected error occurred.',
                     'incident_id' => $incidentId,
