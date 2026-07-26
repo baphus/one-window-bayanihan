@@ -22,9 +22,9 @@ class OfwDashboardController extends Controller
 
         $cases = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
-            ->with(['category', 'referrals.agency'])
+            ->with(['categories', 'referrals.agency'])
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate(15);
 
         return Inertia::render('OFW/Dashboard', [
             'cases' => $cases,

@@ -9,6 +9,8 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use App\Notifications\NewIntakeSubmission;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -92,13 +94,28 @@ class IntakeService
      */
     public function createIntakeCase(array $data, string $verifiedEmail, string $password): CaseFile
     {
-        $case = DB::transaction(function () use ($data, $verifiedEmail, $password) {
-            $client = $this->findOrCreateClient($data, $verifiedEmail);
-            $user = $this->findOrCreateOfwUser($verifiedEmail, $password, $client->id, $data);
-            $case = $this->createDraftCase($data, $client->id);
+        $maxAttempts = 3;
 
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'categories', 'caseIssue']);
-        });
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $case = DB::transaction(function () use ($data, $verifiedEmail, $password) {
+                    $client = $this->findOrCreateClient($data, $verifiedEmail);
+                    $user = $this->findOrCreateOfwUser($verifiedEmail, $password, $client->id, $data);
+                    $case = $this->createDraftCase($data, $client->id);
+
+                    return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'categories', 'caseIssue']);
+                });
+                // Success — exit retry loop
+                break;
+            } catch (QueryException $e) {
+                if ($e->getCode() === '23505' && $attempt < $maxAttempts) {
+                    // Unique constraint violation (case_number or tracker_number collision) — retry
+                    continue;
+                }
+
+                throw $e;
+            }
+        }
 
         // Notify all active Case Managers about the new intake (outside transaction)
         $this->notifyCaseManagers($case, $data);
@@ -364,7 +381,8 @@ class IntakeService
     private function generateCaseNumber(): string
     {
         $year = now()->format('Y');
-        $latest = CaseFile::where('case_number', 'like', "OWB-{$year}-%")
+        $latest = CaseFile::withoutGlobalScope(SoftDeletingScope::class)
+            ->where('case_number', 'like', "OWB-{$year}-%")
             ->orderByRaw("CAST(SUBSTRING(case_number FROM 'OWB-\\d{4}-(\\d+)') AS INTEGER) DESC")
             ->value('case_number');
 

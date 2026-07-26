@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
@@ -61,6 +61,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
       address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
       employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
       next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+      category_ids: [],
       case_issue_id: '',
       vulnerability_indicator: 'None',
       summary: '',
@@ -180,16 +181,22 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
         clearSession();
         setSubmitSuccess(true);
       } else if (res.status === 422) {
-        // Validation errors
+        // Validation errors — merge with existing but keep submit-level
         const validationErrors = json.errors || {};
-        setErrors(validationErrors);
+        setErrors(prev => ({ ...prev, ...validationErrors }));
+        if (!validationErrors.submit) {
+          // Collect first visible field error as submit-level message
+          const firstError = Object.values(validationErrors).flat().find(Boolean);
+          setErrors(prev => ({ ...prev, submit: firstError || 'Please check the form fields and try again.' }));
+        }
       } else if (res.status === 429) {
         setErrors({ submit: 'Too many attempts. Please wait a minute and try again.' });
       } else {
         setErrors({ submit: json.error || json.message || 'Submission failed. Please try again.' });
       }
     } catch (e) {
-      setErrors({ submit: 'Network error. Please try again.' });
+      // Non-JSON response (HTML error page) — try to extract status from the response
+      setErrors({ submit: 'Server error. Please try again. If the problem persists, contact support.' });
     }
     setProcessing(false);
   };
@@ -271,7 +278,7 @@ export default function IntakeIndex({ categories, caseIssues, positionOptions })
               <NokStep formData={formData} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 5 && (
-              <CaseDetailsStep formData={formData} updateField={updateField} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
+              <CaseDetailsStep formData={formData} updateField={updateField} setFormData={setFormData} errors={errors} categories={categories} caseIssues={caseIssues} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 6 && (
               <ConsentStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} />
@@ -730,22 +737,169 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   );
 }
 
-function CaseDetailsStep({ formData, updateField, setFormData, errors, onNext, onBack }) {
+function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef(null);
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e) {
+      if (
+        panelRef.current && !panelRef.current.contains(e.target) &&
+        triggerRef.current && !triggerRef.current.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); }
+    }
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  function toggle(id) {
+    const sid = String(id);
+    const next = selectedIds.includes(sid)
+      ? selectedIds.filter((x) => x !== sid)
+      : [...selectedIds, sid];
+    onChange(next);
+  }
+
+  const count = selectedIds.length;
+  let summary;
+  if (count === 0) {
+    summary = 'Select categories\u2026';
+  } else if (count <= 2) {
+    summary = selectedIds
+      .map((id) => categories.find((c) => String(c.id) === String(id))?.name || id)
+      .join(', ');
+  } else {
+    summary = `${count} categories selected`;
+  }
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        role="combobox"
+        aria-label="Case categories"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex h-10 w-full items-center justify-between gap-2 rounded border px-3 text-left text-sm outline-none transition-colors bg-surface-container ${
+          error
+            ? 'border-error focus:border-error focus:ring-1 focus:ring-error'
+            : 'border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary'
+        } ${count === 0 ? 'text-slate-400' : 'text-slate-700'}`}
+      >
+        <span className="truncate">{summary}</span>
+        <span className="material-symbols-outlined text-[18px] text-slate-400">{open ? 'expand_less' : 'expand_more'}</span>
+      </button>
+      {open && (
+        <div
+          ref={panelRef}
+          role="listbox"
+          aria-multiselectable="true"
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded border border-outline-variant bg-white shadow-lg focus:outline-none"
+        >
+          {categories.map((cat) => {
+            const checked = selectedIds.includes(String(cat.id));
+            return (
+              <div
+                key={cat.id}
+                role="option"
+                aria-selected={checked}
+                onClick={() => toggle(cat.id)}
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(cat.id); }
+                }}
+                tabIndex={-1}
+                className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                  checked ? 'bg-primary/5 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                  checked ? 'border-primary bg-primary' : 'border-outline-variant bg-white'
+                }`}>
+                  {checked && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
+                </div>
+                {cat.color && (
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cat.color }} />
+                )}
+                <span className="truncate">{cat.name}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CaseDetailsStep({ formData, updateField, setFormData, errors, categories, caseIssues, onNext, onBack }) {
   const [stepErrors, setStepErrors] = useState({});
 
   const validate = () => {
     const errs = {};
+    if (!formData.category_ids?.length) errs.category_ids = 'Please select at least one type of help you need.';
     if (formData.summary.trim().length < 20) errs.summary = 'Please provide at least 20 characters.';
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
+  const handleCategoryChange = (ids) => {
+    updateField('category_ids', ids);
+    setStepErrors(prev => ({ ...prev, category_ids: undefined }));
+  };
+
+  const handleIssueChange = (e) => {
+    updateField('case_issue_id', e.target.value);
+  };
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Case Summary</h2>
-      <p className="mb-6 text-sm text-slate-500">Describe your case situation.</p>
+      <p className="mb-6 text-sm text-slate-500">Describe your case situation and what type of assistance you need.</p>
 
       <div className="space-y-6">
+        {/* Categories */}
+        <div>
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Type of Assistance Needed *</label>
+          <p className="mb-2 text-xs text-slate-500">Select one or more categories that best describe your situation.</p>
+          <CategoryCheckboxDropdown
+            categories={categories || []}
+            selectedIds={formData.category_ids || []}
+            onChange={handleCategoryChange}
+            error={stepErrors.category_ids || errors.category_ids}
+          />
+          {(stepErrors.category_ids || errors.category_ids) && (
+            <p className="mt-1 text-xs text-error">{stepErrors.category_ids || errors.category_ids}</p>
+          )}
+        </div>
+
+        {/* Case Issue */}
+        {caseIssues?.length > 0 && (
+          <div>
+            <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Specific Issue (optional)</label>
+            <select
+              value={formData.case_issue_id}
+              onChange={handleIssueChange}
+              className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
+            >
+              <option value="">Select an issue...</option>
+              {caseIssues.map((issue) => (
+                <option key={issue.id} value={issue.id}>{issue.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Tell us what happened *</label>
           <textarea
