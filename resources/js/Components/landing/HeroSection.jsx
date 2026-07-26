@@ -1,5 +1,6 @@
 import { HERO_IMAGE } from './appData';
 import LogoMarquee from './LogoMarquee';
+import AppButton from './AppButton';
 
 export default function HeroSection({ title, description, onTrackAction, agencies }) {
   return (
@@ -45,19 +46,22 @@ export default function HeroSection({ title, description, onTrackAction, agencie
               className="animate-fade-in-up flex flex-wrap items-center gap-4"
               style={{ animationDelay: '0.5s', animationFillMode: 'both' }}
             >
+              <AppButton
+                as="link"
+                href={route('intake.index')}
+                variant="mint"
+                icon="edit_note"
+                className="px-6 py-3 text-sm shadow-xl"
+              >
+                File a Case
+              </AppButton>
               <button
                 onClick={onTrackAction}
-                className="inline-flex items-center justify-center gap-2 bg-white px-6 py-3 text-sm font-bold text-primary shadow-xl transition-all hover:bg-slate-100 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"
               >
                 <span className="material-symbols-outlined text-[22px]">travel_explore</span>
                 Track Your Case
               </button>
-              <a
-                href="#features"
-                className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"
-              >
-                Learn More
-              </a>
             </div>
           </div>
 

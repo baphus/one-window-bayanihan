@@ -39,6 +39,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',
         'agcy_id',
+        'client_id',
         'is_active',
         'contact_number',
         'avatar_url',
@@ -106,5 +107,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isAgency(): bool
     {
         return $this->role === 'AGENCY';
+    }
+
+    public function isOfw(): bool
+    {
+        return $this->role === 'OFW';
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class, 'client_id');
     }
 }

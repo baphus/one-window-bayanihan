@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Helpers\CacheHelper;
+use App\Services\CaseService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -23,7 +24,7 @@ class HandleInertiaRequests extends Middleware
     private function getOnboardingRequired(Request $request): bool
     {
         $user = $request->user();
-        if (! $user) {
+        if (! $user || $user->role === 'OFW') {
             return false;
         }
 
@@ -33,7 +34,7 @@ class HandleInertiaRequests extends Middleware
     private function getProfileIncomplete(Request $request): bool
     {
         $user = $request->user();
-        if (! $user) {
+        if (! $user || $user->role === 'OFW') {
             return false;
         }
 
@@ -55,6 +56,24 @@ class HandleInertiaRequests extends Middleware
             "notifications:unread:{$user->id}",
             60,
             fn () => $user->unreadNotifications()->count(),
+        );
+    }
+
+    /**
+     * Get cached intake queue count for CM/ADMIN users.
+     * TTL: 120 seconds — intake submissions are infrequent.
+     */
+    private function getIntakeQueueCount(Request $request): int
+    {
+        $user = $request->user();
+        if (! $user || ! in_array($user->role, ['CASE_MANAGER', 'ADMIN'])) {
+            return 0;
+        }
+
+        return (int) CacheHelper::safeRemember(
+            'intake_queue:count',
+            120,
+            fn () => app(CaseService::class)->getIntakeQueueCount(),
         );
     }
 
@@ -95,9 +114,10 @@ class HandleInertiaRequests extends Middleware
             'notifications' => fn () => [
                 'unread_count' => $this->getUnreadNotificationCount($request),
             ],
+            'intake_queue_count' => fn () => $this->getIntakeQueueCount($request),
             'just_published' => $request->session()->get('just_published'),
             'onboarding_required' => fn () => $this->getOnboardingRequired($request),
-            'onboarding' => fn () => $request->user()
+            'onboarding' => fn () => $request->user() && $request->user()->role !== 'OFW'
                 ? app(OnboardingService::class)->getOnboardingState($request->user())
                 : null,
             'profile_incomplete' => fn () => $this->getProfileIncomplete($request),

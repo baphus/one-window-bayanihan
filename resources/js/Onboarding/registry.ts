@@ -105,6 +105,15 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="trash-table"]', title: 'Restore or Wait', description: 'Each row shows when the case was deleted, by whom, and why. Click Restore to return a case to active ARCHIVED status — or leave it to be automatically purged after the retention period.', side: 'top' },
         ],
     },
+    'cases.intake-queue': {
+        title: 'Intake Queue',
+        helpdeskSlug: 'managing-draft-cases',
+        steps: [
+            { element: '[data-tour="intake-queue-header"]', title: 'OFW Self-Filed Submissions', description: 'Cases submitted directly by OFWs through the public intake form appear here, waiting for your review before they become active cases.', side: 'bottom' },
+            { element: '[data-tour="intake-queue-table"]', title: 'Review Submissions', description: 'Each row shows the OFW\'s name, email, submission date, and category. Click Review to open the draft, verify the details, and add institutional context before publishing.', side: 'top' },
+            { element: '[data-tour="intake-queue-actions"]', title: 'Publish or Reject', description: 'After reviewing, Publish the case to make it active and assign it to yourself — the OFW will be notified with their tracker number. If the submission is invalid, use Reject to close it with a reason.', side: 'top' },
+        ],
+    },
     'clients.index': {
         title: 'Clients',
         helpdeskSlug: 'getting-started-case-managers',

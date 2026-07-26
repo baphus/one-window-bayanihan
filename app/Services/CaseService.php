@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
+use App\Mail\IntakePublishedMail;
+use App\Mail\IntakeRejectedMail;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -22,6 +24,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -223,7 +226,9 @@ class CaseService
         return DB::transaction(function () use ($id, $data, $userId) {
             $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
-            if ($case->user_id !== $userId) {
+            // Self-filed cases have no owner — allow any CM/ADMIN to edit
+            $isSelfFiled = $case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null;
+            if (! $isSelfFiled && $case->user_id !== $userId) {
                 throw new AuthorizationException('You do not own this draft.');
             }
 
@@ -388,6 +393,120 @@ class CaseService
         });
     }
 
+    public function getIntakeQueue(array $filters = [], int $perPage = 15, string $sort = 'created_at', string $direction = 'asc'): LengthAwarePaginator
+    {
+        $query = CaseFile::with('client', 'category', 'categories')
+            ->where('source', CaseFile::SOURCE_SELF_FILED)
+            ->where('status', 'DRAFT')
+            ->where('is_deleted', false);
+
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('case_number', 'ilike', "%{$search}%")
+                    ->orWhereHas('client', function ($q) use ($search) {
+                        $q->where('first_name', 'ilike', "%{$search}%")
+                            ->orWhere('last_name', 'ilike', "%{$search}%")
+                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
+                    })
+                    ->orWhereRaw("draft_client_data->>'first_name' ILIKE ?", ["%{$search}%"])
+                    ->orWhereRaw("draft_client_data->>'last_name' ILIKE ?", ["%{$search}%"]);
+            });
+        }
+
+        $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'asc';
+
+        if ($sort === 'client_name') {
+            $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+            $query->orderByRaw('(SELECT last_name FROM clients WHERE clients.id = cases.client_id) '.$dir)
+                ->orderByRaw('(SELECT first_name FROM clients WHERE clients.id = cases.client_id) '.$dir);
+        } else {
+            $sortColumn = match ($sort) {
+                'vulnerability_indicator' => 'cases.vulnerability_indicator',
+                default => 'cases.created_at',
+            };
+            $query->orderBy($sortColumn, $direction);
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    public function rejectIntake(string $id, string $reason, string $userId): CaseFile
+    {
+        return DB::transaction(function () use ($id, $reason, $userId) {
+            $case = CaseFile::where('source', CaseFile::SOURCE_SELF_FILED)
+                ->where('status', 'DRAFT')
+                ->findOrFail($id);
+
+            // Set deletion metadata before triggering the soft-delete
+            $case->deletion_reason = $reason;
+            $case->deleted_by = $userId;
+            $case->save();
+
+            // Use the model's delete() which triggers SoftDeleteFlag listener
+            $case->delete();
+
+            AuditLog::create([
+                'action' => AuditAction::DELETE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $case->id,
+                'description' => "Self-filed intake {$case->case_number} rejected — {$reason}",
+                'old_value' => ['status' => 'DRAFT', 'source' => CaseFile::SOURCE_SELF_FILED],
+                'new_value' => ['is_deleted' => true, 'deletion_reason' => $reason],
+                'user_id' => $userId,
+                'timestamp' => now(),
+            ]);
+
+            // Notify OFW about the rejection via email
+            $clientEmail = $case->client?->email;
+            if ($clientEmail) {
+                Mail::to($clientEmail)->queue(new IntakeRejectedMail($case, $reason));
+            }
+
+            return $case;
+        });
+    }
+
+    public function getIntakeQueueCount(): int
+    {
+        return CaseFile::where('source', CaseFile::SOURCE_SELF_FILED)
+            ->where('status', 'DRAFT')
+            ->where('is_deleted', false)
+            ->count();
+    }
+
+    public function getIntakeQueueStats(): array
+    {
+        $base = CaseFile::where('source', CaseFile::SOURCE_SELF_FILED)
+            ->where('status', 'DRAFT')
+            ->where('is_deleted', false);
+
+        $total = (clone $base)->count();
+
+        $vulnerable = (clone $base)->where(function ($q) {
+            $q->where('vulnerability_indicator', '!=', 'None')
+                ->whereNotNull('vulnerability_indicator')
+                ->where('vulnerability_indicator', '!=', '');
+        })->count();
+
+        $thisWeek = (clone $base)->where('created_at', '>=', now()->subDays(7))->count();
+
+        $categoryCount = DB::table('case_category')
+            ->join('cases', 'cases.id', '=', 'case_category.case_id')
+            ->where('cases.source', CaseFile::SOURCE_SELF_FILED)
+            ->where('cases.status', 'DRAFT')
+            ->where('cases.is_deleted', false)
+            ->distinct()
+            ->count('case_category.case_category_id');
+
+        return [
+            'total' => $total,
+            'vulnerable' => $vulnerable,
+            'thisWeek' => $thisWeek,
+            'categoryCount' => $categoryCount,
+        ];
+    }
+
     public function getUserDrafts(string $userId, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = CaseFile::with('client', 'category', 'categories')
@@ -423,7 +542,12 @@ class CaseService
         return DB::transaction(function () use ($id, $userId) {
             $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
-            if ($case->user_id !== $userId) {
+            // Self-filed cases have no owner yet — allow any CM/ADMIN to publish
+            if ($case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null) {
+                $case->user_id = $userId;
+                $case->intake_reviewed_by = $userId;
+                $case->save();
+            } elseif ($case->user_id !== $userId) {
                 throw new AuthorizationException('You do not own this draft.');
             }
 
@@ -530,6 +654,28 @@ class CaseService
                 'user_id' => $userId,
                 'timestamp' => now(),
             ]);
+
+            // Notify OFW when their self-filed intake is accepted/published
+            if ($case->source === CaseFile::SOURCE_SELF_FILED) {
+                $clientEmail = $case->client?->email;
+
+                if ($clientEmail) {
+                    $this->notificationService->notifyOfw(
+                        $case,
+                        $clientEmail,
+                        'intake_published',
+                        'Case Accepted',
+                        "Your case has been accepted. Your tracker number is {$case->tracker_number}. A Case Manager has been assigned to coordinate your case.",
+                        [
+                            'case_number' => $case->case_number,
+                            'tracker_number' => $case->tracker_number,
+                        ],
+                        route('track.show', $case->tracker_number),
+                    );
+
+                    Mail::to($clientEmail)->queue(new IntakePublishedMail($case));
+                }
+            }
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });

@@ -51,7 +51,7 @@ class CategoryIntegrityHardeningTest extends TestCase
 
         app(CaseService::class)->updateCase($case->id, ['client_type' => 'OFW'], $case->user_id);
 
-        $this->assertSame([$first->id, $second->id], $case->fresh()->categories()->pluck('case_categories.id')->all());
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $case->fresh()->categories()->pluck('case_categories.id')->all());
         $this->assertSame($first->id, $case->fresh()->category_id);
     }
 

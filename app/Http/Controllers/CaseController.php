@@ -102,7 +102,12 @@ class CaseController extends Controller
     {
         $case = $this->caseService->getCase($id);
         abort_unless($case->status === 'DRAFT', 404);
-        abort_unless($case->user_id === $request->user()->id, 403);
+
+        // Allow CMs/Admins to edit self-filed drafts (user_id is null)
+        $isSelfFiled = $case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null;
+        if (! $isSelfFiled) {
+            abort_unless($case->user_id === $request->user()->id, 403);
+        }
 
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
@@ -124,6 +129,39 @@ class CaseController extends Controller
             'categories' => $categories,
             'caseIssues' => $caseIssues,
             'positionOptions' => $this->referenceData->getPositionOptions(),
+            'draftResolvedAddress' => $draftResolvedAddress,
+        ]);
+    }
+
+    public function reviewIntake(Request $request, string $id)
+    {
+        $case = $this->caseService->getCase($id);
+
+        // Only self-filed DRAFT cases can be reviewed via this route
+        abort_unless(
+            $case->source === CaseFile::SOURCE_SELF_FILED && $case->status === 'DRAFT',
+            404,
+        );
+
+        $categories = $this->referenceData->getActiveCategories();
+        $caseIssues = $this->referenceData->getActiveIssues();
+
+        // Resolve draft address names to codes for cascade dropdown pre-population
+        $draftResolvedAddress = [];
+        $draftData = $case->draft_client_data;
+        if (! empty($draftData['address'])) {
+            $region = $draftData['address']['region'] ?? '';
+            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
+                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
+            } else {
+                $draftResolvedAddress = $draftData['address'];
+            }
+        }
+
+        return Inertia::render('Case/ReviewIntake', [
+            'case' => $case,
+            'categories' => $categories,
+            'caseIssues' => $caseIssues,
             'draftResolvedAddress' => $draftResolvedAddress,
         ]);
     }
@@ -241,6 +279,45 @@ class CaseController extends Controller
             'drafts' => $drafts,
             'filters' => $filters,
         ]);
+    }
+
+    public function intakeQueue(Request $request)
+    {
+        $filters = $request->only(['search']);
+        $sort = $request->query('sort', 'created_at');
+        $direction = $request->query('direction', 'asc');
+
+        $cases = $this->caseService->getIntakeQueue(
+            $filters,
+            (int) $request->input('per_page', 15),
+            $sort,
+            $direction,
+        );
+
+        return Inertia::render('Case/IntakeQueue', [
+            'cases' => $cases,
+            'filters' => (object) $filters,
+            'stats' => $this->caseService->getIntakeQueueStats(),
+            'sort' => $sort,
+            'direction' => $direction,
+        ]);
+    }
+
+    public function rejectIntake(Request $request, string $id)
+    {
+        $request->validate([
+            'deletion_reason' => ['required', 'string', 'min:10'],
+        ]);
+
+        $this->caseService->rejectIntake(
+            $id,
+            $request->input('deletion_reason'),
+            $request->user()->id,
+        );
+
+        return redirect()
+            ->route('cases.intake-queue')
+            ->with('success', 'Intake submission rejected successfully.');
     }
 
     public function destroyDraft(string $id, Request $request)

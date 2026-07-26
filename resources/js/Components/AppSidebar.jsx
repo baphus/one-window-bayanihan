@@ -19,6 +19,7 @@ export const navByRole = {
     ]},
     { label: 'Management', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
+      { name: 'Intake Queue', href: '/cases/intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
       { name: 'My Drafts', href: '/cases/drafts', icon: 'drafts' },
       { name: 'Case Trash', href: '/cases/trash', icon: 'delete_outline' },
       { name: 'Clients', href: '/clients', icon: 'people' },
@@ -71,6 +72,7 @@ export const navByRole = {
     ]},
     { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', icon: 'folder' },
+      { name: 'Intake Queue', href: '/cases/intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
       { name: 'My Drafts', href: '/cases/drafts', icon: 'drafts' },
       { name: 'Case Trash', href: '/cases/trash', icon: 'delete_outline' },
       { name: 'Clients', href: '/clients', icon: 'people' },
@@ -115,6 +117,7 @@ const roleLabels = {
 export default function AppSidebar() {
   const { url } = usePage();
   const user = usePage().props.auth.user;
+  const intakeQueueCount = usePage().props.intake_queue_count ?? 0;
   const { startTour } = useOnboarding();
   const [peerProfileUser, setPeerProfileUser] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
@@ -177,7 +180,8 @@ export default function AppSidebar() {
 
   const isActive = (href) => {
     if (href === '/dashboard') return url === '/dashboard';
-    if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/drafts') && !url.startsWith('/cases/trash');
+    if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/drafts') && !url.startsWith('/cases/trash') && !url.startsWith('/cases/intake-queue');
+    if (href === '/cases/intake-queue') return url.startsWith('/cases/intake-queue');
     return url.startsWith(href);
   };
 
@@ -293,11 +297,25 @@ export default function AppSidebar() {
                   )
                 );
 
+                const isIntakeQueue = item.badge === 'intakeQueueCount';
+                const intakeBadge = isIntakeQueue && intakeQueueCount > 0 && (
+                  collapsed ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex items-center justify-center min-w-[16px] h-[16px] px-0.5 text-[9px] font-bold text-white bg-amber-500 rounded-full leading-none">
+                      {intakeQueueCount > 99 ? '99+' : intakeQueueCount}
+                    </span>
+                  ) : (
+                    <span className="ml-auto flex items-center justify-center min-w-[20px] h-[18px] px-1 text-[10px] font-bold text-white bg-amber-500 rounded-full leading-none shrink-0">
+                      {intakeQueueCount > 99 ? '99+' : intakeQueueCount}
+                    </span>
+                  )
+                );
+
                 const content = collapsed ? (
                   <>
                     <span className="relative">
                       {icon}
                       {badge}
+                      {intakeBadge}
                     </span>
                   </>
                 ) : (
@@ -307,6 +325,7 @@ export default function AppSidebar() {
                     </span>
                     <span className="flex-1 min-w-0 truncate">{item.name}</span>
                     {badge}
+                    {intakeBadge}
                   </>
                 );
 

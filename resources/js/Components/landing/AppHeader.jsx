@@ -6,6 +6,7 @@ const roleLabels = {
   CASE_MANAGER: 'Case Manager',
   AGENCY: 'Agency Focal',
   ADMIN: 'System Admin',
+  OFW: 'OFW',
 };
 
 const navLinks = [
@@ -21,7 +22,7 @@ function isActive(currentPath, link) {
   return currentPath.startsWith(link.href);
 }
 
-export default function AppHeader({ onTrackCaseClick, minimal }) {
+export default function AppHeader({ minimal }) {
   const { url, props } = usePage();
   const user = props.auth?.user ?? null;
 
@@ -31,8 +32,12 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
     setIsMobileMenuOpen(false);
   }, [url]);
 
-  const mobileActionHref = user ? route('dashboard') : route('login');
-  const mobileActionLabel = user ? 'Dashboard' : 'Login';
+  const mobileActionHref = user
+    ? (user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard'))
+    : route('login');
+  const mobileActionLabel = user
+    ? (user.role === 'OFW' ? 'My Cases' : 'Dashboard')
+    : 'Login';
 
   return (
     <nav
@@ -80,30 +85,23 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
 
             <div className="hidden items-center gap-3 md:flex">
               {!user && (
-                onTrackCaseClick ? (
-                  <AppButton
-                    variant="primary"
-                    onClick={onTrackCaseClick}
-                  >
-                    Track Case
-                  </AppButton>
-                ) : (
-                  <AppButton
-                    href="#tracker"
-                    variant="primary"
-                  >
-                    Track Case
-                  </AppButton>
-                )
+                <AppButton
+                  as="link"
+                  href={route('intake.index')}
+                  variant="primary"
+                  icon="edit_note"
+                >
+                  File a Case
+                </AppButton>
               )}
 
               {user ? (
                 <div className="flex items-center gap-3">
                   <AppButton
-                    href={route('dashboard')}
+                    href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
                     variant="primary"
                   >
-                    Dashboard
+                    {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
                   </AppButton>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
@@ -285,35 +283,26 @@ export default function AppHeader({ onTrackCaseClick, minimal }) {
 
               <div className="mt-4 grid gap-2 border-t border-gray-100 pt-3">
                 {!user && (
-                  onTrackCaseClick ? (
-                    <AppButton
-                      variant="primary"
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                        onTrackCaseClick();
-                      }}
-                    >
-                      Track Case
-                    </AppButton>
-                  ) : (
-                    <AppButton
-                      href="#tracker"
-                      variant="primary"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Track Case
-                    </AppButton>
-                  )
+                  <AppButton
+                    as="link"
+                    href={route('intake.index')}
+                    variant="primary"
+                    icon="edit_note"
+                    className="w-full"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    File a Case
+                  </AppButton>
                 )}
 
                 {user ? (
                   <AppButton
-                    href={route('dashboard')}
+                    href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
                     variant="primary"
                     className="w-full"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    Dashboard
+                    {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
                   </AppButton>
                 ) : (
                   <Link

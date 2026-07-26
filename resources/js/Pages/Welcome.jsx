@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import ChatBot from '@/Components/ChatBot';
 import HeroSection from '@/Components/landing/HeroSection';
@@ -8,9 +8,14 @@ import PartnersSection from '@/Components/landing/PartnersSection';
 import FaqSection from '@/Components/landing/FaqSection';
 import HelpCenterSection from '@/Components/landing/HelpCenterSection';
 import TrackerSection from '@/Components/landing/TrackerSection';
+import IntakeSection from '@/Components/landing/IntakeSection';
 import AppFooter from '@/Components/landing/AppFooter';
 
 export default function Welcome({ agencies }) {
+  const { auth } = usePage().props;
+  const user = auth?.user ?? null;
+  const isStaff = user && ['CASE_MANAGER', 'AGENCY', 'ADMIN'].includes(user.role);
+
   return (
     <div className="bg-surface font-body text-on-surface">
       <Head title="Welcome" />
@@ -38,6 +43,7 @@ export default function Welcome({ agencies }) {
         <HelpCenterSection />
         <FaqSection />
         <TrackerSection />
+        {!isStaff && <IntakeSection />}
       </main>
 
       <AppFooter />

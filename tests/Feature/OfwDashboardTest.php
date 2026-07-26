@@ -1,0 +1,73 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\CaseFile;
+use App\Models\Client;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class OfwDashboardTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(HandleInertiaRequests::class);
+    }
+
+    #[Test]
+    public function test_ofw_sees_own_cases(): void
+    {
+        $client = Client::factory()->create();
+        $ofwUser = User::factory()->create([
+            'role' => 'OFW',
+            'client_id' => $client->id,
+        ]);
+
+        $case1 = CaseFile::factory()->open()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_SELF_FILED,
+        ]);
+        $case2 = CaseFile::factory()->draft()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_SELF_FILED,
+        ]);
+
+        $response = $this->actingAs($ofwUser)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/my-cases');
+
+        $response->assertOk();
+        $response->assertJsonPath('component', 'OFW/Dashboard');
+
+        $cases = $response->json('props.cases');
+        $this->assertCount(2, $cases);
+    }
+
+    #[Test]
+    public function test_ofw_cannot_see_other_cases(): void
+    {
+        $client = Client::factory()->create();
+        $ofwUser = User::factory()->create([
+            'role' => 'OFW',
+            'client_id' => $client->id,
+        ]);
+
+        // Another client's case
+        $otherClient = Client::factory()->create();
+        $otherCase = CaseFile::factory()->open()->create([
+            'client_id' => $otherClient->id,
+            'source' => CaseFile::SOURCE_SELF_FILED,
+        ]);
+
+        $response = $this->actingAs($ofwUser)
+            ->get("/my-cases/{$otherCase->id}");
+
+        $response->assertStatus(403);
+    }
+}

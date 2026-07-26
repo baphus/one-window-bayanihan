@@ -24,8 +24,11 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\IntakeController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OfwDashboardController;
+use App\Http\Controllers\OfwProfileController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSurveyController;
@@ -111,6 +114,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Role-gated: CASE_MANAGER + ADMIN only
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
+        Route::get('/cases/intake-queue', [CaseController::class, 'intakeQueue'])->name('cases.intake-queue');
         Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
         Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
         Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
@@ -119,12 +123,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
         Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
         Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
+        Route::get('/cases/{case}/review-intake', [CaseController::class, 'reviewIntake'])->name('cases.review-intake');
         Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
         Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
         Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
         Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
         Route::delete('/cases/{case}/delete-archived', [CaseController::class, 'deleteArchived'])->name('cases.delete-archived');
         Route::post('/cases/{case}/restore', [CaseController::class, 'restore'])->name('cases.restore');
+        Route::post('/cases/{case}/reject-intake', [CaseController::class, 'rejectIntake'])->name('cases.reject-intake');
         Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
         Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
 
@@ -345,6 +351,18 @@ Route::get('/terms', function () {
     return Inertia::render('Legal/TermsOfService');
 })->name('terms');
 
+// Public OFW self-filing intake
+Route::get('/intake', [IntakeController::class, 'index'])->name('intake.index');
+Route::post('/intake/verify-email', [IntakeController::class, 'verifyEmail'])
+    ->name('intake.verify-email')
+    ->middleware(['turnstile', 'throttle:5,1']);
+Route::post('/intake/check-duplicate', [IntakeController::class, 'checkDuplicate'])
+    ->name('intake.check-duplicate')
+    ->middleware('throttle:10,1');
+Route::post('/intake/submit', [IntakeController::class, 'submit'])
+    ->name('intake.submit')
+    ->middleware('throttle:3,1');
+
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
     ->name('track.send-otp')
@@ -398,5 +416,14 @@ Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->g
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
     ->name('chatbot.message')
     ->middleware(['turnstile.session', 'throttle:30,1']);
+
+// OFW authenticated portal routes
+Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group(function () {
+    Route::get('/', [OfwDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/notifications', [OfwDashboardController::class, 'notifications'])->name('notifications');
+    Route::get('/profile', [OfwProfileController::class, 'edit'])->name('profile.edit');
+    Route::post('/profile', [OfwProfileController::class, 'update'])->name('profile.update');
+    Route::get('/{id}', [OfwDashboardController::class, 'show'])->name('case.show');
+});
 
 require __DIR__.'/auth.php';

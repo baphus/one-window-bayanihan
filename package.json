@@ -24,7 +24,6 @@
     "concurrently": "^9.0.1",
     "jsdom": "^29.1.1",
     "laravel-vite-plugin": "^3.1",
-    "oh-my-openagent": "^4.13.0",
     "postcss": "^8.4.31",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -52,7 +51,6 @@
   },
   "trustedDependencies": [
     "@code-yeongyu/comment-checker",
-    "core-js",
-    "oh-my-openagent"
+    "core-js"
   ]
 }

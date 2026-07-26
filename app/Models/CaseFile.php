@@ -28,6 +28,15 @@ class CaseFile extends Model
         self::CLIENT_TYPE_NEXT_OF_KIN,
     ];
 
+    public const SOURCE_INTERNAL = 'internal';
+
+    public const SOURCE_SELF_FILED = 'self_filed';
+
+    public const SOURCES = [
+        self::SOURCE_INTERNAL,
+        self::SOURCE_SELF_FILED,
+    ];
+
     public function getAuditModuleName(): string
     {
         return 'case';
@@ -51,6 +60,8 @@ class CaseFile extends Model
         'case_issue_id',
         'draft_client_data',
         'deletion_reason',
+        'source',
+        'intake_reviewed_by',
     ];
 
     protected $casts = [
@@ -63,6 +74,11 @@ class CaseFile extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'intake_reviewed_by');
     }
 
     public function client()
