@@ -538,6 +538,41 @@ class CaseService
             ->paginate($perPage);
     }
 
+    /**
+     * Copy reviewer corrections from draft_client_data onto an existing client.
+     *
+     * Only keys actually present in the draft are written, so a partial edit
+     * cannot blank out data captured at intake. Mirrors the normalisation used
+     * when a client is created during publication.
+     */
+    private function applyDraftClientData(CaseFile $case): void
+    {
+        $draftData = $case->draft_client_data ?? [];
+        $client = $case->client()->first();
+
+        if (! $client) {
+            return;
+        }
+
+        $fields = ['first_name', 'last_name', 'middle_initial', 'suffix', 'date_of_birth', 'email', 'contact_number'];
+        $changes = [];
+
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $draftData) && $draftData[$field] !== null && $draftData[$field] !== '') {
+                $changes[$field] = $draftData[$field];
+            }
+        }
+
+        // sex is stored uppercase on the client, matching creation above.
+        if (! empty($draftData['sex'])) {
+            $changes['sex'] = strtoupper($draftData['sex']);
+        }
+
+        if ($changes !== []) {
+            $client->fill($changes)->save();
+        }
+    }
+
     public function publishDraft(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $userId) {
@@ -622,6 +657,14 @@ class CaseService
                 $case->client_id = $client->id;
                 $case->consent_given_at = ! empty($draftData['consent']) ? now() : null;
                 $case->save();
+            } elseif (! empty($case->client_id) && ! empty($case->draft_client_data)) {
+                // A self-filed intake already has a client, created by
+                // IntakeService at submission. Without this branch the block
+                // above is skipped entirely, so any correction a case manager
+                // makes on the review screen lands in draft_client_data and
+                // never reaches the clients row. That is how a case could open
+                // with clients.sex still NULL even after the reviewer set it.
+                $this->applyDraftClientData($case);
             }
 
             $case->update([
