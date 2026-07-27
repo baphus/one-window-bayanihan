@@ -227,6 +227,39 @@ operations (create/edit/delete an agency, change a setting, revoke a session,
 run an export) were **not** driven. Treat this as a render-and-read sweep, not
 full CRUD coverage.
 
+## 4c. Resolution status of every defect
+
+| # | Defect | Fixed in | Verified how |
+|---|---|---|---|
+| D1 | Self-filed cases unpublishable — client fields sent flat, stripped by `validated()`, 200 OK while persisting nothing | `a1ccff8` | **On the deployed app**: `OWB-2026-00001` moved DRAFT to OPEN |
+| D1b | `publishDraft` skipped the client-update block entirely when `client_id` was already set, so reviewer corrections never reached the `clients` row | `afd95c7` | Test verified to fail without the fix: `Failed asserting that null is identical to 'FEMALE'` |
+| D2b | Wizard displayed a case number and tracker it then discarded | `4dd9ae1` | Code removed; guard test pins the canonical format |
+| D3 | Review screen showed raw PSGC codes | `4dd9ae1` + `14cd954` | ⏳ **Not yet confirmed on the deployed app** |
+| D4 | "Cebu City" returned no results | `4dd9ae1` | 6 unit tests; ⏳ not yet confirmed on the deployed app |
+| D5 | MFA enforced for ADMIN only | `4dd9ae1` | Deployed in v5 |
+| D6 | Intake collects no documents | — | Open by design; S3 write path still unexercised through the app |
+| — | Container runtime: missing `HOME`, deleted PSGC data, small FastCGI buffers | `c056a21`, `8f4d1d3`, `14cd954` | `HOME` and buffers confirmed on the deployed app; PSGC data fix pending v6 |
+| — | Tracker format divergence: `IntakeService` emitted 8 hex chars with no `OWBAP-` prefix | `336defb` | Test verified to fail without the fix: `produced 'FA11E91B'`. Visible in staging data: `OWB-2026-00001` carries `DE5C82D3` |
+| — | Case number year derived from UTC, rolling over at 08:00 PHT | `336defb` | Test verified to fail without the fix |
+| — | Numbers recycled after hard delete; `MAX()` read-modify-write | `3b6d4ed` | Counter table; test asserts a force-deleted number is not reissued |
+
+**D3 deserves a note on why it took two commits.** The first fixed the wiring — `draftResolvedAddress` carries PSGC codes for the cascade dropdowns and was being reused for display. That alone did not fix it, because `AddressNameResolver` reads its lookup table from `resource_path('js/data/philippine-addresses.ts')` and the Dockerfile deleted all of `resources/js` during cleanup. Every `resolve()` silently returned its input. So address-name resolution was broken in **every** containerised deployment, not just on that screen.
+
+## 4d. Identifier allocation, post-review
+
+An independent review of the identifier implementation corrected an assumption worth recording: **the concurrency control was already sound.** Both generators took `pg_advisory_xact_lock` on the same key inside a transaction, backed by unique constraints and a 3× retry on 23505. There was no race to fix.
+
+What the review did surface:
+
+- The tracker-format divergence above, which had shipped because only `CaseService` had a format assertion.
+- Numbers were recycled after `forceDelete()`, since they came from `MAX()` of surviving rows while `audit_logs` still referenced the old case by string.
+- The UTC year boundary.
+- No `lock_timeout`, making the advisory-lock wait unbounded.
+
+Allocation is now one atomic `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` against `case_number_counters`, with both services delegating to a single `CaseNumberGenerator`. **This does not shorten the serialization window** — the counter row lock is still held to commit, exactly as the advisory lock was. It fixes recycling and the read-modify-write.
+
+Trackers moved to Crockford base32, 10 characters, uniform via `random_int`: ~50 bits, and no `0`/`O` or `1`/`I` confusion when a client reads one aloud to support.
+
 ## 5. Still not exercised
 
 - **Admin flows** — users/invites, agencies, services, statuses/categories/issues,

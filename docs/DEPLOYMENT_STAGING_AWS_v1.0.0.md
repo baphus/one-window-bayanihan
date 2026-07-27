@@ -211,6 +211,66 @@ The common thread: defects 1, 2, and 6 are all invisible to an unauthenticated
 health check. Any future environment should be validated by signing in and
 exercising a queued job, not by polling `/up`.
 
+## 6b. Release-order constraint: migrate before deploying
+
+The `case_number_counters` migration (`2026_07_27_000001`) must be applied
+**before** the image that uses it. `CaseNumberGenerator` writes to that table on
+every case creation and intake submission, so deploying the image first breaks
+both paths on a missing relation — while the container serves traffic.
+
+`docker-entrypoint.sh` runs migrations with `|| true`, which is exactly why
+`RUN_MIGRATIONS` stays `false` and migrations are a deliberate release step: the
+entrypoint would have swallowed the failure and started the app anyway.
+
+Applied to this environment on 2026-07-27, and the counter was verified to have
+seeded from existing data rather than resetting:
+
+```
+case_number_counters: year 2026 -> last_number 2
+highest issued case : OWB-2026-00002
+```
+
+Had it seeded at 0, the next allocation would have collided with an issued case.
+Verify the same on any new environment before serving traffic.
+
+## 6c. Custom domain — planned, not yet applied
+
+Domain `owbap.app` is registered at Name.com. Planned hostnames:
+
+| Environment | Hostname | Certificate |
+|---|---|---|
+| Staging | `staging.owbap.app` | `owbap-staging` |
+| Production | `r7.owbap.app` | `owbap-r7` |
+
+Notes that matter:
+
+- **No CSR is involved.** Lightsail issues and renews the certificate; ownership
+  is proved with a DNS CNAME at Name.com. DNS stays at the registrar — neither a
+  Lightsail DNS zone nor a Route 53 hosted zone is required.
+- **Separate certificate per environment.** A Lightsail certificate binds to one
+  container service, so a single certificate covering both hostnames would be
+  unusable, and separation stops staging serving production's hostname
+  (ISO 27001 A.8.31).
+- **Subdomains avoid the apex problem.** A bare `owbap.app` cannot be a CNAME,
+  and Lightsail provides a hostname rather than a static IP. Using subdomains
+  removes the need for URL forwarding or an ALIAS record.
+- **Name.com appends the domain** to record hosts, so validation hosts must be
+  entered without the `.owbap.app` suffix or validation silently never completes.
+- **`.app` is on the HSTS preload list**, subdomains included. Browsers refuse
+  plain HTTP, so the hostname will not load at all until the certificate is
+  attached. That is expected, not a misconfiguration.
+- **`APP_URL` must change** to the custom hostname at cutover, or Inertia keeps
+  generating links back to the Lightsail hostname.
+- **Staging becomes discoverable** once it has a guessable hostname. The
+  Lightsail default URL is effectively unguessable; `staging.owbap.app` is not.
+  Given the internet-reachable database recorded in §6, add a `robots.txt`
+  disallow, keep the no-real-OFW-data rule firm, and consider edge auth.
+
+Domain registration through Lightsail is **not** available on this account:
+`ListPrices` returns `AccessDeniedException — Free Tier accounts are not
+supported for this service`. That restriction only affects buying a domain
+through AWS, which is unnecessary here.
+
 ## 7. Cost
 
 | Item | Monthly (USD) |
