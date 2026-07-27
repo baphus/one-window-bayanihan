@@ -20,6 +20,10 @@ return [
 
     'resend' => [
         'key' => env('RESEND_API_KEY'),
+
+        // Svix signing secret ("whsec_...") for the delivery webhook endpoint.
+        // The endpoint fails closed when this is unset.
+        'webhook_secret' => env('RESEND_WEBHOOK_SECRET'),
     ],
 
     'ses' => [

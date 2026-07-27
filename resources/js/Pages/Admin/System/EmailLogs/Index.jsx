@@ -5,21 +5,39 @@ import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
-const STATUS_TABS = [
-  { label: 'All', value: '' },
-  { label: 'Sent', value: 'sent' },
-  { label: 'Failed', value: 'failed' },
-];
-
+// "sent" is deliberately not green: it means the provider accepted the message,
+// not that it arrived. Only "delivered" is confirmed by the provider.
 const STATUS_BADGE = {
-  sent: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  sent: 'bg-sky-100 text-sky-800 border-sky-200',
+  delivered: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  delayed: 'bg-amber-100 text-amber-800 border-amber-200',
+  suppressed: 'bg-orange-100 text-orange-800 border-orange-200',
   failed: 'bg-red-100 text-red-800 border-red-200',
+  bounced: 'bg-red-100 text-red-800 border-red-200',
+  complained: 'bg-purple-100 text-purple-800 border-purple-200',
 };
 
-export default function Index({ logs, filters }) {
+const STATUS_HINT = {
+  sent: 'Accepted by the email provider. Delivery not yet confirmed.',
+  delivered: 'Confirmed delivered to the recipient’s mail server.',
+  delayed: 'Temporary delivery problem. The provider is still retrying.',
+  suppressed: 'Blocked by the provider’s suppression list.',
+  failed: 'Could not be sent.',
+  bounced: 'Permanently rejected by the recipient’s mail server.',
+  complained: 'Delivered, then marked as spam by the recipient.',
+};
+
+export default function Index({ logs, filters, statuses = [] }) {
   const [confirmResendId, setConfirmResendId] = useState(null);
   const { data, current_page, last_page, total } = logs;
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
+
+  // Driven by the server's status list so the tabs cannot drift from what the
+  // controller actually accepts as a filter.
+  const statusTabs = [{ label: 'All', value: '' }, ...statuses.map((value) => ({
+    label: value.charAt(0).toUpperCase() + value.slice(1),
+    value,
+  }))];
 
   const switchTab = (status) => {
     router.get(route('admin.system.email-logs.index'), { status }, withLoading({
@@ -40,8 +58,7 @@ export default function Index({ logs, filters }) {
   };
 
   const emptyMessage = () => {
-    if (filters.status === 'sent') return 'No sent emails logged yet.';
-    if (filters.status === 'failed') return 'No failed emails logged yet.';
+    if (filters.status) return `No ${filters.status} emails logged yet.`;
     return 'No email logs found.';
   };
 
@@ -51,11 +68,15 @@ export default function Index({ logs, filters }) {
 
       <div data-tour="email-logs-header" className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Email Logs</h1>
-        <p className="mt-1 text-sm text-slate-500">Monitor all outbound emails and resend failed ones.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Monitor all outbound emails and resend failed ones. <span className="font-medium text-slate-600">Sent</span> means
+          the provider accepted the message; only <span className="font-medium text-slate-600">Delivered</span> confirms it
+          reached the recipient’s mail server.
+        </p>
       </div>
 
-      <div data-tour="email-logs-tabs" className="mb-6 flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm w-fit">
-        {STATUS_TABS.map((tab) => {
+      <div data-tour="email-logs-tabs" className="mb-6 flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm w-fit">
+        {statusTabs.map((tab) => {
           const active = (tab.value === '' && !filters.status) || filters.status === tab.value;
           return (
             <button
@@ -97,16 +118,32 @@ export default function Index({ logs, filters }) {
             {data.map((log) => (
               <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-5 py-4 text-sm text-slate-900 font-medium">{log.to_email}</td>
-                <td className="px-5 py-4 text-sm text-slate-700 max-w-xs truncate" title={log.subject}>
-                  {log.subject}
+                <td className="px-5 py-4 text-sm text-slate-700 max-w-xs">
+                  <span className="block truncate" title={log.subject}>{log.subject}</span>
+                  {log.provider_message_id && (
+                    <span
+                      className="mt-0.5 block truncate font-mono text-[11px] text-slate-400"
+                      title={`Provider message ID: ${log.provider_message_id}`}
+                    >
+                      {log.provider_message_id}
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-4">
-                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_BADGE[log.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  <span
+                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_BADGE[log.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}
+                    title={STATUS_HINT[log.status] ?? undefined}
+                  >
                     {log.status}
                   </span>
                 </td>
                 <td className="px-5 py-4 text-sm text-slate-600 whitespace-nowrap">
                   {log.sent_at ?? '—'}
+                  {log.delivered_at && (
+                    <span className="mt-0.5 block text-xs text-emerald-700">
+                      Delivered {log.delivered_at}
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-4 text-sm text-slate-600 max-w-xs">
                   {log.error_message ? (
