@@ -60,13 +60,28 @@ if [ "${APP_ENV}" != "local" ] && [ "${APP_ENV}" != "testing" ]; then
 fi
 
 # ── Run migrations if enabled ──
-# Default is RUN_MIGRATIONS=false: migrations are a deliberate release step run
-# before the new image is deployed, because a schema change must land before the
-# code that depends on it. When this path IS used, a failure must stop the boot —
-# it previously ended in `|| true`, which served traffic on a broken schema.
+# Once the database is on a private endpoint, an external CI runner cannot reach
+# it, so migrations have to run from inside the platform. This is that path.
+#
+# It is safe here for two reasons that were NOT true of the original version:
+#
+#  1. Failure stops the boot. The old code ended in `|| true`, so a failed
+#     migration served traffic on a broken schema. Now the container refuses to
+#     start, the platform keeps the previous deployment active, and the release
+#     fails visibly instead of half-applying.
+#
+#  2. --isolated takes an atomic cache lock, so only one container runs the
+#     migrations even when several start at once. Without it, scaling past a
+#     single node means concurrent `migrate` runs against one database. The lock
+#     needs a cache store that implements LockProvider — the `database` store
+#     does, which is what this deployment uses.
+#
+# Migrations must still be backward compatible with the version being replaced:
+# during a rolling deployment the previous container keeps serving while the new
+# one migrates. Expand first, contract in a later release — never both at once.
 if [ "${RUN_MIGRATIONS}" = "true" ]; then
     echo "[ENTRYPOINT] Running migrations..."
-    if ! php artisan migrate --force --no-interaction; then
+    if ! php artisan migrate --force --isolated --no-interaction; then
         echo "[ENTRYPOINT] FATAL: migrations failed — refusing to start" >&2
         exit 1
     fi

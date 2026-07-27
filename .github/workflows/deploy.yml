@@ -2,13 +2,22 @@ name: Deploy (reusable)
 
 # Reusable deployment to an AWS Lightsail container service.
 #
-# Deliberate ordering: migrations run BEFORE the image is deployed, and a
-# non-zero exit aborts without touching the running service. A schema change must
-# land before the code that depends on it — deploying first breaks case creation
-# and intake on a missing relation while the container is serving traffic.
+# Migrations run INSIDE the container at start, not from this runner.
 #
-# The container entrypoint keeps RUN_MIGRATIONS=false. Migrations belong here,
-# where the exit code is read, not in a container start hook.
+# That is a deliberate reversal of the earlier design, forced by a better one:
+# the database no longer accepts public connections (verified — the endpoint
+# resolves to a private address and port 5432 is closed from the internet), so a
+# GitHub-hosted runner cannot reach it. Running migrations here would have meant
+# keeping the database internet-facing purely to serve the pipeline.
+#
+# The ordering guarantee is preserved rather than lost. The entrypoint migrates
+# before nginx accepts traffic and exits non-zero on failure, so Lightsail's
+# health check never passes, the previous deployment stays active, and the release
+# fails visibly. `--isolated` holds an atomic lock so concurrent container starts
+# cannot run migrations twice.
+#
+# What this runner still owns: a pre-deploy snapshot, submitting the deployment,
+# and gating on /up plus a deep /api/readyz check before declaring success.
 
 on:
   workflow_call:
@@ -72,15 +81,12 @@ jobs:
             --region "$AWS_REGION" >/dev/null
           echo "image ${{ inputs.image_tag }} present in ECR"
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: pdo, pdo_pgsql, sockets, bcmath, intl, mbstring, zip
-          coverage: none
-
-      - name: Install PHP dependencies
-        run: composer install --no-interaction --no-progress --no-dev --optimize-autoloader
+      # No PHP toolchain here on purpose. Migrations used to run from this runner,
+      # which required the database to accept connections from the public
+      # internet. It no longer does — public access is disabled and the endpoint
+      # resolves to a private address — so migrations run inside the container at
+      # start (RUN_MIGRATIONS=true, `migrate --force --isolated`). The runner only
+      # orchestrates: snapshot, deploy, then gate on health.
 
       # A snapshot before any schema change. Automated backups alone are not a
       # rollback path: migrate:rollback is a schema tool, not an application
@@ -106,36 +112,6 @@ jobs:
             --region "$AWS_REGION" >/dev/null
           echo "snapshot requested: $SNAP"
           echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Show pending migrations
-        env:
-          APP_ENV: ${{ inputs.app_env }}
-          APP_KEY: ${{ secrets.APP_KEY }}
-          DB_CONNECTION: pgsql
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: '5432'
-          DB_DATABASE: ${{ secrets.DB_DATABASE }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_SSLMODE: require
-        run: php artisan migrate:status --no-interaction || true
-
-      # No `|| true` here, by design. This is the gate.
-      - name: Run migrations
-        env:
-          APP_ENV: ${{ inputs.app_env }}
-          APP_KEY: ${{ secrets.APP_KEY }}
-          DB_CONNECTION: pgsql
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: '5432'
-          DB_DATABASE: ${{ secrets.DB_DATABASE }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_SSLMODE: require
-        run: |
-          set -euo pipefail
-          php artisan migrate --force --no-interaction
-          echo "migrations applied"
 
       - name: Render deployment payload
         env:
@@ -225,7 +201,7 @@ jobs:
                     AUDIT_ARCHIVE_BUCKET: $auditBkt,
                     AUDIT_ARCHIVE_ROOT: "audit-archives",
                     AUDIT_ARCHIVE_USE_PATH_STYLE: "false",
-                    RUN_MIGRATIONS: "false",
+                    RUN_MIGRATIONS: "true",
                     RUN_SCHEDULER: "true",
                     RUN_QUEUE_WORKER: "true",
                     TRUSTED_PROXIES: "*",
