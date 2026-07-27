@@ -181,4 +181,34 @@ return [
         FILTER_VALIDATE_BOOLEAN
     ),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Link Preview Metadata
+    |--------------------------------------------------------------------------
+    |
+    | Used for the description meta tag and the Open Graph / Twitter card that
+    | messaging apps, search engines, and social platforms render when someone
+    | pastes a link to this service.
+    |
+    | Kept in config rather than hardcoded in the template so the wording can be
+    | changed per deployment without a code edit, and so tests can assert it.
+    |
+    */
+    'description' => env(
+        'APP_DESCRIPTION',
+        'Official case management service of the Department of Migrant Workers '
+        .'Region VII. File and track assistance requests for Overseas Filipino '
+        .'Workers and their families.'
+    ),
+
+    'owner' => env('APP_OWNER', 'Department of Migrant Workers - Region VII'),
+
+    // Absolute or root-relative path to the 1200x630 social preview image.
+    // Must be a raster format: SVG is not reliably supported by Facebook,
+    // Twitter/X, or LinkedIn unfurlers.
+    'social_image' => env('APP_SOCIAL_IMAGE', '/og-image.png'),
+
+    // Brand colour used for the browser/OS UI chrome on mobile.
+    'theme_color' => env('APP_THEME_COLOR', '#005288'),
+
 ];
