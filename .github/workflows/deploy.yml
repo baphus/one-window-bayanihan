@@ -158,8 +158,14 @@ jobs:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           MONITORING_READINESS_TOKEN: ${{ secrets.MONITORING_READINESS_TOKEN }}
+          # Defaults to `log` because Resend refuses to send from an unverified
+          # sender domain. With `log`, OTP and MFA codes land in the container log
+          # (aws lightsail get-container-log) rather than being silently dropped —
+          # which keeps sign-in possible before SPF/DKIM/DMARC are published.
+          # Set MAIL_MAILER=resend once the sending domain is verified.
+          MAIL_MAILER: ${{ vars.MAIL_MAILER || 'log' }}
           RESEND_KEY: ${{ secrets.RESEND_KEY }}
-          MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS }}
+          MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS || 'noreply@owbap.app' }}
           SENTRY_LARAVEL_DSN: ${{ secrets.SENTRY_LARAVEL_DSN }}
         run: |
           set -euo pipefail
@@ -178,6 +184,7 @@ jobs:
             --arg s3Key     "$STORAGE_ACCESS_KEY" \
             --arg s3Secret  "$STORAGE_SECRET_KEY" \
             --arg monToken  "$MONITORING_READINESS_TOKEN" \
+            --arg mailer    "$MAIL_MAILER" \
             --arg resend    "$RESEND_KEY" \
             --arg mailFrom  "$MAIL_FROM_ADDRESS" \
             --arg sentry    "$SENTRY_LARAVEL_DSN" \
@@ -223,7 +230,7 @@ jobs:
                     RUN_QUEUE_WORKER: "true",
                     TRUSTED_PROXIES: "*",
                     MONITORING_READINESS_TOKEN: $monToken,
-                    MAIL_MAILER: "resend",
+                    MAIL_MAILER: $mailer,
                     RESEND_KEY: $resend,
                     MAIL_FROM_ADDRESS: $mailFrom,
                     MAIL_FROM_NAME: "One Window Bayanihan",
