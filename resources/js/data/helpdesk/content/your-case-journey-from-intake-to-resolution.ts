@@ -6,7 +6,7 @@ This is what happens to your request for assistance, from the moment you approac
 
 A DMW case manager records your case: your details, the problem, and the assistance you need. Cases are opened by DMW staff — you do not need to create an account or file anything online. Bring valid identification and any documents about your situation (contracts, correspondence, receipts).
 
-When your case is published you receive a **tracker number** in the format **OWBAP-XXXXXXX** by email and SMS. Keep it — it is your key to checking progress. (Staff also use an internal case number that looks like OWB-YYYY-NNNNN; the tracker number is the one meant for you.)
+When your case is published you receive a **tracker number** in the format **OWBAP-XXXXXXXXXX** by email and SMS. Keep it — it is your key to checking progress. (Staff also use an internal case number that looks like OWB-YYYY-NNNNN; the tracker number is the one meant for you.)
 
 ## 2. Referral to the right agency
 

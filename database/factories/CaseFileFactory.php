@@ -15,7 +15,10 @@ class CaseFileFactory extends Factory
     {
         return [
             'case_number' => 'OWB-'.now()->format('Y').'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 99999), 5, '0', STR_PAD_LEFT),
-            'tracker_number' => 'OWBAP-'.strtoupper(Str::random(7)),
+            // Matches CaseNumberGenerator: Crockford base32, 10 characters.
+            'tracker_number' => 'OWBAP-'.collect(range(1, 10))
+                ->map(fn () => '0123456789ABCDEFGHJKMNPQRSTVWXYZ'[random_int(0, 31)])
+                ->implode(''),
             'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'vulnerability_indicator' => $this->faker->randomElement(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None', null]),
             'summary' => $this->faker->sentence(),

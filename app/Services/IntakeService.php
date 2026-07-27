@@ -21,6 +21,7 @@ class IntakeService
         private readonly CaseService $caseService,
         private readonly PhilippineAddressService $addressService,
         private readonly OtpService $otpService,
+        private readonly CaseNumberGenerator $caseNumbers,
     ) {}
 
     /**
@@ -348,55 +349,24 @@ class IntakeService
     }
 
     /**
-     * Generate a unique case number. Mirrors CaseService logic — both must use
-     * the same format (OWB-{YEAR}-{NNNNN}) so the shared sequence is consistent
-     * across intakes and case-manager-created cases.
+     * Both identifiers come from CaseNumberGenerator, the single implementation
+     * shared with CaseService.
+     *
+     * These were previously private duplicates here, and they had already drifted:
+     * the tracker returned strtoupper(bin2hex(random_bytes(4))) — eight hex
+     * characters with no OWBAP- prefix — under a docblock claiming it mirrored
+     * CaseService, so every self-filed OFW received an identifier the tracking
+     * portal and helpdesk told them to type differently. Sharing one
+     * implementation is what stops that recurring.
      */
     private function generateCaseNumber(): string
     {
-        // Operating-timezone year, matching CaseService. Under UTC the year
-        // rolled over at 08:00 PHT on 1 January, so cases filed in Manila
-        // between midnight and 08:00 were stamped with the previous year.
-        $year = now()->timezone(config('app.operating_timezone', 'Asia/Manila'))->format('Y');
-        $prefix = "OWB-{$year}-";
-
-        // Advisory lock shares the same lock key as CaseService, serializing the
-        // sequence across both creation paths for the current year.
-        $lockKey = crc32("case_number_{$year}");
-        DB::statement('SELECT pg_advisory_xact_lock(?)', [$lockKey]);
-
-        $latest = CaseFile::withoutGlobalScope(SoftDeletingScope::class)
-            ->where('case_number', 'like', "{$prefix}%")
-            ->orderByRaw("CAST(SUBSTRING(case_number FROM 'OWB-\\d{4}-(\\d+)') AS INTEGER) DESC")
-            ->value('case_number');
-
-        $nextNum = 1;
-        if ($latest && preg_match('/OWB-\d{4}-(\d+)/', $latest, $matches)) {
-            $nextNum = (int) $matches[1] + 1;
-        }
-
-        return "{$prefix}".str_pad((string) $nextNum, 5, '0', STR_PAD_LEFT);
+        return $this->caseNumbers->nextCaseNumber();
     }
 
-    /**
-     * Generate a unique tracker number in the OWBAP-XXXXXXX format.
-     *
-     * This previously returned strtoupper(bin2hex(random_bytes(4))), i.e. eight
-     * hex characters with no prefix, despite a docblock claiming it mirrored
-     * CaseService. Every self-filed OFW therefore received something like
-     * DE5C82D3 while the tracking portal and the helpdesk article both instruct
-     * clients to enter a value including "OWBAP-", and TrackingService matches
-     * tracker_number exactly with no normalisation. Self-filers following the
-     * instructions could not find their own case, and staff searching for
-     * "OWBAP-" could not find these cases either.
-     */
     private function generateTrackerNumber(): string
     {
-        do {
-            $tracker = 'OWBAP-'.strtoupper(Str::random(7));
-        } while (CaseFile::where('tracker_number', $tracker)->exists());
-
-        return $tracker;
+        return $this->caseNumbers->nextTrackerNumber();
     }
 
     /**

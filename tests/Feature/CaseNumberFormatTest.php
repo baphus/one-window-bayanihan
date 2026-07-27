@@ -22,7 +22,10 @@ class CaseNumberFormatTest extends TestCase
 
     private const CASE_NUMBER_PATTERN = '/^OWB-\d{4}-\d{5}$/';
 
-    private const TRACKER_PATTERN = '/^OWBAP-[A-Z0-9]{7}$/';
+    // Crockford base32: digits plus uppercase letters excluding I, L, O and U,
+    // so nothing is ambiguous when a client reads a tracker aloud or copies it
+    // from an SMS. Ten characters give 32^10, about 50 bits.
+    private const TRACKER_PATTERN = '/^OWBAP-[0-9A-HJKMNP-TV-Z]{10}$/';
 
     public function test_factory_produces_canonical_identifiers(): void
     {

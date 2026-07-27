@@ -36,6 +36,7 @@ class CaseService
         private readonly ReferralService $referralService,
         private readonly PhilippineAddressService $addressService,
         private readonly CaseEventRecorder $eventRecorder,
+        private readonly CaseNumberGenerator $caseNumbers,
     ) {}
 
     public function createCase(array $data, string $userId): CaseFile
@@ -1499,36 +1500,22 @@ class CaseService
         }
     }
 
+    /**
+     * Both identifiers now come from CaseNumberGenerator, which is the single
+     * implementation shared with IntakeService. The advisory lock and the
+     * MAX(case_number) read that used to live here are gone: allocation is one
+     * atomic statement against case_number_counters, so there is no
+     * read-modify-write to protect, and because the counter is independent of the
+     * cases table a hard-purged case can no longer hand its number to a later one.
+     */
     private function generateCaseNumber(): string
     {
-        // Operating-timezone year, not UTC. Under UTC the year rolled over at
-        // 08:00 PHT on 1 January, so cases filed in Manila between midnight and
-        // 08:00 were stamped with the previous year.
-        $year = now()->timezone(config('app.operating_timezone', 'Asia/Manila'))->format('Y');
-        $prefix = "OWB-{$year}-";
-
-        // Use PostgreSQL advisory lock to serialize case number generation for the year.
-        // This prevents duplicate case numbers under concurrent requests from both
-        // CaseService (case-manager-created) and IntakeService (OFW self-filed).
-        $lockKey = crc32("case_number_{$year}");
-        DB::statement('SELECT pg_advisory_xact_lock(?)', [$lockKey]);
-
-        $latest = CaseFile::withoutGlobalScope(SoftDeletingScope::class)
-            ->where('case_number', 'like', "{$prefix}%")
-            ->orderByRaw("CAST(SUBSTRING(case_number FROM 'OWB-\\d{4}-(\\d+)') AS INTEGER) DESC")
-            ->value('case_number');
-
-        $nextNum = 1;
-        if ($latest && preg_match('/OWB-\d{4}-(\d+)/', $latest, $matches)) {
-            $nextNum = (int) $matches[1] + 1;
-        }
-
-        return $prefix.str_pad((string) $nextNum, 5, '0', STR_PAD_LEFT);
+        return $this->caseNumbers->nextCaseNumber();
     }
 
     private function generateTrackerNumber(): string
     {
-        return 'OWBAP-'.strtoupper(Str::random(7));
+        return $this->caseNumbers->nextTrackerNumber();
     }
 
     public function getCaseStats(?User $user = null): array
