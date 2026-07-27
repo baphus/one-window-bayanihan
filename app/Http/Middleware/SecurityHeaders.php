@@ -28,13 +28,17 @@ class SecurityHeaders
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
 
-        // Keep non-production environments out of search results. A staging host
-        // behind an unguessable platform URL is effectively private; the moment it
-        // gains a guessable custom hostname it becomes discoverable, while still
-        // holding seeded data. robots.txt cannot express this because a single
-        // image serves every environment — this header can, and unlike robots.txt
-        // it suppresses indexing rather than merely requesting no crawl.
-        if (! app()->environment('production')) {
+        // Suppress indexing unless it has been switched on deliberately.
+        //
+        // robots.txt cannot express this because one image serves every
+        // environment, and unlike robots.txt this header suppresses indexing
+        // rather than merely requesting no crawl.
+        //
+        // Gated on config rather than APP_ENV so that a production environment
+        // which is provisioned but not yet launched stays out of search results.
+        // Indexing a half-configured public service is not something you can
+        // cleanly undo, so it takes an explicit SEARCH_INDEXING_ENABLED=true.
+        if (! config('app.search_indexing_enabled')) {
             $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
         }
         $capabilityRoutes = [

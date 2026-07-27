@@ -158,4 +158,27 @@ return [
     */
     'trash_retention_days' => (int) env('APP_TRASH_RETENTION_DAYS', 90),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Search Engine Indexing
+    |--------------------------------------------------------------------------
+    |
+    | When false, every response carries "X-Robots-Tag: noindex, nofollow".
+    |
+    | The default keeps non-production environments out of search results, which
+    | matters once they have a guessable hostname. But a production environment
+    | that is provisioned and not yet launched should also stay unindexed —
+    | otherwise a search engine can index a half-configured public service, and
+    | removing those results afterwards is slow and incomplete.
+    |
+    | So this is deliberately a separate switch from APP_ENV: set
+    | SEARCH_INDEXING_ENABLED=true as an explicit go-live step, not as a side
+    | effect of setting APP_ENV=production.
+    |
+    */
+    'search_indexing_enabled' => filter_var(
+        env('SEARCH_INDEXING_ENABLED', false),
+        FILTER_VALIDATE_BOOLEAN
+    ),
+
 ];

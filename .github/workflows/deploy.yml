@@ -139,6 +139,11 @@ jobs:
           # (aws lightsail get-container-log) rather than being silently dropped —
           # which keeps sign-in possible before SPF/DKIM/DMARC are published.
           # Set MAIL_MAILER=resend once the sending domain is verified.
+          # Opt-in, and deliberately not derived from APP_ENV: a provisioned but
+          # unlaunched production site must stay out of search results, and
+          # indexing a half-configured public service is not cleanly reversible.
+          # Flip this to true as a go-live step.
+          SEARCH_INDEXING_ENABLED: ${{ vars.SEARCH_INDEXING_ENABLED || 'false' }}
           MAIL_MAILER: ${{ vars.MAIL_MAILER || 'log' }}
           RESEND_KEY: ${{ secrets.RESEND_KEY }}
           MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS || 'noreply@owbap.app' }}
@@ -160,6 +165,7 @@ jobs:
             --arg s3Key     "$STORAGE_ACCESS_KEY" \
             --arg s3Secret  "$STORAGE_SECRET_KEY" \
             --arg monToken  "$MONITORING_READINESS_TOKEN" \
+            --arg indexing  "$SEARCH_INDEXING_ENABLED" \
             --arg mailer    "$MAIL_MAILER" \
             --arg resend    "$RESEND_KEY" \
             --arg mailFrom  "$MAIL_FROM_ADDRESS" \
@@ -205,6 +211,7 @@ jobs:
                     RUN_SCHEDULER: "true",
                     RUN_QUEUE_WORKER: "true",
                     TRUSTED_PROXIES: "*",
+                    SEARCH_INDEXING_ENABLED: $indexing,
                     MONITORING_READINESS_TOKEN: $monToken,
                     MAIL_MAILER: $mailer,
                     RESEND_KEY: $resend,
