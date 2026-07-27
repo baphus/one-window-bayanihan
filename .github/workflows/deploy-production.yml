@@ -47,7 +47,7 @@ jobs:
     with:
       environment: production
       service_name: bayanihan-production
-      hostname: r7.owbap.app
+      hostname: dmw7.owbap.app
       app_env: production
       image_tag: ${{ inputs.image_tag }}
     secrets: inherit
