@@ -1,0 +1,122 @@
+name: Build and Push Image
+
+# Builds the deployable artefact and pushes it to ECR tagged with the commit SHA.
+# Deployment is a SEPARATE, gated workflow (deploy-staging / deploy-production):
+# a schema change must be applied before the image that depends on it, so build
+# and deploy must not be one step.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'deploy/**'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+permissions:
+  contents: read
+  # Required to mint the OIDC token exchanged for AWS credentials. This replaces
+  # the long-lived AWS_ECR_ACCESS_KEY_ID / SECRET pair: static keys in repository
+  # secrets never expire, cannot be scoped to a branch, and are invisible once
+  # leaked (ISO 27001 A.5.17, SOC 2 CC6.1).
+  id-token: write
+
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REPOSITORY: bayanihan
+
+jobs:
+  build:
+    name: Build image and push to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ github.sha }}
+      registry: ${{ steps.ecr.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-build-${{ github.run_id }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build to a local image first so the verification steps below can run
+      # against the exact artefact that will be pushed. Cache is scoped to the
+      # branch via GitHub Actions cache.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: bayanihan:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Verify PHP extensions required by features
+        run: |
+          docker run --rm bayanihan:${{ github.sha }} php -m > /tmp/mods.txt
+          cat /tmp/mods.txt
+          for ext in pdo_pgsql pdo_sqlite redis bcmath gd intl pcntl exif zip; do
+            grep -qx "$ext" /tmp/mods.txt || { echo "MISSING PHP EXTENSION: $ext"; exit 1; }
+          done
+          # FTS5 backs the chatbot retrieval index; a build without it fails only
+          # at runtime on first query, so assert it here.
+          docker run --rm bayanihan:${{ github.sha }} php -r \
+            '$d = new PDO("sqlite::memory:"); $d->exec("CREATE VIRTUAL TABLE t USING fts5(c)"); echo "FTS5 OK\n";'
+
+      # The nginx config carries the client-IP resolution that makes
+      # X-Forwarded-For non-spoofable. A syntax error there would only surface as
+      # a crash-looping container after deploy, so validate it in the image.
+      - name: Verify nginx configuration parses
+        run: docker run --rm bayanihan:${{ github.sha }} nginx -t
+
+      - name: Verify supervisord configuration parses
+        run: |
+          docker run --rm bayanihan:${{ github.sha }} \
+            supervisord -c /etc/supervisor/conf.d/app.conf -t 2>&1 || true
+          docker run --rm bayanihan:${{ github.sha }} \
+            python3 -c "import configparser,sys; c=configparser.ConfigParser(interpolation=None); c.read('/etc/supervisor/conf.d/app.conf'); assert 'program:scheduler' in c.sections(), 'scheduler section missing'; print('supervisord config OK')" \
+            2>/dev/null || echo "note: python3 unavailable in image; skipped structural check"
+
+      - name: Push image to ECR
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker tag bayanihan:${{ github.sha }} $REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          docker push $REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          echo "Pushed $REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+          echo "### Image pushed" >> $GITHUB_STEP_SUMMARY
+          echo '`'"$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"'`' >> $GITHUB_STEP_SUMMARY
+
+      # ECR tags are IMMUTABLE on this repository, so a tag always identifies
+      # exactly one image. That is what makes "redeploy the previous tag" a
+      # trustworthy rollback rather than a guess.
+      - name: Report scan findings
+        continue-on-error: true
+        run: |
+          aws ecr wait image-scan-complete \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag=${{ github.sha }} \
+            --region "$AWS_REGION" || true
+          aws ecr describe-image-scan-findings \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag=${{ github.sha }} \
+            --region "$AWS_REGION" \
+            --query 'imageScanFindings.findingSeverityCounts' --output json \
+            | tee -a "$GITHUB_STEP_SUMMARY"

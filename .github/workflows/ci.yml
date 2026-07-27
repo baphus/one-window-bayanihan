@@ -4,6 +4,22 @@ on:
   pull_request:
     branches:
       - main
+  # Also run on main itself. A PR is validated against its merge result, but a
+  # merge queue or a direct push can still land a combination no PR ever tested.
+  push:
+    branches:
+      - main
+
+# Least privilege. Without this the default token is read/write on most scopes;
+# nothing in this workflow needs to write to the repository.
+permissions:
+  contents: read
+
+# Supersede in-flight runs for the same ref. Saves runner minutes and stops a
+# stale run reporting after a newer commit has already been pushed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DB_SSLMODE: disable

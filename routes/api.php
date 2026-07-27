@@ -2,8 +2,17 @@
 
 use App\Http\Controllers\Api\CspViolationController;
 use App\Http\Controllers\Api\PhilippineAddressController;
+use App\Http\Controllers\Api\ReadinessController;
 use App\Http\Controllers\Api\ResendWebhookController;
 use Illuminate\Support\Facades\Route;
+
+// Deep readiness probe for external monitoring — database, scheduler heartbeat,
+// queue backlog. Requires the X-Monitoring-Token header and 404s when no token is
+// configured. Deliberately NOT the container health check: the platform must keep
+// probing the shallow /up route, or a database blip becomes a restart loop.
+Route::get('/readyz', ReadinessController::class)
+    ->middleware('throttle:60,1')
+    ->name('monitoring.readyz');
 
 // Public address lookup endpoints (PSGC government data — no auth required)
 Route::middleware('throttle:60,1')->group(function () {
