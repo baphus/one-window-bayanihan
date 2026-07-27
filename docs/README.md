@@ -36,7 +36,7 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 |----------|-------------|
 | [DEPLOYMENT_GUIDE_v3.0.0.md](DEPLOYMENT_GUIDE_v3.0.0.md) | Platform capability contract, environment matrix, container/orchestrator/VM deployment, migrations, scaling, rollback |
 | [CI_CD_GUIDE_v2.0.0.md](CI_CD_GUIDE_v2.0.0.md) | Pipeline stages, provider-agnostic deploy-trigger contract, branch protection |
-| [EMAIL_DELIVERY_v2.0.0.md](EMAIL_DELIVERY_v2.0.0.md) | MVP domain requirement, SPF/DKIM/DMARC, SMTP vs HTTPS-API transport selection |
+| [EMAIL_DELIVERY_v2.1.0.md](EMAIL_DELIVERY_v2.1.0.md) | MVP domain requirement, SPF/DKIM/DMARC, SMTP vs HTTPS-API transport selection, delivery-event tracking and webhook endpoint |
 | [REDIS_INTEGRATION_v2.0.0.md](REDIS_INTEGRATION_v2.0.0.md) | Cache/queue/OTP backend, provisioning criteria, rollout order |
 | [SECURITY_REQUIREMENTS_v2.1.0.md](SECURITY_REQUIREMENTS_v2.1.0.md) | Auth flow, RBAC, MFA, CSP, rate limiting, encryption |
 | [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) | Audit log design, append-only enforcement, hash chain |
@@ -80,6 +80,10 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 | Administrator | `ADMIN` | System admin — manages users, agencies, settings (IP-whitelisted) |
 
 ## Changelog
+
+### v2.2.0 (2026-07-27)
+- Added: `EMAIL_DELIVERY_v2.1.0.md` — supersedes `EMAIL_DELIVERY_v2.0.0.md`; documents delivery-event tracking (provider message-ID correlation, Svix-signed webhook endpoint, monotonic delivery-status vocabulary), the `mail:verify-transport` command, and unverified-domain sending restrictions
+- Note: `DEPLOYMENT_GUIDE_v3.0.0.md` §4 still cross-references `EMAIL_DELIVERY_v2.0.0.md`; the pointer updates at that guide's next revision
 
 ### v2.1.0 (2026-07-27)
 - Generalised all deployment documentation: infrastructure is now described by technology and capability (PostgreSQL, S3-compatible object storage, Redis, OCI container, SMTP/HTTPS mail), never by hosting or managed-service vendor

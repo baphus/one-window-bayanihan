@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\EmailLog;
+use App\Services\Mail\DeliveryStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Mailable;
@@ -21,7 +22,7 @@ class EmailLogController extends Controller
         if ($request->filled('status')) {
             $status = $request->input('status');
 
-            if (in_array($status, ['sent', 'failed'])) {
+            if (in_array($status, DeliveryStatus::all(), true)) {
                 $query->where('status', $status);
             }
         }
@@ -30,6 +31,7 @@ class EmailLogController extends Controller
 
         return Inertia::render('Admin/System/EmailLogs/Index', [
             'logs' => $logs,
+            'statuses' => DeliveryStatus::all(),
             'filters' => [
                 'status' => $request->input('status', ''),
             ],

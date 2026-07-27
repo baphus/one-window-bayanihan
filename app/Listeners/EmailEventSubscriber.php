@@ -16,17 +16,9 @@ class EmailEventSubscriber
         $to = $this->extractToAddress($event);
         $subject = $event->message->getSubject() ?? '(no subject)';
         $mailableType = $this->extractMailableType($event);
+        $providerMessageId = $this->extractProviderMessageId($event);
 
-        // Prevent duplicate log entries: skip if an identical entry was created
-        // within the last 2 seconds (guards against double-fired MessageSent).
-        $recentDuplicate = EmailLog::where('to_email', $to)
-            ->where('subject', $subject)
-            ->where('mailable_type', $mailableType)
-            ->where('status', 'sent')
-            ->where('created_at', '>=', now()->subSeconds(2))
-            ->exists();
-
-        if ($recentDuplicate) {
+        if ($this->isDuplicate($to, $subject, $mailableType, $providerMessageId)) {
             return;
         }
 
@@ -36,7 +28,52 @@ class EmailEventSubscriber
             'mailable_type' => $mailableType,
             'status' => 'sent',
             'sent_at' => now(),
+            'provider_message_id' => $providerMessageId,
         ]);
+    }
+
+    /**
+     * Guard against a double-fired MessageSent creating two rows.
+     *
+     * When the provider supplied a message id, that is an exact test. Otherwise
+     * fall back to a short time window — imprecise in both directions, but the
+     * only signal available for the log and smtp transports.
+     */
+    private function isDuplicate(string $to, string $subject, string $mailableType, ?string $providerMessageId): bool
+    {
+        if ($providerMessageId !== null) {
+            return EmailLog::where('provider_message_id', $providerMessageId)->exists();
+        }
+
+        return EmailLog::where('to_email', $to)
+            ->where('subject', $subject)
+            ->where('mailable_type', $mailableType)
+            ->where('status', 'sent')
+            ->where('created_at', '>=', now()->subSeconds(2))
+            ->exists();
+    }
+
+    /**
+     * Read the provider's message id from the sent message.
+     *
+     * Illuminate\Mail\Transport\ResendTransport stamps X-Resend-Email-ID onto
+     * the message after a successful API call, and Resend's webhooks carry the
+     * same value at data.email_id — so this is the join between an outbound
+     * send and its later delivery events.
+     *
+     * Absent for every other transport, so null is expected, not an error.
+     */
+    private function extractProviderMessageId(MessageSent $event): ?string
+    {
+        $header = $event->message->getHeaders()->get('X-Resend-Email-ID');
+
+        if ($header === null) {
+            return null;
+        }
+
+        $value = trim($header->getBodyAsString());
+
+        return $value === '' ? null : $value;
     }
 
     public function handleJobFailed(JobFailed $event): void
