@@ -1501,7 +1501,10 @@ class CaseService
 
     private function generateCaseNumber(): string
     {
-        $year = now()->format('Y');
+        // Operating-timezone year, not UTC. Under UTC the year rolled over at
+        // 08:00 PHT on 1 January, so cases filed in Manila between midnight and
+        // 08:00 were stamped with the previous year.
+        $year = now()->timezone(config('app.operating_timezone', 'Asia/Manila'))->format('Y');
         $prefix = "OWB-{$year}-";
 
         // Use PostgreSQL advisory lock to serialize case number generation for the year.

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 class IntakeService
 {
@@ -353,7 +354,10 @@ class IntakeService
      */
     private function generateCaseNumber(): string
     {
-        $year = now()->format('Y');
+        // Operating-timezone year, matching CaseService. Under UTC the year
+        // rolled over at 08:00 PHT on 1 January, so cases filed in Manila
+        // between midnight and 08:00 were stamped with the previous year.
+        $year = now()->timezone(config('app.operating_timezone', 'Asia/Manila'))->format('Y');
         $prefix = "OWB-{$year}-";
 
         // Advisory lock shares the same lock key as CaseService, serializing the
@@ -375,12 +379,21 @@ class IntakeService
     }
 
     /**
-     * Generate a unique tracker number. Mirrors CaseService logic.
+     * Generate a unique tracker number in the OWBAP-XXXXXXX format.
+     *
+     * This previously returned strtoupper(bin2hex(random_bytes(4))), i.e. eight
+     * hex characters with no prefix, despite a docblock claiming it mirrored
+     * CaseService. Every self-filed OFW therefore received something like
+     * DE5C82D3 while the tracking portal and the helpdesk article both instruct
+     * clients to enter a value including "OWBAP-", and TrackingService matches
+     * tracker_number exactly with no normalisation. Self-filers following the
+     * instructions could not find their own case, and staff searching for
+     * "OWBAP-" could not find these cases either.
      */
     private function generateTrackerNumber(): string
     {
         do {
-            $tracker = strtoupper(bin2hex(random_bytes(4)));
+            $tracker = 'OWBAP-'.strtoupper(Str::random(7));
         } while (CaseFile::where('tracker_number', $tracker)->exists());
 
         return $tracker;

@@ -32,6 +32,63 @@ class CaseNumberFormatTest extends TestCase
         $this->assertMatchesRegularExpression(self::TRACKER_PATTERN, $case->tracker_number);
     }
 
+    public function test_case_number_year_follows_the_operating_timezone_not_utc(): void
+    {
+        // 31 December 2026, 17:00 UTC is already 1 January 2027 in Manila
+        // (UTC+8). Under the previous UTC-derived year this produced
+        // OWB-2026-..., so a case filed on New Year's Day in Manila carried the
+        // previous year in its reference.
+        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-12-31 17:00:00', 'UTC'));
+
+        $this->assertSame(
+            '2027',
+            now()->timezone(config('app.operating_timezone'))->format('Y'),
+            'Sanity check on the fixture: Manila should already be in 2027.'
+        );
+
+        foreach ([\App\Services\CaseService::class, \App\Services\IntakeService::class] as $class) {
+            $reflection = new \ReflectionMethod(app($class), 'generateCaseNumber');
+            $reflection->setAccessible(true);
+
+            $this->assertStringStartsWith(
+                'OWB-2027-',
+                $reflection->invoke(app($class)),
+                $class.' derived the year from UTC rather than the operating timezone.'
+            );
+        }
+
+        $this->travelBack();
+    }
+
+    public function test_both_generators_agree_on_the_identifier_formats(): void
+    {
+        // CaseService and IntakeService each generate identifiers independently.
+        // They had already diverged once: IntakeService returned
+        // strtoupper(bin2hex(random_bytes(4))) — eight hex characters with no
+        // OWBAP- prefix — so every self-filed OFW received a tracker the
+        // tracking portal and helpdesk article told them to type differently,
+        // and TrackingService matches tracker_number exactly. Only CaseService
+        // had a format assertion, which is why the divergence shipped.
+        $caseService = app(\App\Services\CaseService::class);
+        $intakeService = app(\App\Services\IntakeService::class);
+
+        foreach (['case_number' => self::CASE_NUMBER_PATTERN, 'tracker' => self::TRACKER_PATTERN] as $label => $pattern) {
+            foreach (['CaseService' => $caseService, 'IntakeService' => $intakeService] as $name => $service) {
+                $method = $label === 'case_number' ? 'generateCaseNumber' : 'generateTrackerNumber';
+
+                $reflection = new \ReflectionMethod($service, $method);
+                $reflection->setAccessible(true);
+                $value = $reflection->invoke($service);
+
+                $this->assertMatchesRegularExpression(
+                    $pattern,
+                    $value,
+                    "{$name}::{$method}() produced '{$value}', which does not match the canonical format."
+                );
+            }
+        }
+    }
+
     public function test_no_source_file_generates_a_competing_case_number_format(): void
     {
         // Guards against reintroducing a second generator. Only the canonical
