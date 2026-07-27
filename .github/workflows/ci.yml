@@ -144,6 +144,23 @@ jobs:
       - name: Build Frontend Assets
         run: npm run build
 
+      # The production entrypoint runs all four of these and refuses to start if
+      # any fails. Assert them here so a non-serializable config value fails the
+      # pull request instead of the deploy.
+      #
+      # This is not hypothetical: config/sentry.php held a `traces_sampler`
+      # closure, and closures cannot be serialized. config:cache aborted on every
+      # boot, the old entrypoint swallowed it with `|| true`, and the application
+      # ran with uncached config in every environment until a deploy finally
+      # failed loudly.
+      - name: Verify production cache commands succeed
+        run: |
+          set -euo pipefail
+          for step in config route view event; do
+            php artisan "${step}:cache" --no-interaction
+          done
+          php artisan optimize:clear --no-interaction
+
       - name: Check Migrations
         run: php artisan migrate --pretend --force
         env:
