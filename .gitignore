@@ -39,3 +39,10 @@ openspec
 # Playwright artifacts
 /test-results
 /playwright-report
+
+# Filled-in deployment payloads. Lightsail container environment variables are
+# plaintext and include the database password, mail API key, and object-storage
+# credentials, so a completed copy of the template is a credential dump.
+/deploy/**/*.local.json
+.env.staging
+.env.local.backup

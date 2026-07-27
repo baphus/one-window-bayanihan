@@ -27,6 +27,20 @@ class SecurityHeaders
 
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        // Suppress indexing unless it has been switched on deliberately.
+        //
+        // robots.txt cannot express this because one image serves every
+        // environment, and unlike robots.txt this header suppresses indexing
+        // rather than merely requesting no crawl.
+        //
+        // Gated on config rather than APP_ENV so that a production environment
+        // which is provisioned but not yet launched stays out of search results.
+        // Indexing a half-configured public service is not something you can
+        // cleanly undo, so it takes an explicit SEARCH_INDEXING_ENABLED=true.
+        if (! config('app.search_indexing_enabled')) {
+            $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
+        }
         $capabilityRoutes = [
             'track.request.exchange',
             'track.request.index',

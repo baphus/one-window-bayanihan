@@ -1,0 +1,193 @@
+name: Build and Push Image
+
+# Builds the deployable artefact and pushes it to ECR tagged with the commit SHA.
+# Deployment is a SEPARATE, gated workflow (deploy-staging / deploy-production):
+# a schema change must be applied before the image that depends on it, so build
+# and deploy must not be one step.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'deploy/**'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+permissions:
+  contents: read
+  # Required to mint the OIDC token exchanged for AWS credentials. This replaces
+  # the long-lived AWS_ECR_ACCESS_KEY_ID / SECRET pair: static keys in repository
+  # secrets never expire, cannot be scoped to a branch, and are invisible once
+  # leaked (ISO 27001 A.5.17, SOC 2 CC6.1).
+  id-token: write
+
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REPOSITORY: bayanihan
+
+jobs:
+  build:
+    name: Build image and push to ECR
+    runs-on: ubuntu-latest
+    # A verification step that accidentally starts the application instead of
+    # inspecting it will block until the runner's 6-hour ceiling. Fail in 30
+    # minutes instead: a cold build of this image takes well under that.
+    timeout-minutes: 30
+    outputs:
+      image-tag: ${{ github.sha }}
+      registry: ${{ steps.ecr.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-build-${{ github.run_id }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build to a local image first so the verification steps below can run
+      # against the exact artefact that will be pushed. Cache is scoped to the
+      # branch via GitHub Actions cache.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: bayanihan:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      # --entrypoint is required on every inspection step below. The image
+      # entrypoint runs config:cache and exits non-zero when it fails, which is
+      # deliberate (a container that cannot cache its own config must not serve
+      # traffic) — but it means a bare `docker run <image> <cmd>` cannot work
+      # without a full production environment. Bypass the entrypoint to inspect
+      # the image rather than weakening the entrypoint to suit CI.
+      - name: Verify PHP extensions required by features
+        run: |
+          docker run --rm --entrypoint php bayanihan:${{ github.sha }} -m > /tmp/mods.txt
+          cat /tmp/mods.txt
+          for ext in pdo_pgsql pdo_sqlite redis bcmath gd intl pcntl exif zip; do
+            grep -qx "$ext" /tmp/mods.txt || { echo "MISSING PHP EXTENSION: $ext"; exit 1; }
+          done
+
+      # FTS5 backs the chatbot retrieval index. Absent, it fails only at runtime
+      # on the first query, so assert it at build time.
+      - name: Verify SQLite FTS5 is available
+        run: |
+          docker run --rm --entrypoint php bayanihan:${{ github.sha }} -r \
+            '$d = new PDO("sqlite::memory:"); $d->exec("CREATE VIRTUAL TABLE t USING fts5(c)"); echo "FTS5 OK\n";'
+
+      # The nginx config carries the client-IP resolution that makes
+      # X-Forwarded-For non-spoofable. A syntax error there would only surface as
+      # a crash-looping container after deploy, so validate it in the image.
+      - name: Verify nginx configuration parses
+        run: docker run --rm --entrypoint nginx bayanihan:${{ github.sha }} -t
+
+      # NOT `supervisord -t`. Unlike nginx, supervisord has no config-test flag —
+      # its -t is --strip_ansi, so that command STARTS the full process tree
+      # (nginx, php-fpm, queue worker, scheduler) and blocks forever, hanging the
+      # build. Parse the file with configparser instead, which is the same parser
+      # supervisord itself uses.
+      - name: Verify supervisord configuration parses
+        run: |
+          docker run --rm --entrypoint python3 bayanihan:${{ github.sha }} -c "
+          import configparser, sys
+          c = configparser.ConfigParser(interpolation=None)
+          read = c.read('/etc/supervisor/conf.d/app.conf')
+          assert read, 'config file not found'
+          required = ['program:php-fpm', 'program:nginx', 'program:queue-worker', 'program:scheduler']
+          missing = [s for s in required if s not in c.sections()]
+          assert not missing, 'missing sections: %s' % missing
+          # The scheduler must stay a single-instance concern: assert the env
+          # guard is present so it can be split out without an image rebuild.
+          sched = c.get('program:scheduler', 'command')
+          assert 'RUN_SCHEDULER' in sched, 'scheduler lost its RUN_SCHEDULER guard'
+          worker = c.get('program:queue-worker', 'command')
+          assert 'RUN_QUEUE_WORKER' in worker, 'queue worker lost its RUN_QUEUE_WORKER guard'
+          # A job timeout above the stop grace means jobs get SIGKILLed mid-write.
+          assert '--timeout=' in worker, 'queue worker has no explicit --timeout'
+          print('supervisord config OK:', c.sections())
+          "
+
+      # Assert the entrypoint fails closed on missing configuration.
+      #
+      # Worth pinning because the obvious version of this test was wrong: none of
+      # the cache commands need APP_KEY, so before the explicit precondition check
+      # existed a container with no credentials at all started perfectly and then
+      # failed on the first request touching an encrypted column. "It booted" was
+      # never evidence that it was configured.
+      - name: Verify the entrypoint refuses to start without required config
+        run: |
+          set +e
+          OUT=$(docker run --rm -e APP_ENV=production bayanihan:${{ github.sha }} true 2>&1)
+          CODE=$?
+          set -e
+          echo "$OUT"
+          if [ "$CODE" -eq 0 ]; then
+            echo "::error::entrypoint started with no APP_KEY or database credentials — it must fail closed"
+            exit 1
+          fi
+          echo "$OUT" | grep -q "FATAL: missing required environment" || {
+            echo "::error::entrypoint failed but not with the expected precondition error"; exit 1; }
+          for expected in APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD; do
+            echo "$OUT" | grep -q "$expected" || {
+              echo "::error::precondition check did not name $expected"; exit 1; }
+          done
+          echo "entrypoint correctly refused to start and named every missing variable (exit $CODE)"
+
+      # ...and that it DOES start once the preconditions are met. A check that only
+      # ever proves the failure path can be satisfied by an entrypoint that always
+      # refuses to run.
+      - name: Verify the entrypoint starts when configuration is present
+        run: |
+          docker run --rm \
+            -e APP_ENV=production \
+            -e APP_KEY="base64:$(head -c 32 /dev/urandom | base64)" \
+            -e DB_HOST=localhost -e DB_DATABASE=x -e DB_USERNAME=x -e DB_PASSWORD=x \
+            --entrypoint sh bayanihan:${{ github.sha }} \
+            -c 'docker-entrypoint.sh echo STARTED' | tee /tmp/start.log
+          grep -q STARTED /tmp/start.log || {
+            echo "::error::entrypoint did not reach its command with valid config"; exit 1; }
+
+      - name: Push image to ECR
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker tag bayanihan:${{ github.sha }} $REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          docker push $REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          echo "Pushed $REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+          echo "### Image pushed" >> $GITHUB_STEP_SUMMARY
+          echo '`'"$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"'`' >> $GITHUB_STEP_SUMMARY
+
+      # ECR tags are IMMUTABLE on this repository, so a tag always identifies
+      # exactly one image. That is what makes "redeploy the previous tag" a
+      # trustworthy rollback rather than a guess.
+      - name: Report scan findings
+        continue-on-error: true
+        run: |
+          aws ecr wait image-scan-complete \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag=${{ github.sha }} \
+            --region "$AWS_REGION" || true
+          aws ecr describe-image-scan-findings \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag=${{ github.sha }} \
+            --region "$AWS_REGION" \
+            --query 'imageScanFindings.findingSeverityCounts' --output json \
+            | tee -a "$GITHUB_STEP_SUMMARY"

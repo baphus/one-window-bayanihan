@@ -1,6 +1,18 @@
 <?php
 
+use App\Http\Controllers\Api\ReadinessController;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
+
+// Scheduler liveness heartbeat. Everything below this line is invisible to the
+// shallow /up health check: during the staging bring-up the scheduler could not
+// open a database connection at all, so none of these jobs ran, while /up
+// answered 200 throughout. GET /api/readyz alerts on a stale heartbeat.
+// TTL is deliberately longer than the staleness threshold so the probe can tell
+// "stopped ticking" apart from "key expired".
+Schedule::call(function (): void {
+    Cache::put(ReadinessController::SCHEDULER_HEARTBEAT_KEY, now()->toIso8601String(), now()->addHour());
+})->everyMinute()->name('scheduler-heartbeat')->withoutOverlapping();
 
 Schedule::command('helpcenter:sync')->hourly()->withoutOverlapping();
 

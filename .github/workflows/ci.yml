@@ -4,6 +4,22 @@ on:
   pull_request:
     branches:
       - main
+  # Also run on main itself. A PR is validated against its merge result, but a
+  # merge queue or a direct push can still land a combination no PR ever tested.
+  push:
+    branches:
+      - main
+
+# Least privilege. Without this the default token is read/write on most scopes;
+# nothing in this workflow needs to write to the repository.
+permissions:
+  contents: read
+
+# Supersede in-flight runs for the same ref. Saves runner minutes and stops a
+# stale run reporting after a newer commit has already been pushed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DB_SSLMODE: disable
@@ -127,6 +143,31 @@ jobs:
 
       - name: Build Frontend Assets
         run: npm run build
+
+      # The production entrypoint runs all four of these and refuses to start if
+      # any fails. Assert them here so a non-serializable config value fails the
+      # pull request instead of the deploy.
+      #
+      # This is not hypothetical: config/sentry.php held a `traces_sampler`
+      # closure, and closures cannot be serialized. config:cache aborted on every
+      # boot, the old entrypoint swallowed it with `|| true`, and the application
+      # ran with uncached config in every environment until a deploy finally
+      # failed loudly.
+      - name: Verify production cache commands succeed
+        run: |
+          set -euo pipefail
+          for step in config route view event; do
+            php artisan "${step}:cache" --no-interaction
+          done
+          # Undo exactly what was cached above, one target at a time.
+          #
+          # NOT `optimize:clear`: that also runs cache:clear, which connects to the
+          # configured cache store. .env.example sets CACHE_STORE=redis and this job
+          # has no Redis service, so it died with "RedisException: Connection
+          # refused" — a failure about the CI environment, not about the app.
+          for step in config route view event; do
+            php artisan "${step}:clear" --no-interaction
+          done
 
       - name: Check Migrations
         run: php artisan migrate --pretend --force

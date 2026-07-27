@@ -1,0 +1,66 @@
+{
+  "serviceName": "REPLACE_SERVICE_NAME",
+  "containers": {
+    "app": {
+      "image": "REPLACE_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/bayanihan:REPLACE_GIT_SHA",
+      "ports": {
+        "8080": "HTTP"
+      },
+      "environment": {
+        "APP_NAME": "One Window Bayanihan",
+        "APP_ENV": "staging",
+        "APP_DEBUG": "false",
+        "APP_KEY": "REPLACE_APP_KEY_NEVER_ROTATE",
+        "APP_URL": "https://REPLACE_HOSTNAME",
+        "APP_TIMEZONE": "Asia/Manila",
+        "LOG_CHANNEL": "stderr",
+        "LOG_LEVEL": "info",
+        "DB_CONNECTION": "pgsql",
+        "DB_HOST": "REPLACE_RDS_ENDPOINT",
+        "DB_PORT": "5432",
+        "DB_DATABASE": "REPLACE_DB_NAME",
+        "DB_USERNAME": "REPLACE_DB_USER",
+        "DB_PASSWORD": "REPLACE_DB_PASSWORD",
+        "DB_SSLMODE": "require",
+        "CACHE_STORE": "database",
+        "QUEUE_CONNECTION": "database",
+        "SESSION_DRIVER": "database",
+        "FILESYSTEM_DISK": "object-storage",
+        "STORAGE_DRIVER": "s3",
+        "STORAGE_BUCKET": "REPLACE_BUCKET",
+        "STORAGE_REGION": "ap-southeast-1",
+        "STORAGE_ROOT": "uploads",
+        "STORAGE_USE_PATH_STYLE": "false",
+        "STORAGE_ACCESS_KEY": "REPLACE_APP_IAM_ACCESS_KEY",
+        "STORAGE_SECRET_KEY": "REPLACE_APP_IAM_SECRET_KEY",
+        "AUDIT_ARCHIVE_DRIVER": "s3",
+        "AUDIT_ARCHIVE_BUCKET": "REPLACE_AUDIT_ARCHIVE_BUCKET",
+        "AUDIT_ARCHIVE_ROOT": "audit-archives",
+        "AUDIT_ARCHIVE_USE_PATH_STYLE": "false",
+        "RUN_MIGRATIONS": "true",
+        "RUN_SCHEDULER": "true",
+        "RUN_QUEUE_WORKER": "true",
+        "TRUSTED_PROXIES": "*",
+        "MONITORING_READINESS_TOKEN": "REPLACE_READINESS_TOKEN",
+        "MAIL_MAILER": "resend",
+        "RESEND_KEY": "REPLACE_RESEND_KEY",
+        "MAIL_FROM_ADDRESS": "REPLACE_MAIL_FROM",
+        "MAIL_FROM_NAME": "One Window Bayanihan",
+        "SENTRY_LARAVEL_DSN": "REPLACE_OR_LEAVE_EMPTY",
+        "TURNSTILE_ENABLED": "false"
+      }
+    }
+  },
+  "publicEndpoint": {
+    "containerName": "app",
+    "containerPort": 8080,
+    "healthCheck": {
+      "path": "/up",
+      "successCodes": "200-299",
+      "intervalSeconds": 30,
+      "timeoutSeconds": 5,
+      "healthyThreshold": 2,
+      "unhealthyThreshold": 3
+    }
+  }
+}

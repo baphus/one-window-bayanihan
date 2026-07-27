@@ -1,0 +1,317 @@
+name: Deploy (reusable)
+
+# Reusable deployment to an AWS Lightsail container service.
+#
+# Migrations run INSIDE the container at start, not from this runner.
+#
+# That is a deliberate reversal of the earlier design, forced by a better one:
+# the database no longer accepts public connections (verified — the endpoint
+# resolves to a private address and port 5432 is closed from the internet), so a
+# GitHub-hosted runner cannot reach it. Running migrations here would have meant
+# keeping the database internet-facing purely to serve the pipeline.
+#
+# The ordering guarantee is preserved rather than lost. The entrypoint migrates
+# before nginx accepts traffic and exits non-zero on failure, so Lightsail's
+# health check never passes, the previous deployment stays active, and the release
+# fails visibly. `--isolated` holds an atomic lock so concurrent container starts
+# cannot run migrations twice.
+#
+# What this runner still owns: a pre-deploy snapshot, submitting the deployment,
+# and gating on /up plus a deep /api/readyz check before declaring success.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment supplying secrets and approval gates
+        required: true
+        type: string
+      service_name:
+        description: Lightsail container service name
+        required: true
+        type: string
+      hostname:
+        description: Public hostname to health-gate against
+        required: true
+        type: string
+      image_tag:
+        description: ECR image tag to deploy (a commit SHA). Enables rollback.
+        required: true
+        type: string
+      app_env:
+        description: APP_ENV value for the container
+        required: false
+        default: production
+        type: string
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REPOSITORY: bayanihan
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Migrate, deploy, verify
+    runs-on: ubuntu-latest
+    # Approval gates and environment-scoped secrets are configured on the
+    # GitHub Environment, not here. Production should require a reviewer.
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://${{ inputs.hostname }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-deploy-${{ github.run_id }}
+
+      - name: Confirm the image exists before touching anything
+        run: |
+          set -euo pipefail
+          aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="${{ inputs.image_tag }}" \
+            --region "$AWS_REGION" >/dev/null
+          echo "image ${{ inputs.image_tag }} present in ECR"
+
+      # No PHP toolchain here on purpose. Migrations used to run from this runner,
+      # which required the database to accept connections from the public
+      # internet. It no longer does — public access is disabled and the endpoint
+      # resolves to a private address — so migrations run inside the container at
+      # start (RUN_MIGRATIONS=true, `migrate --force --isolated`). The runner only
+      # orchestrates: snapshot, deploy, then gate on health.
+
+      # A snapshot before any schema change. Automated backups alone are not a
+      # rollback path: migrate:rollback is a schema tool, not an application
+      # rollback, and a backfilling migration cannot be undone by it.
+      #
+      # This targets a LIGHTSAIL managed database. Lightsail and RDS snapshots are
+      # not interchangeable — a Lightsail database cannot be created from an RDS
+      # snapshot, and vice versa. If the database is ever moved back to RDS, this
+      # step must change to `aws rds create-db-snapshot`.
+      - name: Snapshot the database
+        env:
+          DB_NAME: ${{ vars.LIGHTSAIL_DB_NAME }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DB_NAME:-}" ]; then
+            echo "::warning::LIGHTSAIL_DB_NAME not set — skipping pre-deploy snapshot"
+            exit 0
+          fi
+          SNAP="${DB_NAME}-predeploy-$(date -u +%Y%m%d%H%M%S)"
+          aws lightsail create-relational-database-snapshot \
+            --relational-database-name "$DB_NAME" \
+            --relational-database-snapshot-name "$SNAP" \
+            --region "$AWS_REGION" >/dev/null
+          echo "snapshot requested: $SNAP"
+          echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Render deployment payload
+        env:
+          REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-1.amazonaws.com
+          SERVICE_NAME: ${{ inputs.service_name }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          APP_ENV_VALUE: ${{ inputs.app_env }}
+          HOSTNAME_VALUE: ${{ inputs.hostname }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          STORAGE_BUCKET: ${{ vars.STORAGE_BUCKET }}
+          # Deliberately a SEPARATE bucket. Object Lock is a bucket-wide setting,
+          # so putting audit archives and case-file uploads in one bucket forces a
+          # choice between immutable archives and a retention job that can delete
+          # orphaned uploads. Two buckets get both.
+          AUDIT_ARCHIVE_BUCKET: ${{ vars.AUDIT_ARCHIVE_BUCKET }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          MONITORING_READINESS_TOKEN: ${{ secrets.MONITORING_READINESS_TOKEN }}
+          # Defaults to `log` because Resend refuses to send from an unverified
+          # sender domain. With `log`, OTP and MFA codes land in the container log
+          # (aws lightsail get-container-log) rather than being silently dropped —
+          # which keeps sign-in possible before SPF/DKIM/DMARC are published.
+          # Set MAIL_MAILER=resend once the sending domain is verified.
+          # Opt-in, and deliberately not derived from APP_ENV: a provisioned but
+          # unlaunched production site must stay out of search results, and
+          # indexing a half-configured public service is not cleanly reversible.
+          # Flip this to true as a go-live step.
+          SEARCH_INDEXING_ENABLED: ${{ vars.SEARCH_INDEXING_ENABLED || 'false' }}
+          MAIL_MAILER: ${{ vars.MAIL_MAILER || 'log' }}
+          RESEND_KEY: ${{ secrets.RESEND_KEY }}
+          MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS || 'noreply@owbap.app' }}
+          SENTRY_LARAVEL_DSN: ${{ secrets.SENTRY_LARAVEL_DSN }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg service   "$SERVICE_NAME" \
+            --arg image     "$REGISTRY/bayanihan:$IMAGE_TAG" \
+            --arg appEnv    "$APP_ENV_VALUE" \
+            --arg appUrl    "https://$HOSTNAME_VALUE" \
+            --arg appKey    "$APP_KEY" \
+            --arg dbHost    "$DB_HOST" \
+            --arg dbName    "$DB_DATABASE" \
+            --arg dbUser    "$DB_USERNAME" \
+            --arg dbPass    "$DB_PASSWORD" \
+            --arg bucket    "$STORAGE_BUCKET" \
+            --arg auditBkt  "$AUDIT_ARCHIVE_BUCKET" \
+            --arg s3Key     "$STORAGE_ACCESS_KEY" \
+            --arg s3Secret  "$STORAGE_SECRET_KEY" \
+            --arg monToken  "$MONITORING_READINESS_TOKEN" \
+            --arg indexing  "$SEARCH_INDEXING_ENABLED" \
+            --arg mailer    "$MAIL_MAILER" \
+            --arg resend    "$RESEND_KEY" \
+            --arg mailFrom  "$MAIL_FROM_ADDRESS" \
+            --arg sentry    "$SENTRY_LARAVEL_DSN" \
+            '{
+              serviceName: $service,
+              containers: {
+                app: {
+                  image: $image,
+                  ports: { "8080": "HTTP" },
+                  environment: {
+                    APP_NAME: "One Window Bayanihan",
+                    APP_ENV: $appEnv,
+                    APP_DEBUG: "false",
+                    APP_KEY: $appKey,
+                    APP_URL: $appUrl,
+                    APP_TIMEZONE: "Asia/Manila",
+                    LOG_CHANNEL: "stderr",
+                    LOG_LEVEL: "info",
+                    DB_CONNECTION: "pgsql",
+                    DB_HOST: $dbHost,
+                    DB_PORT: "5432",
+                    DB_DATABASE: $dbName,
+                    DB_USERNAME: $dbUser,
+                    DB_PASSWORD: $dbPass,
+                    DB_SSLMODE: "require",
+                    CACHE_STORE: "database",
+                    QUEUE_CONNECTION: "database",
+                    SESSION_DRIVER: "database",
+                    FILESYSTEM_DISK: "object-storage",
+                    STORAGE_DRIVER: "s3",
+                    STORAGE_BUCKET: $bucket,
+                    STORAGE_REGION: "ap-southeast-1",
+                    STORAGE_ROOT: "uploads",
+                    STORAGE_USE_PATH_STYLE: "false",
+                    STORAGE_ACCESS_KEY: $s3Key,
+                    STORAGE_SECRET_KEY: $s3Secret,
+                    AUDIT_ARCHIVE_DRIVER: "s3",
+                    AUDIT_ARCHIVE_BUCKET: $auditBkt,
+                    AUDIT_ARCHIVE_ROOT: "audit-archives",
+                    AUDIT_ARCHIVE_USE_PATH_STYLE: "false",
+                    RUN_MIGRATIONS: "true",
+                    RUN_SCHEDULER: "true",
+                    RUN_QUEUE_WORKER: "true",
+                    TRUSTED_PROXIES: "*",
+                    SEARCH_INDEXING_ENABLED: $indexing,
+                    MONITORING_READINESS_TOKEN: $monToken,
+                    MAIL_MAILER: $mailer,
+                    RESEND_KEY: $resend,
+                    MAIL_FROM_ADDRESS: $mailFrom,
+                    MAIL_FROM_NAME: "One Window Bayanihan",
+                    SENTRY_LARAVEL_DSN: $sentry
+                  }
+                }
+              },
+              publicEndpoint: {
+                containerName: "app",
+                containerPort: 8080,
+                healthCheck: {
+                  path: "/up",
+                  successCodes: "200-299",
+                  intervalSeconds: 30,
+                  timeoutSeconds: 5,
+                  healthyThreshold: 2,
+                  unhealthyThreshold: 3
+                }
+              }
+            }' > "$RUNNER_TEMP/deployment.json"
+          # Never cat this file — it contains the database password and API keys.
+          jq 'del(.containers.app.environment)' "$RUNNER_TEMP/deployment.json"
+
+      - name: Deploy to Lightsail
+        run: |
+          set -euo pipefail
+          aws lightsail create-container-service-deployment \
+            --cli-input-json "file://$RUNNER_TEMP/deployment.json" \
+            --region "$AWS_REGION" >/dev/null
+          echo "deployment submitted"
+
+      - name: Wait for service to become READY
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 40); do
+            STATE=$(aws lightsail get-container-services \
+              --service-name "${{ inputs.service_name }}" \
+              --region "$AWS_REGION" \
+              --query "containerServices[0].state" --output text)
+            echo "attempt $i: state=$STATE"
+            case "$STATE" in
+              READY) echo "service READY"; exit 0 ;;
+              FAILED|DISABLED) echo "::error::service entered $STATE"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "::error::service did not reach READY in time"
+          exit 1
+
+      - name: Health gate (/up)
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ inputs.hostname }}/up" || echo 000)
+            if [ "$CODE" = "200" ]; then echo "/up 200"; exit 0; fi
+            echo "attempt $i: /up returned $CODE"
+            sleep 15
+          done
+          echo "::error::/up never returned 200"
+          exit 1
+
+      # The check that /up cannot make. /up never touches the database, so it
+      # answers 200 while the queue worker and scheduler are unable to connect.
+      - name: Readiness gate (/api/readyz)
+        env:
+          MONITORING_READINESS_TOKEN: ${{ secrets.MONITORING_READINESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MONITORING_READINESS_TOKEN:-}" ]; then
+            echo "::warning::MONITORING_READINESS_TOKEN not set — deep readiness gate skipped"
+            exit 0
+          fi
+          # The scheduler heartbeat needs a tick before it can be fresh.
+          sleep 75
+          for i in $(seq 1 8); do
+            BODY=$(curl -s -w '\n%{http_code}' \
+              -H "X-Monitoring-Token: $MONITORING_READINESS_TOKEN" \
+              "https://${{ inputs.hostname }}/api/readyz" || true)
+            CODE=$(printf '%s' "$BODY" | tail -n1)
+            if [ "$CODE" = "200" ]; then
+              echo "readiness OK"
+              printf '%s' "$BODY" | head -n-1 >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "attempt $i: readyz returned $CODE"
+            printf '%s' "$BODY" | head -n-1
+            sleep 20
+          done
+          echo "::error::readiness never returned 200 — the container is serving but degraded"
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deployment"
+            echo "- Environment: \`${{ inputs.environment }}\`"
+            echo "- Service: \`${{ inputs.service_name }}\`"
+            echo "- Image tag: \`${{ inputs.image_tag }}\`"
+            echo "- URL: https://${{ inputs.hostname }}"
+          } >> "$GITHUB_STEP_SUMMARY"

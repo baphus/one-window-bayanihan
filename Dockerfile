@@ -25,6 +25,15 @@ LABEL org.opencontainers.image.source="https://github.com/dmw-region7/one-window
 LABEL org.opencontainers.image.description="One Window Bayanihan - DMW Region VII Case Management"
 LABEL org.opencontainers.image.licenses="MIT"
 
+# phpredis version is pinned so the image is reproducible. Unpinned, a build
+# failed with `No releases available for package "pecl.php.net/redis"` on a line
+# that had succeeded minutes earlier, and a rerun passed — an unpinned transitive
+# fetch is not a reproducible build (ISO 27001 A.8.30).
+# Requires >= 6.1.0 for PHP 8.4 support. The CI image build asserts that the
+# `redis` extension is present in `php -m`, so a bad pin fails the pipeline
+# rather than shipping.
+ARG PHPREDIS_VERSION=6.1.0
+
 # ── System dependencies (includes Nginx + Supervisor) ──
 RUN apt-get update && apt-get install -y \
     git \
@@ -50,7 +59,7 @@ RUN apt-get update && apt-get install -y \
     exif \
     mbstring \
     zip \
-    && pecl install redis \
+    && pecl install "redis-${PHPREDIS_VERSION}" \
     && docker-php-ext-enable redis \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
