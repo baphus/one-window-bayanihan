@@ -9,11 +9,9 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use App\Notifications\NewIntakeSubmission;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Str;
 
 class IntakeService
 {
