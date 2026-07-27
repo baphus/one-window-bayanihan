@@ -125,10 +125,14 @@ jobs:
           print('supervisord config OK:', c.sections())
           "
 
-      # Assert the entrypoint DOES fail closed. This is the behaviour that broke
-      # the first CI run, so it is worth pinning: an entrypoint that silently
-      # tolerates a broken config is the bug this replaced.
-      - name: Verify the entrypoint refuses to start without valid config
+      # Assert the entrypoint fails closed on missing configuration.
+      #
+      # Worth pinning because the obvious version of this test was wrong: none of
+      # the cache commands need APP_KEY, so before the explicit precondition check
+      # existed a container with no credentials at all started perfectly and then
+      # failed on the first request touching an encrypted column. "It booted" was
+      # never evidence that it was configured.
+      - name: Verify the entrypoint refuses to start without required config
         run: |
           set +e
           OUT=$(docker run --rm -e APP_ENV=production bayanihan:${{ github.sha }} true 2>&1)
@@ -136,12 +140,30 @@ jobs:
           set -e
           echo "$OUT"
           if [ "$CODE" -eq 0 ]; then
-            echo "::error::entrypoint started with no APP_KEY — it must fail closed"
+            echo "::error::entrypoint started with no APP_KEY or database credentials — it must fail closed"
             exit 1
           fi
-          echo "$OUT" | grep -q "FATAL" || {
-            echo "::error::entrypoint failed but did not report a FATAL reason"; exit 1; }
-          echo "entrypoint correctly refused to start (exit $CODE)"
+          echo "$OUT" | grep -q "FATAL: missing required environment" || {
+            echo "::error::entrypoint failed but not with the expected precondition error"; exit 1; }
+          for expected in APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD; do
+            echo "$OUT" | grep -q "$expected" || {
+              echo "::error::precondition check did not name $expected"; exit 1; }
+          done
+          echo "entrypoint correctly refused to start and named every missing variable (exit $CODE)"
+
+      # ...and that it DOES start once the preconditions are met. A check that only
+      # ever proves the failure path can be satisfied by an entrypoint that always
+      # refuses to run.
+      - name: Verify the entrypoint starts when configuration is present
+        run: |
+          docker run --rm \
+            -e APP_ENV=production \
+            -e APP_KEY="base64:$(head -c 32 /dev/urandom | base64)" \
+            -e DB_HOST=localhost -e DB_DATABASE=x -e DB_USERNAME=x -e DB_PASSWORD=x \
+            --entrypoint sh bayanihan:${{ github.sha }} \
+            -c 'docker-entrypoint.sh echo STARTED' | tee /tmp/start.log
+          grep -q STARTED /tmp/start.log || {
+            echo "::error::entrypoint did not reach its command with valid config"; exit 1; }
 
       - name: Push image to ECR
         env:

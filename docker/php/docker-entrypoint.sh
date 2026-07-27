@@ -17,6 +17,32 @@ touch storage/logs/laravel.log
 chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 
+# ── Required configuration ──
+# None of the cache commands below need APP_KEY or database credentials, so a
+# container missing them starts cleanly and then fails on the first request that
+# touches an encrypted column, a session, or the database. Refusing to start is
+# the better failure: it surfaces at deploy time, on the deployment that caused
+# it, instead of as intermittent 500s later.
+#
+# APP_KEY specifically must be the SAME value the data was encrypted with —
+# EncryptedString and EncryptedDate make a wrong key indistinguishable from
+# corruption, so an absent key must never be silently replaced by a generated one.
+if [ "${APP_ENV}" != "local" ] && [ "${APP_ENV}" != "testing" ]; then
+    missing=""
+    for required in APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD; do
+        eval "value=\${${required}:-}"
+        if [ -z "${value}" ]; then
+            missing="${missing} ${required}"
+        fi
+    done
+
+    if [ -n "${missing}" ]; then
+        echo "[ENTRYPOINT] FATAL: missing required environment:${missing}" >&2
+        echo "[ENTRYPOINT] refusing to start — see deploy/lightsail/README.md" >&2
+        exit 1
+    fi
+fi
+
 # ── Cache: bootstrap Laravel once ──
 # These used to end in `|| true`. That masked a real fault: GET and POST /login
 # were both named `login`, so `route:cache` aborted with "Unable to prepare route
