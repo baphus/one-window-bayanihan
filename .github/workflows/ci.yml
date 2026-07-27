@@ -159,7 +159,15 @@ jobs:
           for step in config route view event; do
             php artisan "${step}:cache" --no-interaction
           done
-          php artisan optimize:clear --no-interaction
+          # Undo exactly what was cached above, one target at a time.
+          #
+          # NOT `optimize:clear`: that also runs cache:clear, which connects to the
+          # configured cache store. .env.example sets CACHE_STORE=redis and this job
+          # has no Redis service, so it died with "RedisException: Connection
+          # refused" — a failure about the CI environment, not about the app.
+          for step in config route view event; do
+            php artisan "${step}:clear" --no-interaction
+          done
 
       - name: Check Migrations
         run: php artisan migrate --pretend --force
