@@ -131,6 +131,43 @@ aws rds describe-db-instances --db-instance-identifier bayanihan-staging-db --re
 Connections require TLS (`rds.force_ssl=1`); `DB_SSLMODE=require` is mandatory
 and a plaintext connection attempt is rejected by the server.
 
+### Statement and lock timeouts — must be reapplied per environment
+
+These are **role-level PostgreSQL defaults, not application config**, and they do
+not travel with the codebase. Any new environment needs them applied explicitly.
+
+```sql
+ALTER ROLE bayanihan_admin SET lock_timeout = '10s';
+ALTER ROLE bayanihan_admin SET statement_timeout = '120s';
+```
+
+Verify on a **new** connection, since role defaults apply at connection time:
+
+```sql
+SHOW lock_timeout;      -- expect 10s
+SHOW statement_timeout; -- expect 2min
+```
+
+Why this is not in `config/database.php`: Laravel's `PostgresConnector`
+configures only `isolationLevel`, `timezone`, `searchPath` and
+`synchronousCommit`. A key for either timeout would be **silently ignored**,
+which is worse than absent because it reads as configured.
+
+Why these values:
+
+- **`lock_timeout = 10s`.** Case creation takes a transaction-scoped advisory
+  lock (`pg_advisory_xact_lock`) as its first statement and holds it until
+  commit, across client, address, employment, next-of-kin, category and audit
+  writes. All case creation system-wide therefore serialises behind it. With no
+  timeout that wait is unbounded, so one slow transaction queues every
+  concurrent creator and exhausts PHP-FPM workers — a self-inflicted
+  availability problem (ISO 27001 A.8.6). 10s fails fast with a clear error.
+- **`statement_timeout = 120s`.** Catches genuine runaways without killing the
+  long legitimate work this application does: report exports and audit
+  archiving both run on the same role. A 30s ceiling would break them.
+
+Applied to this environment and verified on 2026-07-27.
+
 ### Queue and scheduler
 
 Both run inside the app container under supervisord. Confirm via the log for
