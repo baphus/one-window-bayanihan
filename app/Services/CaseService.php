@@ -36,6 +36,7 @@ class CaseService
         private readonly ReferralService $referralService,
         private readonly PhilippineAddressService $addressService,
         private readonly CaseEventRecorder $eventRecorder,
+        private readonly CaseNumberGenerator $caseNumbers,
     ) {}
 
     public function createCase(array $data, string $userId): CaseFile
@@ -538,6 +539,41 @@ class CaseService
             ->paginate($perPage);
     }
 
+    /**
+     * Copy reviewer corrections from draft_client_data onto an existing client.
+     *
+     * Only keys actually present in the draft are written, so a partial edit
+     * cannot blank out data captured at intake. Mirrors the normalisation used
+     * when a client is created during publication.
+     */
+    private function applyDraftClientData(CaseFile $case): void
+    {
+        $draftData = $case->draft_client_data ?? [];
+        $client = $case->client()->first();
+
+        if (! $client) {
+            return;
+        }
+
+        $fields = ['first_name', 'last_name', 'middle_initial', 'suffix', 'date_of_birth', 'email', 'contact_number'];
+        $changes = [];
+
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $draftData) && $draftData[$field] !== null && $draftData[$field] !== '') {
+                $changes[$field] = $draftData[$field];
+            }
+        }
+
+        // sex is stored uppercase on the client, matching creation above.
+        if (! empty($draftData['sex'])) {
+            $changes['sex'] = strtoupper($draftData['sex']);
+        }
+
+        if ($changes !== []) {
+            $client->fill($changes)->save();
+        }
+    }
+
     public function publishDraft(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $userId) {
@@ -622,6 +658,14 @@ class CaseService
                 $case->client_id = $client->id;
                 $case->consent_given_at = ! empty($draftData['consent']) ? now() : null;
                 $case->save();
+            } elseif (! empty($case->client_id) && ! empty($case->draft_client_data)) {
+                // A self-filed intake already has a client, created by
+                // IntakeService at submission. Without this branch the block
+                // above is skipped entirely, so any correction a case manager
+                // makes on the review screen lands in draft_client_data and
+                // never reaches the clients row. That is how a case could open
+                // with clients.sex still NULL even after the reviewer set it.
+                $this->applyDraftClientData($case);
             }
 
             $case->update([
@@ -1456,33 +1500,22 @@ class CaseService
         }
     }
 
+    /**
+     * Both identifiers now come from CaseNumberGenerator, which is the single
+     * implementation shared with IntakeService. The advisory lock and the
+     * MAX(case_number) read that used to live here are gone: allocation is one
+     * atomic statement against case_number_counters, so there is no
+     * read-modify-write to protect, and because the counter is independent of the
+     * cases table a hard-purged case can no longer hand its number to a later one.
+     */
     private function generateCaseNumber(): string
     {
-        $year = now()->format('Y');
-        $prefix = "OWB-{$year}-";
-
-        // Use PostgreSQL advisory lock to serialize case number generation for the year.
-        // This prevents duplicate case numbers under concurrent requests from both
-        // CaseService (case-manager-created) and IntakeService (OFW self-filed).
-        $lockKey = crc32("case_number_{$year}");
-        DB::statement('SELECT pg_advisory_xact_lock(?)', [$lockKey]);
-
-        $latest = CaseFile::withoutGlobalScope(SoftDeletingScope::class)
-            ->where('case_number', 'like', "{$prefix}%")
-            ->orderByRaw("CAST(SUBSTRING(case_number FROM 'OWB-\\d{4}-(\\d+)') AS INTEGER) DESC")
-            ->value('case_number');
-
-        $nextNum = 1;
-        if ($latest && preg_match('/OWB-\d{4}-(\d+)/', $latest, $matches)) {
-            $nextNum = (int) $matches[1] + 1;
-        }
-
-        return $prefix.str_pad((string) $nextNum, 5, '0', STR_PAD_LEFT);
+        return $this->caseNumbers->nextCaseNumber();
     }
 
     private function generateTrackerNumber(): string
     {
-        return 'OWBAP-'.strtoupper(Str::random(7));
+        return $this->caseNumbers->nextTrackerNumber();
     }
 
     public function getCaseStats(?User $user = null): array

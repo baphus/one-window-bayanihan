@@ -562,9 +562,11 @@ class TestingSeeder extends Seeder
 
             // Unique tracker_number
             do {
-                // 7 characters, matching CaseService::generateTrackerNumber and
-                // the OWBAP-XXXXXXX format documented to clients.
-                $tracker = 'OWBAP-'.strtoupper(Str::random(7));
+                // Matches CaseNumberGenerator: Crockford base32, 10 characters,
+                // excluding the ambiguous glyphs I, L, O and U.
+                $tracker = 'OWBAP-'.collect(range(1, 10))
+                    ->map(fn () => '0123456789ABCDEFGHJKMNPQRSTVWXYZ'[random_int(0, 31)])
+                    ->implode('');
             } while (isset($usedTrackers[$tracker]));
             $usedTrackers[$tracker] = true;
 
