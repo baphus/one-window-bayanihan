@@ -8,7 +8,7 @@
       },
       "environment": {
         "APP_NAME": "One Window Bayanihan",
-        "APP_ENV": "staging",
+        "APP_ENV": "production",
         "APP_DEBUG": "false",
         "APP_KEY": "REPLACE_APP_KEY_NEVER_ROTATE",
         "APP_URL": "https://REPLACE_HOSTNAME",
@@ -16,7 +16,7 @@
         "LOG_CHANNEL": "stderr",
         "LOG_LEVEL": "info",
         "DB_CONNECTION": "pgsql",
-        "DB_HOST": "REPLACE_RDS_ENDPOINT",
+        "DB_HOST": "REPLACE_LIGHTSAIL_DB_ENDPOINT",
         "DB_PORT": "5432",
         "DB_DATABASE": "REPLACE_DB_NAME",
         "DB_USERNAME": "REPLACE_DB_USER",
@@ -42,12 +42,13 @@
         "RUN_QUEUE_WORKER": "true",
         "TRUSTED_PROXIES": "*",
         "MONITORING_READINESS_TOKEN": "REPLACE_READINESS_TOKEN",
-        "MAIL_MAILER": "resend",
+        "MAIL_MAILER": "log",
         "RESEND_KEY": "REPLACE_RESEND_KEY",
         "MAIL_FROM_ADDRESS": "REPLACE_MAIL_FROM",
         "MAIL_FROM_NAME": "One Window Bayanihan",
         "SENTRY_LARAVEL_DSN": "REPLACE_OR_LEAVE_EMPTY",
-        "TURNSTILE_ENABLED": "false"
+        "TURNSTILE_ENABLED": "false",
+        "SEARCH_INDEXING_ENABLED": "false"
       }
     }
   },
