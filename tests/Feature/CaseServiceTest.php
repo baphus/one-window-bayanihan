@@ -28,7 +28,9 @@ class CaseServiceTest extends TestCase
         $reflection = new \ReflectionMethod($service, 'generateTrackerNumber');
         $reflection->setAccessible(true);
         $number = $reflection->invoke($service);
-        $this->assertMatchesRegularExpression('/^OWBAP-[A-Z0-9]{7}$/', $number);
+        // Crockford base32, 10 characters. See CaseNumberGenerator for why the
+        // ambiguous glyphs I, L, O and U are excluded.
+        $this->assertMatchesRegularExpression('/^OWBAP-[0-9A-HJKMNP-TV-Z]{10}$/', $number);
     }
 
     public function test_generate_tracker_number_unique(): void

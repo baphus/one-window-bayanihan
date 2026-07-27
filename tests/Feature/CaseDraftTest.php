@@ -308,6 +308,58 @@ class CaseDraftTest extends TestCase
         $response->assertJsonStructure(['ok', 'id', 'saved_at']);
     }
 
+    public function test_json_auto_save_persists_sex(): void
+    {
+        // sex was the field that exposed the flat-vs-nested payload bug: the
+        // review screen sent client fields at the top level, validated()
+        // stripped them all, and publish then refused the case for a missing
+        // sex that could never be supplied through the UI.
+        $case = CaseFile::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'DRAFT',
+            'client_type' => 'OFW',
+            'draft_client_data' => ['first_name' => 'Juan', 'sex' => null],
+        ]);
+
+        $this->actingAs($this->user)->put(
+            route('cases.save-draft', $case->id),
+            [
+                'client' => ['first_name' => 'Juan', 'sex' => 'Female'],
+                'client_type' => 'OFW',
+            ],
+            ['Accept' => 'application/json']
+        )->assertStatus(200);
+
+        $case->refresh();
+        $this->assertSame('Female', data_get($case->draft_client_data, 'sex'));
+    }
+
+    public function test_client_fields_sent_at_top_level_are_not_persisted(): void
+    {
+        // Documents the request contract: UpdateDraftRequest validates client
+        // fields as client.*, so a flat payload is stripped by validated().
+        // This returns 200 and writes nothing, which is how the original bug
+        // stayed invisible. If the contract is ever widened to accept flat
+        // fields, this test should be updated deliberately rather than by
+        // accident.
+        $case = CaseFile::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'DRAFT',
+            'client_type' => 'OFW',
+            'draft_client_data' => ['first_name' => 'Juan', 'sex' => null],
+        ]);
+
+        $this->actingAs($this->user)->put(
+            route('cases.save-draft', $case->id),
+            ['sex' => 'Female', 'first_name' => 'Ignored', 'client_type' => 'OFW'],
+            ['Accept' => 'application/json']
+        )->assertStatus(200);
+
+        $case->refresh();
+        $this->assertNull(data_get($case->draft_client_data, 'sex'));
+        $this->assertSame('Juan', data_get($case->draft_client_data, 'first_name'));
+    }
+
     public function test_json_auto_save_updates_data(): void
     {
         $case = CaseFile::factory()->create([

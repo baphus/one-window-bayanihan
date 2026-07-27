@@ -137,7 +137,7 @@ export default function TrackingPortal() {
                   <span className="material-symbols-outlined text-blue-900 text-[20px] shrink-0">info</span>
                   <div className="text-sm text-slate-600 leading-relaxed">
                     <p className="font-bold text-slate-900 mb-1">Where can I find my Tracking ID?</p>
-                    <p>Tracking IDs (e.g., OWBAP-A7K2M9Q) are typically found on your acknowledgment receipt or sent via SMS/Email after your initial case intake.</p>
+                    <p>Tracking IDs (e.g., OWBAP-4Z7K9M2QXT) are typically found on your acknowledgment receipt or sent via SMS/Email after your initial case intake.</p>
                   </div>
                 </div>
               </div>

@@ -6,11 +6,11 @@ The public tracking portal lets a client check progress without signing in. It i
 
 ## What you need
 
-- Tracker number: **OWBAP-XXXXXXX**.
+- Tracker number: **OWBAP-XXXXXXXXXX**.
 - Access to the registered mobile number or email address.
 - A browser session to request and enter the OTP.
 
-The tracker number is different from the staff case number. Case numbers use **CASE-YYYYMMDD-XXXX**. Give clients the tracker number for public updates.
+The tracker number is different from the staff case number. Case numbers use **OWB-YYYY-NNNNN**. Give clients the tracker number for public updates.
 
 ## Lost Your Tracker Number?
 

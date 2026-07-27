@@ -1,6 +1,6 @@
 const content = `# Creating and Publishing Cases
 
-Case creation captures the official intake record for an OFW or family assistance concern. A published case receives **CASE-YYYYMMDD-XXXX** and public tracker **OWBAP-XXXXXXX**. Drafts remain owner-only until published.
+Case creation captures the official intake record for an OFW or family assistance concern. A published case receives **OWB-YYYY-NNNNN** and public tracker **OWBAP-XXXXXXXXXX**. Drafts remain owner-only until published.
 
 ![Case create top](/assets/helpdesk/cases-create-top.png)
 

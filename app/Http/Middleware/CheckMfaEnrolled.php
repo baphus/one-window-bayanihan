@@ -45,7 +45,11 @@ class CheckMfaEnrolled
         }
 
         // Enrollment policy is intentionally separate from login challenge policy.
-        if ($request->user()->role !== 'ADMIN') {
+        // Which roles must enrol is configuration, not a hardcoded constant: this
+        // check previously covered ADMIN only, so case managers and agency focals
+        // reached OFW personal data with a password alone.
+        $enforcedRoles = (array) config('mfa.enrollment_enforced_roles', ['ADMIN']);
+        if (! in_array($request->user()->role, $enforcedRoles, true)) {
             return $next($request);
         }
 
