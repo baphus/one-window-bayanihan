@@ -68,31 +68,55 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
 
+      # --entrypoint is required on every inspection step below. The image
+      # entrypoint runs config:cache and exits non-zero when it fails, which is
+      # deliberate (a container that cannot cache its own config must not serve
+      # traffic) — but it means a bare `docker run <image> <cmd>` cannot work
+      # without a full production environment. Bypass the entrypoint to inspect
+      # the image rather than weakening the entrypoint to suit CI.
       - name: Verify PHP extensions required by features
         run: |
-          docker run --rm bayanihan:${{ github.sha }} php -m > /tmp/mods.txt
+          docker run --rm --entrypoint php bayanihan:${{ github.sha }} -m > /tmp/mods.txt
           cat /tmp/mods.txt
           for ext in pdo_pgsql pdo_sqlite redis bcmath gd intl pcntl exif zip; do
             grep -qx "$ext" /tmp/mods.txt || { echo "MISSING PHP EXTENSION: $ext"; exit 1; }
           done
-          # FTS5 backs the chatbot retrieval index; a build without it fails only
-          # at runtime on first query, so assert it here.
-          docker run --rm bayanihan:${{ github.sha }} php -r \
+
+      # FTS5 backs the chatbot retrieval index. Absent, it fails only at runtime
+      # on the first query, so assert it at build time.
+      - name: Verify SQLite FTS5 is available
+        run: |
+          docker run --rm --entrypoint php bayanihan:${{ github.sha }} -r \
             '$d = new PDO("sqlite::memory:"); $d->exec("CREATE VIRTUAL TABLE t USING fts5(c)"); echo "FTS5 OK\n";'
 
       # The nginx config carries the client-IP resolution that makes
       # X-Forwarded-For non-spoofable. A syntax error there would only surface as
       # a crash-looping container after deploy, so validate it in the image.
       - name: Verify nginx configuration parses
-        run: docker run --rm bayanihan:${{ github.sha }} nginx -t
+        run: docker run --rm --entrypoint nginx bayanihan:${{ github.sha }} -t
 
       - name: Verify supervisord configuration parses
         run: |
-          docker run --rm bayanihan:${{ github.sha }} \
-            supervisord -c /etc/supervisor/conf.d/app.conf -t 2>&1 || true
-          docker run --rm bayanihan:${{ github.sha }} \
-            python3 -c "import configparser,sys; c=configparser.ConfigParser(interpolation=None); c.read('/etc/supervisor/conf.d/app.conf'); assert 'program:scheduler' in c.sections(), 'scheduler section missing'; print('supervisord config OK')" \
-            2>/dev/null || echo "note: python3 unavailable in image; skipped structural check"
+          docker run --rm --entrypoint supervisord bayanihan:${{ github.sha }} \
+            -c /etc/supervisor/conf.d/app.conf -t
+
+      # Assert the entrypoint DOES fail closed. This is the behaviour that broke
+      # the first CI run, so it is worth pinning: an entrypoint that silently
+      # tolerates a broken config is the bug this replaced.
+      - name: Verify the entrypoint refuses to start without valid config
+        run: |
+          set +e
+          OUT=$(docker run --rm -e APP_ENV=production bayanihan:${{ github.sha }} true 2>&1)
+          CODE=$?
+          set -e
+          echo "$OUT"
+          if [ "$CODE" -eq 0 ]; then
+            echo "::error::entrypoint started with no APP_KEY — it must fail closed"
+            exit 1
+          fi
+          echo "$OUT" | grep -q "FATAL" || {
+            echo "::error::entrypoint failed but did not report a FATAL reason"; exit 1; }
+          echo "entrypoint correctly refused to start (exit $CODE)"
 
       - name: Push image to ECR
         env:

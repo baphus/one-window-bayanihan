@@ -85,19 +85,24 @@ jobs:
       # A snapshot before any schema change. Automated backups alone are not a
       # rollback path: migrate:rollback is a schema tool, not an application
       # rollback, and a backfilling migration cannot be undone by it.
+      #
+      # This targets a LIGHTSAIL managed database. Lightsail and RDS snapshots are
+      # not interchangeable — a Lightsail database cannot be created from an RDS
+      # snapshot, and vice versa. If the database is ever moved back to RDS, this
+      # step must change to `aws rds create-db-snapshot`.
       - name: Snapshot the database
         env:
-          DB_INSTANCE: ${{ vars.RDS_INSTANCE_IDENTIFIER }}
+          DB_NAME: ${{ vars.LIGHTSAIL_DB_NAME }}
         run: |
           set -euo pipefail
-          if [ -z "${DB_INSTANCE:-}" ]; then
-            echo "::warning::RDS_INSTANCE_IDENTIFIER not set — skipping pre-deploy snapshot"
+          if [ -z "${DB_NAME:-}" ]; then
+            echo "::warning::LIGHTSAIL_DB_NAME not set — skipping pre-deploy snapshot"
             exit 0
           fi
-          SNAP="${DB_INSTANCE}-predeploy-$(date -u +%Y%m%d%H%M%S)"
-          aws rds create-db-snapshot \
-            --db-instance-identifier "$DB_INSTANCE" \
-            --db-snapshot-identifier "$SNAP" \
+          SNAP="${DB_NAME}-predeploy-$(date -u +%Y%m%d%H%M%S)"
+          aws lightsail create-relational-database-snapshot \
+            --relational-database-name "$DB_NAME" \
+            --relational-database-snapshot-name "$SNAP" \
             --region "$AWS_REGION" >/dev/null
           echo "snapshot requested: $SNAP"
           echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
@@ -145,6 +150,11 @@ jobs:
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           STORAGE_BUCKET: ${{ vars.STORAGE_BUCKET }}
+          # Deliberately a SEPARATE bucket. Object Lock is a bucket-wide setting,
+          # so putting audit archives and case-file uploads in one bucket forces a
+          # choice between immutable archives and a retention job that can delete
+          # orphaned uploads. Two buckets get both.
+          AUDIT_ARCHIVE_BUCKET: ${{ vars.AUDIT_ARCHIVE_BUCKET }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           MONITORING_READINESS_TOKEN: ${{ secrets.MONITORING_READINESS_TOKEN }}
@@ -164,6 +174,7 @@ jobs:
             --arg dbUser    "$DB_USERNAME" \
             --arg dbPass    "$DB_PASSWORD" \
             --arg bucket    "$STORAGE_BUCKET" \
+            --arg auditBkt  "$AUDIT_ARCHIVE_BUCKET" \
             --arg s3Key     "$STORAGE_ACCESS_KEY" \
             --arg s3Secret  "$STORAGE_SECRET_KEY" \
             --arg monToken  "$MONITORING_READINESS_TOKEN" \
@@ -204,7 +215,7 @@ jobs:
                     STORAGE_ACCESS_KEY: $s3Key,
                     STORAGE_SECRET_KEY: $s3Secret,
                     AUDIT_ARCHIVE_DRIVER: "s3",
-                    AUDIT_ARCHIVE_BUCKET: $bucket,
+                    AUDIT_ARCHIVE_BUCKET: $auditBkt,
                     AUDIT_ARCHIVE_ROOT: "audit-archives",
                     AUDIT_ARCHIVE_USE_PATH_STYLE: "false",
                     RUN_MIGRATIONS: "false",
