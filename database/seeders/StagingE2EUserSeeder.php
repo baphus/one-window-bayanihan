@@ -60,7 +60,7 @@ class StagingE2EUserSeeder extends Seeder
             $user = User::withoutGlobalScopes()->where('email', $account['email'])->first();
 
             if (! $user) {
-                $user = new User();
+                $user = new User;
                 $user->id = (string) Str::uuid();
                 $user->email = $account['email'];
             }

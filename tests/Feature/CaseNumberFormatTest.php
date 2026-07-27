@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\CaseFile;
+use App\Services\CaseService;
+use App\Services\IntakeService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -41,7 +44,7 @@ class CaseNumberFormatTest extends TestCase
         // (UTC+8). Under the previous UTC-derived year this produced
         // OWB-2026-..., so a case filed on New Year's Day in Manila carried the
         // previous year in its reference.
-        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-12-31 17:00:00', 'UTC'));
+        $this->travelTo(CarbonImmutable::parse('2026-12-31 17:00:00', 'UTC'));
 
         $this->assertSame(
             '2027',
@@ -49,7 +52,7 @@ class CaseNumberFormatTest extends TestCase
             'Sanity check on the fixture: Manila should already be in 2027.'
         );
 
-        foreach ([\App\Services\CaseService::class, \App\Services\IntakeService::class] as $class) {
+        foreach ([CaseService::class, IntakeService::class] as $class) {
             $reflection = new \ReflectionMethod(app($class), 'generateCaseNumber');
             $reflection->setAccessible(true);
 
@@ -72,8 +75,8 @@ class CaseNumberFormatTest extends TestCase
         // tracking portal and helpdesk article told them to type differently,
         // and TrackingService matches tracker_number exactly. Only CaseService
         // had a format assertion, which is why the divergence shipped.
-        $caseService = app(\App\Services\CaseService::class);
-        $intakeService = app(\App\Services\IntakeService::class);
+        $caseService = app(CaseService::class);
+        $intakeService = app(IntakeService::class);
 
         foreach (['case_number' => self::CASE_NUMBER_PATTERN, 'tracker' => self::TRACKER_PATTERN] as $label => $pattern) {
             foreach (['CaseService' => $caseService, 'IntakeService' => $intakeService] as $name => $service) {

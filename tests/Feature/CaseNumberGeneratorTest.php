@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CaseFile;
 use App\Services\CaseNumberGenerator;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -57,13 +58,13 @@ class CaseNumberGeneratorTest extends TestCase
 
     public function test_counter_is_per_year(): void
     {
-        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-06-15 04:00:00', 'UTC'));
+        $this->travelTo(CarbonImmutable::parse('2026-06-15 04:00:00', 'UTC'));
         $this->assertSame('OWB-2026-00001', $this->generator()->nextCaseNumber());
         $this->assertSame('OWB-2026-00002', $this->generator()->nextCaseNumber());
 
         // A new year starts its own counter at 1 rather than continuing, which is
         // why a single non-resetting PostgreSQL sequence was not used.
-        $this->travelTo(\Carbon\CarbonImmutable::parse('2027-06-15 04:00:00', 'UTC'));
+        $this->travelTo(CarbonImmutable::parse('2027-06-15 04:00:00', 'UTC'));
         $this->assertSame('OWB-2027-00001', $this->generator()->nextCaseNumber());
 
         $this->travelBack();
