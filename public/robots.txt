@@ -1,2 +1,56 @@
+# One Window Bayanihan — Department of Migrant Workers, Region VII
+#
+# Crawling is deliberately ALLOWED for public pages even before launch. Whether
+# pages are INDEXED is controlled by SEARCH_INDEXING_ENABLED, which drives both
+# the X-Robots-Tag header and the robots meta tag.
+#
+# Do not "Disallow: /" here to keep the site private: robots.txt also governs the
+# link-preview crawlers used by Messenger, Viber, WhatsApp, Slack, LinkedIn and
+# Twitter/X. Blocking them removes the preview card entirely, while doing nothing
+# to prevent indexing — which the noindex directive handles properly.
+
 User-agent: *
-Disallow:
+
+# Authenticated application areas. Nothing here is reachable without a session,
+# so these rules save crawler budget rather than protect anything — access
+# control is enforced in the application, never by this file.
+Disallow: /admin
+Disallow: /active-sessions
+Disallow: /audit-logs
+Disallow: /case-categories
+Disallow: /case-issues
+Disallow: /case-statuses
+Disallow: /cases
+Disallow: /client-access-links
+Disallow: /client-requests
+Disallow: /clients
+Disallow: /data-export
+Disallow: /dashboard
+Disallow: /documents
+Disallow: /email-logs
+Disallow: /intake
+Disallow: /logs
+Disallow: /maintenance
+Disallow: /notifications
+Disallow: /onboarding
+Disallow: /overdue-referrals
+Disallow: /profile
+Disallow: /referrals
+Disallow: /reports
+Disallow: /security
+Disallow: /services
+Disallow: /system
+Disallow: /system-settings
+
+# API and machine endpoints — never useful in search results.
+Disallow: /api/
+
+# Case tracking links are capability URLs: the token in the path IS the
+# credential. They must never be crawled, cached, or indexed.
+Disallow: /track
+
+# Chatbot endpoint — stateful and rate limited.
+Disallow: /chatbot
+
+# Allow the social preview image so unfurlers can fetch it.
+Allow: /og-image.png
