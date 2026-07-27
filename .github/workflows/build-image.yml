@@ -35,6 +35,10 @@ jobs:
   build:
     name: Build image and push to ECR
     runs-on: ubuntu-latest
+    # A verification step that accidentally starts the application instead of
+    # inspecting it will block until the runner's 6-hour ceiling. Fail in 30
+    # minutes instead: a cold build of this image takes well under that.
+    timeout-minutes: 30
     outputs:
       image-tag: ${{ github.sha }}
       registry: ${{ steps.ecr.outputs.registry }}
@@ -95,10 +99,31 @@ jobs:
       - name: Verify nginx configuration parses
         run: docker run --rm --entrypoint nginx bayanihan:${{ github.sha }} -t
 
+      # NOT `supervisord -t`. Unlike nginx, supervisord has no config-test flag —
+      # its -t is --strip_ansi, so that command STARTS the full process tree
+      # (nginx, php-fpm, queue worker, scheduler) and blocks forever, hanging the
+      # build. Parse the file with configparser instead, which is the same parser
+      # supervisord itself uses.
       - name: Verify supervisord configuration parses
         run: |
-          docker run --rm --entrypoint supervisord bayanihan:${{ github.sha }} \
-            -c /etc/supervisor/conf.d/app.conf -t
+          docker run --rm --entrypoint python3 bayanihan:${{ github.sha }} -c "
+          import configparser, sys
+          c = configparser.ConfigParser(interpolation=None)
+          read = c.read('/etc/supervisor/conf.d/app.conf')
+          assert read, 'config file not found'
+          required = ['program:php-fpm', 'program:nginx', 'program:queue-worker', 'program:scheduler']
+          missing = [s for s in required if s not in c.sections()]
+          assert not missing, 'missing sections: %s' % missing
+          # The scheduler must stay a single-instance concern: assert the env
+          # guard is present so it can be split out without an image rebuild.
+          sched = c.get('program:scheduler', 'command')
+          assert 'RUN_SCHEDULER' in sched, 'scheduler lost its RUN_SCHEDULER guard'
+          worker = c.get('program:queue-worker', 'command')
+          assert 'RUN_QUEUE_WORKER' in worker, 'queue worker lost its RUN_QUEUE_WORKER guard'
+          # A job timeout above the stop grace means jobs get SIGKILLed mid-write.
+          assert '--timeout=' in worker, 'queue worker has no explicit --timeout'
+          print('supervisord config OK:', c.sections())
+          "
 
       # Assert the entrypoint DOES fail closed. This is the behaviour that broke
       # the first CI run, so it is worth pinning: an entrypoint that silently
