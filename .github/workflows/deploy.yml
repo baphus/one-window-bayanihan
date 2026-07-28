@@ -245,22 +245,48 @@ jobs:
             --region "$AWS_REGION" >/dev/null
           echo "deployment submitted"
 
-      - name: Wait for service to become READY
+      # Poll the DEPLOYMENT, not the service.
+      #
+      # A Lightsail container service reports state=RUNNING once it has an active
+      # deployment. READY means the service is provisioned with NO deployment on
+      # it. Waiting for READY therefore times out precisely when the deploy has
+      # SUCCEEDED — observed on a healthy release that reached RUNNING at attempt
+      # 15 and then failed this gate at attempt 40 while the new version was
+      # already serving traffic.
+      #
+      # The deployment state is also the stricter signal: it confirms the image we
+      # asked for is the one now live, which a service-level state cannot tell us.
+      - name: Wait for the deployment to become ACTIVE
+        env:
+          SERVICE: ${{ inputs.service_name }}
+          EXPECTED_TAG: ${{ inputs.image_tag }}
         run: |
           set -euo pipefail
           for i in $(seq 1 40); do
-            STATE=$(aws lightsail get-container-services \
-              --service-name "${{ inputs.service_name }}" \
-              --region "$AWS_REGION" \
-              --query "containerServices[0].state" --output text)
-            echo "attempt $i: state=$STATE"
-            case "$STATE" in
-              READY) echo "service READY"; exit 0 ;;
-              FAILED|DISABLED) echo "::error::service entered $STATE"; exit 1 ;;
-            esac
+            read -r STATE IMAGE < <(aws lightsail get-container-services \
+              --service-name "$SERVICE" --region "$AWS_REGION" \
+              --query "containerServices[0].[currentDeployment.state, currentDeployment.containers.app.image]" \
+              --output text)
+            echo "attempt $i: deployment=$STATE image=${IMAGE##*:}"
+
+            if [ "$STATE" = "ACTIVE" ] && [ "${IMAGE##*:}" = "$EXPECTED_TAG" ]; then
+              echo "deployment ACTIVE on the expected image"
+              exit 0
+            fi
+
+            if [ "$STATE" = "FAILED" ]; then
+              echo "::error::deployment FAILED — the previous deployment is still serving"
+              # The container log is the only place the reason appears; without it
+              # the operator has to go and fetch it by hand before they can act.
+              aws lightsail get-container-log --service-name "$SERVICE" \
+                --container-name app --region "$AWS_REGION" \
+                --query "logEvents[-40:].message" --output text || true
+              exit 1
+            fi
+
             sleep 15
           done
-          echo "::error::service did not reach READY in time"
+          echo "::error::deployment did not become ACTIVE within 10 minutes"
           exit 1
 
       - name: Health gate (/up)
