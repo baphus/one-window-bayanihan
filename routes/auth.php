@@ -42,14 +42,14 @@ Route::middleware('guest')->group(function () {
         ->name('register-via-invite');
 
     Route::post('invite/{token}', [RegisterViaInviteController::class, 'store'])
-        ->middleware(['throttle:10,1'])
+        ->middleware(['throttle:invite-register'])
         ->name('register-via-invite.store');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
-        ->middleware(['turnstile', 'throttle:5,1'])
+        ->middleware(['turnstile', 'throttle:password-reset-request'])
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
@@ -74,11 +74,11 @@ Route::middleware('auth')->group(function () {
         ->name('verification.notice');
 
     Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-        ->middleware(['signed', 'throttle:6,1'])
+        ->middleware(['signed', 'throttle:email-verification'])
         ->name('verification.verify');
 
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:email-verification')
         ->name('verification.send');
 
     Route::put('password', [PasswordController::class, 'update'])

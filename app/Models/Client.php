@@ -6,6 +6,7 @@ use App\Casts\EncryptedDate;
 use App\Models\Concerns\HasAvatar;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -43,6 +44,61 @@ class Client extends Model
     public function caseFiles()
     {
         return $this->hasMany(CaseFile::class, 'client_id');
+    }
+
+    /**
+     * Hide people who exist only because of a self-filed intake nobody has
+     * reviewed yet.
+     *
+     * IntakeService writes the Client row when the public form is submitted, so
+     * from that moment an unverified claim is indistinguishable from an
+     * established client in any plain `Client::where('is_deleted', false)` query.
+     * That put unreviewed filers in the case-creation client picker, where
+     * selecting one attaches a real case to data no Case Manager has checked.
+     *
+     * A client is hidden only while EVERY live case they have is a pending
+     * self-filed intake. Anyone with a case that has been through review — open,
+     * closed, or a Case Manager's own internal draft — stays visible, so repeat
+     * filers remain selectable. Clients with no cases at all are untouched.
+     *
+     * Rejected intakes are soft-deleted, and CaseFile's SoftDeletes scope keeps
+     * them out of `caseFiles`, so a rejection also lifts the hiding.
+     *
+     * Deliberately a scope rather than a global scope: the intake queue and the
+     * review screens must still see these records, and a global scope would have
+     * to be fought off in exactly the places that matter most.
+     */
+    public function scopeWithoutUnreviewedIntake(Builder $query): Builder
+    {
+        return $query->where(function (Builder $outer) {
+            $outer->whereDoesntHave('caseFiles', function (Builder $pending) {
+                $pending->where('source', CaseFile::SOURCE_SELF_FILED)
+                    ->where('status', 'DRAFT')
+                    ->where('is_deleted', false);
+            })->orWhereHas('caseFiles', function (Builder $reviewed) {
+                $reviewed->where('is_deleted', false)
+                    ->where(function (Builder $notPending) {
+                        $notPending->where('source', '!=', CaseFile::SOURCE_SELF_FILED)
+                            ->orWhere('status', '!=', 'DRAFT');
+                    });
+            });
+        });
+    }
+
+    /**
+     * True when this client is still waiting on intake review — the single-record
+     * counterpart to scopeWithoutUnreviewedIntake, for guarding detail routes.
+     */
+    public function isAwaitingIntakeReview(): bool
+    {
+        $live = $this->caseFiles()->where('is_deleted', false)->get(['source', 'status']);
+
+        if ($live->isEmpty()) {
+            return false;
+        }
+
+        return $live->every(fn (CaseFile $case) => $case->source === CaseFile::SOURCE_SELF_FILED
+            && $case->status === 'DRAFT');
     }
 
     /**

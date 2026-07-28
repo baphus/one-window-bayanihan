@@ -30,7 +30,10 @@ class ClientController extends Controller
         $categoryFilter = CategoryFilter::fromRequest($request);
         $categoryIds = $categoryFilter->ids();
 
-        $clients = Client::where('is_deleted', false)->with([
+        // The client directory lists established clients. Self-filed intakes
+        // awaiting review belong in the intake queue only, which reads cases
+        // directly and is unaffected by this scope.
+        $clients = Client::where('is_deleted', false)->withoutUnreviewedIntake()->with([
             'caseFile' => function ($q) use ($user) {
                 // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
                 if ($user?->isAgency()) {
@@ -245,6 +248,10 @@ class ClientController extends Controller
             'addresses',
             'employments',
         ])->findOrFail($id);
+
+        // Same rule as the directory listing: an unreviewed self-filed intake is
+        // read through the intake queue, not the client profile.
+        abort_if($client->isAwaitingIntakeReview(), 404, 'Client not found.');
 
         $user = $request->user();
         $caseQuery = $client->caseFiles()

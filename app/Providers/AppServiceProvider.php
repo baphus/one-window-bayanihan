@@ -120,6 +120,87 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
+        /*
+         * Every limiter below replaces an inline `throttle:N,1` on a route a
+         * guest can reach. Inline limits are not per-route: for an
+         * unauthenticated request ThrottleRequests keys the counter as
+         * sha1(domain|ip), so all of them shared a single budget per visitor and
+         * the smallest limit among them capped the sum of the rest. The OFW
+         * self-filing wizard broke on exactly that — its own address-dropdown
+         * lookups spent the five requests /intake/submit was allowed, so the
+         * filer's submission came back 429. Naming a limiter gives it its own
+         * key, so a route's budget is spent only by that route. Keep new
+         * guest-facing limits named for the same reason; the numbers here are
+         * the ones the inline limits already used.
+         */
+        RateLimiter::for('intake-otp', function (Request $request) {
+            return Limit::perMinute(5)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip());
+        });
+
+        RateLimiter::for('intake-duplicate', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('intake-submit', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip());
+        });
+
+        RateLimiter::for('address-lookup', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('chatbot', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
+        RateLimiter::for('contact-form', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip());
+        });
+
+        RateLimiter::for('csp-report', function (Request $request) {
+            return Limit::perMinute(120)->by($request->ip());
+        });
+
+        RateLimiter::for('readiness', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
+        RateLimiter::for('resend-webhook', function (Request $request) {
+            return Limit::perMinute(300)->by($request->ip());
+        });
+
+        RateLimiter::for('survey-view', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
+        RateLimiter::for('survey-submit', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('track-request-message', function (Request $request) {
+            return Limit::perMinute(20)->by($request->ip());
+        });
+
+        RateLimiter::for('track-request-replacement', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip());
+        });
+
+        RateLimiter::for('invite-register', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('password-reset-request', function (Request $request) {
+            return Limit::perMinute(5)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip());
+        });
+
+        RateLimiter::for('email-verification', function (Request $request) {
+            return Limit::perMinute(6)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('reports-view', function (Request $request) {
+            return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
+        });
+
         RateLimiter::for('api-global', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });

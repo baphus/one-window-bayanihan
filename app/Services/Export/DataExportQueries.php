@@ -2,6 +2,7 @@
 
 namespace App\Services\Export;
 
+use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
@@ -350,7 +351,10 @@ class DataExportQueries
                 'created_at',
                 'updated_at',
             ])
-            ->where('is_deleted', false);
+            ->where('is_deleted', false)
+            // Exports leave the system, so unreviewed self-filed intakes must not
+            // ride along in a client extract either.
+            ->withoutUnreviewedIntake();
 
         // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
         if ($user?->role === 'AGENCY') {
@@ -432,6 +436,32 @@ class DataExportQueries
             ])
             ->where('cl.is_deleted', false)
             ->orderBy('cl.created_at', 'desc');
+
+        // Drop clients whose every live case is a self-filed intake still awaiting
+        // review. Hand-written rather than Client::withoutUnreviewedIntake() because
+        // this builds on the query builder, not Eloquent — the rule is the same one,
+        // so keep the two in step.
+        // Grouped: an ungrouped orWhereExists would OR against cl.is_deleted above
+        // and let deleted clients back into the export.
+        $query->where(function ($outer) {
+            $outer->whereNotExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('cases AS cp')
+                    ->whereColumn('cp.client_id', 'cl.id')
+                    ->where('cp.is_deleted', false)
+                    ->where('cp.source', CaseFile::SOURCE_SELF_FILED)
+                    ->where('cp.status', 'DRAFT');
+            })->orWhereExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('cases AS cr')
+                    ->whereColumn('cr.client_id', 'cl.id')
+                    ->where('cr.is_deleted', false)
+                    ->where(function ($inner) {
+                        $inner->where('cr.source', '!=', CaseFile::SOURCE_SELF_FILED)
+                            ->orWhere('cr.status', '!=', 'DRAFT');
+                    });
+            });
+        });
 
         // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
         if ($user?->role === 'AGENCY') {
