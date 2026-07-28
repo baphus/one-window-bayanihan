@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ReferralController;
+use App\Jobs\Concerns\StoresGeneratedFile;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Notifications\DownloadReady;
@@ -17,12 +18,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class ExportDataToExcel implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, StoresGeneratedFile;
 
     public int $timeout = 300;
 
@@ -80,7 +80,7 @@ class ExportDataToExcel implements ShouldQueue
             $document = GeneratedDocument::findOrFail($this->generatedDocumentId);
             $s3Path = "generated/{$this->userId}/{$document->filename}";
 
-            Storage::disk('supabase')->put($s3Path, $fileContent);
+            $this->storeGeneratedFile($s3Path, $fileContent);
 
             $document->update([
                 'status' => 'completed',
