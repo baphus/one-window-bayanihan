@@ -13,7 +13,8 @@ class CaseFileFactory extends Factory
     public function definition(): array
     {
         return [
-            'case_number' => 'OWB-'.now()->format('Y').'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 99999), 5, '0', STR_PAD_LEFT),
+            // Matches CaseNumberGenerator: OWB-{YEAR}{MONTH}-{NNNNN}.
+            'case_number' => 'OWB-'.now()->format('Ym').'-'.str_pad((string) $this->faker->unique()->numberBetween(1, 99999), 5, '0', STR_PAD_LEFT),
             // Matches CaseNumberGenerator: Crockford base32, 10 characters.
             'tracker_number' => 'OWBAP-'.collect(range(1, 10))
                 ->map(fn () => '0123456789ABCDEFGHJKMNPQRSTVWXYZ'[random_int(0, 31)])

@@ -20,8 +20,14 @@ class ClientSelectController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
         ]);
 
+        // withoutUnacceptedIntake: this feeds the "select existing client" picker
+        // on the case-creation form. A self-filed intake that has not been
+        // accepted — pending review, or rejected — is an unverified claim, and
+        // attaching a new case to one would build on data no Case Manager has
+        // checked, or has already thrown out.
         $query = Client::withCount('caseFiles')
-            ->where('is_deleted', false);
+            ->where('is_deleted', false)
+            ->withoutUnacceptedIntake();
 
         if ($search = $validated['q'] ?? null) {
             $query->where(function ($q) use ($search) {
@@ -64,6 +70,11 @@ class ClientSelectController extends Controller
             'nextOfKin',
             'caseFile',
         ])->findOrFail($id);
+
+        // Hiding the client from the picker is not enough on its own: this route
+        // returns the filer's full PII for any id, so it has to refuse the same
+        // records rather than rely on nobody holding the uuid.
+        abort_if($client->hasOnlyUnacceptedIntake(), 404);
 
         return response()->json(['data' => [
             'id' => $client->id,

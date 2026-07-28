@@ -20,11 +20,11 @@ class CaseNumberGeneratorTest extends TestCase
 
     public function test_case_numbers_increment_without_gaps(): void
     {
-        $year = now()->timezone(config('app.operating_timezone'))->format('Y');
+        $period = now()->timezone(config('app.operating_timezone'))->format('Ym');
 
-        $this->assertSame("OWB-{$year}-00001", $this->generator()->nextCaseNumber());
-        $this->assertSame("OWB-{$year}-00002", $this->generator()->nextCaseNumber());
-        $this->assertSame("OWB-{$year}-00003", $this->generator()->nextCaseNumber());
+        $this->assertSame("OWB-{$period}-00001", $this->generator()->nextCaseNumber());
+        $this->assertSame("OWB-{$period}-00002", $this->generator()->nextCaseNumber());
+        $this->assertSame("OWB-{$period}-00003", $this->generator()->nextCaseNumber());
     }
 
     public function test_allocation_does_not_read_the_cases_table(): void
@@ -32,11 +32,11 @@ class CaseNumberGeneratorTest extends TestCase
         // The counter is authoritative, so an unrelated case already holding a
         // high number must not influence the next allocation. Under the old
         // MAX(case_number) approach this returned 00043.
-        $year = now()->timezone(config('app.operating_timezone'))->format('Y');
+        $period = now()->timezone(config('app.operating_timezone'))->format('Ym');
 
-        CaseFile::factory()->create(['case_number' => "OWB-{$year}-00042"]);
+        CaseFile::factory()->create(['case_number' => "OWB-{$period}-00042"]);
 
-        $this->assertSame("OWB-{$year}-00001", $this->generator()->nextCaseNumber());
+        $this->assertSame("OWB-{$period}-00001", $this->generator()->nextCaseNumber());
     }
 
     public function test_hard_deleting_a_case_does_not_recycle_its_number(): void
@@ -56,16 +56,34 @@ class CaseNumberGeneratorTest extends TestCase
         $this->assertStringEndsWith('00002', $second);
     }
 
-    public function test_counter_is_per_year(): void
+    public function test_counter_is_per_month(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-06-15 04:00:00', 'UTC'));
-        $this->assertSame('OWB-2026-00001', $this->generator()->nextCaseNumber());
-        $this->assertSame('OWB-2026-00002', $this->generator()->nextCaseNumber());
+        $this->assertSame('OWB-202606-00001', $this->generator()->nextCaseNumber());
+        $this->assertSame('OWB-202606-00002', $this->generator()->nextCaseNumber());
 
-        // A new year starts its own counter at 1 rather than continuing, which is
-        // why a single non-resetting PostgreSQL sequence was not used.
-        $this->travelTo(CarbonImmutable::parse('2027-06-15 04:00:00', 'UTC'));
-        $this->assertSame('OWB-2027-00001', $this->generator()->nextCaseNumber());
+        // A new month starts its own counter at 1 rather than continuing, which
+        // is why a single non-resetting PostgreSQL sequence was not used.
+        $this->travelTo(CarbonImmutable::parse('2026-07-15 04:00:00', 'UTC'));
+        $this->assertSame('OWB-202607-00001', $this->generator()->nextCaseNumber());
+
+        // ...and the following year's same month is its own series again.
+        $this->travelTo(CarbonImmutable::parse('2027-07-15 04:00:00', 'UTC'));
+        $this->assertSame('OWB-202707-00001', $this->generator()->nextCaseNumber());
+
+        $this->travelBack();
+    }
+
+    public function test_legacy_yearly_numbers_cannot_collide_with_monthly_ones(): void
+    {
+        // Cases issued before the switch keep OWB-{YEAR}-{NNNNN}. The period
+        // segment is four digits there and six here, so no monthly number can
+        // ever equal a yearly one no matter how the counters line up.
+        $this->travelTo(CarbonImmutable::parse('2026-07-15 04:00:00', 'UTC'));
+
+        CaseFile::factory()->create(['case_number' => 'OWB-2026-00001']);
+
+        $this->assertSame('OWB-202607-00001', $this->generator()->nextCaseNumber());
 
         $this->travelBack();
     }

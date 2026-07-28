@@ -6,6 +6,7 @@ use App\Casts\EncryptedDate;
 use App\Models\Concerns\HasAvatar;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -43,6 +44,83 @@ class Client extends Model
     public function caseFiles()
     {
         return $this->hasMany(CaseFile::class, 'client_id');
+    }
+
+    /**
+     * Hide people who exist only because of a self-filed intake that was never
+     * accepted.
+     *
+     * IntakeService writes the Client row when the public form is submitted, so
+     * from that moment an unverified claim is indistinguishable from an
+     * established client in any plain `Client::where('is_deleted', false)` query.
+     * That put unreviewed filers in the case-creation client picker, where
+     * selecting one attaches a real case to data no Case Manager has checked.
+     *
+     * "Unaccepted" covers both halves of the review outcome, and the rejected
+     * half is the one that is easy to get wrong. rejectIntake() soft-deletes the
+     * CASE but leaves the CLIENT row behind, so a rule that only looked for a
+     * live pending draft would see "no pending intake" and make the record fully
+     * visible — a rejection, the strongest signal the data is bogus, would
+     * publish it. The pending check therefore runs withTrashed().
+     *
+     * A client is hidden only while they have such an intake AND no live case
+     * that establishes them. Any case that has been through review — open,
+     * closed, or a Case Manager's own internal draft — makes them visible, so
+     * repeat filers stay selectable. Clients with no cases at all are untouched.
+     *
+     * Deliberately a scope rather than a global scope: the intake queue and the
+     * review screens must still see these records, and a global scope would have
+     * to be fought off in exactly the places that matter most.
+     *
+     * DataExportQueries::getClientsExport() repeats this rule in raw SQL because
+     * it does not build on Eloquent. Change both together.
+     */
+    public function scopeWithoutUnacceptedIntake(Builder $query): Builder
+    {
+        return $query->where(function (Builder $outer) {
+            $outer->whereDoesntHave('caseFiles', function (Builder $unaccepted) {
+                // withTrashed: a rejected intake is soft-deleted but still means
+                // this person was never accepted.
+                $unaccepted->withTrashed()
+                    ->where('source', CaseFile::SOURCE_SELF_FILED)
+                    ->where('status', 'DRAFT');
+            })->orWhereHas('caseFiles', function (Builder $establishing) {
+                $establishing->where('is_deleted', false)
+                    ->whereNull('cases.deleted_at')
+                    ->where(function (Builder $notIntake) {
+                        $notIntake->where('source', '!=', CaseFile::SOURCE_SELF_FILED)
+                            ->orWhere('status', '!=', 'DRAFT');
+                    });
+            });
+        });
+    }
+
+    /**
+     * True when this client's only case history is a self-filed intake that was
+     * never accepted — pending review, or rejected. The single-record
+     * counterpart to scopeWithoutUnacceptedIntake, for guarding detail routes.
+     */
+    public function hasOnlyUnacceptedIntake(): bool
+    {
+        $hasUnacceptedIntake = $this->caseFiles()
+            ->withTrashed()
+            ->where('source', CaseFile::SOURCE_SELF_FILED)
+            ->where('status', 'DRAFT')
+            ->exists();
+
+        if (! $hasUnacceptedIntake) {
+            return false;
+        }
+
+        $hasEstablishingCase = $this->caseFiles()
+            ->where('is_deleted', false)
+            ->where(function ($notIntake) {
+                $notIntake->where('source', '!=', CaseFile::SOURCE_SELF_FILED)
+                    ->orWhere('status', '!=', 'DRAFT');
+            })
+            ->exists();
+
+        return ! $hasEstablishingCase;
     }
 
     /**

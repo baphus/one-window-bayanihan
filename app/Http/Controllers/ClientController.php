@@ -7,6 +7,7 @@ use App\Http\Requests\ProfilePictureRequest;
 use App\Jobs\ExportDataToExcel;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\GeneratedDocument;
 use App\Models\Referral;
@@ -30,7 +31,10 @@ class ClientController extends Controller
         $categoryFilter = CategoryFilter::fromRequest($request);
         $categoryIds = $categoryFilter->ids();
 
-        $clients = Client::where('is_deleted', false)->with([
+        // The client directory lists established clients. Self-filed intakes that
+        // have not been accepted belong in the intake queue only, which reads
+        // cases directly and is unaffected by this scope.
+        $clients = Client::where('is_deleted', false)->withoutUnacceptedIntake()->with([
             'caseFile' => function ($q) use ($user) {
                 // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
                 if ($user?->isAgency()) {
@@ -168,10 +172,27 @@ class ClientController extends Controller
         $cacheKey = 'client_stats:'.$user?->id;
 
         return CacheHelper::safeRemember($cacheKey, 30, function () use ($user) {
+            // Clients hidden from the listing must not be counted by the tile
+            // above it, or the directory shows N rows and claims N+1 total. The
+            // other tiles are already safe: they all filter to cases with a
+            // status NOT IN ('DRAFT','ARCHIVED'), which no unaccepted intake has.
+            $excludeUnacceptedIntake = "NOT EXISTS (
+                    SELECT 1 FROM cases cp
+                    WHERE cp.client_id = %s
+                      AND cp.source = '".CaseFile::SOURCE_SELF_FILED."'
+                      AND cp.status = 'DRAFT'
+                ) OR EXISTS (
+                    SELECT 1 FROM cases cr
+                    WHERE cr.client_id = %s
+                      AND cr.is_deleted = false
+                      AND cr.deleted_at IS NULL
+                      AND (cr.source <> '".CaseFile::SOURCE_SELF_FILED."' OR cr.status <> 'DRAFT')
+                )";
+
             // Single query with conditional aggregation — replaces 10 separate count queries
             $totalClientsExpression = $user?->isAdmin()
-                ? '(SELECT COUNT(*) FROM clients WHERE is_deleted = false)'
-                : 'COUNT(DISTINCT cl.id)';
+                ? '(SELECT COUNT(*) FROM clients WHERE is_deleted = false AND ('.sprintf($excludeUnacceptedIntake, 'clients.id', 'clients.id').'))'
+                : 'COUNT(DISTINCT CASE WHEN ('.sprintf($excludeUnacceptedIntake, 'cl.id', 'cl.id').') THEN cl.id END)';
             $sql = "SELECT
                 {$totalClientsExpression} AS total_clients,
                 COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS ofw_clients,
@@ -245,6 +266,10 @@ class ClientController extends Controller
             'addresses',
             'employments',
         ])->findOrFail($id);
+
+        // Same rule as the directory listing: an unaccepted self-filed intake is
+        // read through the intake queue, not the client profile.
+        abort_if($client->hasOnlyUnacceptedIntake(), 404, 'Client not found.');
 
         $user = $request->user();
         $caseQuery = $client->caseFiles()
@@ -439,6 +464,13 @@ class ClientController extends Controller
      */
     private function authorizeClientAccess(Client $client, User $user): void
     {
+        // A client the directory and profile refuse to show must not be
+        // mutable either. Without this the avatar routes accepted a write and
+        // then redirected to a profile that 404s.
+        if ($client->hasOnlyUnacceptedIntake()) {
+            abort(404, 'Client not found.');
+        }
+
         // ADMIN and CASE_MANAGER: full access to all clients
         if ($user->isAdmin() || $user->isCaseManager()) {
             return;

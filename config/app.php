@@ -76,11 +76,12 @@ return [
     | stay UTC above, which is correct; this is for values that must follow the
     | local calendar rather than UTC.
     |
-    | Case numbers are the motivating case. OWB-{YEAR}-{NNNNN} derived its year
-    | from now()->format('Y') under UTC, so the year rolled over at 08:00 PHT on
-    | 1 January and cases filed in Manila between midnight and 08:00 were stamped
-    | with the previous year — a records-retention defect, since the reference is
-    | expected to follow the jurisdiction's calendar year.
+    | Case numbers are the motivating case. OWB-{YEAR}{MONTH}-{NNNNN} derives its
+    | period from now()->format('Ym'); under UTC that rolled over at 08:00 PHT, so
+    | cases filed in Manila between midnight and 08:00 were stamped with the
+    | previous period — a records-retention defect, since the reference is
+    | expected to follow the jurisdiction's calendar. Now that the series is
+    | monthly, that boundary comes round twelve times a year rather than once.
     |
     | 'Asia/Manila' was already hardcoded in AuditLogFormatter, in
     | ReportsExportService::TZ, and as the users.timezone column default. This is

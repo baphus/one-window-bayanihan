@@ -50,10 +50,10 @@ use Inertia\Inertia;
 // Public survey submission — no auth required (token-based)
 Route::get('/survey/{token}', [PublicSurveyController::class, 'show'])
     ->name('survey.public.show')
-    ->middleware('throttle:30,1');
+    ->middleware('throttle:survey-view');
 Route::post('/survey/{token}', [PublicSurveyController::class, 'submit'])
     ->name('survey.public.submit')
-    ->middleware('throttle:10,1');
+    ->middleware('throttle:survey-submit');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -97,7 +97,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs');
 
-    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:120,1');
+    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:reports-view');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
 
@@ -341,7 +341,7 @@ Route::get('/contact', function () {
 
 Route::post('/contact', [ContactController::class, 'store'])
     ->name('contact.store')
-    ->middleware(['turnstile', 'throttle:5,1']);
+    ->middleware(['turnstile', 'throttle:contact-form']);
 
 Route::get('/privacy', function () {
     return Inertia::render('Legal/PrivacyPolicy');
@@ -353,15 +353,18 @@ Route::get('/terms', function () {
 
 // Public OFW self-filing intake
 Route::get('/intake', [IntakeController::class, 'index'])->name('intake.index');
+// Each step gets its own named limiter. With inline limits these three shared a
+// single per-visitor counter with each other AND with the address lookups the
+// wizard calls, so submission was rejected at 429 before it was ever attempted.
 Route::post('/intake/verify-email', [IntakeController::class, 'verifyEmail'])
     ->name('intake.verify-email')
-    ->middleware(['turnstile', 'throttle:5,1']);
+    ->middleware(['turnstile', 'throttle:intake-otp']);
 Route::post('/intake/check-duplicate', [IntakeController::class, 'checkDuplicate'])
     ->name('intake.check-duplicate')
-    ->middleware('throttle:10,1');
+    ->middleware('throttle:intake-duplicate');
 Route::post('/intake/submit', [IntakeController::class, 'submit'])
     ->name('intake.submit')
-    ->middleware('throttle:5,1');
+    ->middleware('throttle:intake-submit');
 
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
@@ -384,10 +387,10 @@ Route::get('/track/request', [ReferralClientRequestController::class, 'show'])
     ->name('track.request.index');
 Route::post('/track/request/messages', [ReferralClientRequestController::class, 'clientMessage'])
     ->name('track.request.messages.store')
-    ->middleware('throttle:20,1');
+    ->middleware('throttle:track-request-message');
 Route::post('/track/request/replacement', [ReferralClientRequestController::class, 'replacement'])
     ->name('track.request.replacement')
-    ->middleware('throttle:5,1');
+    ->middleware('throttle:track-request-replacement');
 
 Route::prefix('help')->name('helpdesk.')->group(function () {
     Route::get('/', function (Request $request) {
@@ -415,7 +418,7 @@ Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->g
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
     ->name('chatbot.message')
-    ->middleware(['turnstile.session', 'throttle:30,1']);
+    ->middleware(['turnstile.session', 'throttle:chatbot']);
 
 // OFW authenticated portal routes
 Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group(function () {

@@ -37,6 +37,39 @@ function clearSession() {
   sessionStorage.removeItem(STORAGE_KEY);
 }
 
+/**
+ * POST JSON and report the status separately from the body.
+ *
+ * `Accept: application/json` matters: without it Laravel renders throttle (429),
+ * expired-session (419) and unhandled (500) responses as full HTML error pages.
+ * The body is then parsed defensively anyway, because a proxy or the dev server
+ * can still return HTML. Reading `res.json()` before checking `res.status` — as
+ * this file used to — makes any such response throw, so every one of them
+ * surfaced as the same "Server error" and the status-specific branches in the
+ * callers were unreachable.
+ */
+async function postJson(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+    },
+    body: JSON.stringify(body),
+  });
+
+  let json = null;
+  try {
+    json = await res.json();
+  } catch (e) {
+    json = null;
+  }
+
+  return { res, json };
+}
+
 export default function IntakeIndex({ positionOptions }) {
   const { turnstile } = usePage().props;
 
@@ -98,18 +131,18 @@ export default function IntakeIndex({ positionOptions }) {
     setProcessing(true);
     setErrors({});
     try {
-      const res = await fetch(route('intake.verify-email'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content },
-        body: JSON.stringify({ email: formData.email, cf_turnstile_response: turnstileToken }),
+      const { res, json } = await postJson(route('intake.verify-email'), {
+        email: formData.email,
+        cf_turnstile_response: turnstileToken,
       });
-      const json = await res.json();
-      if (res.ok && json.sent) {
+      if (res.ok && json?.sent) {
         setOtpSent(true);
         setOtpHint(json.hint);
         setDebugOtp(json.debug_otp);
+      } else if (res.status === 429) {
+        setErrors({ email: 'Too many verification codes requested. Please wait a minute and try again.' });
       } else {
-        setErrors({ email: json.error || json.errors?.email?.[0] || json.message || 'Failed to send verification code.' });
+        setErrors({ email: json?.error || json?.errors?.email?.[0] || json?.message || 'Failed to send verification code.' });
       }
     } catch (e) {
       setErrors({ email: 'Network error. Please try again.' });
@@ -125,21 +158,21 @@ export default function IntakeIndex({ positionOptions }) {
     setProcessing(true);
     setErrors({});
     try {
-      const res = await fetch(route('intake.check-duplicate'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content },
-        body: JSON.stringify({ email: formData.email, otp: formData.otp }),
+      const { res, json } = await postJson(route('intake.check-duplicate'), {
+        email: formData.email,
+        otp: formData.otp,
       });
-      const json = await res.json();
-      if (!res.ok) {
+      if (res.status === 429) {
+        setErrors({ otp: 'Too many attempts. Please wait a minute and try again.' });
+      } else if (!res.ok || !json) {
         // Handle 422 from either OTP failure ({ error: '...' }) or Laravel validation ({ errors: { ... } })
-        const msg = json.error
-          || (json.errors?.otp?.[0])
-          || (json.errors?.email?.[0])
-          || (json.message)
+        const msg = json?.error
+          || (json?.errors?.otp?.[0])
+          || (json?.errors?.email?.[0])
+          || (json?.message)
           || 'Invalid or expired OTP.';
         setErrors({ otp: msg });
-      } else if (json.duplicate) {
+      } else if (json?.duplicate) {
         setDuplicateMessage(json.message);
       } else {
         setEmailVerified(true);
@@ -167,32 +200,30 @@ export default function IntakeIndex({ positionOptions }) {
     setProcessing(true);
     setErrors({});
     try {
-      const res = await fetch(route('intake.submit'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content },
-        body: JSON.stringify(formData),
-      });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const { res, json } = await postJson(route('intake.submit'), formData);
+      if (res.ok && json?.success) {
         clearSession();
         setSubmitSuccess(true);
       } else if (res.status === 422) {
         // Validation errors — merge with existing but keep submit-level
-        const validationErrors = json.errors || {};
+        const validationErrors = json?.errors || {};
         setErrors(prev => ({ ...prev, ...validationErrors }));
         if (!validationErrors.submit) {
           // Collect first visible field error as submit-level message
           const firstError = Object.values(validationErrors).flat().find(Boolean);
-          setErrors(prev => ({ ...prev, submit: firstError || 'Please check the form fields and try again.' }));
+          setErrors(prev => ({ ...prev, submit: firstError || json?.error || 'Please check the form fields and try again.' }));
         }
       } else if (res.status === 429) {
         setErrors({ submit: 'Too many attempts. Please wait a minute and try again.' });
+      } else if (res.status === 419) {
+        setErrors({ submit: 'Your session expired. Please refresh the page and verify your email again.' });
       } else {
-        setErrors({ submit: json.error || json.message || 'Submission failed. Please try again.' });
+        setErrors({ submit: json?.error || json?.message || 'Submission failed. Please try again.' });
       }
     } catch (e) {
-      // Non-JSON response (HTML error page) — try to extract status from the response
-      setErrors({ submit: 'Server error. Please try again. If the problem persists, contact support.' });
+      // Only a genuine transport failure reaches here now — postJson swallows
+      // unparseable bodies so the status-specific branches above still run.
+      setErrors({ submit: 'Network error. Please check your connection and try again.' });
     }
     setProcessing(false);
   };

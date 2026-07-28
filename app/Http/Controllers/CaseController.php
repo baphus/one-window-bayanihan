@@ -61,6 +61,14 @@ class CaseController extends Controller
         $client = null;
         if ($request->has('client_id')) {
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
+
+            // ?client_id= prefills the form with the client's full record, so it
+            // is a second way into the same data the picker now hides. An
+            // unaccepted self-filed intake is handled from the intake queue, not
+            // used as the starting point for a new case.
+            if ($client?->hasOnlyUnacceptedIntake()) {
+                $client = null;
+            }
         }
 
         $categories = $this->referenceData->getActiveCategories();

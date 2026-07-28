@@ -11,11 +11,14 @@ use Illuminate\Support\Facades\Route;
 // configured. Deliberately NOT the container health check: the platform must keep
 // probing the shallow /up route, or a database blip becomes a restart loop.
 Route::get('/readyz', ReadinessController::class)
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:readiness')
     ->name('monitoring.readyz');
 
-// Public address lookup endpoints (PSGC government data — no auth required)
-Route::middleware('throttle:60,1')->group(function () {
+// Public address lookup endpoints (PSGC government data — no auth required).
+// The limiter must stay named: these are the lookups the OFW intake wizard
+// cascades through, and an inline limit would share one counter with
+// /intake/submit and reject the filer's submission. See AppServiceProvider.
+Route::middleware('throttle:address-lookup')->group(function () {
     Route::get('/address/regions', [PhilippineAddressController::class, 'regions']);
     Route::get('/address/provinces', [PhilippineAddressController::class, 'provinces']);
     Route::get('/address/cities', [PhilippineAddressController::class, 'cities']);
@@ -25,12 +28,12 @@ Route::middleware('throttle:60,1')->group(function () {
 
 // CSP violation reporting endpoint
 Route::post('/csp/report', [CspViolationController::class, 'report'])
-    ->middleware('throttle:120,1');
+    ->middleware('throttle:csp-report');
 
 // Resend delivery webhooks (bounces, complaints, deliveries).
 // Authenticated by Svix signature inside the controller, not by session or
 // token — see App\Services\Mail\SvixWebhookVerifier. Kept in api.php so it
 // bypasses CSRF, sessions, and the MFA middleware that the web group appends.
 Route::post('/webhooks/resend', ResendWebhookController::class)
-    ->middleware('throttle:300,1')
+    ->middleware('throttle:resend-webhook')
     ->name('webhooks.resend');
