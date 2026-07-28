@@ -107,10 +107,11 @@ class IntakeSubmitThrottleTest extends TestCase
     }
 
     #[Test]
-    public function test_chatbot_and_csp_reports_do_not_consume_the_intake_submit_budget(): void
+    public function test_csp_reports_do_not_consume_the_intake_submit_budget(): void
     {
-        // Both fire from the intake page itself: the ChatBot widget is rendered
-        // on it, and the browser posts CSP violation reports unprompted.
+        // The browser posts CSP violation reports from the intake page itself,
+        // unprompted, so they spent the shared guest budget before the filer had
+        // done anything at all.
         foreach (range(1, 6) as $ignored) {
             $this->postJson('/api/csp/report', ['csp-report' => ['document-uri' => 'https://example.test/intake']]);
         }

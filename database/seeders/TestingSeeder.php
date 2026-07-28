@@ -527,7 +527,7 @@ class TestingSeeder extends Seeder
         $casesToCreate = 850;
         $caseCounter = 1;
         $usedTrackers = [];
-        $yearPrefix = now()->format('Y');
+        $periodPrefix = now()->format('Ym');
 
         // Status distribution: 40% OPEN, 30% CLOSED, 15% DRAFT, 15% ARCHIVED
         $caseStatusDistribution = [];
@@ -557,8 +557,8 @@ class TestingSeeder extends Seeder
             $caseIds[] = $caseId;
             $status = $caseStatusDistribution[$i];
 
-            // Unique case_number — OWB-{YEAR}-{NNNNN} format to match CaseService/IntakeService
-            $caseNumber = 'OWB-'.$yearPrefix.'-'.str_pad($caseCounter++, 5, '0', STR_PAD_LEFT);
+            // Unique case_number — OWB-{YEAR}{MONTH}-{NNNNN} to match CaseNumberGenerator
+            $caseNumber = 'OWB-'.$periodPrefix.'-'.str_pad($caseCounter++, 5, '0', STR_PAD_LEFT);
 
             // Unique tracker_number
             do {

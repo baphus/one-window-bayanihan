@@ -8,16 +8,16 @@ use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
  * Rejects a client who is only in the system because of a self-filed intake that
- * nobody has reviewed yet.
+ * was never accepted — either still awaiting review, or rejected outright.
  *
  * Hiding those people from the client picker stops the mistake being made through
  * the UI; this closes the request itself. Attaching a real case to an unverified
- * submission would carry unchecked identity data into a live case, and the
- * accepted intake would then be a duplicate of it.
+ * submission would carry unchecked identity data into a live case, and if that
+ * intake is later accepted the two records describe the same person twice.
  *
- * @see Client::isAwaitingIntakeReview()
+ * @see Client::hasOnlyUnacceptedIntake()
  */
-final class ClientNotAwaitingIntakeReview implements ValidationRule
+final class ClientNotFromUnacceptedIntake implements ValidationRule
 {
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -32,8 +32,8 @@ final class ClientNotAwaitingIntakeReview implements ValidationRule
             return;
         }
 
-        if ($client->isAwaitingIntakeReview()) {
-            $fail('This person has a self-filed request awaiting review. Review it in the intake queue instead of creating a new case.');
+        if ($client->hasOnlyUnacceptedIntake()) {
+            $fail('This person only has a self-filed request that has not been accepted. Handle it in the intake queue rather than creating a new case.');
         }
     }
 }

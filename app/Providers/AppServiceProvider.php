@@ -133,8 +133,18 @@ class AppServiceProvider extends ServiceProvider
          * guest-facing limits named for the same reason; the numbers here are
          * the ones the inline limits already used.
          */
+        /*
+         * Two limits, both enforced. Keying only on email|ip would be weaker than
+         * the inline per-IP limit this replaced: one host could send five codes
+         * per minute for every address it invented, so rotating the field bought
+         * unbounded outbound mail to third parties. The per-email limit stops one
+         * inbox being flooded; the per-IP limit caps the sender.
+         */
         RateLimiter::for('intake-otp', function (Request $request) {
-            return Limit::perMinute(5)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip());
+            return [
+                Limit::perMinute(5)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip()),
+                Limit::perMinute(5)->by('ip|'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('intake-duplicate', function (Request $request) {
@@ -189,8 +199,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
+        // Per-email and per-IP, for the same reason as intake-otp: without the
+        // per-IP limit, rotating the email field gives unbounded reset mail and a
+        // free account-enumeration oracle.
         RateLimiter::for('password-reset-request', function (Request $request) {
-            return Limit::perMinute(5)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip());
+            return [
+                Limit::perMinute(5)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip()),
+                Limit::perMinute(5)->by('ip|'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('email-verification', function (Request $request) {

@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\CaseFile;
-use App\Rules\ClientNotAwaitingIntakeReview;
+use App\Rules\ClientNotFromUnacceptedIntake;
 use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -97,7 +97,7 @@ class UpdateDraftRequest extends FormRequest
             'next_of_kin.*.nok_address.barangay' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
 
-            'selected_client_id' => ['nullable', 'string', 'exists:clients,id', new ClientNotAwaitingIntakeReview],
+            'selected_client_id' => ['nullable', 'string', 'exists:clients,id', new ClientNotFromUnacceptedIntake],
             'selected_nok_index' => ['nullable', 'integer', 'min:0'],
 
             'consent' => ['nullable', 'boolean'],

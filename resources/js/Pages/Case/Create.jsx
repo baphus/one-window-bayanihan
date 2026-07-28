@@ -73,7 +73,7 @@ function getDraftCategoryIds(draft) {
 
 // The case number and tracker number are assigned by the server on save
 // (CaseService::generateCaseNumber / generateTrackerNumber) using the canonical
-// OWB-{YEAR}-{NNNNN} and OWBAP-XXXXXXXXXX formats. This screen used to generate and
+// OWB-{YEAR}{MONTH}-{NNNNN} and OWBAP-XXXXXXXXXX formats. This screen used to generate and
 // display look-alike values (CM-YYYYMMDD-NNNN plus a random OWBAP token) which
 // were then thrown away, so a case manager who noted the tracker number to give
 // the client handed over an identifier that did not exist. Show a placeholder

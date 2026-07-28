@@ -64,9 +64,9 @@ class CaseController extends Controller
 
             // ?client_id= prefills the form with the client's full record, so it
             // is a second way into the same data the picker now hides. An
-            // unreviewed self-filed intake is reviewed from the intake queue, not
+            // unaccepted self-filed intake is handled from the intake queue, not
             // used as the starting point for a new case.
-            if ($client?->isAwaitingIntakeReview()) {
+            if ($client?->hasOnlyUnacceptedIntake()) {
                 $client = null;
             }
         }

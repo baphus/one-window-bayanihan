@@ -352,9 +352,9 @@ class DataExportQueries
                 'updated_at',
             ])
             ->where('is_deleted', false)
-            // Exports leave the system, so unreviewed self-filed intakes must not
+            // Exports leave the system, so unaccepted self-filed intakes must not
             // ride along in a client extract either.
-            ->withoutUnreviewedIntake();
+            ->withoutUnacceptedIntake();
 
         // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
         if ($user?->role === 'AGENCY') {
@@ -437,10 +437,16 @@ class DataExportQueries
             ->where('cl.is_deleted', false)
             ->orderBy('cl.created_at', 'desc');
 
-        // Drop clients whose every live case is a self-filed intake still awaiting
-        // review. Hand-written rather than Client::withoutUnreviewedIntake() because
-        // this builds on the query builder, not Eloquent — the rule is the same one,
-        // so keep the two in step.
+        // Drop clients whose only case history is a self-filed intake that was
+        // never accepted. Hand-written rather than Client::withoutUnacceptedIntake()
+        // because this builds on the query builder, not Eloquent — same rule, so
+        // change the two together.
+        //
+        // The first EXISTS deliberately does NOT filter deleted cases. rejectIntake()
+        // soft-deletes the case and leaves the client row behind, so ignoring
+        // trashed rows here would read a rejected filer as established and write
+        // their PII into a spreadsheet that leaves the system.
+        //
         // Grouped: an ungrouped orWhereExists would OR against cl.is_deleted above
         // and let deleted clients back into the export.
         $query->where(function ($outer) {
@@ -448,7 +454,6 @@ class DataExportQueries
                 $q->selectRaw('1')
                     ->from('cases AS cp')
                     ->whereColumn('cp.client_id', 'cl.id')
-                    ->where('cp.is_deleted', false)
                     ->where('cp.source', CaseFile::SOURCE_SELF_FILED)
                     ->where('cp.status', 'DRAFT');
             })->orWhereExists(function ($q) {
@@ -456,6 +461,10 @@ class DataExportQueries
                     ->from('cases AS cr')
                     ->whereColumn('cr.client_id', 'cl.id')
                     ->where('cr.is_deleted', false)
+                    // Both columns: SoftDeleteFlag writes them together and the
+                    // Eloquent scope filters on deleted_at, so matching it here
+                    // stops listing and export drifting apart if one is set alone.
+                    ->whereNull('cr.deleted_at')
                     ->where(function ($inner) {
                         $inner->where('cr.source', '!=', CaseFile::SOURCE_SELF_FILED)
                             ->orWhere('cr.status', '!=', 'DRAFT');

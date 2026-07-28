@@ -17,8 +17,13 @@ use Illuminate\Support\Facades\DB;
  * implementation both services delegate to.
  *
  * Formats:
- *   case_number    OWB-{YEAR}-{NNNNN}   sequential per calendar year
- *   tracker_number OWBAP-XXXXXXX        random, client-facing
+ *   case_number    OWB-{YEAR}{MONTH}-{NNNNN}  sequential per calendar month
+ *   tracker_number OWBAP-XXXXXXXXXX           random, client-facing
+ *
+ * The case number counts per month, e.g. OWB-202607-00001. Numbers issued under
+ * the previous per-year series (OWB-2026-00001) remain valid; the two cannot
+ * collide, because the period segment is four digits in the old series and six
+ * in the new.
  *
  * The split is deliberate and worth preserving. case_number is sequential and
  * therefore enumerable, so it is never a lookup key; public tracking resolves
@@ -44,7 +49,7 @@ class CaseNumberGenerator
     private const TRACKER_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
     /**
-     * Allocate the next case number for the current operating-timezone year.
+     * Allocate the next case number for the current operating-timezone month.
      *
      * Allocation is one atomic statement against case_number_counters. There is
      * no read-modify-write and no advisory lock: ON CONFLICT DO UPDATE takes the
@@ -55,26 +60,26 @@ class CaseNumberGenerator
      * leave two cases sharing one identifier in the audit trail.
      *
      * Note on padding: str_pad never truncates, so allocation past 99999 yields
-     * OWB-{YEAR}-100000. Uniqueness and ordering still hold; only the documented
-     * five-digit width is exceeded.
+     * OWB-{YEAR}{MONTH}-100000. Uniqueness and ordering still hold; only the
+     * documented five-digit width is exceeded.
      */
     public function nextCaseNumber(): string
     {
-        $year = $this->currentYear();
+        $period = $this->currentPeriod();
 
         $row = DB::selectOne(
-            'INSERT INTO case_number_counters (year, last_number, created_at, updated_at)
+            'INSERT INTO case_number_counters (period, last_number, created_at, updated_at)
              VALUES (?, 1, NOW(), NOW())
-             ON CONFLICT (year) DO UPDATE
+             ON CONFLICT (period) DO UPDATE
                SET last_number = case_number_counters.last_number + 1,
                    updated_at = NOW()
              RETURNING last_number',
-            [$year]
+            [$period]
         );
 
         $next = (int) $row->last_number;
 
-        return sprintf('OWB-%d-%s', $year, str_pad((string) $next, self::CASE_NUMBER_PAD, '0', STR_PAD_LEFT));
+        return sprintf('OWB-%d-%s', $period, str_pad((string) $next, self::CASE_NUMBER_PAD, '0', STR_PAD_LEFT));
     }
 
     /**
@@ -107,17 +112,22 @@ class CaseNumberGenerator
     }
 
     /**
-     * The calendar year in the jurisdiction's timezone, not UTC.
+     * The calendar month as YYYYMM in the jurisdiction's timezone, not UTC.
      *
      * Storage stays UTC, which is correct, but the case number is a records
-     * reference expected to follow the local calendar year. Derived from UTC it
+     * reference expected to follow the local calendar. Derived from UTC the year
      * rolled over at 08:00 PHT on 1 January, so cases filed in Manila between
-     * midnight and 08:00 carried the previous year.
+     * midnight and 08:00 carried the previous year. Per-month numbering makes
+     * that boundary twelve times as frequent, so it matters more, not less: every
+     * month now has eight hours in which a UTC-derived period would be wrong.
+     *
+     * Always six digits — a four-digit year and a zero-padded month — so the
+     * value is safe to use as an integer key without losing a leading zero.
      */
-    private function currentYear(): int
+    private function currentPeriod(): int
     {
         return (int) now()
             ->timezone(config('app.operating_timezone', 'Asia/Manila'))
-            ->format('Y');
+            ->format('Ym');
     }
 }

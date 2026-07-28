@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
+use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -21,10 +22,12 @@ use Tests\TestCase;
  * The intake queue itself is the one place these records belong, and it queries
  * cases directly, so it is unaffected.
  *
- * "Pending" means: source=self_filed, status=DRAFT, not deleted. Acceptance moves
- * the case to OPEN; rejection soft-deletes it. Either way the client stops being
- * hidden by these rules — after rejection the row lingers with no live case,
- * which is the same shape as a client whose case was deleted.
+ * "Unaccepted" means source=self_filed and status=DRAFT, whether or not the case
+ * has been soft-deleted. Acceptance moves the case to OPEN and makes the client
+ * visible. Rejection soft-deletes the CASE but leaves the CLIENT row, so a rule
+ * that only looked at live cases would read a rejected filer as having no pending
+ * intake and publish them — rejection, the strongest evidence the data is bogus,
+ * would have been the thing that revealed it. Hence withTrashed().
  */
 class PendingIntakeClientVisibilityTest extends TestCase
 {
@@ -242,6 +245,86 @@ class PendingIntakeClientVisibilityTest extends TestCase
             ->all();
 
         $this->assertNotContains('Client, Deleted', $names);
+    }
+
+    #[Test]
+    public function test_rejecting_an_intake_does_not_reveal_the_client(): void
+    {
+        // The regression this guards: rejectIntake() soft-deletes the case only.
+        // A live-cases-only rule then saw "no pending intake" and exposed the
+        // filer through the picker, the detail endpoint and the export — so
+        // rejecting a bogus submission was what published it.
+        $client = $this->pendingIntakeClient(['first_name' => 'Rejected', 'last_name' => 'Filer']);
+        $reviewer = $this->caseManager();
+        $case = $client->caseFiles()->firstOrFail();
+
+        app(CaseService::class)->rejectIntake($case->id, 'Not an OFW concern.', $reviewer->id);
+
+        $this->assertTrue($client->fresh()->hasOnlyUnacceptedIntake());
+
+        $this->actingAs($reviewer)->getJson('/api/clients')->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($reviewer)->getJson("/api/clients/{$client->id}")->assertNotFound();
+        $this->actingAs($reviewer)->get(route('clients.show', $client->id))->assertNotFound();
+
+        $names = collect((new DataExportQueries)->getClientsExport($reviewer))->pluck('full_name')->all();
+        $this->assertNotContains('Filer, Rejected', $names);
+    }
+
+    #[Test]
+    public function test_a_rejected_intake_does_not_hide_an_otherwise_established_client(): void
+    {
+        // Rejecting one submission must not erase a client the programme already
+        // knows through a real case.
+        $client = Client::factory()->create(['first_name' => 'Established', 'is_deleted' => false]);
+        CaseFile::factory()->create(['client_id' => $client->id, 'status' => 'OPEN']);
+        $intake = CaseFile::factory()->create([
+            'client_id' => $client->id,
+            'user_id' => null,
+            'status' => 'DRAFT',
+            'source' => CaseFile::SOURCE_SELF_FILED,
+        ]);
+
+        $reviewer = $this->caseManager();
+        app(CaseService::class)->rejectIntake($intake->id, 'Duplicate of the open case.', $reviewer->id);
+
+        $this->actingAs($reviewer)->getJson('/api/clients')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.first_name', 'Established');
+    }
+
+    #[Test]
+    public function test_avatar_routes_refuse_a_client_hidden_from_the_directory(): void
+    {
+        // A record the profile refuses to show must not be writable either.
+        $client = $this->pendingIntakeClient();
+
+        $this->actingAs($this->caseManager())
+            ->delete(route('clients.avatar.destroy', $client->id))
+            ->assertNotFound();
+    }
+
+    #[Test]
+    public function test_client_directory_total_matches_the_rows_it_lists(): void
+    {
+        // The listing was scoped but the "Total Clients" tile above it was not,
+        // so the directory showed one row and claimed two.
+        $this->pendingIntakeClient(['first_name' => 'Pending']);
+        $established = Client::factory()->create(['first_name' => 'Established', 'is_deleted' => false]);
+        CaseFile::factory()->create(['client_id' => $established->id, 'status' => 'OPEN']);
+
+        // Each role gets a fresh user, so the per-user client_stats cache key is
+        // distinct and cannot serve a value cached by the other.
+        foreach (['ADMIN', 'CASE_MANAGER'] as $role) {
+            $user = User::factory()->create(['role' => $role]);
+
+            $this->actingAs($user)->get(route('clients.index'))
+                ->assertStatus(200)
+                ->assertInertia(fn ($page) => $page
+                    ->has('clients.data', 1)
+                    ->where('stats.total_clients', 1)
+                );
+        }
     }
 
     #[Test]
