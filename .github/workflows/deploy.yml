@@ -148,6 +148,13 @@ jobs:
           RESEND_KEY: ${{ secrets.RESEND_KEY }}
           MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS || 'noreply@owbap.app' }}
           SENTRY_LARAVEL_DSN: ${{ secrets.SENTRY_LARAVEL_DSN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          # All GitHub Environment variables are merged into the container env
+          # below. Add any non-sensitive config to the GitHub Environment and it
+          # flows through automatically — no workflow change needed.
+          GH_VARS_JSON: ${{ toJSON(vars) }}
         run: |
           set -euo pipefail
           jq -n \
@@ -170,13 +177,17 @@ jobs:
             --arg resend    "$RESEND_KEY" \
             --arg mailFrom  "$MAIL_FROM_ADDRESS" \
             --arg sentry    "$SENTRY_LARAVEL_DSN" \
+            --arg openrouter "$OPENROUTER_API_KEY" \
+            --arg turnstileSite "$TURNSTILE_SITE_KEY" \
+            --arg turnstileSecret "$TURNSTILE_SECRET_KEY" \
+            --argjson ghVars "$GH_VARS_JSON" \
             '{
               serviceName: $service,
               containers: {
                 app: {
                   image: $image,
                   ports: { "8080": "HTTP" },
-                  environment: {
+                  environment: ($ghVars + {
                     APP_NAME: "One Window Bayanihan",
                     APP_ENV: $appEnv,
                     APP_DEBUG: "false",
@@ -217,8 +228,11 @@ jobs:
                     RESEND_KEY: $resend,
                     MAIL_FROM_ADDRESS: $mailFrom,
                     MAIL_FROM_NAME: "One Window Bayanihan",
-                    SENTRY_LARAVEL_DSN: $sentry
-                  }
+                    SENTRY_LARAVEL_DSN: $sentry,
+                    OPENROUTER_API_KEY: $openrouter,
+                    TURNSTILE_SITE_KEY: $turnstileSite,
+                    TURNSTILE_SECRET_KEY: $turnstileSecret
+                  })
                 }
               },
               publicEndpoint: {
