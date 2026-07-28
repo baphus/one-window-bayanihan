@@ -20,6 +20,59 @@ class ReadinessEndpointTest extends TestCase
         Cache::put(ReadinessController::SCHEDULER_HEARTBEAT_KEY, now()->toIso8601String(), now()->addHour());
     }
 
+    // The probe reported this application ready while every outbound mail was
+    // failing with a 500: the Resend key was shipped under a name config did
+    // not read, so Mail::to() threw before anything was queued. /up cannot see
+    // that, and neither could this endpoint.
+
+    #[Test]
+    public function it_reports_degraded_when_the_mailer_cannot_be_constructed(): void
+    {
+        config([
+            'monitoring.readiness_token' => self::TOKEN,
+            'mail.default' => 'resend',
+            'services.resend.key' => null,
+        ]);
+        $this->freshHeartbeat();
+
+        $this->getJson('/api/readyz', ['X-Monitoring-Token' => self::TOKEN])
+            ->assertStatus(503)
+            ->assertJsonPath('checks.mail.status', 'fail')
+            ->assertJsonPath('status', 'degraded');
+    }
+
+    #[Test]
+    public function it_reports_ok_when_the_mailer_can_be_constructed(): void
+    {
+        config([
+            'monitoring.readiness_token' => self::TOKEN,
+            'mail.default' => 'resend',
+            'services.resend.key' => 're_test_key_value',
+        ]);
+        $this->freshHeartbeat();
+
+        $this->getJson('/api/readyz', ['X-Monitoring-Token' => self::TOKEN])
+            ->assertStatus(200)
+            ->assertJsonPath('checks.mail.status', 'ok');
+    }
+
+    #[Test]
+    public function it_flags_the_log_mailer_as_delivering_nothing(): void
+    {
+        // Not a failure — `log` is the deliberate pre-launch setting — but it
+        // must never read as working delivery on a dashboard.
+        config([
+            'monitoring.readiness_token' => self::TOKEN,
+            'mail.default' => 'log',
+        ]);
+        $this->freshHeartbeat();
+
+        $this->getJson('/api/readyz', ['X-Monitoring-Token' => self::TOKEN])
+            ->assertStatus(200)
+            ->assertJsonPath('checks.mail.status', 'ok')
+            ->assertJsonPath('checks.mail.detail', 'writes to the log; nothing is delivered');
+    }
+
     #[Test]
     public function it_404s_when_no_token_is_configured(): void
     {

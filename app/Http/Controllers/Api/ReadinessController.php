@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\MailTransportHealth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -39,6 +41,7 @@ class ReadinessController extends Controller
         $checks = [
             'database' => $this->checkDatabase(),
             'scheduler' => $this->checkScheduler((int) $thresholds['scheduler_stale_seconds']),
+            'mail' => $this->checkMailTransport(),
         ];
 
         // Queue depth is only observable through these tables on the database
@@ -99,6 +102,54 @@ class ReadinessController extends Controller
 
             return ['status' => 'fail', 'detail' => 'connection failed'];
         }
+    }
+
+    /**
+     * Can the configured mailer actually be built?
+     *
+     * This probe reported the application ready while EVERY outbound mail was
+     * failing: the Resend key was shipped under a name config did not read, so
+     * Mail::to() — which resolves the transport eagerly — threw a TypeError and
+     * returned 500 on intake OTP, MFA and password reset alike. /up cannot see
+     * that, and until now neither could this.
+     *
+     * Constructing the transport is the same path Mail::to() takes and opens no
+     * connection, so this stays a cheap check rather than a probe that sends.
+     *
+     * @return array<string, mixed>
+     */
+    private function checkMailTransport(): array
+    {
+        $mailer = (string) config('mail.default');
+
+        // Shared with the container's boot preflight so the two gates cannot
+        // disagree about what counts as deliverable.
+        $problem = MailTransportHealth::problem($mailer);
+
+        if ($problem !== null) {
+            // Log once every 5 minutes, not once per poll. MailManager never
+            // caches a failed resolve, so an uncontrolled log here would write
+            // a stack trace on every monitor tick — flooding the log precisely
+            // while someone is reading it to diagnose the mailer.
+            if (Cache::add('monitoring:mail-fail-logged', true, 300)) {
+                Log::error('Readiness: mail transport unusable', [
+                    'mailer' => $mailer,
+                    'reason' => $problem['reason'],
+                ]);
+            }
+
+            // The reason can name a credential, so the response body stays
+            // generic and the detail goes to the log.
+            return ['status' => 'fail', 'mailer' => $mailer, 'detail' => 'transport unusable'];
+        }
+
+        // Not a failure — `log` is the deliberate pre-launch setting — but it
+        // must never be mistaken for working delivery on a dashboard.
+        if ($mailer === 'log') {
+            return ['status' => 'ok', 'mailer' => $mailer, 'detail' => 'writes to the log; nothing is delivered'];
+        }
+
+        return ['status' => 'ok', 'mailer' => $mailer];
     }
 
     /**

@@ -59,6 +59,32 @@ if [ "${APP_ENV}" != "local" ] && [ "${APP_ENV}" != "testing" ]; then
     echo "[ENTRYPOINT] Configuration cached for production"
 fi
 
+# ── Mail transport preflight ──
+# /up never touches mail, and /api/readyz did not either. So the release that
+# shipped the Resend API key under the wrong variable name — the pipeline sent
+# RESEND_KEY, config/services.php read RESEND_API_KEY — passed every gate and
+# went live with ALL outbound mail dead. Mail::to() resolves the transport
+# eagerly, so Resend::client(null) threw a TypeError on the first call: intake
+# OTP, MFA challenge and password reset each returned 500 to real users while
+# the deployment was reported healthy.
+#
+# mail:verify-transport already knew how to detect that. Nothing ran it.
+#
+# --no-send constructs the transport and inspects credentials; it never contacts
+# the mail provider and opens no socket, so this costs a process start and
+# cannot itself fail the boot spuriously. It returns non-zero for exactly one
+# condition: a mailer that cannot possibly deliver.
+#
+# Deliberately BEFORE migrations. A container that is going to refuse to start
+# should not mutate the schema on its way out.
+if [ "${APP_ENV}" != "local" ] && [ "${APP_ENV}" != "testing" ]; then
+    if ! php artisan mail:verify-transport --no-send --no-interaction; then
+        echo "[ENTRYPOINT] FATAL: mail transport misconfigured — refusing to start" >&2
+        echo "[ENTRYPOINT] the previous deployment keeps serving; fix the mailer and redeploy" >&2
+        exit 1
+    fi
+fi
+
 # ── Run migrations if enabled ──
 # Once the database is on a private endpoint, an external CI runner cannot reach
 # it, so migrations have to run from inside the platform. This is that path.

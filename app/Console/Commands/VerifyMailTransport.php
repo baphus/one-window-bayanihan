@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\MailTransportHealth;
 use Illuminate\Console\Command;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
@@ -20,17 +21,27 @@ use Throwable;
 class VerifyMailTransport extends Command
 {
     protected $signature = 'mail:verify-transport
-                            {email : Recipient address for the test message}
+                            {email? : Recipient address for the test message; not needed with --no-send}
                             {--no-send : Report configuration only, without sending}';
 
     protected $description = 'Report the active mail configuration and send a test message';
 
     public function handle(): int
     {
-        $recipient = (string) $this->argument('email');
+        $recipient = $this->argument('email');
 
-        if (! filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+        // Optional rather than required so the container entrypoint can run the
+        // configuration half of this check at boot. Forcing an address would
+        // put a placeholder recipient into the release path purely to satisfy
+        // the signature.
+        if ($recipient !== null && ! filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
             $this->error("'{$recipient}' is not a valid email address.");
+
+            return self::FAILURE;
+        }
+
+        if ($recipient === null && ! $this->option('no-send')) {
+            $this->error('A recipient address is required unless --no-send is passed.');
 
             return self::FAILURE;
         }
@@ -67,7 +78,7 @@ class VerifyMailTransport extends Command
             return self::SUCCESS;
         }
 
-        return $this->sendTestMessage($recipient, $mailer);
+        return $this->sendTestMessage((string) $recipient, $mailer);
     }
 
     /**
@@ -75,8 +86,34 @@ class VerifyMailTransport extends Command
      */
     private function warnAboutConfiguration(string $mailer): bool
     {
-        if ($mailer === 'resend' && blank(config('services.resend.key'))) {
-            $this->components->error('MAIL_MAILER is "resend" but RESEND_API_KEY is empty. Every send will fail.');
+        // Build the real transport instead of re-checking one driver's config
+        // by hand.
+        //
+        // The outage this gate exists for was Resend::client(null) throwing a
+        // TypeError inside MailManager. But the failure CLASS is "the
+        // configured mailer cannot be constructed", and a hardcoded resend
+        // check waves through every other member of it: MAIL_MAILER=resendd
+        // (typo), a driver name that was never defined, ses without
+        // credentials. Constructing it catches all of them — including drivers
+        // added after this command was written.
+        //
+        // This is the same call path Mail::to() takes, so what passes here is
+        // what will work at request time. It opens no connection: SMTP,
+        // Resend and SES all defer I/O until the first send.
+        // Shared with the /api/readyz probe so the boot gate and the runtime
+        // gate cannot drift apart in what they consider deliverable.
+        $problem = MailTransportHealth::problem($mailer);
+
+        if ($problem !== null) {
+            $this->components->error(ucfirst($problem['reason']).'. Every send will fail.');
+
+            // Only the credential-map branch carries the runbook pointer.
+            // Printing it unconditionally sent an operator staring at
+            // "Mailer [resendd] is not defined" to a section about secret
+            // names, which is the wrong page during a failed boot.
+            if ($problem['hint'] !== null) {
+                $this->line('  '.$problem['hint']);
+            }
 
             return false;
         }
