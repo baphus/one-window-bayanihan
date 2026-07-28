@@ -81,6 +81,37 @@ jobs:
             --region "$AWS_REGION" >/dev/null
           echo "image ${{ inputs.image_tag }} present in ECR"
 
+      # A secret that does not exist on the Environment renders as an EMPTY
+      # STRING, not an error. So a rename applied to this workflow but not to
+      # the GitHub Environment ships MAIL_MAILER=resend with no key — which is
+      # precisely the shape of the outage in
+      # docs/DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md §0.
+      #
+      # The container's own preflight would catch it, but only after the
+      # deployment has been submitted: the release then fails with the broken
+      # previous version still serving. Catching it here costs nothing and
+      # leaves the environment untouched — before the snapshot, before deploy.
+      #
+      # DeploymentMailEnvContractTest asserts the artefacts agree with the
+      # application. It structurally cannot see GitHub Environment state, which
+      # is the half of the drift this step covers.
+      - name: Verify the mail configuration is coherent
+        env:
+          MAIL_MAILER: ${{ vars.MAIL_MAILER || 'log' }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          set -euo pipefail
+          # Lowercased: `Resend` would slip this comparison and only be caught
+          # later, by the container refusing to boot.
+          MAILER=$(printf '%s' "$MAIL_MAILER" | tr '[:upper:]' '[:lower:]')
+          if [ "$MAILER" = "resend" ] && [ -z "${RESEND_API_KEY:-}" ]; then
+            echo "::error::MAIL_MAILER=resend but the RESEND_API_KEY secret is empty or unset on the '${{ inputs.environment }}' Environment."
+            echo "::error::Fix: gh secret set RESEND_API_KEY --env ${{ inputs.environment }} --repo ${{ github.repository }} --body '<key>'"
+            echo "::error::If the key is still stored under the pre-1.6.0 secret name it is being ignored — see docs/DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md section 0."
+            exit 1
+          fi
+          echo "mail configuration coherent (MAIL_MAILER=$MAIL_MAILER)"
+
       # No PHP toolchain here on purpose. Migrations used to run from this runner,
       # which required the database to accept connections from the public
       # internet. It no longer does — public access is disabled and the endpoint
@@ -145,7 +176,7 @@ jobs:
           # Flip this to true as a go-live step.
           SEARCH_INDEXING_ENABLED: ${{ vars.SEARCH_INDEXING_ENABLED || 'false' }}
           MAIL_MAILER: ${{ vars.MAIL_MAILER || 'log' }}
-          RESEND_KEY: ${{ secrets.RESEND_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS || 'noreply@owbap.app' }}
           SENTRY_LARAVEL_DSN: ${{ secrets.SENTRY_LARAVEL_DSN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -174,7 +205,7 @@ jobs:
             --arg monToken  "$MONITORING_READINESS_TOKEN" \
             --arg indexing  "$SEARCH_INDEXING_ENABLED" \
             --arg mailer    "$MAIL_MAILER" \
-            --arg resend    "$RESEND_KEY" \
+            --arg resend    "$RESEND_API_KEY" \
             --arg mailFrom  "$MAIL_FROM_ADDRESS" \
             --arg sentry    "$SENTRY_LARAVEL_DSN" \
             --arg openrouter "$OPENROUTER_API_KEY" \
@@ -225,7 +256,7 @@ jobs:
                     SEARCH_INDEXING_ENABLED: $indexing,
                     MONITORING_READINESS_TOKEN: $monToken,
                     MAIL_MAILER: $mailer,
-                    RESEND_KEY: $resend,
+                    RESEND_API_KEY: $resend,
                     MAIL_FROM_ADDRESS: $mailFrom,
                     MAIL_FROM_NAME: "One Window Bayanihan",
                     SENTRY_LARAVEL_DSN: $sentry,

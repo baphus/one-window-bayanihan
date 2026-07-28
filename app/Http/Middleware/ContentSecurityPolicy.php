@@ -29,10 +29,19 @@ class ContentSecurityPolicy
         // Share nonce with Blade templates for @routes (Ziggy)
         view()->share('cspNonce', $nonce);
 
-        // Set nonce on Vite instance — @vite and @viteReactRefresh
-        // read it automatically via useScriptTagAttributes.
+        // useCspNonce, NOT useScriptTagAttributes.
+        //
+        // useScriptTagAttributes only decorates the <script src> tags @vite
+        // emits. AppServiceProvider calls Vite::prefetch(), which emits an
+        // additional INLINE loader script, and Laravel renders that one with
+        // Vite::nonceAttribute() — driven by the nonce useCspNonce() sets and
+        // nothing else. The loader therefore shipped unsigned and tripped the
+        // policy on every page load, which is exactly what has to be clean
+        // before Report-Only can become enforcing.
+        //
+        // useCspNonce covers both: the src tags fall back to the same nonce.
         if (! $isDev) {
-            app(Vite::class)->useScriptTagAttributes(['nonce' => $nonce]);
+            app(Vite::class)->useCspNonce($nonce);
         }
 
         $response = $next($request);
