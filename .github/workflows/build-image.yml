@@ -6,14 +6,10 @@ name: Build and Push Image
 # and deploy must not be one step.
 
 on:
+  # Manual only. Every push to main or deploy/* previously triggered a full image
+  # build and push to ECR, which added storage cost per image. Build on purpose,
+  # not on every merge.
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - 'deploy/**'
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
 
 permissions:
   contents: read
