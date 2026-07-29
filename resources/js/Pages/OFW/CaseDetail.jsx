@@ -46,6 +46,7 @@ function ProgressBar({ percentage }) {
 
 function AgencyCard({ agency }) {
     const status = REFERRAL_STATUS[agency.status] ?? REFERRAL_STATUS.PENDING;
+    const services = agency.services ?? [];
 
     return (
         <div className={`rounded-lg border bg-white p-4 shadow-sm ${status.border}`}>
@@ -56,6 +57,18 @@ function AgencyCard({ agency }) {
                         <p className="mt-1 text-xs text-gray-500">
                             Latest: {agency.latestMilestone}
                         </p>
+                    )}
+                    {services.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {services.map((svc) => (
+                                <span
+                                    key={svc}
+                                    className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700"
+                                >
+                                    {svc}
+                                </span>
+                            ))}
+                        </div>
                     )}
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${status.bg} ${status.text}`}>

@@ -284,6 +284,61 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
     );
 }
 
+function ServiceAddDropdown({ referralId, selectedIds, serviceRequirements }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [adding, setAdding] = useState(null);
+
+    const available = (serviceRequirements ?? []).filter((svc) => !selectedIds.has(svc.id));
+
+    function addService(svc) {
+        setAdding(svc.id);
+        router.post(route('referrals.services.add', referralId), {
+            service_id: svc.id,
+        }, {
+            preserveScroll: true,
+            onFinish: () => { setAdding(null); setIsOpen(false); },
+        });
+    }
+
+    if (available.length === 0) return null;
+
+    return (
+        <div className="relative mt-2">
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+            >
+                <span className="material-symbols-outlined text-[14px]">add</span>
+                Add Service
+            </button>
+
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+                    <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border border-slate-200 bg-white shadow-lg">
+                        <div className="max-h-48 overflow-y-auto p-1">
+                            {available.map((svc) => (
+                                <button
+                                    key={svc.id}
+                                    type="button"
+                                    onClick={() => addService(svc)}
+                                    disabled={adding === svc.id}
+                                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[12px] text-slate-700 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[14px] text-slate-400">add_circle</span>
+                                    <span className="font-medium">{svc.title}</span>
+                                    {adding === svc.id && <span className="ml-auto text-[10px] text-slate-400">Adding…</span>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {} }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
@@ -489,14 +544,44 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             <InfoCell label="Date Referred" value={formatDisplayDateTime(referral.created_at)} />
                             <InfoCell label="Last Updated" value={formatDisplayDateTime(referral.updated_at)} />
                         </div>
-                        {referral.services?.length > 0 && (
-                            <div className="px-3 py-2 border-b border-slate-200">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700">
-                                    {referral.services.map((s) => s.name).join(', ')}
-                                </p>
+                        <div className="px-3 py-2 border-b border-slate-200">
+                            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                                {referral.services?.length > 0 ? (
+                                    referral.services.map((s) => (
+                                        <span key={s.id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[12px] font-medium text-slate-700">
+                                            {s.name}
+                                            {isAgency && referral.status !== 'COMPLETED' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (confirm(`Remove "${s.name}" from this referral?`)) {
+                                                            router.delete(route('referrals.services.remove', [referral.id, s.id]), {
+                                                                preserveScroll: true,
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="flex h-4 w-4 items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors"
+                                                    title={`Remove ${s.name}`}
+                                                >
+                                                    <span className="material-symbols-outlined text-[12px]">close</span>
+                                                </button>
+                                            )}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-[12px] text-slate-500 italic">None selected</span>
+                                )}
                             </div>
-                        )}
+
+                            {isAgency && referral.status !== 'COMPLETED' && (
+                                <ServiceAddDropdown
+                                    referralId={referral.id}
+                                    selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
+                                    serviceRequirements={serviceRequirements}
+                                />
+                            )}
+                        </div>
                         {referral.notes && (
                             <div className="px-3 py-2 border-b border-slate-200">
                                 <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Notes</p>

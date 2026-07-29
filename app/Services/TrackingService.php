@@ -131,6 +131,7 @@ class TrackingService
                         'tracker_number' => $case->tracker_number,
                         'referral' => $ref->id,
                     ]),
+                    'services' => $ref->services->pluck('name')->toArray(),
                 ];
             })->toArray();
 
@@ -182,7 +183,7 @@ class TrackingService
                     'clientName' => $client ? "{$client->first_name} {$client->last_name}" : 'Unknown',
                     'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                     'categories' => $this->categoryPresentation($case),
-                    'service' => $referrals->first()?->required_services ?? '',
+                    'service' => $referrals->first()?->services->pluck('name')->implode(', ') ?? '',
                     'milestone' => '',
                     'status' => match ($case->status) {
                         'OPEN' => 'IN_PROGRESS',
@@ -237,8 +238,8 @@ class TrackingService
                 'FOR_COMPLIANCE' => 'Please prepare any additional requirements the agency may request.',
                 'COMPLETED' => 'The agency has finished its part of the referral workflow.',
                 'REJECTED' => 'This referral was not accepted for processing.',
-                default => $referral->required_services
-                    ? 'Requested services: '.$referral->required_services
+                default => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
+                    ? 'Requested services: '.$referral->services->pluck('name')->implode(', ')
                     : 'Your referral is waiting for the first milestone update.',
             };
             // Public page — attribute updates to the agency, never to staff names.
@@ -270,7 +271,9 @@ class TrackingService
                 'agencyMilestones' => [
                     'agencyName' => $agencyName,
                     'status' => $referral->status,
-                    'requiredServices' => $referral->required_services ?? '',
+                    'requiredServices' => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
+                        ? $referral->services->pluck('name')->implode(', ')
+                        : ($referral->required_services ?? ''),
                     'notes' => $referral->notes ?? '',
                     'milestoneCount' => $referral->milestones->count(),
                     'latestUpdate' => $latestMilestone
