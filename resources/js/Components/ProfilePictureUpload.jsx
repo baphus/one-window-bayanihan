@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import CropImageModal from '@/Components/CropImageModal';
+import { useToast } from '@/Hooks/useToast';
 
 const sizeMap = {
     sm: 'h-12 w-12 text-sm',
@@ -19,12 +21,14 @@ export default function ProfilePictureUpload({
     size = 'lg',
     clientId,
 }) {
+    const toast = useToast();
     const [preview, setPreview] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
     const [imgError, setImgError] = useState(false);
     const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+    const [cropFile, setCropFile] = useState(null);
     const fileInputRef = useRef(null);
 
     const displayUrl = preview || currentUrl;
@@ -41,11 +45,24 @@ export default function ProfilePictureUpload({
         if (!file) return;
 
         setError(null);
-        setSelectedFile(file);
+        setCropFile(file);
+    }
+
+    function handleCropComplete(croppedFile) {
+        setSelectedFile(croppedFile);
 
         const reader = new FileReader();
         reader.onload = (e) => setPreview(e.target.result);
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(croppedFile);
+
+        setCropFile(null);
+    }
+
+    function handleCancelCrop() {
+        setCropFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     }
 
     function handleSave() {
@@ -60,6 +77,9 @@ export default function ProfilePictureUpload({
         router.post(route('clients.avatar.store', { client: clientId }), formData, {
             preserveScroll: true,
             headers: { 'Content-Type': 'multipart/form-data' },
+            onSuccess: () => {
+                toast.success('Profile picture updated successfully.');
+            },
             onFinish: () => {
                 setUploading(false);
             },
@@ -252,6 +272,18 @@ export default function ProfilePictureUpload({
             tone="danger"
             onConfirm={confirmRemove}
             onCancel={() => setShowRemoveConfirm(false)}
+        />
+
+        <CropImageModal
+            file={cropFile}
+            open={cropFile !== null}
+            cropShape="round"
+            aspect={1}
+            outputSize={300}
+            title="Crop profile picture"
+            confirmLabel="Set as photo"
+            onCropComplete={handleCropComplete}
+            onCancel={handleCancelCrop}
         />
         </div>
     );

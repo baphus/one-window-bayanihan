@@ -336,28 +336,4 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertEquals('case_opened', $data['milestoneTimeline'][0]['type']);
         $this->assertEquals('case_closed', $data['milestoneTimeline'][1]['type']);
     }
-
-    public function test_referral_with_requirements_agency_card_structure(): void
-    {
-        // ARRANGE
-        $result = $this->createCompleteCase(referralCount: 1);
-        $case = $result['case'];
-        $referral = $result['referrals']->first();
-
-        // Set referral to FOR_COMPLIANCE status with requirements
-        $referral->update([
-            'status' => 'FOR_COMPLIANCE',
-            'requirements' => ['Chest X-Ray', 'Passport Copy'],
-        ]);
-
-        $this->loadRelations($case);
-        $service = app(TrackingService::class);
-
-        // ACT
-        $data = $service->buildTrackingData($case);
-        $agencyCard = $data['trackingAgencies'][0];
-
-        // ASSERT — requirements is present with the expected values
-        $this->assertEquals(['Chest X-Ray', 'Passport Copy'], $agencyCard['requirements']);
-    }
 }

@@ -26,7 +26,6 @@ class Referral extends Model
 
     protected $fillable = [
         'required_services',
-        'requirements',
         'notes',
         'status',
         'decision',
@@ -37,7 +36,6 @@ class Referral extends Model
 
     protected $casts = [
         'is_deleted' => 'boolean',
-        'requirements' => 'array',
     ];
 
     protected $appends = [];
@@ -134,5 +132,11 @@ class Referral extends Model
     public function clientRequests()
     {
         return $this->hasMany(ReferralClientRequest::class, 'referral_id');
+    }
+
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'referral_services', 'referral_id', 'service_id')
+            ->withTimestamps();
     }
 }

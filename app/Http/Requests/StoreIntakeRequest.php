@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\VulnerabilityRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -44,6 +45,8 @@ class StoreIntakeRequest extends FormRequest
             'employment.last_country' => ['nullable', 'string', 'max:100'],
             'employment.last_position' => ['nullable', 'string', 'max:255'],
             'employment.date_of_arrival' => ['nullable', 'date'],
+            'vulnerability' => ['nullable', 'array'],
+            'vulnerability.*' => ['nullable', 'string', 'in:'.implode(',', VulnerabilityRule::VALUES)],
             'next_of_kin' => ['required', 'array', 'min:1'],
             'next_of_kin.*.first_name' => ['required', 'string', 'max:255'],
             'next_of_kin.*.last_name' => ['nullable', 'string', 'max:255'],

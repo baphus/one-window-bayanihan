@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import createPasswordSchema from '@/utils/createPasswordSchema';
 
 export const profileSchema = z.object({
   name: z
@@ -14,19 +15,20 @@ export const profileSchema = z.object({
   notifications_enabled: z.boolean().optional(),
 });
 
-export const updatePasswordSchema = z.object({
-  current_password: z
-    .string()
-    .min(1, 'Current password is required.'),
-  password: z
-    .string()
-    .min(1, 'Password is required.')
-    .min(8, 'Password must be at least 8 characters.'),
-  password_confirmation: z
-    .string()
-    .min(1, 'Please confirm your password.'),
-}).refine((data) => data.password === data.password_confirmation, {
-  message: 'Passwords do not match.',
-  path: ['password_confirmation'],
-});
-
+/**
+ * Update password schema (Profile page) — password uses server-defined rules.
+ */
+export function makeUpdatePasswordSchema(rules) {
+  return z.object({
+    current_password: z
+      .string()
+      .min(1, 'Current password is required.'),
+    password: createPasswordSchema(rules),
+    password_confirmation: z
+      .string()
+      .min(1, 'Please confirm your password.'),
+  }).refine((data) => data.password === data.password_confirmation, {
+    message: 'Passwords do not match.',
+    path: ['password_confirmation'],
+  });
+}

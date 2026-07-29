@@ -489,10 +489,12 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             <InfoCell label="Date Referred" value={formatDisplayDateTime(referral.created_at)} />
                             <InfoCell label="Last Updated" value={formatDisplayDateTime(referral.updated_at)} />
                         </div>
-                        {referral.required_services && (
+                        {referral.services?.length > 0 && (
                             <div className="px-3 py-2 border-b border-slate-200">
                                 <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.required_services}</p>
+                                <p className="mt-1 text-[12px] font-semibold text-slate-700">
+                                    {referral.services.map((s) => s.name).join(', ')}
+                                </p>
                             </div>
                         )}
                         {referral.notes && (
@@ -682,21 +684,39 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             )}
                         </div>
                     </CardSection>
-                    {/* Requirements Section */}
+                    {/* Service Requirements — live reference from service definitions */}
                     <div data-tour="referral-documents">
-                        <CardSection title="Requirements" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            {referral.requirements && referral.requirements.length > 0 ? (
-                                <ul className="space-y-1.5">
-                                    {referral.requirements.map((req, idx) => (
-                                        <li key={idx} className="flex items-start gap-2 text-[12px] text-slate-700">
-                                            <span className="material-symbols-outlined text-[14px] text-slate-400 mt-0.5 shrink-0">chevron_right</span>
-                                            <span>{req}</span>
-                                        </li>
+                        <CardSection title="Service Requirements" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                            {serviceRequirements.length > 0 ? (
+                                <div className="space-y-4">
+                                    {serviceRequirements
+                                        .filter((svc) => {
+                                            const selected = (referral.services ?? []).map((s) => s.name);
+                                            return selected.length === 0 || selected.includes(svc.title);
+                                        })
+                                        .map((svc) => (
+                                        <div key={svc.title} className="rounded-md border border-slate-100 bg-slate-50/50 p-3">
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">{svc.title}</p>
+                                            {svc.requiredDocuments?.length > 0 ? (
+                                                <ul className="mt-2 space-y-1">
+                                                    {svc.requiredDocuments.map((doc, idx) => (
+                                                        <li key={idx} className="flex items-start gap-2 text-[11px] text-slate-600">
+                                                            <span className="material-symbols-outlined text-[13px] text-slate-400 mt-0.5 shrink-0">description</span>
+                                                            <span>{doc}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="mt-1 text-[11px] text-slate-400 italic">No standard requirements defined.</p>
+                                            )}
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             ) : (
-                                <p className="text-[12px] text-slate-500 italic">No requirements listed.</p>
+                                <p className="text-[12px] text-slate-500 italic">No service requirements defined for this agency.</p>
                             )}
+
+
                         </CardSection>
                     </div>
 

@@ -93,6 +93,7 @@ export default function IntakeIndex({ positionOptions }) {
       client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', contact_number: '' },
       address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
       employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
+      vulnerability: [],
       next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
       summary: '',
       consent: false,
@@ -599,6 +600,33 @@ function EmploymentStep({ formData, updateField, errors, positionOptions, onNext
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Arrival in PH</label>
           <input type="date" value={formData.employment.date_of_arrival} onChange={e => updateField('employment.date_of_arrival', e.target.value)}
             className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+        </div>
+      </div>
+
+      {/* ── Vulnerability Indicators ───────────────────────────── */}
+      <div className="mt-6 border-t border-outline-variant pt-6">
+        <h3 className="mb-1 text-sm font-bold text-slate-800">Vulnerability Indicators</h3>
+        <p className="mb-3 text-xs text-slate-500">Select any that apply to you.</p>
+        <div className="flex flex-wrap gap-4">
+          {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((v) => {
+            const checked = (formData.vulnerability || []).includes(v);
+            return (
+              <label key={v} className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => {
+                    const current = formData.vulnerability || [];
+                    updateField('vulnerability',
+                      checked ? current.filter((x) => x !== v) : [...current, v]
+                    );
+                  }}
+                  className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-slate-700">{v}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
 

@@ -183,7 +183,12 @@ class DashboardService
 
         $rows = DB::select("
             SELECT * FROM (
-                SELECT r.id, r.case_id, r.status, r.required_services, r.created_at,
+                SELECT r.id, r.case_id, r.status,
+                    COALESCE(
+                        (SELECT STRING_AGG(s.name, ', ' ORDER BY s.name) FROM referral_services rs JOIN services s ON s.id = rs.service_id WHERE rs.referral_id = r.id),
+                        r.required_services
+                    ) AS service_names,
+                    r.created_at,
                     a.name AS agency_name, c.case_number, cl.first_name, cl.last_name,
                     EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days,
                     CASE
@@ -210,7 +215,7 @@ class DashboardService
             'caseId' => $row->case_id,
             'caseNo' => $row->case_number ?? 'N/A',
             'clientName' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'N/A',
-            'service' => $row->required_services ?: 'Service not specified',
+            'service' => $row->service_names ?: 'Service not specified',
             'agencyName' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
             'status' => $row->status,
             'ageDays' => (int) round($row->age_days),
@@ -351,15 +356,16 @@ class DashboardService
 
         $rows = DB::select("
             SELECT s.id AS service_id, s.name AS service_name,
-                COUNT(r.id) AS total_count,
-                COUNT(r.id) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')) AS active_count,
-                COUNT(r.id) FILTER (WHERE r.status = 'COMPLETED') AS completed_count
+                COUNT(rs.referral_id) AS total_count,
+                COUNT(rs.referral_id) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')) AS active_count,
+                COUNT(rs.referral_id) FILTER (WHERE r.status = 'COMPLETED') AS completed_count
             FROM services s
-            LEFT JOIN referrals r ON r.agcy_id = s.agcy_id AND r.required_services = s.name AND r.is_deleted = false
+            LEFT JOIN referral_services rs ON rs.service_id = s.id
+            LEFT JOIN referrals r ON r.id = rs.referral_id AND r.is_deleted = false
             WHERE s.agcy_id = ? AND s.is_deleted = false
             GROUP BY s.id, s.name
-            HAVING COUNT(r.id) > 0
-            ORDER BY COUNT(r.id) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')) DESC
+            HAVING COUNT(rs.referral_id) > 0
+            ORDER BY COUNT(rs.referral_id) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')) DESC
             LIMIT 6
         ", [$agencyId]);
 

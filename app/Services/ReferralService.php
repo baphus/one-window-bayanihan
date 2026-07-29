@@ -15,6 +15,7 @@ use App\Models\ReferralAttachment;
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientRequest;
 use App\Models\ReferralComment;
+use App\Models\Service;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
@@ -49,34 +50,26 @@ class ReferralService
     public function createReferral(array $data, string $userId): Referral
     {
         return DB::transaction(function () use ($data, $userId) {
-            $services = ! empty($data['services']) && is_array($data['services'])
-                ? implode(', ', $data['services'])
-                : ($data['required_services'] ?? '');
-
             $referral = Referral::create([
-                'required_services' => $services,
+                'required_services' => $data['required_services'] ?? '',
                 'notes' => $data['notes'] ?? null,
                 'status' => 'PENDING',
                 'case_id' => $data['case_id'],
                 'agcy_id' => $data['agcy_id'],
             ]);
 
-            $this->eventRecorder->referralSent($referral, $userId);
-
-            // Pre-fill requirements from service requirements
-            if (! empty($data['agcy_id'])) {
-                $serviceReqs = $this->getServiceRequirements($data['agcy_id']);
-                $requirements = [];
-                foreach ($serviceReqs as $svc) {
-                    foreach ($svc['requiredDocuments'] ?? [] as $doc) {
-                        $requirements[] = $doc;
-                    }
-                }
-                if (! empty($requirements)) {
-                    $referral->update(['requirements' => $requirements]);
-                    $referral->refresh();
-                }
+            // Attach selected services by name lookup
+            if (! empty($data['services']) && is_array($data['services'])) {
+                $serviceIds = Service::whereIn('name', $data['services'])
+                    ->where('agcy_id', $data['agcy_id'])
+                    ->pluck('id');
+                $referral->services()->sync($serviceIds);
             }
+
+            // Reload services so event recorder and timeline reflect actual service names
+            $referral->load('services');
+
+            $this->eventRecorder->referralSent($referral, $userId);
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
@@ -229,7 +222,7 @@ class ReferralService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'ilike', "%{$search}%")
-                    ->orWhere('required_services', 'ilike', "%{$search}%")
+                    ->orWhereHas('services', fn ($sq) => $sq->where('name', 'ilike', "%{$search}%"))
                     ->orWhereHas('caseFile', function ($q) use ($search) {
                         $q->where('case_number', 'ilike', "%{$search}%");
                     })
@@ -252,6 +245,7 @@ class ReferralService
     public function getReferral(string $id): Referral
     {
         $relations = [
+            'services',
             'caseFile.client.addresses',
             'caseFile.client.employments',
             'caseFile.client.nextOfKin',
@@ -373,6 +367,32 @@ class ReferralService
                 'requiredDocuments' => $service->requirements->pluck('name')->toArray(),
             ];
         })->toArray();
+    }
+
+    public function addService(Referral $referral, string $serviceId): Referral
+    {
+        if ($referral->status === 'COMPLETED') {
+            throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
+        }
+
+        $service = Service::where('id', $serviceId)
+            ->where('agcy_id', $referral->agcy_id)
+            ->firstOrFail();
+
+        $referral->services()->syncWithoutDetaching([$service->id]);
+
+        return $referral->load('services');
+    }
+
+    public function removeService(Referral $referral, string $serviceId): Referral
+    {
+        if ($referral->status === 'COMPLETED') {
+            throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
+        }
+
+        $referral->services()->detach($serviceId);
+
+        return $referral->load('services');
     }
 
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
@@ -641,7 +661,9 @@ class ReferralService
                 'client_name' => $referral->caseFile?->client
                     ? trim(($referral->caseFile->client->first_name ?? '').' '.($referral->caseFile->client->last_name ?? ''))
                     : 'N/A',
-                'required_services' => $referral->required_services,
+                'required_services' => $referral->relationLoaded('services')
+                    ? $referral->services->pluck('name')->implode(', ')
+                    : $referral->required_services,
                 'status' => $referral->status,
                 'agency_name' => $referral->agency?->name ?? 'N/A',
                 'days_since_last_activity' => $daysSinceLastActivity,
@@ -839,7 +861,9 @@ class ReferralService
             'id' => 'sent-'.$referral->id,
             'type' => 'referral_sent',
             'title' => 'Referral sent to '.($referral->agency?->name ?? 'agency'),
-            'description' => $referral->required_services ?? '',
+            'description' => $referral->relationLoaded('services')
+                ? $referral->services->pluck('name')->implode(', ')
+                : '',
             'timestamp' => $referral->created_at->toISOString(),
             'actor' => $referral->caseFile?->user?->name ?? 'System',
         ]);

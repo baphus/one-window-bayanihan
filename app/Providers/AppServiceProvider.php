@@ -66,7 +66,21 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
 
         Password::defaults(function () {
-            return Password::min(8)->mixedCase()->numbers()->symbols();
+            $rules = Password::min(config('password.min_length', 8));
+
+            if (config('password.require_mixed_case', true)) {
+                $rules->mixedCase();
+            }
+
+            if (config('password.require_numbers', true)) {
+                $rules->numbers();
+            }
+
+            if (config('password.require_symbols', true)) {
+                $rules->symbols();
+            }
+
+            return $rules;
         });
 
         // Audited models are declared in config/audit.php (single source of
