@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportsFilterRequest;
+use App\Jobs\GenerateSystemReport;
+use App\Models\GeneratedDocument;
+use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -122,15 +124,21 @@ class ReportsController extends Controller
             return $criteria;
         }
 
-        $data = $this->reportsExportService->buildPdfPayloadFromCriteria($criteria);
-        $pdf = Pdf::loadView('pdf.report', $data);
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.pdf';
 
-        return response()->streamDownload(function () use ($pdf) {
-            echo $pdf->output();
-        }, $filename, [
-            'Content-Type' => 'application/pdf',
-            'Cache-Control' => 'max-age=0',
+        $document = GeneratedDocument::create([
+            'user_id' => $request->user()->id,
+            'type' => 'system_report_pdf',
+            'filename' => $filename,
+            'mime_type' => 'application/pdf',
+            'status' => 'pending',
+        ]);
+
+        GenerateSystemReport::dispatch($document->id, 'system_report_pdf', $criteria);
+
+        return response()->json([
+            'status' => 'pending',
+            'id' => $document->id,
         ]);
     }
 
