@@ -6,6 +6,7 @@ use App\Models\CaseFile;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\ReferralAttachment;
+use App\Models\Service;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
@@ -25,6 +26,7 @@ class FindCaseByTrackerTest extends TestCase
             'client.addresses',
             'client.employments',
             'referrals.agency',
+            'referrals.services',
             'referrals.milestones.user',
             'referrals.attachments',
             'user',
@@ -58,9 +60,13 @@ class FindCaseByTrackerTest extends TestCase
         $client = $result['client'];
         $referral = $result['referrals']->first();
 
-        // Set requirements on the referral
-        $referral->update(['requirements' => ['Medical Examination: Chest X-Ray']]);
-        $referral->refresh();
+        // Attach a service to the referral (replaces old requirements column)
+        $serviceModel = Service::create([
+            'name' => 'Medical Examination',
+            'agcy_id' => $referral->agcy_id,
+        ]);
+        $referral->services()->sync([$serviceModel->id]);
+        $referral->load('services');
 
         // Manually create records for relationships without dedicated factories
         ClientAddress::create([
@@ -114,8 +120,9 @@ class FindCaseByTrackerTest extends TestCase
         $this->assertTrue($firstRef->relationLoaded('agency'), 'referrals.agency should be loaded');
         $this->assertNotNull($firstRef->agency);
 
-        $this->assertNotNull($firstRef->requirements);
-        $this->assertEquals(['Medical Examination: Chest X-Ray'], $firstRef->requirements);
+        $this->assertTrue($firstRef->relationLoaded('services'), 'referrals.services should be loaded');
+        $this->assertGreaterThan(0, $firstRef->services->count());
+        $this->assertEquals('Medical Examination', $firstRef->services->first()->name);
 
         $this->assertTrue($firstRef->relationLoaded('milestones'), 'referrals.milestones should be loaded');
         $this->assertGreaterThan(0, $firstRef->milestones->count());

@@ -27,6 +27,7 @@ class TrackingService
             'client.employments',
             'client.nextOfKin',
             'referrals.agency',
+            'referrals.services',
             'referrals.milestones.user',
             'user:id,name',
             'category',
