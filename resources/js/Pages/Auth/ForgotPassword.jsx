@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
 import TurnstileWidget from '@/Components/TurnstileWidget';
+import { makeForgotPasswordSchema } from '@/Schemas/authSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function ForgotPassword({ status }) {
     const { errors: pageErrors, turnstile } = usePage().props;
@@ -12,9 +14,17 @@ export default function ForgotPassword({ status }) {
     const [errorMsg, setErrorMsg] = useState(pageErrors?.email || '');
     const [turnstileToken, setTurnstileToken] = useState('');
 
+    // Client-side validation — email format
+    const forgotSchema = useMemo(() => makeForgotPasswordSchema(), []);
+    const { validate } = useClientValidation(forgotSchema, { email }, (field, msg) => {
+        setErrorMsg(msg);
+    });
+
     const handleSubmit = (e) => {
         e.preventDefault();
         setErrorMsg('');
+        if (!validate()) return;
+
         setProcessing(true);
 
         router.post(route('password.email'), { email, cf_turnstile_response: turnstileToken }, {
@@ -110,6 +120,7 @@ export default function ForgotPassword({ status }) {
                                             type="email"
                                             value={email}
                                             onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
+                                            placeholder="you@agency.gov.ph"
                                             className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-none"
                                             placeholder="you@agency.gov.ph"
                                             required

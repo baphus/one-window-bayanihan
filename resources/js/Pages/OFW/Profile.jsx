@@ -1,16 +1,42 @@
+import { useMemo } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
+import { z } from 'zod';
 import OfwLayout from '@/Layouts/OfwLayout';
+import PasswordInput from '@/Components/PasswordInput';
+import createPasswordSchema from '@/Utils/createPasswordSchema';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function Profile({ user }) {
-    const { data, setData, put, processing, errors, reset, recentlySuccessful } = useForm({
+    const { passwordRules } = usePage().props;
+
+    const { data, setData, put, processing, errors, reset, recentlySuccessful, setError, clearErrors } = useForm({
         current_password: '',
         password: '',
         password_confirmation: '',
         contact_number: user?.contact_number ?? '',
     });
 
+    // OFW password is optional — if left blank, server skips the update.
+    const ofwPasswordSchema = useMemo(() => z.object({
+        current_password: z.string().min(1, 'Current password is required.'),
+        password: createPasswordSchema(passwordRules).or(z.literal('')),
+        password_confirmation: z.string(),
+    }).refine((data) => {
+        // Only validate confirmation match when a new password is provided
+        if (!data.password) return true;
+        return data.password === data.password_confirmation;
+    }, {
+        message: 'Passwords do not match.',
+        path: ['password_confirmation'],
+    }), [passwordRules]);
+
+    const { validate } = useClientValidation(ofwPasswordSchema, data, setError);
+
     function handleSubmit(e) {
         e.preventDefault();
+        clearErrors();
+        if (!validate()) return;
+
         put(route('ofw.profile.update'), {
             preserveScroll: true,
             onSuccess: () => reset('current_password', 'password', 'password_confirmation'),
@@ -56,62 +82,41 @@ export default function Profile({ user }) {
                 {/* Divider */}
                 <div className="border-t border-gray-200 pt-6">
                     <h2 className="text-sm font-bold text-gray-900">Change Password</h2>
-                    <p className="mt-1 text-xs text-gray-500">Leave blank if you don't want to change your password.</p>
+                    <p className="mt-1 text-xs text-gray-500">Leave blank if you do not want to change your password.</p>
                 </div>
 
                 {/* Current password */}
-                <div>
-                    <label htmlFor="current_password" className="block text-sm font-medium text-gray-700">
-                        Current Password
-                    </label>
-                    <input
-                        id="current_password"
-                        type="password"
-                        value={data.current_password}
-                        onChange={(e) => setData('current_password', e.target.value)}
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        autoComplete="current-password"
-                    />
-                    {errors.current_password && (
-                        <p className="mt-1 text-sm text-red-600">{errors.current_password}</p>
-                    )}
-                </div>
+                <PasswordInput
+                    id="ofw-current-password"
+                    label="Current Password"
+                    value={data.current_password}
+                    onChange={(v) => setData('current_password', v)}
+                    error={errors.current_password}
+                    autoComplete="current-password"
+                />
 
                 {/* New password */}
-                <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                        New Password
-                    </label>
-                    <input
-                        id="password"
-                        type="password"
-                        value={data.password}
-                        onChange={(e) => setData('password', e.target.value)}
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        autoComplete="new-password"
-                    />
-                    {errors.password && (
-                        <p className="mt-1 text-sm text-red-600">{errors.password}</p>
-                    )}
-                </div>
+                <PasswordInput
+                    id="ofw-new-password"
+                    label="New Password"
+                    value={data.password}
+                    onChange={(v) => setData('password', v)}
+                    error={errors.password}
+                    autoComplete="new-password"
+                    showStrengthMeter
+                    rules={passwordRules}
+                    confirmation={data.password_confirmation}
+                />
 
-                {/* Confirm password */}
-                <div>
-                    <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700">
-                        Confirm New Password
-                    </label>
-                    <input
-                        id="password_confirmation"
-                        type="password"
-                        value={data.password_confirmation}
-                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        autoComplete="new-password"
-                    />
-                    {errors.password_confirmation && (
-                        <p className="mt-1 text-sm text-red-600">{errors.password_confirmation}</p>
-                    )}
-                </div>
+                {/* Confirm new password */}
+                <PasswordInput
+                    id="ofw-confirm-password"
+                    label="Confirm New Password"
+                    value={data.password_confirmation}
+                    onChange={(v) => setData('password_confirmation', v)}
+                    error={errors.password_confirmation}
+                    autoComplete="new-password"
+                />
 
                 {/* Submit */}
                 <div className="flex items-center gap-3 pt-2">

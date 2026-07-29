@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import CropImageModal from '@/Components/CropImageModal';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'];
 const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
@@ -6,6 +7,7 @@ const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 export default function LogoUpload({ currentLogoUrl, onChange }) {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [error, setError] = useState(null);
+    const [cropFile, setCropFile] = useState(null);
     const fileInputRef = useRef(null);
 
     const hasSelection = !!previewUrl;
@@ -40,9 +42,29 @@ export default function LogoUpload({ currentLogoUrl, onChange }) {
             return;
         }
 
-        const url = URL.createObjectURL(file);
+        // SVG files skip the crop step (vector, cannot be canvas-cropped meaningfully)
+        if (file.type === 'image/svg+xml') {
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+            onChange(file);
+        } else {
+            // Raster images (PNG/JPEG) open the crop modal
+            setCropFile(file);
+        }
+    }
+
+    function handleCropComplete(croppedFile) {
+        const url = URL.createObjectURL(croppedFile);
         setPreviewUrl(url);
-        onChange(file);
+        onChange(croppedFile);
+        setCropFile(null);
+    }
+
+    function handleCancelCrop() {
+        setCropFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     }
 
     function handleRemove() {
@@ -95,6 +117,18 @@ export default function LogoUpload({ currentLogoUrl, onChange }) {
 
             {/* Error message */}
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+
+            <CropImageModal
+                file={cropFile}
+                open={cropFile !== null}
+                cropShape="rect"
+                aspect={undefined}
+                outputSize={{ width: 600, height: 400 }}
+                title="Crop logo"
+                confirmLabel="Set as logo"
+                onCropComplete={handleCropComplete}
+                onCancel={handleCancelCrop}
+            />
         </div>
     );
 }

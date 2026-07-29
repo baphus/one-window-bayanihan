@@ -44,10 +44,14 @@ class CaseEventRecorder
     {
         $agency = $this->agencyName($referral);
 
+        $serviceNames = $referral->relationLoaded('services')
+            ? $referral->services->pluck('name')->implode(', ')
+            : ($referral->required_services ?? '');
+
         return $this->record($referral->case_id, $referral->id, CaseEvent::TYPE_REFERRAL_SENT, [
             'title' => 'Referred to '.$agency,
-            'description' => $referral->required_services
-                ? 'Services requested: '.$referral->required_services
+            'description' => $serviceNames
+                ? 'Services requested: '.$serviceNames
                 : null,
         ], $userId);
     }

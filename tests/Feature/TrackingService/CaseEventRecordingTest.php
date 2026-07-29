@@ -9,6 +9,7 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Client;
 use App\Models\ClientAddress;
+use App\Models\Service;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\ReferralService;
@@ -41,6 +42,10 @@ class CaseEventRecordingTest extends TestCase
     {
         [$case, $user] = $this->makeCase();
         $agency = Agency::factory()->create();
+        $service = Service::create([
+            'name' => 'Legal Assistance',
+            'agcy_id' => $agency->id,
+        ]);
 
         $referral = app(ReferralService::class)->createReferral([
             'case_id' => $case->id,

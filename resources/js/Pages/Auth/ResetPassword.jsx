@@ -1,15 +1,13 @@
-import { useState } from 'react';
-import InputError from '@/Components/InputError';
-import PrimaryButton from '@/Components/PrimaryButton';
+import { useState, useMemo } from 'react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
-import { Head, useForm } from '@inertiajs/react';
-import { resetPasswordSchema } from '@/Schemas/authSchemas';
+import PasswordInput from '@/Components/PasswordInput';
+import { Head, useForm, usePage } from '@inertiajs/react';
+import { makeResetPasswordSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function ResetPassword({ token, email }) {
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const { passwordRules } = usePage().props;
 
     const { data, setData, post, processing, errors, reset, clearErrors, setError } = useForm({
         token: token,
@@ -18,7 +16,8 @@ export default function ResetPassword({ token, email }) {
         password_confirmation: '',
     });
 
-    const { validate } = useClientValidation(resetPasswordSchema, data, setError);
+    const schema = useMemo(() => makeResetPasswordSchema(passwordRules), [passwordRules]);
+    const { validate } = useClientValidation(schema, data, setError);
 
     const submit = (e) => {
         e.preventDefault();
@@ -107,66 +106,27 @@ export default function ResetPassword({ token, email }) {
                                     <InputError message={errors.email} className="mt-2" />
                                 </div>
 
-                                <div>
-                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                        New Password
-                                    </label>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">
-                                            lock
-                                        </span>
-                                        <input
-                                            type={showPassword ? 'text' : 'password'}
-                                            value={data.password}
-                                            onChange={(e) => setData('password', e.target.value)}
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 pr-12 text-sm focus:border-primary focus:outline-none rounded-none"
-                                            autoComplete="new-password"
-                                            autoFocus
-                                            required
-                                            minLength={8}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-primary"
-                                        >
-                                            <span className="material-symbols-outlined text-[20px]">
-                                                {showPassword ? 'visibility_off' : 'visibility'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                    <InputError message={errors.password} className="mt-2" />
-                                </div>
+                                <PasswordInput
+                                    id="reset-password"
+                                    label="New Password"
+                                    value={data.password}
+                                    onChange={(v) => setData('password', v)}
+                                    error={errors.password}
+                                    autoComplete="new-password"
+                                    autoFocus
+                                    showStrengthMeter
+                                    rules={passwordRules}
+                                    confirmation={data.password_confirmation}
+                                />
 
-                                <div>
-                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                        Confirm Password
-                                    </label>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">
-                                            lock
-                                        </span>
-                                        <input
-                                            type={showConfirmPassword ? 'text' : 'password'}
-                                            value={data.password_confirmation}
-                                            onChange={(e) => setData('password_confirmation', e.target.value)}
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 pr-12 text-sm focus:border-primary focus:outline-none rounded-none"
-                                            autoComplete="new-password"
-                                            required
-                                            minLength={8}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-primary"
-                                        >
-                                            <span className="material-symbols-outlined text-[20px]">
-                                                {showConfirmPassword ? 'visibility_off' : 'visibility'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                    <InputError message={errors.password_confirmation} className="mt-2" />
-                                </div>
+                                <PasswordInput
+                                    id="reset-password-confirm"
+                                    label="Confirm Password"
+                                    value={data.password_confirmation}
+                                    onChange={(v) => setData('password_confirmation', v)}
+                                    error={errors.password_confirmation}
+                                    autoComplete="new-password"
+                                />
 
                                 <button
                                     type="submit"

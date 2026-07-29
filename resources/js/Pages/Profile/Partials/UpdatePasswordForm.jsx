@@ -1,15 +1,15 @@
-import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import Section from '@/Components/Section';
-import TextInput from '@/Components/TextInput';
+import PasswordInput from '@/Components/PasswordInput';
 import { Transition } from '@headlessui/react';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { useRef, useEffect, useMemo } from 'react';
-import { updatePasswordSchema } from '@/Schemas/profileSchemas';
+import { makeUpdatePasswordSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function UpdatePasswordForm({ className = '', onDirtyChange, onBypass }) {
+    const { passwordRules } = usePage().props;
     const passwordInput = useRef();
     const currentPasswordInput = useRef();
     const initialRef = useRef({ current_password: '', password: '', password_confirmation: '' });
@@ -30,7 +30,8 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
         password_confirmation: '',
     });
 
-    const { validate } = useClientValidation(updatePasswordSchema, data, setError);
+    const schema = useMemo(() => makeUpdatePasswordSchema(passwordRules), [passwordRules]);
+    const { validate } = useClientValidation(schema, data, setError);
 
     const isDirty = useMemo(() => (
         data.current_password !== initialRef.current.current_password
@@ -55,12 +56,12 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
             onError: (errors) => {
                 if (errors.password) {
                     reset('password', 'password_confirmation');
-                    passwordInput.current.focus();
+                    passwordInput.current?.focus();
                 }
 
                 if (errors.current_password) {
                     reset('current_password');
-                    currentPasswordInput.current.focus();
+                    currentPasswordInput.current?.focus();
                 }
             },
         });
@@ -73,73 +74,35 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
             className={className}
         >
             <form onSubmit={updatePassword} className="space-y-6">
-                <div>
-                    <InputLabel
-                        htmlFor="current_password"
-                        value="Current Password"
-                    />
+                <PasswordInput
+                    id="current_password"
+                    label="Current Password"
+                    value={data.current_password}
+                    onChange={(v) => setData('current_password', v)}
+                    error={errors.current_password}
+                    autoComplete="current-password"
+                />
 
-                    <TextInput
-                        id="current_password"
-                        ref={currentPasswordInput}
-                        value={data.current_password}
-                        onChange={(e) =>
-                            setData('current_password', e.target.value)
-                        }
-                        type="password"
-                        className="mt-1 block w-full"
-                        autoComplete="current-password"
-                        required
-                    />
+                <PasswordInput
+                    id="new_password"
+                    label="New Password"
+                    value={data.password}
+                    onChange={(v) => setData('password', v)}
+                    error={errors.password}
+                    autoComplete="new-password"
+                    showStrengthMeter
+                    rules={passwordRules}
+                    confirmation={data.password_confirmation}
+                />
 
-                    <InputError
-                        message={errors.current_password}
-                        className="mt-2"
-                    />
-                </div>
-
-                <div>
-                    <InputLabel htmlFor="password" value="New Password" />
-
-                    <TextInput
-                        id="password"
-                        ref={passwordInput}
-                        value={data.password}
-                        onChange={(e) => setData('password', e.target.value)}
-                        type="password"
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        required
-                        minLength={8}
-                    />
-
-                    <InputError message={errors.password} className="mt-2" />
-                </div>
-
-                <div>
-                    <InputLabel
-                        htmlFor="password_confirmation"
-                        value="Confirm Password"
-                    />
-
-                    <TextInput
-                        id="password_confirmation"
-                        value={data.password_confirmation}
-                        onChange={(e) =>
-                            setData('password_confirmation', e.target.value)
-                        }
-                        type="password"
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        required
-                        minLength={8}
-                    />
-
-                    <InputError
-                        message={errors.password_confirmation}
-                        className="mt-2"
-                    />
-                </div>
+                <PasswordInput
+                    id="password_confirmation"
+                    label="Confirm Password"
+                    value={data.password_confirmation}
+                    onChange={(v) => setData('password_confirmation', v)}
+                    error={errors.password_confirmation}
+                    autoComplete="new-password"
+                />
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>Save</PrimaryButton>

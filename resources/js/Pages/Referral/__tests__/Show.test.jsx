@@ -52,7 +52,6 @@ const referral = {
   case_file: { case_number: 'CASE-1', tracker_number: 'TRACK-1', client: null },
   milestones: [],
   comments: [],
-  requirements: [],
   attachments: [],
   documents: [],
 };

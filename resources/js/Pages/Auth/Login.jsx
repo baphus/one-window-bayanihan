@@ -1,23 +1,35 @@
-import { useState, useRef } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { useState, useRef, useMemo } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import PasswordInput from '@/Components/PasswordInput';
 import TurnstileWidget from '@/Components/TurnstileWidget';
+import { makeLoginSchema } from '@/Schemas/authSchemas';
+import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function Login({ status, canResetPassword }) {
+    const { turnstile } = usePage().props;
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
     const [remember, setRemember] = useState(true);
     const [loginError, setLoginError] = useState('');
     const [processing, setProcessing] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
+    const [successMsg, setSuccessMsg] = useState(status || '');
 
-    const loginForm = useRef(null);
+    const loginFormRef = useRef(null);
+
+    // Client-side validation — email format + password not-empty
+    const loginSchema = useMemo(() => makeLoginSchema(), []);
+    const { validate } = useClientValidation(loginSchema, { email, password }, (field, msg) => {
+        setLoginError(msg);
+    });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         setLoginError('');
+        if (!validate()) return;
+
         setProcessing(true);
 
         router.post(route('login'), { email, password, remember, cf_turnstile_response: turnstileToken }, {
@@ -87,9 +99,16 @@ export default function Login({ status, canResetPassword }) {
                                     </p>
                                 </div>
 
-                                <form ref={loginForm} onSubmit={handleSubmit} className="space-y-6">
+                                <form ref={loginFormRef} onSubmit={handleSubmit} className="space-y-6">
+                                    {successMsg && (
+                                        <div className="bg-primary-fixed p-4 border border-primary/20 flex items-center gap-3">
+                                            <span className="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+                                            <p className="text-xs font-semibold text-primary">{successMsg}</p>
+                                        </div>
+                                    )}
+
                                     {loginError && (
-                                        <div className="bg-error-container p-4 border border-error/20 flex items-center gap-3 mb-6">
+                                        <div className="bg-error-container p-4 border border-error/20 flex items-center gap-3">
                                             <span className="material-symbols-outlined text-error text-[20px]">error</span>
                                             <p className="text-xs font-semibold text-on-error-container">{loginError}</p>
                                         </div>
@@ -102,7 +121,7 @@ export default function Login({ status, canResetPassword }) {
                                             <input
                                                 type="email"
                                                 value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
+                                                onChange={(e) => { setEmail(e.target.value); setLoginError(''); }}
                                                 className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-none"
                                                 required
                                             />
@@ -112,28 +131,18 @@ export default function Login({ status, canResetPassword }) {
                                     <div>
                                         <div className="flex justify-between mb-2">
                                             <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password</label>
-                                            {canResetPassword && (
-                                                <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
-                                            )}
-                                            <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
+                                            <div className="flex gap-3">
+                                                {canResetPassword && (
+                                                    <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
+                                                )}
+                                                <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
+                                            </div>
                                         </div>
-                                        <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">lock</span>
-                                            <input
-                                                type={showPassword ? 'text' : 'password'}
-                                                value={password}
-                                                onChange={(e) => setPassword(e.target.value)}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 pr-12 text-sm focus:border-primary focus:outline-none rounded-none"
-                                                required
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-primary"
-                                            >
-                                                <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                                            </button>
-                                        </div>
+                                        <PasswordInput
+                                            id="login-password"
+                                            value={password}
+                                            onChange={(v) => { setPassword(v); setLoginError(''); }}
+                                        />
                                     </div>
 
                                     <div className="flex items-center gap-3">

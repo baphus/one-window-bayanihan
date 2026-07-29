@@ -10,11 +10,13 @@ import NotificationPreferencesSection from '@/Components/NotificationPreferences
 import MfaSetup from '@/Components/MfaSetup';
 import PrimaryButton from '@/Components/PrimaryButton';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import { useToast } from '@/Hooks/useToast';
 
 import { profileSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 import DashboardBanner from '@/Components/DashboardBanner';
 import ChangeEmailForm from '@/Pages/Profile/Partials/ChangeEmailForm';
+import CropImageModal from '@/Components/CropImageModal';
 
 export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgency, notificationPrefs }) {
     const user = usePage().props.auth.user;
@@ -34,24 +36,77 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
             relation: user.emergency_contact?.relation || '',
             phone: user.emergency_contact?.phone || '',
         },
-        avatar: null,
         notifications_config: { ...notificationPrefs },
     });
 
+    const toast = useToast();
     const [avatarPreview, setAvatarPreview] = useState(null);
-    const [avatarDirty, setAvatarDirty] = useState(false);
+    const [pendingAvatarFile, setPendingAvatarFile] = useState(null);
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const [cropFile, setCropFile] = useState(null);
     const { validate } = useClientValidation(profileSchema, data, setError);
 
-    // Dirty tracking: exclude avatar (can be a File object, not JSON-serializable)
-    const { avatar: _avatar, ...restData } = data;
-    const initialRef = useRef(JSON.parse(JSON.stringify(restData)));
-    const isDirty = avatarDirty || JSON.stringify(restData) !== JSON.stringify(initialRef.current);
+    // Dirty tracking: avatar is uploaded separately, so only track text fields
+    const initialRef = useRef(JSON.parse(JSON.stringify(data)));
+    const isDirty = JSON.stringify(data) !== JSON.stringify(initialRef.current);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(isDirty);
 
     function handleAvatarSelect(file) {
-        setData('avatar', file);
-        setAvatarPreview(URL.createObjectURL(file));
-        setAvatarDirty(true);
+        setCropFile(file);
+    }
+
+    function handleCropComplete(croppedFile) {
+        setPendingAvatarFile(croppedFile);
+        setAvatarPreview(URL.createObjectURL(croppedFile));
+        setCropFile(null);
+    }
+
+    function handleCancelCrop() {
+        setCropFile(null);
+    }
+
+    function handleCancelPendingAvatar() {
+        if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+        setPendingAvatarFile(null);
+        setAvatarPreview(null);
+    }
+
+    function handleConfirmAvatar() {
+        if (!pendingAvatarFile) return;
+        setAvatarUploading(true);
+        setError('avatar', null);
+
+        const formData = new FormData();
+        formData.append('_method', 'patch');
+        formData.append('avatar', pendingAvatarFile);
+        // Include current form values so the backend validation passes
+        formData.append('name', data.name);
+        formData.append('email', data.email);
+        formData.append('position', data.position ?? '');
+        formData.append('department', data.department ?? '');
+        formData.append('office_location', data.office_location ?? '');
+        formData.append('bio', data.bio ?? '');
+        formData.append('timezone', data.timezone ?? '');
+        formData.append('contact_number', data.contact_number ?? '');
+        formData.append('notifications_config', JSON.stringify(data.notifications_config));
+
+        router.post(route('profile.update'), formData, {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => {
+                toast.success('Profile picture updated successfully.');
+                setPendingAvatarFile(null);
+                if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                setAvatarPreview(null);
+            },
+            onFinish: () => setAvatarUploading(false),
+            onError: (errors) => {
+                if (errors.avatar) {
+                    setError('avatar', errors.avatar);
+                }
+                setAvatarUploading(false);
+            },
+        });
     }
 
     function handleNotificationToggle(key, value) {
@@ -68,15 +123,15 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
         clearErrors();
         if (!validate()) return;
 
-        patch(route('profile.update'), {
+        const submitOptions = {
             preserveScroll: true,
             onSuccess: () => {
-                const { avatar: _newAvatar, ...newRest } = data;
-                initialRef.current = JSON.parse(JSON.stringify(newRest));
-                setAvatarPreview(null);
-                setAvatarDirty(false);
+                initialRef.current = JSON.parse(JSON.stringify(data));
+                toast.success('Profile updated successfully.');
             },
-        });
+        };
+
+        patch(route('profile.update'), submitOptions);
     }
 
     return (
@@ -100,7 +155,45 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
             <div className="max-w-3xl mx-auto space-y-6">
                 {/* Profile Photo */}
                 <div className="bg-white p-6 shadow-sm border border-slate-200 rounded-lg">
-                    <ProfileHeader onAvatarSelect={handleAvatarSelect} avatarPreview={avatarPreview} saving={processing} />
+                    <ProfileHeader onAvatarSelect={handleAvatarSelect} avatarPreview={avatarPreview} saving={processing || avatarUploading} />
+                    {errors.avatar && (
+                        <p className="mt-3 text-sm text-red-600 flex items-center gap-1.5">
+                            <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                            </svg>
+                            {errors.avatar}
+                        </p>
+                    )}
+                    {pendingAvatarFile && (
+                        <div className="mt-4 flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={handleConfirmAvatar}
+                                disabled={avatarUploading}
+                                className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+                            >
+                                {avatarUploading ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Confirm Profile Picture'
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCancelPendingAvatar}
+                                disabled={avatarUploading}
+                                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Agency Info */}
@@ -137,6 +230,13 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
             </div>
 
             {UnsavedModal}
+
+            <CropImageModal
+                file={cropFile}
+                open={cropFile !== null}
+                onCropComplete={handleCropComplete}
+                onCancel={handleCancelCrop}
+            />
         </AppLayout>
     );
 }

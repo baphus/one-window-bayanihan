@@ -739,14 +739,15 @@ class ReportsService
         $this->applyGeoFilter($query, $province, $city);
 
         $top = (clone $query)
-            ->select('required_services', DB::raw('count(*) as total'))
-            ->whereNotNull('required_services')
-            ->groupBy('required_services')
+            ->join('referral_services', 'referral_services.referral_id', '=', 'referrals.id')
+            ->join('services', 'services.id', '=', 'referral_services.service_id')
+            ->select('services.name', DB::raw('count(*) as total'))
+            ->groupBy('services.name')
             ->orderByDesc('total')
             ->first();
 
         return [
-            'name' => $top?->required_services ?? 'N/A',
+            'name' => $top?->name ?? 'N/A',
             'value' => (int) ($top?->total ?? 0),
         ];
     }

@@ -47,7 +47,9 @@ class DashboardServiceTest extends TestCase
             'created_at' => now()->subDays(8),
             'updated_at' => now()->subDays(8),
         ]);
-        Referral::factory()->create([
+        $oldPending->services()->sync([$service->id]);
+
+        $refForCompliance = Referral::factory()->create([
             'case_id' => $agencyCase->id,
             'agcy_id' => $agency->id,
             'required_services' => $service->name,
@@ -55,11 +57,14 @@ class DashboardServiceTest extends TestCase
             'created_at' => now()->subDays(3),
             'updated_at' => now()->subDays(3),
         ]);
-        Referral::factory()->completed()->create([
+        $refForCompliance->services()->sync([$service->id]);
+
+        $refCompleted = Referral::factory()->completed()->create([
             'case_id' => $agencyCase->id,
             'agcy_id' => $agency->id,
             'required_services' => $service->name,
         ]);
+        $refCompleted->services()->sync([$service->id]);
         Referral::factory()->create([
             'case_id' => $otherCase->id,
             'agcy_id' => $otherAgency->id,

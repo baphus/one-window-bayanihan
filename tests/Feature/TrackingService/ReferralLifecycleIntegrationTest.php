@@ -95,33 +95,6 @@ class ReferralLifecycleIntegrationTest extends TestCase
     }
 
     // ----------------------------------------------------------------
-    //  2. Requirements in agency card
-    // ----------------------------------------------------------------
-
-    public function test_requirements_in_agency_card(): void
-    {
-        // Arrange
-        $service = $this->app->make(TrackingService::class);
-        $setup = $this->createCaseWithClient();
-        $case = $setup['case'];
-
-        $referral = Referral::factory()->create([
-            'case_id' => $case->id,
-            'status' => 'FOR_COMPLIANCE',
-            'requirements' => ['Chest X-ray', 'Affidavit of Support'],
-        ]);
-
-        $this->loadRelations($case);
-
-        // Act
-        $data = $service->buildTrackingData($case);
-        $requirements = $data['trackingAgencies'][0]['requirements'];
-
-        // Assert
-        $this->assertEquals(['Chest X-ray', 'Affidavit of Support'], $requirements);
-    }
-
-    // ----------------------------------------------------------------
     //  3. Latest milestone label
     // ----------------------------------------------------------------
 

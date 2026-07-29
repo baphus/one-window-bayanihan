@@ -130,7 +130,6 @@ class TrackingService
                         'tracker_number' => $case->tracker_number,
                         'referral' => $ref->id,
                     ]),
-                    'requirements' => $ref->requirements ?? [],
                 ];
             })->toArray();
 

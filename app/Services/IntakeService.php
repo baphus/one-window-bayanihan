@@ -94,6 +94,18 @@ class IntakeService
      */
     public function createIntakeCase(array $data, string $verifiedEmail): CaseFile
     {
+        // Normalize employment: the self-filing form only collects
+        // last_position/last_country. Populate position/country so the
+        // review page and published client record have them filled in.
+        if (! empty($data['employment'])) {
+            if (empty($data['employment']['position']) && ! empty($data['employment']['last_position'])) {
+                $data['employment']['position'] = $data['employment']['last_position'];
+            }
+            if (empty($data['employment']['country']) && ! empty($data['employment']['last_country'])) {
+                $data['employment']['country'] = $data['employment']['last_country'];
+            }
+        }
+
         $maxAttempts = 3;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
@@ -249,6 +261,9 @@ class IntakeService
         }
         if (! empty($data['next_of_kin'])) {
             $clientData['next_of_kin'] = $data['next_of_kin'];
+        }
+        if (! empty($data['vulnerability'])) {
+            $clientData['vulnerability'] = $data['vulnerability'];
         }
 
         $case = CaseFile::create([

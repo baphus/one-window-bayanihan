@@ -406,6 +406,46 @@ class ReferralController extends Controller
         return response()->json($versions);
     }
 
+    public function addService(Request $request, string $id)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        if ($request->user()->role !== 'AGENCY') {
+            return redirect()->back()->with('error', 'Only the receiving agency can manage services.');
+        }
+
+        $validated = $request->validate([
+            'service_id' => 'required|string|exists:services,id',
+        ]);
+
+        try {
+            $this->referralService->addService($referral, $validated['service_id']);
+
+            return redirect()->back()->with('success', 'Service added to referral.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function removeService(Request $request, string $id, string $serviceId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        if ($request->user()->role !== 'AGENCY') {
+            return redirect()->back()->with('error', 'Only the receiving agency can manage services.');
+        }
+
+        try {
+            $this->referralService->removeService($referral, $serviceId);
+
+            return redirect()->back()->with('success', 'Service removed from referral.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
     public function exportExcel(Request $request)
     {
         $user = auth()->user();
