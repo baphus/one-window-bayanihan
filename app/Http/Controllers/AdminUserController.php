@@ -111,6 +111,44 @@ class AdminUserController extends Controller
         return Inertia::render('Admin/User/Show', ['user' => $user]);
     }
 
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()->symbols()],
+            'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
+            'agcy_id' => 'nullable|exists:agencies,id',
+        ]);
+
+        $agcyId = $validated['agcy_id'] ?? null;
+        if (! $agcyId && $validated['role'] === 'AGENCY') {
+            $agcyId = app(DefaultAgencyService::class)->getDefaultAgency()?->id;
+        }
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
+            'agcy_id' => $agcyId,
+            'email_verified_at' => now(),
+            'is_active' => true,
+        ]);
+
+        AuditLog::create([
+            'action' => AuditAction::CREATE->value,
+            'module' => AuditModule::USER->value,
+            'entity_id' => $user->id,
+            'new_value' => ['name' => $user->name, 'email' => $user->email, 'role' => $user->role],
+            'description' => 'User created directly by administrator',
+            'user_id' => $request->user()->id,
+            'timestamp' => now(),
+        ]);
+
+        return back()->with('success', 'User created successfully.');
+    }
+
     public function invite(Request $request)
     {
         $validated = $request->validate([

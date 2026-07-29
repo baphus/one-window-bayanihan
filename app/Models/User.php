@@ -41,6 +41,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'agcy_id',
         'client_id',
         'is_active',
+        'email_verified_at',
         'contact_number',
         'avatar_url',
         'position',

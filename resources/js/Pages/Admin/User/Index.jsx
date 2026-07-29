@@ -49,6 +49,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
 
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [formMode, setFormMode] = useState('invite');
   const [peerProfileUser, setPeerProfileUser] = useState(null);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
@@ -57,6 +58,8 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const [contextMenu, setContextMenu] = useState(null);
   const [viewMode, setViewMode] = useState('list');
   const [confirmAction, setConfirmAction] = useState(null);
+  const [newUserDropdownOpen, setNewUserDropdownOpen] = useState(false);
+  const newUserDropdownRef = useRef(null);
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
@@ -84,6 +87,18 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   useEffect(() => {
     return () => clearTimeout(searchTimeout.current);
   }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (newUserDropdownRef.current && !newUserDropdownRef.current.contains(e.target)) {
+        setNewUserDropdownOpen(false);
+      }
+    }
+    if (newUserDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [newUserDropdownOpen]);
 
   const navigateWith = (params) => {
     const url = new URL(window.location);
@@ -473,8 +488,9 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         <UserFormModal
           user={editingUser}
           agencies={agencies}
-          onClose={() => { setShowForm(false); setEditingUser(null); }}
+          onClose={() => { setShowForm(false); setEditingUser(null); setFormMode('invite'); }}
           onBypass={bypassNext}
+          initialMode={formMode}
         />
       )}
 
@@ -552,8 +568,42 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         columnsControlContent={columnControlContent}
         onViewModeChange={setViewMode}
         viewMode={viewMode}
-        onNewRecord={() => { setEditingUser(null); setShowForm(true); }}
-        newRecordLabel="Invite User"
+        extraActions={
+          <div className="relative ml-2" ref={newUserDropdownRef}>
+            <div className="flex">
+              <button
+                onClick={() => { setEditingUser(null); setFormMode('invite'); setShowForm(true); }}
+                className="h-[40px] px-5 bg-blue-900 text-white text-[14px] font-bold rounded-l-[3px] flex items-center gap-2 hover:bg-blue-800 transition-colors shadow-sm whitespace-nowrap shrink-0"
+              >
+                <span className="font-semibold text-[16px]">+</span> Invite User
+              </button>
+              <button
+                onClick={() => setNewUserDropdownOpen((v) => !v)}
+                className="h-[40px] w-9 bg-blue-900 text-white text-[14px] font-bold rounded-r-[3px] flex items-center justify-center hover:bg-blue-800 transition-colors shadow-sm border-l border-blue-700"
+              >
+                <span className={`material-symbols-outlined text-[18px] transition-transform ${newUserDropdownOpen ? 'rotate-180' : ''}`}>expand_more</span>
+              </button>
+            </div>
+            {newUserDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 overflow-hidden">
+                <button
+                  onClick={() => { setEditingUser(null); setFormMode('invite'); setShowForm(true); setNewUserDropdownOpen(false); }}
+                  className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-slate-400">mail</span>
+                  Invite User
+                </button>
+                <button
+                  onClick={() => { setEditingUser(null); setFormMode('create'); setShowForm(true); setNewUserDropdownOpen(false); }}
+                  className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-slate-400">person_add</span>
+                  Create User
+                </button>
+              </div>
+            )}
+          </div>
+        }
         activeFilters={activeFilters}
         onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
