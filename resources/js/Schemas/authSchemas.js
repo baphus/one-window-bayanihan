@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import createPasswordSchema from '@/Utils/createPasswordSchema';
+import createPasswordSchema from '@/utils/createPasswordSchema';
 
 /**
  * Registration schema — password uses server-defined rules.

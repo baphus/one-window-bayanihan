@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import createPasswordSchema from '@/Utils/createPasswordSchema';
+import createPasswordSchema from '@/utils/createPasswordSchema';
 
 export const profileSchema = z.object({
   name: z

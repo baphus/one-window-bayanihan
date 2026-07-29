@@ -3,7 +3,7 @@ import { useForm, usePage } from '@inertiajs/react';
 import { z } from 'zod';
 import OfwLayout from '@/Layouts/OfwLayout';
 import PasswordInput from '@/Components/PasswordInput';
-import createPasswordSchema from '@/Utils/createPasswordSchema';
+import createPasswordSchema from '@/utils/createPasswordSchema';
 import useClientValidation from '@/Hooks/useClientValidation';
 
 export default function Profile({ user }) {
