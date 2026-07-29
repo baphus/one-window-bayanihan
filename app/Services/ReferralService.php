@@ -363,6 +363,7 @@ class ReferralService
 
         return $agency->services->map(function ($service) {
             return [
+                'id' => $service->id,
                 'title' => $service->name,
                 'requiredDocuments' => $service->requirements->pluck('name')->toArray(),
             ];

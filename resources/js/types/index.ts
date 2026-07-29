@@ -205,6 +205,7 @@ export type TrackingAgencyCardData = {
     steps: AgencyStep[];
     latestMilestoneLabel?: string;
     milestonesUrl: string;
+    services: string[];
     compliance_requirements: TrackingComplianceRequirement[];
 };
 

@@ -27,6 +27,7 @@ class EdgeCasesTest extends TestCase
             'client.addresses',
             'client.employments',
             'referrals.agency',
+            'referrals.services',
             'referrals.milestones.user',
             'referrals.attachments',
             'user',
