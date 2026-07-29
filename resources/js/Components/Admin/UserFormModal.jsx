@@ -8,13 +8,18 @@ const roleOptions = [
   { value: 'ADMIN', label: 'System Admin', description: 'Full system access and configuration' },
 ];
 
-export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId }) {
+export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId, initialMode = 'invite' }) {
   const isEdit = !!user;
   const isNewUserViaSelectedAgency = !!selectedAgencyId && !user?.id;
+
+  const [mode, setMode] = useState(isEdit ? 'invite' : initialMode);
+  const isCreateMode = !isEdit && !isNewUserViaSelectedAgency && mode === 'create';
 
   const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     name: user?.name ?? '',
     email: user?.email ?? '',
+    password: '',
+    password_confirmation: '',
     role: user?.role ?? (isNewUserViaSelectedAgency ? 'AGENCY' : 'CASE_MANAGER'),
     agcy_id: user?.agcy_id ?? (isNewUserViaSelectedAgency ? selectedAgencyId : ''),
     contact_number: user?.contact_number ?? '',
@@ -37,12 +42,22 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         setError('agcy_id', 'Agency is required for Agency Focal users.');
         return;
       }
-      post(route('admin.users.invite'), {
-        onSuccess: () => {
-          onClose?.();
-          router.reload({ only: ['users', 'pendingInvites'] });
-        },
-      });
+
+      if (isCreateMode) {
+        post(route('admin.users.store'), {
+          onSuccess: () => {
+            onClose?.();
+            router.reload({ only: ['users'] });
+          },
+        });
+      } else {
+        post(route('admin.users.invite'), {
+          onSuccess: () => {
+            onClose?.();
+            router.reload({ only: ['users', 'pendingInvites'] });
+          },
+        });
+      }
     } else {
       patch(route('admin.users.update', user.id), {
         onSuccess: () => {
@@ -60,14 +75,16 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-lg">
           <div>
             <h3 className="text-lg font-bold text-slate-900">
-              {isEdit ? 'Edit User' : isNewUserViaSelectedAgency ? 'Add Focal Person' : 'Invite User'}
+              {isEdit ? 'Edit User' : isNewUserViaSelectedAgency ? 'Add Focal Person' : isCreateMode ? 'Create User' : 'Invite User'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {isEdit
                 ? 'Update user account details and assignments.'
                 : isNewUserViaSelectedAgency
                   ? 'Send an invitation to a new focal person for this agency.'
-                  : 'Send an invitation email so the user can set up their own account.'}
+                  : isCreateMode
+                    ? 'Create a new user account directly with name and password.'
+                    : 'Send an invitation email so the user can set up their own account.'}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
@@ -77,11 +94,31 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
           {/* Section: Invite / Account Information */}
           <fieldset className="space-y-4">
             <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
-              {isEdit ? 'Account Information' : 'Invite Details'}
+              {isEdit ? 'Account Information' : isCreateMode ? 'User Details' : 'Invite Details'}
             </legend>
 
-            {/* Name (edit only) */}
-            {isEdit && (
+            {/* Mode toggle (new user, not via agency) */}
+            {!isEdit && !isNewUserViaSelectedAgency && (
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm font-medium">
+                <button
+                  type="button"
+                  onClick={() => { setMode('invite'); clearErrors(); setData('password', ''); setData('password_confirmation', ''); }}
+                  className={`flex-1 py-2 transition-colors ${mode === 'invite' ? 'bg-blue-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Invite User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMode('create'); clearErrors(); }}
+                  className={`flex-1 py-2 transition-colors ${mode === 'create' ? 'bg-blue-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Create User
+                </button>
+              </div>
+            )}
+
+            {/* Name (edit or create mode) */}
+            {(isEdit || isCreateMode) && (
               <div>
                 <label className="block text-sm font-medium text-slate-700">Full Name <span className="text-red-500">*</span></label>
                 <input
@@ -111,6 +148,40 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               <InputError message={errors.email} className="mt-1" />
             </div>
 
+            {/* Password fields (create mode only) */}
+            {isCreateMode && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Password <span className="text-red-500">*</span></label>
+                  <input
+                    type="password"
+                    value={data.password}
+                    onChange={(e) => setData('password', e.target.value)}
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    placeholder="Minimum 8 characters"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                  <InputError message={errors.password} className="mt-1" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Confirm Password <span className="text-red-500">*</span></label>
+                  <input
+                    type="password"
+                    value={data.password_confirmation}
+                    onChange={(e) => setData('password_confirmation', e.target.value)}
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    placeholder="Re-enter password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                  <InputError message={errors.password_confirmation} className="mt-1" />
+                </div>
+              </>
+            )}
+
             {/* Email Verified badge (edit only — display only) */}
             {isEdit && (
               <div className="flex items-center gap-2 text-sm">
@@ -124,7 +195,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </div>
             )}
 
-            {!isEdit && (
+            {!isEdit && !isCreateMode && (
               <p className="text-xs text-slate-500 mt-1">
                 An invitation email will be sent to this address. The user will set their own name, password, and profile details.
               </p>
@@ -298,8 +369,8 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </button>
               <button type="submit" disabled={processing} className="px-5 py-2 text-sm font-bold text-white bg-blue-900 rounded-lg hover:bg-blue-800 disabled:opacity-50 transition-colors">
                 {processing
-                  ? (isEdit ? 'Saving...' : 'Sending Invite...')
-                  : (isEdit ? 'Save Changes' : isNewUserViaSelectedAgency ? 'Send Invite' : 'Send Invite')
+                  ? (isEdit ? 'Saving...' : isCreateMode ? 'Creating...' : 'Sending Invite...')
+                  : (isEdit ? 'Save Changes' : isCreateMode ? 'Create User' : 'Send Invite')
                 }
               </button>
             </div>

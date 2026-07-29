@@ -249,6 +249,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/services/{service}', [AdminServiceController::class, 'destroy'])->name('services.destroy');
 
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
         Route::post('/users/invite', [AdminUserController::class, 'invite'])->name('users.invite');
         // Invite is submitted from the users modal; there is intentionally no GET invite page.
         Route::get('/users/invite', fn () => abort(404));
