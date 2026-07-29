@@ -251,19 +251,10 @@ class AdminUserController extends Controller
         $emailChanged = $user->email !== $validated['email'];
 
         if ($emailChanged) {
-            $verifiedEmail = $request->session()->get('verified_new_email_admin_'.$id);
-
-            if (! $verifiedEmail || $verifiedEmail !== $validated['email']) {
-                throw ValidationException::withMessages([
-                    'email' => 'Email change requires OTP verification. Please complete the verification flow before saving.',
-                ]);
-            }
-
+            // Admin bypass: admins can update email directly without OTP.
             $oldEmail = $user->email;
             $user->email_verified_at = now();
             $user->email = $validated['email'];
-
-            $request->session()->forget('verified_new_email_admin_'.$id);
 
             $user->save();
 

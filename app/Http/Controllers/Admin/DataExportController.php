@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
-use App\Jobs\ExportDataToExcel;
+use App\Jobs\GenerateSystemReport;
 use App\Models\AuditLog;
 use App\Models\GeneratedDocument;
 use App\Services\Export\ColumnMaps;
@@ -31,15 +31,20 @@ class DataExportController extends Controller
             'user_id' => $user->id,
             'type' => 'admin_full_export',
             'filename' => $filename,
+            'mime_type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'status' => 'pending',
+        ]);
+
+        GenerateSystemReport::dispatch($document->id, 'admin_full_export', [
+            'user_id' => $user->id,
         ]);
 
         AuditLog::create([
             'action' => AuditAction::EXPORT->value,
             'module' => AuditModule::DATA_EXPORT->value,
             'entity_id' => $user->id,
-            'description' => sprintf('%s exported the full data workbook (%d tables)', $user->name, count(ColumnMaps::getAllTables())),
-            'new_value' => ['tables' => ColumnMaps::getAllTables(), 'filename' => $filename],
+            'description' => sprintf('%s queued a full data workbook export (%d tables)', $user->name, count(ColumnMaps::getAllTables())),
+            'new_value' => ['tables' => ColumnMaps::getAllTables(), 'filename' => $filename, 'document_id' => $document->id],
             'user_id' => $user->id,
             'timestamp' => now(),
             'ip_address' => request()->ip(),
@@ -47,16 +52,9 @@ class DataExportController extends Controller
             'request_id' => request()->attributes->get('correlation_id') ?? request()->header('X-Request-ID') ?? (string) Str::uuid(),
         ]);
 
-        ExportDataToExcel::dispatch(
-            'admin_full_export',
-            [],
-            $user->id,
-            $document->id,
-        );
-
         return response()->json([
-            'id' => $document->id,
             'status' => 'pending',
+            'id' => $document->id,
         ]);
     }
 }

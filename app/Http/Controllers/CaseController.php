@@ -5,20 +5,19 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Http\Requests\UpdateDraftRequest;
-use App\Jobs\ExportDataToExcel;
-use App\Jobs\GenerateCaseReport;
 use App\Models\CaseFile;
 use App\Models\Client;
-use App\Models\GeneratedDocument;
 use App\Models\SystemSetting;
 use App\Services\AddressNameResolver;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
+use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
 use App\Services\TrackingService;
 use App\Support\CategoryFilter;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -358,7 +357,7 @@ class CaseController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $user = auth()->user();
+        $user = $request->user();
 
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'client_type', 'vulnerability_indicator',
@@ -366,26 +365,26 @@ class CaseController extends Controller
             'age_min_days', 'referral_state', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
+        $queries = new DataExportQueries;
+        $exportService = new DataExportService;
+
+        $data = $queries->getCasesExport($user, $filters);
+
+        $now = now()->format('Y-m-d H:i:s');
+        $data = $data->map(function ($row) use ($now) {
+            $row->exported_at = $now;
+
+            return $row;
+        });
+
         $filename = 'cases-export-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = GeneratedDocument::create([
-            'user_id' => $user->id,
-            'type' => 'cases_export',
-            'filename' => $filename,
-            'status' => 'pending',
-        ]);
-
-        ExportDataToExcel::dispatch(
-            'cases_export',
-            ['filters' => $filters],
-            $user->id,
-            $document->id,
+        return $exportService->generateSingleSheet(
+            'Cases',
+            self::casesExportColumnMap(),
+            $data,
+            $filename
         );
-
-        return response()->json([
-            'id' => $document->id,
-            'status' => 'pending',
-        ]);
     }
 
     /**
@@ -428,25 +427,30 @@ class CaseController extends Controller
         $case = $this->caseService->getCase($id);
         $this->authorizeCaseAccess($case, $request->user());
 
+        $client = $case->client;
+        $primaryEmployment = $client->employments->first();
+        $primaryAddress = $client->addresses->first();
+        $primaryNok = $client->nextOfKin->first();
+
+        $data = [
+            'case' => $case,
+            'client' => $client,
+            'employment' => $primaryEmployment,
+            'address' => $primaryAddress,
+            'nok' => $primaryNok,
+            'referrals' => $case->referrals,
+            'milestones' => $case->caseEvents()->latest('occurred_at')->get(),
+            'exportedAt' => now()->format('M d, Y h:i A'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.case-report', $data);
         $filename = 'case-report-'.$case->case_number.'-'.now()->format('Ymd-His').'.pdf';
 
-        $document = GeneratedDocument::create([
-            'user_id' => $request->user()->id,
-            'case_id' => $case->id,
-            'type' => 'case_report_pdf',
-            'filename' => $filename,
-            'status' => 'pending',
-        ]);
-
-        GenerateCaseReport::dispatch(
-            $case->id,
-            $request->user()->id,
-            $document->id,
-        );
-
-        return response()->json([
-            'id' => $document->id,
-            'status' => 'pending',
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+            'Cache-Control' => 'max-age=0',
         ]);
     }
 

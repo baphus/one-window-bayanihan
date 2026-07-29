@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportsFilterRequest;
-use App\Jobs\ExportDataToExcel;
 use App\Jobs\GenerateSystemReport;
 use App\Models\GeneratedDocument;
+use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Http\RedirectResponse;
@@ -130,18 +130,15 @@ class ReportsController extends Controller
             'user_id' => $request->user()->id,
             'type' => 'system_report_pdf',
             'filename' => $filename,
+            'mime_type' => 'application/pdf',
             'status' => 'pending',
         ]);
 
-        GenerateSystemReport::dispatch(
-            $criteria,
-            $request->user()->id,
-            $document->id,
-        );
+        GenerateSystemReport::dispatch($document->id, 'system_report_pdf', $criteria);
 
         return response()->json([
-            'id' => $document->id,
             'status' => 'pending',
+            'id' => $document->id,
         ]);
     }
 
@@ -152,25 +149,10 @@ class ReportsController extends Controller
             return $criteria;
         }
 
+        $exportService = new DataExportService;
+        $sheets = $this->reportsExportService->buildExcelSheetsFromCriteria($criteria);
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = GeneratedDocument::create([
-            'user_id' => $request->user()->id,
-            'type' => 'reports_export',
-            'filename' => $filename,
-            'status' => 'pending',
-        ]);
-
-        ExportDataToExcel::dispatch(
-            'reports_export',
-            $criteria,
-            $request->user()->id,
-            $document->id,
-        );
-
-        return response()->json([
-            'id' => $document->id,
-            'status' => 'pending',
-        ]);
+        return $exportService->generateMultiSheet($sheets, $filename);
     }
 }

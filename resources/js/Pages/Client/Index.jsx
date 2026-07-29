@@ -3,7 +3,6 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
-import { useToast } from '@/Hooks/useToast';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { Users, UserCheck, Shield, ArrowRightLeft } from 'lucide-react';
@@ -114,16 +113,14 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
   );
 
   const [tableLoading, setTableLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
-  const toast = useToast();
 
   const handleExport = useCallback(() => {
     setExportDialogOpen(true);
   }, []);
 
-  const handleExportConfirm = useCallback(async ({ dateFrom, dateTo }) => {
+  const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
     if (filters.sex) params.set('sex', filters.sex);
@@ -140,13 +137,8 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     const url = route('clients.export-excel') + (qs ? '?' + qs : '');
 
     setExportDialogOpen(false);
-
-    const { dispatchAsyncExport } = await import('@/lib/async-export');
-    await dispatchAsyncExport(url, toast, {
-      onStart: () => setIsExporting(true),
-      onDone: () => setIsExporting(false),
-    });
-  }, [filters, toast]);
+    window.location.href = url;
+  }, [filters]);
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
@@ -803,11 +795,10 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
         <button
           type="button"
           onClick={handleExport}
-          disabled={isExporting}
-          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         >
-          <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
-          {isExporting ? 'Exporting\u2026' : 'Export Excel'}
+          <span className="material-symbols-outlined text-[18px]">download</span>
+          Export Excel
         </button>
       </header>
 

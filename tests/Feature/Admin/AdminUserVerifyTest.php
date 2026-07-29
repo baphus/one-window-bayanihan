@@ -154,23 +154,25 @@ class AdminUserVerifyTest extends TestCase
         $this->assertEquals($newEmail, $target->email, 'Email should be updated');
     }
 
-    public function test_admin_email_update_without_otp_is_rejected(): void
+    public function test_admin_email_update_without_otp_succeeds(): void
     {
         $target = User::factory()->create(['role' => 'CASE_MANAGER']);
         $originalEmail = $target->email;
+        $newEmail = 'admin-changed-'.$target->email;
 
-        // Direct PATCH with changed email but no OTP verification
+        // Admin can update email directly without OTP verification
         $response = $this->actingAs($this->admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
-                'email' => 'hacked-'.$target->email,
+                'email' => $newEmail,
                 'role' => $target->role,
                 'is_active' => true,
             ]);
 
-        $response->assertSessionHasErrors();
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
         $target->refresh();
-        $this->assertEquals($originalEmail, $target->email, 'Email should NOT change without OTP');
-        $this->assertNotNull($target->email_verified_at, 'Verification should remain intact');
+        $this->assertEquals($newEmail, $target->email, 'Email should be updated by admin directly');
+        $this->assertNotNull($target->email_verified_at, 'email_verified_at should be set after admin email change');
     }
 }

@@ -2,10 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Jobs\Concerns\StoresGeneratedFile;
 use App\Models\GeneratedDocument;
 use App\Models\User;
-use App\Notifications\DownloadReady;
+use App\Services\Export\ColumnMaps;
+use App\Services\Export\DataExportQueries;
+use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
@@ -13,65 +14,120 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Throwable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class GenerateSystemReport implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, StoresGeneratedFile;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 120;
+    public int $tries = 1;
 
-    public int $tries = 3;
+    public int $timeout = 300;
 
-    public array $backoff = [10, 30, 60];
-
+    /**
+     * @param  string  $documentId  UUID of the pre-created GeneratedDocument record.
+     * @param  string  $type  'system_report_pdf' | 'admin_full_export'
+     * @param  array  $criteria  Serializable criteria from ReportsExportService::extractCriteria()
+     *                           (used for PDF and reports-excel types only).
+     */
     public function __construct(
-        public readonly array $criteria,
-        public readonly string $userId,
-        public readonly string $generatedDocumentId,
-    ) {
-        $this->onQueue('heavy');
-    }
+        private readonly string $documentId,
+        private readonly string $type,
+        private readonly array $criteria = [],
+    ) {}
 
-    public function handle(ReportsExportService $exportService): void
-    {
-        $data = $exportService->buildPdfPayloadFromCriteria($this->criteria);
+    public function handle(
+        ReportsExportService $reportsExportService,
+        DataExportService $dataExportService,
+    ): void {
+        $document = GeneratedDocument::find($this->documentId);
 
-        $pdf = Pdf::loadView('pdf.report', $data);
-        $pdfContent = $pdf->output();
+        if (! $document) {
+            Log::error('GenerateSystemReport: GeneratedDocument not found', ['id' => $this->documentId]);
 
-        $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.pdf';
-        $path = "generated/{$this->userId}/{$filename}";
-
-        $this->storeGeneratedFile($path, $pdfContent);
-
-        $document = GeneratedDocument::findOrFail($this->generatedDocumentId);
-        $document->update([
-            'status' => 'completed',
-            'path' => $path,
-            'file_size' => strlen($pdfContent),
-            'mime_type' => 'application/pdf',
-        ]);
-
-        $user = User::find($this->userId);
-        if ($user) {
-            $user->notify(new DownloadReady($document->fresh()));
+            return;
         }
-    }
 
-    public function failed(Throwable $e): void
-    {
-        $document = GeneratedDocument::find($this->generatedDocumentId);
-        if ($document) {
+        try {
+            $tempPath = sys_get_temp_dir().'/'.Str::uuid();
+
+            match ($this->type) {
+                'system_report_pdf' => $this->generatePdf($reportsExportService, $tempPath),
+                'admin_full_export' => $this->generateAdminExport($dataExportService, $tempPath),
+                default => throw new \InvalidArgumentException("Unknown report type: {$this->type}"),
+            };
+
+            $storagePath = 'generated-documents/'.$this->documentId.'/'.$document->filename;
+            Storage::disk('object-storage')->put($storagePath, file_get_contents($tempPath));
+
             $document->update([
-                'status' => 'failed',
-                'error_message' => substr($e->getMessage(), 0, 1000),
+                'status' => 'completed',
+                'path' => $storagePath,
+                'file_size' => filesize($tempPath),
             ]);
 
-            $user = User::find($this->userId);
-            if ($user) {
-                $user->notify(new DownloadReady($document->fresh(), failed: true));
-            }
+            @unlink($tempPath);
+        } catch (\Throwable $e) {
+            Log::error('GenerateSystemReport failed', [
+                'document_id' => $this->documentId,
+                'type' => $this->type,
+                'error' => $e->getMessage(),
+            ]);
+
+            $document->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
+
+            @unlink($tempPath ?? null);
+
+            $this->fail($e);
         }
+    }
+
+    private function generatePdf(ReportsExportService $service, string $tempPath): void
+    {
+        $payload = $service->buildPdfPayloadFromCriteria($this->criteria);
+        $pdf = Pdf::loadView('pdf.report', $payload);
+        $pdf->save($tempPath);
+    }
+
+    private function generateAdminExport(DataExportService $dataExportService, string $tempPath): void
+    {
+        // Rebuild the user from criteria so queries are scoped correctly.
+        $user = User::findOrFail($this->criteria['user_id']);
+
+        $queries = new DataExportQueries;
+
+        $tableQueryMap = [
+            'cases' => fn () => $queries->getCases($user),
+            'clients' => fn () => $queries->getClients($user),
+            'referrals' => fn () => $queries->getReferrals($user),
+            'users' => fn () => $queries->getUsers($user),
+            'agencies' => fn () => $queries->getAgencies(),
+            'services' => fn () => $queries->getServices(),
+            'milestones' => fn () => $queries->getMilestones($user),
+            'next_of_kin' => fn () => $queries->getNextOfKins($user),
+            'feedback' => fn () => $queries->getFeedbacks($user),
+            'case_documents' => fn () => $queries->getCaseDocuments($user),
+            'client_addresses' => fn () => $queries->getClientAddresses($user),
+            'client_employments' => fn () => $queries->getClientEmployments($user),
+            'case_categories' => fn () => $queries->getCaseCategories(),
+            'case_statuses' => fn () => $queries->getCaseStatuses(),
+        ];
+
+        $sheets = [];
+        foreach (ColumnMaps::getAllTables() as $table) {
+            $data = isset($tableQueryMap[$table]) ? $tableQueryMap[$table]() : collect();
+            $sheets[] = [
+                'title' => ucfirst($table),
+                'columnMap' => ColumnMaps::getMap($table),
+                'rows' => $data,
+            ];
+        }
+
+        $dataExportService->generateMultiSheetToFile($sheets, $tempPath);
     }
 }

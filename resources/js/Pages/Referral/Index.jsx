@@ -4,7 +4,6 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
@@ -59,8 +58,6 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
 
-    const toast = useToast();
-    const [isExporting, setIsExporting] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [tableLoading, setTableLoading] = useState(false);
 
@@ -68,7 +65,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         setExportDialogOpen(true);
     }, []);
 
-    const handleExportConfirm = useCallback(async ({ dateFrom, dateTo }) => {
+    const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
         const params = new URLSearchParams();
         if (filters.status) params.set('status', filters.status);
         if (filters.search) params.set('search', filters.search);
@@ -84,13 +81,8 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         const url = route('referrals.export-excel') + (qs ? '?' + qs : '');
 
         setExportDialogOpen(false);
-
-        const { dispatchAsyncExport } = await import('@/lib/async-export');
-        await dispatchAsyncExport(url, toast, {
-            onStart: () => setIsExporting(true),
-            onDone: () => setIsExporting(false),
-        });
-    }, [filters, toast]);
+        window.location.href = url;
+    }, [filters]);
 
     const activeFilterChips = useMemo(() => {
         const chips = [];
@@ -555,11 +547,10 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                         data-tour="referrals-export"
                         type="button"
                         onClick={handleExport}
-                        disabled={isExporting}
-                        className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                     >
-                        <span className="material-symbols-outlined text-[18px]">{isExporting ? 'sync' : 'download'}</span>
-                        {isExporting ? 'Exporting…' : 'Export Excel'}
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        Export Excel
                     </button>
                 </div>
             </div>
