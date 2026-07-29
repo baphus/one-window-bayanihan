@@ -3,9 +3,10 @@
 namespace App\Jobs;
 
 use App\Models\GeneratedDocument;
+use App\Models\User;
+use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
-use App\Services\Export\ColumnMaps;
 use App\Services\Reports\ReportsExportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
@@ -27,9 +28,9 @@ class GenerateSystemReport implements ShouldQueue
 
     /**
      * @param  string  $documentId  UUID of the pre-created GeneratedDocument record.
-     * @param  string  $type        'system_report_pdf' | 'admin_full_export'
-     * @param  array   $criteria    Serializable criteria from ReportsExportService::extractCriteria()
-     *                              (used for PDF and reports-excel types only).
+     * @param  string  $type  'system_report_pdf' | 'admin_full_export'
+     * @param  array  $criteria  Serializable criteria from ReportsExportService::extractCriteria()
+     *                           (used for PDF and reports-excel types only).
      */
     public function __construct(
         private readonly string $documentId,
@@ -96,7 +97,7 @@ class GenerateSystemReport implements ShouldQueue
     private function generateAdminExport(DataExportService $dataExportService, string $tempPath): void
     {
         // Rebuild the user from criteria so queries are scoped correctly.
-        $user = \App\Models\User::findOrFail($this->criteria['user_id']);
+        $user = User::findOrFail($this->criteria['user_id']);
 
         $queries = new DataExportQueries;
 
