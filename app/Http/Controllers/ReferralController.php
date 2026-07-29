@@ -5,16 +5,15 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
-use App\Jobs\ExportDataToExcel;
 use App\Models\Agency;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
-use App\Models\GeneratedDocument;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
 use App\Models\SystemSetting;
 use App\Services\Export\DataExportQueries;
+use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
@@ -448,33 +447,33 @@ class ReferralController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $user = auth()->user();
+        $user = $request->user();
 
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
             'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
+        $queries = new DataExportQueries;
+        $exportService = new DataExportService;
+
+        $data = $queries->getReferralsExport($user, $filters);
+
+        $now = now()->format('Y-m-d H:i:s');
+        $data = $data->map(function ($row) use ($now) {
+            $row->exported_at = $now;
+
+            return $row;
+        });
+
         $filename = 'referrals-export-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = GeneratedDocument::create([
-            'user_id' => $user->id,
-            'type' => 'referrals_export',
-            'filename' => $filename,
-            'status' => 'pending',
-        ]);
-
-        ExportDataToExcel::dispatch(
-            'referrals_export',
-            ['filters' => $filters],
-            $user->id,
-            $document->id,
+        return $exportService->generateSingleSheet(
+            'Referrals',
+            self::referralsExportColumnMap(),
+            $data,
+            $filename
         );
-
-        return response()->json([
-            'id' => $document->id,
-            'status' => 'pending',
-        ]);
     }
 
     /**

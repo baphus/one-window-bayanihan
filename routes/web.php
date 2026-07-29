@@ -23,7 +23,6 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\IntakeController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
@@ -104,8 +103,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:reports-view');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
-
-    Route::get('/documents/{generatedDocument}/download', [DocumentController::class, 'download'])->name('documents.download');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index')->withoutMiddleware('verified');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count')->withoutMiddleware('verified');

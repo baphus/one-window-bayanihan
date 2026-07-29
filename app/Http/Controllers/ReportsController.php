@@ -3,11 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportsFilterRequest;
-use App\Jobs\ExportDataToExcel;
-use App\Jobs\GenerateSystemReport;
-use App\Models\GeneratedDocument;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -124,24 +122,15 @@ class ReportsController extends Controller
             return $criteria;
         }
 
+        $data = $this->reportsExportService->buildPdfPayloadFromCriteria($criteria);
+        $pdf = Pdf::loadView('pdf.report', $data);
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.pdf';
 
-        $document = GeneratedDocument::create([
-            'user_id' => $request->user()->id,
-            'type' => 'system_report_pdf',
-            'filename' => $filename,
-            'status' => 'pending',
-        ]);
-
-        GenerateSystemReport::dispatch(
-            $criteria,
-            $request->user()->id,
-            $document->id,
-        );
-
-        return response()->json([
-            'id' => $document->id,
-            'status' => 'pending',
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+            'Cache-Control' => 'max-age=0',
         ]);
     }
 
@@ -152,25 +141,10 @@ class ReportsController extends Controller
             return $criteria;
         }
 
+        $exportService = new DataExportService;
+        $sheets = $this->reportsExportService->buildExcelSheetsFromCriteria($criteria);
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.xlsx';
 
-        $document = GeneratedDocument::create([
-            'user_id' => $request->user()->id,
-            'type' => 'reports_export',
-            'filename' => $filename,
-            'status' => 'pending',
-        ]);
-
-        ExportDataToExcel::dispatch(
-            'reports_export',
-            $criteria,
-            $request->user()->id,
-            $document->id,
-        );
-
-        return response()->json([
-            'id' => $document->id,
-            'status' => 'pending',
-        ]);
+        return $exportService->generateMultiSheet($sheets, $filename);
     }
 }

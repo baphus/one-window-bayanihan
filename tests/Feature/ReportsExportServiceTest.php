@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\ExportDataToExcel;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -14,7 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -61,8 +59,6 @@ class ReportsExportServiceTest extends TestCase
     #[Test]
     public function reports_export_endpoint_returns_the_expected_xlsx_workbook_headers(): void
     {
-        Queue::fake();
-
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->get(route('reports.export-excel', [
@@ -71,20 +67,8 @@ class ReportsExportServiceTest extends TestCase
         ]));
 
         $response->assertOk();
-        $response->assertJson([
-            'status' => 'pending',
-        ]);
-        $this->assertArrayHasKey('id', $response->json());
-
-        // Verify a GeneratedDocument was created
-        $this->assertDatabaseHas('generated_documents', [
-            'id' => $response->json('id'),
-            'user_id' => $user->id,
-            'type' => 'reports_export',
-            'status' => 'pending',
-        ]);
-
-        Queue::assertPushed(ExportDataToExcel::class);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertHeader('Content-Disposition');
     }
 
     #[Test]

@@ -3,10 +3,8 @@
 namespace Tests\Feature\Export;
 
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Jobs\ExportDataToExcel;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -36,24 +34,13 @@ class PageExportTest extends TestCase
     #[Test]
     public function cases_export_returns_xlsx(): void
     {
-        Queue::fake();
-
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->get(route('cases.export-excel'));
 
         $response->assertStatus(200);
-        $response->assertJson(['status' => 'pending']);
-        $this->assertArrayHasKey('id', $response->json());
-
-        $this->assertDatabaseHas('generated_documents', [
-            'id' => $response->json('id'),
-            'user_id' => $user->id,
-            'type' => 'cases_export',
-            'status' => 'pending',
-        ]);
-
-        Queue::assertPushed(ExportDataToExcel::class);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertHeader('Content-Disposition');
     }
 
     // -------------------------------------------------------------------------
@@ -72,24 +59,13 @@ class PageExportTest extends TestCase
     #[Test]
     public function clients_export_returns_xlsx(): void
     {
-        Queue::fake();
-
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->get(route('clients.export-excel'));
 
         $response->assertStatus(200);
-        $response->assertJson(['status' => 'pending']);
-        $this->assertArrayHasKey('id', $response->json());
-
-        $this->assertDatabaseHas('generated_documents', [
-            'id' => $response->json('id'),
-            'user_id' => $user->id,
-            'type' => 'clients_export',
-            'status' => 'pending',
-        ]);
-
-        Queue::assertPushed(ExportDataToExcel::class);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertHeader('Content-Disposition');
     }
 
     // -------------------------------------------------------------------------
@@ -108,24 +84,13 @@ class PageExportTest extends TestCase
     #[Test]
     public function referrals_export_returns_xlsx(): void
     {
-        Queue::fake();
-
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
         $response = $this->actingAs($user)->get(route('referrals.export-excel'));
 
         $response->assertStatus(200);
-        $response->assertJson(['status' => 'pending']);
-        $this->assertArrayHasKey('id', $response->json());
-
-        $this->assertDatabaseHas('generated_documents', [
-            'id' => $response->json('id'),
-            'user_id' => $user->id,
-            'type' => 'referrals_export',
-            'status' => 'pending',
-        ]);
-
-        Queue::assertPushed(ExportDataToExcel::class);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertHeader('Content-Disposition');
     }
 
     // -------------------------------------------------------------------------

@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
-use App\Jobs\ExportDataToExcel;
 use App\Models\AuditLog;
-use App\Models\GeneratedDocument;
 use App\Services\Export\ColumnMaps;
+use App\Services\Export\DataExportQueries;
+use App\Services\Export\DataExportService;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -25,14 +25,37 @@ class DataExportController extends Controller
     {
         $user = auth()->user();
 
-        $filename = 'bayanihan-full-export-'.now()->format('Ymd-His').'.xlsx';
+        $queries = new DataExportQueries;
+        $exportService = new DataExportService;
 
-        $document = GeneratedDocument::create([
-            'user_id' => $user->id,
-            'type' => 'admin_full_export',
-            'filename' => $filename,
-            'status' => 'pending',
-        ]);
+        $tableQueryMap = [
+            'cases' => fn () => $queries->getCases($user),
+            'clients' => fn () => $queries->getClients($user),
+            'referrals' => fn () => $queries->getReferrals($user),
+            'users' => fn () => $queries->getUsers($user),
+            'agencies' => fn () => $queries->getAgencies(),
+            'services' => fn () => $queries->getServices(),
+            'milestones' => fn () => $queries->getMilestones($user),
+            'next_of_kin' => fn () => $queries->getNextOfKins($user),
+            'feedback' => fn () => $queries->getFeedbacks($user),
+            'case_documents' => fn () => $queries->getCaseDocuments($user),
+            'client_addresses' => fn () => $queries->getClientAddresses($user),
+            'client_employments' => fn () => $queries->getClientEmployments($user),
+            'case_categories' => fn () => $queries->getCaseCategories(),
+            'case_statuses' => fn () => $queries->getCaseStatuses(),
+        ];
+
+        $sheets = [];
+        foreach (ColumnMaps::getAllTables() as $table) {
+            $data = isset($tableQueryMap[$table]) ? $tableQueryMap[$table]() : collect();
+            $sheets[] = [
+                'title' => ucfirst($table),
+                'columnMap' => ColumnMaps::getMap($table),
+                'rows' => $data,
+            ];
+        }
+
+        $filename = 'bayanihan-full-export-'.now()->format('Ymd-His').'.xlsx';
 
         AuditLog::create([
             'action' => AuditAction::EXPORT->value,
@@ -47,16 +70,6 @@ class DataExportController extends Controller
             'request_id' => request()->attributes->get('correlation_id') ?? request()->header('X-Request-ID') ?? (string) Str::uuid(),
         ]);
 
-        ExportDataToExcel::dispatch(
-            'admin_full_export',
-            [],
-            $user->id,
-            $document->id,
-        );
-
-        return response()->json([
-            'id' => $document->id,
-            'status' => 'pending',
-        ]);
+        return $exportService->generateMultiSheet($sheets, $filename);
     }
 }
