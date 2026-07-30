@@ -153,6 +153,7 @@ jobs:
           HOSTNAME_VALUE: ${{ inputs.hostname }}
           APP_KEY: ${{ secrets.APP_KEY }}
           DB_HOST: ${{ secrets.DB_HOST }}
+          NEON_DIRECT_HOST: ${{ vars.NEON_DIRECT_HOST }}
           DB_DATABASE: ${{ secrets.DB_DATABASE }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
@@ -195,6 +196,7 @@ jobs:
             --arg appUrl    "https://$HOSTNAME_VALUE" \
             --arg appKey    "$APP_KEY" \
             --arg dbHost    "$DB_HOST" \
+            --arg neonDirect "$NEON_DIRECT_HOST" \
             --arg dbName    "$DB_DATABASE" \
             --arg dbUser    "$DB_USERNAME" \
             --arg dbPass    "$DB_PASSWORD" \
@@ -234,6 +236,7 @@ jobs:
                     DB_USERNAME: $dbUser,
                     DB_PASSWORD: $dbPass,
                     DB_SSLMODE: "require",
+                    NEON_DIRECT_HOST: $neonDirect,
                     CACHE_STORE: "database",
                     QUEUE_CONNECTION: "database",
                     SESSION_DRIVER: "database",

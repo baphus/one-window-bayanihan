@@ -105,11 +105,24 @@ fi
 # Migrations must still be backward compatible with the version being replaced:
 # during a rolling deployment the previous container keeps serving while the new
 # one migrates. Expand first, contract in a later release — never both at once.
+#
+# Neon: PgBouncer pooler (transaction mode) cannot handle multi-statement DDL
+# inside transactions. Temporarily swap DB_HOST to the direct endpoint for the
+# migration step, then restore the pooler for runtime queries.
 if [ "${RUN_MIGRATIONS}" = "true" ]; then
     echo "[ENTRYPOINT] Running migrations..."
+    if [ -n "${NEON_DIRECT_HOST}" ]; then
+        _orig_db_host="${DB_HOST}"
+        export DB_HOST="${NEON_DIRECT_HOST}"
+        echo "[ENTRYPOINT] Neon: using direct endpoint for migrations (${NEON_DIRECT_HOST})"
+    fi
     if ! php artisan migrate --force --isolated --no-interaction; then
         echo "[ENTRYPOINT] FATAL: migrations failed — refusing to start" >&2
         exit 1
+    fi
+    if [ -n "${NEON_DIRECT_HOST}" ]; then
+        export DB_HOST="${_orig_db_host}"
+        echo "[ENTRYPOINT] Neon: restored pooler endpoint for runtime (${DB_HOST})"
     fi
 fi
 
