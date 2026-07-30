@@ -88,7 +88,7 @@ const COLUMN_DEFS = [
   { key: 'address', label: 'Address', default: false },
   { key: 'previous_country', label: 'Prev. Country', default: false },
   { key: 'date_of_arrival', label: 'Date of Arrival', default: false },
-  { key: 'work_position', label: 'Work Position', default: false },
+  { key: 'work_position', label: 'Work Occupation', default: false },
   { key: 'nok_name', label: 'NOK Name', default: false },
   { key: 'nok_contact', label: 'NOK Contact', default: false },
   { key: 'referred_to', label: 'Referred To', default: false },

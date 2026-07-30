@@ -55,7 +55,7 @@ export default function PersonalInfoForm({ data, setData, errors, onDirtyChange 
                 </div>
 
                 <div>
-                    <FieldLabel>Position / Title</FieldLabel>
+                    <FieldLabel>Occupation / Title</FieldLabel>
                     <TextInput id="position" className="block w-full" value={data.position} onChange={(e) => setData('position', e.target.value)} placeholder="e.g. Case Management Officer" />
                     <InputError className="mt-1.5" message={errors.position} />
                 </div>

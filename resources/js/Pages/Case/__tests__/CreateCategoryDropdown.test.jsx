@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const setData = vi.fn();
-const pageProps = { existingDraft: null, categories: [], caseIssues: [], positionOptions: [], auth: { user: { id: 'user-1' } } };
+const pageProps = { existingDraft: null, categories: [], caseIssues: [], occupationOptions: [], auth: { user: { id: 'user-1' } } };
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/AddressDropdowns', () => ({ default: () => <div /> }));

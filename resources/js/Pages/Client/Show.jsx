@@ -96,7 +96,7 @@ export default function ClientShow({ client, auditLogs }) {
                                 <div key={emp.id} className="mb-3 last:mb-0">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                         <MetaTile label="Last Country" value={emp.last_country || emp.country || 'N/A'} />
-                                        <MetaTile label="Last Position" value={emp.last_position || emp.position || 'N/A'} />
+                                        <MetaTile label="Last Occupation" value={emp.last_position || emp.position || 'N/A'} />
                                         <MetaTile label="Date of Arrival" value={emp.date_of_arrival ? formatDisplayDate(emp.date_of_arrival) : 'N/A'} />
                                         {emp.employer_name && <MetaTile label="Employer" value={emp.employer_name} />}
                                     </div>

@@ -1,14 +1,14 @@
 /**
- * Curated default job positions for the Create Case "Work Position" dropdown.
+ * Curated default occupations for the Create Case "Work Occupation" dropdown.
  *
  * Hard-coded because the list is small and changes infrequently; updating it
- * requires a deployment. These are merged with any positions previously entered
+ * requires a deployment. These are merged with any occupations previously entered
  * by users (passed from the backend) so the dropdown always reflects both the
  * standard set and real historical data.
  *
  * Source: common OFW occupations per DMW/PSA job-order data.
  */
-export const DEFAULT_POSITIONS: string[] = [
+export const DEFAULT_OCCUPATIONS: string[] = [
   'Able Seaman / Deckhand',
   'Accountant / Bookkeeper',
   'Automotive Mechanic',

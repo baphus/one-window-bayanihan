@@ -301,7 +301,7 @@ Standard CRUD pattern for all admin resources:
 Multi-section form with the following sections:
 1. **OFW Information** — name, DOB, sex, contact
 2. **Address Details** — house/street, barangay, city, province
-3. **Employment History** — employer, position, country, dates
+3. **Employment History** — employer, occupation, country, dates
 4. **Next of Kin** — emergency contact
 5. **Case Summary** — narrative, service needs
 6. **Supporting Documents** — file uploads

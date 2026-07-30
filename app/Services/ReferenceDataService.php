@@ -148,16 +148,16 @@ class ReferenceDataService
     }
 
     /**
-     * Distinct position values from client_employments, for the case-create
-     * position dropdown. Not cached — the list should reflect the latest
+     * Distinct occupation values from client_employments, for the case-create
+     * occupation dropdown. Not cached — the list should reflect the latest
      * entries as new cases are created. Curated defaults are merged on the
-     * frontend (resources/js/data/defaultPositions.ts).
+     * frontend (resources/js/data/defaultOccupations.ts).
      *
      * Returns an array of [value, label] pairs for SearchableSelect.
      */
-    public function getPositionOptions(): array
+    public function getOccupationOptions(): array
     {
-        $positions = ClientEmployment::query()
+        $occupations = ClientEmployment::query()
             ->whereNotNull('last_position')
             ->where('last_position', '!=', '')
             ->cursor()
@@ -168,7 +168,7 @@ class ReferenceDataService
             ->sort()
             ->toArray();
 
-        return array_map(fn (string $p) => ['value' => $p, 'label' => $p], $positions);
+        return array_map(fn (string $o) => ['value' => $o, 'label' => $o], $occupations);
     }
 
     // ── Invalidation ─────────────────────────────────────────────────────

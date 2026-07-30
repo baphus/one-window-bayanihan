@@ -22,7 +22,7 @@ class IntakeController extends Controller
     public function index()
     {
         return Inertia::render('Intake/Index', [
-            'positionOptions' => $this->referenceData->getPositionOptions(),
+            'occupationOptions' => $this->referenceData->getOccupationOptions(),
         ]);
     }
 

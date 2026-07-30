@@ -268,8 +268,8 @@ The pair (`case_id`, `case_category_id`) is UNIQUE, with indexes on both foreign
 | `id` | uuid | PK | |
 | `client_id` | uuid | FK → clients.id | |
 | `employer_name` | string | nullable | |
-| `position` | string | nullable | Current position |
-| `last_position` | string | nullable | Previous position |
+| `position` | string | nullable | Current occupation |
+| `last_position` | string | nullable | Previous occupation |
 | `country` | string | nullable | Current country |
 | `last_country` | string | nullable | Previous country |
 | `start_date` | date | nullable | |

@@ -71,7 +71,7 @@ class ReportsFiltersTest extends TestCase
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => $version ?? '',
                 'X-Inertia-Partial-Component' => 'Reports/Index',
-                'X-Inertia-Partial-Data' => 'employmentPositionBreakdown,caseStatusDistribution',
+                'X-Inertia-Partial-Data' => 'employmentOccupationBreakdown,caseStatusDistribution',
             ])->get(route('reports.index'));
 
         $response->assertOk();

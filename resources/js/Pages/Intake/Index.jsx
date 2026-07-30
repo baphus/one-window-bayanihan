@@ -8,7 +8,7 @@ import AddressDropdowns from '@/Components/AddressDropdowns';
 import PhoneInput from '@/Components/PhoneInput';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
-import { DEFAULT_POSITIONS } from '@/data/defaultPositions';
+import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 
 const STEPS = [
   { id: 'email', label: 'Email Verification' },
@@ -71,7 +71,7 @@ async function postJson(url, body) {
   return { res, json };
 }
 
-export default function IntakeIndex({ positionOptions }) {
+export default function IntakeIndex({ occupationOptions }) {
   const { turnstile } = usePage().props;
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -301,7 +301,7 @@ export default function IntakeIndex({ positionOptions }) {
               <AddressStep formData={formData} updateField={updateField} errors={errors} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 3 && (
-              <EmploymentStep formData={formData} updateField={updateField} errors={errors} positionOptions={positionOptions} onNext={goNext} onBack={goBack} />
+              <EmploymentStep formData={formData} updateField={updateField} errors={errors} occupationOptions={occupationOptions} onNext={goNext} onBack={goBack} />
             )}
             {currentStep === 4 && (
               <NokStep formData={formData} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
@@ -530,15 +530,15 @@ function AddressStep({ formData, updateField, errors, onNext, onBack }) {
   );
 }
 
-function EmploymentStep({ formData, updateField, errors, positionOptions, onNext, onBack }) {
-  // Merge curated defaults with previously entered positions from the backend,
+function EmploymentStep({ formData, updateField, errors, occupationOptions, onNext, onBack }) {
+  // Merge curated defaults with previously entered occupations from the backend,
   // de-duplicate, sort, and shape as [value, label] pairs for SearchableSelect.
-  const mergedPositionOptions = useMemo(() => {
-    const backendOptions = (positionOptions || []).map(p => ({
+  const mergedOccupationOptions = useMemo(() => {
+    const backendOptions = (occupationOptions || []).map(p => ({
       value: p.label || p,
       label: p.label || p,
     }));
-    const allOptions = [...DEFAULT_POSITIONS, ...backendOptions];
+    const allOptions = [...DEFAULT_OCCUPATIONS, ...backendOptions];
     const seen = new Set();
     return allOptions
       .filter(opt => {
@@ -547,7 +547,7 @@ function EmploymentStep({ formData, updateField, errors, positionOptions, onNext
         return true;
       })
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [positionOptions]);
+  }, [occupationOptions]);
 
   const handleEmploymentPresentChange = (checked) => {
     updateField('employment.is_present', checked);
@@ -572,8 +572,8 @@ function EmploymentStep({ formData, updateField, errors, positionOptions, onNext
           <CountrySelect value={formData.employment.last_country} onChange={v => updateField('employment.last_country', v)} placeholder="Select country..." />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Position/Job</label>
-          <SearchableSelect value={formData.employment.last_position} onChange={v => updateField('employment.last_position', v)} options={mergedPositionOptions} placeholder="Select or type position..." allowCustom />
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Occupation</label>
+          <SearchableSelect value={formData.employment.last_position} onChange={v => updateField('employment.last_position', v)} options={mergedOccupationOptions} placeholder="Select or type occupation..." allowCustom />
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Employment Period</label>

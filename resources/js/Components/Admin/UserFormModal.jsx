@@ -289,7 +289,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Position / Designation</label>
+                  <label className="block text-sm font-medium text-slate-700">Occupation / Designation</label>
                   <input
                     type="text"
                     value={data.position}

@@ -106,7 +106,7 @@ class ReportsController extends Controller
             'clientTypeDistribution' => Inertia::defer(fn () => $data['clientTypeDistribution'] ?? null),
             'categoryDistribution' => Inertia::defer(fn () => $data['categoryDistribution'] ?? null),
             'employmentDistribution' => Inertia::defer(fn () => $data['employmentDistribution'] ?? null),
-            'employmentPositionBreakdown' => Inertia::defer(fn () => $data['employmentPositionBreakdown'] ?? null),
+            'employmentOccupationBreakdown' => Inertia::defer(fn () => $data['employmentOccupationBreakdown'] ?? null),
             'caseStatusDistribution' => Inertia::defer(fn () => $data['caseStatusDistribution'] ?? null),
             'vulnerabilityDistribution' => Inertia::defer(fn () => $data['vulnerabilityDistribution'] ?? null),
             'overview' => Inertia::defer(fn () => $data['overview'] ?? null),

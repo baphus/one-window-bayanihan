@@ -77,7 +77,7 @@ class CaseController extends Controller
             'client' => $client,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
-            'positionOptions' => $this->referenceData->getPositionOptions(),
+            'occupationOptions' => $this->referenceData->getOccupationOptions(),
         ]);
     }
 
@@ -137,7 +137,7 @@ class CaseController extends Controller
             'existingDraft' => $case,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
-            'positionOptions' => $this->referenceData->getPositionOptions(),
+            'occupationOptions' => $this->referenceData->getOccupationOptions(),
             'draftResolvedAddress' => $draftResolvedAddress,
         ]);
     }
@@ -410,7 +410,7 @@ class CaseController extends Controller
             ['key' => 'vulnerability',      'label' => 'Vulnerability',        'type' => 'string'],
             ['key' => 'date_of_arrival',    'label' => 'Date of Arrival in PH', 'type' => 'date'],
             ['key' => 'previous_country',   'label' => 'Previous Country',     'type' => 'string'],
-            ['key' => 'work_position',      'label' => 'Work Position',        'type' => 'string'],
+            ['key' => 'work_position',      'label' => 'Work Occupation',        'type' => 'string'],
             ['key' => 'issue_concern',      'label' => 'Issues/Concern',       'type' => 'string'],
             ['key' => 'categories',         'label' => 'Categories',           'type' => 'string'],
             ['key' => 'case_summary',       'label' => 'Case Summary',         'type' => 'string'],

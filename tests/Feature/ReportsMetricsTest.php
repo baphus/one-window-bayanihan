@@ -198,7 +198,7 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
-    public function employment_position_breakdown_is_unscoped_for_case_manager_and_is_deterministic(): void
+    public function employment_occupation_breakdown_is_unscoped_for_case_manager_and_is_deterministic(): void
     {
         $otherManager = $this->managerB;
         $ownedClient = Client::factory()->create();
@@ -219,7 +219,7 @@ class ReportsMetricsTest extends TestCase
         $deleted->forceFill(['is_deleted' => true])->save();
         ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => null]);
 
-        $breakdown = $this->service->getEmploymentPositionBreakdown($this->managerA->id, 'CASE_MANAGER');
+        $breakdown = $this->service->getEmploymentOccupationBreakdown($this->managerA->id, 'CASE_MANAGER');
 
         $this->assertSame(['Engineer', 'Nurse'], $breakdown['labels']);
         $this->assertSame([2, 1], array_map('intval', $breakdown['data']));

@@ -39,7 +39,7 @@ export default function AgencyInfoCard() {
                         <MetaTile label="Contact Info" value={agency.contact_info} />
                     )}
                     {user.position && (
-                        <MetaTile label="Your Position" value={user.position} />
+                        <MetaTile label="Your Occupation" value={user.position} />
                     )}
                     {user.office_location && (
                         <MetaTile label="Office Location" value={user.office_location} />

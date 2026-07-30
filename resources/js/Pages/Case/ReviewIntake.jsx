@@ -656,7 +656,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
                     <div>
-                      <FieldLabel>Position</FieldLabel>
+                      <FieldLabel>Occupation</FieldLabel>
                       <input type="text" value={editEmployment.position} onChange={(e) => setEditEmployment({ ...editEmployment, position: e.target.value })}
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
@@ -696,7 +696,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
                     <div>
-                      <FieldLabel>Last Position</FieldLabel>
+                      <FieldLabel>Last Occupation</FieldLabel>
                       <input type="text" value={editEmployment.last_position} onChange={(e) => setEditEmployment({ ...editEmployment, last_position: e.target.value })}
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
@@ -714,12 +714,12 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   <InfoRow label="Employer" value={employment.employer_name} />
-                  <InfoRow label="Position" value={employment.position} />
+                  <InfoRow label="Occupation" value={employment.position} />
                   <InfoRow label="Country" value={employment.country} />
                   <InfoRow label="Employment Period" value={employmentPeriod} />
                   <InfoRow label="Date of Arrival" value={employment.date_of_arrival ? formatDisplayDate(employment.date_of_arrival) : '—'} />
                   <InfoRow label="Last Country" value={employment.last_country} />
-                  <InfoRow label="Last Position" value={employment.last_position} />
+                  <InfoRow label="Last Occupation" value={employment.last_position} />
                 </div>
               )}
             </div>
