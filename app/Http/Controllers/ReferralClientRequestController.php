@@ -59,7 +59,7 @@ class ReferralClientRequestController extends Controller
         $delivery = $this->issueForClient($clientRequest, $request->user());
         $this->notifyCaseManager($clientRequest, 'created');
 
-        return redirect()->back()->with('client_access_delivery', $delivery);
+        return redirect()->route('referrals.show', $referral)->with('client_access_delivery', $delivery);
     }
 
     public function sendMessage(StoreReferralClientMessageRequest $request, ReferralClientRequest $clientRequest): RedirectResponse

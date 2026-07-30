@@ -85,6 +85,10 @@ export default function NotificationPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+
+      // Broadcast to sidebar so the badge updates immediately, not on next 60s poll
+      try { localStorage.setItem('owb-unread-count', '0'); } catch { /* noop */ }
+      window.dispatchEvent(new CustomEvent('notification-count-updated', { detail: { unread: null } }));
     },
   });
 

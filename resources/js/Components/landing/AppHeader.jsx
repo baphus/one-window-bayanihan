@@ -89,7 +89,6 @@ export default function AppHeader({ minimal }) {
                   as="link"
                   href={route('intake.index')}
                   variant="primary"
-                  icon="edit_note"
                 >
                   File a Case
                 </AppButton>
@@ -287,7 +286,6 @@ export default function AppHeader({ minimal }) {
                     as="link"
                     href={route('intake.index')}
                     variant="primary"
-                    icon="edit_note"
                     className="w-full"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >

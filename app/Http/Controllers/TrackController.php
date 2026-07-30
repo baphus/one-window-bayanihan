@@ -14,9 +14,11 @@ class TrackController extends Controller
         private readonly TrackingService $trackingService,
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        return Inertia::render('Tracking/Portal');
+        return Inertia::render('Tracking/Portal', [
+            'tracker_number' => $request->query('tracker_number', ''),
+        ]);
     }
 
     public function sendOtp(Request $request)

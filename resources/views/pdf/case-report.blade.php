@@ -70,7 +70,7 @@
         <h1>One Window Bayanihan Assistance Program</h1>
         <div class="sub">Case Report &mdash; <strong>{{ $case->case_number }}</strong></div>
         <div class="meta">
-            Tracking ID: {{ $case->tracking_id ?? '—' }} &bull;
+            Tracking ID: {{ $case->tracker_number ?? '—' }} &bull;
             Exported: {{ $exportedAt }} &bull;
             Department of Migrant Workers &mdash; Region VII
         </div>
@@ -105,7 +105,7 @@
             <td class="label">Case Number</td>
             <td class="value">{{ $case->case_number }}</td>
             <td class="label">Tracking ID</td>
-            <td class="value">{{ $case->tracking_id ?? '—' }}</td>
+            <td class="value">{{ $case->tracker_number ?? '—' }}</td>
         </tr>
         <tr>
             <td class="label">Categories</td>

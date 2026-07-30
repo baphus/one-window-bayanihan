@@ -48,14 +48,14 @@ class DataExportTest extends TestCase
     }
 
     #[Test]
-    public function admin_export_returns_async_pending_response(): void
+    public function admin_export_returns_excel_download(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 
         $response->assertStatus(200);
-        $response->assertJson(['status' => 'pending']);
-        $response->assertJsonStructure(['status', 'id']);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertHeader('Content-Disposition');
     }
 }

@@ -15,15 +15,19 @@ class AdminCaseCategoryController extends Controller
 {
     public function index(Request $request)
     {
-        $categories = CaseCategory::orderBy('sort_order')
-            ->orderBy('name')
-            ->get()
-            ->each(function (CaseCategory $category) {
-                $category->case_files_count = $this->categoryUsageCount($category->id);
-            });
+        $query = CaseCategory::orderBy('sort_order')->orderBy('name');
+
+        if ($request->boolean('show_deleted')) {
+            $query->withTrashed();
+        }
+
+        $categories = $query->get()->each(function (CaseCategory $category) {
+            $category->case_files_count = $this->categoryUsageCount($category->id);
+        });
 
         return Inertia::render('Admin/CaseCategory/Index', [
             'categories' => $categories,
+            'filters' => $request->only(['show_deleted']),
         ]);
     }
 

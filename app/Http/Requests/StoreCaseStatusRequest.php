@@ -11,6 +11,13 @@ class StoreCaseStatusRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('color') && $this->color === '') {
+            $this->merge(['color' => null]);
+        }
+    }
+
     public function rules(): array
     {
         $id = $this->route('caseStatus');

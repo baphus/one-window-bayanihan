@@ -14,15 +14,15 @@ import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
 
 export default function TrackingPortal() {
-  const { turnstile } = usePage().props;
+  const { turnstile, tracker_number: initialTrackerNumber } = usePage().props;
   const [turnstileToken, setTurnstileToken] = useState('');
   const [formRef, formVisible] = useInView();
   const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
-    tracker_number: '',
+    tracker_number: initialTrackerNumber || '',
     email: '',
     cf_turnstile_response: '',
   });
-  const initialRef = useRef({ tracker_number: '', email: '' });
+  const initialRef = useRef({ tracker_number: initialTrackerNumber || '', email: '' });
   const hasDirty = useMemo(() => (
     data.tracker_number !== initialRef.current.tracker_number
     || data.email !== initialRef.current.email

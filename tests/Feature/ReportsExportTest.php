@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\GenerateSystemReport;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -15,7 +14,6 @@ use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -111,22 +109,13 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function pdf_export_endpoint_returns_a_download(): void
     {
-        Queue::fake();
-
         $this->makeCaseWithReferral($this->manager);
 
         $response = $this->actingAs($this->manager)->get(route('reports.export-pdf'));
 
         $response->assertOk();
-        $response->assertJson(['status' => 'pending']);
-        $this->assertDatabaseHas('generated_documents', [
-            'id' => $response->json('id'),
-            'user_id' => $this->manager->id,
-            'type' => 'system_report_pdf',
-            'status' => 'pending',
-        ]);
-
-        Queue::assertPushed(GenerateSystemReport::class);
+        $response->assertHeader('Content-Type', 'application/pdf');
+        $response->assertHeader('Content-Disposition');
     }
 
     #[Test]
@@ -211,10 +200,10 @@ class ReportsExportTest extends TestCase
             'last_position' => 'Welder',
         ]);
 
-        // Test the export endpoint returns async response
+        // Verify the export endpoint returns an Excel stream
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
         $response->assertOk();
-        $response->assertJson(['status' => 'pending']);
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         // Verify employment data via the queries layer directly
         $queries = new DataExportQueries;

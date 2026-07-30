@@ -412,7 +412,7 @@ export default function CaseCreate() {
             contact_number: '',
         },
         address: {
-            region: '',
+            region: '0700000000',
             province: '',
             city_municipality: '',
             barangay: '',
@@ -469,7 +469,7 @@ export default function CaseCreate() {
             nok_vulnerability_indicator: 'None',
             summary: '',
             client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
-            address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
+            address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
             next_of_kin: [],
             selected_nok_index: '',
@@ -728,6 +728,7 @@ export default function CaseCreate() {
 
             setSelectedClient(null);
             setSavedSnapshot(initialFormRef.current);
+            setCurrentStep(2);
         }
     }, []);
 
@@ -1486,7 +1487,7 @@ export default function CaseCreate() {
         setClientSource('new');
         setData('selected_client_id', '');
         setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' });
-        setData('address', { region: '', province: '', city_municipality: '', barangay: '', street: '' });
+        setData('address', { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false });
         setData('next_of_kin', []);
         setData('consent', false);
@@ -1501,7 +1502,7 @@ export default function CaseCreate() {
                     nok_vulnerability_indicator: 'None',
                     summary: '',
                 client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
-                address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
+                address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
                 next_of_kin: [],
                 selected_nok_index: '',

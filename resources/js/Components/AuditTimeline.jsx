@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { formatRelativeTime, formatDateGroup, formatTimeAgo } from '@/lib/relativeTime';
 import { ChangesTable, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
@@ -191,6 +191,42 @@ function TimelineEntry({ log }) {
 }
 
 function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange }) {
+    /* ---------- local state for debounced search + Apply-gated dates ---------- */
+    const [localSearch, setLocalSearch] = useState(() => filterValues.search || '');
+    const [localDateFrom, setLocalDateFrom] = useState(() => filterValues.date_from || '');
+    const [localDateTo, setLocalDateTo] = useState(() => filterValues.date_to || '');
+    const debounceRef = useRef(null);
+    const filterValuesRef = useRef(filterValues);
+    const onFilterChangeRef = useRef(onFilterChange);
+    filterValuesRef.current = filterValues;
+    onFilterChangeRef.current = onFilterChange;
+
+    // Sync local search from external changes (e.g. browser back)
+    useEffect(() => {
+        setLocalSearch(filterValues.search || '');
+    }, [filterValues.search]);
+
+    // Sync local dates from external changes
+    useEffect(() => {
+        setLocalDateFrom(filterValues.date_from || '');
+        setLocalDateTo(filterValues.date_to || '');
+    }, [filterValues.date_from, filterValues.date_to]);
+
+    // Cleanup debounce timer on unmount
+    useEffect(() => {
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, []);
+
+    /* ---------- handlers ---------- */
+    const handleSearchChange = useCallback((e) => {
+        const value = e.target.value;
+        setLocalSearch(value);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            onFilterChangeRef.current({ ...filterValuesRef.current, search: value });
+        }, 400);
+    }, []);
+
     const handleActionToggle = (action) => {
         const currentActions = (filterValues.action || '').split(',').filter(Boolean);
         const newActions = currentActions.includes(action)
@@ -216,15 +252,21 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
         onFilterChange({ ...filterValues, module: newModules.join(',') });
     };
 
-    const handleSearchChange = (e) => {
-        onFilterChange({ ...filterValues, search: e.target.value });
+    const applyDateFilter = () => {
+        onFilterChange({ ...filterValues, date_from: localDateFrom, date_to: localDateTo });
     };
 
-    const handleDateChange = (field, value) => {
-        onFilterChange({ ...filterValues, [field]: value });
+    const resetDateFilter = () => {
+        setLocalDateFrom('');
+        setLocalDateTo('');
+        onFilterChange({ ...filterValues, date_from: '', date_to: '' });
     };
 
     const clearFilters = () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        setLocalSearch('');
+        setLocalDateFrom('');
+        setLocalDateTo('');
         onFilterChange({});
     };
 
@@ -243,28 +285,40 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     <input
                         type="text"
                         placeholder="Search logs..."
-                        value={filterValues.search || ''}
+                        value={localSearch}
                         onChange={handleSearchChange}
                         className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
                 
                 <div className="flex flex-wrap gap-3 items-center">
-                    {/* Date Range */}
+                    {/* Date Range — Apply/Reset pattern */}
                     <div className="flex items-center gap-2">
                         <input
                             type="date"
-                            value={filterValues.date_from || ''}
-                            onChange={(e) => handleDateChange('date_from', e.target.value)}
+                            value={localDateFrom}
+                            onChange={(e) => setLocalDateFrom(e.target.value)}
                             className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                         />
                         <span className="text-slate-500 text-sm">to</span>
                         <input
                             type="date"
-                            value={filterValues.date_to || ''}
-                            onChange={(e) => handleDateChange('date_to', e.target.value)}
+                            value={localDateTo}
+                            onChange={(e) => setLocalDateTo(e.target.value)}
                             className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                         />
+                        <button
+                            onClick={applyDateFilter}
+                            className="px-3 py-2 bg-blue-900 text-white text-sm font-medium rounded-md hover:bg-blue-800 transition-colors"
+                        >
+                            Apply
+                        </button>
+                        <button
+                            onClick={resetDateFilter}
+                            className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-50 transition-colors"
+                        >
+                            Reset
+                        </button>
                     </div>
                 </div>
             </div>

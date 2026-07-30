@@ -52,7 +52,7 @@ class QueueNotificationsExportsTest extends TestCase
     }
 
     #[Test]
-    public function reports_pdf_export_returns_async_pending_response(): void
+    public function reports_pdf_export_returns_a_download(): void
     {
         $user = User::factory()->create(['role' => 'CASE_MANAGER']);
 
@@ -62,8 +62,8 @@ class QueueNotificationsExportsTest extends TestCase
         ]));
 
         $response->assertOk();
-        $response->assertJson(['status' => 'pending']);
-        $response->assertJsonStructure(['status', 'id']);
+        $response->assertHeader('Content-Type', 'application/pdf');
+        $response->assertHeader('Content-Disposition');
     }
 
     #[Test]

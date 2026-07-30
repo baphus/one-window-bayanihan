@@ -16,8 +16,8 @@ export default function HeroSection({ title, description, onTrackAction, agencie
       </div>
 
       {/* Hero content — single centered column */}
-      <div className="relative z-10 flex flex-1 items-center px-4 pt-36 pb-20 md:px-8 md:pt-40">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-10">
+      <div className="relative z-10 flex flex-1 items-center px-4 pt-28 pb-16 md:px-8 md:pt-32">
+        <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6">
 
           {/* Emblem row — DMW left, Bagong Pilipinas right */}
           <div
@@ -82,7 +82,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
             </AppButton>
             <button
               onClick={onTrackAction}
-              className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"
+              className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"
             >
               <span className="material-symbols-outlined text-[22px]">travel_explore</span>
               Track Your Case

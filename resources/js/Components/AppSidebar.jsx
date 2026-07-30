@@ -162,7 +162,14 @@ export default function AppSidebar() {
     };
     fetchCount();
     timer = setInterval(fetchCount, 60000);
-    return () => clearInterval(timer);
+
+    // Listen for immediate-refresh signal from NotificationPanel
+    const onCountUpdated = () => fetchCount();
+    window.addEventListener('notification-count-updated', onCountUpdated);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('notification-count-updated', onCountUpdated);
+    };
   }, []);
 
   const toggleCollapsed = useCallback(() => {

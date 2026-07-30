@@ -457,6 +457,9 @@ class CaseService
                 'timestamp' => now(),
             ]);
 
+            // Mark intake submission notification as read
+            $this->notificationService->markIntakeNotificationsAsRead($case);
+
             // Notify OFW about the rejection via email
             $clientEmail = $case->client?->email;
             if ($clientEmail) {
@@ -1187,6 +1190,11 @@ class CaseService
                         $this->dispatchStatusChangeNotification($updateCase, $updateOldStatus ?? 'UNKNOWN', $updateCase->status, $updateUserId);
                     }
                     $this->dispatchCaseUpdateNotification($updateCase, $updateOld, $updateUserId);
+
+                    // Mark intake submission notification as read when case is accepted/reviewed
+                    if ($updateStatusChanged && $updateOldStatus === 'DRAFT') {
+                        $this->notificationService->markIntakeNotificationsAsRead($updateCase);
+                    }
                 } catch (\Throwable) {
                     report('Failed to send case update notification');
                 }

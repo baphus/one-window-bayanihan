@@ -117,7 +117,7 @@ export const caseStatusSchema = z.object({
     }),
   color: z.string().optional(),
   sort_order: z.number().optional(),
-  is_default: z.boolean().optional(),
+  is_active: z.boolean().optional(),
 });
 
 export const inviteUserFormSchema = z.object({
