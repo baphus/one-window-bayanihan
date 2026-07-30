@@ -160,14 +160,15 @@ class ReferenceDataService
         $positions = ClientEmployment::query()
             ->whereNotNull('last_position')
             ->where('last_position', '!=', '')
-            ->pluck('last_position')
-            ->map(fn (string $p) => trim($p))
+            ->cursor()
+            ->map(fn (ClientEmployment $e) => trim((string) $e->last_position))
             ->filter()
             ->unique()
+            ->values()
             ->sort()
-            ->values();
+            ->toArray();
 
-        return $positions->map(fn (string $p) => ['value' => $p, 'label' => $p])->toArray();
+        return array_map(fn (string $p) => ['value' => $p, 'label' => $p], $positions);
     }
 
     // ── Invalidation ─────────────────────────────────────────────────────

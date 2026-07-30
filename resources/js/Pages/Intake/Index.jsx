@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
@@ -8,6 +8,7 @@ import AddressDropdowns from '@/Components/AddressDropdowns';
 import PhoneInput from '@/Components/PhoneInput';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
+import { DEFAULT_POSITIONS } from '@/data/defaultPositions';
 
 const STEPS = [
   { id: 'email', label: 'Email Verification' },
@@ -530,11 +531,23 @@ function AddressStep({ formData, updateField, errors, onNext, onBack }) {
 }
 
 function EmploymentStep({ formData, updateField, errors, positionOptions, onNext, onBack }) {
-  // Merge position options for SearchableSelect
-  const mergedPositionOptions = (positionOptions || []).map(p => ({
-    value: p.label || p,
-    label: p.label || p,
-  }));
+  // Merge curated defaults with previously entered positions from the backend,
+  // de-duplicate, sort, and shape as [value, label] pairs for SearchableSelect.
+  const mergedPositionOptions = useMemo(() => {
+    const backendOptions = (positionOptions || []).map(p => ({
+      value: p.label || p,
+      label: p.label || p,
+    }));
+    const allOptions = [...DEFAULT_POSITIONS, ...backendOptions];
+    const seen = new Set();
+    return allOptions
+      .filter(opt => {
+        if (seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [positionOptions]);
 
   const handleEmploymentPresentChange = (checked) => {
     updateField('employment.is_present', checked);

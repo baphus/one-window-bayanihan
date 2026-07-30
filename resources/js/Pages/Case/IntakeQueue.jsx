@@ -37,12 +37,13 @@ function getClientPhone(caseItem) {
 function getClientAge(caseItem) {
   const dob = caseItem.client?.date_of_birth || caseItem.draft_client_data?.date_of_birth;
   if (!dob) return '—';
-  const birth = new Date(dob);
-  if (Number.isNaN(birth.getTime())) return '—';
+  const dateStr = String(dob).match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  const birthDate = dateStr ? new Date(dateStr + 'T00:00:00Z') : new Date(dob);
+  if (Number.isNaN(birthDate.getTime())) return '—';
   const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+  const m = today.getUTCMonth() - birthDate.getUTCMonth();
+  if (m < 0 || (m === 0 && today.getUTCDate() < birthDate.getUTCDate())) {
     age--;
   }
   return `${age} yrs`;
