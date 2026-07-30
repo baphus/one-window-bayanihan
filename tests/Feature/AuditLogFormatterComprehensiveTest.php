@@ -526,9 +526,9 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
             // Employment fields
             'employer_name' => ['employer_name', 'employer name'],
-            'position' => ['position', 'position'],
+            'position' => ['position', 'occupation'],
             'last_country' => ['last_country', 'last country of work'],
-            'last_position' => ['last_position', 'last position'],
+            'last_position' => ['last_position', 'last occupation'],
 
             // Referral fields
             'required_services' => ['required_services', 'service type'],

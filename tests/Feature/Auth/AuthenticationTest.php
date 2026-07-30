@@ -242,6 +242,7 @@ class AuthenticationTest extends TestCase
     {
         config(['mfa.login_challenge_enabled' => true]);
         $user = User::factory()->create([
+            'role' => 'ADMIN',
             'mfa_secret' => 'JBSWY3DPEHPK3PXP',
             'mfa_recovery_codes' => [
                 hash_hmac('sha256', 'ABCD-EFGH-IJKL', config('app.key')),
@@ -325,6 +326,7 @@ class AuthenticationTest extends TestCase
     private function createMfaUser(): User
     {
         $user = User::factory()->create([
+            'role' => 'ADMIN',
             'mfa_secret' => 'JBSWY3DPEHPK3PXP',
             'mfa_recovery_codes' => [hash_hmac('sha256', 'ABCD-EFGH-IJKL', config('app.key'))],
             'mfa_enabled_at' => now(),
