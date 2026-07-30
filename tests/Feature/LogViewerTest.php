@@ -22,16 +22,16 @@ class LogViewerTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->user = User::factory()->create(['role' => 'ADMIN']);
 
-        // Clean test log files between tests
-        foreach (glob(storage_path('logs/laravel-*.log')) as $file) {
-            unlink($file);
+        // Clean test log files between tests (both daily and single file)
+        foreach (array_merge(glob(storage_path('logs/laravel-*.log')), glob(storage_path('logs/laravel.log'))) as $file) {
+            @unlink($file);
         }
     }
 
     protected function tearDown(): void
     {
-        foreach (glob(storage_path('logs/laravel-*.log')) as $file) {
-            unlink($file);
+        foreach (array_merge(glob(storage_path('logs/laravel-*.log')), glob(storage_path('logs/laravel.log'))) as $file) {
+            @unlink($file);
         }
         parent::tearDown();
     }
