@@ -177,7 +177,7 @@ class NotificationService
     public function markIntakeNotificationsAsRead(CaseFile $case): void
     {
         DatabaseNotification::where('type', NewIntakeSubmission::class)
-            ->where('data->case_id', $case->id)
+            ->whereRaw("data::json->>'case_id' = ?", [(string) $case->id])
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
     }
