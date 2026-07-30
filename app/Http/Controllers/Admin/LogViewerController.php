@@ -11,9 +11,7 @@ class LogViewerController extends Controller
 {
     public function index(LogViewerService $service)
     {
-        return Inertia::render('Admin/LogViewer/Index', [
-            'dates' => $service->getAvailableDates(),
-        ]);
+        return Inertia::render('Admin/LogViewer/Index');
     }
 
     public function entries(LogViewerService $service, LogViewerRequest $request)

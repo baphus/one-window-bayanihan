@@ -92,7 +92,7 @@ export default function IntakeIndex({ occupationOptions }) {
       email: '',
       otp: '',
       client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', contact_number: '' },
-      address: { region: '', province: '', city_municipality: '', barangay: '', street: '' },
+      address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
       employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
       vulnerability: [],
       next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],

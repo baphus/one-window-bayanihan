@@ -10,7 +10,6 @@ export default function AgencyServicesIndex({ services, allServices }) {
     const { auth } = usePage().props;
     const [searchValue, setSearchValue] = useState('');
     const [viewMode, setViewMode] = useState('list');
-    const [filterOpen, setFilterOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
 
     const [selectedServiceId, setSelectedServiceId] = useState(null);
@@ -33,7 +32,14 @@ export default function AgencyServicesIndex({ services, allServices }) {
     const [updating, setUpdating] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
-    const searchTimeout = useRef(null);
+    const debounceRef = useRef(null);
+
+    function handleSearchChange(value) {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            setSearchValue(value);
+        }, 300);
+    }
 
     function handleRowContextMenu(e, service) {
         e.preventDefault();
@@ -215,9 +221,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 keyExtractor={(row) => row.id}
                 searchPlaceholder="Search services, descriptions, or requirements..."
                 searchValue={searchValue}
-                onSearchChange={setSearchValue}
-                onAdvancedFilters={() => setFilterOpen(!filterOpen)}
-                isAdvancedFiltersOpen={filterOpen}
+                onSearchChange={handleSearchChange}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 onNewRecord={() => setIsCreateOpen(true)}

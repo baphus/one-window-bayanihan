@@ -18,7 +18,7 @@
     Use the link below to create your account. You will be asked to set a password and configure multi-factor authentication.
 </p>
 
-<x-mail::action-card url="{{ $inviteUrl }}" label="Accept Invitation" :deadline="$expiresAt" :urgency="true" />
+<x-mail::action-card url="{{ $inviteUrl }}" label="Accept Invitation" :deadline="$expiresAt" />
 
 <p style="font-size: 13px; line-height: 1.7; color: #71717a; margin: 0;">
     If you were not expecting this invitation, you may disregard this email.

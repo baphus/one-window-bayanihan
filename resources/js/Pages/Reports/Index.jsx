@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Users, Target, Clock, GitFork, CheckCircle2, Hourglass, ClipboardCheck } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { pageHeadingStyles, COLORS } from '@/Components/Reports/pageHeadingStyles';
@@ -23,6 +23,7 @@ import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
 import ExportButtons from '@/Components/Reports/ExportButtons';
 import { useReportFilters } from '@/Hooks/useReportFilters';
 import { useLazyProp } from '@/Hooks/useLazyProp';
+import { philippineAddressData, getCitiesByProvince } from '@/data/philippine-addresses';
 import AgencyScorecardSection from '@/Pages/Reports/sections/AgencyScorecardSection';
 import StatusDistributionSection from '@/Pages/Reports/sections/StatusDistributionSection';
 import CycleTimeSection from '@/Pages/Reports/sections/CycleTimeSection';
@@ -35,6 +36,11 @@ import ReferralFunnelSection from '@/Pages/Reports/sections/ReferralFunnelSectio
 import ReferralTrendsSection from '@/Pages/Reports/sections/ReferralTrendsSection';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+
+// Province name→PSGC code lookup built from PSGC master data
+const provinceNameToPsgcCode = Object.values(philippineAddressData.provincesByRegion)
+  .flat()
+  .reduce((acc, p) => { acc[p.name.toLowerCase()] = p.code; return acc; }, {});
 
 function ReportsDashboard({
   // Eager props
@@ -57,6 +63,18 @@ function ReportsDashboard({
   const caseSparkline = casesSeries?.datasets?.[0]?.data;
   const referralSparkline = referralSeries?.datasets?.[0]?.data;
   const referralStatuses = referenceData?.referralStatuses || [];
+  const localCityOptions = useMemo(() => {
+    if (!province) return cityOptions || [];
+    const selected = provinceOptions.find((p) => p.value === province);
+    if (selected) {
+      const psgcCode = provinceNameToPsgcCode[selected.label.toLowerCase()];
+      if (psgcCode) {
+        const cities = getCitiesByProvince(psgcCode);
+        if (cities.length > 0) return cities.map((c) => ({ value: c.code, label: c.name }));
+      }
+    }
+    return cityOptions || [];
+  }, [province, cityOptions, provinceOptions]);
 
   const extraDeps = {
     ...(role === 'CASE_MANAGER' ? { date_scope: dateScope } : {}),
@@ -96,29 +114,7 @@ function ReportsDashboard({
             </h1>
             <p className="text-sm text-slate-400 font-body mt-0.5">{roleSubtitle}</p>
           </div>
-          <div data-tour="reports-filters" className="flex items-center gap-3">
-            <DateRangePicker
-              fromDateISO={fromDateISO}
-              toDateISO={toDateISO}
-              quickRange={quickRange}
-              onFromChange={setFromDateISO}
-              onToChange={setToDateISO}
-              onQuickRangeSelect={handleQuickRange}
-              onReset={resetDateRange}
-            />
-            {role === 'CASE_MANAGER' && <DateScopeSelect value={dateScope} onChange={setDateScope} />}
-            <button
-              type="button"
-              onClick={applyFilters}
-              disabled={!hasPendingChanges}
-              className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                hasPendingChanges
-                  ? 'bg-[#0b5a8c] text-white hover:bg-[#094a73] focus:ring-[#0b5a8c]'
-                  : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
-              }`}
-            >
-              Apply filters
-            </button>
+          <div className="flex items-center gap-3">
             <ExportButtons
               fromDateISO={fromDateISO}
               toDateISO={toDateISO}
@@ -129,6 +125,30 @@ function ReportsDashboard({
               disabled={hasPendingChanges}
             />
           </div>
+        </div>
+        <div data-tour="reports-filters" className="flex flex-wrap items-center justify-end gap-3">
+          <DateRangePicker
+            fromDateISO={fromDateISO}
+            toDateISO={toDateISO}
+            quickRange={quickRange}
+            onFromChange={setFromDateISO}
+            onToChange={setToDateISO}
+            onQuickRangeSelect={handleQuickRange}
+            onReset={resetDateRange}
+          />
+          {role === 'CASE_MANAGER' && <DateScopeSelect value={dateScope} onChange={setDateScope} />}
+          <button
+            type="button"
+            onClick={applyFilters}
+            disabled={!hasPendingChanges}
+            className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              hasPendingChanges
+                ? 'bg-[#0b5a8c] text-white hover:bg-[#094a73] focus:ring-[#0b5a8c]'
+                : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+            }`}
+          >
+            Apply filters
+          </button>
         </div>
         <div data-tour="reports-tabs" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3">
@@ -142,7 +162,7 @@ function ReportsDashboard({
             {role === 'CASE_MANAGER' && (
               <ProvinceCityFilter
                 provinceOptions={provinceOptions || []}
-                cityOptions={cityOptions || []}
+                cityOptions={localCityOptions}
                 province={province}
                 city={city}
                 onProvinceChange={setProvince}

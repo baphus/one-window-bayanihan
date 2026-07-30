@@ -14,6 +14,12 @@ class LogViewerService
                 $dates[] = $m[1];
             }
         }
+
+        // Fallback to single laravel.log (LOG_STACK=single)
+        if (empty($dates) && file_exists(storage_path('logs/laravel.log'))) {
+            return [date('Y-m-d')];
+        }
+
         rsort($dates);
 
         return $dates;
@@ -23,6 +29,14 @@ class LogViewerService
     {
         $files = glob(storage_path('logs/laravel-*.log'));
         rsort($files);
+
+        // Fallback to single laravel.log (LOG_STACK=single)
+        if (empty($files)) {
+            $singleLog = storage_path('logs/laravel.log');
+            if (file_exists($singleLog)) {
+                $files = [$singleLog];
+            }
+        }
 
         if (empty($files)) {
             return [
@@ -41,10 +55,8 @@ class LogViewerService
         if ($dateFrom || $dateTo) {
             $files = array_filter($files, function ($f) use ($dateFrom, $dateTo) {
                 preg_match('/laravel-(\d{4}-\d{2}-\d{2})\.log/', $f, $m);
-                if (! $m) {
-                    return false;
-                }
-                $date = $m[1];
+                // Single laravel.log has no date — treat as today
+                $date = $m[1] ?? date('Y-m-d');
                 if ($dateFrom && $date < $dateFrom) {
                     return false;
                 }

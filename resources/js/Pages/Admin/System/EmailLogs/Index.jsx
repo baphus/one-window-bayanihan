@@ -94,7 +94,7 @@ export default function Index({ logs, filters, statuses = [] }) {
         })}
       </div>
 
-      <div className="relative" aria-busy={tableLoading}>
+      <div className="relative pb-24" aria-busy={tableLoading}>
         <div data-tour="email-logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">

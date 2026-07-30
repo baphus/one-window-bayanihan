@@ -24,7 +24,7 @@
     No action is required on your part at this time. You will receive another notification when there is further progress.
 </p>
 
-<x-mail::action-card url="{{ route('track.show', $case->tracker_number) }}" label="Track Your Case" />
+<x-mail::action-card url="{{ route('track.index', ['tracker_number' => $case->tracker_number]) }}" label="Track Your Case" />
 
 <x-mail::contact-footer />
 </x-mail::message>

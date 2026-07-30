@@ -20,7 +20,7 @@
     A Case Manager has been assigned and will coordinate with the relevant agencies to address your concerns. You can track the progress of your case at any time using your tracker number.
 </p>
 
-<x-mail::action-card url="{{ route('track.show', $trackerNumber) }}" label="Track Your Case" />
+<x-mail::action-card url="{{ route('track.index', ['tracker_number' => $trackerNumber]) }}" label="Track Your Case" />
 
 <p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 32px 0 8px 0;">What Happens Next</p>
 

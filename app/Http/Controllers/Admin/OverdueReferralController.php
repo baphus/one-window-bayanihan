@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\ReferralOverdueMail;
 use App\Models\SystemSetting;
+use App\Notifications\OverdueReferralNotification;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -61,9 +62,11 @@ class OverdueReferralController extends Controller
         $sentCount = 0;
         foreach ($referrals as $referral) {
             $handlers = $referral->agency?->users ?? collect();
+            $notification = new OverdueReferralNotification($referral, $overdueDays);
             foreach ($handlers as $handler) {
                 Mail::to($handler->email, $handler->name)
                     ->queue(new ReferralOverdueMail($referral, $overdueDays));
+                $handler->notify($notification);
                 $sentCount++;
             }
         }

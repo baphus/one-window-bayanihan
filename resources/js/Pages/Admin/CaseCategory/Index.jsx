@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, router, Link } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
@@ -8,11 +8,19 @@ import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import CaseCategoryFormModal from '@/Components/Admin/CaseCategoryFormModal';
 
-export default function AdminCaseCategoryIndex({ categories }) {
+export default function AdminCaseCategoryIndex({ categories, filters }) {
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(showForm);
+
+  const showDeleted = filters?.show_deleted === 'true' || filters?.show_deleted === true;
+
+  function toggleShowDeleted() {
+    router.get(route('admin.case-categories.index'), {
+      show_deleted: showDeleted ? undefined : 'true',
+    }, { preserveState: true, replace: true });
+  }
 
   const columns = useMemo(() => [
     {
@@ -98,7 +106,7 @@ export default function AdminCaseCategoryIndex({ categories }) {
         />
       )}
       <Head title="Manage Case Categories" />
-      <div data-tour="case-categories-header" className="mb-8 flex items-center justify-between">
+      <div data-tour="case-categories-header" className="mb-4 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Case Categories</h1>
           <p className="text-sm text-slate-500 mt-1">Manage categories used to classify client cases.</p>
@@ -106,6 +114,17 @@ export default function AdminCaseCategoryIndex({ categories }) {
         <button data-tour="case-categories-new" onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Category
         </button>
+      </div>
+      <div className="mb-8 pt-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showDeleted}
+            onChange={toggleShowDeleted}
+            className="rounded border-slate-300 text-red-600 focus:ring-red-500 focus:ring-offset-0"
+          />
+          <span className="text-[13px] text-slate-500 whitespace-nowrap">Show deactivated</span>
+        </label>
       </div>
 
       <div data-tour="case-categories-table">
