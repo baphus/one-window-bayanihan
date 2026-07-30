@@ -88,7 +88,6 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
         formData.append('bio', data.bio ?? '');
         formData.append('timezone', data.timezone ?? '');
         formData.append('contact_number', data.contact_number ?? '');
-        formData.append('notifications_config', JSON.stringify(data.notifications_config));
 
         router.post(route('profile.update'), formData, {
             preserveScroll: true,
