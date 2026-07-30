@@ -26,10 +26,6 @@ class ChatbotGuideService
             'heading' => 'What Different Case Statuses Mean',
             'description' => 'Explanation of all case statuses: Submitted, Under Review, Approved, Rejected, Completed',
         ],
-        'contacts' => [
-            'heading' => 'Contact Information for Partner Agencies',
-            'description' => 'Contact details, hotlines, websites, and services for DMW, OWWA, TESDA, DSWD, DOLE',
-        ],
         'troubleshooting' => [
             'heading' => 'Troubleshooting Tips',
             'description' => 'Common issues like lost tracker number, expired OTP, wrong email, OTP not arriving, stuck cases',

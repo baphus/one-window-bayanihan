@@ -62,10 +62,6 @@ class ChatbotIntentTest extends TestCase
     public static function gibberishFixtures(): array
     {
         return [
-            ['what?'],
-            ['huh'],
-            ['say that again'],
-            ['come again?'],
             ['asdfgh'],
             ['jkl asdf asdfjkl'],
             ['??'],
@@ -75,9 +71,28 @@ class ChatbotIntentTest extends TestCase
     }
 
     #[DataProvider('gibberishFixtures')]
-    public function test_gibberish_detected(string $message): void
+    public function test_gibberish_passes_through_to_content_query(string $message): void
     {
-        $this->assertSame(ChatbotIntentService::GIBBERISH, $this->intent->classify($message));
+        $this->assertSame(ChatbotIntentService::CONTENT_QUERY, $this->intent->classify($message));
+    }
+
+    public static function unclearFollowupFixtures(): array
+    {
+        return [
+            ['what?'],
+            ['huh'],
+            ['say that again'],
+            ['come again?'],
+            ['pardon'],
+            ['sorry'],
+            ["I don't understand"],
+        ];
+    }
+
+    #[DataProvider('unclearFollowupFixtures')]
+    public function test_unclear_followup_detected(string $message): void
+    {
+        $this->assertSame(ChatbotIntentService::UNCLEAR_FOLLOWUP, $this->intent->classify($message));
     }
 
     public static function contentQueryFixtures(): array
