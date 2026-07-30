@@ -34,7 +34,8 @@ export default function Welcome({ agencies }) {
 
         <div className="leading-none -mt-px">
           <svg viewBox="0 0 1440 80" preserveAspectRatio="none" className="block w-full h-24 md:h-32">
-            <path fill="#ebeef4" d="M0,45 C160,100 320,-10 480,45 C640,100 800,-10 960,45 C1120,100 1280,-10 1440,45 L1440,80 L0,80 Z" />
+            <rect width="1440" height="80" fill="#ebeef5" />
+            <path fill="#f9fafc" d="M0,45 C160,100 320,-10 480,45 C640,100 800,-10 960,45 C1120,100 1280,-10 1440,45 L1440,80 L0,80 Z" />
           </svg>
         </div>
 

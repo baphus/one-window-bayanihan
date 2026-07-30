@@ -7,6 +7,7 @@ import { MessageCircle, X, Send } from 'lucide-react';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 
 const CHAT_HISTORY_KEY = 'owb_chat_history';
+const CHAT_CONTEXT_KEY = 'owb_chat_context';
 
 function createWelcomeMessage(name) {
     return {
@@ -15,28 +16,6 @@ function createWelcomeMessage(name) {
         time: new Date(),
     };
 }
-
-const SUGGESTIONS = [
-    'Check my case status',
-    'OWWA contact number',
-    'Lost my tracker number',
-    'OTP not working',
-    'DMW legal assistance',
-];
-
-const SUGGESTION_REPLIES = {
-    'Check my case status':
-        "To check your case status, you'll need your **Tracker Number** and the **email address** you used when submitting your request. Visit our tracking portal, enter both, and you'll receive a one-time passcode (OTP) via email to verify your identity. Once verified, your case details and current status will be displayed.\n\nIf you don't have your tracker number, check your email confirmation or contact the DMW Region VII office for assistance.",
-    'Check my case status|actions': [{ label: 'Go to Tracking Portal', url: '/track', icon: 'track' }],
-    'OWWA contact number':
-        "**OWWA — Overseas Workers Welfare Administration**\n\n- **Office:** OWWA Regional Welfare Office VII\n- **Hotline:** (02) 8720-1142\n- **Website:** owwa.gov.ph\n- **Services:** Welfare assistance, legal aid, repatriation support, reintegration programs\n\nThey assist with emergency repatriation, welfare support upon arrival, and family assistance programs for OFWs.",
-    'Lost my tracker number':
-        "If you've lost your tracker number:\n\n1. **Check your email inbox** for the automated confirmation message you received when you submitted your request. The subject line will mention \"One Window Bayanihan — Case Confirmation\".\n2. If you have a printed **acknowledgment receipt**, the tracker number is printed there.\n3. If neither works, **contact the DMW Region VII office** directly. Provide your full name, date of submission, and the email you used so they can locate your case.",
-    'OTP not working':
-        "Here are some tips if your OTP isn't working:\n\n1. **Check your Spam/Junk folder** — automated emails sometimes end up there.\n2. **Wait 1-2 minutes** — delivery delays happen occasionally.\n3. **Click \"Resend OTP\"** — you can request a new code anytime. The previous one will expire immediately.\n4. **OTPs expire after 5 minutes** — if yours expired, just request a new one.\n5. **Double-check your email** — look for typos like \"gmial.com\" instead of \"gmail.com\".\n\nIf it's still not arriving, add the sender domain to your email whitelist and try again.",
-    'DMW legal assistance':
-        "**DMW — Department of Migrant Workers** provides legal assistance for OFWs including:\n\n- Legal counseling and advice\n- Assistance with employment contract issues\n- Documentation of employment concerns\n- Representation in labor disputes\n- Assistance with illegal recruitment cases\n\n**Contact:** DMW Regional Office VII, Cebu City\n**Hotline:** 1348 (nationwide)\n**Website:** dmw.gov.ph\n\nTo start a case, visit the DMW office or file through the One Window Bayanihan system.",
-};
 
 function getProviderLabel(provider) {
     const labels = {
@@ -50,6 +29,21 @@ function getProviderLabel(provider) {
         deepseek: 'DeepSeek',
     };
     return labels[provider] || provider || 'AI';
+}
+
+function loadChatContext() {
+    try {
+        const saved = localStorage.getItem(CHAT_CONTEXT_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object' && parsed.source_label) {
+                return parsed;
+            }
+        }
+    } catch {
+        /* localStorage unavailable */
+    }
+    return null;
 }
 
 function loadChatHistory() {
@@ -172,7 +166,8 @@ function formatTime(date) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function WelcomeCard({ onSuggestionClick, onClose }) {
+function WelcomeCard({ suggestions, onSuggestionClick, onClose }) {
+    const labels = suggestions ? Object.keys(suggestions) : [];
     return (
         <div className="relative animate-in fade-in slide-in-from-bottom-2 rounded-none bg-white px-5 py-3 shadow-sm ring-1 ring-outline-variant/60 duration-300">
             <div className="flex items-center justify-between mb-2">
@@ -189,14 +184,14 @@ function WelcomeCard({ onSuggestionClick, onClose }) {
                 </button>
             </div>
             <div className="flex flex-wrap gap-1.5">
-                {SUGGESTIONS.map((suggestion) => (
+                {labels.map((label) => (
                     <button
-                        key={suggestion}
+                        key={label}
                         type="button"
-                        onClick={() => onSuggestionClick(suggestion)}
+                        onClick={() => onSuggestionClick(label)}
                         className="rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-medium text-primary transition-all hover:bg-primary/20 hover:shadow-sm active:scale-95"
                     >
-                        {suggestion}
+                        {label}
                     </button>
                 ))}
             </div>
@@ -226,6 +221,7 @@ export default function ChatBot() {
     const [turnstileToken, setTurnstileToken] = useState('');
     const [turnstileVerified, setTurnstileVerified] = useState(false);
     const [showTurnstile, setShowTurnstile] = useState(false);
+    const [lastContext, setLastContext] = useState(() => loadChatContext());
 
     const scrollToBottom = useCallback((smooth = true) => {
         if (listRef.current) {
@@ -277,21 +273,22 @@ export default function ChatBot() {
         }
         setLoading(false);
         setMessages([createWelcomeMessage(assistantName)]);
+        setLastContext(null);
         setShowClearConfirm(false);
         try {
             localStorage.removeItem(CHAT_HISTORY_KEY);
+            localStorage.removeItem(CHAT_CONTEXT_KEY);
         } catch { /* noop */ }
         if (inputRef.current) inputRef.current.focus();
     }
 
-    function handleSuggestionClick(suggestion) {
-        const reply = SUGGESTION_REPLIES[suggestion];
-        if (!reply) return;
-        const actions = SUGGESTION_REPLIES[suggestion + '|actions'] || [];
+    function handleSuggestionClick(label) {
+        const suggestion = chatbot?.suggestions?.[label];
+        if (!suggestion) return;
         setMessages((prev) => [
             ...prev,
-            { role: 'user', text: suggestion, time: new Date() },
-            { role: 'bot', text: reply, time: new Date(), actions },
+            { role: 'user', text: label, time: new Date() },
+            { role: 'bot', text: suggestion.reply, time: new Date(), actions: suggestion.actions || [] },
         ]);
         if (inputRef.current) inputRef.current.focus();
     }
@@ -324,10 +321,22 @@ export default function ChatBot() {
         abortRef.current = controller;
 
         try {
-            // Send recent user queries so the backend can detect follow-ups
+            // Send recent user queries so the backend can detect follow-ups.
+            // Include both user and bot messages for full conversation context.
+            // Only include paired exchanges (user followed by bot) to avoid
+            // orphaned messages from page refreshes.
             const recentHistory = messages
-                .filter((msg) => msg.role === 'user')
-                .slice(-5)
+                .filter((msg, i) => {
+                    if (msg.role === 'bot') {
+                        // Bot message is valid if the previous message is a user message
+                        const prev = messages[i - 1];
+                        return prev && prev.role === 'user';
+                    }
+                    // User message is valid if the next message is a bot reply
+                    const next = messages[i + 1];
+                    return next && next.role === 'bot';
+                })
+                .slice(-6)
                 .map((msg) => ({
                     role: msg.role,
                     text: msg.text,
@@ -336,6 +345,9 @@ export default function ChatBot() {
                 message: userMessage,
                 history: recentHistory,
             };
+            if (lastContext) {
+                payload.lastContext = lastContext;
+            }
             // Include turnstile token on first (unverified) request
             if (needsTurnstile && turnstileToken) {
                 payload.cf_turnstile_response = turnstileToken;
@@ -348,8 +360,15 @@ export default function ChatBot() {
             }
             setMessages((prev) => [
                 ...prev,
-                { role: 'bot', text: data.reply, time: new Date(), actions: data.actions || [] },
+                { role: 'bot', text: data.reply, time: new Date(), actions: data.actions || [], sources: data.sources || [], confidence: data.confidence },
             ]);
+            // Store context for follow-up augmentation on next turn
+            if (data.lastContext) {
+                setLastContext(data.lastContext);
+                try {
+                    localStorage.setItem(CHAT_CONTEXT_KEY, JSON.stringify(data.lastContext));
+                } catch { /* localStorage unavailable */ }
+            }
         } catch (err) {
             if (axios.isCancel(err)) return;
             // Handle turnstile_required error from backend
@@ -491,9 +510,47 @@ export default function ChatBot() {
                                         ))}
                                     </div>
                                 )}
+                                {msg.sources && msg.sources.length > 0 && (
+                                    <div className="border-t border-outline-variant/30 px-4 py-2">
+                                        <p className="text-[10px] font-medium text-on-surface-variant/70 mb-1">
+                                            Sources
+                                        </p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {msg.sources.map((source, si) => {
+                                                const Tag = source.url ? 'a' : 'span';
+                                                const props = source.url
+                                                    ? { href: source.url, target: '_blank', rel: 'noopener noreferrer' }
+                                                    : {};
+                                                return (
+                                                    <Tag
+                                                        key={si}
+                                                        {...props}
+                                                        className={`inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5 text-[10px] text-on-surface-variant ${source.url ? 'hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer' : ''}`}
+                                                        title={source.url ? `Open: ${source.heading}` : source.heading}
+                                                    >
+                                                        <span className="inline-block h-1 w-1 rounded-full bg-on-surface-variant/40" />
+                                                        {source.heading}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <span className="ml-[48px] mt-1 px-1 text-[10px] text-on-surface-variant opacity-0 transition-opacity group-hover:opacity-100">
+                        <span className="ml-[48px] mt-1 flex items-center gap-1.5 px-1 text-[10px] text-on-surface-variant opacity-0 transition-opacity group-hover:opacity-100">
+                            {typeof msg.confidence === 'number' && (
+                                <span
+                                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                        msg.confidence >= 0.7
+                                            ? 'bg-emerald-500'
+                                            : msg.confidence >= 0.3
+                                              ? 'bg-amber-400'
+                                              : 'bg-red-400/60'
+                                    }`}
+                                    title="Retrieval confidence"
+                                />
+                            )}
                             {msg.time ? formatTime(msg.time) : ''}
                         </span>
                     </div>
@@ -600,7 +657,7 @@ export default function ChatBot() {
                         {/* ── Welcome card / quick help (stuck below header, not scrollable) ── */}
                         {!loading && quickHelpVisible && (
                             <div className="shrink-0">
-                                <WelcomeCard onSuggestionClick={handleSuggestionClick} onClose={() => setQuickHelpVisible(false)} />
+                                <WelcomeCard suggestions={chatbot?.suggestions} onSuggestionClick={handleSuggestionClick} onClose={() => setQuickHelpVisible(false)} />
                             </div>
                         )}
                         {!loading && !quickHelpVisible && (

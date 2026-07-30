@@ -5,7 +5,11 @@ namespace App\Services\Chatbot;
 /**
  * Deterministic (zero-LLM) intent detection for chatbot messages.
  *
- * Classifies into: greeting, identity, gibberish, or content_query.
+ * Classifies into: greeting, identity, unclear_followup, or content_query.
+ * Everything that isn't a greeting/identity/clamification passes through to
+ * the LLM — the model handles edge cases, gibberish, and ambiguous input
+ * better than heuristic filters.
+ *
  * Follow-up detection is a separate signal (isFollowUpCandidate) because it
  * also depends on stored session context and retrieval strength, which the
  * controller combines.
@@ -16,7 +20,7 @@ class ChatbotIntentService
 
     public const IDENTITY = 'identity';
 
-    public const GIBBERISH = 'gibberish';
+    public const UNCLEAR_FOLLOWUP = 'unclear_followup';
 
     public const CONTENT_QUERY = 'content_query';
 
@@ -59,7 +63,7 @@ class ChatbotIntentService
     ) {}
 
     /**
-     * Classify a message into greeting, identity, gibberish, or content_query.
+     * Classify a message into greeting, identity, unclear_followup, or content_query.
      */
     public function classify(string $message): string
     {
@@ -81,23 +85,12 @@ class ChatbotIntentService
             }
         }
 
+        // Clarification requests: user is confused but communicative →
+        // distinguish from pure gibberish so the controller can ask back.
         foreach (self::CLARIFICATION_PATTERNS as $pattern) {
             if (preg_match($pattern, $trimmed)) {
-                return self::GIBBERISH;
+                return self::UNCLEAR_FOLLOWUP;
             }
-        }
-
-        $tokens = $this->retrieval->tokenize($trimmed);
-
-        // Nothing meaningful left after stop-word removal → unintelligible.
-        if ($tokens === []) {
-            return self::GIBBERISH;
-        }
-
-        // Every token looks like keyboard mash → unintelligible.
-        $realWords = array_filter($tokens, fn (string $t) => $this->looksLikeWord($t));
-        if ($realWords === []) {
-            return self::GIBBERISH;
         }
 
         return self::CONTENT_QUERY;
@@ -120,32 +113,5 @@ class ChatbotIntentService
 
         // Short questions rarely carry their own topic ("what documents do I need?").
         return $wordCount <= 6;
-    }
-
-    /**
-     * Heuristic "is this a real word" check: must contain a vowel, must not be
-     * a home-row run or a long same-character repeat.
-     */
-    private function looksLikeWord(string $token): bool
-    {
-        // Numbers (tracker numbers, years) count as meaningful.
-        if (preg_match('/\d/', $token)) {
-            return true;
-        }
-
-        if (! preg_match('/[aeiou]/i', $token)) {
-            return false;
-        }
-
-        if (preg_match('/(.)\1{3,}/i', $token)) {
-            return false;
-        }
-
-        // Home-row mash like "asdfgh", "jkl;asdf" (vowel 'a' alone doesn't redeem it).
-        if (preg_match('/^[asdfghjkl]+$/i', $token) && strlen($token) >= 4) {
-            return false;
-        }
-
-        return true;
     }
 }

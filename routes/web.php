@@ -262,6 +262,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/system-settings', [SystemSettingsController::class, 'index'])->name('system-settings.index');
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
+        Route::post('/system-settings/reindex-chatbot', [SystemSettingsController::class, 'reindexChatbot'])->name('system-settings.reindex-chatbot');
 
         Route::get('/case-categories', [AdminCaseCategoryController::class, 'index'])->name('case-categories.index');
         Route::post('/case-categories', [AdminCaseCategoryController::class, 'store'])->name('case-categories.store');

@@ -168,7 +168,7 @@ class ReferenceDataService
             ->sort()
             ->toArray();
 
-        return array_map(fn (string $o) => ['value' => $o, 'label' => $o], $occupations);
+        return array_values(array_map(fn (string $o) => ['value' => $o, 'label' => $o], $occupations));
     }
 
     // ── Invalidation ─────────────────────────────────────────────────────

@@ -2,31 +2,38 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Chatbot\ChatbotEmbeddingService;
+use App\Services\Chatbot\ChatbotGuideService;
 use App\Services\Chatbot\ChatbotHelpdeskService;
-use App\Services\Chatbot\ChatbotRetrievalService;
+use App\Services\Chatbot\ChatbotIndexService;
 use Illuminate\Console\Command;
 
 class RebuildChatbotIndex extends Command
 {
     protected $signature = 'chatbot:index';
 
-    protected $description = 'Rebuild the chatbot section cache and SQLite FTS5 retrieval index';
+    protected $description = 'Rebuild pgvector embeddings for the chatbot';
 
-    public function handle(ChatbotHelpdeskService $helpdesk, ChatbotRetrievalService $retrieval): int
-    {
+    public function handle(
+        ChatbotHelpdeskService $helpdesk,
+        ChatbotEmbeddingService $embedding,
+    ): int {
+        $this->info('Rebuilding pgvector embeddings...');
+
+        $index = new ChatbotIndexService($helpdesk, new ChatbotGuideService, $embedding);
+
         try {
-            $retrieval->assertFts5Available();
+            $result = $index->rebuild(function (string $msg) {
+                $this->line("  {$msg}");
+            });
         } catch (\Throwable $e) {
-            $this->error($e->getMessage());
+            $this->error("Embedding rebuild failed: {$e->getMessage()}");
 
             return self::FAILURE;
         }
 
-        $hash = $helpdesk->refreshCache();
-        $this->info("Helpdesk content parsed and cached (hash {$hash}).");
-
-        $count = $retrieval->rebuild();
-        $this->info("Indexed {$count} sections into {$retrieval->indexPath()}.");
+        $this->info('Done.');
+        $this->line("  Embeddings: {$result['embedding_count']} chunks (helpdesk: {$result['helpdesk_embedded']}, guide: {$result['guide_embedded']}, db: {$result['db_embedded']})");
 
         return self::SUCCESS;
     }

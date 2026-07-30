@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Helpers\CacheHelper;
 use App\Services\CaseService;
+use App\Services\Chatbot\ChatbotSuggestionService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -132,6 +133,7 @@ class HandleInertiaRequests extends Middleware
                 'enabled' => config('ai-chatbot.enabled', false),
                 'provider' => config('ai-chatbot.provider', 'gemini'),
                 'assistant_name' => config('ai-chatbot.assistant_name', 'Bayani'),
+                'suggestions' => app(ChatbotSuggestionService::class)->getSuggestions($request->user()?->role),
             ],
             'turnstile' => [
                 'enabled' => (bool) config('turnstile.enabled', false),

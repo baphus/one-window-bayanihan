@@ -21,9 +21,14 @@ use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Observers\CacheInvalidationObserver;
+use App\Services\Chatbot\ApiEmbeddingProvider;
+use App\Services\Chatbot\OllamaEmbeddingProvider;
+use App\Services\Contracts\EmbeddingProvider;
 use App\Services\Contracts\MalwareScannerInterface;
 use App\Services\Malware\ClamAvScanner;
 use App\Services\Malware\NullScanner;
+use App\Services\VectorDb\PgVectorAdapter;
+use App\Services\VectorDb\VectorDb;
 use Cloudinary\Configuration\Configuration;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -49,6 +54,25 @@ class AppServiceProvider extends ServiceProvider
             return env('MALWARE_SCANNER', 'null') === 'clamav'
                 ? new ClamAvScanner
                 : new NullScanner;
+        });
+
+        $this->app->bind(VectorDb::class, function ($app) {
+            $driver = config('ai-chatbot.vector_db.driver', 'pgvector');
+
+            return match ($driver) {
+                'pgvector' => $app->make(PgVectorAdapter::class),
+                default => throw new \RuntimeException("Unknown vector DB driver: {$driver}"),
+            };
+        });
+
+        $this->app->bind(EmbeddingProvider::class, function ($app) {
+            $provider = config('ai-chatbot.embedding.provider', 'ollama');
+
+            return match ($provider) {
+                'ollama' => $app->make(OllamaEmbeddingProvider::class),
+                'api' => $app->make(ApiEmbeddingProvider::class),
+                default => throw new \RuntimeException("Unknown embedding provider: {$provider}"),
+            };
         });
     }
 

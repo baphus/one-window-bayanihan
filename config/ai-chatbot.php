@@ -10,71 +10,79 @@ return [
     'model' => env('AI_CHATBOT_MODEL', 'openai/gpt-oss-120b:free'),
     'temperature' => (float) env('AI_CHATBOT_TEMPERATURE', 0.7),
     'max_tokens' => (int) env('AI_CHATBOT_MAX_TOKENS', 500),
+    'timeout' => (int) env('AI_CHATBOT_TIMEOUT', 180),
     'system_prompt' => env('AI_CHATBOT_SYSTEM_PROMPT', ''),
     'assistant_name' => env('APP_ASSISTANT_NAME', 'Bayani'),
 
     /*
     |--------------------------------------------------------------------------
-    | Lexical retrieval (SQLite FTS5 — no vector database)
+    | Embedding (pgvector — dense vector retrieval)
     |--------------------------------------------------------------------------
     |
-    | Helpdesk sections and guide topics are indexed into a standalone SQLite
-    | FTS5 file and ranked with BM25. Scores below are on the negated-BM25
-    | scale (higher = more relevant). Rebuild with `php artisan chatbot:index`.
+    | Converts text into dense vectors for semantic search via pgvector.
+    | The embedding model is independently configurable from the generation
+    | model, so retrieval and generation can be swapped separately.
+    |
+    | Rebuild embeddings with `php artisan chatbot:index`.
     |
     */
-    'retrieval' => [
-        'index_path' => env('AI_CHATBOT_INDEX_PATH', storage_path('app/chatbot-index.sqlite')),
-        'max_results' => 3,
+    'embedding' => [
+        // Embedding provider — 'ollama' (local dev) or 'api' (hosted).
+        'provider' => env('AI_CHATBOT_EMBEDDING_PROVIDER', 'ollama'),
 
-        // Hits scoring below this are treated as "no match" (fallback path).
-        'min_score' => (float) env('AI_CHATBOT_MIN_SCORE', 0.4),
+        // API base URL for embedding requests.
+        // Ollama: http://localhost:11434/api/embed
+        // Hosted: https://api.openai.com/v1/embeddings (or any OpenAI-compatible)
+        'url' => env('AI_CHATBOT_EMBEDDING_URL', 'http://localhost:11434/api/embed'),
 
-        // Verbatim tier: answer with the section content directly (no LLM call)
-        // when the top hit scores at least verbatim_min_score AND outranks the
-        // best hit from a DIFFERENT source by verbatim_gap_ratio.
-        //
-        // Tuned 2026-07 against fixture queries (see openspec change
-        // simplify-chatbot-pipeline, task 3.7): unambiguous single-topic queries
-        // ("how does OTP verification work" 10.96 vs 3.39, "contact number of
-        // OWWA" 8.91 vs 4.70, "I lost my tracker number" 12.28 vs 7.08) clear
-        // both bars; ambiguous ones ("why is my OTP not arriving" 6.43 vs 6.24,
-        // "what do the colors mean" 5.63 vs 4.84) fall through to the LLM.
-        'verbatim_min_score' => (float) env('AI_CHATBOT_VERBATIM_MIN_SCORE', 6.0),
-        'verbatim_gap_ratio' => (float) env('AI_CHATBOT_VERBATIM_GAP_RATIO', 1.5),
+        // API key for hosted embedding providers (unused by Ollama).
+        'api_key' => env('AI_CHATBOT_EMBEDDING_API_KEY'),
 
-        /*
-        | Domain synonym map, applied to query tokens before the FTS match.
-        | Keys are single lowercase tokens as typed by users; values are lists
-        | of words/phrases that also exist in the content. Support staff can
-        | extend this without code changes.
-        */
-        'synonyms' => [
-            // Overseas-employment domain terms
-            'oec' => ['overseas employment certificate', 'exit clearance'],
-            'balik' => ['returning', 'return'],
-            'manggagawa' => ['worker', 'ofw'],
-            'abroad' => ['overseas', 'ofw'],
+        // Model name — nomic-embed-text (Ollama) or text-embedding-3-small (OpenAI), etc.
+        'model' => env('AI_CHATBOT_EMBEDDING_MODEL', 'nomic-embed-text'),
 
-            // Filipino → content vocabulary
-            'trabaho' => ['work', 'employment', 'job'],
-            'tulong' => ['help', 'assistance', 'support'],
-            'ahensya' => ['agency'],
-            'reklamo' => ['complaint', 'case'],
-            'sundan' => ['track', 'follow'],
-            'estado' => ['status'],
-            'kaso' => ['case'],
-            'dokumento' => ['document', 'requirements'],
+        // Vector dimensions — must match the model's output size
+        'dimensions' => (int) env('AI_CHATBOT_EMBEDDING_DIMENSIONS', 768),
 
-            // Colloquial phrasings → content vocabulary
-            'follow' => ['track', 'status'],
-            'followup' => ['track', 'status'],
-            'update' => ['status', 'track'],
-            'check' => ['track', 'status', 'view'],
-            'complaint' => ['case', 'issue'],
-            'passcode' => ['otp', 'code'],
-            'pin' => ['otp', 'code'],
-            'hotline' => ['contact', 'phone'],
+        // HNSW index parameters (tune for speed vs accuracy trade-off)
+        'hnsw_m' => (int) env('AI_CHATBOT_EMBEDDING_HNSW_M', 16),
+        'hnsw_ef_construction' => (int) env('AI_CHATBOT_EMBEDDING_HNSW_EF', 64),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Confidence thresholds
+    |--------------------------------------------------------------------------
+    |
+    | Controls how the chatbot decides between LLM response and fallback
+    | paths based on the vector similarity confidence score (0.0–1.0).
+    |
+    */
+    /*
+    |--------------------------------------------------------------------------
+    | Vector Database backend
+    |--------------------------------------------------------------------------
+    |
+    | Which vector-store adapter to use for semantic search.
+    | Supported: 'pgvector' (default), 'pinecone' (future).
+    |
+    */
+    'vector_db' => [
+        // Supported: 'pgvector' (default), 'pinecone' (future).
+        'driver' => env('VECTOR_DB_DRIVER', 'pgvector'),
+
+        // Pinecone configuration (used when driver is 'pinecone')
+        'pinecone' => [
+            'api_key' => env('PINECONE_API_KEY'),
+            'environment' => env('PINECONE_ENVIRONMENT'),
+            'index' => env('PINECONE_INDEX', 'bayanihan'),
         ],
+    ],
+
+    'hybrid' => [
+        // Confidence >= this → LLM-generated response from retrieved content
+        'llm_confidence' => (float) env('AI_CHATBOT_LLM_CONFIDENCE', 0.3),
+
+        // Below llm_confidence → contextual retry or fallback
     ],
 ];

@@ -2,16 +2,21 @@ import { useState, useRef, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import { useToast } from '@/Hooks/useToast';
 
 
 export default function SystemSettings({ 
     debug_otp_enabled,
     debug_tracking_otp_enabled,
     referral_overdue_days,
+    chatbot_last_reindexed_at,
 }) {
     const [debugOtp, setDebugOtp] = useState(debug_otp_enabled);
     const [debugTrackingOtp, setDebugTrackingOtp] = useState(debug_tracking_otp_enabled);
     const [overdueDays, setOverdueDays] = useState(referral_overdue_days);
+    const [reindexing, setReindexing] = useState(false);
+    const [lastReindexedAt, setLastReindexedAt] = useState(chatbot_last_reindexed_at);
+    const toast = useToast();
 
     const initialRef = useRef({ 
         debugOtp: debug_otp_enabled,
@@ -61,6 +66,33 @@ export default function SystemSettings({
         }, {
             preserveScroll: true,
         });
+    };
+
+    const handleReindex = async () => {
+        setReindexing(true);
+        try {
+            const res = await fetch(route('admin.system-settings.reindex-chatbot'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': decodeURIComponent(
+                        document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''
+                    ),
+                },
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLastReindexedAt(data.last_reindexed_at);
+                toast.success(data.message);
+            } else {
+                toast.error(data.message || 'Reindex failed.');
+            }
+        } catch {
+            toast.error('Failed to reach the server. Please try again.');
+        } finally {
+            setReindexing(false);
+        }
     };
 
     return (
@@ -175,6 +207,35 @@ export default function SystemSettings({
                             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${debugTrackingOtp ? 'translate-x-5' : 'translate-x-0'}`} />
                         </button>
                     </div>
+                </div>
+
+                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
+                    <h3 className="text-base font-semibold text-slate-900 mb-4">Chatbot Knowledge</h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                        Rebuild the chatbot's search index from the latest helpdesk articles, guide topics, and database records.
+                    </p>
+                    {lastReindexedAt && (
+                        <p className="text-xs text-slate-400 mb-4">
+                            Last updated: {new Date(lastReindexedAt).toLocaleString()}
+                        </p>
+                    )}
+                    <button
+                        onClick={handleReindex}
+                        disabled={reindexing}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {reindexing ? (
+                            <>
+                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                Rebuilding…
+                            </>
+                        ) : (
+                            'Update Knowledge'
+                        )}
+                    </button>
                 </div>
             </div>
             {UnsavedModal}
