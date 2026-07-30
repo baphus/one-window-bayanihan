@@ -13,7 +13,13 @@ class EnsureMfaSession
     public function handle(Request $request, Closure $next): Response
     {
         $pendingState = app(MfaPendingState::class);
-        if (config('mfa.login_challenge_enabled') && ($user = $request->user())
+
+        // Only enforce MFA session for ADMIN accounts
+        if (($user = $request->user()) && ! $user->isAdmin()) {
+            return $next($request);
+        }
+
+        if (config('mfa.login_challenge_enabled') && $user
             && $user->mfa_enabled_at !== null
             && ! $pendingState->hasValidMarker($request, $user)) {
             Auth::guard('web')->logout();

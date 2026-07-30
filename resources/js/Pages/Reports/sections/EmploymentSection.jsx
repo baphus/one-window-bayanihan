@@ -5,7 +5,7 @@ import SectionAccordion from '@/Components/Reports/SectionAccordion';
 
 export default function EmploymentSection() {
   const [employmentDistribution, employmentLoading, employmentError] = useLazyProp('employmentDistribution');
-  const [employmentPositionBreakdown, positionLoading, positionError] = useLazyProp('employmentPositionBreakdown');
+  const [employmentOccupationBreakdown, positionLoading, positionError] = useLazyProp('employmentOccupationBreakdown');
 
   const isLoading = employmentLoading || positionLoading;
 
@@ -16,7 +16,7 @@ export default function EmploymentSection() {
       ) : (
         <EmploymentAnalytics
           employmentDistribution={employmentDistribution}
-          employmentPositionBreakdown={employmentPositionBreakdown}
+          employmentOccupationBreakdown={employmentOccupationBreakdown}
         />
       )}
     </SectionAccordion>

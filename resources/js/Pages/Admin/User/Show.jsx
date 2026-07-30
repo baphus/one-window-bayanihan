@@ -167,7 +167,7 @@ export default function AdminUserShow({ user }) {
               <p className="text-sm font-semibold text-slate-900 mt-1">{user.email}</p>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Position</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Occupation</p>
               <p className="text-sm font-semibold text-slate-900 mt-1">{user.position || '\u2014'}</p>
             </div>
             <div>

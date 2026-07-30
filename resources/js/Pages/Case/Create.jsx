@@ -14,7 +14,7 @@ import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
-import { DEFAULT_POSITIONS } from '@/data/defaultPositions';
+import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 
 const STEPS = [
     { id: 1, title: 'Client Profile', description: 'Enter client information and employment details' },
@@ -375,17 +375,17 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
 }
 
 export default function CaseCreate() {
-    const { client, categories = [], existingDraft, auth, caseIssues = [], positionOptions = [] } = usePage().props;
+    const { client, categories = [], existingDraft, auth, caseIssues = [], occupationOptions = [] } = usePage().props;
 
-    // Merge curated defaults with previously entered positions from the backend,
+    // Merge curated defaults with previously entered occupations from the backend,
     // de-duplicate, sort, and shape as [value, label] pairs for SearchableSelect.
-    const mergedPositionOptions = useMemo(() => {
-        const labels = [...DEFAULT_POSITIONS, ...positionOptions.map((o) => o.label ?? o)]
+    const mergedOccupationOptions = useMemo(() => {
+        const labels = [...DEFAULT_OCCUPATIONS, ...occupationOptions.map((o) => o.label ?? o)]
             .map((p) => String(p).trim())
             .filter(Boolean);
         const unique = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
         return unique.map((p) => ({ value: p, label: p }));
-    }, [positionOptions]);
+    }, [occupationOptions]);
 
     function normalizeSex(value) {
         if (!value) return '';
@@ -1146,7 +1146,7 @@ export default function CaseCreate() {
             if (!data.address.barangay) missing.push('Barangay');
             if (!data.employment.employer_name.trim()) missing.push('Employer Name');
             if (!data.employment.last_country) missing.push('Last Country of Employment');
-            if (!data.employment.last_position.trim()) missing.push('Last Job Position');
+            if (!data.employment.last_position.trim()) missing.push('Last Occupation');
             if (!data.employment.date_of_arrival) missing.push('Arrival Date');
             data.next_of_kin.forEach((nok, idx) => {
                 if (!nok.first_name.trim()) missing.push(`NOK #${idx + 1} First Name`);
@@ -1244,9 +1244,9 @@ export default function CaseCreate() {
                 missing.push('Last Country of Employment');
             }
             if (!data.employment.last_position.trim()) {
-                setError('employment.last_position', 'Last job position is required.');
+                setError('employment.last_position', 'Last occupation is required.');
                 isValid = false;
-                missing.push('Last Job Position');
+                missing.push('Last Occupation');
             }
             if (!data.employment.date_of_arrival) {
                 setError('employment.date_of_arrival', 'Arrival date is required.');
@@ -2001,8 +2001,8 @@ function handleConfirmClient(client) {
                                                     <Field label="Last Country of Employment" required>
                                                         <CountrySelect value={data.employment.last_country} onChange={(v) => handleEmploymentChange('last_country', v)} placeholder="Select country..." />
                                                     </Field>
-                                                    <Field label="Last Job Position" required>
-                                                        <SearchableSelect value={data.employment.last_position} onChange={(v) => handleEmploymentChange('last_position', v)} options={mergedPositionOptions} placeholder="Select or type position..." allowCustom />
+                                                    <Field label="Last Occupation" required>
+                                                        <SearchableSelect value={data.employment.last_position} onChange={(v) => handleEmploymentChange('last_position', v)} options={mergedOccupationOptions} placeholder="Select or type occupation..." allowCustom />
                                                     </Field>
                                                     <Field label="Employment Period" required className="md:col-span-2">
                                                         <div className="flex items-center gap-2">

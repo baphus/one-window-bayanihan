@@ -45,7 +45,7 @@ export default function DashboardBanner({ onSkip, onDismiss }) {
                 <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-extrabold text-slate-900">Complete your profile</h3>
                     <p className="mt-1 text-[13px] text-slate-600 leading-relaxed">
-                        Add your position, department, and contact info so your colleagues can identify and reach you.
+                        Add your occupation, department, and contact info so your colleagues can identify and reach you.
                     </p>
                     <div className="mt-3 flex items-center gap-3">
                         <button

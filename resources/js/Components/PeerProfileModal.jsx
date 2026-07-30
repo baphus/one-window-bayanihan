@@ -72,7 +72,7 @@ export default function PeerProfileModal({ user, show, onClose }) {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Personal Information</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Position</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Occupation</p>
                             <p className="text-sm font-semibold text-slate-900 mt-0.5">{user.position || '\u2014'}</p>
                         </div>
                         <div>

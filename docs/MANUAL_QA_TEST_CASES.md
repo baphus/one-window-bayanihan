@@ -93,7 +93,7 @@
 | CASE-002 | Step 1 — Search existing client | 1. In Step 1, search by client name 2. Select matching client | Client fields auto-populated with existing client data |
 | CASE-003 | Step 1 — Enter new client details | 1. Fill in: first name, last name, DOB, sex 2. Fill contact info 3. Select address via PSGC dropdowns | All fields accepted; address cascade works (region → province → city → barangay) |
 | CASE-004 | Step 1 — Client type selection | 1. Select OFW or NEXT_OF_KIN | Selection recorded; relevant sections shown |
-| CASE-005 | Step 1 — Employment section (OFW) | 1. Select client type OFW 2. Fill employer, position, country, dates | Employment fields accepted |
+| CASE-005 | Step 1 — Employment section (OFW) | 1. Select client type OFW 2. Fill employer, occupation, country, dates | Employment fields accepted |
 | CASE-006 | Step 1 — Next-of-kin entry | 1. Add NOK: name, relationship, contact, address | NOK added to list; can add multiple |
 | CASE-007 | Step 1 — Vulnerability indicators | 1. Select PWD, Senior Citizen, Solo Parent, Indigenous Person (multi-select) | Indicators saved as comma-separated values |
 | CASE-008 | Step 2 — Case setup | 1. Select client type (OFW/NOK) 2. Select categories (multi-select) 3. Select case issue | All selections recorded |

@@ -24,7 +24,7 @@ const barOptions = {
 
 export default function EmploymentAnalytics({
   employmentDistribution,
-  employmentPositionBreakdown,
+  employmentOccupationBreakdown,
 }) {
   const totalEmployed = useMemo(() => {
     if (!employmentDistribution?.data) return 0;
@@ -48,13 +48,13 @@ export default function EmploymentAnalytics({
   }, [employmentDistribution]);
 
   const totalPositions = useMemo(() => {
-    if (!employmentPositionBreakdown) return 0;
+    if (!employmentOccupationBreakdown) return 0;
     // Prefer the server-computed total_distinct (unlimited count) over
     // labels.length which is capped at top 10 results in the chart.
-    return employmentPositionBreakdown.total_distinct
-      ?? employmentPositionBreakdown.labels?.length
+    return employmentOccupationBreakdown.total_distinct
+      ?? employmentOccupationBreakdown.labels?.length
       ?? 0;
-  }, [employmentPositionBreakdown]);
+  }, [employmentOccupationBreakdown]);
 
   return (
     <section className="space-y-4">
@@ -70,7 +70,7 @@ export default function EmploymentAnalytics({
           }
         />
         <MetricCard
-          label="Position Types"
+          label="Occupation Types"
           value={`${totalPositions}`}
           accent="border-l-[#6366f1]"
           trailing={
@@ -99,25 +99,25 @@ export default function EmploymentAnalytics({
 
         <article className="border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
           <h3 className="mb-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-            Position Breakdown
+            Occupation Breakdown
           </h3>
-          {employmentPositionBreakdown?.labels?.length > 0 ? (
+          {employmentOccupationBreakdown?.labels?.length > 0 ? (
             <div className="max-h-64 overflow-y-auto owb-scroll-wide">
               <table className="w-full text-[11px]">
                 <thead>
                   <tr className="border-b border-slate-300 dark:border-slate-700 text-left text-[10px] font-extrabold uppercase tracking-[0.11em] text-slate-500 dark:text-slate-400">
-                    <th className="pb-2 pr-3">Position</th>
+                    <th className="pb-2 pr-3">Occupation</th>
                     <th className="pb-2 text-right">Clients</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {employmentPositionBreakdown.labels.map((label, i) => (
+                  {employmentOccupationBreakdown.labels.map((label, i) => (
                     <tr key={label} className="border-b border-slate-200 dark:border-slate-700 last:border-0">
                       <td className="py-1.5 pr-3 font-medium capitalize text-slate-700 dark:text-slate-200">
                         {label.replace(/_/g, ' ').toLowerCase()}
                       </td>
                       <td className="py-1.5 text-right font-bold text-slate-700 dark:text-slate-200">
-                        {employmentPositionBreakdown.data[i] || 0}
+                        {employmentOccupationBreakdown.data[i] || 0}
                       </td>
                     </tr>
                   ))}
@@ -126,7 +126,7 @@ export default function EmploymentAnalytics({
             </div>
           ) : (
             <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">
-              No position data available.
+              No occupation data available.
             </p>
           )}
         </article>

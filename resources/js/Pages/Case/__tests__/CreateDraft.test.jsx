@@ -4,7 +4,7 @@ import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const setData = vi.fn();
-const pageProps = { existingDraft: null, categories: [], caseIssues: [], positionOptions: [], auth: { user: { id: 'user-1' } } };
+const pageProps = { existingDraft: null, categories: [], caseIssues: [], occupationOptions: [], auth: { user: { id: 'user-1' } } };
 const draft = { id: 'draft-123', case_number: 'CASE-1', tracker_number: 'OWBAP-TEST123', client_type: 'OFW', draft_client_data: {
   first_name: 'Draft', last_name: 'Client', date_of_birth: '1990-01-01', sex: 'Male', email: 'draft@example.test', contact_number: '09170000000', consent: true,
   address: { region: 'Region VII', province: 'Cebu', city_municipality: 'Cebu City', barangay: 'Lahug' },

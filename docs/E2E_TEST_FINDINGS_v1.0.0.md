@@ -73,7 +73,7 @@ is the more serious of the two — it silently loses data.
 
 Originally reported as employment `position` being silently discarded. On
 re-testing this was **my input error, not a defect**. The "Select or type
-position…" control offers two options once you type: the canonical entry
+occupation…" control offers two options once you type: the canonical entry
 (e.g. "Domestic Helper / Household Service Worker") and an explicit
 `Use "<your text>"` option for free text. Typing alone does not commit a value;
 one of the options must be chosen. When selected properly the value persists
@@ -81,7 +81,7 @@ correctly.
 
 The remaining note is minor UX: a required field where typing *looks* sufficient
 but silently registers nothing is easy to get wrong, and the intake wizard gave
-no validation warning about the empty position on submit.
+no validation warning about the empty occupation on submit.
 
 ### D2b — Case-creation wizard displays identifiers that are then discarded
 

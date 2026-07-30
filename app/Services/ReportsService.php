@@ -98,7 +98,7 @@ class ReportsService
             'geographicMapData' => $this->getGeographicMapData($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
             'categoryDistribution' => $this->categoryDistribution($userId, 'CASE_MANAGER', $agencyId),
             'employmentDistribution' => $this->getLastEmploymentDistribution($userId, 'CASE_MANAGER', $agencyId),
-            'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown($userId, 'CASE_MANAGER', $agencyId),
+            'employmentOccupationBreakdown' => $this->getEmploymentOccupationBreakdown($userId, 'CASE_MANAGER', $agencyId),
             'caseStatusDistribution' => $this->getCaseStatusDistribution($userId, 'CASE_MANAGER', $agencyId),
             'caseIssueDistribution' => $this->getCaseIssueDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
             'overdueReferrals' => $this->getOverdueReferrals($userId, 'CASE_MANAGER', $province, $city, $agencyId),
@@ -155,7 +155,7 @@ class ReportsService
             'agencyScorecard' => $this->getAgencyScorecard(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
             'categoryDistribution' => $this->categoryDistribution(null, null, $agencyId),
             'employmentDistribution' => $this->getLastEmploymentDistribution(null, null, $agencyId),
-            'employmentPositionBreakdown' => $this->getEmploymentPositionBreakdown(null, null, $agencyId),
+            'employmentOccupationBreakdown' => $this->getEmploymentOccupationBreakdown(null, null, $agencyId),
             'caseStatusDistribution' => $this->getCaseStatusDistribution(null, null, $agencyId),
             'caseIssueDistribution' => $this->getCaseIssueDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
             'vulnerabilityDistribution' => $this->getVulnerabilityDistribution(null, null, $agencyId),
@@ -1006,7 +1006,7 @@ class ReportsService
         ];
     }
 
-    public function getEmploymentPositionBreakdown(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
+    public function getEmploymentOccupationBreakdown(?string $userId = null, ?string $role = null, ?string $agencyId = null): array
     {
         // last_position is encrypted, so grouping/counting must happen after
         // Eloquent hydrates the models and applies the EncryptedString cast.
@@ -1020,8 +1020,8 @@ class ReportsService
             ->lazy(500);
 
         // Rows are ordered by client, so only the current client's distinct
-        // positions need to remain in memory.  Counts retain one entry per
-        // decoded position, not one entry per employment row or client.
+        // occupations need to remain in memory.  Counts retain one entry per
+        // decoded occupation, not one entry per employment row or client.
         $counts = [];
         $currentClientId = null;
         $clientPositions = [];
@@ -1152,7 +1152,7 @@ class ReportsService
             'cycleTimeDistribution' => [], 'referralAging' => [],
             'agencyScorecard' => [], 'geographicDistribution' => [],
             'geographicMapData' => ['provinces' => []], 'categoryDistribution' => [],
-            'employmentDistribution' => [], 'employmentPositionBreakdown' => ['labels' => [], 'data' => [], 'total_distinct' => 0],
+            'employmentDistribution' => [],             'employmentOccupationBreakdown' => ['labels' => [], 'data' => [], 'total_distinct' => 0],
             'caseStatusDistribution' => [], 'caseIssueDistribution' => [],
             'overdueReferrals' => ['count' => 0, 'referrals' => []],
             'cityDistribution' => [], 'vulnerabilityDistribution' => [],

@@ -92,7 +92,7 @@ export default function ClientProfileSummaryModal({
                     {employment ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <MetaTile label="Last Country" value={employment.last_country || 'N/A'} />
-                            <MetaTile label="Last Position" value={employment.last_position || 'N/A'} />
+                            <MetaTile label="Last Occupation" value={employment.last_position || 'N/A'} />
                             <MetaTile label="Employer Name" value={employment.employer_name || 'N/A'} />
                             <MetaTile label="Date of Arrival" value={formatDate(employment.date_of_arrival)} />
                         </div>

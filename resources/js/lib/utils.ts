@@ -20,11 +20,16 @@ export function formatDisplayTime(iso: string): string {
 }
 
 export function formatDisplayDate(iso: string): string {
+    if (!iso) return '';
+    // Parse date-only strings as UTC to avoid timezone shift
+    const dateStr = String(iso).match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    const date = dateStr ? new Date(dateStr + 'T00:00:00Z') : new Date(iso);
     return new Intl.DateTimeFormat('en-US', {
         month: 'long',
         day: 'numeric',
         year: 'numeric',
-    }).format(new Date(iso));
+        timeZone: 'UTC',
+    }).format(date);
 }
 
 export function formatStatusLabel(status: string | null | undefined): string {

@@ -27,11 +27,15 @@ const SEX_OPTIONS = ['Male', 'Female'];
 
 function computeAge(dob) {
   if (!dob) return '—';
-  const birth = new Date(dob);
-  if (Number.isNaN(birth.getTime())) return '—';
-  let age = new Date().getFullYear() - birth.getFullYear();
-  const m = new Date().getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && new Date().getDate() < birth.getDate())) age--;
+  const dateStr = String(dob).match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  const birthDate = dateStr ? new Date(dateStr + 'T00:00:00Z') : new Date(dob);
+  if (Number.isNaN(birthDate.getTime())) return '—';
+  const today = new Date();
+  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+  const m = today.getUTCMonth() - birthDate.getUTCMonth();
+  if (m < 0 || (m === 0 && today.getUTCDate() < birthDate.getUTCDate())) {
+    age--;
+  }
   return age;
 }
 
@@ -43,6 +47,7 @@ function normalizeDateInput(value) {
 
 function formatAddress(resolved, raw) {
   const parts = [];
+  if (resolved?.street) parts.push(resolved.street);
   if (resolved?.barangay) parts.push(resolved.barangay);
   if (resolved?.city_municipality) parts.push(resolved.city_municipality);
   if (resolved?.province) parts.push(resolved.province);
@@ -51,6 +56,7 @@ function formatAddress(resolved, raw) {
   // Last resort only. These values are PSGC codes, which are meaningless to a
   // reviewer, so surface them as clearly unresolved rather than as an address.
   const rawParts = [];
+  if (raw?.street) rawParts.push(raw.street);
   if (raw?.barangay) rawParts.push(raw.barangay);
   if (raw?.city_municipality) rawParts.push(raw.city_municipality);
   if (raw?.province) rawParts.push(raw.province);
@@ -283,6 +289,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
 
   function openEditAddress() {
     setEditAddress({
+      street: address.street || '',
       region: address.region || '',
       province: address.province || '',
       city_municipality: address.city_municipality || '',
@@ -649,7 +656,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
                     <div>
-                      <FieldLabel>Position</FieldLabel>
+                      <FieldLabel>Occupation</FieldLabel>
                       <input type="text" value={editEmployment.position} onChange={(e) => setEditEmployment({ ...editEmployment, position: e.target.value })}
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
@@ -689,7 +696,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
                     <div>
-                      <FieldLabel>Last Position</FieldLabel>
+                      <FieldLabel>Last Occupation</FieldLabel>
                       <input type="text" value={editEmployment.last_position} onChange={(e) => setEditEmployment({ ...editEmployment, last_position: e.target.value })}
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
@@ -707,12 +714,12 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   <InfoRow label="Employer" value={employment.employer_name} />
-                  <InfoRow label="Position" value={employment.position} />
+                  <InfoRow label="Occupation" value={employment.position} />
                   <InfoRow label="Country" value={employment.country} />
                   <InfoRow label="Employment Period" value={employmentPeriod} />
                   <InfoRow label="Date of Arrival" value={employment.date_of_arrival ? formatDisplayDate(employment.date_of_arrival) : '—'} />
                   <InfoRow label="Last Country" value={employment.last_country} />
-                  <InfoRow label="Last Position" value={employment.last_position} />
+                  <InfoRow label="Last Occupation" value={employment.last_position} />
                 </div>
               )}
             </div>

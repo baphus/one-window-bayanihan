@@ -37,7 +37,7 @@ describe('Admin user search requests', () => {
 
   it('sends the entered search and resets page after the debounce', () => {
     render(<Index {...props} />);
-    fireEvent.change(screen.getByPlaceholderText('Search by name, email, or position...'), { target: { value: 'ada' } });
+    fireEvent.change(screen.getByPlaceholderText('Search by name, email, or occupation...'), { target: { value: 'ada' } });
 
     act(() => vi.advanceTimersByTime(400));
 

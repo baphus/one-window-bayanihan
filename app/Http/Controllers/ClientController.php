@@ -447,7 +447,7 @@ class ClientController extends Controller
             ['key' => 'receiving_parties',  'label' => 'Receiving Party/s',   'type' => 'string'],
             ['key' => 'date_of_arrival',    'label' => 'Date of Arrival in PH', 'type' => 'date'],
             ['key' => 'previous_country',   'label' => 'Previous Country',    'type' => 'string'],
-            ['key' => 'work_position',      'label' => 'Work Position',       'type' => 'string'],
+            ['key' => 'work_position',      'label' => 'Work Occupation',       'type' => 'string'],
             ['key' => 'nok_full_name',      'label' => 'NOK Full Name',       'type' => 'string'],
             ['key' => 'nok_contact_number', 'label' => 'NOK Contact No.',     'type' => 'string'],
             ['key' => 'nok_email',          'label' => 'NOK Email',           'type' => 'string'],

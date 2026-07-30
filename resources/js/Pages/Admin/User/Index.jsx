@@ -33,7 +33,7 @@ const COLUMN_DEFS = [
   { key: 'email', label: 'Email', default: true },
   { key: 'role', label: 'Role', default: true },
   { key: 'agency', label: 'Agency', default: true },
-  { key: 'position', label: 'Position', default: false },
+  { key: 'position', label: 'Occupation', default: false },
   { key: 'department', label: 'Department', default: false },
   { key: 'contact_number', label: 'Contact', default: false },
   { key: 'email_verified', label: 'Email Verified', default: true },
@@ -558,7 +558,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         {...paginatorProps(users)}
         emptyStateMessage="No users found"
         searchValue={searchValue}
-        searchPlaceholder="Search by name, email, or position..."
+        searchPlaceholder="Search by name, email, or occupation..."
         onSearchChange={handleSearchChange}
         onAdvancedFilters={() => setFilterOpen((v) => { setColumnsOpen(false); return !v; })}
         isAdvancedFiltersOpen={filterOpen}
