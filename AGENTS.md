@@ -86,3 +86,17 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 - `docs/CI_CD_GUIDE_v2.0.0.md` for CI stages and the deploy-trigger contract.
 - Superseded unversioned copies of the docs above are kept as history; always read the highest version.
 - `instructions.md` is stale Copilot-era guidance; prefer executable config and current `docs/` files.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues via `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` at repo root, ADRs in `docs/adr/`. See `docs/agents/domain.md`.

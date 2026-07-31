@@ -85,6 +85,7 @@ export default function IntakeIndex({ occupationOptions }) {
   const [duplicateMessage, setDuplicateMessage] = useState('');
   const [hasExistingAccount, setHasExistingAccount] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submittedCase, setSubmittedCase] = useState(null);
 
   const [formData, setFormData] = useState(() => {
     const saved = loadFromSession();
@@ -205,6 +206,11 @@ export default function IntakeIndex({ occupationOptions }) {
       const { res, json } = await postJson(route('intake.submit'), formData);
       if (res.ok && json?.success) {
         clearSession();
+        setSubmittedCase({
+          caseNumber: json.case_number,
+          trackerNumber: json.tracker_number,
+          email: json.email,
+        });
         setSubmitSuccess(true);
       } else if (res.status === 422) {
         // Validation errors — merge with existing but keep submit-level
@@ -232,7 +238,7 @@ export default function IntakeIndex({ occupationOptions }) {
 
   // If submitted successfully, redirect to success page
   if (submitSuccess) {
-    return <IntakeSuccess />;
+    return <IntakeSuccess caseNumber={submittedCase?.caseNumber} trackerNumber={submittedCase?.trackerNumber} email={submittedCase?.email} />;
   }
 
   return (
@@ -883,7 +889,45 @@ function SubmitReviewStep({ formData, updateField, errors, processing, onSubmit,
   );
 }
 
-function IntakeSuccess() {
+function IntakeSuccess({ caseNumber, trackerNumber, email }) {
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [registerErrors, setRegisterErrors] = useState({});
+  const [registerProcessing, setRegisterProcessing] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [registerGeneralError, setRegisterGeneralError] = useState('');
+
+  const handleCreateAccount = async () => {
+    setRegisterErrors({});
+    setRegisterGeneralError('');
+    setRegisterProcessing(true);
+
+    try {
+      const { res, json } = await postJson(route('intake.register'), {
+        password,
+        password_confirmation: passwordConfirmation,
+      });
+
+      if (res.ok && json?.success) {
+        // Account created — redirect to OFW portal
+        window.location.href = json.redirect || route('ofw.dashboard');
+      } else if (res.status === 422) {
+        if (json?.errors) {
+          setRegisterErrors(json.errors);
+        } else if (json?.error) {
+          setRegisterGeneralError(json.error);
+        }
+      } else {
+        setRegisterGeneralError(json?.error || json?.message || 'Registration failed. Please try again.');
+      }
+    } catch (e) {
+      setRegisterGeneralError('Network error. Please check your connection and try again.');
+    }
+
+    setRegisterProcessing(false);
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface">
       <Head title="Submission Received" />
@@ -897,9 +941,115 @@ function IntakeSuccess() {
             </div>
           </div>
           <h1 className="mb-4 font-headline text-2xl font-bold text-slate-900 md:text-3xl">Request Submitted Successfully</h1>
-          <p className="mx-auto mb-10 max-w-md text-sm leading-relaxed text-slate-600 md:text-base">
+          <p className="mx-auto mb-6 max-w-md text-sm leading-relaxed text-slate-600 md:text-base">
             Your assistance request has been submitted. A Case Manager will review your information and you will be notified once your case is processed.
           </p>
+
+          {/* Case details */}
+          <div className="mx-auto mb-8 max-w-sm rounded border border-outline-variant bg-slate-50 p-4 text-left">
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Case Number</span>
+                <span className="font-mono font-bold text-slate-900">{caseNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Tracker Number</span>
+                <span className="font-mono font-bold text-slate-900">{trackerNumber}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Account creation upsell */}
+          {!registered && (
+            <div className="mb-8">
+              {!showRegistration ? (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-6">
+                  <h2 className="mb-2 text-base font-bold text-slate-900">Create an account for easier tracking</h2>
+                  <p className="mb-4 text-sm text-slate-600">
+                    Set a password so you can log in anytime to check your case status — no need to enter verification codes each time.
+                  </p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowRegistration(true)}
+                      className="bg-primary px-6 py-3 text-sm font-bold text-white hover:brightness-110"
+                    >
+                      Create Account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRegistered(true)}
+                      className="border border-outline-variant px-6 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Maybe later
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-outline-variant bg-white p-6 text-left shadow-sm">
+                  <h2 className="mb-1 text-base font-bold text-slate-900">Create Your Account</h2>
+                  <p className="mb-4 text-sm text-slate-500">
+                    Set a password to access your case anytime.
+                  </p>
+
+                  {registerGeneralError && (
+                    <div className="mb-4 rounded bg-error-container p-3 text-xs font-medium text-on-error-container">
+                      {registerGeneralError}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        readOnly
+                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm text-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Password</label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={e => { setPassword(e.target.value); setRegisterErrors(prev => ({ ...prev, password: undefined })); }}
+                        placeholder="At least 8 characters"
+                        className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${registerErrors.password ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
+                      />
+                      {registerErrors.password && <p className="mt-1 text-xs text-error">{registerErrors.password[0]}</p>}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Confirm Password</label>
+                      <input
+                        type="password"
+                        value={passwordConfirmation}
+                        onChange={e => setPasswordConfirmation(e.target.value)}
+                        placeholder="Re-enter your password"
+                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreateAccount}
+                      disabled={registerProcessing || !password || !passwordConfirmation}
+                      className="w-full bg-primary px-6 py-3 text-sm font-bold text-white hover:brightness-110 disabled:opacity-50"
+                    >
+                      {registerProcessing ? 'Creating account...' : 'Create Account & Go to Dashboard'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowRegistration(false); setRegisterErrors({}); setRegisterGeneralError(''); }}
+                      className="w-full text-center text-xs text-slate-500 hover:text-primary"
+                    >
+                      Skip for now
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <a href={route('track.index')} className="inline-flex items-center justify-center gap-2 bg-primary px-6 py-3.5 text-sm font-bold text-white hover:brightness-110">
               <span className="material-symbols-outlined text-[18px]">search</span>

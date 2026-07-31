@@ -24,6 +24,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IntakeController;
+use App\Http\Controllers\IntakeRegistrationController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfwDashboardController;
@@ -367,6 +368,9 @@ Route::post('/intake/check-duplicate', [IntakeController::class, 'checkDuplicate
     ->middleware('throttle:intake-duplicate');
 Route::post('/intake/submit', [IntakeController::class, 'submit'])
     ->name('intake.submit')
+    ->middleware('throttle:intake-submit');
+Route::post('/intake/register', [IntakeRegistrationController::class, 'store'])
+    ->name('intake.register')
     ->middleware('throttle:intake-submit');
 
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
