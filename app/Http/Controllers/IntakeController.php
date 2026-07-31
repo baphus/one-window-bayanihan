@@ -136,12 +136,15 @@ class IntakeController extends Controller
             $verifiedEmail,
         );
 
-        // Clear the verified email from session
-        $request->session()->forget('intake_verified_email');
+        // Keep verified email in session for potential account creation
+        // (IntakeRegistrationController will clear it after use)
 
         return response()->json([
             'success' => true,
             'message' => 'Your request has been submitted successfully. A Case Manager will review your information.',
+            'case_number' => $case->case_number,
+            'tracker_number' => $case->tracker_number,
+            'email' => $verifiedEmail,
         ]);
     }
 }
