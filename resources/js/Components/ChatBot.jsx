@@ -510,32 +510,6 @@ export default function ChatBot() {
                                         ))}
                                     </div>
                                 )}
-                                {msg.sources && msg.sources.length > 0 && (
-                                    <div className="border-t border-outline-variant/30 px-4 py-2">
-                                        <p className="text-[10px] font-medium text-on-surface-variant/70 mb-1">
-                                            Sources
-                                        </p>
-                                        <div className="flex flex-wrap gap-1">
-                                            {msg.sources.map((source, si) => {
-                                                const Tag = source.url ? 'a' : 'span';
-                                                const props = source.url
-                                                    ? { href: source.url, target: '_blank', rel: 'noopener noreferrer' }
-                                                    : {};
-                                                return (
-                                                    <Tag
-                                                        key={si}
-                                                        {...props}
-                                                        className={`inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5 text-[10px] text-on-surface-variant ${source.url ? 'hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer' : ''}`}
-                                                        title={source.url ? `Open: ${source.heading}` : source.heading}
-                                                    >
-                                                        <span className="inline-block h-1 w-1 rounded-full bg-on-surface-variant/40" />
-                                                        {source.heading}
-                                                    </Tag>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                         <span className="ml-[48px] mt-1 flex items-center gap-1.5 px-1 text-[10px] text-on-surface-variant opacity-0 transition-opacity group-hover:opacity-100">
