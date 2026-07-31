@@ -72,7 +72,7 @@ class CaseDocumentController extends Controller
             return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
         }
 
-        CaseDocument::create([
+        $document = CaseDocument::create([
             'file_name' => $result->originalName,
             'file_path' => $result->path,
             'file_type' => $result->type,
@@ -82,6 +82,10 @@ class CaseDocumentController extends Controller
             'referral_id' => $request->input('referral_id'),
             'user_id' => $request->user()->id,
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json($document, 201);
+        }
 
         return back()->with('success', 'Document uploaded successfully.');
     }

@@ -37,6 +37,14 @@ vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
 vi.mock('@/lib/utils', () => ({ formatDisplayDateTime: () => 'Jan 1, 2026', formatDisplayDate: () => 'Jan 1, 2026' }));
 vi.mock('@/lib/relativeTime', () => ({ formatRelativeTime: () => 'today' }));
 vi.mock('@/lib/addressResolver', () => ({ formatResolvedAddress: () => 'N/A' }));
+vi.mock('@/Hooks/useToast', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
+}));
 
 globalThis.route = (name, params) => `/${name}/${Array.isArray(params) ? params.join('/') : params ?? ''}`;
 

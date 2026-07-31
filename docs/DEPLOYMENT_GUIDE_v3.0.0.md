@@ -130,7 +130,7 @@ DB_PASSWORD=<secret>
 DB_SSLMODE=require            # 'require' for any networked database; 'prefer' for local
 
 # ── Object storage (C4), S3-compatible ────────────────────────
-FILESYSTEM_DISK=object-storage
+FILESYSTEM_DISK=object-storage        # or 'r2' for Cloudflare R2
 STORAGE_DRIVER=s3
 STORAGE_ACCESS_KEY=<key>
 STORAGE_SECRET_KEY=<secret>
@@ -138,6 +138,15 @@ STORAGE_REGION=ap-southeast-1
 STORAGE_BUCKET=case-files
 STORAGE_ENDPOINT=https://<object-storage-endpoint>
 # Legacy aliases still honoured as fallbacks: SUPABASE_S3_* (see config/filesystems.php)
+
+# ── Cloudflare R2 (C4 alternative) ───────────────────────────
+# Set FILESYSTEM_DISK=r2 to activate. R2 uses path-style endpoints only.
+R2_ACCESS_KEY_ID=<key>
+R2_SECRET_ACCESS_KEY=<secret>
+R2_BUCKET=<bucket>
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+# Optional: custom domain for public reads (e.g., https://files.yourdomain.com)
+R2_PUBLIC_URL=
 
 # ── Audit archive storage (C4) ────────────────────────────────
 AUDIT_ARCHIVE_DISK=audit-archives
@@ -174,6 +183,60 @@ TURNSTILE_SECRET_KEY=
 CLOUDINARY_URL=               # C12 avatar CDN
 AI_CHATBOT_ENABLED=false
 OPENROUTER_API_KEY=
+
+# ── MFA (login challenge) ────────────────────────────────────
+MFA_LOGIN_CHALLENGE_TTL=300
+MFA_LOGIN_CHALLENGE_MAX_ATTEMPTS=5
+MFA_LOGIN_CHALLENGE_WINDOW=1
+MFA_LOGIN_CHALLENGE_REPLAY_TTL=120
+MFA_ENROLLMENT_ENFORCEMENT_ENABLED=true
+# Roles required to enrol in MFA. Defaults to every staff role that can reach
+# OFW personal data. Set to ADMIN alone only with a documented justification.
+MFA_ENROLLMENT_ENFORCED_ROLES=ADMIN,CASE_MANAGER,AGENCY
+
+# ── Mail (C6) — additional ────────────────────────────────────
+RESEND_WEBHOOK_SECRET=          # Svix signing key for delivery/bounce tracking
+CONTACT_RECIPIENT_EMAIL=        # Contact form recipient (defaults to MAIL_FROM_ADDRESS)
+
+# ── Sentry / error ingest (C11) ──────────────────────────────
+SENTRY_DSN=
+SENTRY_LARAVEL_TRACES_SAMPLE_RATE=0.2
+SENTRY_RELEASE=
+QUEUE_FAILED_ALERT_DRIVER=log
+
+# ── Audit ─────────────────────────────────────────────────────
+AUDIT_ARCHIVE_DRIVER=s3         # MUST be s3-compatible in production (immutability)
+AUDIT_CHAIN_VERIFIED_FROM=      # Deployment timestamp of chain fix; blank = strict
+AUDIT_EXPORT_MAX_ROWS=100000
+
+# ── AI Chatbot (extended) ─────────────────────────────────────
+AI_CHATBOT_PROVIDER=openrouter
+AI_CHATBOT_MODEL=openai/gpt-oss-120b:free
+AI_CHATBOT_TEMPERATURE=0.7
+AI_CHATBOT_MAX_TOKENS=500
+APP_ASSISTANT_NAME=Bayani
+AI_EMBEDDING_API_KEY=
+AI_EMBEDDING_MODEL=text-embedding-3-small
+AI_CHAT_RATE_LIMIT=30
+AI_MAX_TOKENS_PER_CHUNK=800
+AI_CHUNK_OVERLAP_TOKENS=100
+AI_RETRIEVAL_MAX_RESULTS=5
+AI_RETRIEVAL_MIN_SCORE=0.3
+AI_LOGGING_ENABLED=true
+AI_FALLBACK_MESSAGE="I could not find documentation for that. Please try rephrasing your question or browse our Help Center."
+
+# ── Bot protection (C13) — extended ──────────────────────────
+TURNSTILE_ENABLED=false
+
+# ── Malware scanning ──────────────────────────────────────────
+MALWARE_SCANNER=null             # 'clamav' or null; requires ClamAV daemon on localhost:3310
+
+# ── Link preview / SEO ───────────────────────────────────────
+# APP_DESCRIPTION=
+# APP_OWNER="Department of Migrant Workers - Region VII"
+# APP_SOCIAL_IMAGE=/og-image.png
+# APP_THEME_COLOR=#005288
+SEARCH_INDEXING_ENABLED=false    # false until go-live; controls X-Robots-Tag: noindex
 ```
 
 Full inventory: `.env.example`. Anything absent there is not read by the app.
@@ -451,7 +514,7 @@ Switching platforms means changing these — not the application, and not this g
 | Deploy trigger (API/webhook call) | `.github/workflows/deploy-*.yml` — the deploy step and its `DEPLOY_*` repository secrets/variables | Replace the deploy step's endpoint and credential; the rest of the pipeline is provider-neutral |
 | Health-gate URL | Pipeline variable `HEALTH_CHECK_URL` / `PRODUCTION_URL` | Point at the new environment domain |
 | Database endpoint | `DB_*` environment values | Repoint host/credentials; keep PostgreSQL 17 and `DB_SSLMODE=require` |
-| Object storage endpoint | `STORAGE_*` values (legacy `SUPABASE_S3_*` fallbacks in `config/filesystems.php`) | Repoint endpoint/bucket/keys; any S3-compatible service works |
+| Object storage endpoint | `STORAGE_*` values (legacy `SUPABASE_S3_*` fallbacks in `config/filesystems.php`); `R2_*` values when `FILESYSTEM_DISK=r2` | Repoint endpoint/bucket/keys; any S3-compatible service or Cloudflare R2 works |
 | Cache/queue endpoint | `REDIS_*` / `REDIS_URL` | Repoint host, password, TLS scheme |
 | Mail transport | `MAIL_MAILER` + transport credentials | SMTP or HTTPS-API mailer; see `docs/EMAIL_DELIVERY_v2.0.0.md` |
 | Error ingest | `SENTRY_LARAVEL_DSN` | Hosted or self-hosted compatible endpoint |
@@ -507,5 +570,5 @@ this deployment strategy, and where each currently stands.
 
 | Version | Date | Change |
 |---|---|---|
-| 3.0.0 | 2026-07-27 | Structural overhaul to a platform-neutral strategy. Removed all hosting/managed-service vendor names in favour of technology and capability requirements. Added §1 platform capability contract with fallbacks, §2 environment matrix, §5 four deployment models (container, compose, managed platform, orchestrator, VM), §6 provider-agnostic release trigger contract, §7 zero-downtime migration policy, §8 explicit scaling model and checklist, §12 platform binding inventory with a platform-migration checklist, §13 standards-readiness check. Updated the environment contract to the canonical `STORAGE_*` / `object-storage` disk names (legacy `SUPABASE_S3_*` documented as fallbacks) and added audit-archive, scheduler, and TLS variables that v2.0.0 omitted. Retained the case-category pivot runbook verbatim. |
+| 3.0.0 | 2026-07-27 | Structural overhaul to a platform-neutral strategy. Removed all hosting/managed-service vendor names in favour of technology and capability requirements. Added §1 platform capability contract with fallbacks, §2 environment matrix, §5 four deployment models (container, compose, managed platform, orchestrator, VM), §6 provider-agnostic release trigger contract, §7 zero-downtime migration policy, §8 explicit scaling model and checklist, §12 platform binding inventory with a platform-migration checklist, §13 standards-readiness check. Updated the environment contract to the canonical `STORAGE_*` / `object-storage` disk names (legacy `SUPABASE_S3_*` documented as fallbacks) and added audit-archive, scheduler, and TLS variables that v2.0.0 omitted. Retained the case-category pivot runbook verbatim. Expanded §4 env contract with Cloudflare R2 (`R2_*`) vars, MFA login-challenge vars, AI chatbot/embedding config, Sentry/audit extended vars, mail webhook/Resend vars, bot-protection, malware scanner, and SEO metadata. Updated §12 platform binding inventory to document R2 as an object-storage alternative. |
 | 2.0.0 | 2026-07-11 | Previous revision (`DEPLOYMENT_GUIDE.md`): single named-vendor production path, vendor dashboard instructions, stale storage env names. |
