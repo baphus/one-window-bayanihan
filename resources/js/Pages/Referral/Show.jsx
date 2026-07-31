@@ -859,7 +859,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                             Choose File
                                             <input
                                                 type="file"
-                                                className="sr-only"
+                                                className="hidden"
                                                 onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                                             />
                                         </label>

@@ -156,14 +156,22 @@ jobs:
           DB_DATABASE: ${{ secrets.DB_DATABASE }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          # ── Object storage (S3 or R2) ──
+          # Set FILESYSTEM_DISK to "r2" in the GitHub Environment to use Cloudflare R2.
+          # All STORAGE_* vars have sensible defaults; override only what differs.
+          FILESYSTEM_DISK: ${{ vars.FILESYSTEM_DISK || 'object-storage' }}
+          STORAGE_DRIVER: ${{ vars.STORAGE_DRIVER || 's3' }}
           STORAGE_BUCKET: ${{ vars.STORAGE_BUCKET }}
+          STORAGE_REGION: ${{ vars.STORAGE_REGION || 'ap-southeast-1' }}
+          STORAGE_ROOT: ${{ vars.STORAGE_ROOT || 'uploads' }}
+          STORAGE_USE_PATH_STYLE: ${{ vars.STORAGE_USE_PATH_STYLE || 'false' }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           # Deliberately a SEPARATE bucket. Object Lock is a bucket-wide setting,
           # so putting audit archives and case-file uploads in one bucket forces a
           # choice between immutable archives and a retention job that can delete
           # orphaned uploads. Two buckets get both.
           AUDIT_ARCHIVE_BUCKET: ${{ vars.AUDIT_ARCHIVE_BUCKET }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           MONITORING_READINESS_TOKEN: ${{ secrets.MONITORING_READINESS_TOKEN }}
           # Defaults to `log` because Resend refuses to send from an unverified
           # sender domain. With `log`, OTP and MFA codes land in the container log
@@ -202,6 +210,11 @@ jobs:
             --arg auditBkt  "$AUDIT_ARCHIVE_BUCKET" \
             --arg s3Key     "$STORAGE_ACCESS_KEY" \
             --arg s3Secret  "$STORAGE_SECRET_KEY" \
+            --arg fsDisk    "$FILESYSTEM_DISK" \
+            --arg fsDriver  "$STORAGE_DRIVER" \
+            --arg fsRegion  "$STORAGE_REGION" \
+            --arg fsRoot    "$STORAGE_ROOT" \
+            --arg fsPathStyle "$STORAGE_USE_PATH_STYLE" \
             --arg monToken  "$MONITORING_READINESS_TOKEN" \
             --arg indexing  "$SEARCH_INDEXING_ENABLED" \
             --arg mailer    "$MAIL_MAILER" \
@@ -237,18 +250,18 @@ jobs:
                     CACHE_STORE: "database",
                     QUEUE_CONNECTION: "database",
                     SESSION_DRIVER: "database",
-                    FILESYSTEM_DISK: "object-storage",
-                    STORAGE_DRIVER: "s3",
+                    FILESYSTEM_DISK: $fsDisk,
+                    STORAGE_DRIVER: $fsDriver,
                     STORAGE_BUCKET: $bucket,
-                    STORAGE_REGION: "ap-southeast-1",
-                    STORAGE_ROOT: "uploads",
-                    STORAGE_USE_PATH_STYLE: "false",
+                    STORAGE_REGION: $fsRegion,
+                    STORAGE_ROOT: $fsRoot,
+                    STORAGE_USE_PATH_STYLE: $fsPathStyle,
                     STORAGE_ACCESS_KEY: $s3Key,
                     STORAGE_SECRET_KEY: $s3Secret,
-                    AUDIT_ARCHIVE_DRIVER: "s3",
+                    AUDIT_ARCHIVE_DRIVER: $fsDriver,
                     AUDIT_ARCHIVE_BUCKET: $auditBkt,
                     AUDIT_ARCHIVE_ROOT: "audit-archives",
-                    AUDIT_ARCHIVE_USE_PATH_STYLE: "false",
+                    AUDIT_ARCHIVE_USE_PATH_STYLE: $fsPathStyle,
                     RUN_MIGRATIONS: "true",
                     RUN_SCHEDULER: "true",
                     RUN_QUEUE_WORKER: "true",
