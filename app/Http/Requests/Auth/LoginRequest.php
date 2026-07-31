@@ -73,7 +73,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if (config('mfa.login_challenge_enabled') && $user->mfa_enabled_at !== null && $user->isAdmin()) {
+        if ($user->mfa_enabled_at !== null && $user->isInMfaEnforcedRole()) {
             return $user;
         }
 

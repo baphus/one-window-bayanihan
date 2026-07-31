@@ -14,14 +14,13 @@ class EnsureMfaSession
     {
         $pendingState = app(MfaPendingState::class);
 
-        // Only enforce MFA session for ADMIN accounts
-        if (($user = $request->user()) && ! $user->isAdmin()) {
+        $user = $request->user();
+
+        if (! $user || ! $user->isInMfaEnforcedRole()) {
             return $next($request);
         }
 
-        if (config('mfa.login_challenge_enabled') && $user
-            && $user->mfa_enabled_at !== null
-            && ! $pendingState->hasValidMarker($request, $user)) {
+        if ($user->mfa_enabled_at !== null && ! $pendingState->hasValidMarker($request, $user)) {
             Auth::guard('web')->logout();
             $pendingState->clear($request);
             $request->session()->invalidate();

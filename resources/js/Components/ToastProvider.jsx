@@ -37,6 +37,21 @@ export function FlashMessageWatcher() {
     if (flash.warning) toast.warning(flash.warning);
     if (flash.info) toast.info(flash.info);
     if (flash.status) toast.info(flash.status);
+
+    if (flash.mfa_recovery_codes_remaining) {
+      const count = Number(flash.mfa_recovery_codes_remaining);
+      if (count <= 3) {
+        toast.warning(
+          `You have ${count} recovery code${count === 1 ? '' : 's'} remaining. Consider generating new codes.`,
+          8000,
+        );
+      } else {
+        toast.info(
+          `You have ${count} recovery code${count === 1 ? '' : 's'} remaining.`,
+          6000,
+        );
+      }
+    }
   }, [props.flash, toast]);
 
   return null;

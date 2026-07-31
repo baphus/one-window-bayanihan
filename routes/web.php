@@ -258,6 +258,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy')->whereUuid('user');
         Route::patch('/users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate')->whereUuid('user');
         Route::patch('/users/{user}/verify', [AdminUserController::class, 'verify'])->name('users.verify')->whereUuid('user');
+        Route::post('/users/{user}/reset-mfa', [AdminUserController::class, 'resetMfa'])->name('users.reset-mfa')->whereUuid('user');
         Route::post('/users/{user}/email-change/send-otp', [AdminUserController::class, 'sendEmailChangeOtp'])->name('users.email-change.send-otp')->whereUuid('user');
         Route::post('/users/{user}/email-change/verify-otp', [AdminUserController::class, 'verifyEmailChangeOtp'])->name('users.email-change.verify-otp')->whereUuid('user');
 

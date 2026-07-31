@@ -115,6 +115,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->role === 'OFW';
     }
 
+    public function isInMfaEnforcedRole(): bool
+    {
+        return in_array($this->role, config('mfa.enrollment_enforced_roles', []), true);
+    }
+
     public function client()
     {
         return $this->belongsTo(Client::class, 'client_id');

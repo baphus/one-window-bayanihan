@@ -74,6 +74,13 @@ class MfaChallengeController extends Controller
         app(MfaPendingState::class)->markAuthenticated($request, $user);
         app(MfaPendingState::class)->clear($request);
 
+        // Flash recovery codes remaining count for post-login banner
+        if ($recovery) {
+            $freshUser = $user->fresh();
+            $remaining = is_array($freshUser->mfa_recovery_codes) ? count($freshUser->mfa_recovery_codes) : 0;
+            $request->session()->flash('mfa_recovery_codes_remaining', $remaining);
+        }
+
         return redirect()->to($intended);
     }
 }
