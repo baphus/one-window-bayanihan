@@ -79,6 +79,26 @@ return [
         ],
 
         /*
+         * Cloudflare R2 object storage.
+         * S3-compatible but requires path-style endpoints and a dedicated
+         * endpoint URL per account. Switch by setting FILESYSTEM_DISK=r2
+         * and filling in the R2_* env vars below.
+         */
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'url' => env('R2_PUBLIC_URL'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        /*
          * Legacy supabase-specific disk alias. References the same
          * object-storage configuration. Kept for backward compatibility.
          */
@@ -100,20 +120,19 @@ return [
 
         /*
          * Immutable audit log archive bundles (audit:archive / audit:prune).
-         * Production must point this at S3-compatible object storage via
-         * AUDIT_ARCHIVE_DRIVER=s3 (+ AUDIT_ARCHIVE_* or STORAGE_* credentials);
+         * Inherits from the active FILESYSTEM_DISK unless explicitly overridden
+         * via AUDIT_ARCHIVE_* env vars. When FILESYSTEM_DISK is r2 or
+         * object-storage, audit archives use the same credentials automatically.
          * local/testing default to an on-disk root.
          */
         'audit-archives' => [
-            'driver' => env('AUDIT_ARCHIVE_DRIVER', 'local'),
-            'root' => env('AUDIT_ARCHIVE_DRIVER', 'local') === 'local'
-                ? storage_path('app/audit-archives')
-                : env('AUDIT_ARCHIVE_ROOT', 'audit-archives'),
-            'key' => env('AUDIT_ARCHIVE_ACCESS_KEY', env('STORAGE_ACCESS_KEY')),
-            'secret' => env('AUDIT_ARCHIVE_SECRET_KEY', env('STORAGE_SECRET_KEY')),
-            'region' => env('AUDIT_ARCHIVE_REGION', env('STORAGE_REGION', 'ap-southeast-1')),
-            'bucket' => env('AUDIT_ARCHIVE_BUCKET', env('STORAGE_BUCKET')),
-            'endpoint' => env('AUDIT_ARCHIVE_ENDPOINT', env('STORAGE_ENDPOINT')),
+            'driver' => env('AUDIT_ARCHIVE_DRIVER', in_array(env('FILESYSTEM_DISK', 'local'), ['r2', 'object-storage', 'supabase']) ? 's3' : 'local'),
+            'root' => env('AUDIT_ARCHIVE_ROOT', 'audit-archives'),
+            'key' => env('AUDIT_ARCHIVE_ACCESS_KEY', env('STORAGE_ACCESS_KEY', env('R2_ACCESS_KEY_ID'))),
+            'secret' => env('AUDIT_ARCHIVE_SECRET_KEY', env('STORAGE_SECRET_KEY', env('R2_SECRET_ACCESS_KEY'))),
+            'region' => env('AUDIT_ARCHIVE_REGION', env('STORAGE_REGION', env('R2_REGION', 'auto'))),
+            'bucket' => env('AUDIT_ARCHIVE_BUCKET', env('STORAGE_BUCKET', env('R2_BUCKET'))),
+            'endpoint' => env('AUDIT_ARCHIVE_ENDPOINT', env('STORAGE_ENDPOINT', env('R2_ENDPOINT'))),
             'use_path_style_endpoint' => (bool) env('AUDIT_ARCHIVE_USE_PATH_STYLE', env('STORAGE_USE_PATH_STYLE', true)),
             'visibility' => 'private',
             'throw' => true,

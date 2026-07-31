@@ -22,7 +22,7 @@ abstract class ReferralClientInboxTestCase extends TestCase
         $otherAgency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id, 'is_active' => true]);
         $otherAgencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $otherAgency->id, 'is_active' => true]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER', 'is_active' => true]);
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER', 'is_active' => true, 'email' => fake()->unique()->safeEmail()]);
         $client = Client::factory()->create(['email' => $withEmail ? fake()->safeEmail() : null]);
         $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $manager->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
