@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
 import PasswordInput from '@/Components/PasswordInput';
@@ -103,7 +103,9 @@ export default function ResetPassword({ token, email }) {
                                             className="w-full border border-outline-variant bg-surface-container/50 px-4 py-3 pl-12 text-sm text-on-surface-variant/70 cursor-not-allowed rounded-none"
                                         />
                                     </div>
-                                    <InputError message={errors.email} className="mt-2" />
+                                    {errors.email && (
+                                        <p className="mt-2 text-xs text-error">{errors.email}</p>
+                                    )}
                                 </div>
 
                                 <PasswordInput
