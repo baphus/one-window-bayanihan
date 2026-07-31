@@ -67,7 +67,20 @@ class StorageService
         }
 
         $storedName = Str::uuid().'.'.$file->guessExtension();
-        $path = $file->storeAs($directory, $storedName, $this->disk);
+
+        try {
+            $path = $file->storeAs($directory, $storedName, $this->disk);
+        } catch (\Throwable $e) {
+            return new FileStoreResult(
+                path: '',
+                originalName: $file->getClientOriginalName(),
+                storedName: $storedName,
+                type: $file->getMimeType() ?? 'application/octet-stream',
+                size: $file->getSize() ?? 0,
+                success: false,
+                error: 'Storage error: '.$e->getMessage(),
+            );
+        }
 
         if ($path === false) {
             return new FileStoreResult(
