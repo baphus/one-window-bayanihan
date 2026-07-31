@@ -62,7 +62,13 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-object-storage}
+      # R2 overrides — set FILESYSTEM_DISK=r2 to activate
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET=${R2_BUCKET:-}
+      - R2_ENDPOINT=${R2_ENDPOINT:-}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -119,7 +125,12 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-object-storage}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET=${R2_BUCKET:-}
+      - R2_ENDPOINT=${R2_ENDPOINT:-}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -171,7 +182,12 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-object-storage}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET=${R2_BUCKET:-}
+      - R2_ENDPOINT=${R2_ENDPOINT:-}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -224,7 +240,12 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-object-storage}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET=${R2_BUCKET:-}
+      - R2_ENDPOINT=${R2_ENDPOINT:-}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
     depends_on:
       db:
         condition: service_healthy

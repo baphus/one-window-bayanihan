@@ -167,6 +167,12 @@ jobs:
           STORAGE_USE_PATH_STYLE: ${{ vars.STORAGE_USE_PATH_STYLE || 'false' }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          # ── Cloudflare R2 (when FILESYSTEM_DISK=r2) ──
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
           # Deliberately a SEPARATE bucket. Object Lock is a bucket-wide setting,
           # so putting audit archives and case-file uploads in one bucket forces a
           # choice between immutable archives and a retention job that can delete
@@ -210,6 +216,11 @@ jobs:
             --arg auditBkt  "$AUDIT_ARCHIVE_BUCKET" \
             --arg s3Key     "$STORAGE_ACCESS_KEY" \
             --arg s3Secret  "$STORAGE_SECRET_KEY" \
+            --arg r2Key     "$R2_ACCESS_KEY_ID" \
+            --arg r2Secret  "$R2_SECRET_ACCESS_KEY" \
+            --arg r2Bucket  "$R2_BUCKET" \
+            --arg r2Endpoint "$R2_ENDPOINT" \
+            --arg r2Public  "$R2_PUBLIC_URL" \
             --arg fsDisk    "$FILESYSTEM_DISK" \
             --arg fsDriver  "$STORAGE_DRIVER" \
             --arg fsRegion  "$STORAGE_REGION" \
@@ -258,6 +269,11 @@ jobs:
                     STORAGE_USE_PATH_STYLE: $fsPathStyle,
                     STORAGE_ACCESS_KEY: $s3Key,
                     STORAGE_SECRET_KEY: $s3Secret,
+                    R2_ACCESS_KEY_ID: $r2Key,
+                    R2_SECRET_ACCESS_KEY: $r2Secret,
+                    R2_BUCKET: $r2Bucket,
+                    R2_ENDPOINT: $r2Endpoint,
+                    R2_PUBLIC_URL: $r2Public,
                     AUDIT_ARCHIVE_DRIVER: $fsDriver,
                     AUDIT_ARCHIVE_BUCKET: $auditBkt,
                     AUDIT_ARCHIVE_ROOT: "audit-archives",

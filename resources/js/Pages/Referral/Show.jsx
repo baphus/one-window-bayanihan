@@ -11,6 +11,7 @@ import UserAvatar, { getAvatarColor } from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import AuditLogModal from '@/Components/AuditLogModal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { formatResolvedAddress } from '@/lib/addressResolver';
@@ -384,6 +385,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const [removeAttachment, setRemoveAttachment] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploadingDoc, setUploadingDoc] = useState(false);
+    const [uploadError, setUploadError] = useState(null);
+    const toast = useToast();
     const milestoneForm = useForm({ title: '', description: '' });
 
     const replyToComment = replyToCommentId
@@ -433,17 +436,29 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     function handleDocumentUpload() {
         if (!selectedFile) return;
         setUploadingDoc(true);
+        setUploadError(null);
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('referral_id', referral.id);
+        formData.append('category', 'referral');
+
         router.post(
             route('cases.documents.store', referral.case_id),
-            { file: selectedFile, referral_id: referral.id, category: 'referral' },
+            formData,
             {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => {
                     router.reload({ only: ['referral'] });
                     setSelectedFile(null);
+                    setUploadError(null);
+                    toast.success('Document uploaded successfully.');
                 },
                 onError: (errors) => {
-                    console.error(errors);
+                    const message = errors.file || Object.values(errors)[0] || 'Failed to upload document.';
+                    setUploadError(message);
+                    toast.error(message);
                 },
                 onFinish: () => {
                     setUploadingDoc(false);
@@ -859,7 +874,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                             Choose File
                                             <input
                                                 type="file"
-                                                className="sr-only"
+                                                className="hidden"
                                                 onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                                             />
                                         </label>
@@ -887,6 +902,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                             )}
                                         </button>
                                     </div>
+                                    {uploadError && (
+                                        <p className="mt-2 text-[11px] text-red-600">{uploadError}</p>
+                                    )}
                                 </div>
                             )}
 
