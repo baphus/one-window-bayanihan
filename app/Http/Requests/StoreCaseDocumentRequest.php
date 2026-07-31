@@ -18,7 +18,7 @@ class StoreCaseDocumentRequest extends FormRequest
 
         $user = $this->user();
 
-        return $user->isCaseManager();
+        return $user->isCaseManager() || $user->isAdmin();
     }
 
     public function rules(): array

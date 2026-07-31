@@ -433,23 +433,23 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     function handleDocumentUpload() {
         if (!selectedFile) return;
         setUploadingDoc(true);
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('referral_id', referral.id);
-        formData.append('category', 'referral');
-        router.post(route('cases.documents.store', referral.case_id), formData, {
-            preserveScroll: true,
-            onSuccess: () => {
-                router.reload({ only: ['referral'] });
-                setSelectedFile(null);
+        router.post(
+            route('cases.documents.store', referral.case_id),
+            { file: selectedFile, referral_id: referral.id, category: 'referral' },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    router.reload({ only: ['referral'] });
+                    setSelectedFile(null);
+                },
+                onError: (errors) => {
+                    console.error(errors);
+                },
+                onFinish: () => {
+                    setUploadingDoc(false);
+                },
             },
-            onError: (errors) => {
-                console.error(errors);
-            },
-            onFinish: () => {
-                setUploadingDoc(false);
-            },
-        });
+        );
     }
 
     return (

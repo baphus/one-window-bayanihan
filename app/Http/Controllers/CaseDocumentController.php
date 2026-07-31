@@ -58,7 +58,7 @@ class CaseDocumentController extends Controller
                 ->first();
 
             if (! $referral) {
-                return response()->json(['errors' => ['referral_id' => ['Invalid referral for this case.']]], 422);
+                return back()->withErrors(['referral_id' => 'Invalid referral for this case.']);
             }
         }
 
@@ -72,7 +72,7 @@ class CaseDocumentController extends Controller
             return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
         }
 
-        $document = CaseDocument::create([
+        CaseDocument::create([
             'file_name' => $result->originalName,
             'file_path' => $result->path,
             'file_type' => $result->type,
@@ -83,7 +83,7 @@ class CaseDocumentController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
-        return response()->json($document, 201);
+        return back()->with('success', 'Document uploaded successfully.');
     }
 
     public function show(Request $request, string $caseId, string $documentId)

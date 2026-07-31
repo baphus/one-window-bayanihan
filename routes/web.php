@@ -166,7 +166,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
     });
 
-    Route::middleware('role:CASE_MANAGER')->group(function () {
+    Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
         Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
         Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
     });
