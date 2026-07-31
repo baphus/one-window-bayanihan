@@ -15,6 +15,8 @@ use App\Models\UserInvite;
 use App\Services\AuditCategory;
 use App\Services\DefaultAgencyService;
 use App\Services\OtpService;
+use App\Services\SecurityAuditLogger;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -431,5 +433,32 @@ class AdminUserController extends Controller
         $user->save();
 
         return redirect()->back()->with('success', 'User verification status updated.');
+    }
+
+    public function resetMfa(Request $request, User $user): RedirectResponse
+    {
+        $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        if (! Hash::check($request->password, $request->user()->password)) {
+            throw ValidationException::withMessages([
+                'password' => 'The password is incorrect.',
+            ]);
+        }
+
+        $admin = $request->user();
+
+        $user->mfa_secret = null;
+        $user->mfa_recovery_codes = null;
+        $user->mfa_enabled_at = null;
+        $user->save();
+
+        // Kill active sessions for the target user to force re-login
+        DB::table('sessions')->where('user_id', $user->id)->delete();
+
+        SecurityAuditLogger::log('mfa', sprintf('%s admin-reset MFA for %s', $admin->name, $user->name));
+
+        return back()->with('success', 'MFA has been reset for this user.');
     }
 }

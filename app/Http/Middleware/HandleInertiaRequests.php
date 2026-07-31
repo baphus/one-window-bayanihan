@@ -128,6 +128,7 @@ class HandleInertiaRequests extends Middleware
                 'warning' => $request->session()->get('warning'),
                 'info' => $request->session()->get('info'),
                 'status' => $request->session()->get('status'),
+                'mfa_recovery_codes_remaining' => $request->session()->get('mfa_recovery_codes_remaining'),
             ],
             'chatbot' => [
                 'enabled' => config('ai-chatbot.enabled', false),

@@ -41,6 +41,7 @@ function StatusPill({ label, enabled }) {
 
 export default function AdminUserShow({ user }) {
   const [confirmUnverify, setConfirmUnverify] = useState(false);
+  const [confirmResetMfa, setConfirmResetMfa] = useState(false);
   const roleLabels = {
     CASE_MANAGER: 'Case Manager',
     AGENCY: 'Agency Focal',
@@ -228,8 +229,17 @@ export default function AdminUserShow({ user }) {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">MFA Status</p>
-              <div className="mt-1">
+              <div className="mt-1 flex items-center gap-2">
                 <StatusPill label={user.mfa_enabled_at ? 'Enabled' : 'Disabled'} enabled={!!user.mfa_enabled_at} />
+                {user.mfa_enabled_at && auth && user.id !== auth.user.id && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmResetMfa(true)}
+                    className="text-[10px] font-bold text-red-600 hover:text-red-800 underline transition-colors"
+                  >
+                    Reset MFA
+                  </button>
+                )}
               </div>
             </div>
               <div>
@@ -291,6 +301,22 @@ export default function AdminUserShow({ user }) {
           setConfirmUnverify(false);
         }}
         onCancel={() => setConfirmUnverify(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmResetMfa}
+        title="Reset MFA"
+        message="This will disable two-factor authentication for this user and invalidate any existing recovery codes. Continue?"
+        confirmLabel="Reset"
+        tone="danger"
+        onConfirm={() => {
+          setConfirmResetMfa(false);
+          const password = window.prompt('Enter your password to confirm MFA reset:');
+          if (password) {
+            router.post(route('admin.users.reset-mfa', user.id), { password }, { preserveScroll: true });
+          }
+        }}
+        onCancel={() => setConfirmResetMfa(false)}
       />
     </AppLayout>
   );

@@ -12,7 +12,7 @@ class EnsureMfaChallenge
     public function handle(Request $request, Closure $next): Response
     {
         $pendingState = app(MfaPendingState::class);
-        if (! config('mfa.login_challenge_enabled') || ! $request->session()->has('mfa_pending')) {
+        if (! $request->session()->has('mfa_pending')) {
             $pendingState->clear($request);
 
             return redirect()->route('login');

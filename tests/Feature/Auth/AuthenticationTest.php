@@ -100,21 +100,24 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(429);
     }
 
-    public function test_flag_off_keeps_mfa_user_on_normal_login(): void
+    public function test_non_enforced_role_mfa_user_logs_in_normally(): void
     {
-        config(['mfa.login_challenge_enabled' => false]);
-        $user = $this->createMfaUser();
+        // OFW role is not in enrollment_enforced_roles, so MFA is not enforced at login
+        $user = User::factory()->create([
+            'role' => 'OFW',
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => [hash_hmac('sha256', 'ABCD-EFGH-IJKL', config('app.key'))],
+            'mfa_enabled_at' => now(),
+        ]);
 
         $response = $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
 
         $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('dashboard', absolute: false));
         $this->assertArrayNotHasKey('mfa_pending', session()->all());
     }
 
-    public function test_flag_on_mfa_login_stays_guest_until_totp_and_rotates_sessions(): void
+    public function test_mfa_login_stays_guest_until_totp_and_rotates_sessions(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         Cache::flush();
         $user = $this->createMfaUser();
         $before = $this->app['session']->getId();
@@ -141,7 +144,7 @@ class AuthenticationTest extends TestCase
 
     public function test_invalid_totp_expires_cancel_and_max_attempts_clear_pending_state(): void
     {
-        config(['mfa.login_challenge_enabled' => true, 'mfa.max_attempts' => 2]);
+        config(['mfa.max_attempts' => 2]);
         $user = $this->createMfaUser();
         $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
 
@@ -179,7 +182,6 @@ class AuthenticationTest extends TestCase
 
     public function test_pending_login_is_invalidated_when_password_or_account_changes(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = $this->createMfaUser();
         $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
         $user->update(['password' => Hash::make('new-password')]);
@@ -189,7 +191,6 @@ class AuthenticationTest extends TestCase
 
     public function test_existing_mfa_session_without_bound_marker_is_revoked(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = $this->createMfaUser();
 
         $this->actingAs($user)->get(route('dashboard'))
@@ -208,7 +209,6 @@ class AuthenticationTest extends TestCase
 
     public function test_recovery_code_login_path_end_to_end(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = $this->createMfaUser();
 
         // 1. Password step leaves user unauthenticated with pending state
@@ -240,7 +240,6 @@ class AuthenticationTest extends TestCase
 
     public function test_recovery_code_concurrent_consumption_yields_one_success(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = User::factory()->create([
             'role' => 'ADMIN',
             'mfa_secret' => 'JBSWY3DPEHPK3PXP',
@@ -264,7 +263,6 @@ class AuthenticationTest extends TestCase
 
     public function test_locked_pending_user_inactive_fails_challenge(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = $this->createMfaUser();
         $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
 
@@ -277,7 +275,6 @@ class AuthenticationTest extends TestCase
 
     public function test_locked_pending_user_soft_deleted_fails_challenge(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = $this->createMfaUser();
         $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
 
@@ -290,7 +287,6 @@ class AuthenticationTest extends TestCase
 
     public function test_locked_pending_user_mfa_disabled_fails_challenge(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = $this->createMfaUser();
         $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
 
@@ -301,26 +297,25 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_flag_rollback_mid_challenge_clears_pending_and_allows_normal_login(): void
+    public function test_expired_pending_challenge_clears_and_allows_normal_login(): void
     {
-        config(['mfa.login_challenge_enabled' => true]);
         $user = $this->createMfaUser();
         $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
         $this->assertGuest();
         $this->assertNotNull(session('mfa_pending'));
 
-        // Rollback: disable flag
-        config(['mfa.login_challenge_enabled' => false]);
+        // Simulate expired challenge (TTL exceeded)
+        session()->put('mfa_pending.issued_at', now()->subMinutes(6)->timestamp);
 
         // Challenge route should redirect to login and clear pending state
         $this->get(route('mfa.challenge.show'))->assertRedirect(route('login'));
         $this->assertNull(session('mfa_pending'));
         $this->assertNull(session('pending_mfa_user_id'));
 
-        // Normal login now works
+        // Fresh login triggers a new MFA challenge (not direct auth)
         $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
-        $this->assertAuthenticatedAs($user);
-        $this->assertNull(session('mfa_pending'));
+        $this->assertGuest();
+        $this->assertNotNull(session('mfa_pending'));
     }
 
     private function createMfaUser(): User
