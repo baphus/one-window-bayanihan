@@ -21,7 +21,7 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_getting_invite_as_a_user_route_is_not_a_valid_user_lookup(): void
     {
-        $admin = User::factory()->mfaEnabled()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => 'ADMIN']);
 
         $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class])
             ->actingAs($admin)
