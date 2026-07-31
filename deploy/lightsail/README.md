@@ -26,7 +26,7 @@ Copy-Item deploy/lightsail/app-deployment.template.json `
 | `APP_KEY` | **Never rotate.** `EncryptedString` and `EncryptedDate` casts mean a new key makes existing encrypted columns permanently unreadable. |
 | `RUN_MIGRATIONS` | `true`. The database is not publicly reachable, so no external runner can migrate it — migrations run in the container at start via `migrate --force --isolated`, before nginx accepts traffic, and a failure refuses the boot so the previous deployment keeps serving. |
 | `RUN_SCHEDULER` | `true` on exactly **one** service. Two schedulers double-run retention and audit archiving. |
-| `STORAGE_USE_PATH_STYLE` | `false` for Amazon S3. The application default is `true`, which suits MinIO and Supabase but breaks S3 virtual-hosted addressing. |
+| `STORAGE_USE_PATH_STYLE` | `true` for Cloudflare R2, MinIO, and Supabase S3. `false` for Amazon S3 (virtual-hosted addressing). The application default is `true`. |
 | `DB_SSLMODE` | `require`. The RDS parameter group sets `rds.force_ssl=1`, so a plaintext connection is rejected by the server. |
 | `APP_URL` | Must match the hostname actually served. Inertia and Ziggy generate absolute URLs from it, so a stale value sends users back to the previous hostname. |
 
