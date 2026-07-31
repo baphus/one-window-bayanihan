@@ -62,7 +62,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=supabase
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -119,7 +119,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=supabase
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -171,7 +171,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=supabase
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -224,7 +224,7 @@ services:
       - CACHE_STORE=${CACHE_STORE:-redis}
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
       - SESSION_DRIVER=${SESSION_DRIVER:-database}
-      - FILESYSTEM_DISK=supabase
+      - FILESYSTEM_DISK=${FILESYSTEM_DISK:-supabase}
     depends_on:
       db:
         condition: service_healthy
