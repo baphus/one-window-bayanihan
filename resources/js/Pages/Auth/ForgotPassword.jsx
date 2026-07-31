@@ -122,7 +122,6 @@ export default function ForgotPassword({ status }) {
                                             onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
                                             placeholder="you@agency.gov.ph"
                                             className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-none"
-                                            placeholder="you@agency.gov.ph"
                                             required
                                         />
                                     </div>
