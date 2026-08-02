@@ -12,8 +12,6 @@ class Agency extends Model
 {
     use HasAvatar, HasFactory, SoftDeleteFlag, UsesUuid;
 
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'];
-
     protected static function booted(): void
     {
         static::deleting(function (Agency $agency) {
@@ -31,11 +29,6 @@ class Agency extends Model
     public function isDeletable(): bool
     {
         return ! $this->is_default;
-    }
-
-    public function getAuditModuleName(): string
-    {
-        return 'agency';
     }
 
     protected $fillable = [
