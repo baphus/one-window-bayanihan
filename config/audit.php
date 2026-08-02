@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
@@ -84,7 +83,6 @@ return [
         Referral::class,
         Milestone::class,
         ReferralAttachment::class,
-        Agency::class,
         User::class,
         Service::class,
         ServiceRequirement::class,
