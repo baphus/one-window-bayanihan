@@ -11,5 +11,5 @@ return [
     | or leave empty to omit the report-uri directive.
     |
     */
-    'report_uri' => env('CSP_REPORT_URI', ''),
+    'report_uri' => env('CSP_REPORT_URI', '/csp/report'),
 ];

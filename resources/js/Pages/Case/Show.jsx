@@ -1091,6 +1091,20 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         }}
         onCancel={() => setConfirmDeleteDoc(null)}
       />
+      <ConfirmDialog
+        open={confirmToggleStatus}
+        title={caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+        message={caseFile.status === 'OPEN'
+          ? 'Are you sure you want to close this case?'
+          : 'Are you sure you want to reopen this case?'}
+        confirmLabel={caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+        tone={caseFile.status === 'OPEN' ? 'danger' : 'info'}
+        onConfirm={() => {
+          handleToggleStatus();
+          setConfirmToggleStatus(false);
+        }}
+        onCancel={() => setConfirmToggleStatus(false)}
+      />
 
       {/* Deletion reason modal for archived cases */}
       {showDeleteModal && (
