@@ -451,6 +451,84 @@ class ReferralController extends Controller
         }
     }
 
+    public function addRequirement(Request $request, string $id, string $serviceId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        if ($request->user()->role !== 'AGENCY') {
+            return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
+        }
+
+        if ($referral->status === 'COMPLETED') {
+            return redirect()->back()->with('error', 'Cannot modify requirements on a completed referral.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:5000',
+            'is_required' => 'sometimes|boolean',
+        ]);
+
+        try {
+            $this->referralService->addRequirement($referral, $serviceId, $validated);
+
+            return redirect()->back()->with('success', 'Requirement added.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateRequirement(Request $request, string $id, string $serviceId, string $requirementId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        if ($request->user()->role !== 'AGENCY') {
+            return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
+        }
+
+        if ($referral->status === 'COMPLETED') {
+            return redirect()->back()->with('error', 'Cannot modify requirements on a completed referral.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'description' => 'nullable|string|max:5000',
+            'is_required' => 'sometimes|boolean',
+        ]);
+
+        try {
+            $this->referralService->updateRequirement($referral, $serviceId, $requirementId, $validated);
+
+            return redirect()->back()->with('success', 'Requirement updated.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function deleteRequirement(Request $request, string $id, string $serviceId, string $requirementId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        if ($request->user()->role !== 'AGENCY') {
+            return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
+        }
+
+        if ($referral->status === 'COMPLETED') {
+            return redirect()->back()->with('error', 'Cannot modify requirements on a completed referral.');
+        }
+
+        try {
+            $this->referralService->deleteRequirement($referral, $serviceId, $requirementId);
+
+            return redirect()->back()->with('success', 'Requirement deleted.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
     public function exportExcel(Request $request)
     {
         $user = $request->user();
