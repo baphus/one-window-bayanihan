@@ -22,7 +22,7 @@ export default function Contact() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    data.cf_turnstile_response = turnstileToken;
+    setData('cf_turnstile_response', turnstileToken);
     post(route('contact.store'), {
       preserveScroll: true,
       onSuccess: () => {

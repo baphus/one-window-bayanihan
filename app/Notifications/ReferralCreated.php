@@ -46,12 +46,25 @@ class ReferralCreated extends Notification implements ShouldQueue
 
     public function toDatabase(object $notifiable): array
     {
+        $referral = $this->referral;
+        $referral->loadMissing(['caseFile.client', 'agency']);
+
+        $caseNumber = $referral->caseFile?->case_number ?? $referral->case_id;
+        $agencyName = $referral->agency?->name ?? 'agency';
+        $services = $referral->relationLoaded('services')
+            ? $referral->services->pluck('name')->implode(', ')
+            : $referral->required_services;
+
         return [
             'type' => 'referral_created',
-            'referral_id' => $this->referral->id,
-            'case_id' => $this->referral->case_id,
-            'message' => "New referral assigned: {$this->referral->required_services}",
-            'url' => "/referrals/{$this->referral->id}",
+            'title' => "New referral assigned to {$agencyName}",
+            'referral_id' => $referral->id,
+            'case_id' => $referral->case_id,
+            'case_number' => $caseNumber,
+            'agency' => $agencyName,
+            'required_services' => $services,
+            'message' => "Case {$caseNumber} referred to {$agencyName}".($services ? " — {$services}" : ''),
+            'url' => "/referrals/{$referral->id}",
         ];
     }
 }

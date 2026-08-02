@@ -27,7 +27,7 @@ export default function Register() {
         clearErrors();
         if (!validate()) return;
 
-        data.cf_turnstile_response = turnstileToken;
+        setData('cf_turnstile_response', turnstileToken);
         post(route('register'), {
             onFinish: () => { reset('password', 'password_confirmation'); },
         });

@@ -41,9 +41,14 @@ class CaseDocumentController extends Controller
         $this->authorizeAccess($case, $request->user());
 
         $file = $request->file('file');
+        $isInertia = $request->header('X-Inertia');
 
         $errors = app(StorageService::class)->validate($file, 'case_document');
         if (! empty($errors)) {
+            if ($isInertia) {
+                return back()->withErrors(['file' => $errors[0]]);
+            }
+
             if ($request->wantsJson()) {
                 return response()->json(['errors' => ['file' => [$errors[0]]]], 422);
             }
@@ -65,6 +70,10 @@ class CaseDocumentController extends Controller
         $result = app(StorageService::class)->store($file, 'case-documents/'.$caseId);
 
         if (! $result->success) {
+            if ($isInertia) {
+                return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
+            }
+
             if ($request->wantsJson()) {
                 return response()->json(['errors' => ['file' => [$result->error ?? 'Failed to store file.']]], 422);
             }
@@ -82,6 +91,10 @@ class CaseDocumentController extends Controller
             'referral_id' => $request->input('referral_id'),
             'user_id' => $request->user()->id,
         ]);
+
+        if ($isInertia) {
+            return back()->with('success', 'Document uploaded successfully.');
+        }
 
         if ($request->wantsJson()) {
             return response()->json($document, 201);

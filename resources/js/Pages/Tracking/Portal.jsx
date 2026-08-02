@@ -45,7 +45,7 @@ export default function TrackingPortal() {
     clearErrors();
     if (!validate()) return;
     bypassNext();
-    data.cf_turnstile_response = turnstileToken;
+    setData('cf_turnstile_response', turnstileToken);
     post(route('track.send-otp'));
   };
 

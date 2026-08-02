@@ -857,7 +857,14 @@ class ReferralService
         ]);
         $events = collect();
 
-        // 1. Referral sent event
+        // 1. Referral sent event — resolve actor from the CREATE AuditLog
+        //    (the actual sender), not the case's assigned user.
+        $createLog = AuditLog::with('user')
+            ->where('module', 'referral')
+            ->where('entity_id', $referral->id)
+            ->where('action', 'CREATE')
+            ->first();
+
         $events->push([
             'id' => 'sent-'.$referral->id,
             'type' => 'referral_sent',
@@ -866,7 +873,7 @@ class ReferralService
                 ? $referral->services->pluck('name')->implode(', ')
                 : '',
             'timestamp' => $referral->created_at->toISOString(),
-            'actor' => $referral->caseFile?->user?->name ?? 'System',
+            'actor' => $createLog?->user?->name ?? $referral->caseFile?->user?->name ?? 'System',
         ]);
 
         // 2. Status changes from AuditLog (observer-created, module='referral')
