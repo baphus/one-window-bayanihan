@@ -70,4 +70,52 @@ class OfwDashboardTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    #[Test]
+    public function test_ofw_does_not_see_personnel_draft_in_list(): void
+    {
+        $client = Client::factory()->create();
+        $ofwUser = User::factory()->create([
+            'role' => 'OFW',
+            'client_id' => $client->id,
+        ]);
+
+        $open = CaseFile::factory()->open()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_SELF_FILED,
+        ]);
+        CaseFile::factory()->draft()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_INTERNAL,
+        ]);
+
+        $response = $this->actingAs($ofwUser)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/my-cases');
+
+        $response->assertOk();
+        $cases = $response->json('props.cases.data');
+        $this->assertCount(1, $cases);
+        $this->assertEquals($open->id, $cases[0]['id']);
+    }
+
+    #[Test]
+    public function test_ofw_cannot_open_personnel_draft_directly(): void
+    {
+        $client = Client::factory()->create();
+        $ofwUser = User::factory()->create([
+            'role' => 'OFW',
+            'client_id' => $client->id,
+        ]);
+
+        $draft = CaseFile::factory()->draft()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_INTERNAL,
+        ]);
+
+        $response = $this->actingAs($ofwUser)
+            ->get("/my-cases/{$draft->id}");
+
+        $response->assertStatus(404);
+    }
 }

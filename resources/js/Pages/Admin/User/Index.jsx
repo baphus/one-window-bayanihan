@@ -88,6 +88,25 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
     return () => clearTimeout(searchTimeout.current);
   }, []);
 
+  // When arriving via the dashboard getting-started checklist
+  // (?open=create|invite), open the user modal and strip the param so a
+  // reload doesn't re-open it. Runs once per mount.
+  const autoOpenHandledRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const open = params.get('open');
+    if (open === 'create' || open === 'invite') {
+      autoOpenHandledRef.current = true;
+      setEditingUser(null);
+      setFormMode(open);
+      setShowForm(true);
+      params.delete('open');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    }
+  }, []);
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (newUserDropdownRef.current && !newUserDropdownRef.current.contains(e.target)) {

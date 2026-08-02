@@ -126,51 +126,68 @@ function ReportsDashboard({
             />
           </div>
         </div>
-        <div data-tour="reports-filters" className="flex flex-wrap items-center justify-end gap-3">
-          <DateRangePicker
-            fromDateISO={fromDateISO}
-            toDateISO={toDateISO}
-            quickRange={quickRange}
-            onFromChange={setFromDateISO}
-            onToChange={setToDateISO}
-            onQuickRangeSelect={handleQuickRange}
-            onReset={resetDateRange}
-          />
-          {role === 'CASE_MANAGER' && <DateScopeSelect value={dateScope} onChange={setDateScope} />}
-          <button
-            type="button"
-            onClick={applyFilters}
-            disabled={!hasPendingChanges}
-            className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              hasPendingChanges
-                ? 'bg-[#0b5a8c] text-white hover:bg-[#094a73] focus:ring-[#0b5a8c]'
-                : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
-            }`}
+        <div
+          className={
+            role === 'AGENCY'
+              ? 'flex flex-col gap-3 md:flex-row md:items-center md:justify-between'
+              : 'flex flex-col gap-4'
+          }
+        >
+          {/* Tab bar row — sits on the LEFT for agency, right for other roles */}
+          <div
+            data-tour="reports-tabs"
+            className={
+              role === 'AGENCY'
+                ? ''
+                : 'order-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
+            }
           >
-            Apply filters
-          </button>
-        </div>
-        <div data-tour="reports-tabs" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
             {role !== 'AGENCY' && (
-              <AgencyFilter
-                agencyOptions={agencyOptions || []}
-                agencyId={agencyId}
-                onChange={setAgencyId}
-              />
+              <div className="flex flex-wrap items-center gap-3">
+                <AgencyFilter
+                  agencyOptions={agencyOptions || []}
+                  agencyId={agencyId}
+                  onChange={setAgencyId}
+                />
+                {role === 'CASE_MANAGER' && (
+                  <ProvinceCityFilter
+                    provinceOptions={provinceOptions || []}
+                    cityOptions={localCityOptions}
+                    province={province}
+                    city={city}
+                    onProvinceChange={setProvince}
+                    onCityChange={setCity}
+                  />
+                )}
+              </div>
             )}
-            {role === 'CASE_MANAGER' && (
-              <ProvinceCityFilter
-                provinceOptions={provinceOptions || []}
-                cityOptions={localCityOptions}
-                province={province}
-                city={city}
-                onProvinceChange={setProvince}
-                onCityChange={setCity}
-              />
-            )}
+            <ReportTabBar value={activeTab} onChange={setActiveTab} role={role} />
           </div>
-          <ReportTabBar value={activeTab} onChange={setActiveTab} role={role} />
+          {/* Date filters row — takes the tabs position on the RIGHT for agency */}
+          <div data-tour="reports-filters" className="order-1 flex flex-wrap items-center justify-end gap-3">
+            <DateRangePicker
+              fromDateISO={fromDateISO}
+              toDateISO={toDateISO}
+              quickRange={quickRange}
+              onFromChange={setFromDateISO}
+              onToChange={setToDateISO}
+              onQuickRangeSelect={handleQuickRange}
+              onReset={resetDateRange}
+            />
+            {role === 'CASE_MANAGER' && <DateScopeSelect value={dateScope} onChange={setDateScope} />}
+            <button
+              type="button"
+              onClick={applyFilters}
+              disabled={!hasPendingChanges}
+              className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                hasPendingChanges
+                  ? 'bg-[#0b5a8c] text-white hover:bg-[#094a73] focus:ring-[#0b5a8c]'
+                  : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+              }`}
+            >
+              Apply filters
+            </button>
+          </div>
         </div>
       </header>
 

@@ -1,11 +1,18 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { post, visit } = vi.hoisted(() => ({ post: vi.fn(), visit: vi.fn() }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
-vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
+vi.mock('@/Components/ui/ConfirmDialog', () => ({
+  default: ({ open, onConfirm, confirmLabel, title }) =>
+    open ? (
+      <div role="dialog" aria-label={title}>
+        <button type="button" onClick={onConfirm}>{confirmLabel}</button>
+      </div>
+    ) : null,
+}));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{status}</span> }));
 vi.mock('@/Components/ui/RowContextMenu', () => ({
   RowContextMenu: ({ children }) => <div>{children}</div>,
@@ -26,10 +33,14 @@ const props = { drafts: { data: [draft], current_page: 1, last_page: 1 }, filter
 describe('draft index publish characterization', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('publishes the clicked draft id and leaves redirect handling to Inertia', () => {
+  it('asks for confirmation before publishing and posts on confirm', () => {
     render(<DraftIndex {...props} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+
+    expect(post).not.toHaveBeenCalled();
+
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Publish' }));
 
     expect(post).toHaveBeenCalledWith('/cases/draft-123/publish', {}, expect.objectContaining({ onFinish: expect.any(Function) }));
   });

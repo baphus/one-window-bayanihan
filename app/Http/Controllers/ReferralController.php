@@ -178,13 +178,19 @@ class ReferralController extends Controller
                 ->with('error', 'Only the receiving agency can accept this referral.');
         }
 
-        $referral = $this->referralService->updateStatus(
-            $id,
-            $request->input('status'),
-            $request->input('decision'),
-            $request->input('decision_comment'),
-            $request->user()->id,
-        );
+        try {
+            $referral = $this->referralService->updateStatus(
+                $id,
+                $request->input('status'),
+                $request->input('decision'),
+                $request->input('decision_comment'),
+                $request->user()->id,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
 
         if ($request->user()->role === 'AGENCY') {
             app(OnboardingService::class)

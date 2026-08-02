@@ -57,6 +57,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
+    const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [tableLoading, setTableLoading] = useState(false);
@@ -514,10 +515,11 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     ), [visibleColumns]);
 
     const submitDecision = () => {
-        if (!pendingDecision) return;
+        if (decisionSubmitting || !pendingDecision) return;
         const trimmed = decisionRemark.trim();
         if (!trimmed) return;
         const nextStatus = pendingDecision.action === 'ACCEPT' ? 'PROCESSING' : 'REJECTED';
+        setDecisionSubmitting(true);
         router.patch(route('referrals.update-status', pendingDecision.id), {
             status: nextStatus,
             decision: pendingDecision.action,
@@ -528,6 +530,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 setPendingDecision(null);
                 setDecisionRemark('');
             },
+            onFinish: () => setDecisionSubmitting(false),
         });
     };
 
@@ -692,9 +695,9 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
                             <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-                            <button onClick={submitDecision} disabled={!decisionRemark.trim()}
+                            <button onClick={submitDecision} disabled={!decisionRemark.trim() || decisionSubmitting}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
-                                Confirm {pendingDecision.action === 'ACCEPT' ? 'Accept' : 'Reject'}
+                                {decisionSubmitting ? 'Saving…' : `Confirm ${pendingDecision.action === 'ACCEPT' ? 'Accept' : 'Reject'}`}
                             </button>
                         </div>
                     </div>

@@ -161,4 +161,23 @@ class InterventionAccessTest extends TestCase
             'status' => 'PROCESSING',
         ]);
     }
+
+    #[Test]
+    public function invalid_status_transition_is_rejected(): void
+    {
+        $response = $this->actingAs($this->caseManager)->patch(
+            route('referrals.update-status', $this->referral),
+            [
+                'status' => 'REJECTED',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $this->assertDatabaseHas('referrals', [
+            'id' => $this->referral->id,
+            'status' => 'PROCESSING',
+        ]);
+    }
 }

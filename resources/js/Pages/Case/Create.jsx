@@ -1400,6 +1400,7 @@ export default function CaseCreate() {
 
     function handleSaveDraft(e) {
         e?.preventDefault();
+        if (processing) return;
         bypassNext();
 
         // Inertia v2's useForm.post/put ignores options.data and always sends the
@@ -1433,6 +1434,7 @@ export default function CaseCreate() {
 
     function handleSubmit(e) {
         e.preventDefault();
+        if (processing) return;
         if (currentStep !== 3) return;
         if (existingDraft && (hasDirty || autoSaveStatus === 'saving')) {
             toast.error('Save the latest draft changes before publishing.');
@@ -1442,6 +1444,7 @@ export default function CaseCreate() {
     }
 
     function handleConfirmSubmit() {
+        if (processing) return;
         if (existingDraft && (hasDirty || autoSaveStatus === 'saving')) {
             setShowCreateModal(false);
             toast.error('Save the latest draft changes before publishing.');

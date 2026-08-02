@@ -85,7 +85,7 @@ class ReferralServiceNotificationTest extends TestCase
 
         Notification::fake();
 
-        $this->service->updateStatus($referral->id, 'APPROVED', null, null, $caseManager->id);
+        $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
 
         Notification::assertSentTo($caseManager, ReferralStatusChanged::class);
     }
@@ -102,12 +102,35 @@ class ReferralServiceNotificationTest extends TestCase
             'required_services' => 'Test',
         ], $caseManager->id);
 
-        $this->service->updateStatus($referral->id, 'APPROVED', null, null, $caseManager->id);
+        $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
 
         $this->assertDatabaseHas('case_notifications', [
             'client_email' => 'ofw@example.com',
             'type' => 'referral_status_changed',
         ]);
+    }
+
+    public function test_duplicate_status_update_does_not_resend_notifications(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+
+        $referral = $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+            'required_services' => 'Test',
+        ], $caseManager->id);
+
+        Notification::fake();
+
+        $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
+        // Duplicate request for the same status must be an idempotent no-op.
+        $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
+
+        Notification::assertSentTimes(ReferralStatusChanged::class, 1);
     }
 
     public function test_adding_milestone_dispatches_notification(): void

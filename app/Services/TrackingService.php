@@ -36,7 +36,10 @@ class TrackingService
             $relations[] = 'categories';
         }
 
-        return CaseFile::with($relations)->where('tracker_number', $trackerNumber)->first();
+        return CaseFile::with($relations)
+            ->clientVisible()
+            ->where('tracker_number', $trackerNumber)
+            ->first();
     }
 
     public function emailMatchesCase(CaseFile $case, string $email): bool

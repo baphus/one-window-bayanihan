@@ -203,7 +203,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
                   {milestones.map((milestone) => (
                     <div key={`${milestone.date}-${milestone.title}`} className="relative flex gap-4 items-start">
                       <div className="z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm">
-                        <span className="material-symbols-outlined text-[14px]">milestone</span>
+                        <span className="material-symbols-outlined text-[14px]">flag_circle</span>
                       </div>
                       <div className="min-w-0 flex-1 pt-0.5">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

@@ -80,7 +80,9 @@ export default function GettingStartedChecklist() {
                         return (
                             <li key={item.id}>
                                 <Link
-                                    href={route(item.route)}
+                                    href={route(item.route, item.params)}
+                                    target={item.newTab ? '_blank' : undefined}
+                                    rel={item.newTab ? 'noopener noreferrer' : undefined}
                                     className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-all ${
                                         done
                                             ? 'border-emerald-100 bg-emerald-50/60 text-emerald-700'

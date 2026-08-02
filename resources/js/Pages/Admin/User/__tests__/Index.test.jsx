@@ -4,6 +4,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import Index from '../Index.jsx';
 
 const router = vi.hoisted(() => ({ get: vi.fn() }));
+const UserFormModalMock = vi.hoisted(() => ({ default: vi.fn(() => null) }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
 vi.mock('@inertiajs/react', () => ({ Head: () => null, router, usePage: () => ({ props: { auth: { user: { role: 'ADMIN' } } } }) }));
@@ -12,7 +13,7 @@ vi.mock('@/Hooks/useTableVisitLoading', () => ({ default: () => ({ isLoading: fa
 vi.mock('@/Hooks/usePersistedColumns', () => ({ default: () => [['name', 'email', 'role', 'agency', 'email_verified', 'status', 'actions'], vi.fn()] }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: () => null }));
 vi.mock('@/Components/ui/UserAvatar', () => ({ default: () => null }));
-vi.mock('@/Components/Admin/UserFormModal', () => ({ default: () => null }));
+vi.mock('@/Components/Admin/UserFormModal', () => UserFormModalMock);
 vi.mock('@/Components/PeerProfileModal', () => ({ default: () => null }));
 vi.mock('@/Components/ui/RowContextMenu', () => ({ RowContextMenu: () => null, RowContextMenuItem: () => null }));
 vi.mock('lucide-react', () => ({ Users: () => null, UserCheck: () => null, Briefcase: () => null, Building2: () => null, Shield: () => null }));
@@ -29,6 +30,7 @@ describe('Admin user search requests', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     router.get.mockClear();
+    UserFormModalMock.default.mockClear();
     globalThis.route = vi.fn((name, id) => `/${name}/${id}`);
     window.history.replaceState({}, '', '/admin/users');
   });
@@ -44,5 +46,14 @@ describe('Admin user search requests', () => {
     expect(router.get).toHaveBeenCalledTimes(1);
     expect(router.get.mock.calls[0][0]).toContain('search=ada');
     expect(router.get.mock.calls[0][0]).not.toContain('page=');
+  });
+
+  it('opens the create-user modal when arriving with ?open=create and cleans the URL', () => {
+    window.history.replaceState({}, '', '/admin/users?open=create');
+    render(<Index {...props} />);
+
+    expect(UserFormModalMock.default).toHaveBeenCalledTimes(1);
+    expect(UserFormModalMock.default.mock.calls[0][0].initialMode).toBe('create');
+    expect(window.location.search).toBe('');
   });
 });

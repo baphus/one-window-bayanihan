@@ -299,7 +299,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
             )}
 
             {/* Card list */}
-            <div data-tour="overdue-list" className="space-y-2.5">
+            <div data-tour="overdue-list" className="space-y-2.5 mt-4">
               {/* Select all checkbox (admin/cm only) */}
               {canRemind && referrals?.data?.length > 0 && (
                 <label className="flex items-center gap-2 px-1 text-xs text-slate-400 cursor-pointer select-none">
@@ -441,7 +441,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
               </button>
               <button
                 onClick={confirmSend}
-                disabled={sending === '__all__'}
+                disabled={sending !== null}
                 className="px-4 py-2 text-sm font-bold text-white bg-blue-900 hover:bg-blue-800 rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-[16px]">send</span>

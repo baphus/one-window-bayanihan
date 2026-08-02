@@ -58,7 +58,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
 
     // When allowCustom is on, the typed query may not match any option exactly.
     const hasExactMatch = query.trim()
-        ? options.some((o) => o.label.toLowerCase() === query.trim().toLowerCase())
+        ? options.some((o) => String(o.label ?? '').toLowerCase() === query.trim().toLowerCase())
         : !!selectedOption;
 
     // When allowCustom is active and there's typed text with no exact match,

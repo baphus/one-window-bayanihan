@@ -62,6 +62,23 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
     return () => clearTimeout(searchTimeout.current);
   }, []);
 
+  // When arriving via the dashboard getting-started checklist (?open=create),
+  // open the agency modal and strip the param so a reload doesn't re-open it.
+  // Runs once per mount.
+  const autoOpenHandledRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('open') === 'create') {
+      autoOpenHandledRef.current = true;
+      setEditingAgency(null);
+      setShowForm(true);
+      params.delete('open');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    }
+  }, []);
+
   const navigateWith = (params) => {
     const url = new URL(window.location);
     Object.entries(params).forEach(([k, v]) => {

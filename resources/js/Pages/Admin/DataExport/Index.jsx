@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head } from '@inertiajs/react';
 import { FileDown } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 const SHEET_LABELS = {
     cases:              'Cases',
@@ -20,6 +21,25 @@ const SHEET_LABELS = {
 };
 
 export default function DataExportIndex({ tables }) {
+    // Guard against repeat presses: exporting the full workbook can be slow and
+    // `window.open` would happily spawn a new tab per click. Re-enable after a
+    // short cooldown so a legitimate second export is still possible.
+    const [exporting, setExporting] = useState(false);
+    const timeoutRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+        };
+    }, []);
+
+    const handleExport = () => {
+        if (exporting) return;
+        setExporting(true);
+        window.open(route('admin.data-export.export'));
+        timeoutRef.current = window.setTimeout(() => setExporting(false), 3000);
+    };
+
     return (
         <AppLayout title="Data Export">
             <Head title="Data Export" />
@@ -33,8 +53,9 @@ export default function DataExportIndex({ tables }) {
                 </div>
                 <button
                     data-tour="data-export-button"
-                    onClick={() => window.open(route('admin.data-export.export'))}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors"
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <FileDown className="w-4 h-4" />
                     Export All Data as Excel

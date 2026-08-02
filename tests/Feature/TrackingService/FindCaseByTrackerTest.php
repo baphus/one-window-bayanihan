@@ -3,6 +3,7 @@
 namespace Tests\Feature\TrackingService;
 
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\ReferralAttachment;
@@ -164,6 +165,47 @@ class FindCaseByTrackerTest extends TestCase
 
         // ASSERT
         $this->assertNull($found);
+    }
+
+    public function test_personnel_draft_returns_null(): void
+    {
+        // ARRANGE — an internal draft created by staff against an existing client.
+        // The client already has an email, so without the clientVisible guard the
+        // OTP email check would pass and the draft would be trackable.
+        $client = Client::factory()->create(['email' => 'client@example.com']);
+        $case = CaseFile::factory()->draft()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_INTERNAL,
+        ]);
+
+        $service = app(TrackingService::class);
+
+        // ACT
+        $found = $service->findCaseByTracker($case->tracker_number);
+
+        // ASSERT — personnel drafts must never be trackable
+        $this->assertNull($found);
+    }
+
+    public function test_self_filed_intake_is_findable(): void
+    {
+        // ARRANGE — a self-filed intake also sits in DRAFT, but the OFW submitted
+        // it and is handed the tracker on the success screen, so it must remain
+        // trackable through intake review.
+        $client = Client::factory()->create(['email' => 'ofw@example.com']);
+        $case = CaseFile::factory()->draft()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_SELF_FILED,
+        ]);
+
+        $service = app(TrackingService::class);
+
+        // ACT
+        $found = $service->findCaseByTracker($case->tracker_number);
+
+        // ASSERT
+        $this->assertNotNull($found);
+        $this->assertEquals($case->id, $found->id);
     }
 
     public function test_tracker_with_multiple_referrals(): void

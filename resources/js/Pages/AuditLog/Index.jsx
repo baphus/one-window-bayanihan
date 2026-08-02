@@ -3,11 +3,16 @@ import { Head, router } from '@inertiajs/react';
 import { AuditTimeline } from '@/Components/AuditTimeline';
 import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function toDateInput(date) {
   return date.toISOString().slice(0, 10);
 }
+
+// Keep the Export button disabled until the browser finishes handling the
+// download: `window` focus fires when a file download completes, and the
+// safety timeout guarantees the button can never stay stuck.
+const SAFETY_TIMEOUT_MS = 60_000;
 
 function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
   const today = useMemo(() => new Date(), []);
@@ -18,10 +23,34 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
   });
   const [dateTo, setDateTo] = useState(() => toDateInput(today));
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const timeoutRef = useRef(null);
+
+  const clearPending = () => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setExporting(false);
+  };
+
+  useEffect(() => {
+    window.addEventListener('focus', clearPending);
+    return () => {
+      window.removeEventListener('focus', clearPending);
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  // Reset the in-flight guard whenever the dialog is closed/reopened.
+  useEffect(() => {
+    if (!open) clearPending();
+  }, [open]);
 
   if (!open) return null;
 
   const handleExport = () => {
+    if (exporting) return;
     if (!dateFrom || !dateTo) {
       setError('Both start and end dates are required.');
       return;
@@ -46,7 +75,10 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
     params.set('date_to', dateTo);
 
     setError('');
+    if (exporting) return;
+    setExporting(true);
     window.location.href = `/audit-logs/export?${params.toString()}`;
+    timeoutRef.current = window.setTimeout(clearPending, SAFETY_TIMEOUT_MS);
     onClose();
   };
 
@@ -94,7 +126,8 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
           </button>
           <button
             onClick={handleExport}
-            className="px-4 py-2 bg-blue-900 rounded-md text-sm font-medium text-white hover:bg-blue-800 inline-flex items-center gap-1"
+            disabled={exporting}
+            className="px-4 py-2 bg-blue-900 rounded-md text-sm font-medium text-white hover:bg-blue-800 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[18px]">download</span>
             Export CSV
