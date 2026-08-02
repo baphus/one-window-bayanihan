@@ -285,6 +285,153 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
     );
 }
 
+function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [isAdding, setIsAdding] = useState(false);
+    const [newRequirementName, setNewRequirementName] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const canModify = isAgency && referral.status !== 'COMPLETED';
+
+    function handleAddRequirement() {
+        if (!newRequirementName.trim()) return;
+        router.post(route('referrals.services.requirements.add', [referral.id, service.id]), {
+            name: newRequirementName.trim(),
+        }, {
+            preserveScroll: true,
+            onFinish: () => { setIsAdding(false); setNewRequirementName(''); },
+        });
+    }
+
+    function handleUpdateRequirement(requirementId) {
+        if (!editName.trim()) return;
+        router.patch(route('referrals.services.requirements.update', [referral.id, service.id, requirementId]), {
+            name: editName.trim(),
+        }, {
+            preserveScroll: true,
+            onFinish: () => { setEditingId(null); setEditName(''); },
+        });
+    }
+
+    function handleDeleteRequirement(requirementId) {
+        if (!confirm('Delete this requirement?')) return;
+        router.delete(route('referrals.services.requirements.delete', [referral.id, service.id, requirementId]), {
+            preserveScroll: true,
+        });
+    }
+
+    return (
+        <div className="rounded-md border border-slate-200 bg-slate-50">
+            <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="flex items-center gap-1.5 text-[12px] font-medium text-slate-700 hover:text-slate-900"
+                    >
+                        <span className="material-symbols-outlined text-[14px] text-slate-400">
+                            {isExpanded ? 'expand_less' : 'expand_more'}
+                        </span>
+                        {service.name}
+                        <span className="text-[10px] text-slate-400">({serviceRequirements.length} requirements)</span>
+                    </button>
+                </div>
+                {canModify && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (confirm(`Remove "${service.name}" from this referral?`)) {
+                                router.delete(route('referrals.services.remove', [referral.id, service.id]), {
+                                    preserveScroll: true,
+                                });
+                            }
+                        }}
+                        className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors"
+                        title={`Remove ${service.name}`}
+                    >
+                        <span className="material-symbols-outlined text-[12px]">close</span>
+                    </button>
+                )}
+            </div>
+
+            {isExpanded && (
+                <div className="border-t border-slate-200 px-3 py-2">
+                    {serviceRequirements.length > 0 ? (
+                        <div className="space-y-1.5">
+                            {serviceRequirements.map((req) => (
+                                <div key={req.id} className="flex items-center gap-2 group">
+                                    {editingId === req.id ? (
+                                        <div className="flex flex-1 items-center gap-1">
+                                            <input
+                                                type="text"
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateRequirement(req.id); if (e.key === 'Escape') { setEditingId(null); setEditName(''); } }}
+                                                className="flex-1 rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-700 outline-none focus:border-blue-500"
+                                                autoFocus
+                                            />
+                                            <button type="button" onClick={() => handleUpdateRequirement(req.id)} className="text-[11px] text-blue-600 hover:underline">Save</button>
+                                            <button type="button" onClick={() => { setEditingId(null); setEditName(''); }} className="text-[11px] text-slate-400 hover:underline">Cancel</button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span className="material-symbols-outlined text-[12px] text-slate-400">
+                                                {req.is_required ? 'check_box' : 'check_box_outline_blank'}
+                                            </span>
+                                            <span className="flex-1 text-[11px] text-slate-600">{req.name}</span>
+                                            {canModify && (
+                                                <div className="hidden group-hover:flex items-center gap-1">
+                                                    <button type="button" onClick={() => { setEditingId(req.id); setEditName(req.name); }} className="text-[10px] text-slate-400 hover:text-blue-600">
+                                                        <span className="material-symbols-outlined text-[12px]">edit</span>
+                                                    </button>
+                                                    <button type="button" onClick={() => handleDeleteRequirement(req.id)} className="text-[10px] text-slate-400 hover:text-red-600">
+                                                        <span className="material-symbols-outlined text-[12px]">delete</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-[11px] text-slate-400 italic">No requirements added yet</p>
+                    )}
+
+                    {canModify && (
+                        <div className="mt-2">
+                            {isAdding ? (
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        type="text"
+                                        value={newRequirementName}
+                                        onChange={(e) => setNewRequirementName(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddRequirement(); if (e.key === 'Escape') { setIsAdding(false); setNewRequirementName(''); } }}
+                                        placeholder="Requirement name..."
+                                        className="flex-1 rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-700 outline-none focus:border-blue-500"
+                                        autoFocus
+                                    />
+                                    <button type="button" onClick={handleAddRequirement} className="text-[11px] text-blue-600 hover:underline">Add</button>
+                                    <button type="button" onClick={() => { setIsAdding(false); setNewRequirementName(''); }} className="text-[11px] text-slate-400 hover:underline">Cancel</button>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAdding(true)}
+                                    className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-indigo-600 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[12px]">add</span>
+                                    Add requirement
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ServiceAddDropdown({ referralId, selectedIds, serviceRequirements }) {
     const [isOpen, setIsOpen] = useState(false);
     const [adding, setAdding] = useState(null);
@@ -345,7 +492,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
     const isAdmin = auth.user.role === 'ADMIN';
-    const canAddMilestone = isAgency && referral.status !== 'COMPLETED';
+    const canAddMilestone = isAgency && !['COMPLETED', 'PENDING'].includes(referral.status);
     const canUpdateStatus = isAgency;
 
     const caseFile = referral.case_file;
@@ -563,28 +710,16 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         </div>
                         <div className="px-3 py-2 border-b border-slate-200">
                             <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
-                            <div className="mt-1 flex flex-wrap gap-1.5">
+                            <div className="mt-1 space-y-2">
                                 {referral.services?.length > 0 ? (
-                                    referral.services.map((s) => (
-                                        <span key={s.id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[12px] font-medium text-slate-700">
-                                            {s.name}
-                                            {isAgency && referral.status !== 'COMPLETED' && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (confirm(`Remove "${s.name}" from this referral?`)) {
-                                                            router.delete(route('referrals.services.remove', [referral.id, s.id]), {
-                                                                preserveScroll: true,
-                                                            });
-                                                        }
-                                                    }}
-                                                    className="flex h-4 w-4 items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors"
-                                                    title={`Remove ${s.name}`}
-                                                >
-                                                    <span className="material-symbols-outlined text-[12px]">close</span>
-                                                </button>
-                                            )}
-                                        </span>
+                                    referral.services.map((service) => (
+                                        <ServiceCard
+                                            key={service.id}
+                                            service={service}
+                                            referral={referral}
+                                            isAgency={isAgency}
+                                            serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
+                                        />
                                     ))
                                 ) : (
                                     <span className="text-[12px] text-slate-500 italic">None selected</span>

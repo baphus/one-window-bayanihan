@@ -139,4 +139,9 @@ class Referral extends Model
         return $this->belongsToMany(Service::class, 'referral_services', 'referral_id', 'service_id')
             ->withTimestamps();
     }
+
+    public function serviceRequirements()
+    {
+        return $this->hasMany(ReferralServiceRequirement::class, 'referral_id');
+    }
 }

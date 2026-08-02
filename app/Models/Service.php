@@ -39,4 +39,9 @@ class Service extends Model
     {
         return $this->hasMany(ServiceRequirement::class, 'service_id');
     }
+
+    public function referralRequirements()
+    {
+        return $this->hasMany(ReferralServiceRequirement::class, 'service_id');
+    }
 }

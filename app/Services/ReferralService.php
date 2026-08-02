@@ -15,6 +15,7 @@ use App\Models\ReferralAttachment;
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientRequest;
 use App\Models\ReferralComment;
+use App\Models\ReferralServiceRequirement;
 use App\Models\Service;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
@@ -80,6 +81,14 @@ class ReferralService
                     ->where('agcy_id', $data['agcy_id'])
                     ->pluck('id');
                 $referral->services()->sync($serviceIds);
+
+                // Copy requirements for each attached service
+                foreach ($serviceIds as $serviceId) {
+                    $service = Service::find($serviceId);
+                    if ($service) {
+                        $this->copyServiceRequirements($referral, $service);
+                    }
+                }
             }
 
             // Reload services so event recorder and timeline reflect actual service names
@@ -262,6 +271,7 @@ class ReferralService
     {
         $relations = [
             'services',
+            'serviceRequirements.service',
             'caseFile.client.addresses',
             'caseFile.client.employments',
             'caseFile.client.nextOfKin',
@@ -398,7 +408,39 @@ class ReferralService
 
         $referral->services()->syncWithoutDetaching([$service->id]);
 
+        // Copy global service requirements to per-referral requirements
+        $this->copyServiceRequirements($referral, $service);
+
         return $referral->load('services');
+    }
+
+    /**
+     * Copy global ServiceRequirement records to ReferralServiceRequirement for a specific service on a referral.
+     * This creates a snapshot that the agency can customize without affecting the global template.
+     */
+    private function copyServiceRequirements(Referral $referral, Service $service): void
+    {
+        // Check if requirements already exist for this service on this referral
+        $existingCount = ReferralServiceRequirement::where('referral_id', $referral->id)
+            ->where('service_id', $service->id)
+            ->count();
+
+        if ($existingCount > 0) {
+            return; // Requirements already copied
+        }
+
+        $globalRequirements = $service->requirements()->orderBy('sort_order')->get();
+
+        foreach ($globalRequirements as $index => $globalReq) {
+            ReferralServiceRequirement::create([
+                'referral_id' => $referral->id,
+                'service_id' => $service->id,
+                'name' => $globalReq->name,
+                'description' => $globalReq->description,
+                'is_required' => $globalReq->is_required,
+                'sort_order' => $globalReq->sort_order ?? $index,
+            ]);
+        }
     }
 
     public function removeService(Referral $referral, string $serviceId): Referral
@@ -407,9 +449,67 @@ class ReferralService
             throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
         }
 
+        // Delete per-referral requirements for this service
+        ReferralServiceRequirement::where('referral_id', $referral->id)
+            ->where('service_id', $serviceId)
+            ->delete();
+
         $referral->services()->detach($serviceId);
 
         return $referral->load('services');
+    }
+
+    public function addRequirement(Referral $referral, string $serviceId, array $data): ReferralServiceRequirement
+    {
+        // Verify the service is attached to this referral
+        if (! $referral->services()->where('service_id', $serviceId)->exists()) {
+            throw new \InvalidArgumentException('Service is not attached to this referral.');
+        }
+
+        // Verify the service belongs to the same agency
+        $service = Service::where('id', $serviceId)
+            ->where('agcy_id', $referral->agcy_id)
+            ->firstOrFail();
+
+        // Get the next sort order
+        $maxSortOrder = ReferralServiceRequirement::where('referral_id', $referral->id)
+            ->where('service_id', $serviceId)
+            ->max('sort_order');
+
+        return ReferralServiceRequirement::create([
+            'referral_id' => $referral->id,
+            'service_id' => $serviceId,
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'is_required' => $data['is_required'] ?? true,
+            'sort_order' => ($maxSortOrder ?? -1) + 1,
+        ]);
+    }
+
+    public function updateRequirement(Referral $referral, string $serviceId, string $requirementId, array $data): ReferralServiceRequirement
+    {
+        $requirement = ReferralServiceRequirement::where('id', $requirementId)
+            ->where('referral_id', $referral->id)
+            ->where('service_id', $serviceId)
+            ->firstOrFail();
+
+        $requirement->update(array_filter([
+            'name' => $data['name'] ?? null,
+            'description' => array_key_exists('description', $data) ? $data['description'] : null,
+            'is_required' => $data['is_required'] ?? null,
+        ], fn ($v) => $v !== null));
+
+        return $requirement->fresh();
+    }
+
+    public function deleteRequirement(Referral $referral, string $serviceId, string $requirementId): void
+    {
+        $requirement = ReferralServiceRequirement::where('id', $requirementId)
+            ->where('referral_id', $referral->id)
+            ->where('service_id', $serviceId)
+            ->firstOrFail();
+
+        $requirement->delete();
     }
 
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral

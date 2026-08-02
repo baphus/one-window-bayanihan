@@ -91,6 +91,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals/{referral}/services', [ReferralController::class, 'addService'])->name('referrals.services.add');
     Route::delete('/referrals/{referral}/services/{service}', [ReferralController::class, 'removeService'])->name('referrals.services.remove');
 
+    // Agency service requirements management (per-referral)
+    Route::post('/referrals/{referral}/services/{service}/requirements', [ReferralController::class, 'addRequirement'])->name('referrals.services.requirements.add');
+    Route::patch('/referrals/{referral}/services/{service}/requirements/{requirement}', [ReferralController::class, 'updateRequirement'])->name('referrals.services.requirements.update');
+    Route::delete('/referrals/{referral}/services/{service}/requirements/{requirement}', [ReferralController::class, 'deleteRequirement'])->name('referrals.services.requirements.delete');
+
     Route::post('/referrals/{referral}/comments', [ReferralController::class, 'addComment'])->name('referrals.comments.store');
     Route::post('/referrals/{referral}/comments/{comment}/reply', [ReferralController::class, 'replyToComment'])->name('referrals.comments.reply');
     Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store');
