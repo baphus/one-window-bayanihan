@@ -429,7 +429,7 @@ class ReferralService
             return; // Requirements already copied
         }
 
-        $globalRequirements = $service->requirements()->orderBy('sort_order')->get();
+        $globalRequirements = $service->requirements()->get();
 
         foreach ($globalRequirements as $index => $globalReq) {
             ReferralServiceRequirement::create([
