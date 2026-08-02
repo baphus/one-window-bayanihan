@@ -22,6 +22,7 @@ class OfwDashboardController extends Controller
 
         $cases = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
+            ->clientVisible()
             ->with(['categories', 'referrals.agency'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
@@ -45,7 +46,7 @@ class OfwDashboardController extends Controller
             'referrals.agency',
             'referrals.milestones.user',
             'category',
-        ])->findOrFail($id);
+        ])->clientVisible()->findOrFail($id);
 
         // Authorization: ensure the case belongs to this OFW's client
         if ($case->client_id !== $user->client_id) {
@@ -69,6 +70,7 @@ class OfwDashboardController extends Controller
 
         $caseIds = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
+            ->clientVisible()
             ->pluck('id');
 
         $notifications = CaseNotification::whereIn('case_id', $caseIds)

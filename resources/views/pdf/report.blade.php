@@ -42,8 +42,14 @@
         .chart-container { margin: 10px 0; text-align: center; }
         .chart-title { font-size: 9px; font-weight: 700; color: #334155; margin-bottom: 4px; text-align: left; }
         .chart-subtitle { font-size: 7.5px; color: #64748b; margin-bottom: 6px; text-align: left; }
-        .chart-row { width: 100%; table-layout: fixed; border-collapse: collapse; }
+
+        /* ── Side-by-side chart + table rows (charts on the left, tables on the right) ── */
+        .chart-row { width: 100%; table-layout: auto; border-collapse: collapse; }
         .chart-row td { vertical-align: top; padding: 0 6px; }
+        .chart-cell { width: 60%; }
+        .table-cell { width: 40%; }
+        .chart-cell .chart-container { margin: 4px 0; }
+        .chart-cell img { max-width: 100%; height: auto; }
 
         /* ── Tables ── */
         table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 8px; }
@@ -112,15 +118,34 @@
 
     <!-- Referral Status Pie Chart -->
     @if(!empty($referralStatusDistribution['labels']))
-    <div class="chart-container">
-        <div class="chart-title">Referral Status Distribution</div>
-        <div class="chart-subtitle">Breakdown of all referrals by current status</div>
-        {!! $chartRenderer->pieChart(
-            $referralStatusDistribution['labels'],
-            $referralStatusDistribution['data'],
-            ['size' => 220, 'colors' => ['#3f915f', '#2563eb', '#005288', '#d9663b', '#dc2626', '#9b51b0', '#0b7a75', '#b45309']]
-        ) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Referral Status Distribution</div>
+                    <div class="chart-subtitle">Breakdown of all referrals by current status</div>
+                    {!! $chartRenderer->pieChart(
+                        $referralStatusDistribution['labels'],
+                        $referralStatusDistribution['data'],
+                        ['size' => 220, 'colors' => ['#3f915f', '#2563eb', '#005288', '#d9663b', '#dc2626', '#9b51b0', '#0b7a75', '#b45309']]
+                    ) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Status</th><th>Referrals</th></tr></thead>
+                    <tbody>
+                        @foreach($referralStatusDistribution['labels'] as $i => $label)
+                            <tr>
+                                <td>{{ e($label) }}</td>
+                                <td>{{ number_format($referralStatusDistribution['data'][$i] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
     <!-- ═══════════════════ PAGE 2: TRENDS & DISTRIBUTION ═══════════════════ -->
@@ -128,38 +153,96 @@
 
     <!-- Monthly Trends Line Charts -->
     @if(!empty($caseTrends['labels']))
-    <div class="chart-container">
-        <div class="chart-title">Monthly Case Trend</div>
-        <div class="chart-subtitle">Case creation volume over time</div>
-        {!! $chartRenderer->lineChart($caseTrends['labels'], $caseTrends['data'], ['width' => 460, 'height' => 160, 'color' => '#005288']) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Monthly Case Trend</div>
+                    <div class="chart-subtitle">Case creation volume over time</div>
+                    {!! $chartRenderer->lineChart($caseTrends['labels'], $caseTrends['data'], ['width' => 460, 'height' => 160, 'color' => '#005288']) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Month</th><th>Cases</th></tr></thead>
+                    <tbody>
+                        @foreach($caseTrends['labels'] as $i => $label)
+                            <tr>
+                                <td>{{ e($label) }}</td>
+                                <td>{{ number_format($caseTrends['data'][$i] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
     @if(!empty($referralTrends['labels']))
-    <div class="chart-container">
-        <div class="chart-title">Monthly Referral Trend</div>
-        <div class="chart-subtitle">Referral creation volume over time</div>
-        {!! $chartRenderer->lineChart($referralTrends['labels'], $referralTrends['data'], ['width' => 460, 'height' => 160, 'color' => '#3f915f']) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Monthly Referral Trend</div>
+                    <div class="chart-subtitle">Referral creation volume over time</div>
+                    {!! $chartRenderer->lineChart($referralTrends['labels'], $referralTrends['data'], ['width' => 460, 'height' => 160, 'color' => '#3f915f']) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Month</th><th>Referrals</th></tr></thead>
+                    <tbody>
+                        @foreach($referralTrends['labels'] as $i => $label)
+                            <tr>
+                                <td>{{ e($label) }}</td>
+                                <td>{{ number_format($referralTrends['data'][$i] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
     <!-- Category Distribution Bar Chart -->
     @if(!empty($categoryDistribution))
-    <div class="chart-container">
-        <div class="chart-title">Case Categories</div>
-        <div class="chart-subtitle">Distribution of cases by category</div>
-        {!! $chartRenderer->barChart(
-            collect($categoryDistribution)->pluck('name')->toArray(),
-            collect($categoryDistribution)->pluck('count')->toArray(),
-            ['width' => 460, 'height' => 180]
-        ) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Case Categories</div>
+                    <div class="chart-subtitle">Distribution of cases by category</div>
+                    {!! $chartRenderer->barChart(
+                        collect($categoryDistribution)->pluck('name')->toArray(),
+                        collect($categoryDistribution)->pluck('count')->toArray(),
+                        ['width' => 460, 'height' => 180]
+                    ) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Category</th><th>Cases</th></tr></thead>
+                    <tbody>
+                        @foreach($categoryDistribution as $row)
+                            <tr>
+                                <td>{{ e($row['name'] ?? '') }}</td>
+                                <td>{{ number_format($row['count'] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
     <!-- ═══════════════════ PAGE 3: AGENCY PERFORMANCE ═══════════════════ -->
     <h2 class="page-break">Agency Performance</h2>
 
     @if(!empty($agencyScorecard))
+    <!-- The agency metrics table is 5 columns wide, so it stays stacked below the chart. -->
     <div class="chart-container">
         <div class="chart-title">Agency Scorecard</div>
         <div class="chart-subtitle">Total referrals handled per agency</div>
@@ -189,68 +272,165 @@
 
     <!-- Referral Aging -->
     @if(!empty($referralAging['labels']))
-    <div class="chart-container">
-        <div class="chart-title">Referral Aging</div>
-        <div class="chart-subtitle">How long active referrals have been waiting</div>
-        {!! $chartRenderer->barChart(
-            $referralAging['labels'],
-            $referralAging['data'],
-            ['width' => 460, 'height' => 160, 'colors' => ['#3f915f', '#0b7a75', '#2563eb', '#d9663b', '#dc2626', '#b45309', '#9b51b0', '#dc2626']]
-        ) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Referral Aging</div>
+                    <div class="chart-subtitle">How long active referrals have been waiting</div>
+                    {!! $chartRenderer->barChart(
+                        $referralAging['labels'],
+                        $referralAging['data'],
+                        ['width' => 460, 'height' => 160, 'colors' => ['#3f915f', '#0b7a75', '#2563eb', '#d9663b', '#dc2626', '#b45309', '#9b51b0', '#dc2626']]
+                    ) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Age Band</th><th>Referrals</th></tr></thead>
+                    <tbody>
+                        @foreach($referralAging['labels'] as $i => $label)
+                            <tr>
+                                <td>{{ e($label) }}</td>
+                                <td>{{ number_format($referralAging['data'][$i] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
     <!-- Cycle Time -->
     @if(!empty($cycleTimeDistribution['labels']))
-    <div class="chart-container">
-        <div class="chart-title">Cycle Time Distribution</div>
-        <div class="chart-subtitle">Time taken to complete referrals</div>
-        {!! $chartRenderer->barChart(
-            $cycleTimeDistribution['labels'],
-            $cycleTimeDistribution['data'],
-            ['width' => 460, 'height' => 160, 'color' => '#0b7a75']
-        ) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Cycle Time Distribution</div>
+                    <div class="chart-subtitle">Time taken to complete referrals</div>
+                    {!! $chartRenderer->barChart(
+                        $cycleTimeDistribution['labels'],
+                        $cycleTimeDistribution['data'],
+                        ['width' => 460, 'height' => 160, 'color' => '#0b7a75']
+                    ) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Duration</th><th>Referrals</th></tr></thead>
+                    <tbody>
+                        @foreach($cycleTimeDistribution['labels'] as $i => $label)
+                            <tr>
+                                <td>{{ e($label) }}</td>
+                                <td>{{ number_format($cycleTimeDistribution['data'][$i] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
+    @if(!empty($geographicDistribution['labels']) || !empty($employmentDistribution['labels']) || !empty($caseIssueDistribution))
     <!-- ═══════════════════ PAGE 4: GEOGRAPHY & EMPLOYMENT ═══════════════════ -->
     <h2 class="page-break">Geography &amp; Employment</h2>
 
     @if(!empty($geographicDistribution['labels']))
-    <div class="chart-container">
-        <div class="chart-title">Geographic Distribution</div>
-        <div class="chart-subtitle">Cases by province of origin</div>
-        {!! $chartRenderer->horizontalBarChart(
-            $geographicDistribution['labels'],
-            $geographicDistribution['data'],
-            ['width' => 460, 'height' => max(150, count($geographicDistribution['labels']) * 28), 'color' => '#005288']
-        ) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Geographic Distribution</div>
+                    <div class="chart-subtitle">Cases by province of origin</div>
+                    {!! $chartRenderer->horizontalBarChart(
+                        $geographicDistribution['labels'],
+                        $geographicDistribution['data'],
+                        ['width' => 460, 'height' => max(150, count($geographicDistribution['labels']) * 28), 'color' => '#005288']
+                    ) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Province</th><th>Cases</th></tr></thead>
+                    <tbody>
+                        @foreach($geographicDistribution['labels'] as $i => $label)
+                            <tr>
+                                <td>{{ e($label) }}</td>
+                                <td>{{ number_format($geographicDistribution['data'][$i] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
     @if(!empty($employmentDistribution['labels']))
-    <div class="chart-container">
-        <div class="chart-title">Employment Country Distribution</div>
-        <div class="chart-subtitle">Previous country of employment</div>
-        {!! $chartRenderer->horizontalBarChart(
-            $employmentDistribution['labels'],
-            $employmentDistribution['data'],
-            ['width' => 460, 'height' => max(150, count($employmentDistribution['labels']) * 28), 'color' => '#9b51b0']
-        ) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Employment Country Distribution</div>
+                    <div class="chart-subtitle">Previous country of employment</div>
+                    {!! $chartRenderer->horizontalBarChart(
+                        $employmentDistribution['labels'],
+                        $employmentDistribution['data'],
+                        ['width' => 460, 'height' => max(150, count($employmentDistribution['labels']) * 28), 'color' => '#9b51b0']
+                    ) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Country</th><th>Cases</th></tr></thead>
+                    <tbody>
+                        @foreach($employmentDistribution['labels'] as $i => $label)
+                            <tr>
+                                <td>{{ e($label) }}</td>
+                                <td>{{ number_format($employmentDistribution['data'][$i] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
     @endif
 
     <!-- Case Issues -->
     @if(!empty($caseIssueDistribution))
-    <div class="chart-container">
-        <div class="chart-title">Case Issues</div>
-        <div class="chart-subtitle">Most reported issues/concerns</div>
-        {!! $chartRenderer->barChart(
-            collect($caseIssueDistribution)->pluck('name')->toArray(),
-            collect($caseIssueDistribution)->pluck('count')->toArray(),
-            ['width' => 460, 'height' => 160, 'color' => '#d9663b']
-        ) !!}
-    </div>
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Case Issues</div>
+                    <div class="chart-subtitle">Most reported issues/concerns</div>
+                    {!! $chartRenderer->barChart(
+                        collect($caseIssueDistribution)->pluck('name')->toArray(),
+                        collect($caseIssueDistribution)->pluck('count')->toArray(),
+                        ['width' => 460, 'height' => 160, 'color' => '#d9663b']
+                    ) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Issue</th><th>Cases</th></tr></thead>
+                    <tbody>
+                        @foreach($caseIssueDistribution as $row)
+                            <tr>
+                                <td>{{ e($row['name'] ?? '') }}</td>
+                                <td>{{ number_format($row['count'] ?? 0) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
+    @endif
     @endif
 
     <!-- ═══════════════════ PAGE 5+: TOP RISKS ═══════════════════ -->

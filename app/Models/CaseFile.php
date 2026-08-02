@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\CascadeSoftDeletes;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -40,6 +41,24 @@ class CaseFile extends Model
     public function getAuditModuleName(): string
     {
         return 'case';
+    }
+
+    /**
+     * Cases a client may access through self-service surfaces (public tracking
+     * and the OFW portal).
+     *
+     * Personnel drafts — cases staff created internally that were never
+     * published — must not be trackable or listed. Self-filed intakes also sit
+     * in DRAFT but stay visible (source self_filed) so the OFW can follow their
+     * submission through intake review. Mirrors the "unaccepted intake" rule in
+     * Client::scopeWithoutUnacceptedIntake.
+     */
+    public function scopeClientVisible(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->where('status', '!=', 'DRAFT')
+                ->orWhere('source', self::SOURCE_SELF_FILED);
+        });
     }
 
     protected $table = 'cases';

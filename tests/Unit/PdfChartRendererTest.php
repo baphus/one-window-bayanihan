@@ -16,56 +16,137 @@ class PdfChartRendererTest extends TestCase
         $this->renderer = new PdfChartRenderer;
     }
 
-    #[Test]
-    public function bar_chart_returns_valid_svg(): void
+    private function pngData(string $html): \GdImage|false
     {
-        $svg = $this->renderer->barChart(
+        if (! preg_match('/data:image\/png;base64,([A-Za-z0-9+\/=]+)/', $html, $m)) {
+            return false;
+        }
+
+        return imagecreatefromstring(base64_decode($m[1], true));
+    }
+
+    #[Test]
+    public function bar_chart_returns_valid_png(): void
+    {
+        $html = $this->renderer->barChart(
             ['Jan', 'Feb', 'Mar'],
             [100, 200, 150],
         );
 
-        $this->assertNotEmpty($svg);
-        $this->assertStringContainsString('<svg', $svg);
-        $this->assertStringContainsString('</svg>', $svg);
+        $this->assertStringStartsWith('<img src="data:image/png;base64,', $html);
+        $this->assertStringContainsString('width="460"', $html);
+        $this->assertStringContainsString('height="200"', $html);
+
+        $img = $this->pngData($html);
+        $this->assertNotFalse($img);
+        $this->assertSame(460, imagesx($img));
+        $this->assertSame(200, imagesy($img));
     }
 
     #[Test]
-    public function line_chart_returns_valid_svg(): void
+    public function line_chart_returns_valid_png(): void
     {
-        $svg = $this->renderer->lineChart(
+        $html = $this->renderer->lineChart(
             ['2026-01', '2026-02', '2026-03'],
             [10, 25, 18],
         );
 
-        $this->assertNotEmpty($svg);
-        $this->assertStringContainsString('<svg', $svg);
-        $this->assertStringContainsString('</svg>', $svg);
+        $this->assertStringStartsWith('<img src="data:image/png;base64,', $html);
+        $this->assertStringContainsString('width="460"', $html);
+        $this->assertStringContainsString('height="160"', $html);
+
+        $img = $this->pngData($html);
+        $this->assertNotFalse($img);
+        $this->assertSame(460, imagesx($img));
+        $this->assertSame(160, imagesy($img));
     }
 
     #[Test]
-    public function pie_chart_returns_valid_svg(): void
+    public function pie_chart_returns_valid_png(): void
     {
-        $svg = $this->renderer->pieChart(
+        $html = $this->renderer->pieChart(
             ['Completed', 'Pending', 'Processing'],
             [50, 30, 20],
         );
 
-        $this->assertNotEmpty($svg);
-        $this->assertStringContainsString('<svg', $svg);
-        $this->assertStringContainsString('</svg>', $svg);
+        $this->assertStringStartsWith('<img src="data:image/png;base64,', $html);
+        $this->assertStringContainsString('width="240"', $html);
+
+        // 240px pie + 8px gap + 3 legend rows of 14px + 4px padding.
+        $img = $this->pngData($html);
+        $this->assertNotFalse($img);
+        $this->assertSame(240, imagesx($img));
+        $this->assertSame(294, imagesy($img));
     }
 
     #[Test]
-    public function horizontal_bar_chart_returns_valid_svg(): void
+    public function horizontal_bar_chart_returns_valid_png(): void
     {
-        $svg = $this->renderer->horizontalBarChart(
+        $html = $this->renderer->horizontalBarChart(
             ['OWWA', 'DOLE', 'TESDA'],
             [45, 32, 28],
         );
 
-        $this->assertNotEmpty($svg);
-        $this->assertStringContainsString('<svg', $svg);
-        $this->assertStringContainsString('</svg>', $svg);
+        $this->assertStringStartsWith('<img src="data:image/png;base64,', $html);
+        $this->assertStringContainsString('width="460"', $html);
+
+        $img = $this->pngData($html);
+        $this->assertNotFalse($img);
+        $this->assertSame(460, imagesx($img));
+        $this->assertSame(80, imagesy($img));
+    }
+
+    #[Test]
+    public function horizontal_bar_chart_scales_height_by_row_count(): void
+    {
+        $html = $this->renderer->horizontalBarChart(
+            ['A', 'B', 'C', 'D', 'E', 'F'],
+            [45, 32, 28, 20, 15, 10],
+        );
+
+        $img = $this->pngData($html);
+        $this->assertNotFalse($img);
+        $this->assertSame(460, imagesx($img));
+        $this->assertSame(132, imagesy($img));
+    }
+
+    #[Test]
+    public function chart_respects_custom_colors(): void
+    {
+        $html = $this->renderer->barChart(
+            ['A'],
+            [10],
+            ['color' => '#ff0000'],
+        );
+
+        $img = $this->pngData($html);
+        $this->assertNotFalse($img);
+
+        // A single max-value bar fills most of the plot area; sample its
+        // interior (bar spans x≈98..390, y=10..176 for one bar at 460x200).
+        $rgb = imagecolorsforindex($img, imagecolorat($img, 244, 100));
+        $this->assertGreaterThan(200, $rgb['red']);
+        $this->assertLessThan(80, $rgb['green']);
+        $this->assertLessThan(80, $rgb['blue']);
+    }
+
+    #[Test]
+    public function chart_handles_long_labels_without_error(): void
+    {
+        $html = $this->renderer->barChart(
+            ['Very Long Category Name That Exceeds Limit'],
+            [100],
+        );
+
+        $this->assertNotFalse($this->pngData($html));
+    }
+
+    #[Test]
+    public function horizontal_bar_chart_returns_empty_for_empty_data(): void
+    {
+        $this->assertSame('', $this->renderer->horizontalBarChart([], []));
+        $this->assertSame('', $this->renderer->horizontalBarChart([], [1, 2]));
+        $this->assertSame('', $this->renderer->horizontalBarChart(['a'], []));
     }
 
     #[Test]
@@ -92,30 +173,5 @@ class PdfChartRendererTest extends TestCase
     public function pie_chart_returns_empty_for_zero_sum(): void
     {
         $this->assertSame('', $this->renderer->pieChart(['A', 'B'], [0, 0]));
-    }
-
-    #[Test]
-    public function chart_respects_custom_colors(): void
-    {
-        $svg = $this->renderer->barChart(
-            ['A', 'B'],
-            [10, 20],
-            ['color' => '#ff0000'],
-        );
-
-        $this->assertStringContainsString('#ff0000', $svg);
-    }
-
-    #[Test]
-    public function chart_truncates_long_labels(): void
-    {
-        $svg = $this->renderer->barChart(
-            ['Very Long Category Name That Exceeds Limit'],
-            [100],
-        );
-
-        $this->assertStringContainsString('<svg', $svg);
-        // Label should be truncated (12 chars for bar chart)
-        $this->assertStringNotContainsString('Very Long Category Name That Exceeds Limit', $svg);
     }
 }

@@ -30,6 +30,22 @@ class ReferralService
 {
     public const REFERRAL_STATS_CACHE_VERSION_KEY = 'stats:referrals:version';
 
+    /**
+     * Allowed referral status transitions, keyed by the current status.
+     *
+     * Self-transitions are allowed so that duplicate requests become
+     * idempotent no-ops instead of re-firing notifications.
+     *
+     * @var array<string, array<int, string>>
+     */
+    private const STATUS_TRANSITIONS = [
+        'PENDING' => ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'REJECTED'],
+        'PROCESSING' => ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED'],
+        'FOR_COMPLIANCE' => ['FOR_COMPLIANCE', 'PROCESSING', 'COMPLETED'],
+        'COMPLETED' => ['COMPLETED'],
+        'REJECTED' => ['REJECTED'],
+    ];
+
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly CaseEventRecorder $eventRecorder,
@@ -399,8 +415,12 @@ class ReferralService
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
     {
         return DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId) {
-            $referral = Referral::findOrFail($id);
+            // Row lock serializes concurrent updates so a second duplicate
+            // request observes the new status and short-circuits below.
+            $referral = Referral::whereKey($id)->lockForUpdate()->firstOrFail();
             $oldStatus = $referral->status;
+
+            $this->assertAllowedTransition($oldStatus, $status);
 
             $referral->update([
                 'status' => $status,
@@ -409,9 +429,13 @@ class ReferralService
             ]);
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
-            if ($oldStatus !== $status) {
-                $this->eventRecorder->referralStatusChanged($referral, $oldStatus, $status, $userId);
+            // Idempotency guard: a duplicate request for the current status is a
+            // no-op so it never re-fires notifications or events.
+            if ($oldStatus === $status) {
+                return $referral->fresh(['agency', 'caseFile', 'milestones']);
             }
+
+            $this->eventRecorder->referralStatusChanged($referral, $oldStatus, $status, $userId);
 
             // Notify case manager about the status change
             if ($referral->caseFile) {
@@ -448,6 +472,22 @@ class ReferralService
 
             return $referral->fresh(['agency', 'caseFile', 'milestones']);
         });
+    }
+
+    /**
+     * Reject any status change that is not part of the referral workflow.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function assertAllowedTransition(string $from, string $to): void
+    {
+        $allowed = self::STATUS_TRANSITIONS[$from] ?? [];
+
+        if (! in_array($to, $allowed, true)) {
+            throw new \InvalidArgumentException(
+                "Cannot change referral status from {$from} to {$to}."
+            );
+        }
     }
 
     public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone

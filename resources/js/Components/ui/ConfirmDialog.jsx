@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 const toneConfig = {
   default: { button: 'bg-blue-900 hover:bg-blue-800', icon: 'help', iconColor: 'text-blue-600', iconBg: 'bg-blue-50' },
   danger: { button: 'bg-red-600 hover:bg-red-700', icon: 'warning', iconColor: 'text-red-600', iconBg: 'bg-red-50' },
@@ -17,9 +19,21 @@ export default function ConfirmDialog({
   disabled = false,
   children,
 }) {
+  const [guarded, setGuarded] = useState(false);
+  // Reset the one-shot guard whenever the dialog is closed/reopened.
+  useEffect(() => {
+    if (!open) setGuarded(false);
+  }, [open]);
+
   if (!open) return null;
   const t = toneConfig[confirmVariant || tone];
   const handleCancel = onCancel || onClose;
+
+  const handleConfirm = () => {
+    if (guarded) return;
+    setGuarded(true);
+    onConfirm();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
@@ -39,7 +53,7 @@ export default function ConfirmDialog({
           <button onClick={handleCancel} className="h-9 rounded-[3px] border border-slate-300 px-4 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
             {cancelLabel}
           </button>
-          <button onClick={onConfirm} disabled={disabled} className={`h-9 rounded-[3px] px-4 text-[12px] font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${t.button}`}>
+          <button onClick={handleConfirm} disabled={disabled || guarded} className={`h-9 rounded-[3px] px-4 text-[12px] font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${t.button}`}>
             {confirmLabel}
           </button>
         </div>

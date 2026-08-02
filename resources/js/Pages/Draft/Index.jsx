@@ -46,6 +46,7 @@ function getDraftClientName(draft) {
 
 export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [publishTarget, setPublishTarget] = useState(null);
   const [publishing, setPublishing] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [searchValue, setSearchValue] = useState(initialFilters?.search ?? '');
@@ -98,6 +99,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
   }
 
   function handlePublish(id) {
+    if (publishing) return;
     setPublishing(id);
     router.post(route('cases.publish', id), {}, {
       onSuccess: () => {
@@ -275,7 +277,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
                             <span className="material-symbols-outlined text-[16px] align-middle">edit</span>
                           </button>
                           <button
-                            onClick={() => handlePublish(draft.id)}
+                            onClick={() => setPublishTarget(draft.id)}
                             disabled={publishing === draft.id}
                             className="min-h-[28px] px-3 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors disabled:opacity-60"
                           >
@@ -336,6 +338,20 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
         onCancel={() => setDeleteTarget(null)}
       />
 
+      <ConfirmDialog
+        open={!!publishTarget}
+        title="Publish Draft?"
+        message="This will publish this draft case so it becomes visible to case managers. Once published, you can no longer edit it as a draft."
+        confirmLabel="Publish"
+        cancelLabel="Cancel"
+        disabled={!!publishing}
+        onConfirm={() => {
+          handlePublish(publishTarget);
+          setPublishTarget(null);
+        }}
+        onCancel={() => setPublishTarget(null)}
+      />
+
       {contextMenu && (
         <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
           <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
@@ -344,7 +360,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
           }} />
           <RowContextMenuItem icon="publish" label="Publish" onClick={() => {
             setContextMenu(null);
-            handlePublish(contextMenu.row.id);
+            setPublishTarget(contextMenu.row.id);
           }} />
           <RowContextMenuItem icon="delete" label="Delete" variant="danger" onClick={() => {
             setContextMenu(null);

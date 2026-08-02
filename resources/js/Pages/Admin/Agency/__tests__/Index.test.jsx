@@ -4,6 +4,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import Index from '../Index.jsx';
 
 const router = vi.hoisted(() => ({ get: vi.fn() }));
+const AgencyFormModalMock = vi.hoisted(() => ({ default: vi.fn(() => null) }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
 vi.mock('@inertiajs/react', () => ({ Head: () => null, router, usePage: () => ({ props: { auth: { user: { role: 'ADMIN' } } } }) }));
@@ -11,7 +12,7 @@ vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: nu
 vi.mock('@/Hooks/useTableVisitLoading', () => ({ default: () => ({ isLoading: false, withLoading: (options) => options }) }));
 vi.mock('@/Hooks/usePersistedColumns', () => ({ default: () => [['name', 'short', 'is_default', 'referrals_count', 'is_active', 'actions'], vi.fn()] }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: () => null }));
-vi.mock('@/Components/Admin/AgencyFormModal', () => ({ default: () => null }));
+vi.mock('@/Components/Admin/AgencyFormModal', () => AgencyFormModalMock);
 vi.mock('@/Components/ui/RowContextMenu', () => ({ RowContextMenu: () => null, RowContextMenuItem: () => null }));
 vi.mock('lucide-react', () => ({ Building2: () => null, Users: () => null, CheckCircle: () => null, XCircle: () => null, Shield: () => null, MapPin: () => null, Phone: () => null }));
 
@@ -25,6 +26,7 @@ describe('Admin agency search requests', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     router.get.mockClear();
+    AgencyFormModalMock.default.mockClear();
     globalThis.route = vi.fn((name, id) => `/${name}/${id}`);
     window.history.replaceState({}, '', '/admin/agencies');
   });
@@ -40,5 +42,13 @@ describe('Admin agency search requests', () => {
     expect(router.get).toHaveBeenCalledTimes(1);
     expect(router.get.mock.calls[0][0]).toContain('search=health');
     expect(router.get.mock.calls[0][0]).not.toContain('page=');
+  });
+
+  it('opens the new-agency modal when arriving with ?open=create and cleans the URL', () => {
+    window.history.replaceState({}, '', '/admin/agencies?open=create');
+    render(<Index {...props} />);
+
+    expect(AgencyFormModalMock.default).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe('');
   });
 });

@@ -540,19 +540,11 @@ function EmploymentStep({ formData, updateField, errors, occupationOptions, onNe
   // Merge curated defaults with previously entered occupations from the backend,
   // de-duplicate, sort, and shape as [value, label] pairs for SearchableSelect.
   const mergedOccupationOptions = useMemo(() => {
-    const backendOptions = (occupationOptions || []).map(p => ({
-      value: p.label || p,
-      label: p.label || p,
-    }));
-    const allOptions = [...DEFAULT_OCCUPATIONS, ...backendOptions];
-    const seen = new Set();
-    return allOptions
-      .filter(opt => {
-        if (seen.has(opt.value)) return false;
-        seen.add(opt.value);
-        return true;
-      })
-      .sort((a, b) => a.label.localeCompare(b.label));
+    const labels = [...DEFAULT_OCCUPATIONS, ...(occupationOptions || []).map(o => o.label ?? o)]
+      .map(p => String(p).trim())
+      .filter(Boolean);
+    const unique = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+    return unique.map(p => ({ value: p, label: p }));
   }, [occupationOptions]);
 
   const handleEmploymentPresentChange = (checked) => {
@@ -1001,12 +993,22 @@ function IntakeSuccess({ caseNumber, trackerNumber, email }) {
                   <div className="space-y-4">
                     <div>
                       <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Email</label>
-                      <input
-                        type="email"
-                        value={email}
-                        readOnly
-                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm text-slate-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type="email"
+                          value={email}
+                          readOnly
+                          title="Verified email — you'll log in with this address"
+                          className="w-full border border-outline-variant bg-surface-container px-4 py-3 pr-12 text-sm font-medium text-slate-900 focus:outline-none"
+                        />
+                        <span
+                          className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-primary"
+                          aria-hidden="true"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">verified</span>
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs text-slate-500">You'll use this email to log in.</p>
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Password</label>

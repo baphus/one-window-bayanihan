@@ -374,9 +374,11 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
+    const [decisionSubmitting, setDecisionSubmitting] = useState(false);
     const [showUpdateStatus, setShowUpdateStatus] = useState(false);
     const [updateStatusValue, setUpdateStatusValue] = useState('PROCESSING');
     const [updateStatusRemark, setUpdateStatusRemark] = useState('');
+    const [updateStatusSubmitting, setUpdateStatusSubmitting] = useState(false);
 
     const [commentDraft, setCommentDraft] = useState('');
     const [replyToCommentId, setReplyToCommentId] = useState(null);
@@ -1160,8 +1162,10 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button onClick={() => {
+                                if (decisionSubmitting) return;
                                 const trimmed = decisionRemark.trim();
                                 if (!trimmed) return;
+                                setDecisionSubmitting(true);
                                 router.patch(route('referrals.update-status', pendingDecision.id), {
                                     status: pendingDecision.status,
                                     decision: pendingDecision.mode,
@@ -1169,10 +1173,11 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 }, {
                                     preserveScroll: true,
                                     onSuccess: () => { setPendingDecision(null); setDecisionRemark(''); },
+                                    onFinish: () => setDecisionSubmitting(false),
                                 });
-                            }} disabled={!decisionRemark.trim()}
+                            }} disabled={!decisionRemark.trim() || decisionSubmitting}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
-                                Confirm {pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'}
+                                {decisionSubmitting ? 'Saving…' : `Confirm ${pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'}`}
                             </button>
                         </div>
                     </div>
@@ -1214,16 +1219,19 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             <button onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button onClick={() => {
+                                if (updateStatusSubmitting) return;
                                 const trimmed = updateStatusRemark.trim();
                                 if (!trimmed) return;
+                                setUpdateStatusSubmitting(true);
                                 router.patch(route('referrals.update-status', referral.id), {
                                     status: updateStatusValue,
                                     decision_comment: trimmed,
                                 }, {
                                     preserveScroll: true,
                                     onSuccess: () => { setShowUpdateStatus(false); setUpdateStatusRemark(''); },
+                                    onFinish: () => setUpdateStatusSubmitting(false),
                                 });
-                            }} disabled={!updateStatusRemark.trim()}
+                            }} disabled={!updateStatusRemark.trim() || updateStatusSubmitting}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                                 Update Status
                             </button>

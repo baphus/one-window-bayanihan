@@ -166,6 +166,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletionReason, setDeletionReason] = useState('');
   const [deletionReasonError, setDeletionReasonError] = useState('');
+  const [deletingArchived, setDeletingArchived] = useState(false);
   const [formStatus, setFormStatus] = useState(caseFile.status);
   const [formClientType, setFormClientType] = useState(caseFile.client_type);
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
@@ -308,6 +309,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   ];
 
   function handleSaveDetails() {
+    if (saving) return;
     setSaving(true);
     bypassNext();
     const category_ids = getCaseCategories(caseFile)
@@ -364,11 +366,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   }
 
   function handleDeleteArchived() {
+    if (deletingArchived) return;
     if (deletionReason.trim().length < 10) {
       setDeletionReasonError('Deletion reason must be at least 10 characters.');
       return;
     }
     setDeletionReasonError('');
+    setDeletingArchived(true);
     router.delete(route('cases.delete-archived', caseFile.id), {
       data: { deletion_reason: deletionReason.trim() },
       onSuccess: () => {
@@ -379,6 +383,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         const msg = errors?.deletion_reason || Object.values(errors)[0] || 'Delete failed.';
         setDeletionReasonError(msg);
       },
+      onFinish: () => setDeletingArchived(false),
     });
   }
 
@@ -1143,10 +1148,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               <button
                 type="button"
                 onClick={handleDeleteArchived}
-                disabled={deletionReason.trim().length < 10}
+                disabled={deletionReason.trim().length < 10 || deletingArchived}
                 className="h-9 rounded-md bg-red-600 px-4 text-[12px] font-bold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Delete Case
+                {deletingArchived ? 'Deleting...' : 'Delete Case'}
               </button>
             </div>
           </div>

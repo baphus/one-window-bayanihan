@@ -19,6 +19,13 @@ class ReportsExportService
 
     private const PDF_TOP_N = 10;
 
+    /**
+     * Excel sheet titles that are not part of the AGENCY report tabs
+     * (overview + performance). Agencies cannot see these sections on-screen,
+     * so their exports must not emit them — not even as empty sheets.
+     */
+    private const AGENCY_HIDDEN_SHEETS = ['Geography', 'Categories', 'Case Issues', 'Case Status', 'Employment'];
+
     private const RISK = ['FOR_COMPLIANCE' => 40, 'PROCESSING' => 30, 'PENDING' => 20, 'OPEN' => 20];
 
     private const DATE_SCOPES = ['case_created_at', 'referral_created_at', 'referral_updated_at'];
@@ -175,7 +182,7 @@ class ReportsExportService
             $warnings[] = 'Case Details capped at '.$rowCap.' of '.$caseDetailCount.' matching rows.';
         }
 
-        $summary = $this->summaryFromReport($report, $refBase, $caseBase);
+        $summary = $this->summaryFromReport($report, $refBase, $caseBase, $c['role']);
         $metadata = $this->buildMetadata($c, $refDetailCount, $caseDetailCount, $warnings, $withDetails);
 
         $payload = $summary + [
@@ -184,7 +191,7 @@ class ReportsExportService
             'topReferrals' => $this->riskRows($this->referralRows($refBase), 'referral')->take(self::PDF_TOP_N)->values()->all(),
             'topCases' => $this->riskRows($this->caseRows($caseBase), 'case')->take(self::PDF_TOP_N)->values()->all(),
         ];
-        $payload['sheets'] = $this->sheets($payload, $refRows, $caseRows);
+        $payload['sheets'] = $this->sheets($payload, $refRows, $caseRows, $c['role']);
 
         return $payload;
     }
@@ -289,7 +296,7 @@ class ReportsExportService
      * bases so both PDF and Excel always have month-by-month series regardless
      * of the role-specific keys getAll() returns.
      */
-    private function summaryFromReport(array $report, $refBase, $caseBase): array
+    private function summaryFromReport(array $report, $refBase, $caseBase, string $role): array
     {
         $kpis = $report['kpis'] ?? [];
 
@@ -301,7 +308,7 @@ class ReportsExportService
             return $row;
         })->all();
 
-        return [
+        $summary = [
             'kpis' => [
                 'totalReferrals' => (int) ($kpis['totalReferrals'] ?? 0),
                 'totalCases' => (int) ($kpis['totalCases'] ?? 0),
@@ -321,12 +328,60 @@ class ReportsExportService
             'agencyScorecard' => $scorecard,
             'categoryDistribution' => $report['categoryDistribution'] ?? [],
             'caseIssueDistribution' => $report['caseIssueDistribution'] ?? [],
-            'referralAging' => $report['referralAging'] ?? ['labels' => [], 'data' => []],
+            'referralAging' => $report['referralAging'] ?? $this->agingFromBase($refBase),
             'cycleTimeDistribution' => $report['cycleTimeDistribution'] ?? ['labels' => [], 'data' => []],
             'geographicDistribution' => $report['geographicDistribution'] ?? ['labels' => [], 'data' => []],
             'employmentDistribution' => $report['employmentDistribution'] ?? ['labels' => [], 'data' => []],
             'caseTrends' => $this->trendFromBase($caseBase, 'cases.created_at'),
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
+        ];
+
+        if ($role === 'AGENCY') {
+            // Only the sections rendered on the AGENCY report tabs belong in an
+            // agency export. Empty these payload keys so the PDF's `!empty()`
+            // section guards skip them and the Excel sheet list drops them.
+            $summary['categoryDistribution'] = [];
+            $summary['caseIssueDistribution'] = [];
+            $summary['caseStatusDistribution'] = ['labels' => [], 'data' => []];
+            $summary['geographicDistribution'] = ['labels' => [], 'data' => []];
+            $summary['employmentDistribution'] = ['labels' => [], 'data' => []];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Referral aging buckets computed from the identically filtered referral
+     * base. Mirrors ReportsService::getReferralAging so agency exports can
+     * include this section (it renders on the agency performance tab) even
+     * though the AGENCY payload omits the key.
+     */
+    private function agingFromBase($base): array
+    {
+        $buckets = ['< 1 week' => 0, '1-2 weeks' => 0, '2-4 weeks' => 0, '> 1 month' => 0];
+
+        $days = (clone $base)
+            ->whereIn('referrals.status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
+            ->selectRaw('EXTRACT(EPOCH FROM (NOW() - referrals.created_at)) / 86400 as days')
+            ->get()
+            ->pluck('days');
+
+        foreach ($days as $d) {
+            if ($d < 7) {
+                $buckets['< 1 week']++;
+            } elseif ($d < 14) {
+                $buckets['1-2 weeks']++;
+            } elseif ($d < 30) {
+                $buckets['2-4 weeks']++;
+            } else {
+                $buckets['> 1 month']++;
+            }
+        }
+
+        return [
+            'labels' => array_keys($buckets),
+            'data' => array_values($buckets),
+            'colors' => ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
         ];
     }
 
@@ -392,7 +447,7 @@ class ReportsExportService
         ];
     }
 
-    private function sheets(array $p, Collection $refs, Collection $cases): array
+    private function sheets(array $p, Collection $refs, Collection $cases, string $role): array
     {
         $kv = [['key' => 'metric', 'label' => 'Metric', 'type' => 'string'], ['key' => 'value', 'label' => 'Value', 'type' => 'string']];
         $dist = [['key' => 'label', 'label' => 'Label', 'type' => 'string'], ['key' => 'count', 'label' => 'Count', 'type' => 'string']];
@@ -400,7 +455,7 @@ class ReportsExportService
         $refCols = collect(['referral_id', 'case_id', 'case_number', 'agency', 'required_services', 'status', 'created_at', 'completed_at', 'completion_days', 'age_days'])->map(fn ($k) => ['key' => $k, 'label' => ucwords(str_replace('_', ' ', $k)), 'type' => 'string'])->all();
         $caseCols = collect(['case_id', 'case_number', 'client_type', 'category', 'issue', 'status', 'created_at', 'updated_at', 'closed_at', 'age_days'])->map(fn ($k) => ['key' => $k, 'label' => ucwords(str_replace('_', ' ', $k)), 'type' => 'string'])->all();
 
-        return [
+        $sheets = [
             ['title' => 'Report Info', 'columnMap' => $kv, 'rows' => collect($p['metadata'])->map(fn ($v, $k) => ['metric' => $k, 'value' => is_array($v) ? json_encode($v) : $v])->values()],
             ['title' => 'Executive Summary', 'columnMap' => $kv, 'rows' => collect($p['kpis'])->map(fn ($v, $k) => ['metric' => $k, 'value' => $v])->values()],
             ['title' => 'Referral Status', 'columnMap' => $dist, 'rows' => $distRows($p['referralStatusDistribution'])],
@@ -411,6 +466,15 @@ class ReportsExportService
             ['title' => 'Case Status', 'columnMap' => $dist, 'rows' => $distRows($p['caseStatusDistribution'])], ['title' => 'Employment', 'columnMap' => $dist, 'rows' => $distRows($p['employmentDistribution'])], ['title' => 'Trends', 'columnMap' => [['key' => 'period', 'label' => 'Period', 'type' => 'string'], ['key' => 'cases', 'label' => 'Cases', 'type' => 'string'], ['key' => 'referrals', 'label' => 'Referrals', 'type' => 'string']], 'rows' => $this->trendRows($p['caseTrends'], $p['referralTrends'])],
             ['title' => 'Referral Details', 'columnMap' => $refCols, 'rows' => $refs], ['title' => 'Case Details', 'columnMap' => $caseCols, 'rows' => $cases],
         ];
+
+        if ($role === 'AGENCY') {
+            $sheets = array_values(array_filter(
+                $sheets,
+                fn ($sheet) => ! in_array($sheet['title'], self::AGENCY_HIDDEN_SHEETS, true)
+            ));
+        }
+
+        return $sheets;
     }
 
     private function trendRows(array $caseTrends, array $refTrends): Collection

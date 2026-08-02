@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import KpiCard from '@/Components/ui/KpiCard';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
@@ -33,6 +33,22 @@ export default function AgencyServicesIndex({ services, allServices }) {
     const [deleting, setDeleting] = useState(false);
 
     const debounceRef = useRef(null);
+
+    // When arriving via the dashboard getting-started checklist (?open=create),
+    // open the create-service modal and strip the param so a reload doesn't
+    // re-open it. Runs once per mount.
+    const autoOpenHandledRef = useRef(false);
+    useEffect(() => {
+        if (autoOpenHandledRef.current) return;
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('open') === 'create') {
+            autoOpenHandledRef.current = true;
+            setIsCreateOpen(true);
+            params.delete('open');
+            const qs = params.toString();
+            window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+        }
+    }, []);
 
     function handleSearchChange(value) {
         if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -97,6 +113,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
     };
 
     const handleCreate = () => {
+        if (creating) return;
         if (!newName.trim() || !newDescription.trim()) return;
         setCreating(true);
         router.post(route('agency.services.store'), {
@@ -117,6 +134,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
     };
 
     const handleUpdate = () => {
+        if (updating) return;
         if (!draftName.trim() || !draftDescription.trim() || !selectedServiceId) return;
         setUpdating(true);
         router.patch(route('agency.services.update', selectedServiceId), {
@@ -131,6 +149,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
     };
 
     const handleDelete = () => {
+        if (deleting) return;
         if (!deleteTarget) return;
         setDeleting(true);
         router.delete(route('agency.services.destroy', deleteTarget.id), {
