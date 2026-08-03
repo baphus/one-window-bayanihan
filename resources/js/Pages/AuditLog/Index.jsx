@@ -206,7 +206,7 @@ export default function AuditLogIndex({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-slate-900">{viewTitle}</h1>
+                <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">{viewTitle}</h1>
                 {isScoped && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
@@ -217,7 +217,7 @@ export default function AuditLogIndex({
                   </span>
                 )}
               </div>
-              <p className="text-sm text-slate-500 mt-1">{viewSubtitle}</p>
+              <p className="text-sm text-slate-400 font-body mt-0.5">{viewSubtitle}</p>
             </div>
           </div>
           {canExport && (

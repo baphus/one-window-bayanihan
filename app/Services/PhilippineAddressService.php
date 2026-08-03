@@ -173,10 +173,21 @@ class PhilippineAddressService
 
         $data = self::load();
 
-        // Find region by name (case-insensitive)
+        // Find region by name. Region display names have the form
+        // "Region VII (Central Visayas)" but stored values sometimes only keep
+        // the parenthesized part ("Central Visayas"), so compare a normalized
+        // form of each side: the parenthesized label when present, otherwise
+        // the full name, lower-cased.
+        $normalizeRegion = function (string $name): string {
+            $short = preg_replace('/^region\s+[^()]*\((.+)\)$/i', '$1', trim($name));
+
+            return strtolower(trim($short ?: $name));
+        };
+        $targetRegion = $normalizeRegion($address['region']);
+
         $regionCode = null;
         foreach ($data['regions'] as $region) {
-            if (strcasecmp(trim($region['name']), trim($address['region'])) === 0) {
+            if ($normalizeRegion($region['name']) === $targetRegion) {
                 $regionCode = $region['code'];
                 break;
             }

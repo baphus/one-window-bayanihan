@@ -122,7 +122,7 @@ export default function CaseTrash({ cases, filters: initialFilters = {} }) {
                 {activeFilterEntries.map(({ key, label, value }) => (
                   <span
                     key={key}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f7fc] text-blue-900 rounded-[2px] font-bold border border-[#d2e5f3]"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-900 rounded-[2px] font-bold border border-blue-200"
                   >
                     {label}: {key === 'search' ? `"${value}"` : value}
                     <button

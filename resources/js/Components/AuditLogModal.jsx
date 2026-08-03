@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { formatDisplayDateTime } from '@/lib/utils';
-import { ChangesTable, getActivityType } from '@/lib/audit';
+import { getActivityType } from '@/lib/audit';
+import AuditLogCard from '@/Components/AuditLogCard';
 
 /**
  * AuditLogModal — full-screen modal displaying paginated audit log entries
@@ -175,27 +176,13 @@ function LogEntry({ log }) {
     const module = log.formatted_module || log.module || '';
 
     return (
-        <div className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
-            {/* Activity type badge */}
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-blue-900">
-                {activityType}
-            </p>
-
-            {/* Description */}
-            {description && (
-                <p className="mt-1 text-[12px] text-slate-700">{description}</p>
-            )}
-
-            {/* Changes table */}
-            <ChangesTable changes={changes} variant="compact" maxRows={5} />
-
-            {/* Metadata line */}
-            <p className="mt-1 text-[10px] text-slate-500">
-                {module && <>{module} &bull; </>}
-                {timestamp && <>{formatDisplayDateTime(timestamp)} &bull; </>}
-                {actor}
-            </p>
-        </div>
+        <AuditLogCard
+            type={activityType}
+            details={description}
+            changes={changes}
+            maxRows={5}
+            meta={[module, timestamp && formatDisplayDateTime(timestamp), actor]}
+        />
     );
 }
 

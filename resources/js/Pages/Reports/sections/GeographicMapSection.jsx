@@ -106,14 +106,14 @@ function GeographicPanel({ geoData, province, onProvinceClick, provinceOptions =
           <button
             type="button"
             onClick={() => setView('map')}
-            className={`px-3 py-1.5 ${view === 'map' ? 'bg-white text-[#0b5a8c] dark:bg-slate-900 dark:text-[#7fb3e0]' : 'text-slate-500 dark:text-slate-400'}`}
+            className={`px-3 py-1.5 ${view === 'map' ? 'bg-white text-primary dark:bg-slate-900 dark:text-primary-fixed-dim' : 'text-slate-500 dark:text-slate-400'}`}
           >
             Map
           </button>
           <button
             type="button"
             onClick={() => setView('bar')}
-            className={`px-3 py-1.5 ${view === 'bar' ? 'bg-white text-[#0b5a8c] dark:bg-slate-900 dark:text-[#7fb3e0]' : 'text-slate-500 dark:text-slate-400'}`}
+            className={`px-3 py-1.5 ${view === 'bar' ? 'bg-white text-primary dark:bg-slate-900 dark:text-primary-fixed-dim' : 'text-slate-500 dark:text-slate-400'}`}
           >
             Bar chart
           </button>
@@ -148,7 +148,7 @@ export default function GeographicMapSection({ province, setProvince, setCity, p
     <SectionAccordion title="Geographic Distribution" defaultOpen>
       {(geoLoading || mapLoading) && !hasGeoData ? <ChartSkeleton /> : null}
       {!geoLoading && !mapLoading && !hasGeoData ? (
-        <div className="rounded-[3px] border border-[#e2e8f0] bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-[3px] border border-surface-variant bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">No geographic data available.</p>
         </div>
       ) : null}

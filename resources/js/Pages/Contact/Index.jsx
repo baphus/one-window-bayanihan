@@ -39,8 +39,8 @@ export default function Contact() {
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
 
       <main className="flex-1 pt-20">
-        <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-[#0b5c92]">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0b5c92] via-[#0b5c92]/90 to-blue-800/30"></div>
+        <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-primary">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-blue-800/30"></div>
           <div className="relative z-10 mx-auto w-full max-w-7xl px-4 text-center md:px-8">
             <h1 className="mb-4 font-headline text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
               Contact Support
@@ -60,7 +60,7 @@ export default function Contact() {
                   <div className="space-y-6">
                     <div className="flex items-start gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 shrink-0">
-                        <span className="material-symbols-outlined text-[#0b5c92]">location_on</span>
+                        <span className="material-symbols-outlined text-primary">location_on</span>
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">Office Address</h3>
@@ -73,7 +73,7 @@ export default function Contact() {
 
                     <div className="flex items-start gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 shrink-0">
-                        <span className="material-symbols-outlined text-[#0b5c92]">call</span>
+                        <span className="material-symbols-outlined text-primary">call</span>
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">Hotline</h3>
@@ -86,7 +86,7 @@ export default function Contact() {
 
                     <div className="flex items-start gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 shrink-0">
-                        <span className="material-symbols-outlined text-[#0b5c92]">mail</span>
+                        <span className="material-symbols-outlined text-primary">mail</span>
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">Email</h3>
@@ -99,7 +99,7 @@ export default function Contact() {
 
                     <div className="flex items-start gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 shrink-0">
-                        <span className="material-symbols-outlined text-[#0b5c92]">schedule</span>
+                        <span className="material-symbols-outlined text-primary">schedule</span>
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">Office Hours</h3>
@@ -126,7 +126,7 @@ export default function Contact() {
                     <button
                       type="button"
                       onClick={() => setSubmitted(false)}
-                      className="text-sm font-semibold text-[#0b5c92] hover:underline"
+                      className="text-sm font-semibold text-primary hover:underline"
                     >
                       Send another message
                     </button>
@@ -136,7 +136,7 @@ export default function Contact() {
                     <h2 className="text-xl font-bold text-slate-900 mb-6">Send a Message</h2>
                     <p className="text-sm text-slate-600 mb-6">
                       For case-specific inquiries, please use the{" "}
-                      <a href={route('track.index')} className="text-[#0b5c92] font-semibold hover:underline">
+                      <a href={route('track.index')} className="text-primary font-semibold hover:underline">
                         Track Your Case
                       </a>{" "}
                       feature to check the status of your application.
@@ -151,7 +151,7 @@ export default function Contact() {
                           type="text"
                           value={data.name}
                           onChange={(e) => setData('name', e.target.value)}
-                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm"
+                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                           placeholder="Enter your name"
                           required
                         />
@@ -166,7 +166,7 @@ export default function Contact() {
                           type="email"
                           value={data.email}
                           onChange={(e) => setData('email', e.target.value)}
-                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm"
+                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                           placeholder="Enter your email"
                           required
                         />
@@ -181,7 +181,7 @@ export default function Contact() {
                           rows={5}
                           value={data.message}
                           onChange={(e) => setData('message', e.target.value)}
-                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-[#0b5c92] focus:ring-[#0b5c92] text-sm"
+                          className="block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                           placeholder="Describe your concern..."
                           maxLength={2000}
                           required
@@ -200,7 +200,7 @@ export default function Contact() {
                       <button
                         type="submit"
                         disabled={processing}
-                        className="w-full rounded-md bg-[#0b5c92] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0a4d7a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {processing ? (
                           <>

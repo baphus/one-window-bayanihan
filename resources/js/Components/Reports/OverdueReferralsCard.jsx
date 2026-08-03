@@ -38,5 +38,5 @@ export default function OverdueReferralsCard({ role }) {
     );
   }
 
-  return <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0b5a8c]/40">{card}</Link>;
+  return <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">{card}</Link>;
 }

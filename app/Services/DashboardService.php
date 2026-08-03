@@ -96,7 +96,7 @@ class DashboardService
             'PROCESSING' => 'Processing',
             'FOR_COMPLIANCE' => 'For compliance',
             'COMPLETED' => 'Completed',
-            'REJECTED' => 'Returned',
+            'REJECTED' => 'Rejected',
             default => str($status)->replace('_', ' ')->title()->toString(),
         };
     }
@@ -323,7 +323,7 @@ class DashboardService
                 -- Cases with REJECTED referrals
                 SELECT DISTINCT ON (c.id) c.id, c.case_number, c.tracker_number, c.status, c.created_at,
                     cl.first_name, cl.last_name,
-                    'Returned referral' AS reason,
+                    'Rejected referral' AS reason,
                     'REJECTED' AS latest_referral_status,
                     100 AS priority_score
                 FROM cases c
@@ -621,7 +621,7 @@ class DashboardService
         $workQueue = [
             $this->queueItem('agingOpenCases', 'Aging open cases', $agingOpenCasesCount, 'Open seven days or more.', 'amber', 'folder_clock', '/cases?status=OPEN&age_min_days=7'),
             $this->queueItem('pendingReferrals', 'Pending referrals', $pendingReferrals, 'Waiting for agency action.', 'amber', 'schedule', '/referrals?status=PENDING'),
-            $this->queueItem('rejectedReferrals', 'Returned referrals', $rejectedReferrals, 'Needs reassignment or follow-up.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
+            $this->queueItem('rejectedReferrals', 'Rejected referrals', $rejectedReferrals, 'Needs reassignment or follow-up.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
             $this->queueItem('draftCases', 'Draft cases', $myDraftCount, 'Your unfinished case drafts.', 'slate', 'edit_note', '/cases/drafts'),
             $this->queueItem('casesWithoutReferrals', 'Cases without referrals', $casesWithoutReferrals, 'Open cases that may need routing.', 'blue', 'hub', '/cases?status=OPEN&referral_state=none'),
         ];
@@ -721,7 +721,7 @@ class DashboardService
             $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals?status=FOR_COMPLIANCE'),
             $this->queueItem('processingReferrals', 'Processing', $processingReferrals, 'Currently being handled.', 'cyan', 'sync', '/referrals?status=PROCESSING'),
             $this->queueItem('overdueReferrals', 'Overdue', $overdueReferrals, 'Active referrals older than five days.', 'rose', 'warning', '/referrals?age_min_days=5'),
-            $this->queueItem('returnedReferrals', 'Returned', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
+            $this->queueItem('returnedReferrals', 'Rejected', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
         ];
 
         // Recent activity via subquery instead of loading all referral IDs

@@ -48,7 +48,7 @@ export default function OverdueSection() {
                 <div className="flex items-center gap-2 min-w-0">
                   <Clock className="h-3 w-3 shrink-0 text-rose-400" />
                   <div className="min-w-0">
-                    <Link href={route('referrals.show', ref.id)} className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 hover:text-[#0b5a8c] truncate block">
+                    <Link href={route('referrals.show', ref.id)} className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 hover:text-primary truncate block">
                       {ref.case_file?.case_number || 'N/A'}
                     </Link>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">

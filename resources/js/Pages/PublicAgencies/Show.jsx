@@ -11,7 +11,7 @@ function AgencyLogo({ agency, className = '' }) {
 
   if (hasError || !agency?.logo_url) {
     return (
-      <span className={`font-headline font-extrabold text-[#0b5c92] ${className}`}>
+      <span className={`font-headline font-extrabold text-primary ${className}`}>
         {fallbackLetter}
       </span>
     );
@@ -85,8 +85,8 @@ export default function PublicAgencyShow({ agency }) {
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
 
       <main className="flex-1 pt-20 owb-scroll-wide">
-        <section className="relative overflow-hidden bg-[#0b5c92]">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0b5c92] via-[#0b5c92]/95 to-blue-800/35" />
+        <section className="relative overflow-hidden bg-primary">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/95 to-blue-800/35" />
 
           <div className="relative mx-auto max-w-7xl px-4 py-10 md:px-8 md:py-14">
             <Link

@@ -43,7 +43,7 @@ export default function ClientShow({ client, auditLogs }) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
                     <CardSection title="Client Information">
-                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8] border-b border-[#d8dee8]">
+                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-surface-variant border-b border-surface-variant">
                             <InfoCell label="Full Name" value={
                                 <div className="flex items-center gap-3">
                                     <ProfilePictureUpload currentUrl={client.avatar_url} name={fullName} clientId={client.id} size="md" />
@@ -54,7 +54,7 @@ export default function ClientShow({ client, auditLogs }) {
                             <InfoCell label="Date of Birth" value={client.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
                         </div>
                         {client.caseFile && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d8dee8]">
+                            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-surface-variant">
                                 <InfoCell label="Case Number" value={
                                     <Link href={route('cases.show', client.caseFile.id)} className="text-indigo-600 hover:text-indigo-900">
                                         {client.caseFile.case_number}

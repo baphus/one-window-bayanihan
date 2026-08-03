@@ -181,7 +181,7 @@ function ReportsDashboard({
               disabled={!hasPendingChanges}
               className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                 hasPendingChanges
-                  ? 'bg-[#0b5a8c] text-white hover:bg-[#094a73] focus:ring-[#0b5a8c]'
+                  ? 'bg-primary text-white hover:bg-primary-container focus:ring-primary'
                   : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
               }`}
             >
@@ -194,7 +194,7 @@ function ReportsDashboard({
       {/* ── KPI hero: primary "am I on track" tier ── */}
       <section data-tour="reports-kpis" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
         <MetricCard label="Active Caseload" value={`${kpis?.openCases ?? 0}`}
-          icon={<Users className="w-4 h-4 text-[#0b5a8c]" />}
+          icon={<Users className="w-4 h-4 text-primary" />}
           sparkline={<Sparkline data={caseSparkline} color={COLORS.primary} />} />
         <MetricCard label="Completed This Period" value={`${kpis?.completedReferrals ?? 0}`}
           icon={<CheckCircle2 className="w-4 h-4 text-[#3f915f]" />}
@@ -211,7 +211,7 @@ function ReportsDashboard({
       {/* ── KPI hero: volume strip ── */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <MetricCard label="Total Referrals" value={`${kpis?.totalReferrals ?? 0}`}
-          icon={<GitFork className="w-4 h-4 text-[#0b5a8c]" />}
+          icon={<GitFork className="w-4 h-4 text-primary" />}
           trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />}
           sparkline={<Sparkline data={referralSparkline} color={COLORS.primary} />} />
         <MetricCard label="Pending" value={`${kpis?.pendingReferrals ?? 0}`} valueTone="text-[#9a5b1a] dark:text-amber-400"

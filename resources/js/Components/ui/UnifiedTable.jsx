@@ -426,7 +426,7 @@ export function UnifiedTable({
             {activeFilters.map((filter, index) => (
               <div 
                 key={`${filter.key}-${index}`} 
-                className="flex items-center gap-1.5 bg-[#f0f7fc] text-blue-900 px-3 py-1 rounded-[2px] font-bold border border-[#d2e5f3]"
+                className="flex items-center gap-1.5 bg-blue-50 text-blue-900 px-3 py-1 rounded-[2px] font-bold border border-blue-200"
               >
                 {filter.label}: {filter.value}
                 <button 

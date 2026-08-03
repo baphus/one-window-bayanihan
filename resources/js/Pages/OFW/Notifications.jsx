@@ -21,7 +21,7 @@ function NotificationItem({ notification }) {
             className={`rounded-lg border p-4 transition-colors ${
                 isUnread
                     ? 'border-blue-200 bg-blue-50/50'
-                    : 'border-gray-200 bg-white'
+                    : 'border-slate-200 bg-white'
             }`}
         >
             <div className="flex items-start gap-3">
@@ -30,20 +30,20 @@ function NotificationItem({ notification }) {
                     {isUnread ? (
                         <span className="block h-2.5 w-2.5 rounded-full bg-blue-500" />
                     ) : (
-                        <span className="block h-2.5 w-2.5 rounded-full bg-gray-200" />
+                        <span className="block h-2.5 w-2.5 rounded-full bg-slate-200" />
                     )}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                    <p className={`text-sm ${isUnread ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                    <p className={`text-sm ${isUnread ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}>
                         {notification.title}
                     </p>
                     {notification.message && (
-                        <p className="mt-1 text-sm text-gray-500">
+                        <p className="mt-1 text-sm text-slate-500">
                             {notification.message}
                         </p>
                     )}
-                    <p className="mt-2 text-xs text-gray-400">
+                    <p className="mt-2 text-xs text-slate-400">
                         {formatDate(notification.created_at)}
                     </p>
                 </div>
@@ -54,10 +54,10 @@ function NotificationItem({ notification }) {
 
 function EmptyState() {
     return (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white px-6 py-16 text-center">
-            <span className="material-symbols-outlined text-5xl text-gray-300">notifications_off</span>
-            <h2 className="mt-4 text-lg font-semibold text-gray-800">No notifications</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">
+        <div className="rounded-lg border-2 border-dashed border-slate-200 bg-white px-6 py-16 text-center">
+            <span className="material-symbols-outlined text-5xl text-slate-300">notifications_off</span>
+            <h2 className="mt-4 text-lg font-semibold text-slate-800">No notifications</h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
                 You'll receive notifications here when there are updates to your cases.
             </p>
         </div>
@@ -69,9 +69,18 @@ export default function Notifications({ notifications }) {
 
     return (
         <OfwLayout title="Notifications">
-            <div>
-                <h1 className="text-xl font-bold text-gray-900">Notifications</h1>
-                <p className="mt-1 text-sm text-gray-500">
+            {/* Back to My Cases */}
+            <Link
+                href={route('ofw.dashboard')}
+                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
+            >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                Back to My Cases
+            </Link>
+
+            <div className="mt-4">
+                <h1 className="text-xl font-extrabold font-headline tracking-tight text-slate-900">Notifications</h1>
+                <p className="mt-1 text-sm text-slate-400 font-body">
                     Updates about your cases
                 </p>
             </div>
@@ -80,7 +89,7 @@ export default function Notifications({ notifications }) {
                 {notificationList.length === 0 ? (
                     <EmptyState />
                 ) : (
-                    <div className="space-y-3">
+                    <div className="max-h-[calc(100vh-18rem)] space-y-3 overflow-y-auto pr-1 owb-scroll-wide">
                         {notificationList.map((notification) => (
                             <NotificationItem
                                 key={notification.id}
@@ -100,10 +109,10 @@ export default function Notifications({ notifications }) {
                             href={link.url ?? '#'}
                             className={`rounded px-3 py-1.5 text-sm ${
                                 link.active
-                                    ? 'bg-blue-600 font-semibold text-white'
+                                    ? 'bg-primary font-semibold text-white'
                                     : link.url
-                                      ? 'text-gray-600 hover:bg-gray-100'
-                                      : 'cursor-not-allowed text-gray-300'
+                                      ? 'text-slate-600 hover:bg-slate-100'
+                                      : 'cursor-not-allowed text-slate-300'
                             }`}
                             preserveScroll
                             dangerouslySetInnerHTML={{ __html: link.label }}

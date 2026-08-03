@@ -437,6 +437,7 @@ Route::post('/chatbot/message', [ChatbotController::class, 'message'])
 Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group(function () {
     Route::get('/', [OfwDashboardController::class, 'index'])->name('dashboard');
     Route::get('/notifications', [OfwDashboardController::class, 'notifications'])->name('notifications');
+    Route::patch('/notifications/{id}/read', [OfwDashboardController::class, 'markNotificationAsRead'])->name('notifications.mark-as-read');
     Route::get('/profile', [OfwProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile', [OfwProfileController::class, 'update'])->name('profile.update');
     Route::get('/{id}', [OfwDashboardController::class, 'show'])->name('case.show');

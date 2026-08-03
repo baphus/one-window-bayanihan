@@ -30,8 +30,8 @@ export default function StakeholderIndex({ agencies }) {
     <AppLayout title="Stakeholders">
       <Head title="Stakeholders" />
       <div data-tour="stakeholders-header" className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Stakeholders</h1>
-        <p className="text-sm text-slate-500 mt-1">Partner agencies and organizations involved in the One Window Bayanihan system.</p>
+        <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Stakeholders</h1>
+        <p className="text-sm text-slate-400 font-body mt-0.5">Partner agencies and organizations involved in the One Window Bayanihan system.</p>
       </div>
 
       <div data-tour="stakeholders-grid" className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

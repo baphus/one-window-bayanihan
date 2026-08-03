@@ -146,8 +146,8 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
         {/* Header */}
         <div data-tour="overdue-header" className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Overdue Referrals</h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Overdue Referrals</h1>
+            <p className="text-sm text-slate-400 font-body mt-0.5">
               {ROLE_SUBTITLES[userRole] ?? ROLE_SUBTITLES.ADMIN}
             </p>
           </div>

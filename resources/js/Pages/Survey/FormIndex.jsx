@@ -71,17 +71,17 @@ export default function FormIndex({ forms = [] }) {
               <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-slate-900">Your forms</h2>
             </div>
             <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Title</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Questions</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Status</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Created</th>
-                    <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Actions</th>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-300">
+                    <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Title</th>
+                    <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Questions</th>
+                    <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Status</th>
+                    <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Created</th>
+                    <th className="px-5 py-4 text-right text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
+                <tbody className="divide-y divide-slate-200 bg-white">
                   {forms.map((form) => (
                     <tr key={form.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4 align-top">

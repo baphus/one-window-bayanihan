@@ -1,5 +1,4 @@
 import { Link, usePage } from '@inertiajs/react';
-import DashboardBanner from '@/Components/DashboardBanner';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
@@ -76,7 +75,6 @@ export default function AdminDashboard({ dashboard = {} }) {
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
-            <DashboardBanner />
             <GettingStartedChecklist />
 
             <PageHeader

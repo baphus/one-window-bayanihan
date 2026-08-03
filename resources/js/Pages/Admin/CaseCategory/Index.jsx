@@ -97,7 +97,7 @@ export default function AdminCaseCategoryIndex({ categories, filters }) {
   ], []);
 
   return (
-    <AppLayout title="Manage Case Categories">
+    <AppLayout title="Case Categories">
       {showForm && (
         <CaseCategoryFormModal
           category={editingCategory}
@@ -105,11 +105,11 @@ export default function AdminCaseCategoryIndex({ categories, filters }) {
           onBypass={bypassNext}
         />
       )}
-      <Head title="Manage Case Categories" />
+      <Head title="Case Categories" />
       <div data-tour="case-categories-header" className="mb-4 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Case Categories</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage categories used to classify client cases.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Case Categories</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Manage categories used to classify client cases.</p>
         </div>
         <button data-tour="case-categories-new" onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Category

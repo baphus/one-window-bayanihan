@@ -38,6 +38,64 @@ function clearSession() {
   sessionStorage.removeItem(STORAGE_KEY);
 }
 
+function emptyForm() {
+  return {
+    email: '',
+    otp: '',
+    client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', contact_number: '' },
+    address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
+    employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
+    vulnerability: [],
+    next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+    summary: '',
+    consent: false,
+  };
+}
+
+// Pre-fill the wizard with the signed-in OFW's linked client profile when the
+// backend passes one. Every field stays editable — the profile is only a
+// starting value so a returning OFW does not have to retype everything.
+function formWithExistingClient(existingClient) {
+  const base = emptyForm();
+  if (!existingClient) return base;
+
+  const clientFields = ['first_name', 'last_name', 'middle_initial', 'suffix', 'date_of_birth', 'sex', 'contact_number'];
+  const next = {
+    ...base,
+    client: { ...base.client },
+  };
+
+  clientFields.forEach((key) => {
+    if (existingClient[key] != null) next.client[key] = existingClient[key];
+  });
+
+  if (existingClient.email) next.email = existingClient.email;
+
+  // Merge per-section, keeping base defaults for any key the profile leaves
+  // null/empty (e.g. an address level that could not be resolved to a code).
+  if (existingClient.address) {
+    Object.entries(existingClient.address).forEach(([key, value]) => {
+      if (value != null && value !== '') next.address[key] = value;
+    });
+  }
+  if (existingClient.employment) {
+    Object.entries(existingClient.employment).forEach(([key, value]) => {
+      next.employment[key] = value ?? '';
+    });
+  }
+  if (existingClient.next_of_kin?.length) {
+    next.next_of_kin = existingClient.next_of_kin.map((nok) => {
+      const merged = { ...base.next_of_kin[0], ...nok };
+      Object.keys(merged).forEach((key) => {
+        if (merged[key] == null) merged[key] = '';
+      });
+      return merged;
+    });
+  }
+
+  return next;
+}
+
 /**
  * POST JSON and report the status separately from the body.
  *
@@ -71,7 +129,7 @@ async function postJson(url, body) {
   return { res, json };
 }
 
-export default function IntakeIndex({ occupationOptions }) {
+export default function IntakeIndex({ occupationOptions, existingClient }) {
   const { turnstile } = usePage().props;
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -89,17 +147,7 @@ export default function IntakeIndex({ occupationOptions }) {
 
   const [formData, setFormData] = useState(() => {
     const saved = loadFromSession();
-    return saved || {
-      email: '',
-      otp: '',
-      client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', contact_number: '' },
-      address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
-      employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
-      vulnerability: [],
-      next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
-      summary: '',
-      consent: false,
-    };
+    return saved || formWithExistingClient(existingClient);
   });
 
   // Save to session on every formData change (after email verified)

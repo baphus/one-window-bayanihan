@@ -7,6 +7,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { Users, UserCheck, Shield, ArrowRightLeft } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
+import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 
 const vulnStyles = {
@@ -792,14 +793,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
           </h1>
           <p className="text-sm text-slate-400 font-body mt-0.5">View all registered clients and their associated cases.</p>
         </div>
-        <button
-          type="button"
-          onClick={handleExport}
-          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-        >
-          <span className="material-symbols-outlined text-[18px]">download</span>
-          Export Excel
-        </button>
+        <ExportExcelButton onClick={handleExport} />
       </header>
 
       <div data-tour="clients-stats">

@@ -13,7 +13,7 @@ export default function ChartTypeToggle({ value, onChange, types = ['bar', 'line
           aria-pressed={value === t}
           className={`h-7 px-2.5 text-[11px] font-semibold transition ${
             value === t
-              ? 'bg-[#0b5a8c] text-white'
+              ? 'bg-primary text-white'
               : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'
           }`}
         >

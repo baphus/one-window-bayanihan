@@ -7,6 +7,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
+import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 
 const COLUMN_DEFS = [
@@ -546,15 +547,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                         </h1>
                         <p className="text-sm text-slate-400 font-body mt-0.5">Track and manage all referrals across agencies.</p>
                     </div>
-                    <button
-                        data-tour="referrals-export"
-                        type="button"
-                        onClick={handleExport}
-                        className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                    >
-                        <span className="material-symbols-outlined text-[18px]">download</span>
-                        Export Excel
-                    </button>
+                    <ExportExcelButton onClick={handleExport} data-tour="referrals-export" />
                 </div>
             </div>
 

@@ -23,7 +23,7 @@ export default function AgencyMapView({
   // Priority 1 & 2: embed iframe
   if (embedUrl) {
     return (
-      <div className="overflow-hidden rounded-[3px] border border-[#d8dee8]">
+      <div className="overflow-hidden rounded-[3px] border border-surface-variant">
         <iframe
           title={`${agencyName || 'Agency'} location`}
           src={embedUrl}
@@ -43,7 +43,7 @@ export default function AgencyMapView({
         href={linkUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs font-semibold text-[#0b5c92] hover:underline"
+        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
       >
         <span className="material-symbols-outlined text-[14px]">map</span>
         View on Google Maps

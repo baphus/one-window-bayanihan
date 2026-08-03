@@ -71,7 +71,7 @@ export default function ArticleFeedback({ slug }) {
             </p>
             <Link
               href={route('contact')}
-              className="inline-flex flex-shrink-0 items-center justify-center rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="inline-flex flex-shrink-0 items-center justify-center rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Contact support
             </Link>

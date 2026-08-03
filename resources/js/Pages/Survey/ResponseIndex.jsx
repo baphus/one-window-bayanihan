@@ -50,18 +50,18 @@ export default function ResponseIndex({ invitations, stats, filters = {} }) {
           </div>
 
           <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Client</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Service</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Agency</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Survey Form</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Submitted</th>
-                  <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Action</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-300">
+                  <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Client</th>
+                  <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Service</th>
+                  <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Agency</th>
+                  <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Survey Form</th>
+                  <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Submitted</th>
+                  <th className="px-5 py-4 text-right text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-slate-200 bg-white">
                 {data.length === 0 && (
                   <tr>
                     <td colSpan="6" className="px-5 py-12 text-center text-sm text-slate-500">

@@ -62,10 +62,10 @@ export default function EmploymentAnalytics({
         <MetricCard
           label="Employed Clients"
           value={`${totalEmployed}`}
-          accent="border-l-[#0b5a8c]"
+          accent="border-l-primary"
           trailing={
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0b5a8c]/10">
-              <Briefcase className="h-4 w-4 text-[#0b5a8c]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+              <Briefcase className="h-4 w-4 text-primary" />
             </div>
           }
         />
