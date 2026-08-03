@@ -5,13 +5,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 const NOTIFICATIONS_KEYS = ['ofw-notifications'];
 
 async function fetchJson(url, options = {}) {
+    const { headers: optionHeaders = {}, ...rest } = options;
+
     const res = await fetch(url, {
+        ...rest,
         headers: {
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            ...options.headers,
+            ...optionHeaders,
         },
-        ...options,
     });
     if (!res.ok) throw new Error(`Failed: ${res.status}`);
     return res.json();
