@@ -87,6 +87,7 @@ class OfwDashboardController extends Controller
     public function notifications(Request $request)
     {
         $user = $request->user();
+        $clientEmail = $user->client?->email;
 
         $caseIds = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
@@ -94,6 +95,7 @@ class OfwDashboardController extends Controller
             ->pluck('id');
 
         $notifications = CaseNotification::whereIn('case_id', $caseIds)
+            ->when($clientEmail, fn ($query) => $query->where('client_email', $clientEmail))
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -113,6 +115,7 @@ class OfwDashboardController extends Controller
                 'meta' => [
                     'total' => $notifications->total(),
                     'unread' => CaseNotification::whereIn('case_id', $caseIds)
+                        ->when($clientEmail, fn ($query) => $query->where('client_email', $clientEmail))
                         ->whereNull('read_at')
                         ->count(),
                 ],
@@ -130,6 +133,7 @@ class OfwDashboardController extends Controller
     public function markNotificationAsRead(Request $request, string $id): JsonResponse
     {
         $user = $request->user();
+        $clientEmail = $user->client?->email;
 
         $caseIds = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
@@ -138,6 +142,7 @@ class OfwDashboardController extends Controller
 
         $updated = CaseNotification::where('id', $id)
             ->whereIn('case_id', $caseIds)
+            ->when($clientEmail, fn ($query) => $query->where('client_email', $clientEmail))
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
