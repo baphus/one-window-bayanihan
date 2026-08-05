@@ -73,8 +73,8 @@ export default function Index() {
 
       <div data-tour="logs-header" className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">System Logs</h1>
-          <p className="mt-1 text-sm text-slate-500">Browse and export filtered application logs.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">System Logs</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Browse and export filtered application logs.</p>
         </div>
 
         <a data-tour="logs-download" href={downloadHref} className="rounded-md bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700">
@@ -102,15 +102,15 @@ export default function Index() {
       )}
 
       <div data-tour="logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Timestamp</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Level</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Message</th>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-300">
+              <th className="px-4 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Timestamp</th>
+              <th className="px-4 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Level</th>
+              <th className="px-4 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Message</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-slate-200 bg-white">
             {!loading && entries.length === 0 && !sourceAvailable && (
               <tr><td colSpan="3" className="px-4 py-8 text-center text-sm text-slate-500">No log files found in storage.</td></tr>
             )}

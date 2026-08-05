@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useForm, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { z } from 'zod';
 import OfwLayout from '@/Layouts/OfwLayout';
 import PasswordInput from '@/Components/PasswordInput';
@@ -45,9 +45,18 @@ export default function Profile({ user }) {
 
     return (
         <OfwLayout title="Profile">
-            <div>
-                <h1 className="text-xl font-bold text-gray-900">Profile Settings</h1>
-                <p className="mt-1 text-sm text-gray-500">
+            {/* Back to My Cases */}
+            <Link
+                href={route('ofw.dashboard')}
+                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
+            >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                Back to My Cases
+            </Link>
+
+            <div className="mt-4">
+                <h1 className="text-xl font-extrabold font-headline tracking-tight text-slate-900">Profile Settings</h1>
+                <p className="mt-1 text-sm text-slate-400 font-body">
                     Update your password and contact information
                 </p>
             </div>
@@ -63,7 +72,7 @@ export default function Profile({ user }) {
 
                 {/* Contact number */}
                 <div>
-                    <label htmlFor="contact_number" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="contact_number" className="block text-sm font-medium text-slate-700">
                         Contact Number
                     </label>
                     <input
@@ -71,7 +80,7 @@ export default function Profile({ user }) {
                         type="tel"
                         value={data.contact_number}
                         onChange={(e) => setData('contact_number', e.target.value)}
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         placeholder="e.g. 09171234567"
                     />
                     {errors.contact_number && (
@@ -80,9 +89,9 @@ export default function Profile({ user }) {
                 </div>
 
                 {/* Divider */}
-                <div className="border-t border-gray-200 pt-6">
-                    <h2 className="text-sm font-bold text-gray-900">Change Password</h2>
-                    <p className="mt-1 text-xs text-gray-500">Leave blank if you do not want to change your password.</p>
+                <div className="border-t border-slate-200 pt-6">
+                    <h2 className="text-sm font-bold text-slate-900">Change Password</h2>
+                    <p className="mt-1 text-xs text-slate-500">Leave blank if you do not want to change your password.</p>
                 </div>
 
                 {/* Current password */}
@@ -123,7 +132,7 @@ export default function Profile({ user }) {
                     <button
                         type="submit"
                         disabled={processing}
-                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {processing && (
                             <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>

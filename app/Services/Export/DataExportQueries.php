@@ -165,7 +165,7 @@ class DataExportQueries
                 'c.summary AS case_summary',
                 DB::raw($this->categoryNamesExpression('c').' AS categories'),
                 // Case issue (to-one)
-                'ci.name AS issue_concern',
+                DB::raw("COALESCE(ci.name, '—') AS issue_concern"),
                 // Receiving parties — comma-separated agency names from referrals (COALESCE handles empty)
                 DB::raw("COALESCE((SELECT STRING_AGG(a.name, ', ') FROM referrals r JOIN agencies a ON r.agcy_id = a.id WHERE r.case_id = c.id AND r.is_deleted = false), '') AS receiving_parties"),
                 // Next-of-kin — to-many, take primary first, then by sort_order
@@ -414,7 +414,7 @@ class DataExportQueries
                     ELSE 'OFW'
                 END FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != 'ARCHIVED' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS client_type"),
                 // Case issue — from latest case
-                DB::raw('(SELECT ci.name FROM case_issues ci JOIN cases c3 ON c3.case_issue_id = ci.id WHERE c3.client_id = cl.id AND c3.is_deleted = false AND c3.status != \'ARCHIVED\' ORDER BY c3.created_at DESC, c3.id DESC LIMIT 1) AS issue_concern'),
+                DB::raw("COALESCE((SELECT ci.name FROM case_issues ci JOIN cases c3 ON c3.case_issue_id = ci.id WHERE c3.client_id = cl.id AND c3.is_deleted = false AND c3.status != 'ARCHIVED' ORDER BY c3.created_at DESC, c3.id DESC LIMIT 1), '—') AS issue_concern"),
                 // Address — first active
                 DB::raw('(SELECT ca.street FROM client_addresses ca WHERE ca.client_id = cl.id AND ca.is_deleted = false LIMIT 1) AS street'),
                 DB::raw('(SELECT ca.barangay FROM client_addresses ca WHERE ca.client_id = cl.id AND ca.is_deleted = false LIMIT 1) AS barangay'),
@@ -749,7 +749,7 @@ class DataExportQueries
                 DB::raw('(SELECT m.created_at FROM milestones m WHERE m.refr_id = r.id AND m.is_deleted = false ORDER BY m.created_at DESC LIMIT 1) AS latest_milestone_date'),
                 'r.updated_at AS referral_updated_at',
                 // Issue/Concern
-                'ci.name AS issue_concern',
+                DB::raw("COALESCE(ci.name, '—') AS issue_concern"),
             ])
             ->join('cases AS c', function ($join) {
                 $join->on('r.case_id', '=', 'c.id')

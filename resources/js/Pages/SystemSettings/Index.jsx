@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { useToast } from '@/Hooks/useToast';
+import { formatDisplayDateTime } from '@/lib/utils';
 
 
 export default function SystemSettings({ 
@@ -99,8 +100,8 @@ export default function SystemSettings({
         <AppLayout title="System Settings">
             <Head title="System Settings" />
             <div data-tour="settings-header" className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-900">System Settings</h1>
-                <p className="text-sm text-slate-500 mt-1">Manage system-wide configuration and preferences.</p>
+                <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">System Settings</h1>
+                <p className="text-sm text-slate-400 font-body mt-0.5">Manage system-wide configuration and preferences.</p>
             </div>
 
             <div data-tour="settings-form" className="grid grid-cols-1 gap-6 max-w-2xl">
@@ -216,7 +217,7 @@ export default function SystemSettings({
                     </p>
                     {lastReindexedAt && (
                         <p className="text-xs text-slate-400 mb-4">
-                            Last updated: {new Date(lastReindexedAt).toLocaleString()}
+                            Last updated: {formatDisplayDateTime(lastReindexedAt)}
                         </p>
                     )}
                     <button

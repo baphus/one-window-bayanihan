@@ -204,8 +204,8 @@ export default function CaseStatusIndex({ statuses }) {
       <Head title="Case Statuses" />
       <div data-tour="case-statuses-header" className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Case Statuses</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage configurable statuses for cases and referrals.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Case Statuses</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Manage configurable statuses for cases and referrals.</p>
         </div>
         <button data-tour="case-statuses-new" onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Status

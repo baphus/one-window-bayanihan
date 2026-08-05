@@ -107,8 +107,8 @@ export default function Index({ sessions = [] }) {
 
       <div className="mb-8 flex items-center justify-between gap-4" data-tour="active-sessions-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Active Sessions</h1>
-          <p className="mt-1 text-sm text-slate-500">Monitor signed-in users and end inactive or suspicious sessions.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Active Sessions</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Monitor signed-in users and end inactive or suspicious sessions.</p>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm" data-tour="active-sessions-stats">

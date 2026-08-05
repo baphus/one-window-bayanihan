@@ -221,8 +221,8 @@ export default function AgencyServicesIndex({ services, allServices }) {
             <Head title="Agency Services" />
 
             <div data-tour="services-header" className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-900">Agency Services</h1>
-                <p className="text-sm text-slate-500 mt-1">
+                <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Agency Services</h1>
+                <p className="text-sm text-slate-400 font-body mt-0.5">
                     Manage the services offered by your agency to case managers and clients.
                 </p>
             </div>

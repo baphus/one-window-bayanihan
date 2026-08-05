@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { formatDisplayDateTime } from '@/lib/utils';
-import { ChangesTable, getActivityType, getEntityLabel } from '@/lib/audit';
+import { getActivityType, getEntityLabel } from '@/lib/audit';
+import AuditLogCard from '@/Components/AuditLogCard';
 
 /**
  * Calculate days elapsed since a given timestamp.
@@ -46,29 +47,20 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
     return (
         <div className="space-y-3">
             {entries.map((entry, idx) => (
-                <div key={entry.id || `${entry.timestamp}-${idx}`} className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
-                    {/* Activity type — uppercase blue badge */}
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-blue-900">
-                        {entry.type}
-                    </p>
-
-                    {/* Details narrative */}
-                    {entry.details && (
-                        <p className="mt-1 text-[12px] text-slate-700">{entry.details}</p>
-                    )}
-
-                    {/* Changes table */}
-                    <ChangesTable changes={entry.changes} variant="compact" maxRows={3} />
-
-                    {/* Metadata line */}
-                    <p className="mt-1 text-[10px] text-slate-500">
-                        {entry.caseNo && <>Case {entry.caseNo} &bull; </>}
-                        {entry.entityType} &bull;{' '}
-                        {formatDisplayDateTime(entry.timestamp)} &bull;{' '}
-                        {entry.actorName || 'System'} &bull;{' '}
-                        {entry.daysSince} day{entry.daysSince > 1 ? 's' : ''}
-                    </p>
-                </div>
+                <AuditLogCard
+                    key={entry.id || `${entry.timestamp}-${idx}`}
+                    type={entry.type}
+                    details={entry.details}
+                    changes={entry.changes}
+                    maxRows={3}
+                    meta={[
+                        entry.caseNo && `Case ${entry.caseNo}`,
+                        entry.entityType,
+                        formatDisplayDateTime(entry.timestamp),
+                        entry.actorName || 'System',
+                        `${entry.daysSince} day${entry.daysSince > 1 ? 's' : ''}`,
+                    ]}
+                />
             ))}
         </div>
     );

@@ -9,7 +9,7 @@ export default function TrackerSection() {
   const [ctaRef, ctaVisible] = useInView();
 
   return (
-    <section id="tracker" className="bg-[#015289] px-8 py-20">
+    <section id="tracker" className="bg-primary px-8 py-20">
       <div className="mx-auto max-w-4xl text-center">
         <span ref={iconRef} className={`material-symbols-outlined mb-4 block text-4xl text-white/50 owb-reveal ${iconVisible ? 'is-visible' : ''}`}>radar</span>
         <h2 ref={headingRef} className={`mb-4 font-headline text-2xl font-extrabold text-white md:text-3xl owb-reveal ${headingVisible ? 'is-visible' : ''}`}>

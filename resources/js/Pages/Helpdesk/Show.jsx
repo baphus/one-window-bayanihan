@@ -62,7 +62,7 @@ export default function Show() {
           </p>
           <Link
             href="/help"
-            className="mt-4 inline-flex rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="mt-4 inline-flex rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Back to Help Center
           </Link>
@@ -159,7 +159,7 @@ export default function Show() {
           </div>
           <Link
             href={route('contact')}
-            className="inline-flex items-center justify-center rounded-none border border-primary bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f]"
+            className="inline-flex items-center justify-center rounded-none border border-primary bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-primary-container"
           >
             Contact support
           </Link>

@@ -83,7 +83,7 @@ export default function AdminCaseIssueIndex({ issues, filters }) {
   ], []);
 
   return (
-    <AppLayout title="Manage Case Issues">
+    <AppLayout title="Case Issues">
       {showForm && (
         <CaseIssueFormModal
           issue={editingIssue}
@@ -91,11 +91,11 @@ export default function AdminCaseIssueIndex({ issues, filters }) {
           onBypass={bypassNext}
         />
       )}
-      <Head title="Manage Case Issues" />
+      <Head title="Case Issues" />
       <div data-tour="case-issues-header" className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Case Issues</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage issues used to classify client cases.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Case Issues</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Manage issues used to classify client cases.</p>
         </div>
         <button data-tour="case-issues-new" onClick={() => setShowForm(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800">
           + New Issue

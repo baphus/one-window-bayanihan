@@ -1094,9 +1094,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       <ConfirmDialog
         open={confirmToggleStatus}
         title={caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
-        message={caseFile.status === 'OPEN'
-          ? 'Are you sure you want to close this case?'
-          : 'Are you sure you want to reopen this case?'}
+        message={
+          caseFile.status === 'OPEN'
+            ? `Are you sure you want to close case ${caseFile.case_number}? It will be marked as resolved and no longer accept updates.`
+            : `Are you sure you want to reopen case ${caseFile.case_number}?`
+        }
         confirmLabel={caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
         tone={caseFile.status === 'OPEN' ? 'danger' : 'info'}
         onConfirm={() => {

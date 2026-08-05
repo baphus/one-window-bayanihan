@@ -50,7 +50,7 @@ export function SearchBar({ query, onSearch, large }) {
           />
           <button
             type="submit"
-            className={`flex-shrink-0 border-l border-slate-200 bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${large ? 'px-6' : ''}`}
+            className={`flex-shrink-0 border-l border-slate-200 bg-primary px-5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${large ? 'px-6' : ''}`}
           >
             Search
           </button>
@@ -265,7 +265,7 @@ export default function HelpdeskLayout({
 
   return (
     <div className="min-h-screen bg-surface font-body text-on-surface">
-      <Head title={`${title} - Help Center`} />
+      <Head title={title === 'Help Center' ? 'Help Center' : `${title} - Help Center`} />
 
       <a
         href="#help-main"
@@ -317,7 +317,7 @@ export default function HelpdeskLayout({
         <p className="mt-1 text-xs text-slate-500">Contact our support team and we'll get back to you promptly.</p>
         <Link
           href={route('contact')}
-          className="mt-4 inline-block rounded-none bg-primary px-6 py-2.5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#00446f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="mt-4 inline-block rounded-none bg-primary px-6 py-2.5 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           Contact Support
         </Link>

@@ -8,6 +8,12 @@ body {
     color: #181c20;
 }
 
+/* Reserve the scrollbar gutter so fixed headers and centered content do not
+   shift horizontally when a page has no vertical scrollbar. */
+html {
+    scrollbar-gutter: stable;
+}
+
 /* ── Custom scrollbar for multi-select inputs ──────────────────── */
 select[multiple] {
     --sb-track-color: transparent;

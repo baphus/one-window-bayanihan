@@ -45,8 +45,8 @@ export default function AppHeader({ minimal }) {
         minimal ? 'bg-surface-bright' : 'bg-white border-gray-200'
       }`}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 md:px-8">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto flex h-[76px] w-full max-w-7xl items-stretch justify-between px-4 md:px-8">
+        <Link href="/" className="flex min-w-0 items-center gap-3 self-center">
           <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden bg-white">
             <img
               src="/logo.png"
@@ -63,7 +63,7 @@ export default function AppHeader({ minimal }) {
 
         {!minimal && (
           <>
-            <div className="hidden items-center gap-1 md:flex">
+            <div className="hidden items-stretch gap-1 md:flex">
               {navLinks.map((link) => {
                 const active = isActive(url, link);
 
@@ -71,10 +71,10 @@ export default function AppHeader({ minimal }) {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className={`rounded px-4 py-2 text-[14px] font-label font-medium transition-colors duration-200 ${
+                    className={`flex items-center px-4 text-[14px] font-label transition-colors duration-200 ${
                       active
-                        ? 'bg-primary/10 font-bold text-primary'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-primary'
+                        ? 'border-b-2 border-primary font-bold text-primary'
+                        : 'font-medium text-slate-600 hover:text-primary'
                     }`}
                   >
                     {link.name}
@@ -83,7 +83,7 @@ export default function AppHeader({ minimal }) {
               })}
             </div>
 
-            <div className="hidden items-center gap-3 md:flex">
+            <div className="hidden items-center gap-3 self-center md:flex">
               {!user && (
                 <AppButton
                   as="link"
@@ -145,7 +145,7 @@ export default function AppHeader({ minimal }) {
 
             <button
               type="button"
-              className="inline-flex items-center justify-center rounded-md border border-gray-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-primary md:hidden"
+              className="inline-flex items-center justify-center self-center rounded-md border border-gray-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-primary md:hidden"
               aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={isMobileMenuOpen}
               aria-controls="landing-mobile-navigation"
@@ -268,10 +268,10 @@ export default function AppHeader({ minimal }) {
                       key={link.name}
                       href={link.href}
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className={`rounded-md px-4 py-3 text-sm font-medium transition-colors ${
+                      className={`rounded-md px-4 pt-3 pb-2.5 text-sm transition-colors ${
                         active
-                          ? 'bg-primary/10 font-bold text-primary'
-                          : 'text-slate-700 hover:bg-slate-50 hover:text-primary'
+                          ? 'border-b-2 border-primary font-bold text-primary'
+                          : 'font-medium text-slate-700 hover:text-primary'
                       }`}
                     >
                       {link.name}

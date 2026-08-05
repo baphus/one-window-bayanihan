@@ -25,8 +25,8 @@ export default function Index({ status }) {
 
       <div className="max-w-3xl space-y-6">
         <div data-tour="maintenance-header">
-          <h1 className="text-2xl font-bold text-slate-900">Maintenance Mode</h1>
-          <p className="mt-1 text-sm text-slate-500">Control site downtime for planned maintenance.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Maintenance Mode</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">Control site downtime for planned maintenance.</p>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">

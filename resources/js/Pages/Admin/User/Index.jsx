@@ -500,8 +500,8 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   ), [visibleColumns]);
 
   return (
-    <AppLayout title="Manage Users">
-      <Head title="Manage Users" />
+    <AppLayout title="Users">
+      <Head title="Users" />
 
       {showForm && (
         <UserFormModal

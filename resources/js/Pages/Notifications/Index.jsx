@@ -264,8 +264,8 @@ export default function NotificationsIndex() {
       <div className="mx-auto max-w-5xl">
         {/* Page Header */}
         <div data-tour="notifications-header" className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Notifications</h1>
+          <p className="text-sm text-slate-400 font-body mt-0.5">
             Stay updated on cases, referrals, and updates.
           </p>
         </div>

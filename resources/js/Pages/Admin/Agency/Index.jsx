@@ -339,8 +339,8 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
   ), [visibleColumns]);
 
   return (
-    <AppLayout title="Manage Agencies">
-      <Head title="Manage Agencies" />
+    <AppLayout title="Agencies">
+      <Head title="Agencies" />
 
       {showForm && (
         <AgencyFormModal

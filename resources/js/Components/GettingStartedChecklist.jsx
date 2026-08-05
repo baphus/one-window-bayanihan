@@ -13,10 +13,11 @@ import { dismissChecklist as persistDismiss } from '@/Onboarding/api';
  * domain action, visit items by useChecklistVisitTracking.
  */
 export default function GettingStartedChecklist() {
-    const { auth } = usePage().props;
+    const { auth, profile_incomplete } = usePage().props;
     const { checklistProgress, dismissChecklist } = useOnboarding();
 
     const items = getChecklist(auth.user?.role);
+    const profilePending = Boolean(profile_incomplete);
     const doneCount = items.filter((item) => checklistProgress.items[item.id]).length;
     const allDone = items.length > 0 && doneCount === items.length;
     const progressPct = items.length > 0 ? Math.round((doneCount / items.length) * 100) : 0;
@@ -73,9 +74,39 @@ export default function GettingStartedChecklist() {
                 </div>
             </div>
 
-            {!allDone && (
+            {(!allDone || profilePending) && (
                 <ul className="grid grid-cols-1 gap-2 border-t border-indigo-100/70 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {items.map((item) => {
+                    {profilePending && (
+                        <li key="complete-profile">
+                            <div className="flex h-full items-center gap-2.5 rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-2.5">
+                                <span
+                                    className="material-symbols-outlined text-[18px] text-indigo-500"
+                                    style={{ fontVariationSettings: `'FILL' 0, 'wght' 500` }}
+                                >
+                                    badge
+                                </span>
+                                <Link
+                                    href={route('profile.edit')}
+                                    className="flex-1 text-[12px] font-bold leading-tight text-slate-700 transition-colors hover:text-indigo-600"
+                                >
+                                    Complete your profile
+                                </Link>
+                                <Link
+                                    href={route('onboarding.skip-profile')}
+                                    method="post"
+                                    as="button"
+                                    preserveState
+                                    preserveScroll
+                                    className="text-[11px] font-bold text-slate-400 transition-colors hover:text-slate-600"
+                                    title="Skip for now"
+                                >
+                                    Skip
+                                </Link>
+                            </div>
+                        </li>
+                    )}
+                    {!allDone &&
+                        items.map((item) => {
                         const done = Boolean(checklistProgress.items[item.id]);
                         return (
                             <li key={item.id}>

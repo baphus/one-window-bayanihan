@@ -46,8 +46,8 @@ export default function DataExportIndex({ tables }) {
 
             <div data-tour="data-export-header" className="mb-8 flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Data Export</h1>
-                    <p className="text-sm text-slate-500 mt-1">
+                    <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Data Export</h1>
+                    <p className="text-sm text-slate-400 font-body mt-0.5">
                         Export all business data as a formatted Excel workbook with 14 data sheets.
                     </p>
                 </div>
@@ -71,15 +71,15 @@ export default function DataExportIndex({ tables }) {
                         Each table below becomes one sheet in the exported workbook.
                     </p>
                 </div>
-                <table className="w-full text-sm">
+                <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                            <th className="text-left px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-12">#</th>
-                            <th className="text-left px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Sheet Name</th>
-                            <th className="text-left px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Table</th>
+                        <tr className="bg-slate-50 border-b border-slate-300">
+                            <th className="px-6 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500 w-12">#</th>
+                            <th className="px-6 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Sheet Name</th>
+                            <th className="px-6 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Table</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-200 bg-white">
                         {tables.map((table, index) => (
                             <tr key={table} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="px-6 py-3 text-slate-400 text-xs">{index + 1}</td>

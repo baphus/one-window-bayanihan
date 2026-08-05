@@ -11,7 +11,7 @@ function AgencyLogo({ agency }) {
 
   if (hasError || !agency.logo_url) {
     return (
-      <span className="text-2xl font-bold text-[#0b5c92]">{agency.short?.charAt(0)}</span>
+      <span className="text-2xl font-bold text-primary">{agency.short?.charAt(0)}</span>
     );
   }
 
@@ -40,8 +40,8 @@ export default function PublicAgencies({ agencies }) {
       <AppHeader onTrackCaseClick={() => router.get(route('track.index'))} />
 
       <main className="flex-1 pt-20">
-        <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-[#0b5c92]">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0b5c92] via-[#0b5c92]/90 to-blue-800/30"></div>
+        <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-primary">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-blue-800/30"></div>
           <div className="relative z-10 mx-auto w-full max-w-7xl px-4 text-center md:px-8">
             <h1 className="mb-4 font-headline text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
               Partner Agencies

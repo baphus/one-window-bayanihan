@@ -39,8 +39,8 @@ export default function PrivacyPolicy() {
 
       <main className="flex-1 pt-20">
         {/* Hero */}
-        <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-[#0b5c92]">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0b5c92] via-[#0b5c92]/90 to-blue-800/30"></div>
+        <section className="relative flex min-h-[300px] w-full items-center justify-center overflow-hidden bg-primary">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-blue-800/30"></div>
           <div className="relative z-10 mx-auto w-full max-w-7xl px-4 text-center md:px-8">
             <h1 className="mb-4 font-headline text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
               Privacy Policy
@@ -364,8 +364,8 @@ export default function PrivacyPolicy() {
 
               {/* 10. Contact Information */}
               <Section>
-                <article id="contact" className="scroll-mt-24 overflow-hidden rounded-lg border border-[#015289]/20 shadow-sm">
-                  <div className="bg-[#015289] px-6 py-4 md:px-8">
+                <article id="contact" className="scroll-mt-24 overflow-hidden rounded-lg border border-primary/20 shadow-sm">
+                  <div className="bg-primary px-6 py-4 md:px-8">
                     <div className="flex items-center gap-3">
                       <span className="material-symbols-outlined text-2xl text-white">mail</span>
                       <h2 className="font-headline text-xl font-extrabold text-white md:text-2xl">10. Contact Information</h2>

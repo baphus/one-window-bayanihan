@@ -89,7 +89,7 @@ export default function AppLayout({ title, children }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f9fafc]">
+    <div className="flex h-screen overflow-hidden bg-surface">
       <Head title={title} />
       <FlashMessageWatcher />
       <AppSidebar />

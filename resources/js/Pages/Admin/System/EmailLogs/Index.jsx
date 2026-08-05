@@ -67,8 +67,8 @@ export default function Index({ logs, filters, statuses = [] }) {
       <Head title="Email Logs" />
 
       <div data-tour="email-logs-header" className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Email Logs</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">Email Logs</h1>
+        <p className="text-sm text-slate-400 font-body mt-0.5">
           Monitor all outbound emails and resend failed ones. <span className="font-medium text-slate-600">Sent</span> means
           the provider accepted the message; only <span className="font-medium text-slate-600">Delivered</span> confirms it
           reached the recipient’s mail server.
@@ -96,18 +96,18 @@ export default function Index({ logs, filters, statuses = [] }) {
 
       <div className="relative pb-24" aria-busy={tableLoading}>
         <div data-tour="email-logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">To</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Subject</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Sent At</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Error</th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Action</th>
+          <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-300">
+              <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">To</th>
+              <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Subject</th>
+              <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Status</th>
+              <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Sent At</th>
+              <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Error</th>
+              <th className="px-5 py-4 text-left text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-200 bg-white">
             {data.length === 0 && (
               <tr>
                 <td colSpan="6" className="px-5 py-12 text-center text-sm text-slate-500">
