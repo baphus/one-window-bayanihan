@@ -10,7 +10,7 @@
         "bacon/bacon-qr-code": "*",
         "barryvdh/laravel-dompdf": "^3.1",
         "cloudinary/cloudinary_php": "3.1.3",
-        "guzzlehttp/guzzle": "7.15.1",
+        "guzzlehttp/guzzle": "^7.15.2",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/ai": "*",
         "laravel/framework": "^13.7",
@@ -57,7 +57,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"npm run dev\" --names=server,queue,vite --kill-others"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"npm run dev\" --names=server,queue,vite --kill-other[...]",
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
