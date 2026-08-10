@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\Milestone;
+use App\Models\NextOfKin;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralClientAccessLink;
@@ -80,6 +81,7 @@ return [
         Client::class,
         ClientAddress::class,
         ClientEmployment::class,
+        NextOfKin::class,
         Referral::class,
         Milestone::class,
         ReferralAttachment::class,

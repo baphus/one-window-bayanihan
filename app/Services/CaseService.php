@@ -717,6 +717,10 @@ class CaseService
                             'tracker_number' => $case->tracker_number,
                         ],
                         route('track.show', $case->tracker_number),
+                        // The dedicated IntakePublishedMail below is the client's
+                        // acceptance email; skip the generic ClientUpdateMail so
+                        // they do not receive two emails for this event.
+                        false,
                     );
 
                     Mail::to($clientEmail)->queue(new IntakePublishedMail($case));
@@ -1301,6 +1305,13 @@ class CaseService
         $case = DB::transaction(function () use ($id, $userId) {
             $case = CaseFile::findOrFail($id);
             $old = $case->toArray();
+
+            // The toggle only flips OPEN ↔ CLOSED. Drafts are published through
+            // the dedicated publish flow, and archived cases are restored via
+            // unarchive — silently "reopening" either here would skip those paths.
+            if (! in_array($case->status, ['OPEN', 'CLOSED'], true)) {
+                abort(422, 'Only open or closed cases can be reopened or closed.');
+            }
 
             if ($case->status === 'OPEN') {
                 $canClose = $this->canClose($id);

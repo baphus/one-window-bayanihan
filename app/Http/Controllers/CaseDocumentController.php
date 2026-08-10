@@ -179,8 +179,8 @@ class CaseDocumentController extends Controller
 
     private function authorizeWriteAccess($user)
     {
-        if (! $user->isCaseManager()) {
-            abort(403, 'Only case managers can manage case documents.');
+        if (! $user->isCaseManager() && ! $user->isAdmin()) {
+            abort(403, 'Only case managers and administrators can manage case documents.');
         }
     }
 

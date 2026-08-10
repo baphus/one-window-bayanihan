@@ -1312,7 +1312,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 });
                             }} disabled={!decisionRemark.trim() || decisionSubmitting}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
-                                {decisionSubmitting ? 'Saving…' : `Confirm ${pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'}`}
+                                {decisionSubmitting ? 'Saving…' : pendingDecision.mode === 'ACCEPT'
+                                    ? `Confirm ${pendingDecision.status === 'FOR_COMPLIANCE' ? 'For Compliance' : 'Accept'}`
+                                    : 'Confirm Reject'}
                             </button>
                         </div>
                     </div>
@@ -1337,6 +1339,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     <option value="PROCESSING">Processing</option>
                                     <option value="FOR_COMPLIANCE">For Compliance</option>
                                     <option value="COMPLETED">Completed</option>
+                                    <option value="REJECTED">Rejected</option>
                                 </select>
                             </div>
                             <div>
@@ -1360,6 +1363,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 setUpdateStatusSubmitting(true);
                                 router.patch(route('referrals.update-status', referral.id), {
                                     status: updateStatusValue,
+                                    decision: updateStatusValue === 'REJECTED' ? 'REJECT' : undefined,
                                     decision_comment: trimmed,
                                 }, {
                                     preserveScroll: true,

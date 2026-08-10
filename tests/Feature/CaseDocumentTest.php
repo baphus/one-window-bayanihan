@@ -129,6 +129,24 @@ class CaseDocumentTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_delete_document()
+    {
+        $doc = $this->createDocument();
+
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+
+        $response = $this->actingAs($admin)
+            ->deleteJson(route('cases.documents.destroy', [$this->case->id, $doc->id]));
+
+        $response->assertOk()
+            ->assertJson(['message' => 'Document deleted successfully.']);
+
+        $this->assertDatabaseHas('case_documents', [
+            'id' => $doc->id,
+            'is_deleted' => 1,
+        ]);
+    }
+
     public function test_deleted_document_not_listed()
     {
         $doc = $this->createDocument();

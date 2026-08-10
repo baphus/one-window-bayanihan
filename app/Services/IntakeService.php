@@ -224,22 +224,17 @@ class IntakeService
     }
 
     /**
-     * Find a client record by decrypted email match.
+     * Find a client record by email match.
      */
     private function findClientByEmail(string $email): ?Client
     {
-        $normalizedEmail = strtolower(trim($email));
-
-        // Since email is encrypted via EncryptedString cast, we must load
-        // candidates and compare in PHP. Query all non-deleted clients that
-        // have a non-null email, then find the match.
+        // Client.email is plaintext, so the match can run in the database.
+        // LOWER(TRIM()) keeps it case- and whitespace-insensitive, mirroring
+        // the previous PHP-side strtolower(trim()) comparison without loading
+        // every non-deleted client into memory.
         return Client::where('is_deleted', false)
-            ->whereNotNull('email')
-            ->get()
-            ->first(function (Client $client) use ($normalizedEmail) {
-                return $client->email !== null
-                    && strtolower(trim($client->email)) === $normalizedEmail;
-            });
+            ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($email))])
+            ->first();
     }
 
     /**

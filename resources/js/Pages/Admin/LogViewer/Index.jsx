@@ -101,7 +101,7 @@ export default function Index() {
         </div>
       )}
 
-      <div data-tour="logs-table" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div data-tour="logs-table" className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-300">
@@ -126,7 +126,7 @@ export default function Index() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-700">
-                  <div className="max-w-4xl truncate" title={entry.message}>{entry.message}</div>
+                  <div className="whitespace-nowrap">{entry.message}</div>
                 </td>
               </tr>
             ))}

@@ -25,7 +25,7 @@ export default function AppToast({ message, onClose, tone = 'info', exiting = fa
 
   return (
     <div
-      className={`flex items-center gap-3 px-5 py-4 shadow-lg rounded-[3px] ${toneStyles[tone]} ${exiting ? 'animate-slide-out' : 'animate-slide-in'}`}
+      className={`origin-top-right flex items-center gap-3 px-5 py-4 shadow-lg rounded-[3px] ${toneStyles[tone]} ${exiting ? 'animate-pop-out' : 'animate-pop-in'}`}
     >
       <span className="material-symbols-outlined text-[20px] shrink-0">{toneIcons[tone]}</span>
       <p className="text-[13px] font-bold leading-snug flex-1 min-w-0">{message}</p>

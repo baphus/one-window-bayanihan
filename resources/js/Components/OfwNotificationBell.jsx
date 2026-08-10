@@ -125,7 +125,7 @@ export default function OfwNotificationBell() {
             </button>
 
             {open && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl">
+                <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] origin-top-right animate-pop-in overflow-hidden rounded-md border border-slate-200 bg-white shadow-xl">
                     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                         <h4 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-700">
                             Notifications

@@ -6,10 +6,12 @@ use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
+use App\Services\MfaPendingState;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Mail;
+use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -106,5 +108,83 @@ class IntakeSubmissionTest extends TestCase
         $response = $this->postJson('/intake/submit', $this->validIntakeData());
 
         $response->assertStatus(422);
+    }
+
+    #[Test]
+    public function test_signed_in_ofw_can_submit_without_otp(): void
+    {
+        $email = 'juan.signedin@example.com';
+
+        $user = User::factory()->mfaEnabled()->create([
+            'role' => 'OFW',
+            'email' => $email,
+        ]);
+        $client = Client::factory()->create(['email' => $email]);
+        $user->client_id = $client->id;
+        $user->save();
+
+        // No intake_verified_email session flag — the authenticated OFW's
+        // session is the verification.
+        $response = $this->actingAs($user)
+            ->postJson('/intake/submit', $this->validIntakeData());
+
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
+
+        $case = CaseFile::where('client_id', $client->id)
+            ->where('source', CaseFile::SOURCE_SELF_FILED)
+            ->first();
+        $this->assertNotNull($case, 'Case should have been created and linked to the signed-in client');
+        $this->assertEquals('DRAFT', $case->status);
+    }
+
+    #[Test]
+    public function test_signed_in_non_ofw_still_requires_otp(): void
+    {
+        $manager = User::factory()->mfaEnabled()->create(['role' => 'CASE_MANAGER']);
+
+        $response = $this->actingAs($manager)
+            ->withSession([
+                MfaPendingState::MARKER_KEY => [
+                    'user_id' => $manager->id,
+                    'credential_fingerprint' => hash('sha256', (string) $manager->password),
+                ],
+            ])
+            ->postJson('/intake/submit', $this->validIntakeData());
+
+        $response->assertStatus(422);
+    }
+
+    #[Test]
+    public function test_intake_index_skips_verification_for_signed_in_ofw(): void
+    {
+        $email = 'juan.signedin@example.com';
+
+        $user = User::factory()->mfaEnabled()->create([
+            'role' => 'OFW',
+            'email' => $email,
+        ]);
+        $client = Client::factory()->create(['email' => $email]);
+        $user->client_id = $client->id;
+        $user->save();
+
+        $response = $this->actingAs($user)->get('/intake');
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Intake/Index')
+            ->where('skipVerification', true)
+            ->where('existingClient.email', $email));
+    }
+
+    #[Test]
+    public function test_intake_index_does_not_skip_for_anonymous_visitors(): void
+    {
+        $response = $this->get('/intake');
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Intake/Index')
+            ->where('skipVerification', false));
     }
 }

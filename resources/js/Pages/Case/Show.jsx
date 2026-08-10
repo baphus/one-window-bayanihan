@@ -464,19 +464,21 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           >
             Edit Details
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirmToggleStatus(true)}
-            disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
-            title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
-            className={`px-3 min-h-[32px] text-[12px] font-bold rounded-md transition-colors border ${
-              caseFile.status === 'OPEN' && hasActiveReferrals
-                ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
-                : 'bg-blue-900 text-white hover:bg-blue-800 border-blue-900'
-            }`}
-          >
-            {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
-          </button>
+          {(caseFile.status === 'OPEN' || caseFile.status === 'CLOSED') && (
+            <button
+              type="button"
+              onClick={() => setConfirmToggleStatus(true)}
+              disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
+              title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
+              className={`px-3 min-h-[32px] text-[12px] font-bold rounded-md transition-colors border ${
+                caseFile.status === 'OPEN' && hasActiveReferrals
+                  ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
+                  : 'bg-blue-900 text-white hover:bg-blue-800 border-blue-900'
+              }`}
+            >
+              {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+            </button>
+          )}
           {caseFile.status === 'ARCHIVED' ? (
             <>
               <button

@@ -14,63 +14,97 @@ function formatDate(dateStr) {
 
 function CaseCard({ caseItem }) {
     const isUnderReview = caseItem.status === 'DRAFT' && caseItem.source === 'self_filed';
+    const agency = caseItem.referrals?.[0]?.agency;
+
+    const inProgress = ['OPEN', 'PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'IN_PROGRESS', 'BEING_PREPARED'].includes(
+        caseItem.status,
+    );
+    const completed = ['CLOSED', 'COMPLETED', 'RESOLVED'].includes(caseItem.status);
+
+    const tile = isUnderReview
+        ? { icon: 'hourglass_top', className: 'bg-amber-100 text-amber-700' }
+        : completed
+          ? { icon: 'task_alt', className: 'bg-emerald-100 text-emerald-700' }
+          : inProgress
+            ? { icon: 'progress_activity', className: 'bg-blue-100 text-blue-600' }
+            : { icon: 'description', className: 'bg-primary-fixed text-primary' };
 
     return (
         <Link
             href={route('ofw.case.show', caseItem.id)}
-            className="block rounded-md border border-slate-300 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            className="group block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                    {/* Case number or fallback */}
-                    <p className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
-                        {caseItem.case_number
-                            ? `Case #${caseItem.case_number}`
-                            : 'Case (pending number)'}
-                    </p>
-
-                    {/* Submission date */}
-                    <p className="mt-1 text-xs text-slate-500">
-                        Submitted {formatDate(caseItem.created_at)}
-                    </p>
-                </div>
-
-                <StatusBadge
-                    variant="pill"
-                    status={caseItem.status}
-                    showIcon={isUnderReview}
-                    label={isUnderReview ? 'Under Review' : undefined}
-                    icon={isUnderReview ? Hourglass : undefined}
-                />
-            </div>
-
-            {/* Under Review message for self-filed drafts */}
-            {isUnderReview && (
-                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                    A Case Manager is reviewing your submission
-                </p>
-            )}
-
-            {/* Categories */}
-            {caseItem.categories?.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                    {caseItem.categories.map((category) => (
-                        <span
-                            key={category.id ?? category.name}
-                            className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700"
-                        >
-                            {category.name}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Source indicator */}
-            <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="material-symbols-outlined text-[14px]">
-                    {caseItem.source === 'self_filed' ? 'person' : 'apartment'}
+            <div className="flex items-start gap-4">
+                {/* Status icon tile */}
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-circle ${tile.className}`}>
+                    <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{tile.icon}</span>
                 </span>
-                {caseItem.source === 'self_filed' ? 'Self-Filed' : 'Filed by Office'}
+
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            {/* Case number or fallback */}
+                            <p className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
+                                {caseItem.case_number
+                                    ? `Case #${caseItem.case_number}`
+                                    : 'Case (pending number)'}
+                            </p>
+                            {caseItem.summary && (
+                                <p className="mt-0.5 truncate text-sm text-slate-500">{caseItem.summary}</p>
+                            )}
+                        </div>
+
+                        <StatusBadge
+                            variant="pill"
+                            status={caseItem.status}
+                            showIcon={isUnderReview}
+                            label={isUnderReview ? 'Under Review' : undefined}
+                            icon={isUnderReview ? Hourglass : undefined}
+                        />
+                    </div>
+
+                    {/* Meta row: submitted date · agency · source */}
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                        <span className="inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">calendar_today</span>
+                            Submitted {formatDate(caseItem.created_at)}
+                        </span>
+                        {agency && (
+                            <span className="inline-flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">apartment</span>
+                                {agency.name}
+                            </span>
+                        )}
+                        <span className="inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                                {caseItem.source === 'self_filed' ? 'person' : 'business'}
+                            </span>
+                            {caseItem.source === 'self_filed' ? 'Self-Filed' : 'Filed by Office'}
+                        </span>
+                    </div>
+
+                    {/* Categories */}
+                    {caseItem.categories?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                            {caseItem.categories.map((category) => (
+                                <span
+                                    key={category.id ?? category.name}
+                                    className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700"
+                                >
+                                    {category.name}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Under Review message for self-filed drafts */}
+                    {isUnderReview && (
+                        <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">hourglass_top</span>
+                            A Case Manager is reviewing your submission
+                        </p>
+                    )}
+                </div>
             </div>
         </Link>
     );

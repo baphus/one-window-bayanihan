@@ -30,21 +30,33 @@ class IntakeController extends Controller
     public function index()
     {
         $existingClient = null;
+        $skipVerification = false;
 
         $user = request()->user();
-        if ($user && $user->client_id) {
-            $client = Client::with(['addresses', 'employments', 'nextOfKin'])
-                ->find($user->client_id);
+        if ($user && $user->isOfw()) {
+            // Signed-in OFW: the session already proved email ownership at login,
+            // so the wizard skips the email+OTP verification step.
+            $skipVerification = true;
 
-            if ($client) {
-                $existingClient = $this->formatExistingClient($client);
-                $existingClient['email'] = $user->email;
+            if ($user->client_id) {
+                $client = Client::with(['addresses', 'employments', 'nextOfKin'])
+                    ->find($user->client_id);
+
+                if ($client) {
+                    $existingClient = $this->formatExistingClient($client);
+                }
             }
+
+            // Even without a linked client, pre-fill the email the case will be
+            // filed under so the wizard still knows the identity anchor.
+            $existingClient = $existingClient ?: [];
+            $existingClient['email'] = $user->email;
         }
 
         return Inertia::render('Intake/Index', [
             'occupationOptions' => $this->referenceData->getOccupationOptions(),
             'existingClient' => $existingClient,
+            'skipVerification' => $skipVerification,
         ]);
     }
 
@@ -174,9 +186,14 @@ class IntakeController extends Controller
      */
     public function submit(StoreIntakeRequest $request)
     {
+        $user = $request->user();
         $verifiedEmail = $request->session()->get('intake_verified_email');
 
-        if (! $verifiedEmail) {
+        if ($user?->isOfw()) {
+            // Signed-in OFW: the authenticated session already verified this
+            // email at login, so no OTP is required for the filing.
+            $verifiedEmail = strtolower(trim($user->email));
+        } elseif (! $verifiedEmail) {
             return response()->json([
                 'error' => 'Email not verified. Please verify your email first.',
             ], 422);

@@ -26,6 +26,12 @@ class NotificationService
 
     /**
      * Create a CaseNotification record for an OFW client (unauthenticated user).
+     *
+     * @param  bool  $sendEmail  Queue a ClientUpdateMail alongside the in-app
+     *                           notification. Callers that ship their own
+     *                           dedicated email (e.g. IntakePublishedMail when
+     *                           an intake is accepted) pass false to avoid the
+     *                           client receiving two emails for one event.
      */
     public function notifyOfw(
         CaseFile $case,
@@ -35,17 +41,20 @@ class NotificationService
         string $message,
         array $data = [],
         ?string $relatedUrl = null,
+        bool $sendEmail = true,
     ): ?CaseNotification {
         if (empty($clientEmail)) {
             return null;
         }
 
-        // Queue a friendly email to the client with case update details.
-        Mail::to($clientEmail)->queue(new ClientUpdateMail(
-            case: $case,
-            message: $message,
-            updatedBy: 'system',
-        ));
+        if ($sendEmail) {
+            // Queue a friendly email to the client with case update details.
+            Mail::to($clientEmail)->queue(new ClientUpdateMail(
+                case: $case,
+                message: $message,
+                updatedBy: 'system',
+            ));
+        }
 
         return CaseNotification::create([
             'case_id' => $case->id,

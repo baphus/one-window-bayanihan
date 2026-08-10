@@ -134,6 +134,36 @@ class CaseReferralGuardTest extends TestCase
     }
 
     #[Test]
+    public function toggle_case_status_throws_for_draft_case(): void
+    {
+        $this->case->update(['status' => 'DRAFT']);
+
+        try {
+            $this->caseService->toggleCaseStatus($this->case->id, $this->user->id);
+            $this->fail('Expected HttpException was not thrown.');
+        } catch (HttpException $e) {
+            $this->assertEquals(422, $e->getStatusCode());
+        }
+
+        $this->assertSame('DRAFT', $this->case->fresh()->status);
+    }
+
+    #[Test]
+    public function toggle_case_status_throws_for_archived_case(): void
+    {
+        $this->case->update(['status' => 'ARCHIVED']);
+
+        try {
+            $this->caseService->toggleCaseStatus($this->case->id, $this->user->id);
+            $this->fail('Expected HttpException was not thrown.');
+        } catch (HttpException $e) {
+            $this->assertEquals(422, $e->getStatusCode());
+        }
+
+        $this->assertSame('ARCHIVED', $this->case->fresh()->status);
+    }
+
+    #[Test]
     public function archive_case_throws_when_not_closed(): void
     {
         try {

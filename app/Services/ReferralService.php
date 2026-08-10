@@ -41,8 +41,8 @@ class ReferralService
      */
     private const STATUS_TRANSITIONS = [
         'PENDING' => ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'REJECTED'],
-        'PROCESSING' => ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED'],
-        'FOR_COMPLIANCE' => ['FOR_COMPLIANCE', 'PROCESSING', 'COMPLETED'],
+        'PROCESSING' => ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'],
+        'FOR_COMPLIANCE' => ['FOR_COMPLIANCE', 'PROCESSING', 'COMPLETED', 'REJECTED'],
         'COMPLETED' => ['COMPLETED'],
         'REJECTED' => ['REJECTED'],
     ];
@@ -66,7 +66,7 @@ class ReferralService
 
     public function createReferral(array $data, string $userId): Referral
     {
-        return DB::transaction(function () use ($data, $userId) {
+        $referral = DB::transaction(function () use ($data, $userId) {
             $referral = Referral::create([
                 'required_services' => $data['required_services'] ?? '',
                 'notes' => $data['notes'] ?? null,
@@ -119,6 +119,10 @@ class ReferralService
 
             return $referral->load(['agency', 'caseFile', 'milestones']);
         });
+
+        TrackingService::invalidateTrackingCache($data['case_id']);
+
+        return $referral;
     }
 
     public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null, ?string $userId = null): array
@@ -514,7 +518,10 @@ class ReferralService
 
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
     {
-        return DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId) {
+        $changed = false;
+        $caseId = null;
+
+        $referral = DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId, &$changed, &$caseId) {
             // Row lock serializes concurrent updates so a second duplicate
             // request observes the new status and short-circuits below.
             $referral = Referral::whereKey($id)->lockForUpdate()->firstOrFail();
@@ -534,6 +541,9 @@ class ReferralService
             if ($oldStatus === $status) {
                 return $referral->fresh(['agency', 'caseFile', 'milestones']);
             }
+
+            $changed = true;
+            $caseId = $referral->case_id;
 
             $this->eventRecorder->referralStatusChanged($referral, $oldStatus, $status, $userId);
 
@@ -572,6 +582,12 @@ class ReferralService
 
             return $referral->fresh(['agency', 'caseFile', 'milestones']);
         });
+
+        if ($changed && $caseId !== null) {
+            TrackingService::invalidateTrackingCache($caseId, $id);
+        }
+
+        return $referral;
     }
 
     /**
@@ -592,12 +608,16 @@ class ReferralService
 
     public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone
     {
-        return DB::transaction(function () use ($referralId, $title, $description, $userId, $requirements) {
+        $caseId = null;
+
+        $milestone = DB::transaction(function () use ($referralId, $title, $description, $userId, $requirements, &$caseId) {
             $referral = Referral::findOrFail($referralId);
 
             if ($referral->status === 'COMPLETED') {
                 throw new \InvalidArgumentException('Cannot add milestones to a completed referral.');
             }
+
+            $caseId = $referral->case_id;
 
             $milestone = Milestone::create([
                 'title' => $title,
@@ -643,6 +663,12 @@ class ReferralService
 
             return $milestone->load('user');
         });
+
+        if ($caseId !== null) {
+            TrackingService::invalidateTrackingCache($caseId, $referralId);
+        }
+
+        return $milestone;
     }
 
     /**

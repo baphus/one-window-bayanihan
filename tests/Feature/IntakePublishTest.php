@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\VerifyTurnstile;
+use App\Mail\ClientUpdateMail;
+use App\Mail\IntakePublishedMail;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\CaseNotification;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\User;
@@ -149,5 +152,64 @@ class IntakePublishTest extends TestCase
         $this->assertEquals('OPEN', $case->status);
         $this->assertEquals($cm->id, $case->user_id);
         $this->assertEquals($cm->id, $case->intake_reviewed_by);
+    }
+
+    #[Test]
+    public function test_publishing_sends_only_the_acceptance_email(): void
+    {
+        // When an intake is reviewed and published, the OFW should receive the
+        // dedicated acceptance email only — not also a generic ClientUpdateMail,
+        // which used to fire because notifyOfw() queues one by default.
+        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $client = Client::factory()->create([
+            'first_name' => 'Maria',
+            'last_name' => 'Santos',
+            'date_of_birth' => '1992-03-20',
+            'sex' => 'FEMALE',
+            'contact_number' => '09171234568',
+            'email' => 'maria@example.com',
+        ]);
+
+        ClientAddress::create([
+            'client_id' => $client->id,
+            'region' => 'Region VII',
+            'city_municipality' => 'Cebu City',
+            'barangay' => 'Lahug',
+        ]);
+
+        $category = CaseCategory::create([
+            'id' => Str::uuid()->toString(),
+            'name' => 'Wage Claim',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $case = CaseFile::factory()->draft()->create([
+            'client_id' => $client->id,
+            'source' => CaseFile::SOURCE_SELF_FILED,
+            'user_id' => null,
+            'client_type' => 'OFW',
+            'category_id' => $category->id,
+            'summary' => 'Unpaid overtime.',
+            'consent_given_at' => now(),
+        ]);
+
+        $case->categories()->attach($category->id);
+
+        $this->actingAs($cm)
+            ->post("/cases/{$case->id}/publish")
+            ->assertRedirect();
+
+        Mail::assertQueued(IntakePublishedMail::class, 1);
+        Mail::assertQueued(ClientUpdateMail::class, 0);
+
+        // The in-app notification behind the bell still lands.
+        $this->assertDatabaseHas('case_notifications', [
+            'case_id' => $case->id,
+            'client_email' => 'maria@example.com',
+            'type' => 'intake_published',
+            'title' => 'Case Accepted',
+        ]);
+        $this->assertSame(1, CaseNotification::where('case_id', $case->id)->where('type', 'intake_published')->count());
     }
 }
