@@ -6,10 +6,12 @@ import PasswordInput from '@/Components/PasswordInput';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import { makeRegisterSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import { getTurnstileError } from '@/lib/turnstile';
 
 export default function Register() {
     const { passwordRules, turnstile } = usePage().props;
     const [turnstileToken, setTurnstileToken] = useState('');
+    const [turnstileStatus, setTurnstileStatus] = useState('idle');
 
     const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
         name: '',
@@ -168,9 +170,15 @@ export default function Register() {
                                         <TurnstileWidget
                                             onToken={setTurnstileToken}
                                             onExpire={() => setTurnstileToken('')}
+                                            onStatusChange={setTurnstileStatus}
                                         />
                                         {errors.captcha && (
                                             <p className="mt-1 text-xs text-red-600">{errors.captcha}</p>
+                                        )}
+                                        {!turnstileToken && (
+                                            <p className={`mt-1 text-xs ${turnstileStatus === 'error' || turnstileStatus === 'expired' ? 'text-red-600' : 'text-slate-500'}`}>
+                                                {getTurnstileError({ token: turnstileToken, status: turnstileStatus })}
+                                            </p>
                                         )}
                                     </div>
                                 )}

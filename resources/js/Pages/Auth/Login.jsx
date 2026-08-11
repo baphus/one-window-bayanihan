@@ -6,6 +6,7 @@ import PasswordInput from '@/Components/PasswordInput';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import { makeLoginSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import { getTurnstileError } from '@/lib/turnstile';
 
 export default function Login({ status, canResetPassword }) {
     const { turnstile } = usePage().props;
@@ -15,6 +16,7 @@ export default function Login({ status, canResetPassword }) {
     const [loginError, setLoginError] = useState('');
     const [processing, setProcessing] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
+    const [turnstileStatus, setTurnstileStatus] = useState('idle');
     const [successMsg, setSuccessMsg] = useState(status || '');
 
     const loginFormRef = useRef(null);
@@ -30,12 +32,20 @@ export default function Login({ status, canResetPassword }) {
         setLoginError('');
         if (!validate()) return;
 
+        if (turnstile?.enabled) {
+            const turnstileError = getTurnstileError({ token: turnstileToken, status: turnstileStatus });
+            if (turnstileError) {
+                setLoginError(turnstileError);
+                return;
+            }
+        }
+
         setProcessing(true);
 
         router.post(route('login'), { email, password, remember, cf_turnstile_response: turnstileToken }, {
             onFinish: () => setProcessing(false),
             onError: (err) => {
-                setLoginError(err.email || 'Invalid email or password.');
+                setLoginError(err.captcha || err.email || 'Invalid email or password.');
             },
         });
     };
@@ -158,7 +168,7 @@ export default function Login({ status, canResetPassword }) {
                                         </label>
                                     </div>
 
-                                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+                                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
 
                                     <button
                                         type="submit"

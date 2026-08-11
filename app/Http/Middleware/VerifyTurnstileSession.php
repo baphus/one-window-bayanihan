@@ -39,7 +39,7 @@ class VerifyTurnstileSession
         if (empty($token)) {
             return response()->json([
                 'error' => 'turnstile_required',
-                'message' => 'Verification required. Please complete the challenge.',
+                'message' => 'Please complete the security check to continue.',
             ], 422);
         }
 
@@ -60,14 +60,19 @@ class VerifyTurnstileSession
 
             return response()->json([
                 'error' => 'turnstile_unavailable',
-                'message' => 'Verification service unavailable. Please try again.',
+                'message' => 'The security check service is temporarily unavailable. Please try again in a moment.',
             ], 503);
         }
 
         if (! $response->json('success')) {
+            Log::warning('Turnstile session verification failed', [
+                'error_codes' => $response->json('error-codes') ?? [],
+                'ip' => $request->ip(),
+            ]);
+
             return response()->json([
                 'error' => 'turnstile_failed',
-                'message' => 'Verification failed. Please try again.',
+                'message' => $this->errorMessage($response->json('error-codes') ?? []),
             ], 422);
         }
 
@@ -75,5 +80,14 @@ class VerifyTurnstileSession
         $request->session()->put(self::SESSION_KEY, true);
 
         return $next($request);
+    }
+
+    private function errorMessage(array $errorCodes): string
+    {
+        if (in_array('timeout-or-duplicate', $errorCodes, true)) {
+            return 'Your security check expired. Please complete it again.';
+        }
+
+        return 'The security check could not be verified. Please try again.';
     }
 }

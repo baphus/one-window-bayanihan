@@ -23,7 +23,7 @@ class VerifyTurnstile
 
         if (empty($token)) {
             return redirect()->back()
-                ->withErrors(['captcha' => 'Verification failed. Please try again.'])
+                ->withErrors(['captcha' => 'Please complete the security check to continue.'])
                 ->withInput();
         }
 
@@ -43,16 +43,30 @@ class VerifyTurnstile
             ]);
 
             return redirect()->back()
-                ->withErrors(['captcha' => 'Verification service unavailable. Please try again.'])
+                ->withErrors(['captcha' => 'The security check service is temporarily unavailable. Please try again in a moment.'])
                 ->withInput();
         }
 
         if (! $response->json('success')) {
+            Log::warning('Turnstile verification failed', [
+                'error_codes' => $response->json('error-codes') ?? [],
+                'ip' => $request->ip(),
+            ]);
+
             return redirect()->back()
-                ->withErrors(['captcha' => 'Verification failed. Please try again.'])
+                ->withErrors(['captcha' => $this->errorMessage($response->json('error-codes') ?? [])])
                 ->withInput();
         }
 
         return $next($request);
+    }
+
+    private function errorMessage(array $errorCodes): string
+    {
+        if (in_array('timeout-or-duplicate', $errorCodes, true)) {
+            return 'Your security check expired. Please complete it again.';
+        }
+
+        return 'The security check could not be verified. Please try again.';
     }
 }

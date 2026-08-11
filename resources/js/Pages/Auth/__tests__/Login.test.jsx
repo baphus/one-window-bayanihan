@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { router } from '@inertiajs/react';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -67,6 +68,45 @@ describe('Login page — login step', () => {
 
         // After toggle, it should be type="text"
         expect(passwordInput).toHaveAttribute('type', 'text');
+    });
+});
+
+describe('Login page — turnstile validation', () => {
+    beforeEach(() => {
+        router.post.mockClear();
+    });
+
+    it('blocks submission with a client-side turnstile error when no token', () => {
+        mockPageProps = { errors: {}, turnstile: { enabled: true, site_key: 'x' } };
+        render(<Login />);
+
+        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'user@example.com' } });
+        fireEvent.change(document.querySelector('input[type="password"]'), { target: { value: 'secret' } });
+
+        const signInButton = screen.getByRole('button', { name: /sign in/i });
+        fireEvent.submit(signInButton.closest('form'));
+
+        expect(screen.getByText('Please complete the security check to continue.')).toBeInTheDocument();
+        expect(router.post).not.toHaveBeenCalled();
+    });
+
+    it('submits the turnstile token once the widget has been completed', () => {
+        mockPageProps = { errors: {}, turnstile: { enabled: true, site_key: 'x' } };
+        render(<Login />);
+
+        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'user@example.com' } });
+        fireEvent.change(document.querySelector('input[type="password"]'), { target: { value: 'secret' } });
+
+        fireEvent.click(screen.getByTestId('turnstile'));
+
+        const signInButton = screen.getByRole('button', { name: /sign in/i });
+        fireEvent.submit(signInButton.closest('form'));
+
+        expect(router.post).toHaveBeenCalledWith(
+            '/login',
+            expect.objectContaining({ cf_turnstile_response: 'mock-token' }),
+            expect.anything(),
+        );
     });
 });
 

@@ -196,11 +196,27 @@ class ReportsExportService
 
     /**
      * Hydrate the serializable criteria array into working values.
+     *
+     * The window bounds are deliberately built in the storage timezone, not in
+     * the operating timezone the dates are typed in. Every on-screen report
+     * query compares the stored timestamp against the calendar date directly
+     * (ReportsService::applyCaseWindow, ::referralQuery — all whereDate), so
+     * shifting the export's own bounds by the Manila offset gave one report two
+     * different windows: the summary sections covered the whole calendar day
+     * while the detail sheets, appendix, top-risk tables and pre-flight counts
+     * stopped at 15:59:59Z, silently dropping everything created in the last
+     * eight hours of the day. Same dates in, same rows out — the export's
+     * numbers have to reconcile against the screen.
+     *
+     * Bounds rather than whereDate so the comparison stays a range scan the
+     * created_at indexes can serve; endOfDay carries microseconds, so the
+     * upper bound is inclusive of the whole final second.
      */
     private function hydrate(array $criteria): array
     {
-        $from = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['from'], self::TZ);
-        $to = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['to'], self::TZ);
+        $storageTz = config('app.timezone', 'UTC');
+        $from = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['from'], $storageTz);
+        $to = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['to'], $storageTz);
 
         return [
             'user_id' => $criteria['user_id'],
@@ -210,8 +226,8 @@ class ReportsExportService
             'user_agcy_id' => $criteria['user_agcy_id'],
             'from' => $from,
             'to' => $to,
-            'fromInstant' => $from->startOfDay()->utc(),
-            'toInstant' => $to->endOfDay()->utc(),
+            'windowStart' => $from->startOfDay(),
+            'windowEnd' => $to->endOfDay(),
             'dateScope' => $criteria['dateScope'],
             'province' => $criteria['province'],
             'city' => $criteria['city'],
@@ -293,11 +309,11 @@ class ReportsExportService
             ->whereNull('cases.deleted_at');
 
         if ($c['dateScope'] === 'case_created_at') {
-            $q->whereBetween('cases.created_at', [$c['fromInstant'], $c['toInstant']]);
+            $q->whereBetween('cases.created_at', [$c['windowStart'], $c['windowEnd']]);
         } elseif ($c['dateScope'] === 'referral_created_at') {
-            $q->whereBetween('referrals.created_at', [$c['fromInstant'], $c['toInstant']]);
+            $q->whereBetween('referrals.created_at', [$c['windowStart'], $c['windowEnd']]);
         } else {
-            $q->whereBetween('referrals.updated_at', [$c['fromInstant'], $c['toInstant']]);
+            $q->whereBetween('referrals.updated_at', [$c['windowStart'], $c['windowEnd']]);
         }
 
         if ($c['agency_id']) {
@@ -321,7 +337,7 @@ class ReportsExportService
         $q = DB::table('cases')
             ->whereNull('cases.deleted_at')
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->whereBetween('cases.created_at', [$c['fromInstant'], $c['toInstant']]);
+            ->whereBetween('cases.created_at', [$c['windowStart'], $c['windowEnd']]);
 
         if ($c['agency_id']) {
             $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->whereNull('referrals.deleted_at')->where('referrals.agcy_id', $c['agency_id']));
@@ -1009,23 +1025,30 @@ class ReportsExportService
      * Every derived or ambiguous column is defined here, because "age days"
      * and "completion days" are counted from different anchors and nothing on
      * the sheet itself says so.
+     *
+     * Timestamp columns and the trend month are labelled UTC because that is
+     * what they are: values are written as stored and the date range filters on
+     * the stored value, so labelling them Asia/Manila invited a reader to
+     * mis-place rows by eight hours. Only the generation stamp on Report Info
+     * is rendered in the operating timezone.
      */
     private function dataDictionaryRows(): Collection
     {
         return collect([
             ['Referral Details', 'Age Days', 'Days from referral creation to now, for referrals that are still active', 'days'],
             ['Referral Details', 'Completion Days', 'Days from referral creation to completion; blank unless status is COMPLETED', 'days'],
-            ['Referral Details', 'Completed At', 'Timestamp the referral reached COMPLETED; blank for any other status', 'Asia/Manila'],
+            ['Referral Details', 'Completed At', 'Timestamp the referral reached COMPLETED; blank for any other status', 'UTC'],
             ['Case Details', 'Age Days', 'Days from case creation to now', 'days'],
             ['Case Details', 'Category', 'All categories assigned to the case, comma separated', 'text'],
-            ['Case Details', 'Closed At', 'Timestamp the case was closed; blank while open', 'Asia/Manila'],
+            ['Case Details', 'Closed At', 'Timestamp the case was closed; blank while open', 'UTC'],
             ['Executive Summary', 'Completion Rate', 'Completed referrals as a share of all referrals in range', '%'],
             ['Executive Summary', 'Avg Resolution Days', 'Mean days from case creation to closure, closed cases only', 'days'],
             ['Referral Funnel', 'Share', 'Stage count as a share of all referrals in range', '%'],
             ['Referral Aging', 'Label', 'Age band of referrals still awaiting action', 'band'],
             ['Cycle Time', 'Label', 'Elapsed time band for completed referrals', 'band'],
             ['Overdue Referrals', 'Overdue referrals', 'Active referrals older than the threshold, within the selected filters', 'count'],
-            ['Trends', 'Period', 'Calendar month, YYYY-MM, in Asia/Manila', 'month'],
+            ['Trends', 'Period', 'Calendar month, YYYY-MM, in UTC', 'month'],
+            ['All sheets', 'Timestamps', 'Created At, Updated At, Completed At and Closed At are UTC, as stored; the selected date range filters the same values', 'UTC'],
             ['Gender / Age Groups / Vulnerability / Client Type / Employment', 'Count', 'Buckets below the suppression threshold are withheld — see Report Info', 'count'],
             ['All sheets', 'Scope', 'Every figure honours the date range, date scope, province, city and agency filters shown on Report Info', 'n/a'],
         ])->map(fn ($r) => ['sheet' => $r[0], 'column' => $r[1], 'meaning' => $r[2], 'units' => $r[3]]);
