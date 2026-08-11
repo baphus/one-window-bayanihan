@@ -77,6 +77,9 @@ jobs:
       - name: Run NPM Audit
         run: npm audit --audit-level=high
 
+      - name: Run TypeScript Check
+        run: npm run typecheck
+
       - name: Build Frontend Assets
         run: npm run build
 

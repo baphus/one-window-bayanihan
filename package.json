@@ -7,7 +7,8 @@
     "dev": "vite",
     "addresses:sync": "node scripts/sync-philippine-addresses.cjs",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@headlessui/react": "^2.0.0",
@@ -28,6 +29,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwindcss": "^3.2.1",
+    "typescript": "^5.9.3",
     "vite": "^8.0.0",
     "vitest": "^4.1.9"
   },
