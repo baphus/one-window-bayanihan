@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Http\Requests\ReportsFilterRequest;
+use App\Models\AuditLog;
 use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class ReportsController extends Controller
@@ -123,12 +127,31 @@ class ReportsController extends Controller
             return $criteria;
         }
 
+        $guard = $this->guardAndAudit($request, $criteria, 'pdf');
+        if ($guard instanceof RedirectResponse) {
+            return $guard;
+        }
+
         $payload = $this->reportsExportService->buildPdfPayloadFromCriteria($criteria);
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.pdf';
 
+        // Render before recording the outcome. `download()` is where dompdf
+        // actually rasterises, so logging COMPLETED ahead of it would assert a
+        // successful export for a document that never rendered.
         $pdf = Pdf::loadView('pdf.report', $payload);
+        $output = $pdf->output();
 
-        return $pdf->download($filename);
+        $this->recordExport($request, $criteria, 'pdf', 'COMPLETED', [
+            'filename' => $filename,
+            'bytes' => strlen($output),
+            'row_counts' => $payload['metadata']['row_counts'] ?? [],
+            'suppression_applied' => $payload['suppression']['applied'] ?? false,
+        ]);
+
+        return response($output, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
     }
 
     public function exportExcel(Request $request)
@@ -138,10 +161,126 @@ class ReportsController extends Controller
             return $criteria;
         }
 
+        $guard = $this->guardAndAudit($request, $criteria, 'xlsx');
+        if ($guard instanceof RedirectResponse) {
+            return $guard;
+        }
+
         $exportService = new DataExportService;
         $sheets = $this->reportsExportService->buildExcelSheetsFromCriteria($criteria);
         $filename = 'bayanihan-report-'.now()->format('Ymd-His').'.xlsx';
 
-        return $exportService->generateMultiSheet($sheets, $filename);
+        $response = $exportService->generateMultiSheet($sheets, $filename);
+
+        // generateMultiSheet catches its own failures and answers 500, so the
+        // outcome is only known after it returns. The workbook itself is
+        // written inside the streamed callback, which is past the point where
+        // any status can change — hence GENERATED rather than DELIVERED.
+        $this->recordExport(
+            $request,
+            $criteria,
+            'xlsx',
+            $response->getStatusCode() === 200 ? 'COMPLETED' : 'FAILED',
+            ['filename' => $filename, 'sheets' => count($sheets)],
+        );
+
+        return $response;
+    }
+
+    /**
+     * Record the attempt, then refuse the export if it is too large to serve.
+     *
+     * The attempt is logged before the decision so a blocked or failed export
+     * leaves the same evidence trail as a successful one — an audit record that
+     * only ever shows successes cannot answer "who tried to pull this data".
+     *
+     * @return RedirectResponse|null Redirect when the export must not proceed.
+     */
+    private function guardAndAudit(Request $request, array $criteria, string $format): ?RedirectResponse
+    {
+        $preflight = $this->reportsExportService->preflight($criteria, $format);
+
+        $this->recordExport($request, $criteria, $format, 'ATTEMPTED', ['preflight' => $preflight]);
+
+        if (! $preflight['exceeds']) {
+            return null;
+        }
+
+        $this->recordExport($request, $criteria, $format, 'BLOCKED', ['preflight' => $preflight]);
+
+        return back()->with('error', sprintf(
+            'This range matches %s records, above the %s limit of %s for a %s export. '
+                .'Narrow the date range, or filter by agency, province or city, and try again.',
+            number_format($preflight['largest']),
+            $format === 'pdf' ? 'PDF' : 'Excel',
+            number_format($preflight['limit']),
+            strtoupper($format),
+        ));
+    }
+
+    /**
+     * Write one audit row for an export attempt, block, or completion.
+     *
+     * Records the actor, the full filter set, and the matched volumes. No
+     * client-identifying data is involved — the exports carry aggregates and
+     * case references only — so the log itself stays free of personal data.
+     */
+    /**
+     * One correlation id per request, so the ATTEMPTED row and its outcome row
+     * can be joined. Minting a fresh UUID per write — the pattern copied from
+     * the other export controllers — left the two halves of the same export
+     * unlinkable, which defeats the point of logging the attempt.
+     */
+    private function correlationId(Request $request): string
+    {
+        $existing = $request->attributes->get('correlation_id')
+            ?? $request->header('X-Request-ID');
+
+        if ($existing) {
+            return (string) $existing;
+        }
+
+        if (! $request->attributes->has('export_correlation_id')) {
+            $request->attributes->set('export_correlation_id', (string) Str::uuid());
+        }
+
+        return (string) $request->attributes->get('export_correlation_id');
+    }
+
+    private function recordExport(Request $request, array $criteria, string $format, string $outcome, array $context = []): void
+    {
+        $user = $request->user();
+
+        AuditLog::create([
+            'action' => AuditAction::EXPORT->value,
+            'module' => AuditModule::DATA_EXPORT->value,
+            'entity_id' => $user?->id,
+            'description' => sprintf(
+                '%s %s a reports %s export (%s to %s)',
+                $user?->name ?? 'Unknown user',
+                strtolower($outcome),
+                strtoupper($format),
+                $criteria['from'],
+                $criteria['to'],
+            ),
+            'new_value' => [
+                'outcome' => $outcome,
+                'format' => $format,
+                'role' => $criteria['role'],
+                'filters' => [
+                    'from' => $criteria['from'],
+                    'to' => $criteria['to'],
+                    'date_scope' => $criteria['dateScope'],
+                    'province' => $criteria['province'] ?? 'All',
+                    'city' => $criteria['city'] ?? 'All',
+                    'agency_id' => $criteria['agency_id'] ?? 'All',
+                ],
+            ] + $context,
+            'user_id' => $user?->id,
+            'timestamp' => now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'request_id' => $this->correlationId($request),
+        ]);
     }
 }

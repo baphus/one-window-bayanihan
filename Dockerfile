@@ -35,18 +35,28 @@ LABEL org.opencontainers.image.licenses="MIT"
 ARG PHPREDIS_VERSION=6.1.0
 
 # ── System dependencies (includes Nginx + Supervisor) ──
+#
+# GD must be CONFIGURED before it is installed. Built without --with-freetype it
+# still loads and still reports itself present, but imagettftext() and
+# imagettfbbox() are undefined — and every chart label in the Reports PDF calls
+# them. That shipped once and returned 500 on /reports/export-pdf for nine days.
+# The comment lives above the RUN rather than inside the line continuation so it
+# cannot end up commenting out the rest of the joined shell command.
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     libzip-dev \
     unzip \
     libpng-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
     libicu-dev \
     nginx \
     supervisor \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     pdo \
     pdo_pgsql \

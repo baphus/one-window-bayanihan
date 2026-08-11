@@ -210,6 +210,12 @@ Laravel Controller → Inertia::render('Page', $props)
 | `FeedbackService` | — | SERVQUAL feedback, invitations, analytics |
 | `ExportService` | — | PDF/Excel generation |
 
+> **Reports exports:** the PDF/Excel export design, its measured size and memory
+> limits, the small-cell suppression rule and the export audit trail are recorded
+> separately in [`REPORTS_EXPORT_DESIGN_v1.0.0.md`](REPORTS_EXPORT_DESIGN_v1.0.0.md).
+> Note that report chart rendering requires GD **compiled with FreeType** — see
+> that document before changing the container image.
+
 ## 9. Deployment Topology
 
 Described by capability, not by provider. Any target meeting
