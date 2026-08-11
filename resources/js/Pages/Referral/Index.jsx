@@ -9,6 +9,7 @@ import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } 
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
+import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 
 const COLUMN_DEFS = [
     { key: 'case_number', label: 'Case #', default: true },
@@ -44,7 +45,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
     const [searchValue, setSearchValue] = useState(filters?.search ?? '');
-    const [viewMode, setViewMode] = useState('list');
+    const [viewMode, setViewMode] = usePersistedViewMode('owb-view_referrals');
     const [filterOpen, setFilterOpen] = useState(false);
     const [columnsOpen, setColumnsOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
@@ -126,6 +127,12 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             showProgress: false,
         });
     };
+
+    const restoreFilters = (saved) => {
+        setSearchValue(saved.search ?? '');
+        updateTable(saved);
+    };
+    usePersistedFilters('owb-filters_referrals', filters, restoreFilters);
 
     const handleSearchChange = (value) => {
         setSearchValue(value);

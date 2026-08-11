@@ -5,11 +5,12 @@ import KpiCard from '@/Components/ui/KpiCard';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import { usePersistedViewMode } from '@/Hooks/usePersistedViewState';
 
 export default function AgencyServicesIndex({ services, allServices }) {
     const { auth } = usePage().props;
     const [searchValue, setSearchValue] = useState('');
-    const [viewMode, setViewMode] = useState('list');
+    const [viewMode, setViewMode] = usePersistedViewMode('owb-view_agency-services');
     const [contextMenu, setContextMenu] = useState(null);
 
     const [selectedServiceId, setSelectedServiceId] = useState(null);

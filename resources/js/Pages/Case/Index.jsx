@@ -9,6 +9,7 @@ import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMe
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
+import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 const vulnStyles = {
@@ -103,7 +104,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = usePersistedViewMode('owb-view_cases');
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
 
@@ -191,6 +192,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       showProgress: false,
     });
   };
+
+  const restoreFilters = (saved) => {
+    setSearchValue(saved.search ?? '');
+    updateTable(saved);
+  };
+  usePersistedFilters('owb-filters_cases', filters, restoreFilters);
 
   useEffect(() => {
     const onStart = () => setTableLoading(true);

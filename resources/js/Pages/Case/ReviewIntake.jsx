@@ -5,13 +5,9 @@ import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDate } from '@/lib/utils';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import AddressDropdowns from '@/Components/AddressDropdowns';
-
-const VULNERABILITY_OPTIONS = [
-  'PWD',
-  'Senior Citizen',
-  'Solo Parent',
-  'Indigenous Person',
-];
+import CountrySelect from '@/Components/CountrySelect';
+import SearchableSelect from '@/Components/SearchableSelect';
+import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 
 const VULN_STYLES = {
   PWD: 'bg-purple-100 text-purple-800',
@@ -228,8 +224,19 @@ function InfoRow({ label, value }) {
    MAIN PAGE COMPONENT
    ════════════════════════════════════════════════════════════════ */
 
-export default function ReviewIntake({ case: caseFile, categories = [], caseIssues = [], draftResolvedAddress = {}, draftAddressNames = {} }) {
+export default function ReviewIntake({ case: caseFile, categories = [], caseIssues = [], draftResolvedAddress = {}, draftAddressNames = {}, occupationOptions = [] }) {
   const toast = useToast();
+
+  // Merge curated defaults with previously entered occupations from the backend,
+  // de-duplicate, sort, and shape as [value, label] pairs for SearchableSelect.
+  const mergedOccupationOptions = useMemo(() => {
+    const labels = [...DEFAULT_OCCUPATIONS, ...occupationOptions.map((o) => o.label ?? o)]
+      .map((p) => String(p).trim())
+      .filter(Boolean);
+    const unique = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+    return unique.map((p) => ({ value: p, label: p }));
+  }, [occupationOptions]);
+
   const draft = caseFile.draft_client_data || {};
   const address = draft.address || {};
   const employment = draft.employment || {};
@@ -258,9 +265,6 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
     (caseFile.category_ids || []).map(String)
   );
   const [caseIssueId, setCaseIssueId] = useState(caseFile.case_issue_id || '');
-  const [vulnerability, setVulnerability] = useState(
-    Array.isArray(caseFile.vulnerability) ? caseFile.vulnerability : (caseFile.vulnerability ? [caseFile.vulnerability] : [])
-  );
 
   // Reject state
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -414,7 +418,6 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
       await window.axios.put(route('cases.save-draft', caseFile.id), {
         category_ids: categoryIds,
         case_issue_id: caseIssueId || null,
-        vulnerability,
       });
 
       // 2. Publish
@@ -656,16 +659,6 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                     </div>
                     <div>
-                      <FieldLabel>Occupation</FieldLabel>
-                      <input type="text" value={editEmployment.position} onChange={(e) => setEditEmployment({ ...editEmployment, position: e.target.value })}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
-                    </div>
-                    <div>
-                      <FieldLabel>Country</FieldLabel>
-                      <input type="text" value={editEmployment.country} onChange={(e) => setEditEmployment({ ...editEmployment, country: e.target.value })}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
-                    </div>
-                    <div>
                       <FieldLabel>Start Date</FieldLabel>
                       <input type="date" value={editEmployment.start_date} onChange={(e) => setEditEmployment({ ...editEmployment, start_date: e.target.value })}
                         className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
@@ -692,13 +685,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                     </div>
                     <div>
                       <FieldLabel>Last Country</FieldLabel>
-                      <input type="text" value={editEmployment.last_country} onChange={(e) => setEditEmployment({ ...editEmployment, last_country: e.target.value })}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                      <CountrySelect value={editEmployment.last_country} onChange={(v) => setEditEmployment({ ...editEmployment, last_country: v })} placeholder="Select country..." />
                     </div>
                     <div>
                       <FieldLabel>Last Occupation</FieldLabel>
-                      <input type="text" value={editEmployment.last_position} onChange={(e) => setEditEmployment({ ...editEmployment, last_position: e.target.value })}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                      <SearchableSelect value={editEmployment.last_position} onChange={(v) => setEditEmployment({ ...editEmployment, last_position: v })} options={mergedOccupationOptions} placeholder="Select or type occupation..." allowCustom />
                     </div>
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -714,8 +705,6 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   <InfoRow label="Employer" value={employment.employer_name} />
-                  <InfoRow label="Occupation" value={employment.position} />
-                  <InfoRow label="Country" value={employment.country} />
                   <InfoRow label="Employment Period" value={employmentPeriod} />
                   <InfoRow label="Date of Arrival" value={employment.date_of_arrival ? formatDisplayDate(employment.date_of_arrival) : '—'} />
                   <InfoRow label="Last Country" value={employment.last_country} />
@@ -919,30 +908,6 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                 </select>
               </div>
 
-              {/* Vulnerability (CM can toggle) */}
-              <div>
-                <FieldLabel>Vulnerability</FieldLabel>
-                <div className="flex flex-wrap gap-3 mt-1">
-                  {VULNERABILITY_OPTIONS.map((v) => {
-                    const checked = vulnerability.includes(v);
-                    return (
-                      <label key={v} className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            setVulnerability((prev) =>
-                              checked ? prev.filter((x) => x !== v) : [...prev, v]
-                            );
-                          }}
-                          className="rounded border-slate-300 text-blue-900 focus:ring-blue-900 focus:ring-offset-0"
-                        />
-                        <span className="text-[13px] text-slate-700">{v}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           </div>
         </div>

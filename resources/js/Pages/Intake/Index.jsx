@@ -54,8 +54,10 @@ function emptyForm() {
 }
 
 // Pre-fill the wizard with the signed-in OFW's linked client profile when the
-// backend passes one. Every field stays editable — the profile is only a
-// starting value so a returning OFW does not have to retype everything.
+// backend passes one. The identity fields are locked once pre-filled — the
+// profile is authoritative for the filer's identity — while address,
+// employment, contact and next-of-kin stay editable so a returning OFW does
+// not have to retype everything.
 function formWithExistingClient(existingClient) {
   const base = emptyForm();
   if (!existingClient) return base;
@@ -158,6 +160,10 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
     return saved || formWithExistingClient(existingClient);
   });
 
+  // When the wizard is pre-filled from a linked OFW profile, the personal
+  // identity fields become read-only to keep the filer's record authoritative.
+  const identityLocked = !!existingClient;
+
   // Save to session on every formData change (after email verified)
   useEffect(() => {
     if (emailVerified) {
@@ -178,7 +184,10 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
     });
   }, []);
 
-  const goNext = () => setCurrentStep(s => Math.min(s + 1, steps.length - 1));
+  const goNext = () => {
+    window.scrollTo(0, 0);
+    setCurrentStep(s => Math.min(s + 1, steps.length - 1));
+  };
   const goBack = () => setCurrentStep(s => Math.max(s - 1, 0));
 
   // --- Email & OTP handlers ---
@@ -318,38 +327,66 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
         </section>
 
         {/* Progress indicator */}
-        <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
-          <div className="flex items-center">
+<div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
+  <div className="relative">
+    {(() => {
+      const totalSteps = STEPS.length;
+      const completedSteps = skipVerification ? currentStep + 1 : currentStep;
+      const edgeInset = 50 / totalSteps;
+      const trackWidth = 100 - edgeInset * 2;
+      const progressWidth = totalSteps > 1
+        ? Math.min(completedSteps / (totalSteps - 1), 1) * trackWidth
+        : 0;
+
+      return (
+        <>
+          <div
+            className="absolute h-0.5 bg-slate-200"
+            style={{ top: '15px', left: `${edgeInset}%`, right: `${edgeInset}%` }}
+          />
+          <div
+            className="absolute h-0.5 bg-primary transition-all duration-300 ease-out"
+            style={{ top: '15px', left: `${edgeInset}%`, width: `${progressWidth}%` }}
+          />
+
+          <div className="relative flex">
             {STEPS.map((step, i) => {
-              // The email step is skipped for signed-in OFWs, so map the
-              // filtered `steps` index back onto the full STEPS list.
-              const stepIndex = skipVerification ? i - 1 : i;
-              const isDone = (skipVerification && i === 0) || (stepIndex >= 0 && stepIndex < currentStep);
-              const isActive = !isDone && stepIndex === currentStep;
-              const prevDone = i > 0
-                ? (skipVerification && i - 1 === 0) || (stepIndex - 1 >= 0 && stepIndex - 1 < currentStep)
-                : false;
+              const isDone = i < completedSteps;
+              const isActive = i === completedSteps;
 
               return (
-                <Fragment key={step.id}>
-                  {i > 0 && (
-                    <div className={`h-0.5 flex-1 rounded-full ${prevDone ? 'bg-primary' : 'bg-slate-200'}`} />
-                  )}
-                  <div className="flex flex-col items-center">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
-                      isDone ? 'bg-primary text-white' :
-                      isActive ? 'bg-primary text-white ring-4 ring-primary/20' :
-                      'bg-slate-200 text-slate-500'
-                    }`}>
-                      {isDone ? '✓' : i + 1}
-                    </div>
-                    <span className="mt-1 hidden text-[10px] font-medium text-slate-500 sm:block">{step.label}</span>
+                <div key={step.id} className="flex flex-1 flex-col items-center gap-1.5 px-1">
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                      isDone
+                        ? 'bg-primary text-white'
+                        : isActive
+                        ? 'bg-primary text-white ring-4 ring-primary/20'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {isDone ? (
+                      <span className="material-symbols-outlined text-[16px]">check</span>
+                    ) : (
+                      i + 1
+                    )}
                   </div>
-                </Fragment>
+                  <span
+                    className={`hidden text-center text-[10px] font-medium leading-tight sm:block ${
+                      isActive ? 'text-primary' : 'text-slate-500'
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </div>
               );
             })}
           </div>
-        </div>
+        </>
+      );
+    })()}
+  </div>
+</div>
 
         {/* Form content */}
         <div className="mx-auto max-w-3xl px-4 pb-16 md:px-8">
@@ -374,7 +411,7 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
                 />
               ),
               personal: (
-                <PersonalStep formData={formData} updateField={updateField} errors={errors} onNext={goNext} onBack={goBack} />
+                <PersonalStep formData={formData} updateField={updateField} errors={errors} identityLocked={identityLocked} onNext={goNext} onBack={goBack} />
               ),
               address: (
                 <AddressStep formData={formData} updateField={updateField} errors={errors} onNext={goNext} onBack={goBack} />
@@ -502,7 +539,7 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
   );
 }
 
-function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
+function PersonalStep({ formData, updateField, errors, identityLocked = false, onNext, onBack }) {
   const [stepErrors, setStepErrors] = useState({});
 
   const validate = () => {
@@ -518,30 +555,32 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
   return (
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Personal Information</h2>
-      <p className="mb-6 text-sm text-slate-500">Tell us about yourself.</p>
+      <p className="mb-6 text-sm text-slate-500">
+        {identityLocked ? 'Some details came from your profile and cannot be changed here.' : 'Tell us about yourself.'}
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">First Name *</label>
-          <input type="text" value={formData.client.first_name} onChange={e => { updateField('client.first_name', e.target.value); clearError('first_name'); }}
-            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.first_name ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+          <input type="text" value={formData.client.first_name} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => { updateField('client.first_name', e.target.value); clearError('first_name'); }}
+            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.first_name ? 'border-error' : 'border-outline-variant focus:border-primary'} ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`} />
           {stepErrors.first_name && <p className="mt-1 text-xs text-error">{stepErrors.first_name}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Name *</label>
-          <input type="text" value={formData.client.last_name} onChange={e => { updateField('client.last_name', e.target.value); clearError('last_name'); }}
-            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.last_name ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+          <input type="text" value={formData.client.last_name} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => { updateField('client.last_name', e.target.value); clearError('last_name'); }}
+            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.last_name ? 'border-error' : 'border-outline-variant focus:border-primary'} ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`} />
           {stepErrors.last_name && <p className="mt-1 text-xs text-error">{stepErrors.last_name}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Initial</label>
-          <input type="text" maxLength={1} value={formData.client.middle_initial} onChange={e => updateField('client.middle_initial', e.target.value.toUpperCase())}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm uppercase focus:border-primary focus:outline-none" />
+          <input type="text" maxLength={1} value={formData.client.middle_initial} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => updateField('client.middle_initial', e.target.value.toUpperCase())}
+            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm uppercase focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`} />
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Suffix</label>
-          <select value={formData.client.suffix} onChange={e => updateField('client.suffix', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
+          <select value={formData.client.suffix} disabled={identityLocked} onChange={e => updateField('client.suffix', e.target.value)}
+            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`}>
             <option value="">None</option>
             <option value="Jr">Jr</option>
             <option value="Sr">Sr</option>
@@ -553,8 +592,8 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Birth</label>
-          <input type="date" value={formData.client.date_of_birth} onChange={e => updateField('client.date_of_birth', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <input type="date" value={formData.client.date_of_birth} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => updateField('client.date_of_birth', e.target.value)}
+            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`} />
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Sex *</label>
@@ -562,8 +601,8 @@ function PersonalStep({ formData, updateField, errors, onNext, onBack }) {
               selected while state is still empty, so the filer sees an
               answered control and submits nothing. Case managers cannot
               publish a case with no sex, so the submission dead-ends. */}
-          <select value={formData.client.sex ?? ''} onChange={e => updateField('client.sex', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none">
+          <select value={formData.client.sex ?? ''} disabled={identityLocked} onChange={e => updateField('client.sex', e.target.value)}
+            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`}>
             <option value="">Select…</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>

@@ -7,6 +7,9 @@ import createPasswordSchema from '@/utils/createPasswordSchema';
 import useClientValidation from '@/Hooks/useClientValidation';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { getAvatarColor } from '@/Components/ui/UserAvatar';
+import CountrySelect from '@/Components/CountrySelect';
+import SearchableSelect from '@/Components/SearchableSelect';
+import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 
 const MAX = 'Must be 255 characters or fewer.';
 
@@ -141,7 +144,7 @@ const NAV_TABS = [
 ];
 
 export default function Profile({ user, client }) {
-    const { passwordRules } = usePage().props;
+    const { passwordRules, occupationOptions } = usePage().props;
     const [activeTab, setActiveTab] = useState(NAV_TABS[0].id);
 
     const fullName = client
@@ -207,6 +210,17 @@ export default function Profile({ user, client }) {
         last_position: z.string().max(255, MAX),
         date_of_arrival: z.string().max(10, 'Enter a valid date.'),
     }), []);
+
+    // Merge curated defaults with previously entered occupations from the
+    // backend, de-duplicate, sort, and shape as [value, label] pairs for
+    // SearchableSelect (mirrors the intake employment step).
+    const mergedOccupationOptions = useMemo(() => {
+        const labels = [...DEFAULT_OCCUPATIONS, ...(occupationOptions || []).map(o => o.label ?? o)]
+            .map(p => String(p).trim())
+            .filter(Boolean);
+        const unique = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+        return unique.map(p => ({ value: p, label: p }));
+    }, [occupationOptions]);
 
     const nokSchema = useMemo(() => z.object({
         next_of_kin: z.array(z.object({
@@ -577,12 +591,20 @@ export default function Profile({ user, client }) {
                                 />
                                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <TextInput id="emp_employer" label="Employer / Agency" value={employmentForm.data.employer_name} onChange={(v) => employmentForm.setData('employer_name', v)} error={employmentForm.errors.employer_name} />
-                                    <TextInput id="emp_position" label="Position" value={employmentForm.data.position} onChange={(v) => employmentForm.setData('position', v)} error={employmentForm.errors.position} />
-                                    <TextInput id="emp_country" label="Country" value={employmentForm.data.country} onChange={(v) => employmentForm.setData('country', v)} error={employmentForm.errors.country} />
+                                    <Field label="Position" error={employmentForm.errors.position}>
+                                        <SearchableSelect value={employmentForm.data.position} onChange={(v) => employmentForm.setData('position', v)} options={mergedOccupationOptions} placeholder="Select or type occupation..." allowCustom />
+                                    </Field>
+                                    <Field label="Country" error={employmentForm.errors.country}>
+                                        <CountrySelect value={employmentForm.data.country} onChange={(v) => employmentForm.setData('country', v)} />
+                                    </Field>
                                     <TextInput id="emp_start" label="Start Date" type="date" value={employmentForm.data.start_date} onChange={(v) => employmentForm.setData('start_date', v)} error={employmentForm.errors.start_date} />
                                     <TextInput id="emp_end" label="End Date" type="date" value={employmentForm.data.end_date} onChange={(v) => employmentForm.setData('end_date', v)} error={employmentForm.errors.end_date} />
-                                    <TextInput id="emp_last_country" label="Last Country" value={employmentForm.data.last_country} onChange={(v) => employmentForm.setData('last_country', v)} error={employmentForm.errors.last_country} />
-                                    <TextInput id="emp_last_position" label="Last Position" value={employmentForm.data.last_position} onChange={(v) => employmentForm.setData('last_position', v)} error={employmentForm.errors.last_position} />
+                                    <Field label="Last Country" error={employmentForm.errors.last_country}>
+                                        <CountrySelect value={employmentForm.data.last_country} onChange={(v) => employmentForm.setData('last_country', v)} />
+                                    </Field>
+                                    <Field label="Last Position" error={employmentForm.errors.last_position}>
+                                        <SearchableSelect value={employmentForm.data.last_position} onChange={(v) => employmentForm.setData('last_position', v)} options={mergedOccupationOptions} placeholder="Select or type occupation..." allowCustom />
+                                    </Field>
                                     <TextInput id="emp_arrival" label="Date of Arrival" type="date" value={employmentForm.data.date_of_arrival} onChange={(v) => employmentForm.setData('date_of_arrival', v)} error={employmentForm.errors.date_of_arrival} />
                                 </div>
                                 <div className="mt-4 flex justify-end">
