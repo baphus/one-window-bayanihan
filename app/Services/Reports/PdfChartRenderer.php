@@ -2,6 +2,9 @@
 
 namespace App\Services\Reports;
 
+use Illuminate\Container\Container;
+use Illuminate\Foundation\Application;
+
 /**
  * Render report charts as PNG images embedded as base64 data URIs.
  *
@@ -448,8 +451,25 @@ class PdfChartRenderer
     private function fontPath(): string
     {
         if ($this->font === null) {
-            $path = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
-            $this->font = is_file($path) ? $path : '';
+            $this->font = '';
+            $candidates = [
+                __DIR__.'/../../../vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf',
+            ];
+
+            // base_path() fatals when no Laravel Application is bootstrapped
+            // (e.g. running the renderer standalone via php -r), so only use it
+            // when the container is a real application.
+            $container = Container::getInstance();
+            if ($container instanceof Application) {
+                $candidates[] = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
+            }
+
+            foreach ($candidates as $path) {
+                if (is_file($path)) {
+                    $this->font = $path;
+                    break;
+                }
+            }
         }
 
         if ($this->font === '') {
