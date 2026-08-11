@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Reports\PdfChartRenderer;
 use App\Support\MailTransportHealth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,7 @@ class ReadinessController extends Controller
             'database' => $this->checkDatabase(),
             'scheduler' => $this->checkScheduler((int) $thresholds['scheduler_stale_seconds']),
             'mail' => $this->checkMailTransport(),
+            'image_rendering' => $this->checkImageRendering(),
         ];
 
         // Queue depth is only observable through these tables on the database
@@ -150,6 +152,36 @@ class ReadinessController extends Controller
         }
 
         return ['status' => 'ok', 'mailer' => $mailer];
+    }
+
+    /**
+     * Can this build draw the report charts?
+     *
+     * Same class of failure as the mail check above, and it shipped the same
+     * way: the image was built with `docker-php-ext-install gd` but without
+     * `docker-php-ext-configure gd --with-freetype`, so imagettftext() was
+     * never defined and every Reports PDF export returned 500 from the first
+     * chart label. /up answered 200 throughout, the test suite passed on hosts
+     * where FreeType exists, and the gap was only found from a user's stack
+     * trace nine days later.
+     *
+     * Reported as a failure rather than a warning: charts now degrade to a
+     * bitmap font instead of fatalling, but a deployment in that state is
+     * shipping visibly worse documents and someone should be told.
+     *
+     * @return array<string, mixed>
+     */
+    private function checkImageRendering(): array
+    {
+        if (! extension_loaded('gd')) {
+            return ['status' => 'fail', 'detail' => 'gd extension missing'];
+        }
+
+        if (! PdfChartRenderer::hasTrueType()) {
+            return ['status' => 'fail', 'detail' => 'gd built without freetype; chart labels degrade to bitmap'];
+        }
+
+        return ['status' => 'ok', 'freetype' => true];
     }
 
     /**

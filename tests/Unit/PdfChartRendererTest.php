@@ -25,6 +25,50 @@ class PdfChartRendererTest extends TestCase
         return imagecreatefromstring(base64_decode($m[1], true));
     }
 
+    /**
+     * Regression: production ran a GD build without FreeType, so
+     * imagettftext() was undefined and every chart call fatalled — taking the
+     * whole Reports PDF export down with a 500 for nine days. This suite could
+     * not see it, because every host it runs on has FreeType. Forcing the
+     * capability off is the only way to exercise the production path here.
+     */
+    #[Test]
+    public function every_chart_type_renders_when_gd_lacks_freetype(): void
+    {
+        $renderer = new class extends PdfChartRenderer
+        {
+            public static function hasTrueType(): bool
+            {
+                return false;
+            }
+        };
+
+        $charts = [
+            'bar' => $renderer->barChart(['Jan', 'Feb'], [10, 20]),
+            'line' => $renderer->lineChart(['Jan', 'Feb'], [10, 20]),
+            'pie' => $renderer->pieChart(['Open', 'Closed'], [3, 7]),
+            'hbar' => $renderer->horizontalBarChart(['Cebu', 'Bohol'], [40, 12]),
+        ];
+
+        foreach ($charts as $type => $html) {
+            $this->assertStringStartsWith(
+                '<img src="data:image/png;base64,',
+                $html,
+                "{$type} chart did not render without FreeType"
+            );
+            $this->assertNotFalse($this->pngData($html), "{$type} chart produced an unreadable PNG");
+        }
+    }
+
+    #[Test]
+    public function has_true_type_reports_this_builds_capability(): void
+    {
+        $this->assertSame(
+            function_exists('imagettftext') && function_exists('imagettfbbox'),
+            PdfChartRenderer::hasTrueType()
+        );
+    }
+
     #[Test]
     public function bar_chart_returns_valid_png(): void
     {

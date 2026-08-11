@@ -20,11 +20,40 @@ class ReportsExportService
     private const PDF_TOP_N = 10;
 
     /**
-     * Excel sheet titles that are not part of the AGENCY report tabs
-     * (overview + performance). Agencies cannot see these sections on-screen,
-     * so their exports must not emit them — not even as empty sheets.
+     * Excel sheet titles an AGENCY export must not emit — not even as empty
+     * sheets — because the agency's own report tabs do not show them.
+     *
+     * Categories and Case Status were previously on this list and should not
+     * have been: getAgencyPayload() returns both, agency-scoped, and both
+     * render on screen. They are now included in agency exports.
      */
-    private const AGENCY_HIDDEN_SHEETS = ['Geography', 'Categories', 'Case Issues', 'Case Status', 'Employment'];
+    private const AGENCY_HIDDEN_SHEETS = [
+        'Geography', 'Case Issues', 'Employment',
+        'Cities', 'Agency Workload', 'Referrals by Agency', 'Occupations', 'Vulnerability',
+    ];
+
+    /**
+     * Payload keys behind the newly added sections that an agency cannot see
+     * on screen. Blanked for the same reason as AGENCY_HIDDEN_SHEETS.
+     *
+     * The rule this enforces is specific to AGENCY: an agency export must not
+     * widen an agency's view beyond its own dashboard, because that dashboard
+     * is the boundary of what one agency may see about the programme. It is
+     * deliberately NOT applied to CASE_MANAGER — case managers already receive
+     * cross-agency scorecards and overdue queues, so agency workload and
+     * referrals-by-agency are the same class of information they are already
+     * trusted with, and withholding them from a report they are entitled to
+     * read would serve nobody.
+     */
+    private const AGENCY_HIDDEN_SECTIONS = [
+        'cityDistribution', 'agencyWorkload', 'referralAgencyDistribution',
+        'employmentOccupationBreakdown', 'vulnerabilityDistribution',
+        // NOT overdueReferrals: agencies do see it, on the performance tab
+        // (OverdueReferralsCard). Blanking it while leaving the sheet in place
+        // printed a hard "0" on the agency's KPI card and Overdue sheet, which
+        // is worse than omitting the section — the count is already scoped to
+        // the agency's own referrals by referralBase().
+    ];
 
     private const RISK = ['FOR_COMPLIANCE' => 40, 'PROCESSING' => 30, 'PENDING' => 20, 'OPEN' => 20];
 
@@ -131,13 +160,49 @@ class ReportsExportService
         ];
     }
 
-    private function buildPayloadFromCriteria(array $criteria, bool $withDetails): array
+    /**
+     * How much work would this export be, without doing it?
+     *
+     * Two counting queries, run before anything is built. Exports are
+     * generated synchronously inside the request against a 60s timeout and a
+     * 256M memory limit, so a range that cannot be served has to be refused
+     * with an actionable message rather than attempted and failed — a 500 with
+     * no explanation is what this endpoint used to do.
+     *
+     * Thresholds are per format because the two paths cost very differently:
+     * see config/reports.php for the measurements they came from.
+     */
+    public function preflight(array $criteria, string $format): array
     {
-        // Hydrate date objects from serializable strings
+        $c = $this->hydrate($criteria);
+
+        $referrals = $this->referralBase($c)->count();
+        $cases = $this->caseBase($c)->count();
+        $largest = max($referrals, $cases);
+
+        $limit = $format === 'pdf'
+            ? (int) config('reports.pdf_preflight_max_rows', 30000)
+            : (int) config('reports.export_preflight_max_rows', 6000);
+
+        return [
+            'format' => $format,
+            'referrals' => $referrals,
+            'cases' => $cases,
+            'largest' => $largest,
+            'limit' => $limit,
+            'exceeds' => $limit > 0 && $largest > $limit,
+        ];
+    }
+
+    /**
+     * Hydrate the serializable criteria array into working values.
+     */
+    private function hydrate(array $criteria): array
+    {
         $from = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['from'], self::TZ);
         $to = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['to'], self::TZ);
 
-        $c = [
+        return [
             'user_id' => $criteria['user_id'],
             'user_name' => $criteria['user_name'],
             'role' => $criteria['role'],
@@ -151,6 +216,11 @@ class ReportsExportService
             'province' => $criteria['province'],
             'city' => $criteria['city'],
         ];
+    }
+
+    private function buildPayloadFromCriteria(array $criteria, bool $withDetails): array
+    {
+        $c = $this->hydrate($criteria);
 
         $report = $this->reports->getAll(
             userId: $c['user_id'],
@@ -165,8 +235,6 @@ class ReportsExportService
 
         $refBase = $this->referralBase($c);
         $caseBase = $this->caseBase($c);
-        $refCount = (int) ($report['kpis']['totalReferrals'] ?? 0);
-        $caseCount = (int) ($report['kpis']['totalCases'] ?? 0);
         $refDetailCount = (clone $refBase)->count();
         $caseDetailCount = (clone $caseBase)->count();
 
@@ -182,14 +250,30 @@ class ReportsExportService
             $warnings[] = 'Case Details capped at '.$rowCap.' of '.$caseDetailCount.' matching rows.';
         }
 
-        $summary = $this->summaryFromReport($report, $refBase, $caseBase, $c['role']);
+        $summary = $this->summaryFromReport($report, $refBase, $caseBase, $c);
         $metadata = $this->buildMetadata($c, $refDetailCount, $caseDetailCount, $warnings, $withDetails);
+
+        // Fetch only as deep as the appendix needs, then slice the headline
+        // top-N off the front — same ordering, so the appendix reads as a
+        // continuation of the summary. Totals come from a count, never from
+        // the length of a hydrated collection.
+        $appendixLimit = $this->appendixLimit();
+        $rankedReferrals = $this->riskRows($this->referralRows($refBase), 'referral', $appendixLimit);
+        $rankedCases = $this->riskRows($this->caseRows($caseBase), 'case', $appendixLimit);
 
         $payload = $summary + [
             'metadata' => $metadata,
             'capWarnings' => $warnings,
-            'topReferrals' => $this->riskRows($this->referralRows($refBase), 'referral')->take(self::PDF_TOP_N)->values()->all(),
-            'topCases' => $this->riskRows($this->caseRows($caseBase), 'case')->take(self::PDF_TOP_N)->values()->all(),
+            'topReferrals' => $rankedReferrals->take($this->pdfTopN())->values()->all(),
+            'topCases' => $rankedCases->take($this->pdfTopN())->values()->all(),
+            'appendix' => [
+                'limit' => $appendixLimit,
+                'referrals' => $rankedReferrals->values()->all(),
+                'cases' => $rankedCases->values()->all(),
+                'referralsTotal' => $this->riskRowCount($this->referralRows($refBase), 'referral'),
+                'casesTotal' => $this->riskRowCount($this->caseRows($caseBase), 'case'),
+            ],
+            'chartMaxCategories' => (int) config('reports.chart_max_categories', 15),
         ];
         $payload['sheets'] = $this->sheets($payload, $refRows, $caseRows, $c['role']);
 
@@ -296,8 +380,9 @@ class ReportsExportService
      * bases so both PDF and Excel always have month-by-month series regardless
      * of the role-specific keys getAll() returns.
      */
-    private function summaryFromReport(array $report, $refBase, $caseBase, string $role): array
+    private function summaryFromReport(array $report, $refBase, $caseBase, array $c): array
     {
+        $role = $c['role'];
         $kpis = $report['kpis'] ?? [];
 
         // getAll agency scorecard uses `avgDays`; the Blade/Excel expect `avg_days`.
@@ -336,16 +421,247 @@ class ReportsExportService
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
         ];
 
+        $summary += $this->additionalSections($c, $refBase);
+
         if ($role === 'AGENCY') {
-            // Only the sections rendered on the AGENCY report tabs belong in an
-            // agency export. Empty these payload keys so the PDF's `!empty()`
-            // section guards skip them and the Excel sheet list drops them.
-            $summary['categoryDistribution'] = [];
+            // Only the sections an agency actually sees belong in an agency
+            // export. Empty these payload keys so the PDF's `!empty()` section
+            // guards skip them and the Excel sheet list drops them.
+            //
+            // categoryDistribution and caseStatusDistribution used to be
+            // blanked here on the stated grounds that "agencies cannot see
+            // these sections on-screen". That was wrong:
+            // ReportsService::getAgencyPayload() returns both, correctly
+            // agency-scoped, and both render on the agency's tabs. Agencies
+            // were losing data they are entitled to.
             $summary['caseIssueDistribution'] = [];
-            $summary['caseStatusDistribution'] = ['labels' => [], 'data' => []];
             $summary['geographicDistribution'] = ['labels' => [], 'data' => []];
             $summary['employmentDistribution'] = ['labels' => [], 'data' => []];
+
+            foreach (self::AGENCY_HIDDEN_SECTIONS as $key) {
+                $summary[$key] = is_array($summary[$key] ?? null) && array_key_exists('labels', $summary[$key])
+                    ? ['labels' => [], 'data' => []]
+                    : [];
+            }
         }
+
+        return $this->suppressSmallCells($summary);
+    }
+
+    /**
+     * The report sections that render on screen but were never exported.
+     *
+     * getAll() returns a different key set per role, so anything a role's
+     * payload omits is fetched directly here with the identical filter set.
+     * Without this the exports carried roughly half of what the Reports page
+     * shows, and a reader could not reconcile the document against the screen.
+     */
+    private function additionalSections(array $c, $refBase): array
+    {
+        $role = $c['role'] === 'CASE_MANAGER' ? 'CASE_MANAGER' : ($c['role'] === 'AGENCY' ? 'AGENCY' : null);
+        $userId = $c['role'] === 'CASE_MANAGER' ? $c['user_id'] : null;
+        $from = $c['from']->toDateString();
+        $to = $c['to']->toDateString();
+        $scope = $c['dateScope'];
+        $prov = $c['province'];
+        $city = $c['city'];
+        $agency = $c['agency_id'];
+
+        // Fail closed for an AGENCY user with no agency assigned.
+        //
+        // getAll() short-circuits that state to an empty payload, but these
+        // panels are called directly and so bypass that guard. Two of them —
+        // gender and age group — resolve their client set through
+        // filteredClientIds(), which has no role check of its own: with a null
+        // agency it returns every client in the system. referralBase() and
+        // caseBase() already `1=0` for exactly this case, so the state is
+        // reachable, and without this an export would show a user data their
+        // own dashboard refuses them.
+        if ($role === 'AGENCY' && ! $agency) {
+            return $this->emptyAdditionalSections();
+        }
+
+        return [
+            'referralFunnel' => $this->funnelFromStatuses($this->reports->getReferralStatusDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency)),
+            'casesOverTime' => $this->reports->getCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'genderDistribution' => $this->reports->getGenderDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'ageGroupDistribution' => $this->reports->getAgeGroupDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'vulnerabilityDistribution' => $this->reports->getVulnerabilityDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'clientTypeDistribution' => $this->reports->getClientTypeDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'cityDistribution' => $this->reports->getCityDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'agencyWorkload' => $this->reports->getAgencyWorkload($from, $to, $agency),
+            'referralAgencyDistribution' => $this->reports->getReferralAgencyDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'employmentOccupationBreakdown' => $this->reports->getEmploymentOccupationBreakdown($userId, $role, $agency, $from, $to, $prov, $city),
+            'overdueReferrals' => $this->overdueFromBase($refBase),
+            'mostRequestedService' => $this->reports->getMostRequestedService($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+        ];
+    }
+
+    /**
+     * The additional sections, all empty. Shape-compatible with the real
+     * thing so the Blade guards and sheet builders behave identically.
+     *
+     * @return array<string, mixed>
+     */
+    private function emptyAdditionalSections(): array
+    {
+        $emptyDist = ['labels' => [], 'data' => []];
+
+        return [
+            'referralFunnel' => ['stages' => [], 'total' => 0],
+            'casesOverTime' => ['labels' => [], 'datasets' => [['data' => []]]],
+            'genderDistribution' => $emptyDist,
+            'ageGroupDistribution' => $emptyDist,
+            'vulnerabilityDistribution' => $emptyDist,
+            'clientTypeDistribution' => $emptyDist,
+            'cityDistribution' => $emptyDist,
+            'agencyWorkload' => $emptyDist,
+            'referralAgencyDistribution' => $emptyDist,
+            'employmentOccupationBreakdown' => $emptyDist,
+            'overdueReferrals' => ['count' => 0, 'threshold_days' => 14],
+            'mostRequestedService' => ['name' => 'N/A', 'value' => 0],
+        ];
+    }
+
+    /**
+     * Overdue referral count, computed from the export's own filtered base.
+     *
+     * ReportsService::getOverdueReferrals() is not reusable here for two
+     * reasons: it eager-loads caseFile.client, which would pull client PII
+     * into an export that deliberately carries none, and it takes no date
+     * range, so its figure would not match the window printed on the page.
+     * The >14 day threshold matches the on-screen definition.
+     */
+    private function overdueFromBase($refBase): array
+    {
+        $count = (clone $refBase)
+            ->whereIn('referrals.status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
+            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - referrals.created_at)) / 86400 > 14')
+            ->count();
+
+        return ['count' => (int) $count, 'threshold_days' => 14];
+    }
+
+    /**
+     * The referral funnel as an ordered stage list with conversion rates.
+     *
+     * On screen this is a component; in a document it has to be self-describing,
+     * so each stage carries the count and its share of the intake total.
+     */
+    private function funnelFromStatuses(array $dist): array
+    {
+        $counts = collect($dist['labels'] ?? [])
+            ->mapWithKeys(fn ($label, $i) => [$label => (int) ($dist['data'][$i] ?? 0)]);
+
+        $total = (int) $counts->sum();
+        $order = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'];
+
+        $stages = collect($order)
+            ->filter(fn ($stage) => $counts->has($stage))
+            ->map(fn ($stage) => [
+                'stage' => $stage,
+                'count' => $counts[$stage],
+                'share' => $total > 0 ? round(($counts[$stage] / $total) * 100, 1) : 0.0,
+            ])->values()->all();
+
+        return ['stages' => $stages, 'total' => $total];
+    }
+
+    /**
+     * Suppress small cells in the special-category sections.
+     *
+     * Gender, age band, vulnerability, client type and employment country are
+     * special-category personal data under the Data Privacy Act. A bucket of
+     * one or two people in a narrowly filtered export is re-identifiable, so
+     * any bucket below the configured threshold is withheld — for every role
+     * including ADMIN, because a role-conditional privacy rule is the first
+     * thing an assessor pulls on.
+     *
+     * Suppressed buckets are removed from the chart series and reported in
+     * `suppression` so the document can say what was withheld rather than
+     * silently showing a shorter chart.
+     */
+    private function suppressSmallCells(array $summary): array
+    {
+        $threshold = max(0, (int) config('reports.suppression_threshold', 5));
+        $sections = (array) config('reports.suppressed_sections', []);
+
+        if ($threshold <= 1) {
+            $summary['suppression'] = ['threshold' => $threshold, 'applied' => false, 'sections' => []];
+
+            return $summary;
+        }
+
+        $affected = [];
+
+        foreach ($sections as $key) {
+            $section = $summary[$key] ?? null;
+            if (! is_array($section) || ! isset($section['labels'], $section['data'])) {
+                continue;
+            }
+
+            $labels = [];
+            $data = [];
+            $colors = [];
+            $withheld = 0;
+
+            foreach ($section['labels'] as $i => $label) {
+                $value = (int) ($section['data'][$i] ?? 0);
+
+                // Zero is not disclosive — an empty bucket identifies nobody.
+                if ($value > 0 && $value < $threshold) {
+                    $withheld++;
+
+                    continue;
+                }
+
+                $labels[] = $label;
+                $data[] = $value;
+                if (isset($section['colors'][$i])) {
+                    $colors[] = $section['colors'][$i];
+                }
+            }
+
+            // Complement suppression.
+            //
+            // Withholding exactly one bucket does not protect it when the
+            // denominator is published elsewhere: clientTypeDistribution has
+            // only two buckets and the same case set is printed as "Total
+            // Cases" on the Executive Summary, so withholding OFW=3 while
+            // showing Next of Kin=97 against a total of 100 discloses the
+            // withheld figure by subtraction. Whenever exactly one bucket is
+            // withheld, withhold the next-smallest non-zero one too, so no
+            // single value can be recovered.
+            if ($withheld === 1) {
+                $smallest = null;
+                foreach ($data as $index => $value) {
+                    if ($value > 0 && ($smallest === null || $value < $data[$smallest])) {
+                        $smallest = $index;
+                    }
+                }
+
+                if ($smallest !== null) {
+                    array_splice($labels, $smallest, 1);
+                    array_splice($data, $smallest, 1);
+                    if ($colors !== []) {
+                        array_splice($colors, $smallest, 1);
+                    }
+                    $withheld++;
+                }
+            }
+
+            if ($withheld > 0) {
+                $affected[$key] = $withheld;
+            }
+
+            $summary[$key] = ['labels' => $labels, 'data' => $data] + ($colors ? ['colors' => $colors] : []);
+        }
+
+        $summary['suppression'] = [
+            'threshold' => $threshold,
+            'applied' => $affected !== [],
+            'sections' => $affected,
+        ];
 
         return $summary;
     }
@@ -394,21 +710,73 @@ class ReportsExportService
         return ['labels' => $rows->pluck('label')->all(), 'data' => $rows->pluck('count')->map(fn ($v) => (int) $v)->all()];
     }
 
-    private function riskRows($query, string $type): Collection
+    /**
+     * The highest-risk active rows, ranked and limited in SQL.
+     *
+     * Previously this pulled every active row with `->get()`, scored and
+     * sorted them in PHP, and then kept the top handful. On a wide range that
+     * materialises tens of thousands of objects to keep 200 of them — the same
+     * unbounded-fetch shape that made the Excel export exhaust memory. Ranking
+     * in SQL keeps the working set proportional to what is actually rendered.
+     *
+     * @param  int|null  $limit  Rows to return; null means all (used for counting).
+     */
+    private function riskRows($query, string $type, ?int $limit = null): Collection
     {
+        $statusColumn = $type === 'case' ? 'cases.status' : 'referrals.status';
+        $createdColumn = $type === 'case' ? 'cases.created_at' : 'referrals.created_at';
+        $idColumn = $type === 'case' ? 'cases.id' : 'referrals.id';
         $active = $type === 'case' ? ['OPEN'] : ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
-        $idKey = $type === 'case' ? 'case_id' : 'referral_id';
 
-        return $query->whereIn($type === 'case' ? 'cases.status' : 'referrals.status', $active)->get()->map(function ($r) {
-            $r->risk_score = (self::RISK[$r->status] ?? 0) + (int) $r->age_days;
+        // Same score as before: status severity plus age in days. Expressed in
+        // SQL so the database can order and limit before anything is hydrated.
+        $cases = [];
+        $bindings = [];
+        foreach (self::RISK as $status => $weight) {
+            $cases[] = "WHEN ? THEN {$weight}";
+            $bindings[] = $status;
+        }
+        $riskExpression = 'CASE '.$statusColumn.' '.implode(' ', $cases).' ELSE 0 END'
+            ." + DATE_PART('day', NOW() - {$createdColumn})::int";
 
-            return $r;
-        })->sortBy([['risk_score', 'desc'], ['created_at', 'asc'], [$idKey, 'asc']])->values();
+        $ranked = $query->whereIn($statusColumn, $active)
+            ->selectRaw("({$riskExpression}) as risk_score", $bindings)
+            ->reorder()
+            ->orderByDesc('risk_score')
+            ->orderBy($createdColumn)
+            ->orderBy($idColumn);
+
+        if ($limit !== null) {
+            $ranked->limit($limit);
+        }
+
+        return $ranked->get();
+    }
+
+    /**
+     * How many active rows exist, without hydrating them.
+     */
+    private function riskRowCount($query, string $type): int
+    {
+        $statusColumn = $type === 'case' ? 'cases.status' : 'referrals.status';
+        $active = $type === 'case' ? ['OPEN'] : ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
+
+        return (int) $query->whereIn($statusColumn, $active)->count();
     }
 
     private function rowCap(): int
     {
         return max(1, (int) config('reports.export_row_cap', self::DEFAULT_ROW_CAP));
+    }
+
+    private function appendixLimit(): int
+    {
+        return max(1, (int) config('reports.pdf_appendix_rows', 200));
+    }
+
+    private function pdfTopN(): int
+    {
+        return max(1, (int) config('reports.pdf_top_n', self::PDF_TOP_N));
     }
 
     private function buildMetadata(array $c, int $refCount, int $caseCount, array $warnings, bool $withDetails): array
@@ -420,8 +788,9 @@ class ReportsExportService
             $rowCounts['referral_details_exported'] = min($refCount, $rowCap);
             $rowCounts['case_details_exported'] = min($caseCount, $rowCap);
         } else {
-            $rowCounts['pdf_top_referrals_limit'] = self::PDF_TOP_N;
-            $rowCounts['pdf_top_cases_limit'] = self::PDF_TOP_N;
+            $rowCounts['pdf_top_referrals_limit'] = $this->pdfTopN();
+            $rowCounts['pdf_top_cases_limit'] = $this->pdfTopN();
+            $rowCounts['pdf_appendix_limit'] = $this->appendixLimit();
         }
 
         return [
@@ -447,24 +816,127 @@ class ReportsExportService
         ];
     }
 
+    /**
+     * Build the workbook: one sheet per report section, in the same order the
+     * PDF presents them, so the two documents can be read side by side.
+     *
+     * Column types are declared truthfully — counts as `int`, rates as
+     * `percent`, timestamps as `datetime`. Every column used to be declared
+     * `string`, which meant DataExportService wrote the entire workbook as
+     * text: no sorting, no SUM, no pivot tables. Identifiers stay `uuid` (i.e.
+     * forced text) so Excel cannot mangle them into scientific notation.
+     *
+     * `chart` marks the sheets that get a native Excel chart. Only the
+     * headline sections carry one — the rest stay data-only.
+     */
     private function sheets(array $p, Collection $refs, Collection $cases, string $role): array
     {
-        $kv = [['key' => 'metric', 'label' => 'Metric', 'type' => 'string'], ['key' => 'value', 'label' => 'Value', 'type' => 'string']];
-        $dist = [['key' => 'label', 'label' => 'Label', 'type' => 'string'], ['key' => 'count', 'label' => 'Count', 'type' => 'string']];
-        $distRows = fn ($d) => collect($d['labels'] ?? [])->map(fn ($l, $i) => ['label' => $l, 'count' => $d['data'][$i] ?? 0]);
-        $refCols = collect(['referral_id', 'case_id', 'case_number', 'agency', 'required_services', 'status', 'created_at', 'completed_at', 'completion_days', 'age_days'])->map(fn ($k) => ['key' => $k, 'label' => ucwords(str_replace('_', ' ', $k)), 'type' => 'string'])->all();
-        $caseCols = collect(['case_id', 'case_number', 'client_type', 'category', 'issue', 'status', 'created_at', 'updated_at', 'closed_at', 'age_days'])->map(fn ($k) => ['key' => $k, 'label' => ucwords(str_replace('_', ' ', $k)), 'type' => 'string'])->all();
+        $kv = [
+            ['key' => 'metric', 'label' => 'Metric', 'type' => 'string'],
+            ['key' => 'value', 'label' => 'Value', 'type' => 'string'],
+        ];
+        $dist = [
+            ['key' => 'label', 'label' => 'Label', 'type' => 'string'],
+            ['key' => 'count', 'label' => 'Count', 'type' => 'int'],
+        ];
+        $named = fn (string $label) => [
+            ['key' => 'name', 'label' => $label, 'type' => 'string'],
+            ['key' => 'count', 'label' => 'Count', 'type' => 'int'],
+        ];
+        $distRows = fn ($d) => collect($d['labels'] ?? [])
+            ->map(fn ($l, $i) => ['label' => $l, 'count' => (int) ($d['data'][$i] ?? 0)]);
+
+        $refCols = [
+            ['key' => 'referral_id', 'label' => 'Referral ID', 'type' => 'uuid'],
+            ['key' => 'case_id', 'label' => 'Case ID', 'type' => 'uuid'],
+            ['key' => 'case_number', 'label' => 'Case Number', 'type' => 'string'],
+            ['key' => 'agency', 'label' => 'Agency', 'type' => 'string'],
+            ['key' => 'required_services', 'label' => 'Required Services', 'type' => 'string'],
+            ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+            ['key' => 'created_at', 'label' => 'Created At', 'type' => 'datetime'],
+            ['key' => 'completed_at', 'label' => 'Completed At', 'type' => 'datetime'],
+            ['key' => 'completion_days', 'label' => 'Completion Days', 'type' => 'int'],
+            ['key' => 'age_days', 'label' => 'Age Days', 'type' => 'int'],
+        ];
+        $caseCols = [
+            ['key' => 'case_id', 'label' => 'Case ID', 'type' => 'uuid'],
+            ['key' => 'case_number', 'label' => 'Case Number', 'type' => 'string'],
+            ['key' => 'client_type', 'label' => 'Client Type', 'type' => 'string'],
+            ['key' => 'category', 'label' => 'Category', 'type' => 'string'],
+            ['key' => 'issue', 'label' => 'Issue', 'type' => 'string'],
+            ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+            ['key' => 'created_at', 'label' => 'Created At', 'type' => 'datetime'],
+            ['key' => 'updated_at', 'label' => 'Updated At', 'type' => 'datetime'],
+            ['key' => 'closed_at', 'label' => 'Closed At', 'type' => 'datetime'],
+            ['key' => 'age_days', 'label' => 'Age Days', 'type' => 'int'],
+        ];
 
         $sheets = [
-            ['title' => 'Report Info', 'columnMap' => $kv, 'rows' => collect($p['metadata'])->map(fn ($v, $k) => ['metric' => $k, 'value' => is_array($v) ? json_encode($v) : $v])->values()],
-            ['title' => 'Executive Summary', 'columnMap' => $kv, 'rows' => collect($p['kpis'])->map(fn ($v, $k) => ['metric' => $k, 'value' => $v])->values()],
-            ['title' => 'Referral Status', 'columnMap' => $dist, 'rows' => $distRows($p['referralStatusDistribution'])],
-            ['title' => 'Referral Aging', 'columnMap' => $dist, 'rows' => $distRows($p['referralAging'])], ['title' => 'Cycle Time', 'columnMap' => $dist, 'rows' => $distRows($p['cycleTimeDistribution'])],
-            ['title' => 'Agency Scorecard', 'columnMap' => [['key' => 'agency', 'label' => 'Agency', 'type' => 'string'], ['key' => 'total', 'label' => 'Total', 'type' => 'string'], ['key' => 'completed', 'label' => 'Completed', 'type' => 'string'], ['key' => 'pending', 'label' => 'Pending', 'type' => 'string'], ['key' => 'avg_days', 'label' => 'Avg Days', 'type' => 'string']], 'rows' => collect($p['agencyScorecard'])],
-            ['title' => 'Geography', 'columnMap' => $dist, 'rows' => $distRows($p['geographicDistribution'])], ['title' => 'Categories', 'columnMap' => [['key' => 'name', 'label' => 'Category', 'type' => 'string'], ['key' => 'count', 'label' => 'Count', 'type' => 'string']], 'rows' => collect($p['categoryDistribution'])],
-            ['title' => 'Case Issues', 'columnMap' => [['key' => 'name', 'label' => 'Issue', 'type' => 'string'], ['key' => 'count', 'label' => 'Count', 'type' => 'string']], 'rows' => collect($p['caseIssueDistribution'])],
-            ['title' => 'Case Status', 'columnMap' => $dist, 'rows' => $distRows($p['caseStatusDistribution'])], ['title' => 'Employment', 'columnMap' => $dist, 'rows' => $distRows($p['employmentDistribution'])], ['title' => 'Trends', 'columnMap' => [['key' => 'period', 'label' => 'Period', 'type' => 'string'], ['key' => 'cases', 'label' => 'Cases', 'type' => 'string'], ['key' => 'referrals', 'label' => 'Referrals', 'type' => 'string']], 'rows' => $this->trendRows($p['caseTrends'], $p['referralTrends'])],
-            ['title' => 'Referral Details', 'columnMap' => $refCols, 'rows' => $refs], ['title' => 'Case Details', 'columnMap' => $caseCols, 'rows' => $cases],
+            ['title' => 'Report Info', 'columnMap' => $kv, 'rows' => $this->metadataRows($p)],
+            ['title' => 'Data Dictionary', 'columnMap' => [
+                ['key' => 'sheet', 'label' => 'Sheet', 'type' => 'string'],
+                ['key' => 'column', 'label' => 'Column', 'type' => 'string'],
+                ['key' => 'meaning', 'label' => 'Meaning', 'type' => 'string'],
+                ['key' => 'units', 'label' => 'Units', 'type' => 'string'],
+            ], 'rows' => $this->dataDictionaryRows()],
+            ['title' => 'Executive Summary', 'columnMap' => [
+                ['key' => 'metric', 'label' => 'Metric', 'type' => 'string'],
+                ['key' => 'value', 'label' => 'Value', 'type' => 'float'],
+                ['key' => 'units', 'label' => 'Units', 'type' => 'string'],
+            ], 'rows' => $this->kpiRows($p['kpis'] ?? [])],
+
+            ['title' => 'Referral Funnel', 'columnMap' => [
+                ['key' => 'stage', 'label' => 'Stage', 'type' => 'string'],
+                ['key' => 'count', 'label' => 'Referrals', 'type' => 'int'],
+                ['key' => 'share', 'label' => 'Share', 'type' => 'percent'],
+            ], 'rows' => collect($p['referralFunnel']['stages'] ?? []), 'chart' => 'bar'],
+            ['title' => 'Referral Status', 'columnMap' => $dist, 'rows' => $distRows($p['referralStatusDistribution']), 'chart' => 'pie'],
+            ['title' => 'Referral Aging', 'columnMap' => $dist, 'rows' => $distRows($p['referralAging']), 'chart' => 'bar'],
+            ['title' => 'Cycle Time', 'columnMap' => $dist, 'rows' => $distRows($p['cycleTimeDistribution']), 'chart' => 'bar'],
+            ['title' => 'Overdue Referrals', 'columnMap' => $kv, 'rows' => collect([
+                ['metric' => 'Overdue referrals', 'value' => (string) ($p['overdueReferrals']['count'] ?? 0)],
+                ['metric' => 'Overdue after (days)', 'value' => (string) ($p['overdueReferrals']['threshold_days'] ?? 14)],
+            ])],
+            ['title' => 'Most Requested Service', 'columnMap' => $kv, 'rows' => collect([
+                ['metric' => 'Service', 'value' => (string) ($p['mostRequestedService']['name'] ?? 'N/A')],
+                ['metric' => 'Requests', 'value' => (string) ($p['mostRequestedService']['value'] ?? 0)],
+            ])],
+
+            ['title' => 'Trends', 'columnMap' => [
+                ['key' => 'period', 'label' => 'Period', 'type' => 'string'],
+                ['key' => 'cases', 'label' => 'Cases', 'type' => 'int'],
+                ['key' => 'referrals', 'label' => 'Referrals', 'type' => 'int'],
+            ], 'rows' => $this->trendRows($p['caseTrends'], $p['referralTrends']), 'chart' => 'line'],
+            ['title' => 'Cases Over Time', 'columnMap' => [
+                ['key' => 'period', 'label' => 'Period', 'type' => 'string'],
+                ['key' => 'count', 'label' => 'Cases', 'type' => 'int'],
+            ], 'rows' => $this->seriesRows($p['casesOverTime'] ?? []), 'chart' => 'line'],
+
+            ['title' => 'Agency Scorecard', 'columnMap' => [
+                ['key' => 'agency', 'label' => 'Agency', 'type' => 'string'],
+                ['key' => 'total', 'label' => 'Total', 'type' => 'int'],
+                ['key' => 'completed', 'label' => 'Completed', 'type' => 'int'],
+                ['key' => 'pending', 'label' => 'Pending', 'type' => 'int'],
+                ['key' => 'avg_days', 'label' => 'Avg Days', 'type' => 'float'],
+            ], 'rows' => collect($p['agencyScorecard']), 'chart' => 'bar'],
+            ['title' => 'Agency Workload', 'columnMap' => $dist, 'rows' => $distRows($p['agencyWorkload'] ?? [])],
+            ['title' => 'Referrals by Agency', 'columnMap' => $dist, 'rows' => $distRows($p['referralAgencyDistribution'] ?? [])],
+
+            ['title' => 'Geography', 'columnMap' => $dist, 'rows' => $distRows($p['geographicDistribution']), 'chart' => 'bar'],
+            ['title' => 'Cities', 'columnMap' => $dist, 'rows' => $distRows($p['cityDistribution'] ?? [])],
+            ['title' => 'Categories', 'columnMap' => $named('Category'), 'rows' => collect($p['categoryDistribution'])],
+            ['title' => 'Case Issues', 'columnMap' => $named('Issue'), 'rows' => collect($p['caseIssueDistribution'])],
+            ['title' => 'Case Status', 'columnMap' => $dist, 'rows' => $distRows($p['caseStatusDistribution']), 'chart' => 'pie'],
+
+            ['title' => 'Gender', 'columnMap' => $dist, 'rows' => $distRows($p['genderDistribution'] ?? [])],
+            ['title' => 'Age Groups', 'columnMap' => $dist, 'rows' => $distRows($p['ageGroupDistribution'] ?? [])],
+            ['title' => 'Vulnerability', 'columnMap' => $dist, 'rows' => $distRows($p['vulnerabilityDistribution'] ?? [])],
+            ['title' => 'Client Type', 'columnMap' => $dist, 'rows' => $distRows($p['clientTypeDistribution'] ?? [])],
+            ['title' => 'Employment', 'columnMap' => $dist, 'rows' => $distRows($p['employmentDistribution'])],
+            ['title' => 'Occupations', 'columnMap' => $dist, 'rows' => $distRows($p['employmentOccupationBreakdown'] ?? [])],
+
+            ['title' => 'Referral Details', 'columnMap' => $refCols, 'rows' => $refs],
+            ['title' => 'Case Details', 'columnMap' => $caseCols, 'rows' => $cases],
         ];
 
         if ($role === 'AGENCY') {
@@ -475,6 +947,88 @@ class ReportsExportService
         }
 
         return $sheets;
+    }
+
+    /**
+     * Metadata as flat rows, including the suppression notice.
+     */
+    private function metadataRows(array $p): Collection
+    {
+        // Values are passed through unchanged apart from array flattening.
+        // Casting to string here turned `false` into an empty cell, which read
+        // as "unknown" rather than "no" for flags like ai_insights_included.
+        $rows = collect($p['metadata'])
+            ->map(fn ($v, $k) => ['metric' => $k, 'value' => is_array($v) ? json_encode($v) : $v])
+            ->values();
+
+        $suppression = $p['suppression'] ?? null;
+        if (is_array($suppression)) {
+            $rows->push([
+                'metric' => 'small_cell_suppression',
+                'value' => $suppression['applied']
+                    ? 'Applied: buckets below '.$suppression['threshold'].' withheld in '.implode(', ', array_keys($suppression['sections']))
+                    : 'Threshold '.$suppression['threshold'].'; no bucket required suppression',
+            ]);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * KPIs with their units spelled out, so a rate is never mistaken for a count.
+     */
+    private function kpiRows(array $kpis): Collection
+    {
+        $units = [
+            'completionRate' => '%',
+            'avgCompletionDays' => 'days',
+            'avgResolutionDays' => 'days',
+        ];
+
+        return collect($kpis)->map(fn ($v, $k) => [
+            'metric' => ucfirst(strtolower(preg_replace('/(?<!^)[A-Z]/', ' $0', $k))),
+            'value' => is_numeric($v) ? (float) $v : 0,
+            'units' => $units[$k] ?? 'count',
+        ])->values();
+    }
+
+    /**
+     * Flatten a Chart.js-shaped {labels, datasets:[{data}]} series into rows.
+     */
+    private function seriesRows(array $series): Collection
+    {
+        $data = $series['datasets'][0]['data'] ?? ($series['data'] ?? []);
+
+        return collect($series['labels'] ?? [])
+            ->map(fn ($label, $i) => ['period' => $label, 'count' => (int) ($data[$i] ?? 0)]);
+    }
+
+    /**
+     * Column definitions for the reader.
+     *
+     * Every derived or ambiguous column is defined here, because "age days"
+     * and "completion days" are counted from different anchors and nothing on
+     * the sheet itself says so.
+     */
+    private function dataDictionaryRows(): Collection
+    {
+        return collect([
+            ['Referral Details', 'Age Days', 'Days from referral creation to now, for referrals that are still active', 'days'],
+            ['Referral Details', 'Completion Days', 'Days from referral creation to completion; blank unless status is COMPLETED', 'days'],
+            ['Referral Details', 'Completed At', 'Timestamp the referral reached COMPLETED; blank for any other status', 'Asia/Manila'],
+            ['Case Details', 'Age Days', 'Days from case creation to now', 'days'],
+            ['Case Details', 'Category', 'All categories assigned to the case, comma separated', 'text'],
+            ['Case Details', 'Closed At', 'Timestamp the case was closed; blank while open', 'Asia/Manila'],
+            ['Executive Summary', 'Completion Rate', 'Completed referrals as a share of all referrals in range', '%'],
+            ['Executive Summary', 'Avg Resolution Days', 'Mean days from case creation to closure, closed cases only', 'days'],
+            ['Referral Funnel', 'Share', 'Stage count as a share of all referrals in range', '%'],
+            ['Referral Aging', 'Label', 'Age band of referrals still awaiting action', 'band'],
+            ['Cycle Time', 'Label', 'Elapsed time band for completed referrals', 'band'],
+            ['Overdue Referrals', 'Overdue referrals', 'Active referrals older than the threshold, within the selected filters', 'count'],
+            ['Trends', 'Period', 'Calendar month, YYYY-MM, in Asia/Manila', 'month'],
+            ['Gender / Age Groups / Vulnerability / Client Type / Employment', 'Count', 'Buckets below the suppression threshold are withheld — see Report Info', 'count'],
+            ['All sheets', 'Scope', 'Every figure honours the date range, date scope, province, city and agency filters shown on Report Info', 'n/a'],
+        ])->map(fn ($r) => ['sheet' => $r[0], 'column' => $r[1], 'meaning' => $r[2], 'units' => $r[3]]);
     }
 
     private function trendRows(array $caseTrends, array $refTrends): Collection

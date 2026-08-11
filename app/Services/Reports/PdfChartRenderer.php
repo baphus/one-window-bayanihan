@@ -378,10 +378,20 @@ class PdfChartRenderer
      */
     private function drawText(\GdImage $img, float $px, float $x, float $y, string $text, int $color, bool $centerX = false, bool $right = false): void
     {
-        $font = $this->fontPath();
         $size = $px * self::SCALE;
         $tx = $x * self::SCALE;
         $ty = $y * self::SCALE;
+
+        // static::, not self:: — self:: is early-bound and would ignore a
+        // subclass override, which is the only way a test can exercise the
+        // no-FreeType path on a host that has FreeType.
+        if (! static::hasTrueType()) {
+            $this->drawBitmapText($img, $tx, $ty, $text, $color, $centerX, $right);
+
+            return;
+        }
+
+        $font = $this->fontPath();
 
         if ($centerX || $right) {
             $bbox = imagettfbbox($size, 0, $font, $text);
@@ -390,6 +400,46 @@ class PdfChartRenderer
         }
 
         imagettftext($img, $size, 0, (int) round($tx), (int) round($ty), $color, $font, $text);
+    }
+
+    /**
+     * Whether this PHP build can render TrueType text.
+     *
+     * imagettftext()/imagettfbbox() only exist when GD was compiled with
+     * FreeType. A build without it does not fail at the call — the functions
+     * are simply undefined, which takes down the whole export with a fatal
+     * error. Charts degrade to GD's bitmap font instead so a missing build
+     * flag costs label quality, never the feature.
+     */
+    public static function hasTrueType(): bool
+    {
+        return function_exists('imagettftext') && function_exists('imagettfbbox');
+    }
+
+    /**
+     * Fallback label renderer using GD's built-in bitmap fonts.
+     *
+     * Font 5 (9x15 px) is the largest built-in and the closest match to the
+     * 7-8px @2x labels the TrueType path draws. Bitmap fonts have no baseline
+     * concept, so the y coordinate is shifted from baseline to top-left.
+     */
+    private function drawBitmapText(\GdImage $img, float $tx, float $ty, string $text, int $color, bool $centerX, bool $right): void
+    {
+        $font = 5;
+        $charWidth = imagefontwidth($font);
+        $charHeight = imagefontheight($font);
+
+        // Built-in fonts are ASCII only; anything else renders as noise.
+        $ascii = preg_replace('/[^\x20-\x7E]/', '?', $text) ?? $text;
+        $width = $charWidth * mb_strlen($ascii, '8bit');
+
+        if ($centerX) {
+            $tx -= $width / 2;
+        } elseif ($right) {
+            $tx -= $width;
+        }
+
+        imagestring($img, $font, (int) round($tx), (int) round($ty - $charHeight), $ascii, $color);
     }
 
     /**

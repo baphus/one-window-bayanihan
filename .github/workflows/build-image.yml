@@ -82,6 +82,36 @@ jobs:
             grep -qx "$ext" /tmp/mods.txt || { echo "MISSING PHP EXTENSION: $ext"; exit 1; }
           done
 
+      # `gd` being listed above is NOT sufficient. GD compiled without FreeType
+      # still loads and still reports itself present, but imagettftext() and
+      # imagettfbbox() are simply undefined — and every chart label in the
+      # Reports PDF calls them. That shipped: the image was built with
+      # `docker-php-ext-install gd` and no `docker-php-ext-configure gd
+      # --with-freetype`, so /reports/export-pdf returned 500 for every user for
+      # nine days while /up answered 200 and the test suite stayed green (every
+      # CI and dev host has FreeType, so nothing below the image could see it).
+      # This is the only layer where the assertion is meaningful.
+      - name: Verify GD has FreeType and JPEG support
+        run: |
+          docker run --rm --entrypoint php bayanihan:${{ github.sha }} -r \
+            'if (!function_exists("imagettftext") || !function_exists("imagettfbbox")) { fwrite(STDERR, "GD BUILT WITHOUT FREETYPE — report PDF charts would fatal\n"); exit(1); }
+             $i = gd_info();
+             if (empty($i["FreeType Support"])) { fwrite(STDERR, "gd_info reports no FreeType\n"); exit(1); }
+             if (empty($i["JPEG Support"])) { fwrite(STDERR, "gd_info reports no JPEG\n"); exit(1); }
+             echo "GD FreeType + JPEG OK\n";'
+
+      # Renders a chart through the real code path, so a future refactor that
+      # reintroduces an unguarded TrueType call is caught here rather than in
+      # production.
+      - name: Verify a report chart renders inside the image
+        run: |
+          docker run --rm --entrypoint php bayanihan:${{ github.sha }} -r \
+            'require "/var/www/html/vendor/autoload.php";
+             $r = new App\Services\Reports\PdfChartRenderer;
+             $html = $r->pieChart(["OPEN","CLOSED"], [3, 7]);
+             if (!str_starts_with($html, "<img src=\"data:image/png;base64,")) { fwrite(STDERR, "chart did not render\n"); exit(1); }
+             echo "Chart render OK\n";'
+
       # FTS5 backs the chatbot retrieval index. Absent, it fails only at runtime
       # on the first query, so assert it at build time.
       - name: Verify SQLite FTS5 is available
