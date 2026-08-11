@@ -187,6 +187,7 @@ class CaseController extends Controller
             'case' => $case,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
+            'occupationOptions' => $this->referenceData->getOccupationOptions(),
             'draftResolvedAddress' => $draftResolvedAddress,
             'draftAddressNames' => $draftAddressNames,
         ]);

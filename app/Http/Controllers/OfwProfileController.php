@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\OfwProfileService;
+use App\Services\ReferenceDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -13,6 +14,7 @@ class OfwProfileController extends Controller
 {
     public function __construct(
         private readonly OfwProfileService $profileService,
+        private readonly ReferenceDataService $referenceData,
     ) {}
 
     /**
@@ -30,6 +32,7 @@ class OfwProfileController extends Controller
         return Inertia::render('OFW/Profile', [
             'user' => $user->only(['id', 'name', 'email', 'contact_number']),
             'client' => $this->clientPayload($user),
+            'occupationOptions' => $this->referenceData->getOccupationOptions(),
         ]);
     }
 

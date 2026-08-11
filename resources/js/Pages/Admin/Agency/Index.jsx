@@ -8,6 +8,7 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
+import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 
@@ -38,7 +39,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
   const [contextMenu, setContextMenu] = useState(null);
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = usePersistedViewMode('owb-view_admin-agencies');
   const [confirmAction, setConfirmAction] = useState(null);
 
   const handleRowContextMenu = (e, row) => {
@@ -88,6 +89,14 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
     url.searchParams.delete('page');
     router.get(url.toString(), {}, withLoading({ preserveState: true, replace: true }));
   };
+
+  const restoreFilters = (saved) => {
+    setSearchValue(saved.search ?? '');
+    setStatusFilter(saved.status ?? '');
+    setIsDefaultFilter(saved.is_default ?? '');
+    navigateWith(saved);
+  };
+  usePersistedFilters('owb-filters_admin-agencies', filters || {}, restoreFilters);
 
   const handleSearchChange = (value) => {
     setSearchValue(value);

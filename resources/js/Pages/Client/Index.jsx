@@ -9,6 +9,7 @@ import { Users, UserCheck, Shield, ArrowRightLeft } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
+import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -102,7 +103,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = usePersistedViewMode('owb-view_clients');
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
 
@@ -186,6 +187,12 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
       showProgress: false,
     });
   };
+
+  const restoreFilters = (saved) => {
+    setSearchValue(saved.search ?? '');
+    updateTable(saved);
+  };
+  usePersistedFilters('owb-filters_clients', filters, restoreFilters);
 
   useEffect(() => {
     const onStart = () => setTableLoading(true);
