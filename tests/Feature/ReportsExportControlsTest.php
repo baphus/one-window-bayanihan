@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Reports\ReportsExportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -228,6 +229,46 @@ class ReportsExportControlsTest extends TestCase
         // it comes from a COUNT, not from the length of the fetched page.
         $this->assertCount(2, $appendix['cases']);
         $this->assertSame(7, $appendix['casesTotal']);
+    }
+
+    /**
+     * The export builds two kinds of figure: summary sections come from
+     * ReportsService, which compares stored timestamps against the calendar
+     * date; details, appendix, top-risk tables and pre-flight come from this
+     * service's own query bases. Both must cover the same window.
+     *
+     * Bounds were previously shifted into UTC from the operating timezone,
+     * which cut the export's own window off at 15:59:59Z — so anything created
+     * in the last eight hours of the day counted towards the KPI cards and
+     * vanished from every detail figure on the same document. The clock is
+     * frozen inside that gap deliberately: run at any other hour, this passes
+     * whether the bug is present or not.
+     */
+    #[Test]
+    public function the_whole_calendar_day_is_covered_late_in_the_utc_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-10 20:00:00', 'UTC'));
+
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->seedCases($admin, 3);
+        $criteria = $this->criteriaFor($admin);
+
+        $preflight = $this->service->preflight($criteria, 'xlsx');
+        $this->assertSame(3, $preflight['cases'], 'Pre-flight must see rows created late in the UTC day');
+        $this->assertSame(3, $preflight['referrals']);
+
+        $payload = $this->service->buildPdfPayloadFromCriteria($criteria);
+
+        // The reconciliation the reader performs: the appendix total and the
+        // KPI card are two counts of the same window.
+        $this->assertSame(
+            $payload['kpis']['totalCases'],
+            $payload['appendix']['casesTotal'],
+            'Summary and detail figures must be counted over one window, not two'
+        );
+        $this->assertSame($payload['kpis']['totalReferrals'], $payload['appendix']['referralsTotal']);
+        $this->assertCount(3, $payload['appendix']['cases']);
+        $this->assertNotEmpty($payload['topCases']);
     }
 
     #[Test]
