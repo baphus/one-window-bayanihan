@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { usePage } from '@inertiajs/react';
+import { TURNSTILE_STATUS } from '@/lib/turnstile';
 
 /**
  * Cloudflare Turnstile CAPTCHA widget (CDN-loaded, no npm package required).
@@ -7,20 +8,35 @@ import { usePage } from '@inertiajs/react';
  * Reads `turnstile.enabled` and `turnstile.site_key` from Inertia shared props.
  * Returns null when disabled or when no site key is configured.
  *
- * @param {{ onToken: (token: string) => void, onExpire: () => void, className?: string }} props
+ * @param {{ onToken: (token: string) => void, onExpire: () => void, onStatusChange?: (status: string) => void, className?: string }} props
  */
-export default function TurnstileWidget({ onToken, onExpire, className = '' }) {
+export default function TurnstileWidget({ onToken, onExpire, onStatusChange, className = '' }) {
     const { turnstile } = usePage().props;
     const containerRef = useRef(null);
     const widgetIdRef = useRef(null);
 
+    const onTokenRef = useRef(onToken);
+    const onExpireRef = useRef(onExpire);
+    const onStatusChangeRef = useRef(onStatusChange);
+    useEffect(() => {
+        onTokenRef.current = onToken;
+        onExpireRef.current = onExpire;
+        onStatusChangeRef.current = onStatusChange;
+    });
+
     const enabled = turnstile?.enabled ?? false;
     const siteKey = turnstile?.site_key ?? '';
+
+    const reportStatus = (status) => {
+        onStatusChangeRef.current?.(status);
+    };
 
     useEffect(() => {
         if (!enabled || !siteKey) {
             return;
         }
+
+        reportStatus(TURNSTILE_STATUS.LOADING);
 
         const SCRIPT_ID = 'cf-turnstile-script';
         const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
@@ -40,15 +56,25 @@ export default function TurnstileWidget({ onToken, onExpire, className = '' }) {
             widgetIdRef.current = window.turnstile.render(containerRef.current, {
                 sitekey: siteKey,
                 callback: (token) => {
-                    onToken?.(token);
+                    reportStatus(TURNSTILE_STATUS.READY);
+                    onTokenRef.current?.(token);
                 },
                 'expired-callback': () => {
-                    onExpire?.();
+                    reportStatus(TURNSTILE_STATUS.EXPIRED);
+                    onExpireRef.current?.();
                 },
                 'error-callback': () => {
-                    onExpire?.();
+                    reportStatus(TURNSTILE_STATUS.ERROR);
+                    onExpireRef.current?.();
                 },
             });
+
+            if (widgetIdRef.current != null) {
+                reportStatus(TURNSTILE_STATUS.IDLE);
+            } else {
+                reportStatus(TURNSTILE_STATUS.ERROR);
+                onExpireRef.current?.();
+            }
         };
 
         if (window.turnstile) {

@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import axios from 'axios';
 import { MessageCircle, X, Send } from 'lucide-react';
 import TurnstileWidget from '@/Components/TurnstileWidget';
+import { getTurnstileError } from '@/lib/turnstile';
 
 const CHAT_HISTORY_KEY = 'owb_chat_history';
 const CHAT_CONTEXT_KEY = 'owb_chat_context';
@@ -219,6 +220,7 @@ export default function ChatBot() {
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [quickHelpVisible, setQuickHelpVisible] = useState(true);
     const [turnstileToken, setTurnstileToken] = useState('');
+    const [turnstileStatus, setTurnstileStatus] = useState('idle');
     const [turnstileVerified, setTurnstileVerified] = useState(false);
     const [showTurnstile, setShowTurnstile] = useState(false);
     const [lastContext, setLastContext] = useState(() => loadChatContext());
@@ -302,10 +304,11 @@ export default function ChatBot() {
         const needsTurnstile = turnstile?.enabled && !turnstileVerified;
         if (needsTurnstile && !turnstileToken) {
             setShowTurnstile(true);
+            const captchaMsg = getTurnstileError({ token: turnstileToken, status: turnstileStatus });
             setMessages((prev) => [
                 ...prev,
                 { role: 'user', text: userMessage, time: new Date() },
-                { role: 'bot', text: 'Please complete the verification challenge below before sending messages.', time: new Date() },
+                { role: 'bot', text: captchaMsg || 'Please complete the verification challenge below before sending messages.', time: new Date() },
             ]);
             return;
         }
@@ -690,7 +693,7 @@ export default function ChatBot() {
                             {showTurnstile && !turnstileVerified && (
                                 <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-center">
                                     <p className="text-xs text-amber-800 mb-2 font-medium">Please verify you're human to continue chatting:</p>
-                                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+                                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
                                 </div>
                             )}
                             <form onSubmit={handleSend} className="flex items-end gap-2">

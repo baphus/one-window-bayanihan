@@ -6,14 +6,16 @@ import ChatBot from '@/Components/ChatBot';
 import InputError from '@/Components/InputError';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import useInView from '@/Hooks/useInView';
+import { getTurnstileError } from '@/lib/turnstile';
 
 export default function Contact() {
   const { turnstile } = usePage().props;
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileStatus, setTurnstileStatus] = useState('idle');
   const [submitted, setSubmitted] = useState(false);
   const [contentRef, contentVisible] = useInView();
 
-  const { data, setData, post, processing, errors, reset } = useForm({
+  const { data, setData, post, processing, errors, reset, setError } = useForm({
     name: '',
     email: '',
     message: '',
@@ -22,6 +24,13 @@ export default function Contact() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (turnstile?.enabled) {
+      const turnstileError = getTurnstileError({ token: turnstileToken, status: turnstileStatus });
+      if (turnstileError) {
+        setError('captcha', turnstileError);
+        return;
+      }
+    }
     setData('cf_turnstile_response', turnstileToken);
     post(route('contact.store'), {
       preserveScroll: true,
@@ -193,7 +202,7 @@ export default function Contact() {
                       </div>
                       {turnstile?.enabled && (
                         <div className="text-center">
-                          <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+                          <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
                           <InputError message={errors.captcha} className="mt-1" />
                         </div>
                       )}

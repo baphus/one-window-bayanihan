@@ -5,6 +5,7 @@ import AppHeader from '@/Components/landing/AppHeader';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import { makeForgotPasswordSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import { getTurnstileError } from '@/lib/turnstile';
 
 export default function ForgotPassword({ status }) {
     const { errors: pageErrors, turnstile } = usePage().props;
@@ -13,6 +14,7 @@ export default function ForgotPassword({ status }) {
     const [successMsg, setSuccessMsg] = useState(status || '');
     const [errorMsg, setErrorMsg] = useState(pageErrors?.email || '');
     const [turnstileToken, setTurnstileToken] = useState('');
+    const [turnstileStatus, setTurnstileStatus] = useState('idle');
 
     // Client-side validation — email format
     const forgotSchema = useMemo(() => makeForgotPasswordSchema(), []);
@@ -132,7 +134,13 @@ export default function ForgotPassword({ status }) {
                                         <TurnstileWidget
                                             onToken={setTurnstileToken}
                                             onExpire={() => setTurnstileToken('')}
+                                            onStatusChange={setTurnstileStatus}
                                         />
+                                        {!turnstileToken && (
+                                            <p className={`mt-1 text-xs ${turnstileStatus === 'error' || turnstileStatus === 'expired' ? 'text-red-600' : 'text-slate-500'}`}>
+                                                {getTurnstileError({ token: turnstileToken, status: turnstileStatus })}
+                                            </p>
+                                        )}
                                     </div>
                                 )}
 

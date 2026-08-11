@@ -9,6 +9,7 @@ import PhoneInput from '@/Components/PhoneInput';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
+import { getTurnstileError } from '@/lib/turnstile';
 
 const STEPS = [
   { id: 'email', label: 'Email Verification' },
@@ -401,6 +402,8 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
 // --- Step Components ---
 
 function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail }) {
+  const [turnstileStatus, setTurnstileStatus] = useState('idle');
+
   if (duplicateMessage) {
     return (
       <div className="text-center">
@@ -436,7 +439,12 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
             {errors.email && <p className="mt-1 text-xs text-error">{errors.email}</p>}
           </div>
 
-          <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+          <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
+          {!turnstileToken && (
+            <p className={`mt-1 text-xs text-center ${turnstileStatus === 'error' || turnstileStatus === 'expired' ? 'text-error' : 'text-slate-500'}`}>
+              {getTurnstileError({ token: turnstileToken, status: turnstileStatus })}
+            </p>
+          )}
 
           <button
             type="button"

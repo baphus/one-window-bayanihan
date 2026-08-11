@@ -12,10 +12,12 @@ import useInView from '@/Hooks/useInView';
 
 import useClientValidation from '@/Hooks/useClientValidation';
 import { z } from 'zod';
+import { getTurnstileError } from '@/lib/turnstile';
 
 export default function TrackingPortal() {
   const { turnstile, tracker_number: initialTrackerNumber } = usePage().props;
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileStatus, setTurnstileStatus] = useState('idle');
   const [formRef, formVisible] = useInView();
   const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
     tracker_number: initialTrackerNumber || '',
@@ -44,6 +46,15 @@ export default function TrackingPortal() {
     setData('tracker_number', normalized);
     clearErrors();
     if (!validate()) return;
+
+    if (turnstile?.enabled) {
+      const turnstileError = getTurnstileError({ token: turnstileToken, status: turnstileStatus });
+      if (turnstileError) {
+        setError('captcha', turnstileError);
+        return;
+      }
+    }
+
     bypassNext();
     setData('cf_turnstile_response', turnstileToken);
     post(route('track.send-otp'));
@@ -118,7 +129,7 @@ export default function TrackingPortal() {
                 </div>
                 {turnstile?.enabled && (
                   <div className="text-center">
-                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} />
+                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
                     <InputError message={errors.captcha} className="mt-1" />
                   </div>
                 )}

@@ -178,3 +178,76 @@ describe('TurnstileWidget', () => {
         expect(api.render).not.toHaveBeenCalled();
     });
 });
+
+describe('TurnstileWidget — status reporting', () => {
+    beforeEach(() => {
+        delete window.turnstile;
+        clearScriptTag();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        delete window.turnstile;
+        clearScriptTag();
+    });
+
+    it('reports loading then idle after a successful render', () => {
+        stubTurnstile('w');
+        const onStatusChange = vi.fn();
+
+        render(<TurnstileWidget onToken={vi.fn()} onExpire={vi.fn()} onStatusChange={onStatusChange} />);
+
+        expect(onStatusChange.mock.calls.map(([status]) => status)).toEqual(['loading', 'idle']);
+    });
+
+    it('reports ready and calls onToken when the callback fires', () => {
+        const api = stubTurnstile('w');
+        const onToken = vi.fn();
+        const onStatusChange = vi.fn();
+
+        render(<TurnstileWidget onToken={onToken} onExpire={vi.fn()} onStatusChange={onStatusChange} />);
+
+        api.render.mock.calls[0][1].callback('tok');
+
+        expect(onToken).toHaveBeenCalledWith('tok');
+        expect(onStatusChange).toHaveBeenCalledWith('ready');
+    });
+
+    it('reports expired and calls onExpire when the expired-callback fires', () => {
+        const api = stubTurnstile('w');
+        const onExpire = vi.fn();
+        const onStatusChange = vi.fn();
+
+        render(<TurnstileWidget onToken={vi.fn()} onExpire={onExpire} onStatusChange={onStatusChange} />);
+
+        api.render.mock.calls[0][1]['expired-callback']();
+
+        expect(onExpire).toHaveBeenCalled();
+        expect(onStatusChange).toHaveBeenCalledWith('expired');
+    });
+
+    it('reports error and calls onExpire when the error-callback fires', () => {
+        const api = stubTurnstile('w');
+        const onExpire = vi.fn();
+        const onStatusChange = vi.fn();
+
+        render(<TurnstileWidget onToken={vi.fn()} onExpire={onExpire} onStatusChange={onStatusChange} />);
+
+        api.render.mock.calls[0][1]['error-callback']();
+
+        expect(onExpire).toHaveBeenCalled();
+        expect(onStatusChange).toHaveBeenCalledWith('error');
+    });
+
+    it('reports error and calls onExpire when render fails, without reporting idle', () => {
+        stubTurnstile(undefined);
+        const onExpire = vi.fn();
+        const onStatusChange = vi.fn();
+
+        render(<TurnstileWidget onToken={vi.fn()} onExpire={onExpire} onStatusChange={onStatusChange} />);
+
+        expect(onExpire).toHaveBeenCalled();
+        expect(onStatusChange).toHaveBeenCalledWith('error');
+        expect(onStatusChange).not.toHaveBeenCalledWith('idle');
+    });
+});
