@@ -179,6 +179,69 @@ class ReferralServiceNotificationTest extends TestCase
         ]);
     }
 
+    public function test_referral_can_be_rejected_after_processing_begins(): void
+    {
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+
+        $referral = $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+            'required_services' => 'Test',
+        ], $caseManager->id);
+
+        $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
+        $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Agency cannot complete this service.', $caseManager->id);
+
+        $fresh = $referral->fresh();
+        $this->assertSame('REJECTED', $fresh->status);
+        $this->assertSame('REJECT', $fresh->decision);
+    }
+
+    public function test_referral_can_be_rejected_from_for_compliance(): void
+    {
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+
+        $referral = $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+            'required_services' => 'Test',
+        ], $caseManager->id);
+
+        $this->service->updateStatus($referral->id, 'FOR_COMPLIANCE', 'ACCEPT', null, $caseManager->id);
+        $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Client did not respond.', $caseManager->id);
+
+        $this->assertSame('REJECTED', $referral->fresh()->status);
+    }
+
+    public function test_completed_referral_cannot_be_rejected(): void
+    {
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+
+        $referral = $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+            'required_services' => 'Test',
+        ], $caseManager->id);
+
+        $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
+        $this->service->updateStatus($referral->id, 'COMPLETED', null, null, $caseManager->id);
+
+        try {
+            $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Too late.', $caseManager->id);
+            $this->fail('Expected InvalidArgumentException was not thrown.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('Cannot change referral status', $e->getMessage());
+        }
+
+        $this->assertSame('COMPLETED', $referral->fresh()->status);
+    }
+
     private function createUser(string $role): User
     {
         return User::factory()->create([

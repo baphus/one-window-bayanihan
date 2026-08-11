@@ -10,10 +10,30 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class TrackingService
 {
     public const SESSION_KEY = 'tracking.verified';
+
+    public static function trackingDataCacheKey(string $caseId): string
+    {
+        return 'tracking:data:'.$caseId;
+    }
+
+    public static function trackingMilestonesCacheKey(string $caseId, string $referralId): string
+    {
+        return 'tracking:milestones:'.$caseId.':'.$referralId;
+    }
+
+    public static function invalidateTrackingCache(string $caseId, ?string $referralId = null): void
+    {
+        Cache::forget(self::trackingDataCacheKey($caseId));
+
+        if ($referralId !== null) {
+            Cache::forget(self::trackingMilestonesCacheKey($caseId, $referralId));
+        }
+    }
 
     public function __construct(
         private readonly OtpService $otpService,
@@ -70,7 +90,7 @@ class TrackingService
 
     public function buildTrackingData(CaseFile $case): array
     {
-        return CacheHelper::safeRemember('tracking:data:'.$case->id, 90, function () use ($case) {
+        return CacheHelper::safeRemember(self::trackingDataCacheKey($case->id), 90, function () use ($case) {
             $client = $case->client;
             $referrals = $case->referrals;
             $caseNotifications = [];
@@ -223,7 +243,7 @@ class TrackingService
 
     public function buildAgencyMilestonesData(CaseFile $case, Referral $referral): array
     {
-        return CacheHelper::safeRemember('tracking:milestones:'.$case->id.':'.$referral->id, 120, function () use ($case, $referral) {
+        return CacheHelper::safeRemember(self::trackingMilestonesCacheKey($case->id, $referral->id), 120, function () use ($case, $referral) {
             $case->loadMissing(['client.addresses', 'client.employments']);
             $referral->loadMissing(['agency', 'milestones.user']);
 

@@ -180,4 +180,64 @@ class InterventionAccessTest extends TestCase
             'status' => 'PROCESSING',
         ]);
     }
+
+    #[Test]
+    public function case_manager_cannot_gate_pending_referral(): void
+    {
+        $pending = Referral::create([
+            'id' => fake()->uuid(),
+            'required_services' => 'Pending Service',
+            'status' => 'PENDING',
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->dmw->id,
+        ]);
+
+        $response = $this->actingAs($this->caseManager)->patch(
+            route('referrals.update-status', $pending),
+            [
+                'status' => 'FOR_COMPLIANCE',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $this->assertDatabaseHas('referrals', [
+            'id' => $pending->id,
+            'status' => 'PENDING',
+        ]);
+    }
+
+    #[Test]
+    public function agency_can_gate_their_pending_referral(): void
+    {
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $this->dmw->id,
+            'is_active' => true,
+        ]);
+
+        $pending = Referral::create([
+            'id' => fake()->uuid(),
+            'required_services' => 'Pending Service',
+            'status' => 'PENDING',
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->dmw->id,
+        ]);
+
+        $response = $this->actingAs($agencyUser)->patch(
+            route('referrals.update-status', $pending),
+            [
+                'status' => 'FOR_COMPLIANCE',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('referrals', [
+            'id' => $pending->id,
+            'status' => 'FOR_COMPLIANCE',
+        ]);
+    }
 }

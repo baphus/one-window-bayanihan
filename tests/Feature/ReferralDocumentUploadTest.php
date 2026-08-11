@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\DTOs\FileStoreResult;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
+use App\Services\StorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -123,5 +125,54 @@ class ReferralDocumentUploadTest extends TestCase
         );
 
         $response->assertRedirect();
+    }
+
+    #[Test]
+    public function store_rolls_back_referral_when_document_upload_fails(): void
+    {
+        Storage::fake('object-storage');
+
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+
+        // Simulate an object-storage failure for a file that passes validation.
+        $this->mock(StorageService::class, function ($mock) {
+            $mock->shouldReceive('store')->andReturn(new FileStoreResult(
+                path: '',
+                originalName: 'document.pdf',
+                storedName: '',
+                type: 'application/pdf',
+                size: 2048,
+                success: false,
+                error: 'Storage error: simulated outage.',
+            ));
+        });
+
+        // A fresh case with no existing referral to the target agency.
+        $case = CaseFile::factory()->create([
+            'user_id' => $admin->id,
+            'status' => 'OPEN',
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
+
+        $response = $this->from('/referrals/create')->actingAs($admin)->post(
+            route('referrals.store'),
+            [
+                'case_id' => $case->id,
+                'agcy_id' => $this->agency->id,
+                'required_services' => 'Test',
+                'documents' => [$file],
+            ],
+        );
+
+        $response->assertSessionHasErrors('documents');
+
+        // A failed upload must not leave a committed referral (or its documents) behind.
+        $this->assertDatabaseMissing('referrals', [
+            'case_id' => $case->id,
+            'agcy_id' => $this->agency->id,
+            'required_services' => 'Test',
+        ]);
+        $this->assertDatabaseCount('case_documents', 0);
     }
 }

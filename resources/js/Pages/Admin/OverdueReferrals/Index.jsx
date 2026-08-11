@@ -248,7 +248,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole,
                 <select
                   value={currentSort}
                   onChange={handleSortChange}
-                  className="text-sm border border-slate-200 rounded-md px-3 py-1.5 bg-white text-slate-700 focus:ring-blue-900 focus:border-blue-900"
+                  className="text-sm border border-slate-200 rounded-md pl-3 pr-9 py-1.5 bg-white text-slate-700 focus:ring-blue-900 focus:border-blue-900"
                 >
                   {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>

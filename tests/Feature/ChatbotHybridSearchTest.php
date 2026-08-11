@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Services\Chatbot\ChatbotEmbeddingService;
 use App\Services\Chatbot\ChatbotHelpdeskService;
 use App\Services\Chatbot\ChatbotHybridSearch;
+use Mockery;
 use Tests\TestCase;
 
 class ChatbotHybridSearchTest extends TestCase
@@ -244,21 +246,38 @@ class ChatbotHybridSearchTest extends TestCase
     /**
      * When vector and FTS backends return nothing, the hybrid search
      * falls through to keyword search against the TypeScript files.
+     *
+     * The embedding backend is mocked to return no hits so the fallback
+     * branch always runs and every assertion executes — the test never
+     * depends on the runtime availability of pgvector/FTS.
      */
     public function test_hybrid_search_falls_back_to_keyword(): void
     {
-        $hybrid = app(ChatbotHybridSearch::class);
+        // Mock the embedding backend to return no hits, and construct the
+        // hybrid service directly so the fallback branch always runs.
+        $embedding = Mockery::mock(ChatbotEmbeddingService::class);
+        $embedding->shouldReceive('normalize')->andReturn('how to track my case');
+        $embedding->shouldReceive('embed')->andReturn([0.1, 0.2, 0.3]);
+        $embedding->shouldReceive('search')->andReturn([]);
+        $embedding->shouldReceive('ftsSearch')->andReturn([]);
 
-        // Use a query that's unlikely to match via vector/embedding but
-        // will match via plain keyword search (which checks file content).
+        $hybrid = new ChatbotHybridSearch(
+            $embedding,
+            app(ChatbotHelpdeskService::class),
+        );
+
+        // Use a query that matches via plain keyword search (file content).
         $result = $hybrid->search('how to track my case status using a tracker number', null, 3);
 
-        // If vector search was available AND returned hits, skip the fallback check.
-        // Otherwise, verify that the fallback path produced valid results.
-        if ($result['vector_count'] === 0 && $result['fts_count'] === 0) {
-            $this->assertNotEmpty($result['hits'],
-                'Hybrid search should fall back to keyword search when vector/FTS are unavailable');
-            $this->assertGreaterThan(0.0, $result['confidence']);
-        }
+        // In the fallback branch the service reports the keyword hit count as
+        // vector_count and zero FTS results — neither DB-backed backend ran.
+        $this->assertSame(0, $result['fts_count'],
+            'FTS backend produced no hits for the mocked query');
+        $this->assertNotEmpty($result['hits'],
+            'Hybrid search should fall back to keyword search when vector/FTS are unavailable');
+        $this->assertSame(count($result['hits']), $result['vector_count'],
+            'Fallback reports the keyword hit count as vector_count');
+        $this->assertGreaterThan(0.0, $result['confidence'],
+            'Fallback hits should yield a positive confidence');
     }
 }

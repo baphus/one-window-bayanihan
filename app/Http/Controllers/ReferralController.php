@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\ReferralDocumentUploadException;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
@@ -20,6 +21,7 @@ use App\Services\ReferralService;
 use App\Services\StorageService;
 use App\Support\CategoryFilter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ReferralController extends Controller
@@ -81,10 +83,13 @@ class ReferralController extends Controller
         $cases = $casesQuery->paginate(12)->withQueryString();
 
         // Build a lookup: case_id → [agcy_id, ...] so the frontend can warn
-        // when a case is already referred to a given agency.
+        // when a case is already referred to a given agency. Matches the
+        // StoreReferralRequest duplicate rule — terminal (REJECTED/COMPLETED)
+        // referrals don't block a new one.
         $caseIds = $cases->pluck('id');
         $existingReferrals = Referral::whereIn('case_id', $caseIds)
             ->where('is_deleted', false)
+            ->whereNotIn('status', ['REJECTED', 'COMPLETED'])
             ->select('case_id', 'agcy_id')
             ->get();
         $caseReferrals = [];
@@ -103,35 +108,51 @@ class ReferralController extends Controller
 
     public function store(StoreReferralRequest $request)
     {
-        $referral = $this->referralService->createReferral(
-            $request->validated(),
-            $request->user()->id,
-        );
+        $storage = app(StorageService::class);
+        $storedPaths = [];
 
-        if ($request->hasFile('documents')) {
-            foreach ($request->file('documents') as $file) {
-                $errors = app(StorageService::class)->validate($file, 'case_document');
-                if (! empty($errors)) {
-                    return back()->withErrors(['documents' => $errors[0]]);
+        try {
+            $referral = DB::transaction(function () use ($request, $storage, &$storedPaths) {
+                $referral = $this->referralService->createReferral(
+                    $request->validated(),
+                    $request->user()->id,
+                );
+
+                if ($request->hasFile('documents')) {
+                    foreach ($request->file('documents') as $file) {
+                        $result = $storage->store($file, 'case-documents/'.$referral->case_id);
+
+                        if (! $result->success) {
+                            throw new ReferralDocumentUploadException(
+                                $result->error ?? 'Failed to store file.',
+                            );
+                        }
+
+                        $storedPaths[] = $result->path;
+
+                        CaseDocument::create([
+                            'file_name' => $result->originalName,
+                            'file_path' => $result->path,
+                            'file_type' => $result->type,
+                            'size' => $result->size,
+                            'case_id' => $referral->case_id,
+                            'referral_id' => $referral->id,
+                            'user_id' => $request->user()->id,
+                            'category' => 'referral',
+                        ]);
+                    }
                 }
 
-                $result = app(StorageService::class)->store($file, 'case-documents/'.$referral->case_id);
-
-                if (! $result->success) {
-                    return back()->withErrors(['documents' => $result->error ?? 'Failed to store file.']);
-                }
-
-                CaseDocument::create([
-                    'file_name' => $result->originalName,
-                    'file_path' => $result->path,
-                    'file_type' => $result->type,
-                    'size' => $result->size,
-                    'case_id' => $referral->case_id,
-                    'referral_id' => $referral->id,
-                    'user_id' => $request->user()->id,
-                    'category' => 'referral',
-                ]);
+                return $referral;
+            });
+        } catch (ReferralDocumentUploadException $e) {
+            // Roll back the object-storage side so a failed upload leaves no
+            // orphaned files. The DB transaction is rolled back automatically.
+            foreach ($storedPaths as $path) {
+                $storage->delete($path);
             }
+
+            return back()->withErrors(['documents' => $e->userMessage]);
         }
 
         app(OnboardingService::class)
@@ -168,14 +189,29 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        // Only the owning agency may accept (move to PROCESSING) a referral.
+        // Only the owning agency may move a PENDING referral forward — accept
+        // (PROCESSING), gate it (FOR_COMPLIANCE) — or reject it. Case managers
+        // and admins can change status only after the agency has engaged the
+        // referral, and only in ways that do not dispose of it (e.g. COMPLETED).
         $isAccept = $request->input('status') === 'PROCESSING'
             || $request->input('decision') === 'ACCEPT';
 
-        if ($isAccept && ! $request->user()->isAgency()) {
+        $isGateOnPending = $referral->status === 'PENDING'
+            && $request->input('status') === 'FOR_COMPLIANCE';
+
+        $isReject = $request->input('status') === 'REJECTED'
+            || $request->input('decision') === 'REJECT';
+
+        if (! $request->user()->isAgency() && ($isAccept || $isGateOnPending || $isReject)) {
+            $message = match (true) {
+                $isAccept => 'Only the receiving agency can accept this referral.',
+                $isReject => 'Only the receiving agency can reject this referral.',
+                default => 'Only the receiving agency can set a pending referral to For Compliance.',
+            };
+
             return redirect()
                 ->back()
-                ->with('error', 'Only the receiving agency can accept this referral.');
+                ->with('error', $message);
         }
 
         try {

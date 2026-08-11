@@ -85,4 +85,64 @@ class ReferralDuplicateTest extends TestCase
         // Ensure no second referral was created
         $this->assertEquals(1, Referral::where('case_id', $this->case->id)->count());
     }
+
+    #[Test]
+    public function can_re_refer_to_same_agency_after_rejection(): void
+    {
+        Referral::factory()->create([
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->agencyA->id,
+            'status' => 'REJECTED',
+        ]);
+
+        $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->agencyA->id,
+            'services' => ['Another Service'],
+            'notes' => 'Re-referral after rejection',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertEquals(2, Referral::where('case_id', $this->case->id)->count());
+    }
+
+    #[Test]
+    public function can_re_refer_to_same_agency_after_completion(): void
+    {
+        Referral::factory()->create([
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->agencyA->id,
+            'status' => 'COMPLETED',
+        ]);
+
+        $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->agencyA->id,
+            'services' => ['Another Service'],
+            'notes' => 'Re-referral after completion',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertEquals(2, Referral::where('case_id', $this->case->id)->count());
+    }
+
+    #[Test]
+    public function cannot_duplicate_referral_while_previous_is_active(): void
+    {
+        Referral::factory()->create([
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->agencyA->id,
+            'status' => 'PROCESSING',
+        ]);
+
+        $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->agencyA->id,
+            'services' => ['Another Service'],
+            'notes' => 'Duplicate while active',
+        ]);
+
+        $response->assertSessionHasErrors('agcy_id');
+        $this->assertEquals(1, Referral::where('case_id', $this->case->id)->count());
+    }
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, Fragment } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
@@ -129,11 +129,18 @@ async function postJson(url, body) {
   return { res, json };
 }
 
-export default function IntakeIndex({ occupationOptions, existingClient }) {
+export default function IntakeIndex({ occupationOptions, existingClient, skipVerification = false }) {
   const { turnstile } = usePage().props;
 
+  // Signed-in OFWs skip the email+OTP verification step entirely — their
+  // session already proved email ownership at login.
+  const steps = useMemo(
+    () => (skipVerification ? STEPS.filter((s) => s.id !== 'email') : STEPS),
+    [skipVerification],
+  );
+
   const [currentStep, setCurrentStep] = useState(0);
-  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(skipVerification);
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState({});
   const [turnstileToken, setTurnstileToken] = useState('');
@@ -170,7 +177,7 @@ export default function IntakeIndex({ occupationOptions, existingClient }) {
     });
   }, []);
 
-  const goNext = () => setCurrentStep(s => Math.min(s + 1, STEPS.length - 1));
+  const goNext = () => setCurrentStep(s => Math.min(s + 1, steps.length - 1));
   const goBack = () => setCurrentStep(s => Math.max(s - 1, 0));
 
   // --- Email & OTP handlers ---
@@ -311,58 +318,76 @@ export default function IntakeIndex({ occupationOptions, existingClient }) {
 
         {/* Progress indicator */}
         <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
-          <div className="flex items-center justify-between gap-1">
-            {STEPS.map((step, i) => (
-              <div key={step.id} className="flex flex-1 flex-col items-center">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
-                  i < currentStep ? 'bg-primary text-white' :
-                  i === currentStep ? 'bg-primary text-white ring-4 ring-primary/20' :
-                  'bg-slate-200 text-slate-500'
-                }`}>
-                  {i < currentStep ? '✓' : i + 1}
-                </div>
-                <span className="mt-1 hidden text-[10px] font-medium text-slate-500 sm:block">{step.label}</span>
-              </div>
-            ))}
+          <div className="flex items-center">
+            {STEPS.map((step, i) => {
+              // The email step is skipped for signed-in OFWs, so map the
+              // filtered `steps` index back onto the full STEPS list.
+              const stepIndex = skipVerification ? i - 1 : i;
+              const isDone = (skipVerification && i === 0) || (stepIndex >= 0 && stepIndex < currentStep);
+              const isActive = !isDone && stepIndex === currentStep;
+              const prevDone = i > 0
+                ? (skipVerification && i - 1 === 0) || (stepIndex - 1 >= 0 && stepIndex - 1 < currentStep)
+                : false;
+
+              return (
+                <Fragment key={step.id}>
+                  {i > 0 && (
+                    <div className={`h-0.5 flex-1 rounded-full ${prevDone ? 'bg-primary' : 'bg-slate-200'}`} />
+                  )}
+                  <div className="flex flex-col items-center">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+                      isDone ? 'bg-primary text-white' :
+                      isActive ? 'bg-primary text-white ring-4 ring-primary/20' :
+                      'bg-slate-200 text-slate-500'
+                    }`}>
+                      {isDone ? '✓' : i + 1}
+                    </div>
+                    <span className="mt-1 hidden text-[10px] font-medium text-slate-500 sm:block">{step.label}</span>
+                  </div>
+                </Fragment>
+              );
+            })}
           </div>
         </div>
 
         {/* Form content */}
         <div className="mx-auto max-w-3xl px-4 pb-16 md:px-8">
           <div className="rounded-lg border border-outline-variant bg-white p-6 shadow-sm md:p-8">
-            {currentStep === 0 && (
-              <EmailStep
-                formData={formData}
-                updateField={updateField}
-                errors={errors}
-                processing={processing}
-                otpSent={otpSent}
-                otpHint={otpHint}
-                debugOtp={debugOtp}
-                duplicateMessage={duplicateMessage}
-                turnstile={turnstile}
-                turnstileToken={turnstileToken}
-                setTurnstileToken={setTurnstileToken}
-                onSendOtp={handleSendOtp}
-                onVerifyOtp={handleVerifyOtp}
-                onBackToEmail={() => setOtpSent(false)}
-              />
-            )}
-            {currentStep === 1 && (
-              <PersonalStep formData={formData} updateField={updateField} errors={errors} onNext={goNext} onBack={goBack} />
-            )}
-            {currentStep === 2 && (
-              <AddressStep formData={formData} updateField={updateField} errors={errors} onNext={goNext} onBack={goBack} />
-            )}
-            {currentStep === 3 && (
-              <EmploymentStep formData={formData} updateField={updateField} errors={errors} occupationOptions={occupationOptions} onNext={goNext} onBack={goBack} />
-            )}
-            {currentStep === 4 && (
-              <NokStep formData={formData} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
-            )}
-            {currentStep === 5 && (
-              <SubmitReviewStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} />
-            )}
+            {{
+              email: (
+                <EmailStep
+                  formData={formData}
+                  updateField={updateField}
+                  errors={errors}
+                  processing={processing}
+                  otpSent={otpSent}
+                  otpHint={otpHint}
+                  debugOtp={debugOtp}
+                  duplicateMessage={duplicateMessage}
+                  turnstile={turnstile}
+                  turnstileToken={turnstileToken}
+                  setTurnstileToken={setTurnstileToken}
+                  onSendOtp={handleSendOtp}
+                  onVerifyOtp={handleVerifyOtp}
+                  onBackToEmail={() => setOtpSent(false)}
+                />
+              ),
+              personal: (
+                <PersonalStep formData={formData} updateField={updateField} errors={errors} onNext={goNext} onBack={goBack} />
+              ),
+              address: (
+                <AddressStep formData={formData} updateField={updateField} errors={errors} onNext={goNext} onBack={goBack} />
+              ),
+              employment: (
+                <EmploymentStep formData={formData} updateField={updateField} errors={errors} occupationOptions={occupationOptions} onNext={goNext} onBack={goBack} />
+              ),
+              nok: (
+                <NokStep formData={formData} setFormData={setFormData} errors={errors} onNext={goNext} onBack={goBack} />
+              ),
+              submit: (
+                <SubmitReviewStep formData={formData} updateField={updateField} errors={errors} processing={processing} onSubmit={handleSubmit} onBack={goBack} />
+              ),
+            }[steps[currentStep].id]}
           </div>
         </div>
       </main>

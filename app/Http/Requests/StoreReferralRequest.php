@@ -30,6 +30,10 @@ class StoreReferralRequest extends FormRequest
 
     /**
      * Prevent duplicate referrals: same case cannot be referred to the same agency twice.
+     *
+     * A prior referral only blocks a new one while it is still active. Once a
+     * referral reaches a terminal state (REJECTED or COMPLETED) the case can be
+     * referred to that agency again (e.g. a renewed or corrected request).
      */
     public function withValidator($validator): void
     {
@@ -44,12 +48,13 @@ class StoreReferralRequest extends FormRequest
             $exists = Referral::where('case_id', $caseId)
                 ->where('agcy_id', $agcyId)
                 ->where('is_deleted', false)
+                ->whereNotIn('status', ['REJECTED', 'COMPLETED'])
                 ->exists();
 
             if ($exists) {
                 $validator->errors()->add(
                     'agcy_id',
-                    'This case has already been referred to the selected agency.',
+                    'This case already has an active referral with the selected agency.',
                 );
             }
         });

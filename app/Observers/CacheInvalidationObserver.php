@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
 use App\Services\ReportsService;
+use App\Services\TrackingService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -65,11 +66,11 @@ class CacheInvalidationObserver
             $model instanceof CaseStatus => $this->invalidateCaseStatus(),
             $model instanceof User => $this->invalidateUser(),
             $model instanceof CaseFile => $this->invalidateCase($model),
-            $model instanceof Referral => $this->invalidateReferral(),
+            $model instanceof Referral => $this->invalidateReferral($model),
             $model instanceof Service,
             $model instanceof ServiceRequirement => $this->invalidateService(),
             $model instanceof SurveyInvitation => $this->invalidateSurvey(),
-            $model instanceof Milestone => $this->invalidateMilestone(),
+            $model instanceof Milestone => $this->invalidateMilestone($model),
             default => null,
         };
     }
@@ -130,7 +131,7 @@ class CacheInvalidationObserver
         }
     }
 
-    private function invalidateReferral(): void
+    private function invalidateReferral(Referral $referral): void
     {
         ReferralService::invalidateReferralStats();
         Cache::forget('stats:cases');
@@ -146,6 +147,10 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:cm_no_referral_count');
         Cache::forget('stakeholder:agencies_list');
         // Agency-specific keys cleared via pattern (agcy_id may not be reliably available)
+
+        // Client-facing tracking pages read fresh DB state — never serve stale
+        // referral status to a tracked OFW.
+        TrackingService::invalidateTrackingCache($referral->case_id, $referral->id);
     }
 
     private function invalidateService(): void
@@ -158,11 +163,18 @@ class CacheInvalidationObserver
         // Survey dashboard stats will expire via TTL (180s)
     }
 
-    private function invalidateMilestone(): void
+    private function invalidateMilestone(Milestone $milestone): void
     {
-        // Tracking cache is keyed by case_id — can't reliably get it from observer
-        // Rely on TTL (90s) for tracking data freshness
         // Clear dashboard priority referrals since milestone activity affects overdue logic
         Cache::forget('dashboard:cm_priority_referrals');
+
+        // A new milestone must appear immediately on the client tracking page.
+        // Resolve the case through the referral (or client request → referral) link.
+        $caseId = $milestone->referral?->case_id
+            ?? $milestone->clientRequest?->referral?->case_id;
+
+        if ($caseId !== null) {
+            TrackingService::invalidateTrackingCache($caseId, $milestone->refr_id);
+        }
     }
 }

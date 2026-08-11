@@ -9,7 +9,6 @@ use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
@@ -316,8 +315,7 @@ class ReferralClientRequestService
     {
         $referral->loadMissing('caseFile');
         if ($referral->case_id) {
-            Cache::forget('tracking:data:'.$referral->case_id);
-            Cache::forget('tracking:milestones:'.$referral->case_id.':'.$referral->id);
+            TrackingService::invalidateTrackingCache($referral->case_id, $referral->id);
         }
     }
 }

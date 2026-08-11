@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -192,8 +191,7 @@ class ReferralClientAccessService
         $request->loadMissing('referral.caseFile');
         $caseId = $request->referral?->case_id;
         if ($caseId) {
-            Cache::forget('tracking:data:'.$caseId);
-            Cache::forget('tracking:milestones:'.$caseId.':'.$request->referral->id);
+            TrackingService::invalidateTrackingCache($caseId, $request->referral->id);
         }
     }
 }
