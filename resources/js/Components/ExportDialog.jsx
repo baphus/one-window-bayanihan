@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function toDateInput(date) {
   return date.toISOString().slice(0, 10);
@@ -16,7 +16,7 @@ export default function ExportDialog({
   activeFilters,
   maxDays = 365,
   defaultDays = 90,
-  rowCount,
+  countUrlBuilder,
   onExport,
 }) {
   const today = useMemo(() => new Date(), []);
@@ -28,6 +28,8 @@ export default function ExportDialog({
   const [dateTo, setDateTo] = useState(() => toDateInput(today));
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [rowCount, setRowCount] = useState(null);
+  const [countState, setCountState] = useState('idle'); // 'idle' | 'loading' | 'ready' | 'error'
   const timeoutRef = useRef(null);
 
   const clearPending = () => {
@@ -50,6 +52,36 @@ export default function ExportDialog({
   useEffect(() => {
     if (!open) clearPending();
   }, [open]);
+
+  // The server-computed page prop was stale the moment filters changed. Fetch
+  // the live count every time the dialog opens and whenever the date range in
+  // the modal changes, so the preview reflects the exact export that will run.
+  const loadCount = useCallback(async (from, to) => {
+    if (!countUrlBuilder) {
+      setCountState('idle');
+      return;
+    }
+    const url = countUrlBuilder(from, to);
+    if (!url) {
+      setCountState('idle');
+      return;
+    }
+    setCountState('loading');
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Count request failed: ${res.status}`);
+      const data = await res.json();
+      setRowCount(typeof data.count === 'number' ? data.count : null);
+      setCountState('ready');
+    } catch {
+      setCountState('error');
+    }
+  }, [countUrlBuilder]);
+
+  useEffect(() => {
+    if (!open) return;
+    loadCount(dateFrom, dateTo);
+  }, [open, dateFrom, dateTo, loadCount]);
 
   if (!open) return null;
 
@@ -115,28 +147,32 @@ export default function ExportDialog({
         {/* Active filter chips */}
         <div className="mb-4">
           <p className="text-xs font-medium text-slate-600 mb-2">Filters applied</p>
-          {activeFilters.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {activeFilters.map((filter, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
-                >
-                  {filter.label}: {filter.value}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400">All records</p>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+              Date range: {dateFrom} &rarr; {dateTo}
+            </span>
+            {activeFilters.map((filter, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+              >
+                {filter.label}: {filter.value}
+              </span>
+            ))}
+            {activeFilters.length === 0 && (
+              <span className="inline-flex items-center text-xs text-slate-400">
+                No page filters &mdash; the date range above limits this export.
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Row count preview */}
         <div className="mb-4">
           <p className="text-xs text-slate-500">
-            {rowCount === null
-              ? 'Loading\u2026'
-              : `Approximately ${rowCount} ${rowCount === 1 ? 'row' : 'rows'} will be exported.`}
+            {countState === 'loading' && 'Loading\u2026'}
+            {countState === 'ready' && `Approximately ${rowCount} ${rowCount === 1 ? 'row' : 'rows'} will be exported for the selected date range.`}
+            {countState === 'error' && 'Could not load the row count. You can still export.'}
           </p>
         </div>
 

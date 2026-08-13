@@ -63,7 +63,7 @@ function referredToAgencies(referrals) {
 }
 
 function fullName(row) {
-  return [row.first_name, row.middle_initial, row.last_name, row.suffix].filter(Boolean).join(' ');
+  return [row.first_name, row.middle_name, row.last_name, row.suffix].filter(Boolean).join(' ');
 }
 
 function categoryIdsFromFilters(filters) {
@@ -99,7 +99,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function ClientIndex({ clients, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [], exportRowCount = null }) {
+export default function ClientIndex({ clients, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');
@@ -122,7 +122,9 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     setExportDialogOpen(true);
   }, []);
 
-  const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
+  // Single query builder shared by the export download and the live row-count
+  // preview, so the count shown always matches the export that will run.
+  const buildExportQuery = useCallback(({ dateFrom, dateTo }) => {
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
     if (filters.sex) params.set('sex', filters.sex);
@@ -134,13 +136,21 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
     if (dateFrom) params.set('date_from', dateFrom);
     if (dateTo) params.set('date_to', dateTo);
+    return params.toString();
+  }, [filters]);
 
-    const qs = params.toString();
+  const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
+    const qs = buildExportQuery({ dateFrom, dateTo });
     const url = route('clients.export-excel') + (qs ? '?' + qs : '');
 
     setExportDialogOpen(false);
     window.location.href = url;
-  }, [filters]);
+  }, [buildExportQuery]);
+
+  const countUrlBuilder = useCallback((dateFrom, dateTo) => {
+    const qs = buildExportQuery({ dateFrom, dateTo });
+    return route('clients.export-count') + (qs ? '?' + qs : '');
+  }, [buildExportQuery]);
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
@@ -916,7 +926,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
         onClose={() => setExportDialogOpen(false)}
         title="Export Clients"
         activeFilters={activeFilterChips}
-        rowCount={exportRowCount}
+        countUrlBuilder={countUrlBuilder}
         onExport={handleExportConfirm}
       />
     </AppLayout>

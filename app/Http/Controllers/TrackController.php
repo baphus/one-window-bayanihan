@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Referral;
 use App\Models\SystemSetting;
+use App\Models\User;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -111,6 +112,15 @@ class TrackController extends Controller
         }
 
         $data = $this->trackingService->buildTrackingData($case);
+
+        // Whether the verified OFW can still create an account from the portal.
+        // Only relevant to guests — a signed-in OFW already has an account.
+        $binding = $request->session()->get(TrackingService::SESSION_KEY);
+        $email = strtolower(trim(is_array($binding) ? ($binding['email'] ?? '') : ''));
+        $data['verifiedEmail'] = $email;
+        $data['hasOfwAccount'] = $email !== ''
+            ? User::where('email', $email)->where('role', 'OFW')->where('is_deleted', false)->exists()
+            : false;
 
         return Inertia::render('Tracking/Show', $data);
     }

@@ -46,4 +46,9 @@ class ReferralClientMessage extends Model
     {
         return $this->belongsTo(ReferralClientAccessLink::class, 'access_link_id');
     }
+
+    public function attachments()
+    {
+        return $this->hasMany(ReferralClientMessageAttachment::class, 'message_id');
+    }
 }

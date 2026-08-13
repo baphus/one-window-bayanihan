@@ -81,7 +81,7 @@ class CaseService
             $createData['draft_client_data'] = [
                 'first_name' => $data['client']['first_name'] ?? '',
                 'last_name' => $data['client']['last_name'] ?? '',
-                'middle_initial' => $data['client']['middle_initial'] ?? null,
+                'middle_name' => $data['client']['middle_name'] ?? null,
                 'suffix' => $data['client']['suffix'] ?? null,
                 'date_of_birth' => $data['client']['date_of_birth'] ?? null,
                 'sex' => $data['client']['sex'] ?? null,
@@ -257,7 +257,7 @@ class CaseService
                     $draftClientData = array_merge($current, [
                         'first_name' => $data['client']['first_name'] ?? $current['first_name'] ?? '',
                         'last_name' => $data['client']['last_name'] ?? $current['last_name'] ?? '',
-                        'middle_initial' => $data['client']['middle_initial'] ?? $current['middle_initial'] ?? null,
+                        'middle_name' => $data['client']['middle_name'] ?? $current['middle_name'] ?? null,
                         'suffix' => $data['client']['suffix'] ?? $current['suffix'] ?? null,
                         'email' => $data['client']['email'] ?? $current['email'] ?? null,
                         'contact_number' => $data['client']['contact_number'] ?? $current['contact_number'] ?? null,
@@ -556,7 +556,7 @@ class CaseService
             return;
         }
 
-        $fields = ['first_name', 'last_name', 'middle_initial', 'suffix', 'date_of_birth', 'email', 'contact_number'];
+        $fields = ['first_name', 'last_name', 'middle_name', 'suffix', 'date_of_birth', 'email', 'contact_number'];
         $changes = [];
 
         foreach ($fields as $field) {
@@ -606,7 +606,7 @@ class CaseService
                 $client = Client::create([
                     'first_name' => $draftData['first_name'] ?? '',
                     'last_name' => $draftData['last_name'] ?? '',
-                    'middle_initial' => $draftData['middle_initial'] ?? null,
+                    'middle_name' => $draftData['middle_name'] ?? null,
                     'suffix' => $draftData['suffix'] ?? null,
                     'date_of_birth' => $draftData['date_of_birth'] ?? null,
                     'sex' => ! empty($draftData['sex']) ? strtoupper($draftData['sex']) : null,
@@ -1091,9 +1091,9 @@ class CaseService
                     ->orWhereHas('client', function ($q) use ($search) {
                         $q->where('first_name', 'ilike', "%{$search}%")
                             ->orWhere('last_name', 'ilike', "%{$search}%")
-                            ->orWhere('middle_initial', 'ilike', "%{$search}%")
+                            ->orWhere('middle_name', 'ilike', "%{$search}%")
                             ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"])
-                            ->orWhereRaw("CONCAT(first_name, ' ', middle_initial, ' ', last_name) ILIKE ?", ["%{$search}%"]);
+                            ->orWhereRaw("CONCAT(first_name, ' ', middle_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
                     });
             });
         }
@@ -1458,7 +1458,7 @@ class CaseService
     {
         $result = [
             'first_name' => $data['first_name'] ?? '',
-            'middle_initial' => $data['middle_initial'] ?? null,
+            'middle_name' => $data['middle_name'] ?? null,
             'last_name' => $data['last_name'] ?? null,
             'is_primary' => $data['is_primary'] ?? false,
             'relationship' => $data['relationship'] ?? null,

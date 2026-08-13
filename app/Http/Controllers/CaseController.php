@@ -51,7 +51,6 @@ class CaseController extends Controller
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countCasesExport($request->user(), array_filter(array_merge($request->only(['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to']), $categoryFilters))),
         ]);
     }
 
@@ -386,6 +385,26 @@ class CaseController extends Controller
             $data,
             $filename
         );
+    }
+
+    /**
+     * Live row count for the export dialog. Applies the exact same filters as
+     * exportExcel (including the dialog's date range) so the preview always
+     * matches what the download produces.
+     */
+    public function exportCount(Request $request)
+    {
+        $user = $request->user();
+
+        $filters = array_filter(array_merge($request->only([
+            'status', 'search', 'client_type', 'vulnerability_indicator',
+            'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
+            'age_min_days', 'referral_state', 'date_from', 'date_to',
+        ]), CategoryFilter::fromRequest($request)->toArray()));
+
+        $count = (new DataExportQueries)->countCasesExport($user, $filters);
+
+        return response()->json(['count' => $count]);
     }
 
     /**

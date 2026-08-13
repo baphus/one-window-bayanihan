@@ -75,7 +75,7 @@ class ClientController extends Controller
             $clients->where(function ($q) use ($search) {
                 $q->where('first_name', 'ilike', "%{$search}%")
                     ->orWhere('last_name', 'ilike', "%{$search}%")
-                    ->orWhere('middle_initial', 'ilike', "%{$search}%")
+                    ->orWhere('middle_name', 'ilike', "%{$search}%")
                     ->orWhere('email', 'ilike', "%{$search}%")
                     ->orWhere('contact_number', 'ilike', "%{$search}%")
                     ->orWhereHas('caseFile', function ($q) use ($search) {
@@ -159,10 +159,6 @@ class ClientController extends Controller
             'agencies' => app(ReferenceDataService::class)->getAgenciesDropdown(),
             'categories' => app(ReferenceDataService::class)->getActiveCategories(),
             'caseIssues' => app(ReferenceDataService::class)->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countClientsExport($user, array_filter(array_merge(
-                $request->only(['search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to']),
-                ['category_ids' => $categoryIds],
-            ))),
         ]);
     }
 
@@ -423,6 +419,24 @@ class ClientController extends Controller
             $data,
             $filename
         );
+    }
+
+    /**
+     * Live row count for the export dialog. Applies the exact same filters as
+     * exportExcel (including the dialog's date range) so the preview always
+     * matches what the download produces.
+     */
+    public function exportCount(Request $request)
+    {
+        $user = $request->user();
+
+        $filters = array_filter(array_merge($request->only([
+            'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
+        ]), CategoryFilter::fromRequest($request)->toArray()));
+
+        $count = (new DataExportQueries)->countClientsExport($user, $filters);
+
+        return response()->json(['count' => $count]);
     }
 
     /**

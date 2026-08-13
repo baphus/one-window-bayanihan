@@ -157,7 +157,7 @@ class IntakeService
             $existingClient->update(array_filter([
                 'first_name' => $data['client']['first_name'] ?? null,
                 'last_name' => $data['client']['last_name'] ?? null,
-                'middle_initial' => $data['client']['middle_initial'] ?? null,
+                'middle_name' => $data['client']['middle_name'] ?? null,
                 'suffix' => $data['client']['suffix'] ?? null,
                 'date_of_birth' => $data['client']['date_of_birth'] ?? null,
                 'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
@@ -175,7 +175,7 @@ class IntakeService
         $client = Client::create([
             'first_name' => $data['client']['first_name'] ?? '',
             'last_name' => $data['client']['last_name'] ?? '',
-            'middle_initial' => $data['client']['middle_initial'] ?? null,
+            'middle_name' => $data['client']['middle_name'] ?? null,
             'suffix' => $data['client']['suffix'] ?? null,
             'date_of_birth' => $data['client']['date_of_birth'] ?? null,
             'sex' => ! empty($data['client']['sex']) ? strtoupper($data['client']['sex']) : null,
@@ -341,7 +341,7 @@ class IntakeService
             $client->nextOfKin()->create([
                 'first_name' => $nok['first_name'] ?? null,
                 'last_name' => $nok['last_name'] ?? null,
-                'middle_initial' => $nok['middle_initial'] ?? null,
+                'middle_name' => $nok['middle_name'] ?? null,
                 'relationship' => $nok['relationship'] ?? null,
                 'phone_number' => $nok['phone_number'] ?? null,
                 'email' => $nok['email'] ?? null,

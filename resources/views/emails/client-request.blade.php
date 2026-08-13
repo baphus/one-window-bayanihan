@@ -24,7 +24,7 @@
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 24px 0;">{{ $clientRequest->instructions }}</p>
 @endif
 
-<x-mail::action-card url="{{ $magicLink }}" label="Submit Documents" :deadline="$dueDate" :urgency="!is_null($dueDate)" />
+<x-mail::action-card url="{{ $magicLink }}" label="{{ $ctaLabel }}" :deadline="$dueDate" :urgency="!is_null($dueDate)" />
 
 <p style="font-size: 13px; line-height: 1.7; color: #71717a; margin: 0;">
     This secure link expires in seven days. If you need more time or have questions, reply to this email or contact our office directly.

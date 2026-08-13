@@ -164,7 +164,7 @@ class OfwProfileService
         foreach ($nokList as $index => $nok) {
             $client->nextOfKin()->create([
                 'first_name' => $this->normalize($nok['first_name'] ?? null),
-                'middle_initial' => $this->normalize($nok['middle_initial'] ?? null),
+                'middle_name' => $this->normalize($nok['middle_name'] ?? null),
                 'last_name' => $this->normalize($nok['last_name'] ?? null),
                 'relationship' => $this->normalize($nok['relationship'] ?? null),
                 'phone_number' => $this->normalize($nok['phone_number'] ?? null),

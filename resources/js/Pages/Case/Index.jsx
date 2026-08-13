@@ -98,7 +98,7 @@ const COLUMN_DEFS = [
   { key: 'actions', label: 'Actions', default: true },
 ];
 
-export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [], exportRowCount = null }) {
+export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
   const { auth } = usePage().props;
   const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
@@ -124,7 +124,9 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     setExportDialogOpen(true);
   }, []);
 
-  const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
+  // Single query builder shared by the export download and the live row-count
+  // preview, so the count shown always matches the export that will run.
+  const buildExportQuery = useCallback(({ dateFrom, dateTo }) => {
     const params = new URLSearchParams();
     if (filters.status) params.set('status', filters.status);
     if (filters.search) params.set('search', filters.search);
@@ -138,13 +140,21 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     if (filters.referral_state) params.set('referral_state', filters.referral_state);
     if (dateFrom) params.set('date_from', dateFrom);
     if (dateTo) params.set('date_to', dateTo);
+    return params.toString();
+  }, [filters]);
 
-    const qs = params.toString();
+  const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
+    const qs = buildExportQuery({ dateFrom, dateTo });
     const url = route('cases.export-excel') + (qs ? '?' + qs : '');
 
     setExportDialogOpen(false);
     window.location.href = url;
-  }, [filters]);
+  }, [buildExportQuery]);
+
+  const countUrlBuilder = useCallback((dateFrom, dateTo) => {
+    const qs = buildExportQuery({ dateFrom, dateTo });
+    return route('cases.export-count') + (qs ? '?' + qs : '');
+  }, [buildExportQuery]);
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
@@ -869,7 +879,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         onClose={() => setExportDialogOpen(false)}
         title="Export Cases"
         activeFilters={activeFilterChips}
-        rowCount={exportRowCount}
+        countUrlBuilder={countUrlBuilder}
         onExport={handleExportConfirm}
       />
       <ConfirmDialog

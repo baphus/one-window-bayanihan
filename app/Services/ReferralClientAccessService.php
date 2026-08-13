@@ -92,7 +92,7 @@ class ReferralClientAccessService
             if ($locked->revoked_at !== null
                 || ! $locked->expires_at
                 || ! $locked->expires_at->isFuture()
-                || ! $this->isRequestUsable($locked->request)) {
+                || ! $this->isRequestAccessible($locked->request)) {
                 throw new LogicException('This access link is no longer usable.');
             }
 
@@ -110,7 +110,7 @@ class ReferralClientAccessService
 
     /**
      * Resolve an opaque token without disclosing whether it was malformed,
-     * expired, revoked, mismatched, deleted, or attached to a closed request.
+     * expired, revoked, mismatched, deleted, or attached to an inaccessible request.
      */
     public function resolveUsableToken(string $rawToken): ?ReferralClientAccessLink
     {
@@ -124,7 +124,7 @@ class ReferralClientAccessService
             ->with(['request.referral.caseFile'])
             ->first();
 
-        if (! $link || ! $this->isRequestUsable($link->request)) {
+        if (! $link || ! $this->isRequestAccessible($link->request)) {
             return null;
         }
 
@@ -138,7 +138,7 @@ class ReferralClientAccessService
 
         return $link->revoked_at === null
             && $link->expires_at?->isFuture() === true
-            && $this->isRequestUsable($link->request);
+            && $this->isRequestAccessible($link->request);
     }
 
     public function revoke(ReferralClientAccessLink $link, ?User $actor = null): ReferralClientAccessLink
@@ -165,25 +165,42 @@ class ReferralClientAccessService
         }
     }
 
-    private function isRequestUsable(?ReferralClientRequest $request): bool
+    private function isRequestClosed(?ReferralClientRequest $request): bool
     {
-        if (! $request || $request->is_deleted || in_array($request->status, [
-            ReferralClientRequest::STATUS_COMPLETED,
-            ReferralClientRequest::STATUS_CANCELLED,
-        ], true)) {
-            return false;
+        if (! $request || $request->is_deleted) {
+            return true;
         }
 
         $referral = $request->referral;
         $case = $referral?->caseFile;
 
-        return $referral
-            && ! $referral->is_deleted
-            && ! in_array($referral->status, ['COMPLETED', 'REJECTED'], true)
-            && $case
-            && ! $case->is_deleted
-            && $case->closed_at === null
-            && ! in_array($case->status, ['CLOSED', 'ARCHIVED'], true);
+        return $referral === null
+            || $referral->is_deleted
+            || in_array($referral->status, ['COMPLETED', 'REJECTED'], true)
+            || $case === null
+            || $case->is_deleted
+            || $case->closed_at !== null
+            || in_array($case->status, ['CLOSED', 'ARCHIVED'], true);
+    }
+
+    /**
+     * View access for the client. Completed requests remain viewable so the
+     * client can verify their submission; cancelled requests never do.
+     */
+    private function isRequestAccessible(?ReferralClientRequest $request): bool
+    {
+        return ! $this->isRequestClosed($request)
+            && $request->status !== ReferralClientRequest::STATUS_CANCELLED;
+    }
+
+    /** Strict gate: fresh link issuance and client submissions. */
+    private function isRequestUsable(?ReferralClientRequest $request): bool
+    {
+        return $this->isRequestAccessible($request)
+            && ! in_array($request->status, [
+                ReferralClientRequest::STATUS_COMPLETED,
+                ReferralClientRequest::STATUS_CANCELLED,
+            ], true);
     }
 
     private function invalidateTrackingCaches(ReferralClientRequest $request): void

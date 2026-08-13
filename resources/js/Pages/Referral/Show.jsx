@@ -11,6 +11,7 @@ import UserAvatar, { getAvatarColor } from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import AuditLogModal from '@/Components/AuditLogModal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import Modal from '@/Components/Modal';
 import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
@@ -27,7 +28,7 @@ const TIMELINE_EVENT_CONFIG = {
 
 function formatFullName(person) {
     if (!person) return 'N/A';
-    return [person.first_name, person.middle_initial, person.last_name, person.suffix].filter(Boolean).join(' ') || person.name || 'N/A';
+    return [person.first_name, person.middle_name, person.last_name, person.suffix].filter(Boolean).join(' ') || person.name || 'N/A';
 }
 
 function formatAddress(address) {
@@ -45,6 +46,13 @@ function getClientAge(dob) {
         age--;
     }
     return age;
+}
+
+function formatDisplayBytes(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 const CLIENT_REQUEST_TYPES = {
@@ -145,10 +153,38 @@ function ClientRequestAccess({ request, canIssue, canRevoke, onMutate }) {
     );
 }
 
-function ClientRequestCard({ request, permissions, isOversight, onMutate }) {
+/** Compact image thumbnail for client-request attachment previews. */
+function AttachmentThumb({ attachment, href, onPreview }) {
+    const [failed, setFailed] = useState(false);
+
+    if (failed) {
+        return <span className="material-symbols-outlined shrink-0 text-[13px] text-slate-400">broken_image</span>;
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={onPreview}
+            aria-label={`Preview ${attachment.file_name}`}
+            title={`Preview ${attachment.file_name}`}
+            className="shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100"
+        >
+            <img
+                src={href}
+                alt=""
+                loading="lazy"
+                onError={() => setFailed(true)}
+                className="h-11 w-11 object-cover transition-opacity hover:opacity-80"
+            />
+        </button>
+    );
+}
+
+function ClientRequestCard({ request, permissions, isOversight, onMutate, embedded = false }) {
     const [reply, setReply] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(null);
+    const [preview, setPreview] = useState(null);
     const status = clientRequestStatus(request.status);
     const isTerminal = ['COMPLETED', 'CANCELLED'].includes(request.status);
 
@@ -179,7 +215,7 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate }) {
     const messages = request.messages ?? [];
 
     return (
-        <article className="rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+        <article className={embedded ? 'flex h-full min-w-0 flex-col rounded-none border-0 bg-white p-3 shadow-none' : 'rounded-md border border-slate-200 bg-white p-3 shadow-sm'}>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -202,23 +238,87 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate }) {
                 </div>
             )}
 
-            {messages.length > 0 && (
-                <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+            <div className="mt-3 border-t border-slate-200">
+                <div className="flex items-center gap-2 pt-3">
                     <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Conversation</p>
-                    {messages.map((message) => (
-                        <div key={message.id} className={`rounded-md px-2.5 py-2 ${message.sender_kind === 'CLIENT_ACCESS' ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 border border-slate-100'}`}>
-                            <div className="flex items-baseline justify-between gap-2"><span className="text-[10px] font-bold text-slate-700">{message.sender_kind === 'CLIENT_ACCESS' ? 'Client' : 'Agency'}</span><span className="text-[9px] text-slate-400">{formatDisplayDateTime(message.created_at)}</span></div>
-                            <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-5 text-slate-700">{message.body}</p>
-                        </div>
-                    ))}
+                    {messages.length > 0 && (
+                        <span className="ml-auto rounded-full bg-blue-900/10 px-2 py-0.5 text-[9px] font-bold text-blue-900">
+                            {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+                        </span>
+                    )}
                 </div>
-            )}
+
+                <div className="mt-2 max-h-[24rem] overflow-y-auto overscroll-contain bg-slate-50/50 px-2.5 py-3">
+                    {messages.length > 0 ? (
+                        <div className="space-y-3.5">
+                            {messages.map((message) => {
+                                const isOwn = message.sender_kind !== 'CLIENT_ACCESS';
+                                const senderName = isOwn ? 'Agency' : 'Client';
+                                return (
+                                    <article key={message.id} className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+                                        <span
+                                            aria-hidden="true"
+                                            className={`flex h-6 w-6 shrink-0 select-none items-center justify-center rounded-full text-[10px] font-bold ${isOwn ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-600'}`}
+                                        >
+                                            {senderName.charAt(0)}
+                                        </span>
+                                        <div className={`flex max-w-[85%] flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+                                            <div className={`rounded-lg px-3 py-2 text-[12px] leading-relaxed shadow-sm ${isOwn ? 'rounded-br-sm bg-blue-900 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-700'}`}>
+                                                {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
+                                                {message.attachments?.length > 0 && (
+                                                    <div className="mt-2 space-y-1.5">
+                                                        {message.attachments.map((attachment) => {
+                                                            const downloadHref = route('referrals.client-requests.attachments.download', [request.referral_id, attachment.id]);
+                                                            const fileType = typeof attachment.file_type === 'string' ? attachment.file_type : '';
+                                                            const isImage = fileType.startsWith('image/');
+                                                            const isPdf = fileType === 'application/pdf';
+                                                            return (
+                                                                <div key={attachment.id} className="flex items-center gap-1.5">
+                                                                    {isImage
+                                                                        ? <AttachmentThumb attachment={attachment} href={downloadHref} onPreview={() => setPreview(attachment)} />
+                                                                        : isPdf
+                                                                            ? <button type="button" onClick={() => setPreview(attachment)} aria-label={`Preview ${attachment.file_name}`} title={`Preview ${attachment.file_name}`} className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors ${isOwn ? 'border-white/20 bg-white/10 text-blue-100 hover:bg-white/20' : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                                                                <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                                                                            </button>
+                                                                            : <span className="material-symbols-outlined shrink-0 text-[13px] text-slate-400">description</span>}
+                                                                    <a href={downloadHref} className={`flex min-w-0 items-center gap-1.5 text-[10px] font-semibold hover:underline ${isOwn ? 'text-blue-100' : 'text-blue-900'}`}>
+                                                                        <span className="truncate">{attachment.file_name}</span>
+                                                                        {attachment.size > 0 && <span className={`shrink-0 text-[9px] font-normal ${isOwn ? 'text-blue-200' : 'text-slate-400'}`}>{formatDisplayBytes(attachment.size)}</span>}
+                                                                    </a>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className={`mt-1 text-[9px] text-slate-400 ${isOwn ? 'text-right' : ''}`}>{senderName} · {formatDisplayDateTime(message.created_at)}</p>
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                            <span aria-hidden="true" className="material-symbols-outlined text-[22px] text-slate-300">forum</span>
+                            <p className="mt-1.5 text-[11px] text-slate-500">
+                                {!isOversight && permissions.canReply && !isTerminal ? 'No messages yet. Use the reply box below to start the conversation.' : 'No messages yet.'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {!isOversight && permissions.canReply && !isTerminal && (
                 <form onSubmit={sendReply} className="mt-3 border-t border-slate-200 pt-3">
                     <label htmlFor={`request-reply-${request.id}`} className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Reply to client</label>
-                    <textarea id={`request-reply-${request.id}`} value={reply} onChange={(event) => { setReply(event.target.value); setError(''); }} rows={2} disabled={!!loading} className="mt-1.5 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 disabled:opacity-60" placeholder="Write a reply..." />
-                    <div className="mt-1.5 flex justify-end"><button type="submit" disabled={!!loading || !reply.trim()} className="h-[28px] rounded-md bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{loading === 'referrals.client-requests.messages.store' ? 'Sending…' : 'Send reply'}</button></div>
+                    <textarea id={`request-reply-${request.id}`} value={reply} onChange={(event) => { setReply(event.target.value); setError(''); }} rows={2} disabled={!!loading} className="mt-1.5 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 disabled:opacity-60" placeholder="Write a reply…" />
+                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[10px] text-slate-400">Your reply will be shared with the client.</p>
+                        <button type="submit" disabled={!!loading || !reply.trim()} className="inline-flex h-[28px] items-center gap-1.5 rounded-md bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
+                            <span aria-hidden="true" className="material-symbols-outlined text-[13px]">{loading === 'referrals.client-requests.messages.store' ? 'progress_activity' : 'send'}</span>
+                            {loading === 'referrals.client-requests.messages.store' ? 'Sending…' : 'Send reply'}
+                        </button>
+                    </div>
                 </form>
             )}
 
@@ -233,15 +333,54 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate }) {
             )}
 
             <ClientRequestAccess request={request} canIssue={!isOversight && permissions.canCreate} canRevoke={permissions.canRevokeAccess} onMutate={onMutate} />
+
+            <Modal show={preview !== null} maxWidth="2xl" onClose={() => setPreview(null)}>
+                {preview && (
+                    <div className="bg-white">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
+                            <div className="min-w-0">
+                                <p className="truncate text-[12px] font-bold text-slate-800">{preview.file_name}</p>
+                                {preview.size > 0 && <p className="text-[10px] text-slate-400">{formatDisplayBytes(preview.size)}</p>}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                                <a href={route('referrals.client-requests.attachments.download', [request.referral_id, preview.id])} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-blue-900 transition-colors hover:bg-blue-50">
+                                    <span className="material-symbols-outlined text-[14px]">download</span>
+                                    Download
+                                </a>
+                                <button type="button" onClick={() => setPreview(null)} aria-label="Close preview" className="inline-flex items-center justify-center rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700">
+                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex max-h-[70vh] items-center justify-center overflow-auto bg-slate-100 p-3">
+                            {typeof preview.file_type === 'string' && preview.file_type.startsWith('image/') ? (
+                                <img
+                                    src={route('referrals.client-requests.attachments.download', [request.referral_id, preview.id])}
+                                    alt={preview.file_name}
+                                    className="max-h-[65vh] max-w-full object-contain"
+                                />
+                            ) : (
+                                <iframe
+                                    src={route('referrals.client-requests.attachments.download', [request.referral_id, preview.id])}
+                                    title={preview.file_name}
+                                    className="h-[65vh] w-full rounded-md border-0 bg-white"
+                                />
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </article>
     );
 }
 
 function ClientRequestsSection({ referral, requests, permissions, isReceivingAgency, isCaseManager, isAdmin }) {
     const [showCreate, setShowCreate] = useState(false);
+    const [selectedRequestId, setSelectedRequestId] = useState(null);
     const createForm = useForm({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''] });
     const isOversight = isCaseManager || isAdmin || !isReceivingAgency;
     const canCreate = isReceivingAgency && permissions.canCreate;
+    const activeRequest = requests.find((request) => request.id === selectedRequestId) ?? requests[0];
     const reloadRequests = () => router.reload({ only: ['clientRequestHistory', 'clientRequestPermissions', 'timeline'], preserveScroll: true });
 
     function submitCreate(event) {
@@ -261,7 +400,50 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                     {canCreate && <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-[28px] items-center gap-1.5 rounded-md border border-blue-900 bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800"><span className="material-symbols-outlined text-[14px]">add</span>Request client</button>}
                 </div>
                 {isOversight && <div className="mb-3 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2"><span className="material-symbols-outlined text-[16px] text-sky-700">visibility</span><p className="text-[11px] font-semibold text-sky-800">Oversight view — request history and messages are read-only.</p></div>}
-                {requests.length > 0 ? <div className="space-y-3">{requests.map((request) => <ClientRequestCard key={request.id} request={request} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} />)}</div> : <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-slate-200 py-7 text-center"><span className="material-symbols-outlined text-[24px] text-slate-300">inbox</span><p className="mt-2 text-[11px] font-semibold text-slate-500">No client requests yet</p><p className="mt-1 text-[10px] text-slate-400">Requests created here will appear in this history.</p></div>}
+                {requests.length > 1 ? (
+                    <div className="overflow-hidden rounded-md border border-slate-200 bg-white md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
+                        <aside className="flex flex-col border-b border-slate-200 bg-slate-50/70 md:border-b-0 md:border-r">
+                            <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2.5">
+                                <span aria-hidden="true" className="material-symbols-outlined text-[15px] text-slate-400">forum</span>
+                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Conversations</p>
+                                <span className="ml-auto rounded-full bg-blue-900/10 px-2 py-0.5 text-[9px] font-bold text-blue-900">{requests.length}</span>
+                            </div>
+                            <ul className="max-h-[26rem] overflow-y-auto overscroll-contain">
+                                {requests.map((request) => {
+                                    const itemStatus = clientRequestStatus(request.status);
+                                    const isActive = request.id === activeRequest.id;
+                                    const lastMessage = request.messages?.[request.messages.length - 1];
+                                    const lastSender = lastMessage ? (lastMessage.sender_kind === 'CLIENT_ACCESS' ? 'Client' : 'Agency') : null;
+                                    return (
+                                        <li key={request.id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedRequestId(request.id)}
+                                                aria-current={isActive ? 'true' : undefined}
+                                                className={`w-full border-l-2 px-3 py-2.5 text-left transition-colors ${isActive ? 'border-blue-900 bg-blue-50/70' : 'border-transparent hover:bg-slate-100'}`}
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className={`min-w-0 truncate text-[12px] font-bold ${isActive ? 'text-blue-900' : 'text-slate-800'}`}>{request.title}</p>
+                                                    <span className={`shrink-0 rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide ${itemStatus.classes}`}>{itemStatus.label}</span>
+                                                </div>
+                                                <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                                                    {CLIENT_REQUEST_TYPES[request.type] ?? 'Client request'}
+                                                    {lastMessage?.body ? ` · ${lastSender}: ${lastMessage.body}` : ''}
+                                                </p>
+                                                <p className="mt-0.5 text-[9px] text-slate-400">{request.messages?.length ?? 0} {request.messages?.length === 1 ? 'message' : 'messages'}{request.due_at ? ` · Due ${formatDisplayDateTime(request.due_at)}` : ''}</p>
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </aside>
+                        <div className="min-w-0">
+                            <ClientRequestCard key={activeRequest.id} request={activeRequest} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} embedded />
+                        </div>
+                    </div>
+                ) : requests.length === 1 ? (
+                    <ClientRequestCard request={activeRequest} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} />
+                ) : <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-slate-200 py-7 text-center"><span className="material-symbols-outlined text-[24px] text-slate-300">inbox</span><p className="mt-2 text-[11px] font-semibold text-slate-500">No client requests yet</p><p className="mt-1 text-[10px] text-slate-400">Requests created here will appear in this history.</p></div>}
             </CardSection>
 
             {showCreate && (

@@ -40,13 +40,14 @@ class ReferralClientRequestRaceSafetyTest extends TestCase
         $service->sendClientMessage($context['request'], 'A reply', $context['link']);
     }
 
-    public function test_terminal_transition_revokes_links_and_rejects_client_message(): void
+    public function test_completed_request_keeps_link_viewable_but_rejects_client_message(): void
     {
         $context = $this->context();
         $service = app(ReferralClientRequestService::class);
         $service->complete($context['request'], $context['agencyUser']);
 
-        $this->assertNotNull($context['link']->fresh()->revoked_at);
+        $this->assertNull($context['link']->fresh()->revoked_at);
+        $this->assertTrue($context['link']->fresh()->expires_at->isFuture());
         $this->expectException(LogicException::class);
         $service->sendClientMessage($context['request'], 'A late reply', $context['link']);
     }

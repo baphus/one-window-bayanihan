@@ -36,7 +36,7 @@ class IntakeSubmissionTest extends TestCase
             'client' => [
                 'first_name' => 'Juan',
                 'last_name' => 'Dela Cruz',
-                'middle_initial' => 'M',
+                'middle_name' => 'Mendoza',
                 'suffix' => null,
                 'date_of_birth' => '1990-01-15',
                 'sex' => 'MALE',
@@ -88,6 +88,7 @@ class IntakeSubmissionTest extends TestCase
         $this->assertNotNull($client, 'Client should have been created');
         $this->assertEquals('Juan', $client->first_name);
         $this->assertEquals('Dela Cruz', $client->last_name);
+        $this->assertEquals('Mendoza', $client->middle_name);
 
         // Assert no User account was created (accountless flow)
         $user = User::where('email', $email)->where('role', 'OFW')->first();
@@ -153,6 +154,79 @@ class IntakeSubmissionTest extends TestCase
             ->postJson('/intake/submit', $this->validIntakeData());
 
         $response->assertStatus(422);
+    }
+
+    #[Test]
+    public function test_intake_omitting_next_of_kin_is_accepted(): void
+    {
+        $email = 'nok-absent@example.com';
+
+        $data = $this->validIntakeData();
+        unset($data['next_of_kin']);
+
+        $response = $this->withSession(['intake_verified_email' => $email])
+            ->postJson('/intake/submit', $data);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
+
+        $client = Client::where('email', $email)->first();
+        $this->assertNotNull($client);
+        $this->assertEquals(0, $client->nextOfKin()->count());
+    }
+
+    #[Test]
+    public function test_intake_with_untouched_next_of_kin_step_is_accepted(): void
+    {
+        $email = 'nok-empty@example.com';
+
+        $data = $this->validIntakeData();
+        // Mirrors the wizard's default shape when the optional NOK step is
+        // skipped: an array with one fully-empty entry.
+        $data['next_of_kin'] = [[
+            'first_name' => '',
+            'last_name' => '',
+            'middle_name' => '',
+            'relationship' => '',
+            'phone_number' => '',
+            'email' => '',
+            'region' => '',
+            'province' => '',
+            'city_municipality' => '',
+            'barangay' => '',
+            'street' => '',
+        ]];
+
+        $response = $this->withSession(['intake_verified_email' => $email])
+            ->postJson('/intake/submit', $data);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
+
+        $client = Client::where('email', $email)->first();
+        $this->assertNotNull($client);
+        $this->assertEquals(0, $client->nextOfKin()->count());
+    }
+
+    #[Test]
+    public function test_intake_requires_dob_phone_and_address(): void
+    {
+        $email = 'missing-fields@example.com';
+
+        $data = $this->validIntakeData();
+        unset($data['client']['date_of_birth'], $data['client']['contact_number'], $data['address']);
+
+        $response = $this->withSession(['intake_verified_email' => $email])
+            ->postJson('/intake/submit', $data);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors([
+            'client.date_of_birth',
+            'client.contact_number',
+            'address.region',
+            'address.city_municipality',
+            'address.barangay',
+        ]);
     }
 
     #[Test]

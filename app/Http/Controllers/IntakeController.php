@@ -76,7 +76,7 @@ class IntakeController extends Controller
         return [
             'first_name' => $client->first_name,
             'last_name' => $client->last_name,
-            'middle_initial' => $client->middle_initial,
+            'middle_name' => $client->middle_name,
             'suffix' => $client->suffix,
             'date_of_birth' => $client->date_of_birth?->toDateString(),
             'sex' => $client->sex ? ucfirst(strtolower($client->sex)) : null,
@@ -107,7 +107,7 @@ class IntakeController extends Controller
                 ]);
 
                 return array_merge($nok->only([
-                    'first_name', 'last_name', 'middle_initial', 'relationship',
+                    'first_name', 'last_name', 'middle_name', 'relationship',
                     'phone_number', 'email', 'region', 'province', 'city_municipality',
                     'barangay', 'street',
                 ]), $resolved, ['is_primary' => $index === 0]);

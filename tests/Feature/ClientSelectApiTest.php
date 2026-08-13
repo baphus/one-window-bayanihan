@@ -99,7 +99,7 @@ class ClientSelectApiTest extends TestCase
                         'id',
                         'first_name',
                         'last_name',
-                        'middle_initial',
+                        'middle_name',
                         'suffix',
                         'sex',
                         'date_of_birth',

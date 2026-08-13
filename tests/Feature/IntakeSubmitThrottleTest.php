@@ -43,7 +43,15 @@ class IntakeSubmitThrottleTest extends TestCase
                 'first_name' => 'Juan',
                 'last_name' => 'Dela Cruz',
                 'sex' => 'MALE',
+                'date_of_birth' => '1990-01-15',
                 'contact_number' => '+639171234567',
+            ],
+            'address' => [
+                'region' => 'Region VII',
+                'province' => 'Cebu',
+                'city_municipality' => 'Cebu City',
+                'barangay' => 'Lahug',
+                'street' => '123 Main Street',
             ],
             'next_of_kin' => [
                 [

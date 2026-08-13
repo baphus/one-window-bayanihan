@@ -50,6 +50,7 @@ class ReferralService
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly CaseEventRecorder $eventRecorder,
+        private readonly ReferralClientRequestService $clientRequestService,
     ) {}
 
     public static function referralStatsCacheKey(?string $userAgencyId, ?string $userRole, ?string $userId): string
@@ -261,7 +262,7 @@ class ReferralService
                     ->orWhereHas('caseFile.client', function ($q) use ($search) {
                         $q->where('first_name', 'ilike', "%{$search}%")
                             ->orWhere('last_name', 'ilike', "%{$search}%")
-                            ->orWhere('middle_initial', 'ilike', "%{$search}%");
+                            ->orWhere('middle_name', 'ilike', "%{$search}%");
                     });
             });
         }
@@ -295,8 +296,8 @@ class ReferralService
                     'creator:id,name,role',
                     'messages' => fn ($messages) => $messages
                         ->where('is_deleted', false)
-                        ->with('user:id,name,role')
-                        ->latest(),
+                        ->with(['user:id,name,role', 'attachments'])
+                        ->orderBy('created_at'),
                     'accessLinks:id,request_id,expires_at,revoked_at,first_used_at,last_used_at,use_count',
                     'milestone:id,refr_id,client_request_id,title,description,created_at',
                 ])
@@ -316,6 +317,7 @@ class ReferralService
         return $referral->clientRequests->map(function (ReferralClientRequest $request): array {
             return [
                 'id' => $request->id,
+                'referral_id' => $request->referral_id,
                 'type' => $request->type,
                 'title' => $request->title,
                 'instructions' => $request->instructions,
@@ -344,6 +346,16 @@ class ReferralService
                         'name' => $message->user->name,
                         'role' => $message->user->role,
                     ] : null,
+                    'attachments' => $message->attachments
+                        ->map(fn ($attachment) => [
+                            'id' => $attachment->id,
+                            'file_name' => $attachment->file_name,
+                            'file_type' => $attachment->file_type,
+                            'size' => $attachment->size,
+                            'created_at' => $attachment->created_at?->toISOString(),
+                        ])
+                        ->values()
+                        ->all(),
                 ])->values()->all(),
                 'access_links' => $request->accessLinks->map(function ($link): array {
                     $usable = $link->revoked_at === null && $link->expires_at?->isFuture() === true;
@@ -374,11 +386,12 @@ class ReferralService
             && $actor->is_active
             && $actor->agcy_id === $referral->agcy_id;
         $oversight = $actor->isAdmin() || $actor->isCaseManager();
+        $writesAllowed = $receivingAgency && $this->clientRequestService->isClientFacingWriteAllowed($referral);
 
         return [
-            'canCreate' => $receivingAgency,
-            'canReply' => $receivingAgency,
-            'canTransition' => $receivingAgency,
+            'canCreate' => $writesAllowed,
+            'canReply' => $writesAllowed,
+            'canTransition' => $writesAllowed,
             'canRevokeAccess' => $receivingAgency || $oversight,
         ];
     }

@@ -8,8 +8,13 @@ import AddressDropdowns from '@/Components/AddressDropdowns';
 import PhoneInput from '@/Components/PhoneInput';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
+import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import { getTurnstileError } from '@/lib/turnstile';
+
+// Mirrors IntakeRegistrationController: Password::min(8)->mixedCase()->numbers().
+// (No symbol requirement — the shared `passwordRules` prop must not be used here.)
+const REGISTRATION_PASSWORD_RULES = { min_length: 8, require_mixed_case: true, require_numbers: true };
 
 const STEPS = [
   { id: 'email', label: 'Email Verification' },
@@ -43,11 +48,11 @@ function emptyForm() {
   return {
     email: '',
     otp: '',
-    client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: '', contact_number: '' },
+    client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: '', contact_number: '' },
     address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
     employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
     vulnerability: [],
-    next_of_kin: [{ first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+    next_of_kin: [{ first_name: '', last_name: '', middle_name: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
     summary: '',
     consent: false,
   };
@@ -62,7 +67,7 @@ function formWithExistingClient(existingClient) {
   const base = emptyForm();
   if (!existingClient) return base;
 
-  const clientFields = ['first_name', 'last_name', 'middle_initial', 'suffix', 'date_of_birth', 'sex', 'contact_number'];
+  const clientFields = ['first_name', 'last_name', 'middle_name', 'suffix', 'date_of_birth', 'sex', 'contact_number'];
   const next = {
     ...base,
     client: { ...base.client },
@@ -541,11 +546,17 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
 
 function PersonalStep({ formData, updateField, errors, identityLocked = false, onNext, onBack }) {
   const [stepErrors, setStepErrors] = useState({});
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const validate = () => {
     const errs = {};
     if (!formData.client.first_name.trim()) errs.first_name = 'Please provide your first name.';
     if (!formData.client.last_name.trim()) errs.last_name = 'Please provide your last name.';
+    if (!identityLocked && !formData.client.date_of_birth) errs.date_of_birth = 'Please provide your date of birth.';
+    if (formData.client.date_of_birth && formData.client.date_of_birth > today) errs.date_of_birth = 'Date of birth cannot be in the future.';
+    if (!formData.client.contact_number.trim()) errs.contact_number = 'Please provide your contact number.';
+    if (!identityLocked && !formData.client.sex) errs.sex = 'Please select your sex.';
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -573,9 +584,9 @@ function PersonalStep({ formData, updateField, errors, identityLocked = false, o
           {stepErrors.last_name && <p className="mt-1 text-xs text-error">{stepErrors.last_name}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Initial</label>
-          <input type="text" maxLength={1} value={formData.client.middle_initial} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => updateField('client.middle_initial', e.target.value.toUpperCase())}
-            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm uppercase focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`} />
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Name</label>
+          <input type="text" value={formData.client.middle_name} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => updateField('client.middle_name', e.target.value)}
+            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`} />
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Suffix</label>
@@ -591,9 +602,10 @@ function PersonalStep({ formData, updateField, errors, identityLocked = false, o
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Birth</label>
-          <input type="date" value={formData.client.date_of_birth} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => updateField('client.date_of_birth', e.target.value)}
-            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`} />
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Birth *</label>
+          <input type="date" value={formData.client.date_of_birth} max={today} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => { updateField('client.date_of_birth', e.target.value); clearError('date_of_birth'); }}
+            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''} ${stepErrors.date_of_birth ? 'border-error' : ''}`} />
+          {stepErrors.date_of_birth && <p className="mt-1 text-xs text-error">{stepErrors.date_of_birth}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Sex *</label>
@@ -601,15 +613,16 @@ function PersonalStep({ formData, updateField, errors, identityLocked = false, o
               selected while state is still empty, so the filer sees an
               answered control and submits nothing. Case managers cannot
               publish a case with no sex, so the submission dead-ends. */}
-          <select value={formData.client.sex ?? ''} disabled={identityLocked} onChange={e => updateField('client.sex', e.target.value)}
-            className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`}>
+          <select value={formData.client.sex ?? ''} disabled={identityLocked} onChange={e => { updateField('client.sex', e.target.value); clearError('sex'); }}
+            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${stepErrors.sex ? 'border-error' : 'border-outline-variant focus:border-primary'} ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''}`}>
             <option value="">Select…</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
           </select>
+          {stepErrors.sex && <p className="mt-1 text-xs text-error">{stepErrors.sex}</p>}
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Contact Number</label>
+          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Contact Number *</label>
           <PhoneInput value={formData.client.contact_number} onChange={val => updateField('client.contact_number', val)} />
         </div>
       </div>
@@ -623,13 +636,27 @@ function PersonalStep({ formData, updateField, errors, identityLocked = false, o
 }
 
 function AddressStep({ formData, updateField, errors, onNext, onBack }) {
+  const [stepErrors, setStepErrors] = useState({});
+
   const handleAddressChange = (field, value) => {
     if (typeof field === 'object') {
       // Batch update from AddressDropdowns cascade
       Object.entries(field).forEach(([key, val]) => updateField('address.' + key, val));
+      setStepErrors({});
     } else {
       updateField('address.' + field, value);
+      setStepErrors(prev => ({ ...prev, [field]: undefined }));
     }
+  };
+
+  const validate = () => {
+    const errs = {};
+    const { region, city_municipality, barangay } = formData.address;
+    if (!region) errs.region = 'Please select your region.';
+    if (!city_municipality) errs.city_municipality = 'Please select your city/municipality.';
+    if (!barangay) errs.barangay = 'Please select your barangay.';
+    setStepErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   return (
@@ -641,16 +668,16 @@ function AddressStep({ formData, updateField, errors, onNext, onBack }) {
         values={formData.address}
         onChange={handleAddressChange}
         errors={{
-          region: errors['address.region'],
+          region: stepErrors.region || errors['address.region'],
           province: errors['address.province'],
-          city_municipality: errors['address.city_municipality'],
-          barangay: errors['address.barangay'],
+          city_municipality: stepErrors.city_municipality || errors['address.city_municipality'],
+          barangay: stepErrors.barangay || errors['address.barangay'],
         }}
       />
 
       <div className="mt-8 flex justify-between">
         <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
-        <button type="button" onClick={onNext} className="bg-primary px-8 py-3 text-sm font-bold text-white hover:brightness-110">Continue</button>
+        <button type="button" onClick={() => validate() && onNext()} className="bg-primary px-8 py-3 text-sm font-bold text-white hover:brightness-110">Continue</button>
       </div>
     </div>
   );
@@ -667,11 +694,33 @@ function EmploymentStep({ formData, updateField, errors, occupationOptions, onNe
     return unique.map(p => ({ value: p, label: p }));
   }, [occupationOptions]);
 
+  const [stepErrors, setStepErrors] = useState({});
+
+  const clearError = (key) => setStepErrors(prev => ({ ...prev, [key]: undefined }));
+
   const handleEmploymentPresentChange = (checked) => {
     updateField('employment.is_present', checked);
     if (checked) {
       updateField('employment.end_date', '');
+      clearError('end_date');
     }
+  };
+
+  const validate = () => {
+    const errs = {};
+    const { start_date, end_date, date_of_arrival, is_present } = formData.employment;
+    const dob = formData.client.date_of_birth;
+    if (start_date && end_date && !is_present && end_date < start_date) {
+      errs.end_date = 'End date must be on or after the start date.';
+    }
+    if (dob && start_date && start_date < dob) {
+      errs.start_date = 'Start date cannot be before your date of birth.';
+    }
+    if (dob && date_of_arrival && date_of_arrival < dob) {
+      errs.date_of_arrival = 'Date of arrival cannot be before your date of birth.';
+    }
+    setStepErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   return (
@@ -699,8 +748,10 @@ function EmploymentStep({ formData, updateField, errors, occupationOptions, onNe
             <input
               type="date"
               value={formData.employment.start_date}
-              onChange={e => updateField('employment.start_date', e.target.value)}
-              className="h-10 flex-1 min-w-0 rounded border border-outline-variant bg-surface-container px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              min={formData.client.date_of_birth || undefined}
+              max={formData.employment.end_date || undefined}
+              onChange={e => { updateField('employment.start_date', e.target.value); clearError('start_date'); }}
+              className={`h-10 flex-1 min-w-0 rounded border bg-surface-container px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary ${stepErrors.start_date ? 'border-error' : 'border-outline-variant'}`}
             />
             <span className="text-xs font-bold text-slate-400 shrink-0">to</span>
             {formData.employment.is_present ? (
@@ -711,12 +762,14 @@ function EmploymentStep({ formData, updateField, errors, occupationOptions, onNe
               <input
                 type="date"
                 value={formData.employment.end_date}
-                onChange={e => updateField('employment.end_date', e.target.value)}
+                onChange={e => { updateField('employment.end_date', e.target.value); clearError('end_date'); }}
                 min={formData.employment.start_date || undefined}
-                className="h-10 flex-1 min-w-0 rounded border border-outline-variant bg-surface-container px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className={`h-10 flex-1 min-w-0 rounded border bg-surface-container px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary ${stepErrors.end_date ? 'border-error' : 'border-outline-variant'}`}
               />
             )}
           </div>
+          {stepErrors.start_date && <p className="mt-1 text-xs text-error">{stepErrors.start_date}</p>}
+          {stepErrors.end_date && <p className="mt-1 text-xs text-error">{stepErrors.end_date}</p>}
           <label className="mt-2 inline-flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -729,8 +782,9 @@ function EmploymentStep({ formData, updateField, errors, occupationOptions, onNe
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Arrival in PH</label>
-          <input type="date" value={formData.employment.date_of_arrival} onChange={e => updateField('employment.date_of_arrival', e.target.value)}
-            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none" />
+          <input type="date" value={formData.employment.date_of_arrival} min={formData.client.date_of_birth || undefined} onChange={e => { updateField('employment.date_of_arrival', e.target.value); clearError('date_of_arrival'); }}
+            className={`w-full border bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${stepErrors.date_of_arrival ? 'border-error' : 'border-outline-variant'}`} />
+          {stepErrors.date_of_arrival && <p className="mt-1 text-xs text-error">{stepErrors.date_of_arrival}</p>}
         </div>
       </div>
 
@@ -763,7 +817,7 @@ function EmploymentStep({ formData, updateField, errors, occupationOptions, onNe
 
       <div className="mt-8 flex justify-between">
         <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
-        <button type="button" onClick={onNext} className="bg-primary px-8 py-3 text-sm font-bold text-white hover:brightness-110">Continue</button>
+        <button type="button" onClick={() => validate() && onNext()} className="bg-primary px-8 py-3 text-sm font-bold text-white hover:brightness-110">Continue</button>
       </div>
     </div>
   );
@@ -776,7 +830,7 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   const addNok = () => {
     setFormData(prev => ({
       ...prev,
-      next_of_kin: [...prev.next_of_kin, { first_name: '', last_name: '', middle_initial: '', relationship: '', phone_number: '', email: '', is_primary: false, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+      next_of_kin: [...prev.next_of_kin, { first_name: '', last_name: '', middle_name: '', relationship: '', phone_number: '', email: '', is_primary: false, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
     }));
   };
 
@@ -821,7 +875,10 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
 
   const validate = () => {
     const errs = {};
-    if (!formData.next_of_kin[0]?.first_name?.trim()) errs.nok0_first_name = 'Emergency contact name is required.';
+    const anyNokFilled = formData.next_of_kin.some((nok) =>
+      Object.values(nok).some((v) => typeof v === 'string' && v.trim() !== ''),
+    );
+    if (anyNokFilled && !formData.next_of_kin[0]?.first_name?.trim()) errs.nok0_first_name = 'Emergency contact name is required when a contact is provided.';
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -829,7 +886,7 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   return (
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Emergency Contact (Next of Kin)</h2>
-      <p className="mb-6 text-sm text-slate-500">Provide at least one emergency contact person.</p>
+      <p className="mb-6 text-sm text-slate-500">Optional — add an emergency contact if you have one.</p>
 
       {formData.next_of_kin.map((nok, i) => (
         <div key={i} className="mb-6 rounded border border-outline-variant p-4">
@@ -859,9 +916,9 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
               {i === 0 && stepErrors.nok0_first_name && <p className="mt-1 text-xs text-error">{stepErrors.nok0_first_name}</p>}
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Initial</label>
-              <input type="text" value={nok.middle_initial} onChange={e => updateNok(i, 'middle_initial', e.target.value.toUpperCase())} maxLength={1}
-                className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm uppercase focus:border-primary focus:outline-none" />
+              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Name</label>
+              <input type="text" value={nok.middle_name} onChange={e => updateNok(i, 'middle_name', e.target.value)}
+                className="w-full border border-outline-variant bg-surface-container px-3 py-2 text-sm focus:border-primary focus:outline-none" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Last Name</label>
@@ -1140,6 +1197,7 @@ function IntakeSuccess({ caseNumber, trackerNumber, email }) {
                         className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${registerErrors.password ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
                       />
                       {registerErrors.password && <p className="mt-1 text-xs text-error">{registerErrors.password[0]}</p>}
+                      <PasswordStrengthMeter value={password} rules={REGISTRATION_PASSWORD_RULES} confirmation={passwordConfirmation} />
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Confirm Password</label>
@@ -1150,6 +1208,7 @@ function IntakeSuccess({ caseNumber, trackerNumber, email }) {
                         placeholder="Re-enter your password"
                         className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
                       />
+                      {registerErrors.password_confirmation && <p className="mt-1 text-xs text-error">{registerErrors.password_confirmation[0]}</p>}
                     </div>
                     <button
                       type="button"

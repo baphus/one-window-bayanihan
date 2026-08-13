@@ -129,7 +129,7 @@
         <tr>
             <td class="label">Full Name</td>
             <td class="value">
-                {{ trim($client->last_name . ', ' . $client->first_name . ' ' . $client->middle_initial) }}
+                {{ trim($client->last_name . ', ' . $client->first_name . ' ' . $client->middle_name) }}
                 @if($client->suffix) {{ $client->suffix }} @endif
             </td>
             <td class="label">Date of Birth</td>
@@ -179,7 +179,7 @@
     <table class="info-table">
         <tr>
             <td class="label">Name</td>
-            <td class="value">{{ trim($nok->last_name . ', ' . $nok->first_name . ' ' . $nok->middle_initial) ?: '—' }}</td>
+            <td class="value">{{ trim($nok->last_name . ', ' . $nok->first_name . ' ' . $nok->middle_name) ?: '—' }}</td>
             <td class="label">Relationship</td>
             <td class="value">{{ $nok->relationship ?? '—' }}</td>
         </tr>

@@ -19,9 +19,9 @@ export default function HeroSection({ title, description, onTrackAction, agencie
       <div className="relative z-10 flex flex-1 items-center px-4 pt-28 pb-16 md:px-8 md:pt-32">
         <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6">
 
-          {/* Emblem row — DMW left, Bagong Pilipinas right */}
+          {/* Emblem row — DMW and Bagong Pilipinas centered side-by-side */}
           <div
-            className="animate-fade-in-up flex w-full items-center justify-between px-4 sm:px-8"
+            className="animate-fade-in-up flex w-full items-center justify-center gap-6 px-4 sm:gap-10 sm:px-8"
             style={{ animationDelay: '0.1s', animationFillMode: 'both' }}
           >
             {/* DMW Seal */}
@@ -30,7 +30,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
               <img
                 src="https://res.cloudinary.com/dzjshue6h/image/upload/v1783960989/agency-logos/agency-dmw.png"
                 alt="Department of Migrant Workers Official Seal"
-                className="relative h-[36px] w-[36px] rounded-full object-contain drop-shadow-2xl sm:h-[48px] sm:w-[48px] lg:h-[64px] lg:w-[64px]"
+                className="relative h-14 w-14 rounded-full object-contain drop-shadow-2xl sm:h-20 sm:w-20 lg:h-24 lg:w-24"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -41,7 +41,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
               <img
                 src="/images/landing/logo-bagong-pilipinas.webp"
                 alt="Bagong Pilipinas Official Logo"
-                className="relative h-[36px] w-[36px] rounded-full object-contain drop-shadow-2xl sm:h-[48px] sm:w-[48px] lg:h-[64px] lg:w-[64px]"
+                className="relative h-14 w-14 rounded-full object-contain drop-shadow-2xl sm:h-20 sm:w-20 lg:h-24 lg:w-24"
               />
             </div>
           </div>

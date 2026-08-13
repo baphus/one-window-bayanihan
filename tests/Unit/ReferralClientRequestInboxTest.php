@@ -32,6 +32,36 @@ class ReferralClientRequestInboxTest extends TestCase
         $this->assertSame('https://example.test/track/request/opaque-token', $mail->magicLink);
     }
 
+    public function test_mail_labels_are_type_specific(): void
+    {
+        $cases = [
+            ReferralClientRequest::TYPE_DOCUMENT_REQUEST => ['Document Request', 'Submit Documents'],
+            ReferralClientRequest::TYPE_QUESTION => ['Question', 'Answer Question'],
+            ReferralClientRequest::TYPE_INFORMATION_UPDATE => ['Information Update', 'Update Information'],
+        ];
+
+        foreach ($cases as $type => [$typeLabel, $ctaLabel]) {
+            $mail = new ClientRequestMail(
+                new ReferralClientRequest(['type' => $type]),
+                str_repeat('b', 43),
+                'https://example.test/track/request/opaque-token',
+            );
+
+            $this->assertSame($typeLabel, $mail->getRequestTypeLabel());
+            $this->assertSame($ctaLabel, $mail->getActionLabel());
+            $this->assertSame($ctaLabel, $mail->content()->with['ctaLabel']);
+            $this->assertStringContainsString($ctaLabel, $mail->render());
+        }
+
+        $fallback = new ClientRequestMail(
+            new ReferralClientRequest(['type' => 'UNKNOWN']),
+            str_repeat('b', 43),
+            'https://example.test/track/request/opaque-token',
+        );
+        $this->assertSame('Request', $fallback->getRequestTypeLabel());
+        $this->assertSame('View Request', $fallback->getActionLabel());
+    }
+
     public function test_notification_payload_contains_only_request_safe_fields(): void
     {
         $payload = (new ReferralClientRequestActivity(
@@ -76,12 +106,13 @@ class ReferralClientRequestInboxTest extends TestCase
             'actions' => [
                 'reply' => route('track.request.messages.store'),
                 'requestReplacement' => route('track.request.replacement'),
+                'exchange' => route('track.request.exchange'),
             ],
         ];
 
         $this->assertSame('ready', $panel['state']);
         $this->assertSame(['type', 'title', 'instructions', 'due_at', 'status', 'agency_name', 'checklist', 'messages'], array_keys($panel['activeRequest']));
-        $this->assertSame(['reply', 'requestReplacement'], array_keys($panel['actions']));
+        $this->assertSame(['reply', 'requestReplacement', 'exchange'], array_keys($panel['actions']));
         $this->assertStringNotContainsString('token', json_encode($panel));
     }
 

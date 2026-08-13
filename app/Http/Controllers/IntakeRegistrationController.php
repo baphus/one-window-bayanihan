@@ -31,7 +31,7 @@ class IntakeRegistrationController extends Controller
         }
 
         $validated = $request->validate([
-            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()],
+            'password' => ['required', 'string', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
 
         // Find the client created during intake submission

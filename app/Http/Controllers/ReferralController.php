@@ -56,7 +56,6 @@ class ReferralController extends Controller
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
-            'exportRowCount' => (new DataExportQueries)->countReferralsExport($user, array_filter(array_merge($request->only(['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to']), $categoryFilters))),
         ]);
     }
 
@@ -594,6 +593,25 @@ class ReferralController extends Controller
             $data,
             $filename
         );
+    }
+
+    /**
+     * Live row count for the export dialog. Applies the exact same filters as
+     * exportExcel (including the dialog's date range) so the preview always
+     * matches what the download produces.
+     */
+    public function exportCount(Request $request)
+    {
+        $user = $request->user();
+
+        $filters = array_filter(array_merge($request->only([
+            'status', 'search', 'age_min_days', 'age_max_days',
+            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
+        ]), CategoryFilter::fromRequest($request)->toArray()));
+
+        $count = (new DataExportQueries)->countReferralsExport($user, $filters);
+
+        return response()->json(['count' => $count]);
     }
 
     /**

@@ -122,7 +122,7 @@ function formatSex(value) {
 
 const EMPTY_NOK_ROW = {
     first_name: '',
-    middle_initial: '',
+    middle_name: '',
     last_name: '',
     relationship: '',
     phone_number: '',
@@ -148,7 +148,7 @@ export default function Profile({ user, client }) {
     const [activeTab, setActiveTab] = useState(NAV_TABS[0].id);
 
     const fullName = client
-        ? [client.first_name, client.middle_initial, client.last_name].filter(Boolean).join(' ')
+        ? [client.first_name, client.middle_name, client.last_name].filter(Boolean).join(' ')
         : (user?.name ?? '');
     const initials = (client
         ? [client.first_name, client.last_name].filter(Boolean).map((s) => s[0])
@@ -209,7 +209,16 @@ export default function Profile({ user, client }) {
         last_country: z.string().max(255, MAX),
         last_position: z.string().max(255, MAX),
         date_of_arrival: z.string().max(10, 'Enter a valid date.'),
-    }), []);
+    }).superRefine((data, ctx) => {
+        // ISO dates (YYYY-MM-DD) compare lexicographically.
+        const dob = client?.date_of_birth;
+        if (data.start_date && data.end_date && data.start_date > data.end_date) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'End date must be on or after the start date.', path: ['end_date'] });
+        }
+        if (dob && data.start_date && data.start_date < dob) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Start date cannot be before your date of birth.', path: ['start_date'] });
+        }
+    }), [client?.date_of_birth]);
 
     // Merge curated defaults with previously entered occupations from the
     // backend, de-duplicate, sort, and shape as [value, label] pairs for
@@ -225,7 +234,7 @@ export default function Profile({ user, client }) {
     const nokSchema = useMemo(() => z.object({
         next_of_kin: z.array(z.object({
             first_name: z.string().max(255, MAX).optional(),
-            middle_initial: z.string().max(10, 'Must be 10 characters or fewer.').optional(),
+            middle_name: z.string().max(255, 'Must be 255 characters or fewer.').optional(),
             last_name: z.string().max(255, MAX).optional(),
             relationship: z.string().max(255, MAX).optional(),
             phone_number: z.string().max(20, 'Contact number must be 20 characters or fewer.').optional(),
@@ -636,7 +645,7 @@ export default function Profile({ user, client }) {
                                             </div>
                                             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                                                 <TextInput id={`nok_${i}_first`} label="First Name" value={row.first_name ?? ''} onChange={(v) => setNokField(i, 'first_name', v)} error={nokError(i, 'first_name')} />
-                                                <TextInput id={`nok_${i}_middle`} label="Middle Initial" value={row.middle_initial ?? ''} onChange={(v) => setNokField(i, 'middle_initial', v)} error={nokError(i, 'middle_initial')} maxLength={10} />
+                                                <TextInput id={`nok_${i}_middle`} label="Middle Name" value={row.middle_name ?? ''} onChange={(v) => setNokField(i, 'middle_name', v)} error={nokError(i, 'middle_name')} maxLength={255} />
                                                 <TextInput id={`nok_${i}_last`} label="Last Name" value={row.last_name ?? ''} onChange={(v) => setNokField(i, 'last_name', v)} error={nokError(i, 'last_name')} />
                                                 <TextInput id={`nok_${i}_rel`} label="Relationship" value={row.relationship ?? ''} onChange={(v) => setNokField(i, 'relationship', v)} error={nokError(i, 'relationship')} />
                                                 <TextInput id={`nok_${i}_phone`} label="Phone Number" type="tel" value={row.phone_number ?? ''} onChange={(v) => setNokField(i, 'phone_number', v)} error={nokError(i, 'phone_number')} maxLength={20} />
