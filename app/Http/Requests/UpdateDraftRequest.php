@@ -75,16 +75,16 @@ class UpdateDraftRequest extends FormRequest
 
             'client.first_name' => ['nullable', 'string', 'max:255'],
             'client.last_name' => ['nullable', 'string', 'max:255'],
-            'client.middle_initial' => ['nullable', 'string', 'max:1'],
+            'client.middle_name' => ['nullable', 'string', 'max:255'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
-            'client.date_of_birth' => ['nullable', 'date'],
+            'client.date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
             'client.sex' => ['nullable', 'string', 'max:50'],
             'client.email' => ['nullable', 'email', 'max:255'],
             'client.contact_number' => ['nullable', 'string', 'max:50'],
 
             'next_of_kin' => ['nullable', 'array'],
             'next_of_kin.*.first_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.middle_initial' => ['nullable', 'string', 'max:1'],
+            'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.last_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.is_primary' => ['nullable', 'boolean'],
             'next_of_kin.*.relationship' => ['nullable', 'string', 'max:255'],
@@ -111,11 +111,11 @@ class UpdateDraftRequest extends FormRequest
             'employment.employer_name' => ['nullable', 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => ['nullable', 'date'],
+            'employment.start_date' => ['nullable', 'date', 'after_or_equal:client.date_of_birth'],
             'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date'],
             'employment.last_country' => ['nullable', 'string', 'max:255'],
             'employment.last_position' => ['nullable', 'string', 'max:255'],
-            'employment.date_of_arrival' => ['nullable', 'date'],
+            'employment.date_of_arrival' => ['nullable', 'date', 'after_or_equal:client.date_of_birth'],
             'employment.is_present' => ['nullable', 'boolean'],
         ];
     }

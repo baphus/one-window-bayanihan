@@ -26,7 +26,7 @@ const COLUMN_DEFS = [
 
 function formatClientName(client) {
     if (!client) return 'N/A';
-    return [client.first_name, client.middle_initial, client.last_name, client.suffix].filter(Boolean).join(' ') || 'N/A';
+    return [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') || 'N/A';
 }
 
 function formatAddress(address) {
@@ -38,7 +38,7 @@ function getCategoryFilterIds(filters) {
     return (Array.isArray(value) ? value : (value ? [value] : [])).map(String);
 }
 
-export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [], exportRowCount = null }) {
+export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [] }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
@@ -68,7 +68,9 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         setExportDialogOpen(true);
     }, []);
 
-    const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
+    // Single query builder shared by the export download and the live row-count
+    // preview, so the count shown always matches the export that will run.
+    const buildExportQuery = useCallback(({ dateFrom, dateTo }) => {
         const params = new URLSearchParams();
         if (filters.status) params.set('status', filters.status);
         if (filters.search) params.set('search', filters.search);
@@ -79,13 +81,21 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         if (filters.age_max_days) params.set('age_max_days', filters.age_max_days);
         if (dateFrom) params.set('date_from', dateFrom);
         if (dateTo) params.set('date_to', dateTo);
+        return params.toString();
+    }, [filters]);
 
-        const qs = params.toString();
+    const handleExportConfirm = useCallback(({ dateFrom, dateTo }) => {
+        const qs = buildExportQuery({ dateFrom, dateTo });
         const url = route('referrals.export-excel') + (qs ? '?' + qs : '');
 
         setExportDialogOpen(false);
         window.location.href = url;
-    }, [filters]);
+    }, [buildExportQuery]);
+
+    const countUrlBuilder = useCallback((dateFrom, dateTo) => {
+        const qs = buildExportQuery({ dateFrom, dateTo });
+        return route('referrals.export-count') + (qs ? '?' + qs : '');
+    }, [buildExportQuery]);
 
     const activeFilterChips = useMemo(() => {
         const chips = [];
@@ -718,7 +728,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 onClose={() => setExportDialogOpen(false)}
                 title="Export Referrals"
                 activeFilters={activeFilterChips}
-                rowCount={exportRowCount}
+                countUrlBuilder={countUrlBuilder}
                 onExport={handleExportConfirm}
             />
         </AppLayout>

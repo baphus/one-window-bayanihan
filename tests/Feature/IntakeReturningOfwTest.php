@@ -52,11 +52,18 @@ class IntakeReturningOfwTest extends TestCase
             'client' => [
                 'first_name' => 'Updated First',
                 'last_name' => 'Updated Last',
-                'middle_initial' => null,
+                'middle_name' => null,
                 'suffix' => null,
                 'date_of_birth' => '1985-06-15',
                 'sex' => 'FEMALE',
                 'contact_number' => '+639199999999',
+            ],
+            'address' => [
+                'region' => 'Region VII',
+                'province' => 'Cebu',
+                'city_municipality' => 'Cebu City',
+                'barangay' => 'Lahug',
+                'street' => '456 Updated Street',
             ],
             'next_of_kin' => [
                 [

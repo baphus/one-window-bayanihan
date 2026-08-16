@@ -33,4 +33,9 @@ return [
         'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
         'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
     ],
+
+    'client_request_document' => [
+        'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
+    ],
 ];

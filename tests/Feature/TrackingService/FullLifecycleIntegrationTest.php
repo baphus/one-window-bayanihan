@@ -94,7 +94,7 @@ class FullLifecycleIntegrationTest extends TestCase
 
         // ASSERT — caseOverview has OFW data matching client
         $this->assertNotNull($data['caseOverview']['ofw']);
-        $expectedFullName = trim("{$client->first_name} {$client->middle_initial} {$client->last_name} {$client->suffix}");
+        $expectedFullName = trim("{$client->first_name} {$client->middle_name} {$client->last_name} {$client->suffix}");
         $this->assertEquals($expectedFullName, $data['caseOverview']['ofw']['fullName']);
 
         // ASSERT — the legacy audit-log timeline is gone from the payload
@@ -289,7 +289,7 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertEquals('IN_PROGRESS', $data['trackedCase']['status']);
 
         // ASSERT — caseOverview.ofw.fullName matches client name (with middle initial and suffix)
-        $expectedFullName = trim("{$client->first_name} {$client->middle_initial} {$client->last_name} {$client->suffix}");
+        $expectedFullName = trim("{$client->first_name} {$client->middle_name} {$client->last_name} {$client->suffix}");
         $this->assertEquals($expectedFullName, $data['caseOverview']['ofw']['fullName']);
 
         // Also verify CLOSED → RESOLVED mapping

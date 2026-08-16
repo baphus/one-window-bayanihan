@@ -281,7 +281,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
     setEditPersonal({
       first_name: draft.first_name || '',
       last_name: draft.last_name || '',
-      middle_initial: draft.middle_initial || '',
+      middle_name: draft.middle_name || '',
       suffix: draft.suffix || '',
       date_of_birth: normalizeDateInput(draft.date_of_birth),
       sex: draft.sex || 'Male',
@@ -366,7 +366,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
         const client = {
           first_name: editPersonal.first_name,
           last_name: editPersonal.last_name,
-          middle_initial: editPersonal.middle_initial,
+          middle_name: editPersonal.middle_name,
           suffix: editPersonal.suffix,
           date_of_birth: editPersonal.date_of_birth,
           sex: editPersonal.sex,
@@ -532,8 +532,8 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                           className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                       </div>
                       <div>
-                        <FieldLabel>Middle Initial</FieldLabel>
-                        <input type="text" value={editPersonal.middle_initial} onChange={(e) => setEditPersonal({ ...editPersonal, middle_initial: e.target.value })}
+                        <FieldLabel>Middle Name</FieldLabel>
+                        <input type="text" value={editPersonal.middle_name} onChange={(e) => setEditPersonal({ ...editPersonal, middle_name: e.target.value })}
                           className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
                       </div>
                       <div>
@@ -588,7 +588,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                  <InfoRow label="Full Name" value={[draft.first_name, draft.middle_initial, draft.last_name, draft.suffix].filter(Boolean).join(' ')} />
+                  <InfoRow label="Full Name" value={[draft.first_name, draft.middle_name, draft.last_name, draft.suffix].filter(Boolean).join(' ')} />
                   <InfoRow label="Date of Birth" value={draft.date_of_birth ? `${formatDisplayDate(draft.date_of_birth)} (${age} yrs)` : '—'} />
                   <InfoRow label="Sex" value={draft.sex} />
                   <InfoRow label="Email" value={draft.email} />

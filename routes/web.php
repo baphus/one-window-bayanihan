@@ -40,6 +40,7 @@ use App\Http\Controllers\SurveyFormController;
 use App\Http\Controllers\SurveyResponseController;
 use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
+use App\Http\Controllers\TrackRegistrationController;
 use App\Models\Agency;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -83,6 +84,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
     Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel');
+    Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count');
     Route::get('/referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
     Route::patch('/referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update-status');
     Route::post('/referrals/{referral}/milestones', [ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
@@ -127,6 +129,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
         Route::get('/cases/trash', [CaseController::class, 'trashIndex'])->name('cases.trash');
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
+        Route::get('/cases/export-count', [CaseController::class, 'exportCount'])->name('cases.export-count');
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
         Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
         Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
@@ -180,6 +183,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('/clients/export-excel', [ClientController::class, 'exportExcel'])->name('clients.export-excel');
+        Route::get('/clients/export-count', [ClientController::class, 'exportCount'])->name('clients.export-count');
         Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::post('/clients/{client}/avatar', [ClientController::class, 'storeAvatar'])->name('clients.avatar.store');
         Route::delete('/clients/{client}/avatar', [ClientController::class, 'destroyAvatar'])->name('clients.avatar.destroy');
@@ -202,6 +206,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
         Route::get('/referrals/{referral}/client-requests', [ReferralClientRequestController::class, 'index'])->name('referrals.client-requests.index');
+        Route::get('/referrals/{referral}/client-requests/attachments/{attachment}/download', [ReferralClientRequestController::class, 'downloadAgencyAttachment'])->name('referrals.client-requests.attachments.download');
         Route::post('/client-access-links/{accessLink}/revoke', [ReferralClientRequestController::class, 'revoke'])->name('referrals.client-requests.access.revoke');
     });
 
@@ -393,6 +398,10 @@ Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
 Route::get('/track/case/{tracker_number}/referrals/{referral}/milestones', [TrackController::class, 'milestones'])
     ->name('track.milestones');
 
+Route::post('/track/register', [TrackRegistrationController::class, 'store'])
+    ->name('track.register')
+    ->middleware('throttle:intake-submit');
+
 Route::post('/track/request/exchange', [ReferralClientRequestController::class, 'exchange'])
     ->name('track.request.exchange')
     ->middleware('throttle:track-request-exchange');
@@ -404,6 +413,8 @@ Route::post('/track/request/messages', [ReferralClientRequestController::class, 
 Route::post('/track/request/replacement', [ReferralClientRequestController::class, 'replacement'])
     ->name('track.request.replacement')
     ->middleware('throttle:track-request-replacement');
+Route::get('/track/request/attachments/{attachment}/download', [ReferralClientRequestController::class, 'downloadAttachment'])
+    ->name('track.request.attachments.download');
 
 Route::prefix('help')->name('helpdesk.')->group(function () {
     Route::get('/', function (Request $request) {

@@ -33,7 +33,7 @@ class ClientSelectController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'ilike', "%{$search}%")
                     ->orWhere('last_name', 'ilike', "%{$search}%")
-                    ->orWhere('middle_initial', 'ilike', "%{$search}%");
+                    ->orWhere('middle_name', 'ilike', "%{$search}%");
             });
         }
 
@@ -44,7 +44,7 @@ class ClientSelectController extends Controller
                 'id' => $client->id,
                 'first_name' => $client->first_name,
                 'last_name' => $client->last_name,
-                'middle_initial' => $client->middle_initial,
+                'middle_name' => $client->middle_name,
                 'suffix' => $client->suffix,
                 'sex' => $client->sex,
                 'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),
@@ -80,7 +80,7 @@ class ClientSelectController extends Controller
             'id' => $client->id,
             'first_name' => $client->first_name,
             'last_name' => $client->last_name,
-            'middle_initial' => $client->middle_initial,
+            'middle_name' => $client->middle_name,
             'suffix' => $client->suffix,
             'sex' => $client->sex,
             'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),
@@ -120,7 +120,7 @@ class ClientSelectController extends Controller
             'nextOfKin' => $client->nextOfKin->map(fn ($n) => [
                 'id' => $n->id,
                 'first_name' => $n->first_name,
-                'middle_initial' => $n->middle_initial,
+                'middle_name' => $n->middle_name,
                 'last_name' => $n->last_name,
                 'relationship' => $n->relationship,
                 'phone_number' => $n->phone_number,

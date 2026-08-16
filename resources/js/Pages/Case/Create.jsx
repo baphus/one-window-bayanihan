@@ -404,7 +404,7 @@ export default function CaseCreate() {
         client: {
             first_name: '',
             last_name: '',
-            middle_initial: '',
+            middle_name: '',
             suffix: '',
             date_of_birth: '',
             sex: 'Male',
@@ -468,7 +468,7 @@ export default function CaseCreate() {
             vulnerability_indicator: 'None',
             nok_vulnerability_indicator: 'None',
             summary: '',
-            client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
+            client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
             address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
             employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
             next_of_kin: [],
@@ -497,7 +497,7 @@ export default function CaseCreate() {
             && a.summary === b.summary
             && a.client.first_name === b.client.first_name
             && a.client.last_name === b.client.last_name
-            && a.client.middle_initial === b.client.middle_initial
+            && a.client.middle_name === b.client.middle_name
             && a.client.suffix === b.client.suffix
             && a.client.date_of_birth === b.client.date_of_birth
             && a.client.sex === b.client.sex
@@ -585,7 +585,7 @@ export default function CaseCreate() {
                 if (!cancelled) {
                     const mapped = (res.data.data || []).map((c) => ({
                         ...c,
-                        full_name: [c.first_name, c.middle_initial, c.last_name, c.suffix].filter(Boolean).join(' '),
+                        full_name: [c.first_name, c.middle_name, c.last_name, c.suffix].filter(Boolean).join(' '),
                         has_case: c.case_files_count > 0,
                         case_count: c.case_files_count || 0,
                     }));
@@ -607,7 +607,7 @@ export default function CaseCreate() {
                 ...data.client,
                 first_name: client.first_name || '',
                 last_name: client.last_name || '',
-                middle_initial: client.middle_initial || '',
+                middle_name: client.middle_name || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
                 sex: normalizeSex(client.sex) || 'Male',
@@ -645,7 +645,7 @@ export default function CaseCreate() {
                 setData('next_of_kin', client.nextOfKin.map(nok => ({
                     id: nok.id,
                     first_name: nok.first_name || '',
-                    middle_initial: nok.middle_initial || '',
+                    middle_name: nok.middle_name || '',
                     last_name: nok.last_name || '',
                     is_primary: nok.is_primary || false,
                     relationship: nok.relationship || '',
@@ -673,7 +673,7 @@ export default function CaseCreate() {
                     client: {
                         first_name: client.first_name || '',
                         last_name: client.last_name || '',
-                        middle_initial: client.middle_initial || '',
+                        middle_name: client.middle_name || '',
                         suffix: client.suffix || '',
                         date_of_birth: client.date_of_birth || '',
                         sex: normalizeSex(client.sex) || 'Male',
@@ -702,7 +702,7 @@ export default function CaseCreate() {
                         ? client.nextOfKin.map(nok => ({
                             id: nok.id,
                             first_name: nok.first_name || '',
-                            middle_initial: nok.middle_initial || '',
+                            middle_name: nok.middle_name || '',
                             last_name: nok.last_name || '',
                             is_primary: nok.is_primary || false,
                             relationship: nok.relationship || '',
@@ -761,7 +761,7 @@ export default function CaseCreate() {
                 ...data.client,
                 first_name: existingDraft.client.first_name || '',
                 last_name: existingDraft.client.last_name || '',
-                middle_initial: existingDraft.client.middle_initial || '',
+                middle_name: existingDraft.client.middle_name || '',
                 suffix: existingDraft.client.suffix || '',
                 date_of_birth: existingDraft.client.date_of_birth || '',
                 sex: normalizeSex(existingDraft.client.sex) || 'Male',
@@ -797,7 +797,7 @@ export default function CaseCreate() {
                 setData('next_of_kin', existingDraft.client.nextOfKin.map(nok => ({
                     id: nok.id,
                     first_name: nok.first_name || '',
-                    middle_initial: nok.middle_initial || '',
+                    middle_name: nok.middle_name || '',
                     last_name: nok.last_name || '',
                     is_primary: nok.is_primary || false,
                     relationship: nok.relationship || '',
@@ -834,7 +834,7 @@ export default function CaseCreate() {
                     ...data.client,
                     first_name: clientData.first_name || '',
                     last_name: clientData.last_name || '',
-                    middle_initial: clientData.middle_initial || '',
+                    middle_name: clientData.middle_name || '',
                     suffix: clientData.suffix || '',
                     date_of_birth: clientData.date_of_birth || '',
                     sex: normalizeSex(clientData.sex) || 'Male',
@@ -874,7 +874,7 @@ export default function CaseCreate() {
                     setData('next_of_kin', nokArray.map((nok, idx) => ({
                         id: nok.id || null,
                         first_name: nok.first_name || '',
-                        middle_initial: nok.middle_initial || '',
+                        middle_name: nok.middle_name || '',
                         last_name: nok.last_name || '',
                         is_primary: nok.is_primary ?? (idx === 0),
                         relationship: nok.relationship || '',
@@ -925,7 +925,7 @@ export default function CaseCreate() {
                 client: {
                     first_name: c.first_name || '',
                     last_name: c.last_name || '',
-                    middle_initial: c.middle_initial || '',
+                    middle_name: c.middle_name || '',
                     suffix: c.suffix || '',
                     date_of_birth: c.date_of_birth || '',
                     sex: normalizeSex(c.sex) || 'Male',
@@ -945,7 +945,7 @@ export default function CaseCreate() {
                     return rawNoks.map(nok => ({
                         id: nok.id || null,
                         first_name: nok.first_name || '',
-                        middle_initial: nok.middle_initial || '',
+                        middle_name: nok.middle_name || '',
                         last_name: nok.last_name || '',
                         is_primary: nok.is_primary || false,
                         relationship: nok.relationship || '',
@@ -989,7 +989,7 @@ export default function CaseCreate() {
             const data = res.data.data;
             const mapped = {
                 ...data,
-                full_name: [data.first_name, data.middle_initial, data.last_name, data.suffix].filter(Boolean).join(' '),
+                full_name: [data.first_name, data.middle_name, data.last_name, data.suffix].filter(Boolean).join(' '),
                 has_case: !!data.case_file,
                 case_count: data.case_file ? 1 : 0,
             };
@@ -1023,7 +1023,7 @@ export default function CaseCreate() {
             {
                 id: null,
                 first_name: '',
-                middle_initial: '',
+                middle_name: '',
                 last_name: '',
                 is_primary: data.next_of_kin.length === 0,
                 relationship: '',
@@ -1489,7 +1489,7 @@ export default function CaseCreate() {
     function handleSwitchToNew() {
         setClientSource('new');
         setData('selected_client_id', '');
-        setData('client', { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' });
+        setData('client', { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' });
         setData('address', { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' });
         setData('employment', { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false });
         setData('next_of_kin', []);
@@ -1504,7 +1504,7 @@ export default function CaseCreate() {
                     vulnerability_indicator: 'None',
                     nok_vulnerability_indicator: 'None',
                     summary: '',
-                client: { first_name: '', last_name: '', middle_initial: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
+                client: { first_name: '', last_name: '', middle_name: '', suffix: '', date_of_birth: '', sex: 'Male', email: '', contact_number: '' },
                 address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
                 employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', last_country: '', last_position: '', date_of_arrival: '', is_present: false },
                 next_of_kin: [],
@@ -1533,7 +1533,7 @@ function handleConfirmClient(client) {
         ...data.client,
         first_name: client.first_name || '',
         last_name: client.last_name || '',
-        middle_initial: client.middle_initial || '',
+        middle_name: client.middle_name || '',
         suffix: client.suffix || '',
         date_of_birth: client.date_of_birth || '',
         sex: normalizeSex(client.sex) || 'Male',
@@ -1565,7 +1565,7 @@ function handleConfirmClient(client) {
         setData('next_of_kin', client.nextOfKin.map(nok => ({
             id: nok.id,
             first_name: nok.first_name || '',
-            middle_initial: nok.middle_initial || '',
+            middle_name: nok.middle_name || '',
             last_name: nok.last_name || '',
             is_primary: nok.is_primary || false,
             relationship: nok.relationship || '',
@@ -1593,7 +1593,7 @@ function handleConfirmClient(client) {
             client: {
                 first_name: client.first_name || '',
                 last_name: client.last_name || '',
-                middle_initial: client.middle_initial || '',
+                middle_name: client.middle_name || '',
                 suffix: client.suffix || '',
                 date_of_birth: client.date_of_birth || '',
                 sex: normalizeSex(client.sex) || 'Male',
@@ -1614,7 +1614,7 @@ function handleConfirmClient(client) {
                 ? client.nextOfKin.map(nok => ({
                     id: nok.id,
                     first_name: nok.first_name || '',
-                    middle_initial: nok.middle_initial || '',
+                    middle_name: nok.middle_name || '',
                     last_name: nok.last_name || '',
                     is_primary: nok.is_primary || false,
                     relationship: nok.relationship || '',
@@ -1937,8 +1937,8 @@ function handleConfirmClient(client) {
                                                     <Field label="First Name" required>
                                                         <Input value={data.client.first_name} onChange={(e) => handleClientChange('first_name', e.target.value)} required maxLength={255} />
                                                     </Field>
-                                                    <Field label="Middle Initial">
-                                                        <Input value={data.client.middle_initial} onChange={(e) => handleClientChange('middle_initial', e.target.value.toUpperCase())} maxLength={1} className="uppercase" />
+                                                    <Field label="Middle Name">
+                                                        <Input value={data.client.middle_name} onChange={(e) => handleClientChange('middle_name', e.target.value)} maxLength={255} />
                                                     </Field>
                                                     <Field label="Last Name" required>
                                                         <Input value={data.client.last_name} onChange={(e) => handleClientChange('last_name', e.target.value)} required maxLength={255} />
@@ -2103,8 +2103,8 @@ function handleConfirmClient(client) {
                                                             <Field label="First Name">
                                                                 <Input value={nok.first_name} onChange={(e) => updateNokField(idx, 'first_name', e.target.value)} />
                                                             </Field>
-                                                            <Field label="Middle Initial">
-                                                                <Input value={nok.middle_initial} onChange={(e) => updateNokField(idx, 'middle_initial', e.target.value.toUpperCase())} maxLength={1} className="uppercase" />
+                                                            <Field label="Middle Name">
+                                                                <Input value={nok.middle_name} onChange={(e) => updateNokField(idx, 'middle_name', e.target.value)} maxLength={255} />
                                                             </Field>
                                                             <Field label="Last Name">
                                                                 <Input value={nok.last_name} onChange={(e) => updateNokField(idx, 'last_name', e.target.value)} />

@@ -37,6 +37,10 @@ class PublicDataIsolationTest extends ReferralClientInboxTestCase
     {
         $this->assertFalse(app('router')->getRoutes()->getByName('track.request.upload') !== null);
         $this->assertFalse(app('router')->getRoutes()->getByName('track.request.attachments.store') !== null);
+        // Attachments ride on the capability-gated reply; the only public
+        // attachment route is a download that 404s without a valid session.
+        $this->assertTrue(app('router')->getRoutes()->getByName('track.request.attachments.download') !== null);
+        $this->assertFalse(app('router')->getRoutes()->getByName('track.request.attachments.index') !== null);
     }
 
     public function test_no_session_renders_generic_request_access_page(): void

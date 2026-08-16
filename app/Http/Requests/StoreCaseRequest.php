@@ -100,16 +100,16 @@ class StoreCaseRequest extends FormRequest
 
             'client.first_name' => [$r, 'string', 'max:255'],
             'client.last_name' => [$r, 'string', 'max:255'],
-            'client.middle_initial' => ['nullable', 'string', 'max:1'],
+            'client.middle_name' => ['nullable', 'string', 'max:255'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
-            'client.date_of_birth' => [$r, 'date'],
+            'client.date_of_birth' => [$r, 'date', 'before_or_equal:today'],
             'client.sex' => [$r, 'string', 'max:50'],
             'client.email' => [$r, 'email', 'max:255'],
             'client.contact_number' => [$r, 'string', 'max:50'],
 
             'next_of_kin' => ['nullable', 'array'],
             'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.middle_initial' => ['nullable', 'string', 'max:1'],
+            'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.last_name' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.is_primary' => ['nullable', 'boolean'],
             'next_of_kin.*.relationship' => ['required_with:next_of_kin', 'string', 'max:255'],
@@ -136,12 +136,12 @@ class StoreCaseRequest extends FormRequest
             'employment.employer_name' => [$r, 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => [$r, 'date'],
+            'employment.start_date' => [$r, 'date', 'after_or_equal:client.date_of_birth'],
             'employment.end_date' => [$r === 'required' ? 'required_unless:employment.is_present,true' : 'nullable', 'nullable', 'date', 'after_or_equal:employment.start_date'],
             'employment.is_present' => ['nullable', 'boolean'],
             'employment.last_country' => [$r, 'string', 'max:255'],
             'employment.last_position' => [$r, 'string', 'max:255'],
-            'employment.date_of_arrival' => [$r, 'date'],
+            'employment.date_of_arrival' => [$r, 'date', 'after_or_equal:client.date_of_birth'],
         ];
     }
 

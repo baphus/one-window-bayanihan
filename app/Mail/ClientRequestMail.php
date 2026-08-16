@@ -28,10 +28,20 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
     public function getRequestTypeLabel(): string
     {
         return match ($this->clientRequest->type) {
-            'document_request' => 'Document Request',
-            'question' => 'Question',
-            'information_update' => 'Information Update',
+            ReferralClientRequest::TYPE_DOCUMENT_REQUEST => 'Document Request',
+            ReferralClientRequest::TYPE_QUESTION => 'Question',
+            ReferralClientRequest::TYPE_INFORMATION_UPDATE => 'Information Update',
             default => 'Request',
+        };
+    }
+
+    public function getActionLabel(): string
+    {
+        return match ($this->clientRequest->type) {
+            ReferralClientRequest::TYPE_DOCUMENT_REQUEST => 'Submit Documents',
+            ReferralClientRequest::TYPE_QUESTION => 'Answer Question',
+            ReferralClientRequest::TYPE_INFORMATION_UPDATE => 'Update Information',
+            default => 'View Request',
         };
     }
 
@@ -54,6 +64,7 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
                 'rawToken' => $this->rawToken,
                 'magicLink' => $this->magicLink,
                 'requestTypeLabel' => $this->getRequestTypeLabel(),
+                'ctaLabel' => $this->getActionLabel(),
                 'checklistItems' => $this->getChecklistItems(),
                 'agencyName' => $this->clientRequest->referral?->agency?->name ?? 'the agency',
                 'clientName' => $this->clientRequest->referral?->caseFile?->client?->first_name ?? '',

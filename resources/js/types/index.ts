@@ -64,7 +64,7 @@ export type ClientPersona = {
 export type ExistingClientProfile = {
     firstName: string;
     lastName: string;
-    middleInitial: string;
+    middleName: string;
     suffix: string;
     dateOfBirth: string;
     sex: string;

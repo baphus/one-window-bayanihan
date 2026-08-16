@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ReferralShow from '../Show';
 
@@ -75,6 +75,22 @@ const requestHistory = [{
   access_links: [],
 }];
 
+const historyWithAttachments = [{
+  ...requestHistory[0],
+  messages: [
+    {
+      id: 'msg-1',
+      body: 'Here is my passport.',
+      sender_kind: 'CLIENT_ACCESS',
+      created_at: '2026-01-01T00:00:00Z',
+      attachments: [
+        { id: 'att-img', file_name: 'passport.jpg', file_type: 'image/jpeg', size: 204800, created_at: '2026-01-01T00:00:00Z' },
+        { id: 'att-pdf', file_name: 'contract.pdf', file_type: 'application/pdf', size: 1024, created_at: '2026-01-01T00:00:00Z' },
+      ],
+    },
+  ],
+}];
+
 function renderReferral(role, permissions) {
   state.role = role;
   return render(
@@ -101,5 +117,103 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getByText('Client question')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Request client/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Issue access link|Issue replacement/i })).not.toBeInTheDocument();
+  });
+
+  it('previews image attachments and keeps non-image attachments as plain links', () => {
+    state.role = 'AGENCY';
+    render(
+      <ReferralShow
+        referral={referral}
+        clientRequestHistory={historyWithAttachments}
+        clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }}
+        timeline={[]}
+      />,
+    );
+
+    const thumb = screen.getByRole('button', { name: /Preview passport\.jpg/ });
+    const thumbImg = thumb.querySelector('img');
+    expect(thumbImg).not.toBeNull();
+    expect(thumbImg.getAttribute('src')).toContain('referrals.client-requests.attachments.download');
+
+    const pdfLink = screen.getByRole('link', { name: /contract\.pdf/ });
+    expect(pdfLink.querySelector('img')).toBeNull();
+    expect(screen.getByRole('button', { name: /Preview contract\.pdf/ })).toBeInTheDocument();
+  });
+
+  it('opens a lightbox with the full image and download link when the thumbnail is clicked', () => {
+    state.role = 'AGENCY';
+    render(
+      <ReferralShow
+        referral={referral}
+        clientRequestHistory={historyWithAttachments}
+        clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }}
+        timeline={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Preview passport\.jpg/ }));
+
+    const previewImg = screen.getByRole('img', { name: 'passport.jpg' });
+    expect(previewImg.getAttribute('src')).toContain('referrals.client-requests.attachments.download');
+
+    const downloadLink = screen.getByRole('link', { name: /Download/i });
+    expect(downloadLink.getAttribute('href')).toContain('referrals.client-requests.attachments.download');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close preview' }));
+    expect(screen.queryByRole('img', { name: 'passport.jpg' })).not.toBeInTheDocument();
+  });
+
+  it('opens a lightbox with a browser-native iframe for PDF attachments', () => {
+    state.role = 'AGENCY';
+    render(
+      <ReferralShow
+        referral={referral}
+        clientRequestHistory={historyWithAttachments}
+        clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }}
+        timeline={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Preview contract\.pdf/ }));
+
+    const previewFrame = document.querySelector('iframe[title="contract.pdf"]');
+    expect(previewFrame).not.toBeNull();
+    expect(previewFrame.getAttribute('src')).toContain('referrals.client-requests.attachments.download');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close preview' }));
+    expect(document.querySelector('iframe[title="contract.pdf"]')).toBeNull();
+  });
+
+  it('shows a conversation list and switches between multiple client requests', () => {
+    state.role = 'AGENCY';
+    const twoRequests = [
+      requestHistory[0],
+      { ...requestHistory[0], id: 'request-2', title: 'Second question', status: 'COMPLETED' },
+    ];
+    render(
+      <ReferralShow
+        referral={referral}
+        clientRequestHistory={twoRequests}
+        clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }}
+        timeline={[]}
+      />,
+    );
+
+    // Conversation list pane with both subjects.
+    expect(screen.getByRole('button', { name: /Client question/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Second question/ })).toBeInTheDocument();
+
+    // First request is shown in the conversation pane by default.
+    const conversationPane = document.querySelector('article');
+    expect(conversationPane).not.toBeNull();
+    expect(within(conversationPane).getByText('Client question')).toBeInTheDocument();
+    expect(within(conversationPane).queryByText('Second question')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Second question/ }));
+
+    const activePane = document.querySelector('article');
+    expect(activePane).not.toBeNull();
+    expect(within(activePane).getByText('Second question')).toBeInTheDocument();
+    expect(within(activePane).queryByText('Client question')).not.toBeInTheDocument();
   });
 });

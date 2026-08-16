@@ -8,18 +8,21 @@ use App\Mail\ClientRequestMail;
 use App\Models\CaseNotification;
 use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
+use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
 use App\Notifications\ReferralClientRequestActivity;
 use App\Services\ReferralClientAccessService;
 use App\Services\ReferralClientRequestService;
-use Illuminate\Http\JsonResponse;
+use App\Services\StorageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use InvalidArgumentException;
 use LogicException;
 
 class ReferralClientRequestController extends Controller
@@ -31,13 +34,20 @@ class ReferralClientRequestController extends Controller
         private readonly ReferralClientAccessService $accessService,
     ) {}
 
-    public function index(Request $request, Referral $referral): JsonResponse
+    public function index(Request $request, Referral $referral)
     {
         $this->requestService->assertCanRead($referral, $request->user());
 
+        // This is a JSON-only endpoint consumed by XHR. Direct browser
+        // navigation (e.g. clicking a notification link) must land on the
+        // referral page instead of a bare JSON dump.
+        if (! $request->wantsJson() && ! $request->isJson()) {
+            return redirect()->route('referrals.show', $referral);
+        }
+
         $requests = $referral->clientRequests()
             ->where('is_deleted', false)
-            ->with(['items', 'messages' => fn ($query) => $query->where('is_deleted', false)->latest()])
+            ->with(['items', 'messages' => fn ($query) => $query->where('is_deleted', false)->orderBy('created_at'), 'messages.attachments'])
             ->latest()
             ->get()
             ->map(fn (ReferralClientRequest $clientRequest) => $this->agencyPayload($clientRequest));
@@ -47,14 +57,21 @@ class ReferralClientRequestController extends Controller
 
     public function store(StoreReferralClientRequest $request, Referral $referral): RedirectResponse
     {
-        $clientRequest = $this->requestService->createRequest(
-            $referral,
-            $request->user(),
-            [
-                ...$request->validated(),
-                'items' => $request->validated('checklist', []),
-            ],
-        );
+        try {
+            $clientRequest = $this->requestService->createRequest(
+                $referral,
+                $request->user(),
+                [
+                    ...$request->validated(),
+                    'items' => $request->validated('checklist', []),
+                ],
+            );
+        } catch (LogicException $e) {
+            // The referral/case is no longer open for client-facing writes
+            // (e.g. case closed mid-session). Surface it as a form error so
+            // Inertia can show it in the modal instead of a 500.
+            throw ValidationException::withMessages(['type' => $e->getMessage()]);
+        }
 
         $delivery = $this->issueForClient($clientRequest, $request->user());
         $this->notifyCaseManager($clientRequest, 'created');
@@ -150,7 +167,7 @@ class ReferralClientRequestController extends Controller
             ]), $request);
         }
 
-        $clientRequest->loadMissing(['referral.agency', 'items', 'messages']);
+        $clientRequest->loadMissing(['referral.agency', 'items', 'messages.attachments']);
         $payload = [
             'type' => $clientRequest->type,
             'title' => $clientRequest->title,
@@ -166,12 +183,8 @@ class ReferralClientRequestController extends Controller
                 ->where('is_deleted', false)
                 ->where('kind', 'MESSAGE')
                 ->sortBy('created_at')
-                ->map(fn ($message) => [
-                    'id' => $message->id,
-                    'body' => $message->body,
-                    'sender_kind' => $message->sender_kind,
-                    'created_at' => $message->created_at?->toIso8601String(),
-                ])->values(),
+                ->map(fn ($message) => $this->messagePayload($message))
+                ->values(),
         ];
 
         return $this->capabilityResponse(Inertia::render('Tracking/Show', [
@@ -181,6 +194,7 @@ class ReferralClientRequestController extends Controller
                 'actions' => [
                     'reply' => route('track.request.messages.store'),
                     'requestReplacement' => route('track.request.replacement'),
+                    'exchange' => route('track.request.exchange'),
                 ],
             ],
         ]), $request);
@@ -189,21 +203,79 @@ class ReferralClientRequestController extends Controller
     public function clientMessage(Request $request): RedirectResponse
     {
         $clientRequest = $this->sessionRequest($request);
-        if (! $clientRequest) {
+        if (! $clientRequest || ! $this->requestService->canClientSubmit($clientRequest)) {
             abort(404);
         }
 
-        $body = $request->validate(['body' => ['required', 'string', 'max:5000']])['body'];
+        $validated = $request->validate([
+            'body' => ['nullable', 'string', 'max:5000'],
+            'attachments' => ['nullable', 'array', 'max:5'],
+            'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480'],
+        ]);
+        $files = $request->file('attachments', []);
+
+        if (trim($validated['body'] ?? '') === '' && $files === []) {
+            throw ValidationException::withMessages(['body' => 'Write a message or attach at least one document.']);
+        }
+
         $session = $request->session()->get(self::SESSION_KEY);
         $link = ReferralClientAccessLink::query()->find($session['link_id']);
         if (! $link || $link->request_id !== $clientRequest->id || ! $this->accessService->isUsableLink($link)) {
             abort(404);
         }
 
-        $this->requestService->sendClientMessage($clientRequest, $body, $link);
+        try {
+            $this->requestService->sendClientMessage(
+                $clientRequest,
+                trim($validated['body'] ?? ''),
+                $link,
+                $files,
+            );
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['attachments' => $e->getMessage()]);
+        }
         $this->notifyClientReply($clientRequest);
 
         return $this->capabilityResponse(redirect()->route('track.request.index')->with('success', 'Message sent.'));
+    }
+
+    public function downloadAttachment(Request $request, ReferralClientMessageAttachment $attachment): RedirectResponse
+    {
+        $clientRequest = $this->sessionRequest($request);
+        if (! $clientRequest) {
+            abort(404);
+        }
+
+        $attachment->loadMissing('message');
+        if (! $attachment->message || $attachment->message->request_id !== $clientRequest->id) {
+            abort(404);
+        }
+
+        $url = app(StorageService::class)->temporaryUrl($attachment->file_path, 24);
+        if (! $url) {
+            abort(404, 'File not found or unavailable.');
+        }
+
+        return $this->capabilityResponse(redirect()->away($url));
+    }
+
+    public function downloadAgencyAttachment(Request $request, Referral $referral, ReferralClientMessageAttachment $attachment): RedirectResponse
+    {
+        $attachment->loadMissing('message.request');
+        $clientRequest = $attachment->message?->request;
+
+        if (! $clientRequest || $clientRequest->referral_id !== $referral->id) {
+            abort(404);
+        }
+
+        $this->requestService->assertCanRead($clientRequest, $request->user());
+
+        $url = app(StorageService::class)->temporaryUrl($attachment->file_path, 24);
+        if (! $url) {
+            abort(404, 'File not found or unavailable.');
+        }
+
+        return redirect()->away($url);
     }
 
     public function replacement(Request $request): RedirectResponse
@@ -326,7 +398,28 @@ class ReferralClientRequestController extends Controller
             'status' => $clientRequest->status,
             'due_at' => $clientRequest->due_at?->toIso8601String(),
             'checklist' => $clientRequest->items->map(fn ($item) => ['id' => $item->id, 'label' => $item->label])->values(),
-            'messages' => $clientRequest->messages->map(fn ($message) => ['id' => $message->id, 'body' => $message->body, 'sender_kind' => $message->sender_kind])->values(),
+            'messages' => $clientRequest->messages->map(fn ($message) => $this->messagePayload($message))->values(),
+        ];
+    }
+
+    private function messagePayload($message): array
+    {
+        return [
+            'id' => $message->id,
+            'body' => $message->body,
+            'sender_kind' => $message->sender_kind,
+            'created_at' => $message->created_at?->toIso8601String(),
+            'attachments' => $message->attachments
+                ?->where('is_deleted', false)
+                ->values()
+                ->map(fn ($attachment) => [
+                    'id' => $attachment->id,
+                    'file_name' => $attachment->file_name,
+                    'file_type' => $attachment->file_type,
+                    'size' => $attachment->size,
+                    'created_at' => $attachment->created_at?->toIso8601String(),
+                ])
+                ->values(),
         ];
     }
 

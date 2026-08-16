@@ -14,7 +14,7 @@ Access is scoped by role:
 
 ## Finding a client
 
-The search box matches **first name, last name, middle initial, email, contact number**, and the case's **case number or tracker number** — so a client can be found from whatever detail you have on hand.
+The search box matches **first name, last name, middle name, email, contact number**, and the case's **case number or tracker number** — so a client can be found from whatever detail you have on hand.
 
 Narrow results with the filters: **Client Type**, **Sex**, **Case Status**, **Vulnerability**, **Category**, **Issue/Concern**, and **Referred To** (agency). Results can be sorted and paginated, and **Export Excel** downloads the current filtered list.
 

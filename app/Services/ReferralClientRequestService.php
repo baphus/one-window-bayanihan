@@ -9,6 +9,7 @@ use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
@@ -18,7 +19,10 @@ use LogicException;
  */
 class ReferralClientRequestService
 {
-    public function __construct(private readonly CaseEventRecorder $eventRecorder) {}
+    public function __construct(
+        private readonly CaseEventRecorder $eventRecorder,
+        private readonly StorageService $storage,
+    ) {}
 
     /** Create a request and its optional document checklist/milestone. */
     public function createRequest(Referral $referral, User $actor, array $data): ReferralClientRequest
@@ -96,11 +100,25 @@ class ReferralClientRequestService
     }
 
     /** Add a client message; link token validation belongs to the access service. */
-    public function sendClientMessage(ReferralClientRequest $request, string $body, ReferralClientAccessLink $accessLink): ReferralClientMessage
+    public function sendClientMessage(ReferralClientRequest $request, string $body, ReferralClientAccessLink $accessLink, array $files = []): ReferralClientMessage
     {
-        $this->assertBody($body);
+        if (trim($body) === '' && $files === []) {
+            throw new InvalidArgumentException('A message or at least one attachment is required.');
+        }
 
-        [$message, $referral] = DB::transaction(function () use ($request, $body, $accessLink) {
+        // Validate every file up front so a bad file fails the whole reply
+        // before any storage or row writes happen.
+        foreach ($files as $file) {
+            if (! $file instanceof UploadedFile) {
+                throw new InvalidArgumentException('Invalid attachment supplied.');
+            }
+            $errors = $this->storage->validate($file, 'client_request_document');
+            if (! empty($errors)) {
+                throw new InvalidArgumentException($errors[0]);
+            }
+        }
+
+        [$message, $referral] = DB::transaction(function () use ($request, $body, $accessLink, $files) {
             $lockedRequest = ReferralClientRequest::query()
                 ->lockForUpdate()
                 ->findOrFail($request->id);
@@ -125,6 +143,21 @@ class ReferralClientRequestService
                 'access_link_id' => $lockedLink->id,
                 'kind' => ReferralClientMessage::KIND_MESSAGE,
             ]);
+
+            foreach ($files as $file) {
+                $result = $this->storage->store($file, 'client-request-attachments/'.$lockedRequest->id);
+                if (! $result->success) {
+                    throw new InvalidArgumentException($result->error ?? 'Failed to store attachment.');
+                }
+
+                $message->attachments()->create([
+                    'file_name' => $result->originalName,
+                    'file_path' => $result->path,
+                    'file_type' => $result->type,
+                    'size' => $result->size,
+                ]);
+            }
+
             $lockedRequest->update(['status' => ReferralClientRequest::STATUS_CLIENT_RESPONDED]);
 
             return [$message, $referral];
@@ -132,7 +165,22 @@ class ReferralClientRequestService
 
         $this->invalidateTrackingCaches($referral);
 
-        return $message->load(['accessLink', 'request']);
+        return $message->load(['accessLink', 'request', 'attachments']);
+    }
+
+    /** Whether the client may still submit a message for this request. */
+    public function canClientSubmit(ReferralClientRequest $request): bool
+    {
+        $request->loadMissing('referral.caseFile');
+
+        try {
+            $this->assertClientFacingWriteAllowed($request->referral);
+            $this->assertOpen($request);
+
+            return true;
+        } catch (LogicException) {
+            return false;
+        }
     }
 
     /** Complete an active request. */
@@ -220,15 +268,27 @@ class ReferralClientRequestService
             }
 
             $lockedRequest->update(['status' => $status]);
-            if (! $reopen) {
-                $lockedRequest->accessLinks()
-                    ->whereNull('revoked_at')
-                    ->where('expires_at', '>', now())
-                    ->update(['revoked_at' => now(), 'revoked_by' => $actor->id]);
-            } else {
+            if ($reopen) {
                 // A legacy/current link must never become usable merely because the request reopened.
                 $lockedRequest->accessLinks()
                     ->whereNull('revoked_at')
+                    ->update(['revoked_at' => now(), 'revoked_by' => $actor->id]);
+            } elseif ($status === ReferralClientRequest::STATUS_COMPLETED) {
+                // The client keeps view access until the due date so they can
+                // verify their submission; extend the current link through it.
+                $lockedRequest->accessLinks()
+                    ->whereNull('revoked_at')
+                    ->where('expires_at', '>', now())
+                    ->get()
+                    ->each(function (ReferralClientAccessLink $link) use ($lockedRequest): void {
+                        if ($lockedRequest->due_at !== null && $lockedRequest->due_at->isAfter($link->expires_at)) {
+                            $link->update(['expires_at' => $lockedRequest->due_at]);
+                        }
+                    });
+            } else {
+                $lockedRequest->accessLinks()
+                    ->whereNull('revoked_at')
+                    ->where('expires_at', '>', now())
                     ->update(['revoked_at' => now(), 'revoked_by' => $actor->id]);
             }
 
@@ -275,16 +335,23 @@ class ReferralClientRequestService
 
     private function assertClientFacingWriteAllowed(Referral $referral): void
     {
+        if (! $this->isClientFacingWriteAllowed($referral)) {
+            throw new LogicException('Client-facing referral requests are closed for this referral.');
+        }
+    }
+
+    /** Whether client-facing writes (create/reply/transition) are still allowed on this referral. */
+    public function isClientFacingWriteAllowed(Referral $referral): bool
+    {
         $referral->loadMissing('caseFile');
         $case = $referral->caseFile;
-        if (in_array($referral->status, ['COMPLETED', 'REJECTED'], true)
+
+        return ! (in_array($referral->status, ['COMPLETED', 'REJECTED'], true)
             || $referral->is_deleted
             || ! $case
             || $case->is_deleted
             || $case->closed_at !== null
-            || in_array($case->status, ['CLOSED', 'ARCHIVED'], true)) {
-            throw new LogicException('Client-facing referral requests are closed for this referral.');
-        }
+            || in_array($case->status, ['CLOSED', 'ARCHIVED'], true));
     }
 
     private function assertOpen(ReferralClientRequest $request): void
@@ -308,7 +375,7 @@ class ReferralClientRequestService
 
     private function loadRequest(ReferralClientRequest $request): ReferralClientRequest
     {
-        return $request->load(['referral', 'creator', 'items', 'milestone', 'messages.user', 'messages.accessLink', 'accessLinks']);
+        return $request->load(['referral', 'creator', 'items', 'milestone', 'messages.user', 'messages.accessLink', 'messages.attachments', 'accessLinks']);
     }
 
     private function invalidateTrackingCaches(Referral $referral): void

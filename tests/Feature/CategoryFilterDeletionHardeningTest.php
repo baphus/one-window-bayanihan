@@ -41,9 +41,9 @@ class CategoryFilterDeletionHardeningTest extends TestCase
 
         foreach ($cases as $case) {
             foreach ([
-                'cases.index', 'cases.export-excel',
-                'clients.index', 'clients.export-excel',
-                'referrals.index', 'referrals.export-excel',
+                'cases.index', 'cases.export-excel', 'cases.export-count',
+                'clients.index', 'clients.export-excel', 'clients.export-count',
+                'referrals.index', 'referrals.export-excel', 'referrals.export-count',
             ] as $routeName) {
                 $query = [$case['key'] => $case['value']];
                 if (isset($case['scalar'])) {

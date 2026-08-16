@@ -147,7 +147,7 @@ class DataExportQueries
                 // Client (to-one via FK)
                 'cl.first_name AS client_first_name',
                 'cl.last_name AS client_last_name',
-                'cl.middle_initial AS client_middle_initial',
+                'cl.middle_name AS client_middle_name',
                 'cl.sex AS ofw_sex',
                 'cl.date_of_birth AS ofw_date_of_birth',
                 'cl.contact_number AS ofw_contact_number',
@@ -171,7 +171,7 @@ class DataExportQueries
                 // Next-of-kin — to-many, take primary first, then by sort_order
                 DB::raw('(SELECT nok.first_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_first_name'),
                 DB::raw('(SELECT nok.last_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_last_name'),
-                DB::raw('(SELECT nok.middle_initial FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_initial'),
+                DB::raw('(SELECT nok.middle_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_name'),
                 DB::raw('(SELECT nok.phone_number FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_contact_number'),
                 DB::raw('(SELECT nok.email FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_email'),
             ])
@@ -283,7 +283,7 @@ class DataExportQueries
             // --- OFW Full Name: "Last, First Middle" ---
             $firstName = $row->client_first_name ?? '';
             $lastName = $row->client_last_name ?? '';
-            $middleInitial = $row->client_middle_initial ?? '';
+            $middleInitial = $row->client_middle_name ?? '';
             $row->ofw_full_name = trim($lastName.($firstName ? ', '.$firstName : '').($middleInitial ? ' '.$middleInitial : ''));
 
             // --- OFW Age ---
@@ -304,17 +304,17 @@ class DataExportQueries
             // --- NOK Full Name: "Last, First M." ---
             $nokFirstName = $row->nok_first_name ?? '';
             $nokLastName = $row->nok_last_name ?? '';
-            $nokMiddle = $row->nok_middle_initial ?? '';
+            $nokMiddle = $row->nok_middle_name ?? '';
             $row->nok_full_name = trim($nokLastName.($nokFirstName ? ', '.$nokFirstName : '').($nokMiddle ? ' '.$nokMiddle : ''));
 
             // --- Strip raw intermediate fields ---
             unset(
                 $row->client_first_name,
                 $row->client_last_name,
-                $row->client_middle_initial,
+                $row->client_middle_name,
                 $row->nok_first_name,
                 $row->nok_last_name,
-                $row->nok_middle_initial,
+                $row->nok_middle_name,
             );
 
             $addressResolver = $this->addresses();
@@ -342,7 +342,7 @@ class DataExportQueries
                 'id',
                 'first_name',
                 'last_name',
-                'middle_initial',
+                'middle_name',
                 'suffix',
                 'date_of_birth',
                 'sex',
@@ -396,7 +396,7 @@ class DataExportQueries
                 // Client info
                 'cl.first_name',
                 'cl.last_name',
-                'cl.middle_initial',
+                'cl.middle_name',
                 'cl.sex',
                 'cl.date_of_birth',
                 'cl.contact_number',
@@ -430,7 +430,7 @@ class DataExportQueries
                 // Next of kin — primary first, then sort_order
                 DB::raw('(SELECT nok.first_name FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_first_name'),
                 DB::raw('(SELECT nok.last_name FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_last_name'),
-                DB::raw('(SELECT nok.middle_initial FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_initial'),
+                DB::raw('(SELECT nok.middle_name FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_name'),
                 DB::raw('(SELECT nok.phone_number FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_contact_number'),
                 DB::raw('(SELECT nok.email FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_email'),
             ])
@@ -571,7 +571,7 @@ class DataExportQueries
             $query->where(function ($q) use ($search) {
                 $q->where('cl.first_name', 'ilike', "%{$search}%")
                     ->orWhere('cl.last_name', 'ilike', "%{$search}%")
-                    ->orWhere('cl.middle_initial', 'ilike', "%{$search}%")
+                    ->orWhere('cl.middle_name', 'ilike', "%{$search}%")
                     ->orWhere('cl.contact_number', 'ilike', "%{$search}%")
                     ->orWhere('cl.email', 'ilike', "%{$search}%");
             });
@@ -603,7 +603,7 @@ class DataExportQueries
             // --- Full Name: "Last, First Middle" ---
             $firstName = $row->first_name ?? '';
             $lastName = $row->last_name ?? '';
-            $middleInitial = $row->middle_initial ?? '';
+            $middleInitial = $row->middle_name ?? '';
             $row->full_name = trim($lastName.($firstName ? ', '.$firstName : '').($middleInitial ? ' '.$middleInitial : ''));
 
             // --- Age ---
@@ -630,14 +630,14 @@ class DataExportQueries
             // --- NOK Full Name: "Last, First M." ---
             $nokFirstName = $row->nok_first_name ?? '';
             $nokLastName = $row->nok_last_name ?? '';
-            $nokMiddle = $row->nok_middle_initial ?? '';
+            $nokMiddle = $row->nok_middle_name ?? '';
             $row->nok_full_name = trim($nokLastName.($nokFirstName ? ', '.$nokFirstName : '').($nokMiddle ? ' '.$nokMiddle : ''));
 
             // Strip raw intermediate fields
             unset(
                 $row->first_name,
                 $row->last_name,
-                $row->middle_initial,
+                $row->middle_name,
                 $row->street,
                 $row->barangay,
                 $row->municipality,
@@ -645,7 +645,7 @@ class DataExportQueries
                 $row->region,
                 $row->nok_first_name,
                 $row->nok_last_name,
-                $row->nok_middle_initial,
+                $row->nok_middle_name,
             );
 
             return $row;
@@ -716,7 +716,7 @@ class DataExportQueries
                 // Client info
                 'cl.first_name AS client_first_name',
                 'cl.last_name AS client_last_name',
-                'cl.middle_initial AS client_middle_initial',
+                'cl.middle_name AS client_middle_name',
                 'cl.date_of_birth AS client_date_of_birth',
                 'cl.sex',
                 'cl.email AS client_email',
@@ -734,7 +734,7 @@ class DataExportQueries
                 // Next of Kin — primary first, then by sort_order
                 DB::raw('(SELECT nok.first_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_first_name'),
                 DB::raw('(SELECT nok.last_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_last_name'),
-                DB::raw('(SELECT nok.middle_initial FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_initial'),
+                DB::raw('(SELECT nok.middle_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_name'),
                 DB::raw('(SELECT nok.relationship FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_relationship'),
                 DB::raw('(SELECT nok.phone_number FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_contact_number'),
                 DB::raw('(SELECT nok.email FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_email'),
@@ -830,7 +830,7 @@ class DataExportQueries
             // --- Client Full Name: "Last, First Middle" ---
             $firstName = $row->client_first_name ?? '';
             $lastName = $row->client_last_name ?? '';
-            $middleInitial = $row->client_middle_initial ?? '';
+            $middleInitial = $row->client_middle_name ?? '';
             $row->client_full_name = trim($lastName.($firstName ? ', '.$firstName : '').($middleInitial ? ' '.$middleInitial : ''));
 
             // --- Client Age ---
@@ -861,7 +861,7 @@ class DataExportQueries
             // --- NOK Full Name: "Last, First M." ---
             $nokFirstName = $row->nok_first_name ?? '';
             $nokLastName = $row->nok_last_name ?? '';
-            $nokMiddle = $row->nok_middle_initial ?? '';
+            $nokMiddle = $row->nok_middle_name ?? '';
             $row->nok_full_name = trim($nokLastName.($nokFirstName ? ', '.$nokFirstName : '').($nokMiddle ? ' '.$nokMiddle : ''));
 
             // --- Date Referred display ---
@@ -914,11 +914,11 @@ class DataExportQueries
             unset(
                 $row->client_first_name,
                 $row->client_last_name,
-                $row->client_middle_initial,
+                $row->client_middle_name,
                 $row->street,
                 $row->nok_first_name,
                 $row->nok_last_name,
-                $row->nok_middle_initial,
+                $row->nok_middle_name,
             );
 
             $row->barangay = $addressResolver->resolve($row->barangay ?? null);
@@ -1048,7 +1048,7 @@ class DataExportQueries
                 'id',
                 'client_id',
                 'first_name',
-                'middle_initial',
+                'middle_name',
                 'last_name',
                 'is_primary',
                 'relationship',

@@ -74,7 +74,7 @@ class AuditLogFormatter
             'tracker_number' => 'tracker number',
             'first_name' => 'first name',
             'last_name' => 'last name',
-            'middle_initial' => 'middle initial',
+            'middle_name' => 'middle initial',
             'name' => 'name',
             'email' => 'email address',
             'role' => 'user role',

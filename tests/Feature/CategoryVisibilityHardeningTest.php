@@ -39,15 +39,19 @@ class CategoryVisibilityHardeningTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->has('clients.data', 0)
                 ->where('stats.total_clients', 0)
-                ->where('stats.total_referrals', 0)
-                ->where('exportRowCount', 0));
+                ->where('stats.total_referrals', 0));
+
+        $this->actingAs($user)->getJson(route('clients.export-count'))
+            ->assertOk()->assertJson(['count' => 0]);
 
         $referralPage = $this->actingAs($user)->get(route('referrals.index'));
         $referralPage->assertStatus(200)
             ->assertInertia(fn ($page) => $page
                 ->has('referrals.data', 0)
-                ->where('stats.total_referrals', 0)
-                ->where('exportRowCount', 0));
+                ->where('stats.total_referrals', 0));
+
+        $this->actingAs($user)->getJson(route('referrals.export-count'))
+            ->assertOk()->assertJson(['count' => 0]);
 
         $exports = new DataExportQueries;
         $this->assertCount(0, $exports->getClientsExport($user));
@@ -134,8 +138,10 @@ class CategoryVisibilityHardeningTest extends TestCase
         $managerResponse = $this->actingAs($manager)->get(route('referrals.index'));
         $managerResponse->assertInertia(fn ($page) => $page
             ->has('referrals.data', 2)
-            ->where('stats.total_referrals', 2)
-            ->where('exportRowCount', 2));
+            ->where('stats.total_referrals', 2));
+
+        $this->actingAs($manager)->getJson(route('referrals.export-count'))
+            ->assertOk()->assertJson(['count' => 2]);
 
         $managerExports = new DataExportQueries;
         $this->assertCount(2, $managerExports->getReferralsExport($manager));
@@ -144,8 +150,10 @@ class CategoryVisibilityHardeningTest extends TestCase
         $otherResponse = $this->actingAs($otherManager)->get(route('referrals.index'));
         $otherResponse->assertInertia(fn ($page) => $page
             ->has('referrals.data', 2)
-            ->where('stats.total_referrals', 2)
-            ->where('exportRowCount', 2));
+            ->where('stats.total_referrals', 2));
+
+        $this->actingAs($otherManager)->getJson(route('referrals.export-count'))
+            ->assertOk()->assertJson(['count' => 2]);
 
         $this->assertCount(2, $managerExports->getReferralsExport($otherManager));
         $this->assertSame(2, $managerExports->countReferralsExport($otherManager));
@@ -170,8 +178,10 @@ class CategoryVisibilityHardeningTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->has('referrals.data', 1)
             ->where('referrals.data.0.id', $visibleReferral->id)
-            ->where('stats.total_referrals', 1)
-            ->where('exportRowCount', 1));
+            ->where('stats.total_referrals', 1));
+
+        $this->actingAs($user)->getJson(route('referrals.export-count'))
+            ->assertOk()->assertJson(['count' => 1]);
 
         $exports = new DataExportQueries;
         $this->assertCount(1, $exports->getReferralsExport($user));
