@@ -22,7 +22,7 @@ class ReferralStatusChanged extends Notification implements ShouldQueue
     {
         $channels = ['database'];
 
-        if ($notifiable->email && config('mail.mailer') !== 'log') {
+        if ($notifiable->email && config('mail.default') !== 'log') {
             $channels[] = 'mail';
         }
 

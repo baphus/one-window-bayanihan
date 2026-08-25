@@ -255,8 +255,8 @@ export default function AgencyServicesIndex({ services, allServices }) {
             </div>
 
             {isEditOpen && selectedService && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeEdit}>
+                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-6 py-5">
                             <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Edit Service</p>
                             <h2 className="text-xl font-bold text-slate-900">{selectedService.name}</h2>
@@ -309,8 +309,8 @@ export default function AgencyServicesIndex({ services, allServices }) {
             )}
 
             {isCreateOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setIsCreateOpen(false); setNewName(''); setNewDescription(''); setNewRequirements([]); setNewReqInput(''); }}>
+                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-6 py-5">
                             <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Create Service</p>
                             <h2 className="text-xl font-bold text-slate-900">Add New Service</h2>

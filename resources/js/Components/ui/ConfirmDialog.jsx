@@ -36,8 +36,8 @@ export default function ConfirmDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-md rounded-lg owb-modal-animate bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={handleCancel}>
+      <div className="w-full max-w-md rounded-lg owb-modal-animate bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-col items-center px-6 py-5 text-center">
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${t.iconBg}`}>
             <span className={`material-symbols-outlined text-[22px] ${t.iconColor}`}>{t.icon}</span>

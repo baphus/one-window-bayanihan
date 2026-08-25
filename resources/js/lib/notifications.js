@@ -15,6 +15,7 @@ export const NOTIFICATION_TYPE_SEVERITY = {
   'CaseClosed': 'success',
   'CaseReopened': 'warning',
   'ReferralCreated': 'info',
+  'PeerReferralCreated': 'info',
   'ReferralUpdated': 'info',
   'ReferralCompleted': 'success',
   'StatusChanged': 'info',

@@ -444,7 +444,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <a
             href={route('cases.export-pdf', caseFile.id)}
             target="_blank"
-            className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300 inline-flex items-center gap-1.5"
+            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
             Export PDF
@@ -452,7 +452,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           <button
             type="button"
             onClick={() => setShowAuditLog(true)}
-            className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300 inline-flex items-center gap-1.5"
+            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">history</span>
             Audit Log
@@ -460,7 +460,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           <button
             type="button"
             onClick={openEditDetails}
-            className="px-3 min-h-[32px] bg-slate-100 text-slate-700 hover:bg-slate-200 text-[12px] font-bold rounded-md transition-colors border border-slate-300"
+            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors"
           >
             Edit Details
           </button>
@@ -470,7 +470,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               onClick={() => setConfirmToggleStatus(true)}
               disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
               title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
-              className={`px-3 min-h-[32px] text-[12px] font-bold rounded-md transition-colors border ${
+              className={`px-3 min-h-[34px] text-[12px] font-bold rounded-md transition-colors border ${
                 caseFile.status === 'OPEN' && hasActiveReferrals
                   ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
                   : 'bg-blue-900 text-white hover:bg-blue-800 border-blue-900'
@@ -484,7 +484,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               <button
                 type="button"
                 onClick={() => setConfirmUnarchive(true)}
-                className="px-3 min-h-[32px] bg-gray-200 text-gray-700 hover:bg-gray-300 text-[12px] font-bold rounded-md transition-colors border border-gray-300"
+                className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors"
               >
                 Restore from Archive
               </button>
@@ -492,7 +492,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 <button
                   type="button"
                   onClick={() => setShowDeleteModal(true)}
-                  className="px-3 min-h-[32px] bg-red-50 text-red-700 hover:bg-red-100 text-[12px] font-bold rounded-md transition-colors border border-red-200 inline-flex items-center gap-1.5"
+                  className="px-3 min-h-[34px] bg-red-50 text-[12px] font-bold text-red-700 border border-red-200 rounded-md hover:bg-red-100 transition-colors inline-flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[15px]">delete_forever</span>
                   Delete Case
@@ -503,16 +503,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <button
               type="button"
               onClick={handleArchive}
-              className="px-3 min-h-[32px] bg-gray-100 text-gray-600 hover:bg-gray-200 text-[12px] font-bold rounded-md transition-colors border border-gray-300"
+              className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors"
             >
               Archive Case
             </button>
           ) : null}
           <Link
             href={route('cases.index')}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0"
+            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
           >
-            &larr; Back to Cases
+            Back to Cases
           </Link>
         </div>
       </div>
