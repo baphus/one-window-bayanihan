@@ -669,7 +669,7 @@ function ServiceAddDropdown({ referralId, selectedIds, serviceRequirements }) {
     );
 }
 
-export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {} }) {
+export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
     const { auth } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
@@ -700,6 +700,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const [peerProfileUser, setPeerProfileUser] = useState(null);
     const [showOverdueInfo, setShowOverdueInfo] = useState(false);
     const [showAuditLog, setShowAuditLog] = useState(false);
+    const [selectedRelatedReferral, setSelectedRelatedReferral] = useState(null);
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
@@ -815,13 +816,13 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         <>
                             <button
                                 onClick={() => setPendingDecision({ id: referral.id, mode: 'ACCEPT', status: 'PROCESSING' })}
-                                className="h-[34px] px-3 bg-emerald-600 text-white text-[11px] font-bold rounded-md border border-emerald-600 hover:bg-emerald-700"
+                                className="px-3 min-h-[34px] bg-emerald-600 text-[12px] font-bold text-white border border-emerald-600 rounded-md hover:bg-emerald-700 transition-colors"
                             >
                                 Accept
                             </button>
                             <button
                                 onClick={() => setPendingDecision({ id: referral.id, mode: 'REJECT', status: 'REJECTED' })}
-                                className="h-[34px] px-3 bg-red-50 text-red-700 text-[11px] font-bold rounded-md border border-red-200 hover:bg-red-100"
+                                className="px-3 min-h-[34px] bg-red-50 text-[12px] font-bold text-red-700 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
                             >
                                 Reject
                             </button>
@@ -830,7 +831,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                     {canUpdateStatus && !['PENDING', 'COMPLETED', 'REJECTED'].includes(referral.status) && (
                         <button
                             onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); }}
-                            className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md inline-flex items-center hover:bg-slate-50"
+                            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
                         >
                             Update Status
                         </button>
@@ -838,14 +839,21 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                     <button
                         type="button"
                         onClick={() => setShowAuditLog(true)}
-                        className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md inline-flex items-center gap-1.5 hover:bg-slate-50"
+                        className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
                     >
                         <span className="material-symbols-outlined text-[16px]">history</span>
                         Audit Log
                     </button>
                     <Link
+                        href={route('cases.show', referral.case_id)}
+                        className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">folder_open</span>
+                        View Case
+                    </Link>
+                    <Link
                         href={route('referrals.index')}
-                        className="h-[34px] px-3 border border-slate-200 bg-white text-slate-700 text-[11px] font-bold rounded-md inline-flex items-center hover:bg-slate-50"
+                        className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
                     >
                         Back
                     </Link>
@@ -1333,6 +1341,47 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         )}
                     </CardSection>
 
+                    {relatedReferrals.length > 0 && (
+                        <CardSection title="Other Agencies on This Case" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                            <div className="space-y-2">
+                                {relatedReferrals.map((rel) => {
+                                    const latestMilestone = rel.milestones?.[0];
+                                    return (
+                                        <button
+                                            key={rel.id}
+                                            type="button"
+                                            onClick={() => setSelectedRelatedReferral(rel)}
+                                            className="w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-100/70"
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="text-[12px] font-bold text-slate-800 truncate">{rel.agency?.name ?? 'Unknown Agency'}</p>
+                                                    {rel.services?.length > 0 && (
+                                                        <p className="mt-0.5 text-[10px] text-slate-500 truncate">
+                                                            {rel.services.map((s) => s.name).join(', ')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="shrink-0 flex items-center gap-2">
+                                                    <StatusBadge status={rel.status} />
+                                                </div>
+                                            </div>
+                                            <div className="mt-1 flex items-center justify-between gap-2">
+                                                <p className="text-[9px] text-slate-400">Referred {formatDisplayDateTime(rel.created_at)}</p>
+                                                {latestMilestone && (
+                                                    <p className="text-[9px] text-slate-500 truncate">
+                                                        <span className="material-symbols-outlined inline-block align-[-2px] text-[11px] text-emerald-500 mr-0.5">flag</span>
+                                                        {latestMilestone.title} · {formatRelativeTime(latestMilestone.created_at)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </CardSection>
+                    )}
+
                     <div data-tour="referral-comments">
                     <CardSection title="Referral Comments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         <div className="space-y-3">
@@ -1438,8 +1487,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             </div>
 
             {pendingDecision && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPendingDecision(null)}>
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">
                                 {pendingDecision.mode === 'ACCEPT' ? 'Accept' : 'Reject'} Referral
@@ -1504,8 +1553,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             )}
 
             {showUpdateStatus && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); }}>
+                    <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">Update Status</h2>
                             <p className="mt-1 text-xs text-slate-500">Update the referral status and provide a remark.</p>
@@ -1646,6 +1695,107 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                     );
                 }}
             />
+            {/* Related Referral Detail Modal */}
+            <Modal show={selectedRelatedReferral !== null} maxWidth="lg" onClose={() => setSelectedRelatedReferral(null)}>
+                {selectedRelatedReferral && (
+                    <div className="bg-white">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+                            <div className="min-w-0">
+                                <h2 className="text-[15px] font-extrabold text-slate-900">{selectedRelatedReferral.agency?.name ?? 'Unknown Agency'}</h2>
+                                <p className="mt-0.5 text-[11px] text-slate-500">Referred {formatDisplayDateTime(selectedRelatedReferral.created_at)}</p>
+                            </div>
+                            <StatusBadge status={selectedRelatedReferral.status} />
+                        </div>
+                        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                            {/* Services & Requirements */}
+                            {selectedRelatedReferral.services?.length > 0 && (
+                                <div>
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">Services & Requirements</p>
+                                    <div className="space-y-2">
+                                        {selectedRelatedReferral.services.map((svc) => {
+                                            const reqs = selectedRelatedReferral.service_requirements?.filter((r) => r.service_id === svc.id) ?? [];
+                                            return (
+                                                <div key={svc.id} className="rounded-md border border-slate-100 bg-slate-50/70 px-3 py-2">
+                                                    <p className="text-[11px] font-bold text-slate-700">{svc.name}</p>
+                                                    {reqs.length > 0 && (
+                                                        <ul className="mt-1.5 space-y-1">
+                                                            {reqs.map((req) => (
+                                                                <li key={req.id} className="flex items-start gap-1.5 text-[10px] text-slate-600">
+                                                                    <span className="material-symbols-outlined mt-px text-[12px] text-slate-400">
+                                                                        {req.status === 'FULFILLED' ? 'check_box' : 'check_box_outline_blank'}
+                                                                    </span>
+                                                                    <span>{req.requirement_name}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Decision */}
+                            {selectedRelatedReferral.decision && (
+                                <div>
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-1">Decision</p>
+                                    <p className="text-[12px] font-semibold text-slate-700">{selectedRelatedReferral.decision === 'ACCEPT' ? 'Accepted' : 'Rejected'}</p>
+                                    {selectedRelatedReferral.decision_comment && (
+                                        <p className="mt-0.5 text-[11px] text-slate-500 whitespace-pre-wrap">{selectedRelatedReferral.decision_comment}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Notes */}
+                            {selectedRelatedReferral.notes && (
+                                <div>
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-1">Notes</p>
+                                    <p className="text-[11px] text-slate-600 whitespace-pre-wrap">{selectedRelatedReferral.notes}</p>
+                                </div>
+                            )}
+
+                            {/* Latest Activity */}
+                            {selectedRelatedReferral.milestones?.length > 0 && (
+                                <div>
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-1">Latest Activity</p>
+                                    <div className="flex items-start gap-2">
+                                        <span className="material-symbols-outlined mt-0.5 text-[14px] text-emerald-500">flag</span>
+                                        <div>
+                                            <p className="text-[11px] font-semibold text-slate-700">{selectedRelatedReferral.milestones[0].title}</p>
+                                            {selectedRelatedReferral.milestones[0].description && (
+                                                <p className="mt-0.5 text-[10px] text-slate-500">{selectedRelatedReferral.milestones[0].description}</p>
+                                            )}
+                                            <p className="mt-0.5 text-[9px] text-slate-400">{formatDisplayDateTime(selectedRelatedReferral.milestones[0].created_at)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {!selectedRelatedReferral.decision && !selectedRelatedReferral.notes && selectedRelatedReferral.milestones?.length === 0 && (
+                                <p className="text-[11px] text-slate-400 italic text-center py-2">No additional details available for this referral.</p>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+                            {(isAdmin || isCaseManager) && (
+                                <Link
+                                    href={route('referrals.show', selectedRelatedReferral.id)}
+                                    className="h-[30px] px-4 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 inline-flex items-center"
+                                >
+                                    View Full Referral
+                                </Link>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setSelectedRelatedReferral(null)}
+                                className="h-[30px] px-4 border border-slate-300 bg-white text-slate-700 text-[10px] font-bold rounded-md hover:bg-slate-50"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </AppLayout>
     );
 }

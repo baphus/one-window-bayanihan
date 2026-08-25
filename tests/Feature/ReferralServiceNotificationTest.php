@@ -7,6 +7,7 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
+use App\Notifications\PeerReferralCreated;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use App\Services\ReferralService;
@@ -177,6 +178,96 @@ class ReferralServiceNotificationTest extends TestCase
             'client_email' => 'ofw@example.com',
             'type' => 'milestone_added',
         ]);
+    }
+
+    public function test_creating_referral_notifies_peer_agencies_on_same_case(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+
+        // First agency already has an active referral on this case
+        $agencyA = Agency::factory()->create();
+        $agencyAUser = User::factory()->create([
+            'agcy_id' => $agencyA->id,
+            'role' => 'AGENCY',
+            'is_active' => true,
+        ]);
+
+        $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agencyA->id,
+            'required_services' => 'Service A',
+        ], $caseManager->id);
+
+        Notification::fake();
+
+        // Second referral on the same case → agencyA users should get PeerReferralCreated
+        $agencyB = Agency::factory()->create();
+        $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agencyB->id,
+            'required_services' => 'Service B',
+        ], $caseManager->id);
+
+        Notification::assertSentTo($agencyAUser, PeerReferralCreated::class);
+    }
+
+    public function test_peer_notification_not_sent_to_receiving_agency(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+
+        $agencyA = Agency::factory()->create();
+        $agencyAUser = User::factory()->create([
+            'agcy_id' => $agencyA->id,
+            'role' => 'AGENCY',
+            'is_active' => true,
+        ]);
+
+        $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agencyA->id,
+            'required_services' => 'Service A',
+        ], $caseManager->id);
+
+        Notification::fake();
+
+        // New referral to agencyA on same case — should NOT get PeerReferralCreated (already gets ReferralCreated)
+        $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agencyA->id,
+            'required_services' => 'Service A2',
+        ], $caseManager->id);
+
+        Notification::assertNotSentTo($agencyAUser, PeerReferralCreated::class);
+    }
+
+    public function test_peer_notification_not_sent_when_no_other_active_referrals(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+
+        $agency = Agency::factory()->create();
+        $agencyUser = User::factory()->create([
+            'agcy_id' => $agency->id,
+            'role' => 'AGENCY',
+            'is_active' => true,
+        ]);
+
+        // First referral — no other referrals exist, so no peer notification
+        $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+            'required_services' => 'Service',
+        ], $caseManager->id);
+
+        Notification::assertNotSentTo($agencyUser, PeerReferralCreated::class);
     }
 
     public function test_referral_can_be_rejected_after_processing_begins(): void

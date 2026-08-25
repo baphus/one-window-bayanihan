@@ -19,9 +19,11 @@ use App\Models\ReferralServiceRequirement;
 use App\Models\Service;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
+use App\Notifications\PeerReferralCreated;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -104,6 +106,25 @@ class ReferralService
                 ->where('is_active', true)
                 ->get();
             Notification::send($agencyUsers, new ReferralCreated($referral));
+
+            // Notify peer agencies already involved in this case
+            $peerReferrals = Referral::where('case_id', $referral->case_id)
+                ->where('id', '!=', $referral->id)
+                ->where('is_deleted', false)
+                ->where('agcy_id', '!=', $referral->agcy_id)
+                ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
+                ->get();
+
+            if ($peerReferrals->isNotEmpty()) {
+                $peerAgencyIds = $peerReferrals->pluck('agcy_id')->unique()->values();
+                $peerUsers = User::whereIn('agcy_id', $peerAgencyIds)
+                    ->where('is_active', true)
+                    ->get();
+
+                if ($peerUsers->isNotEmpty()) {
+                    Notification::send($peerUsers, new PeerReferralCreated($referral, $peerReferrals->first()));
+                }
+            }
 
             // Also create OFW notification for the case client
             if ($referral->caseFile && $referral->caseFile->client && $referral->caseFile->client->email) {
@@ -306,6 +327,24 @@ class ReferralService
         $relations[] = 'caseFile.categories';
 
         return Referral::with($relations)->findOrFail($id);
+    }
+
+    /**
+     * Get all other referrals on the same case (excluding the current one).
+     * Shows which agencies are involved in supporting this case.
+     */
+    public function getRelatedReferrals(Referral $referral): Collection
+    {
+        return Referral::where('case_id', $referral->case_id)
+            ->where('id', '!=', $referral->id)
+            ->with([
+                'agency',
+                'services',
+                'milestones' => fn ($q) => $q->latest()->limit(1),
+                'serviceRequirements.service',
+            ])
+            ->orderBy('created_at', 'asc')
+            ->get();
     }
 
     /**

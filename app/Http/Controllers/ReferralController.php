@@ -180,6 +180,7 @@ class ReferralController extends Controller
             'timeline' => $this->referralService->getReferralTimeline($referral),
             'clientRequestHistory' => $clientRequestHistory,
             'clientRequestPermissions' => $this->referralService->getClientRequestPermissions($referral, $request->user()),
+            'relatedReferrals' => $this->referralService->getRelatedReferrals($referral),
         ]);
     }
 

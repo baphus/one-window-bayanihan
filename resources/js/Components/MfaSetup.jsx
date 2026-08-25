@@ -308,8 +308,8 @@ export default function MfaSetup({ mfaEnabled }) {
 
         {/* Password confirmation dialog for Disable / Regenerate */}
         {confirmAction && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-                <div className="w-full max-w-md rounded-lg owb-modal-animate bg-white shadow-xl">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={() => setConfirmAction(null)}>
+                <div className="w-full max-w-md rounded-lg owb-modal-animate bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col items-center px-6 py-5 text-center">
                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${confirmAction === 'disable' ? 'bg-red-50' : 'bg-blue-50'}`}>
                             <span className={`material-symbols-outlined text-[22px] ${confirmAction === 'disable' ? 'text-red-600' : 'text-blue-600'}`}>
