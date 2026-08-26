@@ -8,11 +8,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Add Content-Security-Policy headers to all HTTP responses.
+ * Add Content-Security-Policy headers to all web responses.
  *
  * Restricts which resources the browser can load, mitigating XSS attacks.
- * In production/staging, a nonce-based policy is deployed via the
- * Report-Only header first, allowing violation collection before enforcement.
+ * In production/staging, a nonce-based policy is enforced.
  * In dev mode, Vite HMR requires relaxed directives.
  */
 class ContentSecurityPolicy
@@ -36,8 +35,7 @@ class ContentSecurityPolicy
         // additional INLINE loader script, and Laravel renders that one with
         // Vite::nonceAttribute() — driven by the nonce useCspNonce() sets and
         // nothing else. The loader therefore shipped unsigned and tripped the
-        // policy on every page load, which is exactly what has to be clean
-        // before Report-Only can become enforcing.
+        // policy on every page load.
         //
         // useCspNonce covers both: the src tags fall back to the same nonce.
         if (! $isDev) {
@@ -45,6 +43,7 @@ class ContentSecurityPolicy
         }
 
         $response = $next($request);
+        $response->headers->remove('Content-Security-Policy-Report-Only');
 
         if ($isDev) {
             // Dev/local: keep the relaxed policy on the main header
@@ -52,9 +51,9 @@ class ContentSecurityPolicy
                 $response->headers->set('Content-Security-Policy', $this->getDevPolicy());
             }
         } else {
-            // Production/staging: deploy nonce-based policy via Report-Only
-            if (! $response->headers->has('Content-Security-Policy-Report-Only')) {
-                $response->headers->set('Content-Security-Policy-Report-Only', $this->getReportOnlyPolicy($nonce));
+            // Production/staging: enforce the nonce-based policy.
+            if (! $response->headers->has('Content-Security-Policy')) {
+                $response->headers->set('Content-Security-Policy', $this->getPolicy($nonce));
             }
         }
 
@@ -62,12 +61,12 @@ class ContentSecurityPolicy
     }
 
     /**
-     * Report-Only policy for production/staging — nonce-based script-src.
+     * Enforced policy for production/staging — nonce-based script-src.
      *
      * Remove `'unsafe-eval'` from prod script-src (React prod build does not need it).
      * Style `'unsafe-inline'` kept as acceptable tradeoff with Tailwind JIT/MUI.
      */
-    private function getReportOnlyPolicy(string $nonce): string
+    private function getPolicy(string $nonce): string
     {
         $reportUri = config('csp.report_uri', '');
 

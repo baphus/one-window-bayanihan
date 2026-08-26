@@ -14,14 +14,15 @@ class CspHeadersTest extends TestCase
     }
 
     #[Test]
-    public function it_sends_report_only_csp_header_on_web_routes(): void
+    public function it_sends_enforced_csp_header_on_web_routes(): void
     {
         $response = $this->get('/login');
 
         $response->assertStatus(200);
-        $response->assertHeader('Content-Security-Policy-Report-Only');
+        $response->assertHeader('Content-Security-Policy');
+        $response->assertHeaderMissing('Content-Security-Policy-Report-Only');
 
-        $policy = $response->headers->get('Content-Security-Policy-Report-Only');
+        $policy = $response->headers->get('Content-Security-Policy');
 
         $this->assertStringContainsString("default-src 'self'", $policy);
         $this->assertStringContainsString("script-src 'self' 'nonce-", $policy);

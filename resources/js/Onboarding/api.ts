@@ -1,14 +1,6 @@
 import { route } from 'ziggy-js';
 import type { TourState } from '@/Onboarding/types';
 
-/**
- * Read the XSRF token Laravel sets as a cookie on every response.
- */
-function xsrfToken(): string {
-    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
-}
-
 async function postJson(routeName: string, body?: Record<string, unknown>): Promise<void> {
     const response = await fetch(route(routeName), {
         method: 'POST',
@@ -17,7 +9,6 @@ async function postJson(routeName: string, body?: Record<string, unknown>): Prom
             'Content-Type': 'application/json',
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-XSRF-TOKEN': xsrfToken(),
         },
         body: body ? JSON.stringify(body) : undefined,
     });
