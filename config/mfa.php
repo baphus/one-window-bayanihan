@@ -21,6 +21,6 @@ return [
      */
     'enrollment_enforced_roles' => array_values(array_filter(array_map(
         'trim',
-        explode(',', (string) env('MFA_ENROLLMENT_ENFORCED_ROLES', 'ADMIN,CASE_MANAGER,AGENCY'))
+        explode(',', (string) (env('MFA_ENROLLMENT_ENFORCED_ROLES') ?: 'ADMIN,CASE_MANAGER,AGENCY'))
     ))),
 ];
