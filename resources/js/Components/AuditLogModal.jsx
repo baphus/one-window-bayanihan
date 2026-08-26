@@ -168,10 +168,10 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
  */
 function LogEntry({ log }) {
     const activityType = getActivityType(log.action, log.module);
-    const description = log.message || log.description || '';
+    const description = log.message || '';
     const changes = Array.isArray(log.changes) ? log.changes : [];
     const timestamp = log.timestamp;
-    const actor = log.actor || log.user?.name || 'System';
+    const actor = log.actor || 'System';
     // Human module label; falls back to the raw module only if unformatted.
     const module = log.formatted_module || log.module || '';
 

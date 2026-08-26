@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
@@ -241,6 +242,53 @@ class AuditLogFormatter
             'actor' => $userName,
             'timestamp' => $log->timestamp?->toISOString(),
             'hasChanges' => $changes !== [],
+        ];
+    }
+
+    /**
+     * Safe response contract for every browser and export audit surface.
+     *
+     * Audit records are evidence, not presentation objects: historic rows can
+     * contain free text and legacy values that are no longer safe to disclose.
+     * Never add raw attributes, stored descriptions, or value diffs here. The
+     * later classified-event policy may opt individual, approved summaries back
+     * in; until then this deliberately exposes only event metadata.
+     *
+     * @return array{
+     *     id: string,
+     *     action: string,
+     *     module: string,
+     *     formatted_module: string,
+     *     category: string|null,
+     *     message: string,
+     *     detail: string,
+     *     changes: array<never>,
+     *     actor: string,
+     *     timestamp: string|null,
+     *     hasChanges: bool
+     * }
+     */
+    public function formatForAuditResponse(AuditLog $log): array
+    {
+        $action = AuditAction::tryFrom(strtoupper((string) $log->action))?->value ?? 'UNKNOWN';
+        $actor = $this->resolveUserName($log);
+        $auditModule = AuditModule::tryFromLegacy((string) $log->module);
+        $module = $auditModule?->value ?? 'other';
+        $moduleLabel = $auditModule?->label() ?? 'Other activity';
+        $category = in_array($log->category, AuditCategory::ALL, true) ? $log->category : null;
+
+        return [
+            'id' => (string) $log->getKey(),
+            'action' => $action,
+            'module' => $module,
+            'formatted_module' => $moduleLabel,
+            'category' => $category,
+            'message' => $this->formatSafeMessage($actor, $action, $moduleLabel),
+            'detail' => '',
+            'changes' => [],
+            'actor' => $actor,
+            'timestamp' => $log->timestamp?->toISOString(),
+            'hasChanges' => $log->old_value !== null || $log->new_value !== null,
         ];
     }
 
@@ -496,6 +544,18 @@ class AuditLogFormatter
         }
 
         return sprintf('%s published %s', $userName, strtolower($module));
+    }
+
+    private function formatSafeMessage(string $actor, string $action, string $module): string
+    {
+        return match ($action) {
+            'LOGIN' => sprintf('%s signed in', $actor),
+            'LOGOUT' => sprintf('%s signed out', $actor),
+            'LOGIN_FAILED' => 'A sign-in attempt failed',
+            'EXPORT' => sprintf('%s requested an audit log export', $actor),
+            'UNKNOWN' => 'An unclassified activity was recorded',
+            default => sprintf('%s %s %s', $actor, $this->formatAction($action), strtolower($module)),
+        };
     }
 
     private function resolveUserName(AuditLog $log): string

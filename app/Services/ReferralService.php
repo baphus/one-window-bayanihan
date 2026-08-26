@@ -1065,14 +1065,13 @@ class ReferralService
             ->filter(fn (AuditLog $log) => ($log->old_value['status'] ?? null) !== ($log->new_value['status'] ?? null));
 
         foreach ($statusLogs as $log) {
-            $oldStatus = $log->old_value['status'] ?? 'UNKNOWN';
-            $newStatus = $log->new_value['status'] ?? 'UNKNOWN';
-
             $events->push([
                 'id' => 'status-'.$log->id,
                 'type' => 'referral_status',
-                'title' => 'Status changed from '.str_replace('_', ' ', $oldStatus).' to '.str_replace('_', ' ', $newStatus),
-                'description' => $log->description ?? '',
+                // The audit row may include internal free text or additional
+                // fields beside status. Keep this timeline metadata-only.
+                'title' => 'Referral status updated',
+                'description' => '',
                 'timestamp' => $log->timestamp->toISOString(),
                 'actor' => $log->user?->name ?? 'System',
             ]);

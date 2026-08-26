@@ -216,6 +216,29 @@ class AuditLogFormatterTest extends TestCase
         $this->assertTrue($display['hasChanges']);
     }
 
+    public function test_safe_audit_response_does_not_reflect_unclassified_stored_metadata(): void
+    {
+        $sensitiveValue = 'private-value-must-not-reach-audit-responses';
+        $log = new AuditLog([
+            'action' => $sensitiveValue,
+            'module' => $sensitiveValue,
+            'category' => $sensitiveValue,
+            'description' => $sensitiveValue,
+            'old_value' => ['private_note' => 'previous private note'],
+            'new_value' => ['private_note' => $sensitiveValue],
+            'timestamp' => now(),
+        ]);
+
+        $response = (new AuditLogFormatter)->formatForAuditResponse($log);
+
+        $this->assertSame('UNKNOWN', $response['action']);
+        $this->assertSame('other', $response['module']);
+        $this->assertSame('Other activity', $response['formatted_module']);
+        $this->assertNull($response['category']);
+        $this->assertSame('An unclassified activity was recorded', $response['message']);
+        $this->assertStringNotContainsString($sensitiveValue, json_encode($response));
+    }
+
     public function test_get_structured_changes_basic_field_change(): void
     {
         $formatter = new AuditLogFormatter;

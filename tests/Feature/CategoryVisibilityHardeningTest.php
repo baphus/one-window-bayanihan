@@ -90,10 +90,10 @@ class CategoryVisibilityHardeningTest extends TestCase
             'agcy_id' => $foreignAgency->id,
         ]);
 
-        $this->audit($viewer, 'case', $visibleCase->id, 'Visible case audit');
-        $this->audit($viewer, 'referral', $visibleReferral->id, 'Visible referral audit');
-        $this->audit($viewer, 'case', $foreignNewestCase->id, 'Foreign case audit');
-        $this->audit($viewer, 'referral', $foreignReferral->id, 'Foreign referral audit');
+        $visibleCaseLog = $this->audit($viewer, 'case', $visibleCase->id, 'Visible case audit');
+        $visibleReferralLog = $this->audit($viewer, 'referral', $visibleReferral->id, 'Visible referral audit');
+        $foreignCaseLog = $this->audit($viewer, 'case', $foreignNewestCase->id, 'Foreign case audit');
+        $foreignReferralLog = $this->audit($viewer, 'referral', $foreignReferral->id, 'Foreign referral audit');
 
         $response = $this->actingAs($viewer)
             ->get(route('clients.show', $client));
@@ -107,13 +107,14 @@ class CategoryVisibilityHardeningTest extends TestCase
                     return $ids === [$visibleReferral->id]
                         && ! in_array($foreignReferral->id, $ids, true);
                 })
-                ->where('auditLogs', function ($logs) use ($foreignNewestCase, $foreignReferral) {
-                    $serialized = json_encode($logs);
+                ->where('auditLogs', function ($logs) use ($visibleCaseLog, $visibleReferralLog, $foreignCaseLog, $foreignReferralLog) {
+                    $ids = collect($logs)->pluck('id')->all();
 
-                    return ! str_contains($serialized, $foreignNewestCase->id)
-                        && ! str_contains($serialized, $foreignReferral->id)
-                        && str_contains($serialized, 'Visible case audit')
-                        && str_contains($serialized, 'Visible referral audit');
+                    return in_array($visibleCaseLog, $ids, true)
+                        && in_array($visibleReferralLog, $ids, true)
+                        && ! in_array($foreignCaseLog, $ids, true)
+                        && ! in_array($foreignReferralLog, $ids, true)
+                        && ! array_key_exists('description', $logs[0]);
                 }));
     }
 
@@ -207,15 +208,15 @@ class CategoryVisibilityHardeningTest extends TestCase
         $this->assertSame(1, $service->getReferralStats($agency->id, 'AGENCY', null)['total_referrals']);
     }
 
-    private function audit(User $user, string $module, string $entityId, string $description): void
+    private function audit(User $user, string $module, string $entityId, string $description): string
     {
-        AuditLog::create([
+        return (string) AuditLog::create([
             'user_id' => $user->id,
             'action' => 'UPDATE',
             'module' => $module,
             'entity_id' => $entityId,
             'description' => $description,
             'timestamp' => now(),
-        ]);
+        ])->id;
     }
 }

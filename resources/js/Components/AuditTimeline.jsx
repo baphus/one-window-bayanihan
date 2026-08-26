@@ -5,7 +5,7 @@ import { ChangesTable, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
 
 /**
  * @param {Object} props
- * @param {Array} props.logs - Array of log objects with id, description, action, module, user, timestamp, old_value, new_value
+ * @param {Array} props.logs - Safe audit response objects with event metadata and approved display fields
  * @param {boolean} [props.showFilters=true] - Whether to show filter bar
  * @param {Function} [props.onFilterChange] - Callback when filters change
  * @param {string[]} [props.availableActions=[]] - Available action types for filter dropdown
@@ -109,12 +109,10 @@ export function AuditTimeline({
 function TimelineEntry({ log }) {
     const style = actionStyle(log.action);
 
-    const actorName = log.actor || log.user?.name || '??';
+    const actorName = log.actor || '??';
 
-    const displayMessage = log.message ?? log.description;
+    const displayMessage = log.message ?? '';
     const changes = log.changes || [];
-
-    const hasChanges = changes.length > 0 || (log.action === 'UPDATE' && log.old_value && log.new_value);
 
     return (
         <div className="relative pl-12 py-4">
@@ -161,30 +159,6 @@ function TimelineEntry({ log }) {
                     </div>
                 )}
 
-                {/* Fallback for logs without formatted changes (CREATE, LOGIN, etc.) */}
-                {changes.length === 0 && hasChanges && log.old_value && log.new_value && (() => {
-                    let oldVals = {};
-                    let newVals = {};
-                    try {
-                        oldVals = typeof log.old_value === 'string' ? JSON.parse(log.old_value) : log.old_value;
-                        newVals = typeof log.new_value === 'string' ? JSON.parse(log.new_value) : log.new_value;
-                    } catch(e) {
-                        return null;
-                    }
-                    const changedKeys = Array.from(new Set([...Object.keys(oldVals || {}), ...Object.keys(newVals || {})]));
-                    if (changedKeys.length === 0) return null;
-
-                    return (
-                        <div className="ml-11 mt-3">
-                            <ChangesTable changes={changedKeys.map(key => ({
-                                field: log.formatted_fields?.[key] || key,
-                                fieldLabel: log.formatted_fields?.[key] || key,
-                                old: oldVals[key] !== undefined && oldVals[key] !== null ? String(oldVals[key]) : '-',
-                                new: newVals[key] !== undefined && newVals[key] !== null ? String(newVals[key]) : '-',
-                            })).filter(c => c.old !== c.new)} />
-                        </div>
-                    );
-                })()}
             </div>
         </div>
     );

@@ -262,7 +262,7 @@ class AuthorizationGapTest extends TestCase
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
         $case = CaseFile::factory()->create(['user_id' => $manager->id]);
 
-        AuditLog::create([
+        $ownLog = AuditLog::create([
             'action' => 'CREATE',
             'module' => 'case_files',
             'entity_id' => $case->id,
@@ -285,7 +285,7 @@ class AuthorizationGapTest extends TestCase
         $ownCase = CaseFile::factory()->create(['user_id' => $manager->id]);
         $otherCase = CaseFile::factory()->create(['user_id' => $otherManager->id]);
 
-        AuditLog::create([
+        $ownLog = AuditLog::create([
             'action' => 'CREATE',
             'module' => 'case_files',
             'entity_id' => $ownCase->id,
@@ -293,7 +293,7 @@ class AuthorizationGapTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        AuditLog::create([
+        $otherLog = AuditLog::create([
             'action' => 'CREATE',
             'module' => 'case_files',
             'entity_id' => $otherCase->id,
@@ -306,11 +306,11 @@ class AuthorizationGapTest extends TestCase
             ->get('/audit-logs')
             ->json('props.logs.data');
 
-        $entityIds = collect($data)->pluck('entity_id')->all();
+        $logIds = collect($data)->pluck('id')->all();
 
         // The manager sees activity on all cases, including other managers'.
-        $this->assertContains($ownCase->id, $entityIds);
-        $this->assertContains($otherCase->id, $entityIds);
+        $this->assertContains($ownLog->id, $logIds);
+        $this->assertContains($otherLog->id, $logIds);
     }
 
     public function test_case_manager_sees_milestone_activity_on_their_referrals(): void
@@ -323,7 +323,7 @@ class AuthorizationGapTest extends TestCase
         $milestone = Milestone::factory()->create(['refr_id' => $referral->id]);
 
         AuditLog::truncate();
-        AuditLog::create([
+        $milestoneLog = AuditLog::create([
             'action' => 'CREATE',
             'module' => 'milestone',
             'entity_id' => $milestone->id,
@@ -337,7 +337,7 @@ class AuthorizationGapTest extends TestCase
             ->get('/audit-logs')
             ->json('props.logs.data');
 
-        $this->assertContains($milestone->id, collect($data)->pluck('entity_id')->all());
+        $this->assertContains($milestoneLog->id, collect($data)->pluck('id')->all());
     }
 
     // ──────────────────────────────────────────────

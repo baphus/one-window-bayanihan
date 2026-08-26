@@ -27,9 +27,9 @@ class AgencyActivityLogScopeTest extends TestCase
         $this->withoutMiddleware(SetPostgresSession::class);
     }
 
-    private function log(string $module, string $entityId, string $description): void
+    private function log(string $module, string $entityId, string $description): string
     {
-        AuditLog::create([
+        return (string) AuditLog::create([
             'action' => 'UPDATE',
             'module' => $module,
             'entity_id' => $entityId,
@@ -38,7 +38,7 @@ class AgencyActivityLogScopeTest extends TestCase
             // console context in tests), which the default view hides.
             'category' => 'data',
             'timestamp' => now(),
-        ]);
+        ])->id;
     }
 
     public function test_agency_sees_only_its_referrals_and_their_cases(): void
@@ -55,22 +55,23 @@ class AgencyActivityLogScopeTest extends TestCase
 
         // Controlled log set (drop the observer-generated create rows first).
         AuditLog::truncate();
-        $this->log('referral', $referralA->id, 'AGENCY A REFERRAL');
-        $this->log('case', $caseA->id, 'AGENCY A PARENT CASE');
-        $this->log('referral', $referralB->id, 'AGENCY B REFERRAL');
-        $this->log('case', $caseB->id, 'OTHER CASE');
+        $allowedReferralLog = $this->log('referral', $referralA->id, 'AGENCY A REFERRAL');
+        $allowedCaseLog = $this->log('case', $caseA->id, 'AGENCY A PARENT CASE');
+        $foreignReferralLog = $this->log('referral', $referralB->id, 'AGENCY B REFERRAL');
+        $foreignCaseLog = $this->log('case', $caseB->id, 'OTHER CASE');
 
         $data = $this->actingAs($focalA)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs')
             ->json('props.logs.data');
 
-        $descriptions = collect($data)->pluck('message')->all();
+        $logIds = collect($data)->pluck('id')->all();
 
-        $this->assertContains('AGENCY A REFERRAL', $descriptions);
-        $this->assertContains('AGENCY A PARENT CASE', $descriptions);
-        $this->assertNotContains('AGENCY B REFERRAL', $descriptions);
-        $this->assertNotContains('OTHER CASE', $descriptions);
+        $this->assertContains($allowedReferralLog, $logIds);
+        $this->assertContains($allowedCaseLog, $logIds);
+        $this->assertNotContains($foreignReferralLog, $logIds);
+        $this->assertNotContains($foreignCaseLog, $logIds);
+        $this->assertArrayNotHasKey('description', $data[0]);
         $this->assertCount(2, $data);
     }
 
