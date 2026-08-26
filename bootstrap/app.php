@@ -11,6 +11,7 @@ use App\Http\Middleware\IpWhitelist;
 use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPostgresSession;
+use App\Http\Middleware\StripRedirectResponseBody;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Http\Middleware\VerifyTurnstileSession;
 use App\Services\IncidentIdService;
@@ -43,6 +44,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SetPostgresSession::class);
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
+        $middleware->append(StripRedirectResponseBody::class);
+
+        // Use browser-provided origin metadata for CSRF protection. Besides
+        // rejecting cross-origin writes, this prevents Laravel from emitting
+        // the JavaScript-readable XSRF-TOKEN cookie on every web response.
+        $middleware->preventRequestForgery(originOnly: true);
+
         $middleware->trustProxies(
             at: explode(',', env('TRUSTED_PROXIES', '10.0.0.0/8')),
             headers: Request::HEADER_X_FORWARDED_FOR
@@ -52,14 +60,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PREFIX
         );
 
-        $middleware->web(append: [
-            CheckUserActive::class,
-            EnsureMfaSession::class,
-            CheckMfaEnrolled::class,
-            ContentSecurityPolicy::class,
-            HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
-        ]);
+        $middleware->web(
+            prepend: [ContentSecurityPolicy::class],
+            append: [
+                CheckUserActive::class,
+                EnsureMfaSession::class,
+                CheckMfaEnrolled::class,
+                HandleInertiaRequests::class,
+                AddLinkHeadersForPreloadedAssets::class,
+            ],
+        );
 
         $middleware->alias([
             'role' => CheckRole::class,

@@ -6,7 +6,7 @@ return [
     | CSP Report URI
     |--------------------------------------------------------------------------
     |
-    | Browser POSTs CSP violation reports to this URI in Report-Only mode.
+    | Browsers POST CSP violation reports to this URI when enforcing the policy.
     | Set to an external CSP monitoring service endpoint (e.g. report-uri.io)
     | or leave empty to omit the report-uri directive.
     |

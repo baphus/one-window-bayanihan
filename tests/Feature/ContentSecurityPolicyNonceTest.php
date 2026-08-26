@@ -16,9 +16,8 @@ use Tests\TestCase;
  * INLINE loader script. The middleware set the nonce with
  * useScriptTagAttributes(), which decorates <script src> tags only — Laravel's
  * prefetch loader reads $this->nonce, populated exclusively by useCspNonce().
- * The loader therefore shipped unsigned and tripped the Report-Only policy on
- * every page load, which is precisely the thing that has to be clean before the
- * policy can be moved off Report-Only and actually enforced.
+ * The loader therefore shipped unsigned and would be blocked by the enforced
+ * policy on every page load.
  */
 class ContentSecurityPolicyNonceTest extends TestCase
 {
@@ -37,7 +36,7 @@ class ContentSecurityPolicyNonceTest extends TestCase
 
         $this->assertStringContainsString(
             "'nonce-{$nonce}'",
-            (string) $response->headers->get('Content-Security-Policy-Report-Only'),
+            (string) $response->headers->get('Content-Security-Policy'),
             'The nonce handed to Vite is not the nonce the policy allows.'
         );
     }
@@ -79,11 +78,11 @@ class ContentSecurityPolicyNonceTest extends TestCase
     {
         preg_match(
             "/'nonce-([^']+)'/",
-            (string) $response->headers->get('Content-Security-Policy-Report-Only'),
+            (string) $response->headers->get('Content-Security-Policy'),
             $m
         );
 
-        $this->assertNotEmpty($m, 'No nonce found in the Report-Only policy.');
+        $this->assertNotEmpty($m, 'No nonce found in the enforced policy.');
 
         return $m[1];
     }

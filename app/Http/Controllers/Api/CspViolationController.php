@@ -8,10 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Accept CSP violation reports sent by the browser in Report-Only mode.
+ * Accept CSP violation reports sent by the browser.
  *
- * Logs each violation at DEBUG level for monitoring during the evaluation
- * phase before switching to enforced mode.
+ * Enforced policies can still report blocked resource loads through report-uri.
  */
 class CspViolationController extends Controller
 {

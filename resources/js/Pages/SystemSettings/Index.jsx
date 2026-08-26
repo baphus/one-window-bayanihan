@@ -77,9 +77,6 @@ export default function SystemSettings({
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-XSRF-TOKEN': decodeURIComponent(
-                        document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''
-                    ),
                 },
             });
             const data = await res.json();
