@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Agency;
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Referral;
@@ -19,6 +20,36 @@ use Tests\TestCase;
 class DashboardServiceTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[Test]
+    public function admin_dashboard_recent_logs_use_the_safe_audit_contract(): void
+    {
+        $sensitiveValue = 'private-case-note-must-not-reach-the-dashboard';
+        $actor = User::factory()->create(['name' => 'Dashboard Tester']);
+
+        $log = AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'user_id' => $actor->id,
+            'description' => "Referral updated: {$sensitiveValue}",
+            'old_value' => ['private_note' => 'previous private note'],
+            'new_value' => ['private_note' => $sensitiveValue],
+            'ip_address' => '203.0.113.72',
+            'user_agent' => 'Sensitive Dashboard Test Agent',
+            'timestamp' => now(),
+        ]);
+
+        $entry = collect(app(DashboardService::class)->getAdminData()['recentLogs'])
+            ->firstWhere('id', $log->id);
+
+        $this->assertNotNull($entry);
+        foreach (['description', 'old_value', 'new_value', 'entity_id', 'ip_address', 'user_agent', 'request_id', 'prev_hash', 'user'] as $field) {
+            $this->assertArrayNotHasKey($field, $entry, "{$field} must not reach the dashboard");
+        }
+        $this->assertStringNotContainsString($sensitiveValue, json_encode($entry));
+        $this->assertStringNotContainsString('203.0.113.72', json_encode($entry));
+        $this->assertStringNotContainsString('Sensitive Dashboard Test Agent', json_encode($entry));
+    }
 
     #[Test]
     public function agency_dashboard_insights_are_scoped_and_actionable(): void

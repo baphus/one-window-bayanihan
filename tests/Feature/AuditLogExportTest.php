@@ -111,8 +111,10 @@ class AuditLogExportTest extends TestCase
 
         $csv = $response->streamedContent();
         $this->assertStringContainsString('Timestamp (UTC)', $csv);
-        $this->assertStringContainsString('Referral change 1', $csv);
-        $this->assertStringContainsString('Referral change 3', $csv);
+        $this->assertStringContainsString('UPDATE', $csv);
+        $this->assertStringContainsString('referral', $csv);
+        $this->assertStringNotContainsString('Referral change 1', $csv);
+        $this->assertStringNotContainsString('Referral change 3', $csv);
 
         $entry = AuditLog::where('action', 'EXPORT')->first();
         $this->assertNotNull($entry);
@@ -136,8 +138,53 @@ class AuditLogExportTest extends TestCase
             ->get('/audit-logs/export?module=referral&date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString());
 
         $csv = $response->streamedContent();
-        $this->assertStringContainsString('Referral change 1', $csv);
+        $this->assertStringContainsString('UPDATE', $csv);
+        $this->assertStringNotContainsString('CREATE', $csv);
+        $this->assertStringNotContainsString('Referral change 1', $csv);
         $this->assertStringNotContainsString('Client added', $csv);
+    }
+
+    public function test_export_uses_the_safe_audit_contract_and_never_streams_stored_context(): void
+    {
+        $sensitiveValue = 'private-case-note-must-not-reach-the-export';
+
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'category' => 'data',
+            'user_id' => $this->admin->id,
+            'description' => "Case note changed to {$sensitiveValue}",
+            'old_value' => ['private_note' => 'previous private note'],
+            'new_value' => ['private_note' => $sensitiveValue],
+            'timestamp' => now(),
+            'ip_address' => '203.0.113.70',
+            'user_agent' => 'Sensitive Export Test Agent',
+        ]);
+
+        $csv = $this->actingAs($this->admin)
+            ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
+            ->streamedContent();
+
+        $this->assertStringContainsString('Has Changes', $csv);
+        $this->assertStringNotContainsString('Actor Email', $csv);
+        $this->assertStringNotContainsString($sensitiveValue, $csv);
+        $this->assertStringNotContainsString('203.0.113.70', $csv);
+        $this->assertStringNotContainsString('Sensitive Export Test Agent', $csv);
+    }
+
+    public function test_export_escapes_whitespace_prefixed_spreadsheet_formulas(): void
+    {
+        $this->actingAs($this->admin);
+        $this->admin->name = "\t=1+1";
+        $this->admin->save();
+
+        $csv = $this->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
+            ->streamedContent();
+
+        $rows = array_map('str_getcsv', preg_split('/\r\n|\r|\n/', trim($csv)));
+        $actors = collect($rows)->skip(1)->pluck(1);
+
+        $this->assertContains("'\t=1+1", $actors->all());
     }
 
     public function test_default_category_filter_hides_system_entries_in_viewer(): void
@@ -164,7 +211,9 @@ class AuditLogExportTest extends TestCase
             ->json('props.logs.data');
 
         $this->assertCount(1, $default);
-        $this->assertSame('Human referral change', $default[0]['description']);
+        $this->assertSame('UPDATE', $default[0]['action']);
+        $this->assertSame('referral', $default[0]['module']);
+        $this->assertArrayNotHasKey('description', $default[0]);
 
         $withSystem = $this->actingAs($this->admin)
             ->withHeader('X-Inertia', 'true')

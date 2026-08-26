@@ -39,17 +39,7 @@ class AuditLogController extends Controller
         // the current cursor, which the paginator replaces for each link.
         $logs = $query->cursorPaginate($perPage)->appends($request->except('cursor'));
 
-        $logs->getCollection()->transform(function ($log) use ($formatter) {
-            $display = $formatter->formatForDisplay($log);
-            $log->message = $display['message'];
-            $log->detail = $display['detail'];
-            $log->actor = $display['actor'];
-            $log->hasChanges = $display['hasChanges'];
-            $log->formatted_module = $display['module'];
-            $log->changes = $display['changes'];
-
-            return $log;
-        });
+        $this->presentLogs($logs, $formatter);
 
         // Filter facets. Admins draw from the whole table (cached, shared);
         // scoped roles draw only from the rows they can actually see, so the
@@ -173,21 +163,18 @@ class AuditLogController extends Controller
 
         return response()->streamDownload(function () use ($query, $formatter) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Timestamp (UTC)', 'Actor', 'Actor Email', 'Action', 'Module', 'Description', 'Entity ID', 'Category', 'IP Address', 'Changes']);
+            fputcsv($out, ['Timestamp (UTC)', 'Actor', 'Action', 'Module', 'Description', 'Category', 'Has Changes']);
 
             foreach ($query->with('user')->orderBy('timestamp')->orderBy('id')->cursor() as $log) {
-                $display = $formatter->formatForDisplay($log);
+                $display = $formatter->formatForAuditResponse($log);
                 fputcsv($out, array_map([$this, 'csvSafe'], [
-                    $log->timestamp?->toIso8601String(),
+                    $display['timestamp'],
                     $display['actor'],
-                    $log->user?->email,
                     $display['action'],
                     $display['module'],
                     $display['message'],
-                    $log->entity_id,
-                    $log->category,
-                    $log->ip_address,
-                    $display['changes'] !== [] ? json_encode($display['changes'], JSON_UNESCAPED_SLASHES) : '',
+                    $display['category'],
+                    $display['hasChanges'] ? 'Yes' : 'No',
                 ]));
             }
 
@@ -256,7 +243,13 @@ class AuditLogController extends Controller
 
         $query->when($request->filled('search'), function ($q) use ($request) {
             $search = $request->input('search');
-            $q->where('description', 'ILIKE', "%{$search}%");
+            // Stored descriptions may contain legacy free text. Searching them
+            // would let a viewer infer protected values even though the safe
+            // response contract no longer returns those descriptions.
+            $q->where(function ($safeMetadata) use ($search) {
+                $safeMetadata->where('action', 'ILIKE', "%{$search}%")
+                    ->orWhere('module', 'ILIKE', "%{$search}%");
+            });
         });
 
         return $query;
@@ -356,12 +349,12 @@ class AuditLogController extends Controller
     }
 
     /**
-     * Neutralize spreadsheet formula injection: user-influenced values
-     * (names, descriptions) must not execute when the CSV opens in Excel.
+     * Neutralize spreadsheet formula injection, including formula prefixes
+     * hidden behind whitespace or tab characters.
      */
     private function csvSafe(mixed $value): mixed
     {
-        if (is_string($value) && $value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
+        if (is_string($value) && preg_match('/^[\s\x00-\x1F]*[=+\-@]/u', $value) === 1) {
             return "'".$value;
         }
 
@@ -435,17 +428,7 @@ class AuditLogController extends Controller
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
-        $logs->getCollection()->transform(function ($log) use ($formatter) {
-            $display = $formatter->formatForDisplay($log);
-            $log->message = $display['message'];
-            $log->detail = $display['detail'];
-            $log->actor = $display['actor'];
-            $log->hasChanges = $display['hasChanges'];
-            $log->formatted_module = $display['module'];
-            $log->changes = $display['changes'];
-
-            return $log;
-        });
+        $this->presentLogs($logs, $formatter);
 
         return response()->json($logs);
     }
@@ -502,19 +485,22 @@ class AuditLogController extends Controller
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
-        $logs->getCollection()->transform(function ($log) use ($formatter) {
-            $display = $formatter->formatForDisplay($log);
-            $log->message = $display['message'];
-            $log->detail = $display['detail'];
-            $log->actor = $display['actor'];
-            $log->hasChanges = $display['hasChanges'];
-            $log->formatted_module = $display['module'];
-            $log->changes = $display['changes'];
-
-            return $log;
-        });
+        $this->presentLogs($logs, $formatter);
 
         return response()->json($logs);
+    }
+
+    /**
+     * Replace Eloquent records with the explicit safe audit response shape
+     * before an Inertia page or JSON endpoint can serialize them.
+     */
+    private function presentLogs($logs, AuditLogFormatter $formatter): void
+    {
+        $logs->setCollection(
+            $logs->getCollection()
+                ->map(fn (AuditLog $log) => $formatter->formatForAuditResponse($log))
+                ->values()
+        );
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Tests\Feature\ReferralClientInbox;
 
 use App\Models\Agency;
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
@@ -52,5 +53,33 @@ class ReferralTimelineTest extends TestCase
         $this->assertStringNotContainsString('Sensitive instructions', json_encode($requestEvents->all()));
         $this->assertStringNotContainsString('Private client response body', json_encode($requestEvents->all()));
         $this->assertSame(['id', 'type', 'title', 'description', 'timestamp', 'actor'], array_keys($requestEvents->first()));
+    }
+
+    public function test_timeline_does_not_expose_stored_audit_descriptions_or_value_diffs(): void
+    {
+        $referral = Referral::factory()->create([
+            'agcy_id' => Agency::factory()->create()->id,
+            'case_id' => CaseFile::factory()->create()->id,
+        ]);
+        $sensitiveValue = 'private-referral-note-must-not-reach-the-timeline';
+
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'entity_id' => $referral->id,
+            'description' => "Referral updated: {$sensitiveValue}",
+            'old_value' => ['status' => 'PENDING', 'private_note' => 'old private note'],
+            'new_value' => ['status' => 'PROCESSING', 'private_note' => $sensitiveValue],
+            'timestamp' => now(),
+        ]);
+
+        $timeline = app(ReferralService::class)->getReferralTimeline($referral->fresh());
+        $statusEvent = collect($timeline)->firstWhere('type', 'referral_status');
+
+        $this->assertNotNull($statusEvent);
+        $this->assertSame('Referral status updated', $statusEvent['title']);
+        $this->assertSame('', $statusEvent['description']);
+        $this->assertStringNotContainsString($sensitiveValue, json_encode($statusEvent));
+        $this->assertStringNotContainsString('old private note', json_encode($statusEvent));
     }
 }

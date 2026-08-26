@@ -89,7 +89,9 @@ class AuditLogIntegrationTest extends TestCase
         $this->assertNotEmpty($props['logs']['data']);
 
         foreach ($props['logs']['data'] as $log) {
-            $this->assertNotNull($log['description']);
+            $this->assertNotEmpty($log['message']);
+            $this->assertArrayHasKey('formatted_module', $log);
+            $this->assertArrayNotHasKey('description', $log);
         }
 
         $this->assertArrayHasKey('path', $props['logs']);
@@ -188,8 +190,6 @@ class AuditLogIntegrationTest extends TestCase
         $props = $response->json('props');
         $modules = collect($props['logs']['data'])->pluck('module')->toArray();
 
-        $this->assertContains('case_files', $modules);
-        $this->assertContains('referrals', $modules);
         $this->assertContains('case', $modules);
         $this->assertContains('referral', $modules);
         $this->assertGreaterThanOrEqual(4, count($props['logs']['data']));
@@ -225,7 +225,6 @@ class AuditLogIntegrationTest extends TestCase
         $props = $response->json('props');
         $modules = collect($props['logs']['data'])->pluck('module')->toArray();
 
-        $this->assertContains('case_files', $modules);
         $this->assertContains('case', $modules);
         $this->assertCount(2, $props['logs']['data']);
 
@@ -238,7 +237,6 @@ class AuditLogIntegrationTest extends TestCase
         $props2 = $response2->json('props');
         $modules2 = collect($props2['logs']['data'])->pluck('module')->toArray();
 
-        $this->assertContains('case_files', $modules2);
         $this->assertContains('case', $modules2);
         $this->assertCount(2, $props2['logs']['data']);
     }

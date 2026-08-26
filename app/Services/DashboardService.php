@@ -492,14 +492,15 @@ class DashboardService
             ->get()
             ->map(function ($log) use ($formatter) {
                 try {
-                    $display = $formatter->formatForDisplay($log);
+                    $display = $formatter->formatForAuditResponse($log);
                 } catch (\Throwable $e) {
                     $display = [
-                        'message' => $log->action.' '.$log->module,
+                        'id' => (string) $log->getKey(),
+                        'message' => 'Activity recorded',
                         'detail' => '',
                         'changes' => [],
                         'action' => $log->action,
-                        'module' => $log->module,
+                        'module' => 'other',
                         'actor' => 'System',
                         'timestamp' => $log->timestamp?->toISOString(),
                         'hasChanges' => false,
@@ -737,14 +738,15 @@ class DashboardService
             ->get()
             ->map(function ($log) use ($formatter) {
                 try {
-                    $display = $formatter->formatForDisplay($log);
+                    $display = $formatter->formatForAuditResponse($log);
                 } catch (\Throwable $e) {
                     $display = [
-                        'message' => $log->action.' '.$log->module,
+                        'id' => (string) $log->getKey(),
+                        'message' => 'Activity recorded',
                         'detail' => '',
                         'changes' => [],
                         'action' => $log->action,
-                        'module' => $log->module,
+                        'module' => 'other',
                         'actor' => 'System',
                         'timestamp' => $log->timestamp?->toISOString(),
                         'hasChanges' => false,
@@ -972,14 +974,15 @@ class DashboardService
             ->get()
             ->map(function ($log) use ($formatter) {
                 try {
-                    $display = $formatter->formatForDisplay($log);
+                    $display = $formatter->formatForAuditResponse($log);
                 } catch (\Throwable $e) {
                     $display = [
-                        'message' => $log->action.' '.$log->module,
+                        'id' => (string) $log->getKey(),
+                        'message' => 'Activity recorded',
                         'detail' => '',
                         'changes' => [],
                         'action' => $log->action,
-                        'module' => $log->module,
+                        'module' => 'other',
                         'actor' => $log->user?->name ?? 'System',
                         'timestamp' => $log->timestamp?->toISOString(),
                         'hasChanges' => false,
@@ -989,12 +992,10 @@ class DashboardService
                 $changes = $display['changes'] ?? [];
 
                 return [
-                    'id' => $log->id,
+                    'id' => $display['id'],
                     'action' => $display['action'],
                     'module' => $display['module'],
-                    'description' => $display['message'],
-                    'user' => $log->user ? ['name' => $log->user->name] : null,
-                    'timestamp' => $log->timestamp,
+                    'timestamp' => $display['timestamp'],
                     'message' => $display['message'],
                     'detail' => $display['detail'],
                     'changes' => $changes,

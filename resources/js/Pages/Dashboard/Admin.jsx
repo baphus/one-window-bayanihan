@@ -65,7 +65,7 @@ export default function AdminDashboard({ dashboard = {} }) {
     const recentLogs = safeArray(dashboard.recentLogs).slice(0, 6).map((log) => ({
         ...log,
         actionType: log.action ?? log.actionType,
-        title: log.message ?? log.description ?? 'System activity',
+        title: log.message ?? 'System activity',
         desc: log.detail ?? '',
         time: log.timestamp ? formatDisplayDateTime(log.timestamp) : log.time,
     }));

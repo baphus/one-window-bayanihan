@@ -334,20 +334,12 @@ class ClientController extends Controller
             ->limit(20)
             ->get();
 
-        // Attach the display fields onto each row, matching the contract
-        // AuditLogController uses (raw action/module + formatted_module label +
-        // message/changes/actor). See resources/js/lib/audit.jsx.
+        // Replace database records with the same safe audit response contract
+        // used by every other browser activity surface.
         $formatter = app(AuditLogFormatter::class);
-        $formattedLogs = $auditLogs->map(function ($log) use ($formatter) {
-            $display = $formatter->formatForDisplay($log);
-            $log->message = $display['message'];
-            $log->actor = $display['actor'];
-            $log->hasChanges = $display['hasChanges'];
-            $log->formatted_module = $display['module'];
-            $log->changes = $display['changes'];
-
-            return $log;
-        });
+        $formattedLogs = $auditLogs
+            ->map(fn (AuditLog $log) => $formatter->formatForAuditResponse($log))
+            ->values();
 
         return Inertia::render('Client/Show', [
             'client' => $client,

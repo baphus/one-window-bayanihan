@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\AuditLog;
+use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +48,87 @@ class AuditLogControllerTest extends TestCase
         $data = $response->json();
         $this->assertArrayHasKey('props', $data);
         $this->assertNotNull($data['props']['logs']['data'] ?? null);
+    }
+
+    #[Test]
+    public function it_does_not_expose_raw_audit_payloads_or_request_context_in_the_activity_log(): void
+    {
+        $sensitiveValue = 'private-case-note-must-not-reach-the-browser';
+
+        $log = AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'category' => 'data',
+            'description' => "Case note changed to {$sensitiveValue}",
+            'old_value' => ['private_note' => 'previous private note'],
+            'new_value' => ['private_note' => $sensitiveValue],
+            'timestamp' => now(),
+            'ip_address' => '203.0.113.50',
+            'user_agent' => 'Sensitive Test User Agent',
+            'request_id' => (string) Str::uuid(),
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs');
+
+        $response->assertOk();
+
+        $entry = collect($response->json('props.logs.data'))->firstWhere('id', $log->id);
+
+        $this->assertNotNull($entry);
+        $this->assertArrayHasKey('message', $entry);
+        $this->assertArrayHasKey('changes', $entry);
+
+        foreach (['description', 'old_value', 'new_value', 'entity_id', 'ip_address', 'user_agent', 'request_id', 'prev_hash', 'user'] as $field) {
+            $this->assertArrayNotHasKey($field, $entry, "{$field} must not reach the browser");
+        }
+
+        $response->assertDontSee($sensitiveValue);
+        $response->assertDontSee('203.0.113.50');
+        $response->assertDontSee('Sensitive Test User Agent');
+    }
+
+    #[Test]
+    public function it_does_not_expose_raw_audit_payloads_from_case_or_referral_activity_apis(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->user->id]);
+        $referral = Referral::factory()->create(['case_id' => $case->id]);
+        $sensitiveValue = 'private-referral-note-must-not-reach-the-api';
+
+        $log = AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'category' => 'data',
+            'entity_id' => $referral->id,
+            'description' => "Referral note changed to {$sensitiveValue}",
+            'old_value' => ['private_note' => 'previous private note'],
+            'new_value' => ['private_note' => $sensitiveValue],
+            'timestamp' => now(),
+            'ip_address' => '203.0.113.71',
+            'user_agent' => 'Sensitive API Test Agent',
+            'request_id' => (string) Str::uuid(),
+        ]);
+
+        foreach ([
+            "/api/cases/{$case->id}/audit-logs",
+            "/api/referrals/{$referral->id}/audit-logs",
+        ] as $url) {
+            $response = $this->actingAs($this->user)->get($url);
+
+            $response->assertOk();
+            $entry = collect($response->json('data'))->firstWhere('id', $log->id);
+
+            $this->assertNotNull($entry);
+            foreach (['description', 'old_value', 'new_value', 'entity_id', 'ip_address', 'user_agent', 'request_id', 'prev_hash', 'user'] as $field) {
+                $this->assertArrayNotHasKey($field, $entry, "{$field} must not reach {$url}");
+            }
+            $response->assertDontSee($sensitiveValue);
+            $response->assertDontSee('203.0.113.71');
+            $response->assertDontSee('Sensitive API Test Agent');
+        }
     }
 
     #[Test]
@@ -249,7 +332,7 @@ class AuditLogControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_searches_descriptions()
+    public function it_searches_safe_audit_metadata()
     {
         $id1 = (string) Str::uuid();
         $id2 = (string) Str::uuid();
@@ -265,7 +348,7 @@ class AuditLogControllerTest extends TestCase
                 'user_id' => $this->user->id,
                 'action' => 'CREATE',
                 'module' => 'clients',
-                'description' => 'Client requested assistance',
+                'description' => 'Private phrase one',
                 'timestamp' => $now,
                 'is_deleted' => false,
             ],
@@ -273,8 +356,8 @@ class AuditLogControllerTest extends TestCase
                 'id' => $id2,
                 'user_id' => $this->user->id,
                 'action' => 'CREATE',
-                'module' => 'clients',
-                'description' => 'Internal review completed',
+                'module' => 'referrals',
+                'description' => 'Private phrase two',
                 'timestamp' => $now,
                 'is_deleted' => false,
             ],
@@ -282,11 +365,12 @@ class AuditLogControllerTest extends TestCase
 
         $response = $this->actingAs($actor)
             ->withHeader('X-Inertia', 'true')
-            ->get('/audit-logs?search=Client');
+            ->get('/audit-logs?search=clients');
 
         $response->assertStatus(200);
         $data = $response->json('props.logs.data');
         $this->assertCount(1, $data);
-        $this->assertEquals('Client requested assistance', $data[0]['description']);
+        $this->assertSame('CREATE', $data[0]['action']);
+        $this->assertArrayNotHasKey('description', $data[0]);
     }
 }

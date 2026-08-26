@@ -8,8 +8,7 @@ import { formatDisplayDateTime } from '@/lib/utils';
  * client-detail feed). Consolidates what were three drifting copies of
  * ACTION_STYLES, getActivityType() and ChangesTable.
  *
- * Backend contract (App\Services\AuditLogFormatter::formatForDisplay, attached
- * to each row by AuditLogController):
+ * Backend contract (App\Services\AuditLogFormatter::formatForAuditResponse):
  *   action           raw verb, e.g. "UPDATE"        (AuditAction value)
  *   module           raw module, e.g. "case"        (AuditModule value)
  *   formatted_module human label, e.g. "Case"
@@ -111,8 +110,8 @@ export function getEntityLabel(module) {
 }
 
 /**
- * Normalise a raw audit row (Inertia prop or API JSON) to the display shape
- * the components consume, reading the correct backend contract keys.
+ * Normalise a safe audit row (Inertia prop or API JSON) to the display shape
+ * the components consume.
  */
 export function normalizeAuditLog(log) {
     return {
@@ -120,9 +119,9 @@ export function normalizeAuditLog(log) {
         action: log.action,
         module: log.module,
         moduleLabel: log.formatted_module || log.module || '',
-        message: log.message ?? log.description ?? '',
+        message: log.message ?? '',
         changes: Array.isArray(log.changes) ? log.changes : [],
-        actor: log.actor || log.user?.name || 'System',
+        actor: log.actor || 'System',
         timestamp: log.timestamp,
     };
 }
