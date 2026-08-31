@@ -55,6 +55,13 @@ describe('create case category checkbox dropdown', () => {
     setData.mockClear();
   });
 
+  it('shows that next of kin may be left empty', () => {
+    render(<CaseCreate />);
+
+    expect(screen.getByText(/Optional — add one or more next of kin contacts when available/)).toBeInTheDocument();
+    expect(screen.getByText(/You may leave this section empty/)).toBeInTheDocument();
+  });
+
   it('renders a category trigger with an empty-state prompt', () => {
     renderCaseSetup();
 

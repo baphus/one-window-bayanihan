@@ -2057,10 +2057,10 @@ function handleConfirmClient(client) {
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Next of Kin Information">
-                                                <p className="mb-3 text-[13px] text-slate-500">Add one or more next of kin contacts. The first entry is auto-selected as primary.</p>
+                                                <p className="mb-3 text-[13px] text-slate-500">Optional — add one or more next of kin contacts when available. Each added contact must be complete, and the first entry is auto-selected as primary.</p>
 
                                                 {data.next_of_kin.length === 0 && (
-                                                    <p className="mb-4 text-[13px] text-slate-400">No next of kin added. Click "Add Next of Kin" to add one.</p>
+                                                    <p className="mb-4 text-[13px] text-slate-400">No next of kin added. You may leave this section empty or click "Add Next of Kin" to add one.</p>
                                                 )}
 
                                                 {data.next_of_kin.map((nok, idx) => (
@@ -2100,24 +2100,24 @@ function handleConfirmClient(client) {
                                                         </div>
 
                                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                            <Field label="First Name">
+                                                            <Field label="First Name" required>
                                                                 <Input value={nok.first_name} onChange={(e) => updateNokField(idx, 'first_name', e.target.value)} />
                                                             </Field>
                                                             <Field label="Middle Name">
                                                                 <Input value={nok.middle_name} onChange={(e) => updateNokField(idx, 'middle_name', e.target.value)} maxLength={255} />
                                                             </Field>
-                                                            <Field label="Last Name">
+                                                            <Field label="Last Name" required>
                                                                 <Input value={nok.last_name} onChange={(e) => updateNokField(idx, 'last_name', e.target.value)} />
                                                             </Field>
-                                                            <Field label="Relationship">
+                                                            <Field label="Relationship" required>
                                                                 <Select value={nok.relationship} onChange={(e) => updateNokField(idx, 'relationship', e.target.value)}
                                                                     options={['Mother', 'Father', 'Spouse', 'Sibling', 'Other'].map((r) => ({ label: r, value: r }))}
                                                                     placeholder="Select relationship" />
                                                             </Field>
-                                                            <Field label="Phone Number" className="md:col-span-2">
+                                                            <Field label="Phone Number" required className="md:col-span-2">
                                                                 <PhoneInput value={nok.phone_number} onChange={(val) => updateNokField(idx, 'phone_number', val)} className="min-w-0" />
                                                             </Field>
-                                                            <Field label="Email" className="md:col-span-2">
+                                                            <Field label="Email" required className="md:col-span-2">
                                                                 <Input type="email" value={nok.email} onChange={(e) => updateNokField(idx, 'email', e.target.value)} />
                                                             </Field>
                                                         </div>

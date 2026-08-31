@@ -191,7 +191,7 @@ class ClientController extends Controller
             $sql = "SELECT
                 {$totalClientsExpression} AS total_clients,
                 COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS ofw_clients,
-                COUNT(DISTINCT CASE WHEN c.client_type = 'NOK' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS nok_clients,
+                COUNT(DISTINCT CASE WHEN c.client_type = '".CaseFile::CLIENT_TYPE_NEXT_OF_KIN."' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS nok_clients,
                 COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%PWD%' OR c.nok_vulnerability_indicator LIKE '%PWD%') THEN cl.id END) AS vuln_pwd,
                 COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Senior Citizen%' OR c.nok_vulnerability_indicator LIKE '%Senior Citizen%') THEN cl.id END) AS vuln_senior,
                 COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Solo Parent%' OR c.nok_vulnerability_indicator LIKE '%Solo Parent%') THEN cl.id END) AS vuln_solo,

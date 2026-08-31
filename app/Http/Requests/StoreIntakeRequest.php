@@ -17,10 +17,9 @@ class StoreIntakeRequest extends FormRequest
     }
 
     /**
-     * Next of kin is optional, but the wizard always submits an array that
-     * starts with one (possibly untouched) entry. Drop fully-empty contact
-     * entries — and the key entirely when none were filled — so the optional
-     * step never trips the per-entry required_with rule.
+     * Next of kin is optional. Drop fully-empty contact entries so restored
+     * sessions and older clients with placeholder rows do not trip the
+     * per-entry required_with rule.
      */
     protected function prepareForValidation(): void
     {

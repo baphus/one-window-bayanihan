@@ -16,7 +16,7 @@ Good documentation makes a case easier to act on, review, and close. A case reco
 
 ## Intake sections
 
-The create form captures client data, address, employment, multiple next-of-kin entries, consent, category, issue, and summary. Review all sections before publishing.
+The create form captures client data, address, employment, optional next-of-kin entries, consent, category, issue, and summary. Review all sections before publishing.
 
 ![Case create top section](/assets/helpdesk/cases-create-top.png)
 ![Client information section](/assets/helpdesk/cases-create-client.png)

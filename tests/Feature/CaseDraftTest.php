@@ -148,6 +148,7 @@ class CaseDraftTest extends TestCase
                 'start_date' => '2023-01-01',
                 'end_date' => '2024-01-15',
             ],
+            'next_of_kin' => [],
             'vulnerability_indicator' => 'None',
             'summary' => 'Publish test case',
             'is_draft' => false,

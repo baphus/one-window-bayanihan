@@ -390,18 +390,18 @@ class CaseServiceTest extends TestCase
 
         $service = app(CaseService::class);
         $result = $service->updateDraft($case->id, [
-            'client_type' => 'NOK',
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
             'vulnerability_indicator' => 'High',
             'summary' => 'Updated summary',
         ], $user->id);
 
         $this->assertDatabaseHas('cases', [
             'id' => $case->id,
-            'client_type' => 'NOK',
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
             'vulnerability_indicator' => 'High',
             'summary' => 'Updated summary',
         ]);
-        $this->assertEquals('NOK', $result->client_type);
+        $this->assertEquals(CaseFile::CLIENT_TYPE_NEXT_OF_KIN, $result->client_type);
         $this->assertEquals('High', $result->vulnerability_indicator);
     }
 
@@ -420,7 +420,7 @@ class CaseServiceTest extends TestCase
 
         $service = app(CaseService::class);
         $result = $service->updateDraft($case->id, [
-            'client_type' => 'NOK',
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
         ], $user->id);
 
         $this->assertEquals('OWB-2026-00001', $result->case_number);
@@ -442,7 +442,7 @@ class CaseServiceTest extends TestCase
 
         $service = app(CaseService::class);
         $service->updateDraft($case->id, [
-            'client_type' => 'NOK',
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
         ], $user->id);
 
         $this->assertEquals($beforeCount, AuditLog::count());
@@ -583,7 +583,7 @@ class CaseServiceTest extends TestCase
 
         $this->expectException(AuthorizationException::class);
         $service->updateDraft($case->id, [
-            'client_type' => 'NOK',
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
         ], $userB->id);
     }
 

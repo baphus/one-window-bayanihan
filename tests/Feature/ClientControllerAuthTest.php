@@ -216,6 +216,27 @@ class ClientControllerAuthTest extends TestCase
         );
     }
 
+    public function test_client_index_counts_next_of_kin_cases_using_canonical_type(): void
+    {
+        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $client = Client::factory()->create();
+        CaseFile::factory()->create([
+            'user_id' => $manager->id,
+            'client_id' => $client->id,
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
+            'status' => 'OPEN',
+        ]);
+
+        $response = $this->actingAs($manager)
+            ->get(route('clients.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Client/Index')
+            ->where('stats.nok_clients', 1)
+        );
+    }
+
     public function test_admin_sees_all_clients_in_index(): void
     {
         $admin = User::factory()->create(['role' => 'ADMIN']);

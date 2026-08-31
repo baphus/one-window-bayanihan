@@ -17,15 +17,32 @@ import { getTurnstileError } from '@/lib/turnstile';
 const REGISTRATION_PASSWORD_RULES = { min_length: 8, require_mixed_case: true, require_numbers: true };
 
 const STEPS = [
-  { id: 'email', label: 'Email Verification' },
   { id: 'personal', label: 'Personal Information' },
   { id: 'address', label: 'Address' },
   { id: 'employment', label: 'Employment' },
   { id: 'nok', label: 'Next of Kin' },
+  { id: 'email', label: 'Email Verification' },
   { id: 'submit', label: 'Submit Request' },
 ];
 
 const STORAGE_KEY = 'ofw_intake_form_data';
+
+function emptyNextOfKin(isPrimary = false) {
+  return {
+    first_name: '',
+    last_name: '',
+    middle_name: '',
+    relationship: '',
+    phone_number: '',
+    email: '',
+    is_primary: isPrimary,
+    region: '',
+    province: '',
+    city_municipality: '',
+    barangay: '',
+    street: '',
+  };
+}
 
 function saveToSession(data) {
   try {
@@ -52,7 +69,7 @@ function emptyForm() {
     address: { region: '0700000000', province: '', city_municipality: '', barangay: '', street: '' },
     employment: { employer_name: '', position: '', country: '', start_date: '', end_date: '', is_present: false, last_country: '', last_position: '', date_of_arrival: '' },
     vulnerability: [],
-    next_of_kin: [{ first_name: '', last_name: '', middle_name: '', relationship: '', phone_number: '', email: '', is_primary: true, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+    next_of_kin: [],
     summary: '',
     consent: false,
   };
@@ -93,7 +110,7 @@ function formWithExistingClient(existingClient) {
   }
   if (existingClient.next_of_kin?.length) {
     next.next_of_kin = existingClient.next_of_kin.map((nok) => {
-      const merged = { ...base.next_of_kin[0], ...nok };
+      const merged = { ...emptyNextOfKin(), ...nok };
       Object.keys(merged).forEach((key) => {
         if (merged[key] == null) merged[key] = '';
       });
@@ -148,7 +165,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
   );
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [emailVerified, setEmailVerified] = useState(skipVerification);
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState({});
   const [turnstileToken, setTurnstileToken] = useState('');
@@ -156,7 +172,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
   const [otpHint, setOtpHint] = useState('');
   const [debugOtp, setDebugOtp] = useState(null);
   const [duplicateMessage, setDuplicateMessage] = useState('');
-  const [hasExistingAccount, setHasExistingAccount] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submittedCase, setSubmittedCase] = useState(null);
 
@@ -169,12 +184,12 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
   // identity fields become read-only to keep the filer's record authoritative.
   const identityLocked = !!existingClient;
 
-  // Save to session on every formData change (after email verified)
+  // Verification now happens near the end of the wizard, so preserve the
+  // in-progress application from the first step. The one-time code is never
+  // part of the recoverable draft.
   useEffect(() => {
-    if (emailVerified) {
-      saveToSession(formData);
-    }
-  }, [formData, emailVerified]);
+    saveToSession({ ...formData, otp: '' });
+  }, [formData]);
 
   const updateField = useCallback((path, value) => {
     setFormData(prev => {
@@ -194,6 +209,16 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
     setCurrentStep(s => Math.min(s + 1, steps.length - 1));
   };
   const goBack = () => setCurrentStep(s => Math.max(s - 1, 0));
+
+  const handleEmailBack = () => {
+    setDuplicateMessage('');
+    setOtpSent(false);
+    setOtpHint('');
+    setDebugOtp(null);
+    setTurnstileToken('');
+    updateField('otp', '');
+    goBack();
+  };
 
   // --- Email & OTP handlers ---
   const handleSendOtp = async () => {
@@ -248,18 +273,10 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
       } else if (json?.duplicate) {
         setDuplicateMessage(json.message);
       } else {
-        setEmailVerified(true);
-        // Track whether this is a returning OFW (existing account)
-        if (json.existing_client) {
-          setHasExistingAccount(true);
-          setFormData(prev => ({
-            ...prev,
-            client: { ...prev.client, ...json.existing_client },
-            address: json.existing_client.address ? { ...prev.address, ...json.existing_client.address } : prev.address,
-            employment: json.existing_client.employment ? { ...prev.employment, ...json.existing_client.employment } : prev.employment,
-            next_of_kin: json.existing_client.next_of_kin?.length ? json.existing_client.next_of_kin : prev.next_of_kin,
-          }));
-        }
+        // Verification now follows the data-entry steps. The server may find a
+        // returning client's profile, but applying that pre-fill here would
+        // replace the application the filer just completed. Submission still
+        // links and updates the matching client through the verified email.
         goNext();
       }
     } catch (e) {
@@ -335,8 +352,8 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
 <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">
   <div className="relative">
     {(() => {
-      const totalSteps = STEPS.length;
-      const completedSteps = skipVerification ? currentStep + 1 : currentStep;
+      const totalSteps = steps.length;
+      const completedSteps = currentStep;
       const edgeInset = 50 / totalSteps;
       const trackWidth = 100 - edgeInset * 2;
       const progressWidth = totalSteps > 1
@@ -354,13 +371,13 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
             style={{ top: '15px', left: `${edgeInset}%`, width: `${progressWidth}%` }}
           />
 
-          <div className="relative flex">
-            {STEPS.map((step, i) => {
+          <div className="relative flex" role="list" aria-label="File Your Case progress">
+            {steps.map((step, i) => {
               const isDone = i < completedSteps;
               const isActive = i === completedSteps;
 
               return (
-                <div key={step.id} className="flex flex-1 flex-col items-center gap-1.5 px-1">
+                <div key={step.id} role="listitem" aria-current={isActive ? 'step' : undefined} className="flex flex-1 flex-col items-center gap-1.5 px-1">
                   <div
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                       isDone
@@ -413,6 +430,7 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
                   onSendOtp={handleSendOtp}
                   onVerifyOtp={handleVerifyOtp}
                   onBackToEmail={() => setOtpSent(false)}
+                  onBack={handleEmailBack}
                 />
               ),
               personal: (
@@ -443,7 +461,7 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
 
 // --- Step Components ---
 
-function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail }) {
+function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail, onBack }) {
   const [turnstileStatus, setTurnstileStatus] = useState('idle');
 
   if (duplicateMessage) {
@@ -452,10 +470,13 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
         <span className="material-symbols-outlined mb-4 block text-4xl text-amber-500">info</span>
         <h2 className="mb-2 text-lg font-bold text-slate-900">Active Case Found</h2>
         <p className="mb-6 text-sm text-slate-600">{duplicateMessage}</p>
-        <a href={route('track.index')} className="inline-flex items-center gap-2 rounded bg-primary px-6 py-3 text-sm font-bold text-white hover:brightness-110">
-          <span className="material-symbols-outlined text-[18px]">search</span>
-          Go to Tracking Portal
-        </a>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
+          <a href={route('track.index')} className="inline-flex items-center gap-2 rounded bg-primary px-6 py-3 text-sm font-bold text-white hover:brightness-110">
+            <span className="material-symbols-outlined text-[18px]">search</span>
+            Go to Tracking Portal
+          </a>
+        </div>
       </div>
     );
   }
@@ -540,6 +561,10 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
           </div>
         </div>
       )}
+
+      <div className="mt-8">
+        <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
+      </div>
     </div>
   );
 }
@@ -830,7 +855,7 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   const addNok = () => {
     setFormData(prev => ({
       ...prev,
-      next_of_kin: [...prev.next_of_kin, { first_name: '', last_name: '', middle_name: '', relationship: '', phone_number: '', email: '', is_primary: false, region: '', province: '', city_municipality: '', barangay: '', street: '' }],
+      next_of_kin: [...prev.next_of_kin, emptyNextOfKin(prev.next_of_kin.length === 0)],
     }));
   };
 
@@ -840,8 +865,8 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
       nok[index] = { ...nok[index], [field]: value };
       return { ...prev, next_of_kin: nok };
     });
-    if (index === 0 && field === 'first_name') {
-      setStepErrors(prev => ({ ...prev, nok0_first_name: undefined }));
+    if (field === 'first_name') {
+      setStepErrors(prev => ({ ...prev, [`nok${index}_first_name`]: undefined }));
     }
   };
 
@@ -866,19 +891,25 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
   };
 
   const removeNok = (index) => {
-    if (formData.next_of_kin.length <= 1) return;
-    setFormData(prev => ({
-      ...prev,
-      next_of_kin: prev.next_of_kin.filter((_, i) => i !== index),
-    }));
+    setFormData(prev => {
+      const removedPrimary = prev.next_of_kin[index]?.is_primary;
+      const nextOfKin = prev.next_of_kin.filter((_, i) => i !== index);
+      if (removedPrimary && nextOfKin.length > 0) nextOfKin[0] = { ...nextOfKin[0], is_primary: true };
+
+      return { ...prev, next_of_kin: nextOfKin };
+    });
   };
 
   const validate = () => {
     const errs = {};
-    const anyNokFilled = formData.next_of_kin.some((nok) =>
-      Object.values(nok).some((v) => typeof v === 'string' && v.trim() !== ''),
-    );
-    if (anyNokFilled && !formData.next_of_kin[0]?.first_name?.trim()) errs.nok0_first_name = 'Emergency contact name is required when a contact is provided.';
+    formData.next_of_kin.forEach((nok, index) => {
+      const hasContactDetails = Object.entries(nok).some(([key, value]) =>
+        key !== 'is_primary' && typeof value === 'string' && value.trim() !== '',
+      );
+      if (hasContactDetails && !nok.first_name?.trim()) {
+        errs[`nok${index}_first_name`] = 'Emergency contact name is required when a contact is provided.';
+      }
+    });
     setStepErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -887,6 +918,12 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
     <div>
       <h2 className="mb-1 text-lg font-bold text-slate-900">Emergency Contact (Next of Kin)</h2>
       <p className="mb-6 text-sm text-slate-500">Optional — add an emergency contact if you have one.</p>
+
+      {formData.next_of_kin.length === 0 && (
+        <p className="mb-6 rounded border border-dashed border-outline-variant bg-surface-container px-4 py-3 text-sm text-slate-500">
+          No emergency contact added. You can continue without one.
+        </p>
+      )}
 
       {formData.next_of_kin.map((nok, i) => (
         <div key={i} className="mb-6 rounded border border-outline-variant p-4">
@@ -903,17 +940,15 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
                 />
                 Primary
               </label>
-              {formData.next_of_kin.length > 1 && (
-                <button type="button" onClick={() => removeNok(i)} className="text-xs text-error hover:underline">Remove</button>
-              )}
+              <button type="button" onClick={() => removeNok(i)} className="text-xs text-error hover:underline">Remove</button>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">First Name *</label>
               <input type="text" value={nok.first_name} onChange={e => updateNok(i, 'first_name', e.target.value)}
-                className={`w-full border bg-surface-container px-3 py-2 text-sm focus:outline-none ${i === 0 && stepErrors.nok0_first_name ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
-              {i === 0 && stepErrors.nok0_first_name && <p className="mt-1 text-xs text-error">{stepErrors.nok0_first_name}</p>}
+                className={`w-full border bg-surface-container px-3 py-2 text-sm focus:outline-none ${stepErrors[`nok${i}_first_name`] ? 'border-error' : 'border-outline-variant focus:border-primary'}`} />
+              {stepErrors[`nok${i}_first_name`] && <p className="mt-1 text-xs text-error">{stepErrors[`nok${i}_first_name`]}</p>}
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Middle Name</label>
@@ -972,7 +1007,9 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
         </div>
       ))}
 
-      <button type="button" onClick={addNok} className="mb-6 text-sm font-medium text-primary hover:underline">+ Add another contact</button>
+      <button type="button" onClick={addNok} className="mb-6 text-sm font-medium text-primary hover:underline">
+        {formData.next_of_kin.length === 0 ? '+ Add emergency contact' : '+ Add another contact'}
+      </button>
 
       <div className="mt-4 flex justify-between">
         <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>

@@ -533,7 +533,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         >
           <option value="">All Types</option>
           <option value="OFW">OFW</option>
-          <option value="NOK">Next of Kin</option>
+          <option value="NEXT_OF_KIN">Next of Kin</option>
         </select>
       </div>
       <div>

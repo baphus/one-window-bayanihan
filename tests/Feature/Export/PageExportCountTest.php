@@ -120,6 +120,20 @@ class PageExportCountTest extends TestCase
         $response->assertOk()->assertJson(['count' => 1]);
     }
 
+    #[Test]
+    public function cases_count_respects_next_of_kin_client_type_filter(): void
+    {
+        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_OFW]);
+        CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN]);
+
+        $response = $this->actingAs($user)->getJson(route('cases.export-count', [
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
+        ]));
+
+        $response->assertOk()->assertJson(['count' => 1]);
+    }
+
     // -------------------------------------------------------------------------
     // Clients
     // -------------------------------------------------------------------------
@@ -144,6 +158,28 @@ class PageExportCountTest extends TestCase
         Client::factory()->create(['sex' => 'FEMALE']);
 
         $response = $this->actingAs($user)->getJson(route('clients.export-count', ['sex' => 'MALE']));
+
+        $response->assertOk()->assertJson(['count' => 1]);
+    }
+
+    #[Test]
+    public function clients_count_respects_next_of_kin_client_type_filter(): void
+    {
+        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $ofw = Client::factory()->create();
+        $nextOfKin = Client::factory()->create();
+        CaseFile::factory()->create([
+            'client_id' => $ofw->id,
+            'client_type' => CaseFile::CLIENT_TYPE_OFW,
+        ]);
+        CaseFile::factory()->create([
+            'client_id' => $nextOfKin->id,
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('clients.export-count', [
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
+        ]));
 
         $response->assertOk()->assertJson(['count' => 1]);
     }

@@ -140,7 +140,7 @@ class DataExportQueries
                 'c.client_type',
                 // Vulnerability — combine both indicators; prefer the one matching client type
                 DB::raw("CASE
-                    WHEN c.client_type = 'NOK'
+                    WHEN c.client_type = 'NEXT_OF_KIN'
                         THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
                     ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
                 END AS vulnerability"),
@@ -204,11 +204,10 @@ class DataExportQueries
             $query->where('c.status', $filters['status']);
         }
         if (! empty($filters['client_type'])) {
-            // Normalize: treat any non-NOK value as OFW
-            if ($filters['client_type'] === 'NOK') {
-                $query->where('c.client_type', 'NOK');
+            if ($filters['client_type'] === CaseFile::CLIENT_TYPE_NEXT_OF_KIN) {
+                $query->where('c.client_type', CaseFile::CLIENT_TYPE_NEXT_OF_KIN);
             } else {
-                $query->where('c.client_type', '!=', 'NOK');
+                $query->where('c.client_type', CaseFile::CLIENT_TYPE_OFW);
             }
         }
         if (! empty($filters['vulnerability_indicator'])) {
@@ -298,8 +297,7 @@ class DataExportQueries
             }
 
             // --- Client Type display label ---
-            // Normalize: only OFW and NOK are valid; treat anything non-NOK as OFW
-            $row->client_type = $row->client_type === 'NOK' ? 'Next of Kin' : 'OFW';
+            $row->client_type = $row->client_type === CaseFile::CLIENT_TYPE_NEXT_OF_KIN ? 'Next of Kin' : 'OFW';
 
             // --- NOK Full Name: "Last, First M." ---
             $nokFirstName = $row->nok_first_name ?? '';
@@ -406,11 +404,11 @@ class DataExportQueries
                 DB::raw('(SELECT c.status FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != \'ARCHIVED\' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS case_status'),
                 DB::raw('(SELECT c.tracker_number FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != \'ARCHIVED\' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS tracker_number'),
                 DB::raw("(SELECT CASE
-                    WHEN c.client_type = 'NOK' THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
+                    WHEN c.client_type = 'NEXT_OF_KIN' THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
                     ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
                 END FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != 'ARCHIVED' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS vulnerability"),
                 DB::raw("(SELECT CASE
-                    WHEN c.client_type = 'NOK' THEN 'Next of Kin'
+                    WHEN c.client_type = 'NEXT_OF_KIN' THEN 'Next of Kin'
                     ELSE 'OFW'
                 END FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != 'ARCHIVED' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS client_type"),
                 // Case issue — from latest case
@@ -708,7 +706,7 @@ class DataExportQueries
                 'c.tracker_number',
                 'c.client_type',
                 DB::raw("CASE
-                    WHEN c.client_type = 'NOK'
+                    WHEN c.client_type = 'NEXT_OF_KIN'
                         THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
                     ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
                 END AS vulnerability"),
@@ -845,8 +843,7 @@ class DataExportQueries
             }
 
             // --- Client Type display label ---
-            // Normalize: only OFW and NOK are valid; treat anything non-NOK as OFW
-            $row->client_type = $row->client_type === 'NOK' ? 'Next of Kin' : 'OFW';
+            $row->client_type = $row->client_type === CaseFile::CLIENT_TYPE_NEXT_OF_KIN ? 'Next of Kin' : 'OFW';
 
             // --- Client Full Address ---
             $addressResolver = $this->addresses();
