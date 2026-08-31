@@ -181,8 +181,8 @@ class IntakeSubmissionTest extends TestCase
         $email = 'nok-empty@example.com';
 
         $data = $this->validIntakeData();
-        // Mirrors the wizard's default shape when the optional NOK step is
-        // skipped: an array with one fully-empty entry.
+        // Preserve compatibility with drafts saved by the older wizard, which
+        // represented a skipped optional NOK step as one fully-empty entry.
         $data['next_of_kin'] = [[
             'first_name' => '',
             'last_name' => '',

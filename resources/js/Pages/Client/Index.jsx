@@ -388,7 +388,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
               render: (row) => {
                 const cf = row.case_file;
                 if (!cf) return <span className="text-slate-400">&mdash;</span>;
-                const isNok = cf.client_type === 'NOK';
+                const isNok = cf.client_type === 'NEXT_OF_KIN';
                 const val = isNok ? cf.nok_vulnerability_indicator : cf.vulnerability_indicator;
                 if (!val || val === 'None') return <span className="text-slate-400">&mdash;</span>;
                 const parts = val.split(',').map(s => s.trim()).filter(Boolean);
@@ -633,7 +633,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
         >
           <option value="">All Types</option>
           <option value="OFW">OFW</option>
-          <option value="NOK">Next of Kin</option>
+          <option value="NEXT_OF_KIN">Next of Kin</option>
         </select>
       </div>
       <div>

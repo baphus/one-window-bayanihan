@@ -20,7 +20,7 @@ Enter address details consistently. Employment information helps determine categ
 
 ### Next of kin
 
-The form supports multiple next-of-kin entries. Add complete names, relationships, contact details, and vulnerability indicators when available.
+Next of kin is optional. When one is available, the form supports multiple entries; complete the required name, relationship, contact, and address fields for every contact you add.
 
 ![Next-of-kin section](/assets/helpdesk/cases-create-nok.png)
 

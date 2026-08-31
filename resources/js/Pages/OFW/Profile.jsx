@@ -627,9 +627,14 @@ export default function Profile({ user, client }) {
                                 <SectionHeader
                                     icon="group"
                                     title="Next of Kin"
-                                    description="People we can contact on your behalf. Keep at least one."
+                                    description="Optional — add people we may contact on your behalf."
                                 />
                                 <div className="mt-4 space-y-4">
+                                    {nokForm.data.next_of_kin.length === 0 && (
+                                        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                                            No next of kin recorded. You may leave this section empty.
+                                        </p>
+                                    )}
                                     {nokForm.data.next_of_kin.map((row, i) => (
                                         <div key={i} className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                                             <div className="flex items-center justify-between">

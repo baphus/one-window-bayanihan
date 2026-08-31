@@ -204,7 +204,7 @@ class CaseServiceScopeTest extends TestCase
         CaseFile::factory()->create([
             'user_id' => $manager->id,
             'status' => 'OPEN',
-            'client_type' => 'NOK',
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
         ]);
 
         $this->actingAs($manager);
@@ -212,5 +212,12 @@ class CaseServiceScopeTest extends TestCase
 
         $this->assertCount(1, $cases);
         $this->assertEquals('OFW', $cases->first()->client_type);
+
+        $nextOfKinCases = $this->service->getCases([
+            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
+        ]);
+
+        $this->assertCount(1, $nextOfKinCases);
+        $this->assertEquals(CaseFile::CLIENT_TYPE_NEXT_OF_KIN, $nextOfKinCases->first()->client_type);
     }
 }

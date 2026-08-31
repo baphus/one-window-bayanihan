@@ -209,7 +209,7 @@
 |--------|------|-------------|-------|
 | `id` | uuid | PK | |
 | `case_number` | string | UNIQUE | Auto-generated |
-| `client_type` | string(20) | NOT NULL | e.g., 'OFW', 'NOK' |
+| `client_type` | string(20) | NOT NULL | `OFW` or `NEXT_OF_KIN` |
 | `vulnerability_indicator` | string | nullable | |
 | `nok_vulnerability_indicator` | string | nullable | |
 | `tracker_number` | string | UNIQUE | Public tracking code |
