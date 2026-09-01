@@ -2,7 +2,7 @@ import '../css/app.css';
 import './bootstrap';
 
 import * as Sentry from '@sentry/react';
-import { createInertiaApp, router, usePage, App as InertiaAppComponent } from '@inertiajs/react';
+import { createInertiaApp, router, App as InertiaAppComponent } from '@inertiajs/react';
 import { useState, useEffect, type ComponentProps, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import ErrorBoundary from '@/Components/ErrorBoundary';
@@ -30,6 +30,20 @@ const queryClient = new QueryClient({
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+function syncSentryPageContext(props: Record<string, unknown>): void {
+    const requestId = pageRequestId(props.request_id);
+    if (requestId) {
+        Sentry.setTag('request_id', requestId);
+    }
+
+    const auth = props.auth as { user?: { id?: string; role?: string } } | undefined;
+    const user = auth?.user;
+    if (user?.id) {
+        Sentry.setUser({ id: user.id });
+        Sentry.setTag('user_role', user.role || 'authenticated');
+    }
+}
+
 /**
  * Wraps the app tree, feeding OnboardingProvider with the current page's
  * onboarding_required prop. OnboardingProvider lives above <App> in the
@@ -52,6 +66,8 @@ function AppWithOnboarding({
     );
 
     useEffect(() => {
+        syncSentryPageContext(initialProps);
+
         const removeListener = router.on('success', (event) => {
             const page = event.detail?.page;
             if (page?.props?.onboarding_required !== undefined) {
@@ -59,6 +75,9 @@ function AppWithOnboarding({
             }
             if (page?.props?.onboarding !== undefined) {
                 setOnboardingState(page.props.onboarding as import('@/Onboarding/types').TourState | null);
+            }
+            if (page?.props) {
+                syncSentryPageContext(page.props as Record<string, unknown>);
             }
         });
         return () => {
@@ -90,32 +109,6 @@ function AppWithOnboarding({
     );
 }
 
-/**
- * Keeps the Sentry scope tagged with the current page's backend request ID and
- * the authenticated user, so a browser error report can be correlated with the
- * backend request that served the page. Placed inside the Inertia tree so it
- * re-runs on every navigation.
- */
-function SentryUserContext(): JSX.Element | null {
-    const { props } = usePage<Record<string, unknown>>();
-
-    useEffect(() => {
-        const requestId = pageRequestId(props.request_id);
-        if (requestId) {
-            Sentry.setTag('request_id', requestId);
-        }
-
-        const auth = props.auth as { user?: { id?: string; role?: string } } | undefined;
-        const user = auth?.user;
-        if (user?.id) {
-            Sentry.setUser({ id: user.id });
-            Sentry.setTag('user_role', user.role || 'authenticated');
-        }
-    }, [props]);
-
-    return null;
-}
-
 initSentry();
 
 createInertiaApp({
@@ -137,7 +130,6 @@ createInertiaApp({
         root.render(
             <ErrorBoundary requestId={pageRequestId(props.initialPage.props.request_id)}>
                 <AppWithOnboarding App={App} appProps={props} />
-                <SentryUserContext />
             </ErrorBoundary>,
         );
     },
