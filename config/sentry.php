@@ -1,6 +1,6 @@
 <?php
 
-use Sentry\Event;
+use App\Support\SentryBeforeSend;
 
 return [
 
@@ -41,25 +41,11 @@ return [
     'send_default_pii' => false,
 
     // Scrub sensitive data before events leave the SDK.
-    'before_send' => function (Event $event): ?Event {
-        // Strip query strings from request URLs (may contain tokens).
-        $request = $event->getRequest();
-        if (! empty($request['url'])) {
-            $request['url'] = parse_url($request['url'], PHP_URL_PATH);
-        }
-
-        // Remove sensitive headers.
-        if (! empty($request['headers'])) {
-            unset(
-                $request['headers']['authorization'],
-                $request['headers']['cookie'],
-                $request['headers']['set-cookie']
-            );
-        }
-
-        $event->setRequest($request);
-
-        return $event;
-    },
+    //
+    // Referenced as a callable array (class-string + static method), never a
+    // closure: a closure cannot be serialized, so a closure-based before_send made
+    // `php artisan config:cache` abort every production boot. A callable array of
+    // class-string + method name serializes cleanly and PHP can invoke it directly.
+    'before_send' => [SentryBeforeSend::class, 'scrub'],
 
 ];
