@@ -100,6 +100,7 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'request_id' => LogContext::getRequestId() ?: ($request->attributes->get('correlation_id') ?? $request->header('X-Request-ID')),
             'auth' => [
                 'user' => $request->user() ? [
                     ...$request->user()->only([

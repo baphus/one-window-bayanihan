@@ -12,7 +12,13 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Copy application source and build
 COPY . .
+ARG VITE_SENTRY_DSN_PUBLIC=""
+ARG VITE_SENTRY_RELEASE=""
+ARG VITE_APP_ENV="production"
 ENV VITE_APP_NAME="One Window Bayanihan"
+ENV VITE_SENTRY_DSN_PUBLIC=$VITE_SENTRY_DSN_PUBLIC
+ENV VITE_SENTRY_RELEASE=$VITE_SENTRY_RELEASE
+ENV VITE_APP_ENV=$VITE_APP_ENV
 RUN npm run build
 
 # ============================================================================

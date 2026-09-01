@@ -1,13 +1,15 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp, router, App as InertiaAppComponent } from '@inertiajs/react';
+import * as Sentry from '@sentry/react';
+import { createInertiaApp, router, usePage, App as InertiaAppComponent } from '@inertiajs/react';
 import { useState, useEffect, type ComponentProps, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import ErrorBoundary from '@/Components/ErrorBoundary';
 import ToastProvider from '@/Components/ToastProvider';
 import OnboardingProvider from '@/Onboarding/OnboardingProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { initSentry, pageRequestId } from '@/sentry';
 
 const globalWithReactRoots = globalThis as typeof globalThis & {
     __oneWindowReactRoots?: WeakMap<HTMLElement, ReturnType<typeof createRoot>>;
@@ -88,6 +90,34 @@ function AppWithOnboarding({
     );
 }
 
+/**
+ * Keeps the Sentry scope tagged with the current page's backend request ID and
+ * the authenticated user, so a browser error report can be correlated with the
+ * backend request that served the page. Placed inside the Inertia tree so it
+ * re-runs on every navigation.
+ */
+function SentryUserContext(): JSX.Element | null {
+    const { props } = usePage<Record<string, unknown>>();
+
+    useEffect(() => {
+        const requestId = pageRequestId(props.request_id);
+        if (requestId) {
+            Sentry.setTag('request_id', requestId);
+        }
+
+        const auth = props.auth as { user?: { id?: string; role?: string } } | undefined;
+        const user = auth?.user;
+        if (user?.id) {
+            Sentry.setUser({ id: user.id });
+            Sentry.setTag('user_role', user.role || 'authenticated');
+        }
+    }, [props]);
+
+    return null;
+}
+
+initSentry();
+
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => {
@@ -105,8 +135,9 @@ createInertiaApp({
             reactRoots.set(el, root);
         }
         root.render(
-            <ErrorBoundary>
+            <ErrorBoundary requestId={pageRequestId(props.initialPage.props.request_id)}>
                 <AppWithOnboarding App={App} appProps={props} />
+                <SentryUserContext />
             </ErrorBoundary>,
         );
     },
