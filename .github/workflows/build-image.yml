@@ -67,6 +67,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
+          build-args: |
+            VITE_SENTRY_DSN_PUBLIC=${{ vars.VITE_SENTRY_DSN_PUBLIC }}
+            VITE_SENTRY_RELEASE=${{ github.sha }}
+            VITE_APP_ENV=${{ github.ref_type == 'tag' && 'production' || 'staging' }}
 
       # --entrypoint is required on every inspection step below. The image
       # entrypoint runs config:cache and exits non-zero when it fails, which is

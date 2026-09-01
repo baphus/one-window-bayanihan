@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Mail\OtpMail;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class OtpService
@@ -44,12 +43,6 @@ class OtpService
             : "otp:attempts:{$purpose}:{$identifier}";
 
         $cachedOtp = Cache::get($key);
-        Log::info('OTP_VERIFY', [
-            'key' => $key,
-            'sessionId' => $sessionId,
-            'cached_value' => $cachedOtp ? substr($cachedOtp, 0, 2).'****' : null,
-            'provided_otp' => substr($otp, 0, 2).'****',
-        ]);
 
         // Check if max attempts exceeded — invalidate OTP
         $attempts = Cache::get($attemptsKey, 0);

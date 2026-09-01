@@ -2,6 +2,14 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import ErrorBoundary from '../ErrorBoundary';
 
+// Spy on Sentry captureException without making network calls.
+const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
+
+vi.mock('@sentry/react', () => ({
+  captureException: (error, options) => captureException(error, options),
+  setTag: () => {},
+}));
+
 // A component that throws during render
 function BuggyComponent({ shouldThrow = false }) {
   if (shouldThrow) {
@@ -12,8 +20,9 @@ function BuggyComponent({ shouldThrow = false }) {
 
 describe('ErrorBoundary', () => {
   beforeEach(() => {
-    // Suppress console.warn from the boundary during tests
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Suppress console errors from the boundary during tests
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    captureException.mockClear();
   });
 
   afterEach(() => {
@@ -54,22 +63,35 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Ref: INC-42')).toBeInTheDocument();
   });
 
-  it('calls console.warn on error', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
+  it('reports the error to Sentry', () => {
     render(
       <ErrorBoundary>
         <BuggyComponent shouldThrow />
       </ErrorBoundary>,
     );
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[ErrorBoundary] Caught render error:',
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException).toHaveBeenCalledWith(
       expect.any(Error),
-      expect.any(Object),
+      expect.objectContaining({
+        contexts: expect.objectContaining({
+          react: expect.objectContaining({
+            componentStack: expect.any(String),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('tags the backend request ID when provided', () => {
+    render(
+      <ErrorBoundary requestId="request-abc">
+        <BuggyComponent shouldThrow />
+      </ErrorBoundary>,
     );
 
-    warnSpy.mockRestore();
+    // Still reports to Sentry, using the provided request ID as the tag.
+    expect(captureException).toHaveBeenCalledTimes(1);
   });
 
   it('calls onError callback when provided', () => {

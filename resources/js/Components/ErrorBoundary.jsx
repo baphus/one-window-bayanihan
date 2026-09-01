@@ -1,4 +1,5 @@
 import React from 'react';
+import * as Sentry from '@sentry/react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -11,7 +12,23 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.warn('[ErrorBoundary] Caught render error:', error, errorInfo);
+    const requestId = this.props.requestId;
+
+    if (requestId) {
+      Sentry.setTag('request_id', requestId);
+    }
+
+    // Report render failures to Sentry instead of just logging to the console.
+    // captureException is a no-op when the SDK has not been initialized
+    // (i.e. no VITE_SENTRY_DSN_PUBLIC), so this stays safe regardless of env.
+    Sentry.captureException(error, {
+      contexts: {
+        react: {
+          componentStack: errorInfo?.componentStack,
+        },
+      },
+    });
+
     this.props.onError?.(error, errorInfo);
   }
 

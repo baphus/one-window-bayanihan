@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\SentryBeforeSend;
+
 return [
 
     'dsn' => env('SENTRY_LARAVEL_DSN', env('SENTRY_DSN')),
@@ -29,10 +31,21 @@ return [
     'breadcrumbs' => [
         'logs' => true,
         'sql_queries' => true,
-        'sql_bindings' => true,
+        'sql_bindings' => false,
         'queue_info' => true,
         'command_info' => true,
         'http_client_requests' => true,
     ],
+
+    // Never send cookies, authorization headers, or PII to Sentry.
+    'send_default_pii' => false,
+
+    // Scrub sensitive data before events leave the SDK.
+    //
+    // Referenced as a callable array (class-string + static method), never a
+    // closure: a closure cannot be serialized, so a closure-based before_send made
+    // `php artisan config:cache` abort every production boot. A callable array of
+    // class-string + method name serializes cleanly and PHP can invoke it directly.
+    'before_send' => [SentryBeforeSend::class, 'scrub'],
 
 ];

@@ -22,11 +22,11 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Sentry\Laravel\Integration;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -188,12 +188,5 @@ return Application::configure(basePath: dirname(__DIR__))
             return Inertia::render('Errors/ServerError', ['incidentId' => $incidentId])->toResponse($request)->setStatusCode(500);
         });
 
-        $exceptions->report(function (Throwable $e): void {
-            // Report exceptions to Sentry in non-local environments
-            if (! App::environment('local', 'testing')) {
-                if (app()->bound('sentry')) {
-                    app('sentry')->captureException($e);
-                }
-            }
-        });
+        Integration::handles($exceptions);
     })->create();
