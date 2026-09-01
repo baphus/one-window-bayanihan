@@ -84,7 +84,7 @@ class VerifyAuditChain extends Command
             Log::error($message);
             $this->error($message);
 
-            return Command::FAILURE;
+            throw new \RuntimeException($message);
         }
 
         $suffix = $checkpoint ? ' (anchored at checkpoint)' : '';

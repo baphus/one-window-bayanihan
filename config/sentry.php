@@ -1,5 +1,7 @@
 <?php
 
+use Sentry\Event;
+
 return [
 
     'dsn' => env('SENTRY_LARAVEL_DSN', env('SENTRY_DSN')),
@@ -29,10 +31,35 @@ return [
     'breadcrumbs' => [
         'logs' => true,
         'sql_queries' => true,
-        'sql_bindings' => true,
+        'sql_bindings' => false,
         'queue_info' => true,
         'command_info' => true,
         'http_client_requests' => true,
     ],
+
+    // Never send cookies, authorization headers, or PII to Sentry.
+    'send_default_pii' => false,
+
+    // Scrub sensitive data before events leave the SDK.
+    'before_send' => function (Event $event): ?Event {
+        // Strip query strings from request URLs (may contain tokens).
+        $request = $event->getRequest();
+        if (! empty($request['url'])) {
+            $request['url'] = parse_url($request['url'], PHP_URL_PATH);
+        }
+
+        // Remove sensitive headers.
+        if (! empty($request['headers'])) {
+            unset(
+                $request['headers']['authorization'],
+                $request['headers']['cookie'],
+                $request['headers']['set-cookie']
+            );
+        }
+
+        $event->setRequest($request);
+
+        return $event;
+    },
 
 ];
