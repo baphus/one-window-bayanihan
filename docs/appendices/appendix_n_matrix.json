@@ -1,0 +1,854 @@
+{
+  "modules": [
+    {
+      "name": "Authentication",
+      "source": "routes/auth.php; app/Http/Requests/Auth/LoginRequest.php",
+      "rows": [
+        [
+          "Log in with an existing account",
+          "1234"
+        ],
+        [
+          "Log out",
+          "1234"
+        ],
+        [
+          "Request password reset and reset password",
+          "1234"
+        ],
+        [
+          "Register staff account through an invitation",
+          "123"
+        ],
+        [
+          "Register OFW account after verified intake or tracking",
+          "4"
+        ],
+        [
+          "Verify account email / resend verification link",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Authorization",
+      "source": "app/Http/Middleware/CheckRole.php; bootstrap/app.php; app/Http/Controllers/CaseController.php::authorizeCaseAccess",
+      "rows": [
+        [
+          "Validate user role and enforce route access",
+          "0"
+        ],
+        [
+          "Check record ownership, agency scope and verified public access",
+          "0"
+        ],
+        [
+          "Check account activity and required MFA",
+          "0"
+        ]
+      ]
+    },
+    {
+      "name": "Email OTP",
+      "source": "app/Http/Controllers/TrackController.php; app/Http/Controllers/IntakeController.php; app/Http/Controllers/EmailChangeController.php",
+      "rows": [
+        [
+          "Generate, send and validate email OTP",
+          "0"
+        ],
+        [
+          "Request / resend tracking or intake OTP [1]",
+          "1234"
+        ],
+        [
+          "Submit tracking or intake OTP for verification [1]",
+          "1234"
+        ],
+        [
+          "Request and verify an account email change",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Multi-Factor Authentication",
+      "source": "app/Http/Controllers/MfaController.php; config/mfa.php; routes/auth.php",
+      "rows": [
+        [
+          "Set up authenticator and enable MFA [2]",
+          "1234"
+        ],
+        [
+          "Complete required login MFA / recovery challenge [2]",
+          "123"
+        ],
+        [
+          "Regenerate recovery codes / disable MFA [2]",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Profile",
+      "source": "app/Http/Controllers/ProfileController.php; app/Http/Controllers/OfwProfileController.php; routes/auth.php",
+      "rows": [
+        [
+          "View own profile",
+          "1234"
+        ],
+        [
+          "Update own permitted profile fields [3]",
+          "1234"
+        ],
+        [
+          "Change own password",
+          "1234"
+        ],
+        [
+          "Manage avatar and notification preferences through shared profile [2]",
+          "1234"
+        ],
+        [
+          "Delete own account through shared profile endpoint [2]",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Landing Page and Public Information",
+      "source": "routes/web.php; resources/js/Pages/Welcome.jsx",
+      "rows": [
+        [
+          "View system overview",
+          "1234"
+        ],
+        [
+          "View public agencies and services",
+          "1234"
+        ],
+        [
+          "View frequently asked questions",
+          "1234"
+        ],
+        [
+          "Submit contact form",
+          "1234"
+        ],
+        [
+          "View privacy policy and terms",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Public Intake",
+      "source": "app/Http/Controllers/IntakeController.php; app/Services/IntakeService.php; routes/web.php",
+      "rows": [
+        [
+          "Submit a self-filed assistance request [1]",
+          "1234"
+        ],
+        [
+          "Check returning client / duplicate intake after verification [1]",
+          "1234"
+        ],
+        [
+          "Prefill own client details when signed in",
+          "4"
+        ],
+        [
+          "Create intake draft and send acknowledgement",
+          "0"
+        ]
+      ]
+    },
+    {
+      "name": "Tracking Input",
+      "source": "app/Http/Controllers/TrackController.php",
+      "rows": [
+        [
+          "Enter tracking number and matching email [1]",
+          "1234"
+        ],
+        [
+          "Submit tracking request and verify access [1]",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Tracking View and Timeline",
+      "source": "app/Services/TrackingService.php; app/Http/Controllers/OfwDashboardController.php; app/Services/ReferralService.php::getReferralTimeline",
+      "rows": [
+        [
+          "View case status and overview [1, 4]",
+          "1234"
+        ],
+        [
+          "View client-facing case history and timeline [1, 4]",
+          "1234"
+        ],
+        [
+          "View referred agencies and referral status [1, 4]",
+          "1234"
+        ],
+        [
+          "View agency milestones and requirements [1, 4]",
+          "1234"
+        ],
+        [
+          "View internal referral timeline [4]",
+          "123"
+        ]
+      ]
+    },
+    {
+      "name": "Client",
+      "source": "app/Http/Controllers/ClientController.php; app/Services/CaseService.php::publishDraft; app/Services/CaseService.php::updateDraft",
+      "rows": [
+        [
+          "Create client through case entry / publication",
+          "13"
+        ],
+        [
+          "View, search and filter client records [4]",
+          "123"
+        ],
+        [
+          "Update linked address, employment and next of kin through case draft [5]",
+          "13"
+        ],
+        [
+          "Upload or remove client profile picture [4]",
+          "123"
+        ],
+        [
+          "Export permitted client records to Excel [4]",
+          "123"
+        ],
+        [
+          "Access client selection API [10]",
+          "13!?"
+        ]
+      ]
+    },
+    {
+      "name": "Case",
+      "source": "app/Http/Controllers/CaseController.php; app/Services/CaseService.php; routes/web.php",
+      "rows": [
+        [
+          "Create case / save initial draft",
+          "13"
+        ],
+        [
+          "View, search and filter staff case list",
+          "13"
+        ],
+        [
+          "View internal case details [4]",
+          "123"
+        ],
+        [
+          "Update case fields",
+          "13"
+        ],
+        [
+          "View / edit / save eligible draft [5]",
+          "13"
+        ],
+        [
+          "Publish a complete draft",
+          "13"
+        ],
+        [
+          "Delete eligible draft [5]",
+          "13"
+        ],
+        [
+          "Export case record to PDF / case list to Excel",
+          "13"
+        ]
+      ]
+    },
+    {
+      "name": "Intake Review",
+      "source": "app/Http/Controllers/CaseController.php::intakeQueue; app/Http/Controllers/CaseController.php::reviewIntake; app/Services/CaseService.php",
+      "rows": [
+        [
+          "View pending intake queue",
+          "13"
+        ],
+        [
+          "Review and correct intake draft",
+          "13"
+        ],
+        [
+          "Accept intake by publishing case",
+          "13"
+        ],
+        [
+          "Reject intake with reason",
+          "13"
+        ]
+      ]
+    },
+    {
+      "name": "Case Status and Archive",
+      "source": "app/Services/CaseService.php::canClose; app/Services/CaseService.php::toggleCaseStatus; app/Services/CaseService.php::deleteArchivedCase",
+      "rows": [
+        [
+          "Update case status / close eligible case [6]",
+          "13"
+        ],
+        [
+          "Reopen closed case",
+          "13"
+        ],
+        [
+          "Archive closed case / unarchive case",
+          "13"
+        ],
+        [
+          "Soft-delete archived case with reason",
+          "13"
+        ],
+        [
+          "View trash and restore deleted case",
+          "13"
+        ],
+        [
+          "Purge expired trash under retention schedule",
+          "0"
+        ]
+      ]
+    },
+    {
+      "name": "Case Document",
+      "source": "app/Http/Controllers/CaseDocumentController.php; routes/web.php",
+      "rows": [
+        [
+          "Upload case document",
+          "13"
+        ],
+        [
+          "View / download permitted document [4]",
+          "123"
+        ],
+        [
+          "Soft-delete case document",
+          "13"
+        ]
+      ]
+    },
+    {
+      "name": "Referral",
+      "source": "app/Http/Controllers/ReferralController.php; app/Http/Requests/StoreReferralRequest.php; app/Services/ReferralService.php::updateStatus",
+      "rows": [
+        [
+          "Create referral",
+          "13"
+        ],
+        [
+          "View, search and filter referral list [4, 8]",
+          "123!"
+        ],
+        [
+          "View internal referral details [4]",
+          "123"
+        ],
+        [
+          "Accept referral as receiving agency",
+          "2"
+        ],
+        [
+          "Reject referral as receiving agency",
+          "2"
+        ],
+        [
+          "Update permitted referral status [6]",
+          "123"
+        ],
+        [
+          "Export referrals to Excel [4, 8]",
+          "123!"
+        ]
+      ]
+    },
+    {
+      "name": "Milestone",
+      "source": "app/Http/Controllers/ReferralController.php::addMilestone; app/Services/ReferralService.php::addMilestone; app/Services/TrackingService.php",
+      "rows": [
+        [
+          "Create milestone on eligible referral [6]",
+          "123"
+        ],
+        [
+          "View milestones [1, 4]",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Comment",
+      "source": "app/Http/Controllers/ReferralController.php::addComment; app/Http/Controllers/ReferralController.php::replyToComment",
+      "rows": [
+        [
+          "Create internal referral comment [4]",
+          "123"
+        ],
+        [
+          "View internal referral comments [4]",
+          "123"
+        ],
+        [
+          "Reply to internal referral comment [4]",
+          "123"
+        ]
+      ]
+    },
+    {
+      "name": "Referral Attachment",
+      "source": "app/Http/Controllers/ReferralController.php::addAttachment; app/Http/Controllers/ReferralController.php::deleteAttachment",
+      "rows": [
+        [
+          "Upload attachment to accessible referral [4]",
+          "123"
+        ],
+        [
+          "View / download referral attachment [4]",
+          "123"
+        ],
+        [
+          "Replace attachment and view version history [4]",
+          "123"
+        ],
+        [
+          "Soft-delete own uploaded attachment [4]",
+          "123"
+        ]
+      ]
+    },
+    {
+      "name": "Referral Services and Requirements",
+      "source": "app/Http/Controllers/ReferralController.php::addService; app/Http/Controllers/ReferralController.php::updateRequirement",
+      "rows": [
+        [
+          "Add / remove receiving agency service on referral",
+          "2"
+        ],
+        [
+          "Add / update / delete referral requirements",
+          "2"
+        ],
+        [
+          "View referral service details [4]",
+          "123"
+        ]
+      ]
+    },
+    {
+      "name": "Client Requests and Secure Inbox",
+      "source": "app/Http/Controllers/ReferralClientRequestController.php; app/Services/ReferralClientRequestService.php",
+      "rows": [
+        [
+          "Create document / question / information request",
+          "2"
+        ],
+        [
+          "View request history and messages [4]",
+          "123"
+        ],
+        [
+          "Send agency message on own referral",
+          "2"
+        ],
+        [
+          "Complete / cancel / reopen eligible request",
+          "2"
+        ],
+        [
+          "Issue or reissue secure client access link",
+          "2"
+        ],
+        [
+          "Revoke client access link [4]",
+          "123"
+        ],
+        [
+          "Read and reply through verified client link [1]",
+          "1234"
+        ],
+        [
+          "Upload / replace requested client attachment [1]",
+          "1234"
+        ],
+        [
+          "Download permitted request attachments [1, 4]",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "Activity and Audit Log",
+      "source": "app/Http/Controllers/AuditLogController.php; app/Observers/AuditObserver.php; routes/auth.php",
+      "rows": [
+        [
+          "Automatically record auditable activity",
+          "0"
+        ],
+        [
+          "View and filter activity / audit records [7]",
+          "123"
+        ],
+        [
+          "View case-level activity history",
+          "13"
+        ],
+        [
+          "View referral-level activity history [4]",
+          "123"
+        ],
+        [
+          "Export audit logs with date range",
+          "3"
+        ]
+      ]
+    },
+    {
+      "name": "Notification",
+      "source": "app/Services/NotificationService.php; app/Services/ReferralService.php; app/Services/CaseService.php; app/Http/Controllers/OfwDashboardController.php",
+      "rows": [
+        [
+          "Send referral / status / milestone notifications",
+          "0"
+        ],
+        [
+          "Send tracking number / intake publication email",
+          "0"
+        ],
+        [
+          "View own notifications and mark as read",
+          "1234"
+        ],
+        [
+          "Mark all staff notifications as read",
+          "123"
+        ]
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "source": "app/Http/Controllers/DashboardController.php; app/Http/Controllers/OfwDashboardController.php",
+      "rows": [
+        [
+          "View staff dashboard and case / referral summary [4]",
+          "123"
+        ],
+        [
+          "View own OFW dashboard and case summary",
+          "4"
+        ],
+        [
+          "Open own client-facing case details",
+          "4"
+        ]
+      ]
+    },
+    {
+      "name": "Reporting",
+      "source": "app/Http/Controllers/ReportsController.php; app/Services/ReportsService.php; app/Services/Reports/ReportsExportService.php",
+      "rows": [
+        [
+          "View report dashboard / generate on-screen report [8]",
+          "123!"
+        ],
+        [
+          "Filter reports by date range / date scope [8]",
+          "123!"
+        ],
+        [
+          "Select agency filter (agency users are fixed to own agency)",
+          "13"
+        ],
+        [
+          "Filter reports by province / city [8]",
+          "123!"
+        ],
+        [
+          "View case and referral breakdowns [4, 8]",
+          "123!"
+        ],
+        [
+          "View client demographics and descriptive statistics [4, 8]",
+          "123!"
+        ],
+        [
+          "Display line graphs and bar charts [4, 8]",
+          "123!"
+        ],
+        [
+          "Export permitted reports to PDF / Excel [4]",
+          "123"
+        ]
+      ]
+    },
+    {
+      "name": "Overdue Referral",
+      "source": "app/Http/Controllers/Admin/OverdueReferralController.php; routes/console.php",
+      "rows": [
+        [
+          "View and filter overdue referrals [4]",
+          "123"
+        ],
+        [
+          "Request reminder delivery",
+          "13"
+        ],
+        [
+          "Deliver requested overdue notifications",
+          "0"
+        ]
+      ]
+    },
+    {
+      "name": "User Administration",
+      "source": "app/Http/Controllers/AdminUserController.php; routes/web.php",
+      "rows": [
+        [
+          "Create / view / search user accounts",
+          "3"
+        ],
+        [
+          "Update user details, role and account status",
+          "3"
+        ],
+        [
+          "Soft-delete / reactivate user",
+          "3"
+        ],
+        [
+          "Invite staff / resend or cancel invitation",
+          "3"
+        ],
+        [
+          "Verify account / reset user MFA",
+          "3"
+        ],
+        [
+          "Change user email through OTP verification",
+          "3"
+        ]
+      ]
+    },
+    {
+      "name": "Agency Administration",
+      "source": "app/Http/Controllers/AdminAgencyController.php; routes/web.php",
+      "rows": [
+        [
+          "Create agency",
+          "3"
+        ],
+        [
+          "View agency administration list",
+          "3"
+        ],
+        [
+          "View agency administrative detail [9]",
+          "13"
+        ],
+        [
+          "Update agency",
+          "3"
+        ],
+        [
+          "Deactivate / reactivate agency [9]",
+          "3"
+        ]
+      ]
+    },
+    {
+      "name": "Service Catalogue",
+      "source": "app/Http/Controllers/AgencyServiceController.php; app/Http/Controllers/AdminServiceController.php",
+      "rows": [
+        [
+          "Create service and requirements [4]",
+          "23"
+        ],
+        [
+          "View / search service catalogue [4]",
+          "23"
+        ],
+        [
+          "Update service and requirements [4]",
+          "23"
+        ],
+        [
+          "Soft-delete service",
+          "23"
+        ]
+      ]
+    },
+    {
+      "name": "Case Reference Data",
+      "source": "app/Http/Controllers/Admin/AdminCaseCategoryController.php; app/Http/Controllers/Admin/AdminCaseStatusController.php; app/Http/Controllers/Admin/AdminCaseIssueController.php",
+      "rows": [
+        [
+          "Manage case categories / reactivate category",
+          "3"
+        ],
+        [
+          "Manage case status definitions",
+          "3"
+        ],
+        [
+          "Manage case issues / reactivate issue",
+          "3"
+        ],
+        [
+          "Quick-create case issue during case entry",
+          "13"
+        ]
+      ]
+    },
+    {
+      "name": "Stakeholder Directory",
+      "source": "app/Http/Controllers/StakeholderController.php; routes/web.php",
+      "rows": [
+        [
+          "View stakeholder directory",
+          "13"
+        ],
+        [
+          "View stakeholder details",
+          "13"
+        ]
+      ]
+    },
+    {
+      "name": "Survey",
+      "source": "app/Http/Controllers/SurveyFormController.php; app/Http/Controllers/SurveyResponseController.php; app/Http/Controllers/PublicSurveyController.php",
+      "rows": [
+        [
+          "Create / view / update own agency survey forms",
+          "2"
+        ],
+        [
+          "Activate / delete own agency survey form",
+          "2"
+        ],
+        [
+          "View survey response statistics and details [4]",
+          "123"
+        ],
+        [
+          "View / submit survey using valid invitation [1]",
+          "1234"
+        ],
+        [
+          "Send survey invitation after eligible completion",
+          "0"
+        ]
+      ]
+    },
+    {
+      "name": "System Settings and Operations",
+      "source": "app/Http/Controllers/SystemSettingsController.php; app/Http/Controllers/Admin; routes/web.php",
+      "rows": [
+        [
+          "View / update system settings",
+          "3"
+        ],
+        [
+          "Reindex AI assistant knowledge",
+          "3"
+        ],
+        [
+          "View / download application logs",
+          "3"
+        ],
+        [
+          "View / toggle maintenance mode",
+          "3"
+        ],
+        [
+          "View / update security settings",
+          "3"
+        ],
+        [
+          "View active sessions / terminate session",
+          "3"
+        ],
+        [
+          "View email delivery logs / resend eligible email",
+          "3"
+        ]
+      ]
+    },
+    {
+      "name": "Administrative Data Export",
+      "source": "app/Http/Controllers/Admin/DataExportController.php; routes/web.php",
+      "rows": [
+        [
+          "View data export options",
+          "3"
+        ],
+        [
+          "Export full administrative workbook",
+          "3"
+        ]
+      ]
+    },
+    {
+      "name": "Helpdesk and Onboarding",
+      "source": "routes/web.php; app/Http/Controllers/OnboardingController.php; app/Services/OnboardingService.php",
+      "rows": [
+        [
+          "Browse / search / read helpdesk articles",
+          "1234"
+        ],
+        [
+          "View / complete / skip / replay onboarding state [2]",
+          "1234"
+        ],
+        [
+          "Update onboarding steps, guides and checklist [2]",
+          "1234"
+        ]
+      ]
+    },
+    {
+      "name": "AI Assistant",
+      "source": "app/Http/Controllers/ChatbotController.php; app/Providers/AppServiceProvider.php::boot",
+      "rows": [
+        [
+          "Ask for tracking guidance (no live case lookup)",
+          "1234"
+        ],
+        [
+          "Ask for service, agency and system guidance",
+          "1234"
+        ],
+        [
+          "Apply topic / prompt-injection guards and audience scope",
+          "0"
+        ],
+        [
+          "Enforce request rate and response length limits",
+          "0"
+        ]
+      ]
+    }
+  ],
+  "notes": [
+    "Public and token-based features are not restricted to the OFW role. An asterisk in a staff column does not bypass matching-email OTP, a valid survey invitation, or a valid client-request link. The OFW column includes public clients and registered OFW users; account-only actions require registration.",
+    "Shared profile, MFA setup and onboarding endpoints accept authenticated verified users, including OFWs, although the OFW portal has its own profile. Login MFA is required for configured roles (default: Administrator, Case Manager and Agency Focal Person); OFW enrolment is not required by default. Endpoint access does not imply an OFW-specific screen, onboarding tour or default OFW login challenge.",
+    "OFW profile editing covers own contact number, address, employment, next of kin and password. Identity fields in the OFW profile are read-only. Staff use the shared profile editor.",
+    "Case Managers and Administrators generally have system-wide operational access. Agency Focal Persons are restricted to their agency referrals and associated records; the internal case-detail route requires an active referral, and case documents require a referral to their agency. OFWs use their own client-facing cases or verified public tracking. Report panels differ by role.",
+    "Client creation is part of case publication or public intake, not a standalone client-create page. Client updates listed here are limited to implemented workflows; no general client update/delete endpoint exists. Internal draft editing is ownership-restricted; self-filed drafts are reviewable by Case Managers and Administrators. Draft deletion is separate from archived-case trash.",
+    "Case closure is blocked while any referral is neither completed nor rejected. Only the receiving agency accepts or rejects a referral. Case Managers and Administrators can make other permitted transitions after agency engagement. Milestones cannot be added to completed referrals; agency milestone entry requires processing or for-compliance status. No direct milestone edit/delete or comment edit/delete function is listed because no such route is registered.",
+    "Activity Log and Audit Logs share the same implementation. Current controller code gives Case Managers and Administrators the unscoped log query; Agency Focal Persons get an agency-scoped query. Export is Administrator-only. This differs from comments that describe narrower Case Manager access.",
+    "The exclamation mark identifies an access discrepancy, not an approved OFW permission. The reports page accepts authenticated verified OFWs and defaults to the Case Manager payload without client ownership scope. Report export rejects OFWs. Referral list, creation-page and referral Excel export routes also lack an explicit OFW denial; their list/export queries restrict agencies but do not restrict OFWs. Referral creation submission still requires Case Manager or Administrator. Resolve these discrepancies before treating this matrix as an approved security policy.",
+    "Administrative routes also apply the configured IP whitelist, including the Case Manager agency-detail route. Agency removal sets inactive and deleted flags; the default agency is protected. Service removal uses the model soft-delete behavior.",
+    "Client selection API routes require authentication and verification but do not apply the staff role gate or agency/client scope in ClientSelectController. Exclamation marks for Agency Focal Person and OFW flag this discrepancy; ordinary client pages retain their separate route and controller checks."
+  ]
+}
