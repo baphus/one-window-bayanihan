@@ -16,6 +16,11 @@ Open the chat bubble and either type a question — the box hints *"Ask about se
 
 Some answers include buttons that take you directly to the right page, such as **Go to Tracking Portal**.
 
+Answers based on helpdesk articles show **Sources** beneath the reply. Select an
+article title to read the full guide. An answer can cite more than one article;
+agency directory information is labeled separately. If the available content does
+not answer your question, the assistant will say so or ask you to clarify.
+
 ## What it's good at
 
 - Explaining how things work: tracking, feedback, requirements, which agency handles what.

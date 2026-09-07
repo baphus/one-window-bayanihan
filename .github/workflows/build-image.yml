@@ -116,12 +116,11 @@ jobs:
              if (!str_starts_with($html, "<img src=\"data:image/png;base64,")) { fwrite(STDERR, "chart did not render\n"); exit(1); }
              echo "Chart render OK\n";'
 
-      # FTS5 backs the chatbot retrieval index. Absent, it fails only at runtime
-      # on the first query, so assert it at build time.
-      - name: Verify SQLite FTS5 is available
+      # Chatbot tools read the packaged helpdesk corpus without a vector/FTS index.
+      - name: Verify chatbot helpdesk content is available
         run: |
           docker run --rm --entrypoint php bayanihan:${{ github.sha }} -r \
-            '$d = new PDO("sqlite::memory:"); $d->exec("CREATE VIRTUAL TABLE t USING fts5(c)"); echo "FTS5 OK\n";'
+            'if (!glob("resources/js/data/helpdesk/content/*.ts")) { exit(1); } echo "Helpdesk content OK\n";'
 
       # The nginx config carries the client-IP resolution that makes
       # X-Forwarded-For non-spoofable. A syntax error there would only surface as

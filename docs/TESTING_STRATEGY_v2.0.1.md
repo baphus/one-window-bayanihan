@@ -248,7 +248,7 @@ npm run test:e2e               # E2E tests (requires running server)
 | Referral lifecycle | High | Core workflow |
 | Reports | Medium | Complex aggregations, harder to test |
 | Admin CRUD | Medium | Standard CRUD patterns |
-| Chatbot | Medium | Mocked AI responses |
+| Chatbot | Medium | Mocked tool loops, evidence authorization, article sources and provider evaluation; see `docs/CHATBOT_AGENT.md` |
 | UI Components | Low | Manual testing preferred for now |
 
 ---

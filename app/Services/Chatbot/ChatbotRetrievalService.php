@@ -3,15 +3,13 @@
 namespace App\Services\Chatbot;
 
 use App\Models\Agency;
-use App\Models\Service;
 
 /**
  * Content loader for the chatbot: loads article content from source services
  * and tokenizes queries for intent detection.
  *
- * FTS5 search and indexing have been removed — pgvector is the sole search
- * engine. This service provides content loading (contentFor) and text
- * tokenization (tokenize) used by the intent classifier.
+ * Legacy content/token helpers retained for existing callers. The active agent
+ * uses ChatbotKnowledge and authorized tools; this class does not perform search.
  */
 class ChatbotRetrievalService
 {

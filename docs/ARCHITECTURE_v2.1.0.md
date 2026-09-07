@@ -205,7 +205,7 @@ Laravel Controller → Inertia::render('Page', $props)
 | `DashboardService` | 37KB | Role-specific dashboard data aggregation |
 | `ReferralService` | 24KB | Referral lifecycle, milestones, comments, attachments |
 | `TrackingService` | 26KB | Public case tracking, OTP verification |
-| `ChatbotService` | — | AI chatbot orchestration |
+| `ChatbotConversationService` | `HelpdeskAgent`, authorized knowledge/tools, response assembler | Laravel AI SDK search/read/answer loop with verified sources |
 | `AuditLogService` | — | Audit log queries, filtering |
 | `FeedbackService` | — | SERVQUAL feedback, invitations, analytics |
 | `ExportService` | — | PDF/Excel generation |
