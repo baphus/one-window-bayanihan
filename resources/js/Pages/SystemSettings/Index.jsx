@@ -84,7 +84,7 @@ export default function SystemSettings({
                 setLastReindexedAt(data.last_reindexed_at);
                 toast.success(data.message);
             } else {
-                toast.error(data.message || 'Reindex failed.');
+                toast.error(data.message || 'Refresh failed.');
             }
         } catch {
             toast.error('Failed to reach the server. Please try again.');
@@ -210,7 +210,7 @@ export default function SystemSettings({
                 <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
                     <h3 className="text-base font-semibold text-slate-900 mb-4">Chatbot Knowledge</h3>
                     <p className="text-sm text-slate-600 mb-4">
-                        Rebuild the chatbot's search index from the latest helpdesk articles, guide topics, and database records.
+                        Refresh the helpdesk articles used by the chatbot. Public agency information is read directly from the directory.
                     </p>
                     {lastReindexedAt && (
                         <p className="text-xs text-slate-400 mb-4">
@@ -228,7 +228,7 @@ export default function SystemSettings({
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
-                                Rebuilding…
+                                Refreshing…
                             </>
                         ) : (
                             'Update Knowledge'

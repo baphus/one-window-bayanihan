@@ -44,7 +44,7 @@ class SystemSettingsController extends Controller
     }
 
     /**
-     * Rebuild the chatbot knowledge index (pgvector embeddings).
+     * Refresh the parsed chatbot helpdesk content cache.
      *
      * Runs synchronously — the corpus is small (~300 sections) and completes
      * in under 30 seconds. Returns JSON for the frontend polling handler.
@@ -57,7 +57,7 @@ class SystemSettingsController extends Controller
             if ($exitCode !== 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Index rebuild failed. Check the server logs for details.',
+                    'message' => 'Helpdesk cache refresh failed. Check the server logs for details.',
                 ], 500);
             }
 
@@ -65,13 +65,13 @@ class SystemSettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Chatbot knowledge index rebuilt successfully.',
+                'message' => 'Chatbot helpdesk content refreshed successfully.',
                 'last_reindexed_at' => now()->toIso8601String(),
             ]);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Index rebuild failed: '.$e->getMessage(),
+                'message' => 'Helpdesk cache refresh failed. Please try again.',
             ], 500);
         }
     }

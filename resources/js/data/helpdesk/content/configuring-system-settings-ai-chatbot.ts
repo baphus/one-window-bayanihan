@@ -21,9 +21,10 @@ Changes confirm with **"Settings updated successfully."** and are recorded in th
 
 The public help chatbot's language model is set by the deployment's environment configuration, not the admin UI:
 
-- The **default provider is a hosted model** (OpenRouter free tier, requiring an API key in the server environment).
-- Deployments can switch to any configured provider, **including a local Ollama / llama.cpp model**, by changing the chatbot provider environment setting.
-- Answers are grounded in the helpdesk articles through retrieval — improving the articles improves the chatbot.
+- Deployments use a configured language model that supports the chatbot's article-search and reading functions.
+- The technical team configures the model and credentials in the server environment and tests changes before release.
+- The chatbot reads relevant helpdesk sections and displays the supporting article titles as links under **Sources**. Improving the articles improves its answers.
+- **Update Knowledge** refreshes cached helpdesk content. Public agency information is read directly from the directory.
 
 Practical guidance for administrators:
 

@@ -21,6 +21,8 @@ class ChatbotHelpdeskService
      */
     private ?array $parsed = null;
 
+    private ?string $parsedHash = null;
+
     /** Articles whose sections are included in the classifier-miss fallback. */
     private array $fallbackSlugs = [
         'using-public-tracking-portal',
@@ -50,7 +52,7 @@ class ChatbotHelpdeskService
         $parts = [];
         foreach ($files as $file) {
             if (is_file($file)) {
-                $parts[] = basename($file).'|'.filemtime($file).'|'.filesize($file);
+                $parts[] = basename($file).'|'.hash_file('sha256', $file);
             }
         }
         sort($parts);
@@ -77,12 +79,15 @@ class ChatbotHelpdeskService
      */
     private function parsed(): array
     {
-        if ($this->parsed !== null) {
+        $hash = $this->contentHash();
+        if ($this->parsed !== null && $this->parsedHash === $hash) {
             return $this->parsed;
         }
 
+        $this->parsedHash = $hash;
+
         return $this->parsed = CacheHelper::safeRemember(
-            'chatbot.helpdesk.'.$this->contentHash(),
+            'chatbot.helpdesk.'.$hash,
             now()->addWeek(),
             fn () => $this->parseAll(),
         );
@@ -332,13 +337,12 @@ class ChatbotHelpdeskService
     }
 
     /**
-     * Keyword search against the parsed TypeScript content — zero database
-     * dependency. Acts as the last-resort fallback when pgvector and FTS
-     * backends are unavailable (e.g. production without pgvector extension).
+     * Legacy section keyword search against parsed TypeScript content.
+     * The active agent uses ChatbotKnowledge's weighted article search.
      *
      * Each section is scored by the proportion of query words found in its
      * text (title + heading + body). Results are returned in the same format
-     * as vectorSearch/ftsSearch so they can plug into the same pipeline.
+     * expected by existing section-level callers.
      *
      * @param  list<string>|null  $audienceGroups  Filter to these groups, or null for all
      * @return list<array{source_type: string, source_key: string, slug: string, heading: string, audience_group: string, rank: int, raw_score: float}>
@@ -474,6 +478,9 @@ class ChatbotHelpdeskService
      */
     private function loadContent(string $slug): ?string
     {
+        if (! preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {
+            return null;
+        }
         $path = "{$this->contentDir}/{$slug}.ts";
         if (! file_exists($path)) {
             return null;
@@ -696,6 +703,10 @@ class ChatbotHelpdeskService
             $body = trim(implode("\n", $lines));
 
             if ($heading !== '' && $body !== '') {
+                // Preserve an introduction even if an explicit Overview follows it.
+                if ($heading === 'Overview' && isset($sections['Overview'])) {
+                    $body = $sections['Overview']['content']."\n\n".$body;
+                }
                 $sections[$heading] = [
                     'heading' => $heading,
                     'content' => $body,

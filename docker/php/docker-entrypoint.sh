@@ -113,10 +113,10 @@ if [ "${RUN_MIGRATIONS}" = "true" ]; then
     fi
 fi
 
-# ── Chatbot: build the FTS5 retrieval index (fails loudly if FTS5 missing) ──
+# ── Chatbot: refresh parsed helpdesk content ──
 if [ "${AI_CHATBOT_ENABLED}" = "true" ]; then
-    echo "[ENTRYPOINT] Rebuilding chatbot retrieval index..."
-    php artisan chatbot:index --no-interaction || echo "[ENTRYPOINT] WARNING: chatbot:index failed — the bot will rebuild lazily on first query" >&2
+    echo "[ENTRYPOINT] Refreshing chatbot helpdesk content..."
+    php artisan chatbot:index --no-interaction || echo "[ENTRYPOINT] WARNING: chatbot:index failed — the bot will load helpdesk content on demand" >&2
 fi
 
 # ── Execute the main command (supervisord, queue:listen, schedule:work, etc.) ──

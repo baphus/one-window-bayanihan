@@ -6,9 +6,11 @@ import axios from 'axios';
 import { MessageCircle, X, Send } from 'lucide-react';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import { getTurnstileError } from '@/lib/turnstile';
+import ChatbotSources from '@/Components/ChatbotSources';
 
 const CHAT_HISTORY_KEY = 'owb_chat_history';
 const CHAT_CONTEXT_KEY = 'owb_chat_context';
+const CHAT_OWNER_KEY = 'owb_chat_owner';
 
 function createWelcomeMessage(name) {
     return {
@@ -201,12 +203,26 @@ function WelcomeCard({ suggestions, onSuggestionClick, onClose }) {
 }
 
 export default function ChatBot() {
+    const { chatbot, auth } = usePage().props;
+    if (!chatbot?.enabled) return null;
+    const owner = `${auth?.user?.id || 'public'}:${auth?.user?.role || 'public'}`;
+    return <ChatBotSession key={owner} owner={owner} />;
+}
+
+function ChatBotSession({ owner }) {
     const { chatbot, turnstile } = usePage().props;
     const assistantName = chatbot?.assistant_name || 'Bayani';
-    if (!chatbot?.enabled) return null;
 
     const [open, setOpen] = useState(false);
     const [messages, setMessages] = useState(() => {
+        try {
+            const savedOwner = localStorage.getItem(CHAT_OWNER_KEY);
+            if (savedOwner !== owner) {
+                localStorage.removeItem(CHAT_HISTORY_KEY);
+                localStorage.removeItem(CHAT_CONTEXT_KEY);
+            }
+            localStorage.setItem(CHAT_OWNER_KEY, owner);
+        } catch { /* localStorage unavailable */ }
         const saved = loadChatHistory();
         if (saved) return saved;
         return [];
@@ -224,6 +240,15 @@ export default function ChatBot() {
     const [turnstileVerified, setTurnstileVerified] = useState(false);
     const [showTurnstile, setShowTurnstile] = useState(false);
     const [lastContext, setLastContext] = useState(() => loadChatContext());
+
+    useEffect(() => () => abortRef.current?.abort(), []);
+
+    useEffect(() => {
+        try {
+            if (lastContext) localStorage.setItem(CHAT_CONTEXT_KEY, JSON.stringify(lastContext));
+            else localStorage.removeItem(CHAT_CONTEXT_KEY);
+        } catch { /* localStorage unavailable */ }
+    }, [lastContext]);
 
     const scrollToBottom = useCallback((smooth = true) => {
         if (listRef.current) {
@@ -285,14 +310,7 @@ export default function ChatBot() {
     }
 
     function handleSuggestionClick(label) {
-        const suggestion = chatbot?.suggestions?.[label];
-        if (!suggestion) return;
-        setMessages((prev) => [
-            ...prev,
-            { role: 'user', text: label, time: new Date() },
-            { role: 'bot', text: suggestion.reply, time: new Date(), actions: suggestion.actions || [] },
-        ]);
-        if (inputRef.current) inputRef.current.focus();
+        handleSend(null, label);
     }
 
     async function handleSend(e, overrideMessage) {
@@ -342,7 +360,7 @@ export default function ChatBot() {
                 .slice(-6)
                 .map((msg) => ({
                     role: msg.role,
-                    text: msg.text,
+                    text: msg.text.slice(0, 1000),
                 }));
             const payload = {
                 message: userMessage,
@@ -356,6 +374,7 @@ export default function ChatBot() {
                 payload.cf_turnstile_response = turnstileToken;
             }
             const { data } = await axios.post(route('chatbot.message'), payload, { signal: controller.signal });
+            if (controller.signal.aborted) return;
             // If we got here with a token, the session is now verified
             if (needsTurnstile) {
                 setTurnstileVerified(true);
@@ -363,17 +382,13 @@ export default function ChatBot() {
             }
             setMessages((prev) => [
                 ...prev,
-                { role: 'bot', text: data.reply, time: new Date(), actions: data.actions || [], sources: data.sources || [], confidence: data.confidence },
+                { role: 'bot', text: data.reply, time: new Date(), actions: data.actions || [], sources: data.sources || [] },
             ]);
             // Store context for follow-up augmentation on next turn
-            if (data.lastContext) {
-                setLastContext(data.lastContext);
-                try {
-                    localStorage.setItem(CHAT_CONTEXT_KEY, JSON.stringify(data.lastContext));
-                } catch { /* localStorage unavailable */ }
-            }
+            setLastContext(data.lastContext || null);
         } catch (err) {
             if (axios.isCancel(err)) return;
+            setLastContext(null);
             // Handle turnstile_required error from backend
             if (err.response?.status === 422 && err.response?.data?.error === 'turnstile_required') {
                 setShowTurnstile(true);
@@ -392,8 +407,10 @@ export default function ChatBot() {
                 ]);
             }
         } finally {
-            if (abortRef.current === controller) abortRef.current = null;
-            setLoading(false);
+            if (abortRef.current === controller) {
+                abortRef.current = null;
+                setLoading(false);
+            }
         }
     }
 
@@ -434,16 +451,8 @@ export default function ChatBot() {
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{
-                                            a: ({ href, children }) => (
-                                                <a
-                                                    href={href}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-primary underline underline-offset-2 hover:text-primary/80"
-                                                >
-                                                    {children}
-                                                </a>
-                                            ),
+                                            a: ({ children }) => <span>{children}</span>,
+                                            img: () => null,
                                             ul: ({ children }) => (
                                                 <ul className="my-1 list-disc space-y-0.5 pl-5 marker:text-outline-variant">
                                                     {children}
@@ -492,6 +501,7 @@ export default function ChatBot() {
                                         {msg.text}
                                     </ReactMarkdown>
                                 </div>
+                                <ChatbotSources sources={msg.sources} />
                                 {msg.actions && msg.actions.length > 0 && (
                                     <div>
                                         {msg.actions.map((action, ai) => (
@@ -516,18 +526,6 @@ export default function ChatBot() {
                             </div>
                         </div>
                         <span className="ml-[48px] mt-1 flex items-center gap-1.5 px-1 text-[10px] text-on-surface-variant opacity-0 transition-opacity group-hover:opacity-100">
-                            {typeof msg.confidence === 'number' && (
-                                <span
-                                    className={`inline-block h-1.5 w-1.5 rounded-full ${
-                                        msg.confidence >= 0.7
-                                            ? 'bg-emerald-500'
-                                            : msg.confidence >= 0.3
-                                              ? 'bg-amber-400'
-                                              : 'bg-red-400/60'
-                                    }`}
-                                    title="Retrieval confidence"
-                                />
-                            )}
                             {msg.time ? formatTime(msg.time) : ''}
                         </span>
                     </div>

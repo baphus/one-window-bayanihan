@@ -473,7 +473,7 @@ restore — restore drills are the evidence auditors ask for (§13).
 | `php artisan config:cache` / `route:cache` / `view:cache` | Production caches |
 | `php artisan queue:work redis` | Queue worker |
 | `php artisan schedule:run` | Scheduler tick (per minute) |
-| `php artisan chatbot:index` | Rebuild chatbot retrieval index |
+| `php artisan chatbot:index` | Refresh helpdesk content cache; no embeddings or vector extension |
 | `php artisan audit:archive` / `audit:prune` / `audit:verify` | Audit retention and chain integrity |
 
 ---

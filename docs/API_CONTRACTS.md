@@ -55,7 +55,21 @@ All routes are defined in three files:
 
 | Method | URI | Controller | Name | Middleware |
 |--------|-----|-----------|------|------------|
-| POST | `/chatbot/message` | `ChatbotController@message` | `chatbot.message` | `throttle:30,1` |
+| POST | `/chatbot/message` | `ChatbotController@message` | `chatbot.message` | `turnstile.session`, `throttle:chatbot` |
+
+The chatbot accepts `message` (up to 1,000 characters), optional `history` (up to
+20 `{role: user|bot, text}` entries, each up to 1,000 characters), and optional
+`lastContext` (`source_type`, `source_label`, `article_title`). Context is a hint;
+the server resolves audience permissions and re-reads evidence each turn.
+
+Responses contain `reply`, `status`, `sources`, `actions`, and explicitly nullable
+`lastContext`. Status is `answered`, `greeting`, `clarification`, `unsupported`, or
+`unavailable`. A source has `source_type`, `slug`, `heading`, `url`, `sections`,
+and, for helpdesk articles, canonical `article_title`. Article links identify only
+authorized content actually read and selected as support. Directory references
+have a null URL and a directory label. No vector-confidence score is returned.
+Clients must clear stored context on null and clear chat on identity/role changes.
+See `docs/CHATBOT_AGENT.md` for configuration and verification.
 
 ### Public API (`routes/api.php`)
 
