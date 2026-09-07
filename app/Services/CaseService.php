@@ -1256,10 +1256,17 @@ class CaseService
     {
         return DB::transaction(function () use ($id) {
             $case = CaseFile::findOrFail($id);
+
+            abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be restored.');
+
             $old = $case->toArray();
 
+            // Restore to the previous (pre-archive) state. Cases can only be
+            // archived from CLOSED, so unarchiving returns them to CLOSED and
+            // preserves the original closed_at timestamp (CASE-032).
             $case->update([
-                'status' => 'OPEN',
+                'status' => 'CLOSED',
+                'closed_at' => $case->closed_at ?? now(),
             ]);
 
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.

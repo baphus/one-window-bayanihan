@@ -209,4 +209,36 @@ class CaseReferralGuardTest extends TestCase
             'entity_id' => $this->case->id,
         ]);
     }
+
+    #[Test]
+    public function unarchive_restores_case_to_closed_with_preserved_closed_at(): void
+    {
+        $closedAt = now()->subDays(3);
+        $this->case->update(['status' => 'CLOSED', 'closed_at' => $closedAt]);
+        $this->caseService->archiveCase($this->case->id, $this->user->id);
+
+        $this->assertSame('ARCHIVED', $this->case->fresh()->status);
+
+        $restored = $this->caseService->unarchiveCase($this->case->id, $this->user->id);
+
+        $this->assertSame('CLOSED', $restored->status);
+        // closed_at is preserved across archive/unarchive, not reset to now.
+        $this->assertEquals(
+            $closedAt->toDateTimeString(),
+            $restored->closed_at->toDateTimeString(),
+        );
+    }
+
+    #[Test]
+    public function unarchive_rejects_non_archived_case(): void
+    {
+        $this->case->update(['status' => 'CLOSED']);
+
+        try {
+            $this->caseService->unarchiveCase($this->case->id, $this->user->id);
+            $this->fail('Expected HttpException was not thrown.');
+        } catch (HttpException $e) {
+            $this->assertEquals(422, $e->getStatusCode());
+        }
+    }
 }
