@@ -33,31 +33,71 @@ class ClientSelectController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'ilike', "%{$search}%")
                     ->orWhere('last_name', 'ilike', "%{$search}%")
-                    ->orWhere('middle_name', 'ilike', "%{$search}%");
+                    ->orWhere('middle_name', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%");
             });
         }
 
         $clients = $query->orderBy('created_at', 'desc')
             ->limit(20)
             ->get()
-            ->map(fn ($client) => [
-                'id' => $client->id,
-                'first_name' => $client->first_name,
-                'last_name' => $client->last_name,
-                'middle_name' => $client->middle_name,
-                'suffix' => $client->suffix,
-                'sex' => $client->sex,
-                'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),
-                'email' => $client->email,
-                'contact_number' => $client->contact_number,
-                'avatar_url' => $client->avatar_url,
-                'case_files_count' => (int) $client->case_files_count,
-                'case_file' => $client->caseFile ? [
-                    'case_number' => $client->caseFile->case_number,
-                ] : null,
-            ]);
+            ->map(fn ($client) => $this->clientSummary($client));
 
         return response()->json(['data' => $clients]);
+    }
+
+    /**
+     * Duplicate-email probe for the case-creation form. Returns the first
+     * non-deleted, searchable client using the same verified address, so the
+     * form can offer "link this existing client instead" without a second
+     * name-based search. Mirrors IntakeService's email join semantics.
+     */
+    public function checkEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $email = $validated['email'] ?? null;
+
+        if ($email === null || trim($email) === '') {
+            return response()->json(['duplicate' => false, 'client' => null]);
+        }
+
+        $client = Client::withCount('caseFiles')
+            ->where('is_deleted', false)
+            ->withoutUnacceptedIntake()
+            ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($email))])
+            ->first();
+
+        if (! $client) {
+            return response()->json(['duplicate' => false, 'client' => null]);
+        }
+
+        return response()->json([
+            'duplicate' => true,
+            'client' => $this->clientSummary($client),
+        ]);
+    }
+
+    private function clientSummary(Client $client): array
+    {
+        return [
+            'id' => $client->id,
+            'first_name' => $client->first_name,
+            'last_name' => $client->last_name,
+            'middle_name' => $client->middle_name,
+            'suffix' => $client->suffix,
+            'sex' => $client->sex,
+            'date_of_birth' => $client->date_of_birth?->format('Y-m-d'),
+            'email' => $client->email,
+            'contact_number' => $client->contact_number,
+            'avatar_url' => $client->avatar_url,
+            'case_files_count' => (int) $client->case_files_count,
+            'case_file' => $client->caseFile ? [
+                'case_number' => $client->caseFile->case_number,
+            ] : null,
+        ];
     }
 
     public function show(string $id)

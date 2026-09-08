@@ -124,6 +124,11 @@ class Referral extends Model
         return $this->hasMany(ReferralComment::class, 'refr_id');
     }
 
+    public function messages()
+    {
+        return $this->hasMany(ReferralMessage::class, 'referral_id');
+    }
+
     public function documents()
     {
         return $this->hasMany(CaseDocument::class, 'referral_id');

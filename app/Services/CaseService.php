@@ -575,9 +575,9 @@ class CaseService
         }
     }
 
-    public function publishDraft(string $id, string $userId): CaseFile
+    public function publishDraft(string $id, string $userId, bool $confirmDuplicateClient = false): CaseFile
     {
-        return DB::transaction(function () use ($id, $userId) {
+        return DB::transaction(function () use ($id, $userId, $confirmDuplicateClient) {
             $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
             // Self-filed cases have no owner yet — allow any CM/ADMIN to publish
@@ -602,6 +602,8 @@ class CaseService
             // Create client from draft_client_data if no client_id exists (new-client draft)
             if (empty($case->client_id) && ! empty($case->draft_client_data)) {
                 $draftData = $case->draft_client_data;
+
+                $this->assertNoDuplicateClient($draftData, $confirmDuplicateClient);
 
                 $client = Client::create([
                     'first_name' => $draftData['first_name'] ?? '',
@@ -729,6 +731,42 @@ class CaseService
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });
+    }
+
+    /**
+     * Stop a CM-created "new client" draft from publishing into a clients row
+     * that duplicates an existing, searchable record — the same person as
+     * another case, usually because the Case Manager never used the client
+     * picker. Email is a strong identifier: the self-filing flow already treats
+     * it as the join key, and the picker / profile editing use it as the
+     * searchable contact. An explicit `confirm_duplicate_client` override is
+     * the escape hatch for the legitimate edge cases (shared inboxes, same
+     * email across client types, data-entry corrections).
+     *
+     * @throws ValidationException when a non-deleted client already uses the email
+     */
+    private function assertNoDuplicateClient(array $draftData, bool $confirmDuplicateClient = false): void
+    {
+        if ($confirmDuplicateClient) {
+            return;
+        }
+
+        $email = $draftData['email'] ?? null;
+        if ($email === null || trim($email) === '') {
+            return;
+        }
+
+        $existing = Client::where('is_deleted', false)
+            ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($email))])
+            ->first();
+
+        if (! $existing) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'duplicate_client' => 'A client record already exists for this email ('.$existing->email.'). Link the existing client record instead, or confirm you are intentionally creating a new client record.',
+        ]);
     }
 
     private function assertDraftCompleteForPublishing(CaseFile $case): void
@@ -1256,10 +1294,17 @@ class CaseService
     {
         return DB::transaction(function () use ($id) {
             $case = CaseFile::findOrFail($id);
+
+            abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be restored.');
+
             $old = $case->toArray();
 
+            // Restore to the previous (pre-archive) state. Cases can only be
+            // archived from CLOSED, so unarchiving returns them to CLOSED and
+            // preserves the original closed_at timestamp (CASE-032).
             $case->update([
-                'status' => 'OPEN',
+                'status' => 'CLOSED',
+                'closed_at' => $case->closed_at ?? now(),
             ]);
 
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.

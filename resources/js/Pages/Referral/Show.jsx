@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
@@ -701,6 +701,107 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const [showOverdueInfo, setShowOverdueInfo] = useState(false);
     const [showAuditLog, setShowAuditLog] = useState(false);
     const [selectedRelatedReferral, setSelectedRelatedReferral] = useState(null);
+    const [relatedTab, setRelatedTab] = useState('details');
+    const [threadMessages, setThreadMessages] = useState([]);
+    const [threadLoading, setThreadLoading] = useState(false);
+    const [threadSending, setThreadSending] = useState(false);
+    const [threadDraft, setThreadDraft] = useState('');
+    const [threadError, setThreadError] = useState('');
+    const [readThreadIds, setReadThreadIds] = useState(() => new Set());
+    const threadListEndRef = useRef(null);
+
+    useEffect(() => {
+        if (relatedTab === 'messages' && threadListEndRef.current) {
+            threadListEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, [relatedTab, threadMessages]);
+
+    function openRelatedReferral(rel) {
+        setSelectedRelatedReferral(rel);
+        setRelatedTab('details');
+        setThreadMessages([]);
+        setThreadDraft('');
+        setThreadError('');
+    }
+
+    function closeRelatedReferral() {
+        setSelectedRelatedReferral(null);
+        setRelatedTab('details');
+        setThreadMessages([]);
+        setThreadDraft('');
+        setThreadError('');
+    }
+
+    async function loadReferralThread(rel) {
+        if (!rel) return;
+        setThreadLoading(true);
+        setThreadError('');
+        try {
+            const res = await fetch(route('api.referrals.messages.index', rel.id), {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (!res.ok) {
+                setThreadError('Unable to load the message thread.');
+                return;
+            }
+            const payload = await res.json();
+            setThreadMessages(payload.data ?? []);
+            // Marking the thread read happens after it has been viewed so the
+            // next page visit shows a clean, de-badged card.
+            fetch(route('referrals.messages.read', rel.id), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'Content-Type': 'application/json',
+                },
+                body: '{}',
+            }).catch(() => {});
+            setReadThreadIds((prev) => {
+                const next = new Set(prev);
+                next.add(rel.id);
+                return next;
+            });
+        } catch {
+            setThreadError('Unable to load the message thread.');
+        } finally {
+            setThreadLoading(false);
+        }
+    }
+
+    async function sendThreadMessage() {
+        const rel = selectedRelatedReferral;
+        const body = threadDraft.trim();
+        if (!rel || !body || threadSending) return;
+        setThreadSending(true);
+        setThreadError('');
+        try {
+            const res = await fetch(route('referrals.messages.store', rel.id), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ body }),
+            });
+            if (!res.ok) {
+                const payload = await res.json().catch(() => null);
+                const fieldError = Object.values(payload?.errors ?? {}).flat().find(Boolean);
+                setThreadError(payload?.message || fieldError || 'Unable to send the message.');
+                return;
+            }
+            const payload = await res.json();
+            setThreadMessages((prev) => [...prev, payload.data]);
+            setThreadDraft('');
+        } catch {
+            setThreadError('Unable to send the message.');
+        } finally {
+            setThreadSending(false);
+        }
+    }
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
@@ -1350,7 +1451,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                         <button
                                             key={rel.id}
                                             type="button"
-                                            onClick={() => setSelectedRelatedReferral(rel)}
+                                            onClick={() => openRelatedReferral(rel)}
                                             className="w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-100/70"
                                         >
                                             <div className="flex items-center justify-between gap-2">
@@ -1364,6 +1465,11 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                                 </div>
                                                 <div className="shrink-0 flex items-center gap-2">
                                                     <StatusBadge status={rel.status} />
+                                                    {rel.can_message && rel.unread_count > 0 && !readThreadIds.has(rel.id) && (
+                                                        <span className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-blue-900 px-1 text-[9px] font-bold leading-none text-white">
+                                                            {rel.unread_count}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="mt-1 flex items-center justify-between gap-2">
@@ -1696,7 +1802,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 }}
             />
             {/* Related Referral Detail Modal */}
-            <Modal show={selectedRelatedReferral !== null} maxWidth="lg" onClose={() => setSelectedRelatedReferral(null)}>
+            <Modal show={selectedRelatedReferral !== null} maxWidth="lg" onClose={closeRelatedReferral}>
                 {selectedRelatedReferral && (
                     <div className="bg-white">
                         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
@@ -1706,6 +1812,42 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             </div>
                             <StatusBadge status={selectedRelatedReferral.status} />
                         </div>
+                        <div className="flex items-center gap-1 border-b border-slate-200 px-5">
+                            <button
+                                type="button"
+                                onClick={() => setRelatedTab('details')}
+                                className={`border-b-2 px-3 py-2 text-[10px] font-bold transition-colors ${
+                                    relatedTab === 'details'
+                                        ? 'border-blue-900 text-blue-900'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                Details
+                            </button>
+                            {selectedRelatedReferral.can_message && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRelatedTab('messages');
+                                    if (threadMessages.length === 0) loadReferralThread(selectedRelatedReferral);
+                                }}
+                                className={`border-b-2 px-3 py-2 text-[10px] font-bold transition-colors ${
+                                    relatedTab === 'messages'
+                                        ? 'border-blue-900 text-blue-900'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                Messages
+                                {selectedRelatedReferral.unread_count > 0 && !readThreadIds.has(selectedRelatedReferral.id) && (
+                                    <span className="ml-1.5 inline-flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-blue-900 px-1 text-[8px] font-bold leading-none text-white">
+                                        {selectedRelatedReferral.unread_count}
+                                    </span>
+                                )}
+                            </button>
+                            )}
+                        </div>
+                        {relatedTab === 'details' ? (
+                        <>
                         <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
                             {/* Services & Requirements */}
                             {selectedRelatedReferral.services?.length > 0 && (
@@ -1787,12 +1929,74 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             )}
                             <button
                                 type="button"
-                                onClick={() => setSelectedRelatedReferral(null)}
+                                onClick={closeRelatedReferral}
                                 className="h-[30px] px-4 border border-slate-300 bg-white text-slate-700 text-[10px] font-bold rounded-md hover:bg-slate-50"
                             >
                                 Close
                             </button>
                         </div>
+                        </>
+                        ) : (
+                        <div className="flex max-h-[60vh] flex-col">
+                            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                                {threadLoading ? (
+                                    <p className="py-2 text-center text-[11px] italic text-slate-400">Loading messages…</p>
+                                ) : threadMessages.length === 0 ? (
+                                    <p className="py-2 text-center text-[11px] italic text-slate-400">No messages yet. Start the conversation below.</p>
+                                ) : (
+                                    threadMessages.map((msg) => {
+                                        const own = msg.sender?.id === auth.user.id;
+                                        return (
+                                            <div
+                                                key={msg.id}
+                                                className={`max-w-[85%] rounded-lg border px-3 py-2 ${
+                                                    own
+                                                        ? 'ml-auto border-blue-900/20 bg-blue-50'
+                                                        : 'border-slate-200 bg-white'
+                                                }`}
+                                            >
+                                                <div className={`flex items-center gap-2 ${own ? 'justify-end' : 'justify-between'}`}>
+                                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
+                                                        {msg.sender?.name ?? 'Unknown'}
+                                                        {msg.sender?.agency?.name && msg.sender.agency.name !== selectedRelatedReferral.agency?.name && (
+                                                            <span className="mx-1 font-semibold normal-case text-slate-400">· {msg.sender.agency.name}</span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-[9px] text-slate-400">{formatDisplayDateTime(msg.created_at)}</p>
+                                                </div>
+                                                <p className={`mt-1 whitespace-pre-wrap break-words text-[11px] ${own ? 'text-blue-950' : 'text-slate-700'}`}>{msg.body}</p>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                                <div ref={threadListEndRef} />
+                            </div>
+                            {threadError && <p className="px-5 pb-1 text-[10px] font-medium text-red-600">{threadError}</p>}
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    sendThreadMessage();
+                                }}
+                                className="flex items-end gap-2 border-t border-slate-200 px-5 py-3"
+                            >
+                                <textarea
+                                    value={threadDraft}
+                                    onChange={(e) => setThreadDraft(e.target.value)}
+                                    rows={2}
+                                    disabled={threadSending}
+                                    placeholder={`Message to ${selectedRelatedReferral.agency?.name ?? 'agency'}…`}
+                                    className="flex-1 resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-700 outline-none transition-colors focus:border-blue-900 focus:ring-1 focus:ring-blue-900 disabled:opacity-60"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={threadSending || !threadDraft.trim()}
+                                    className="inline-flex h-[34px] items-center rounded-md border border-blue-900 bg-blue-900 px-4 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {threadSending ? 'Sending…' : 'Send'}
+                                </button>
+                            </form>
+                        </div>
+                        )}
                     </div>
                 )}
             </Modal>

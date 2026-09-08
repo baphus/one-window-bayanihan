@@ -1,4 +1,4 @@
-import { ChangesTable } from '@/lib/audit';
+import { ChangesList } from '@/lib/audit';
 
 /**
  * AuditLogCard — compact single-entry audit card shared by the client-detail
@@ -7,7 +7,7 @@ import { ChangesTable } from '@/lib/audit';
  *
  * @param {string}   type       - Uppercase activity label (e.g. "CASE UPDATED")
  * @param {string}   [details]  - Human-readable narrative
- * @param {Array}    [changes]  - [{ field, fieldLabel, old, new }]
+ * @param {Array}    [changes]  - [{ field, fieldLabel, new }] (after-only)
  * @param {string[]} [meta]     - Metadata segments joined with bullets
  * @param {number}   [maxRows]  - Max change rows shown (excess collapses)
  */
@@ -26,8 +26,8 @@ export default function AuditLogCard({ type, details = '', changes = [], meta = 
                 <p className="mt-1 text-[12px] text-slate-700">{details}</p>
             )}
 
-            {/* Changes table */}
-            <ChangesTable changes={changes} variant="compact" maxRows={maxRows} />
+            {/* Changes list */}
+            <ChangesList changes={changes} variant="compact" maxRows={maxRows} />
 
             {/* Metadata line */}
             {metaSegments.length > 0 && (

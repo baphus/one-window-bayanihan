@@ -141,6 +141,9 @@ class HandleInertiaRequests extends Middleware
                 'enabled' => (bool) config('turnstile.enabled', false),
                 'site_key' => config('turnstile.site_key', ''),
             ],
+            'addresses' => [
+                'served_regions' => config('addresses.served_regions', []),
+            ],
             'passwordRules' => function () {
                 return [
                     'min_length' => (int) config('password.min_length', 8),

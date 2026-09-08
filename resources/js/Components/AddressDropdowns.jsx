@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { usePage } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/SearchableSelect';
 import {
@@ -9,6 +10,13 @@ import {
     getRegions,
 } from '@/data/philippine-addresses';
 
+/**
+ * The region dropdown is scoped to the served regions from
+ * `props.addresses.served_regions` (config/addresses.php), so coverage can be
+ * widened — or removed entirely (empty array = every Philippine region) —
+ * without code changes. Filtered here rather than in the generated data file
+ * so `npm run addresses:sync` keeps regenerating philippine-addresses.ts.
+ */
 function Field({ label, required, children, className }) {
     return (
         <div className={className}>
@@ -33,7 +41,10 @@ function Input({ value, onChange, placeholder }) {
 }
 
 export default function AddressDropdowns({ values, onChange, errors }) {
-    const regions = getRegions();
+    const servedRegions = usePage().props?.addresses?.served_regions ?? [];
+    const regions = getRegions().filter(
+        (o) => servedRegions.length === 0 || servedRegions.includes(o.code),
+    );
     const provinces = getProvincesByRegion(values.region);
     const regionHasProvinces = provinces.length > 0;
     const cities = values.province

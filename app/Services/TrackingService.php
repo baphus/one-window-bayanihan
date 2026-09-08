@@ -88,9 +88,19 @@ class TrackingService
         return $this->otpService->verify($identifier, $purpose, $otp);
     }
 
-    public function buildTrackingData(CaseFile $case): array
+    /**
+     * Client-facing tracking payload for the given case.
+     *
+     * @param  bool  $forOfwPortal  True when rendered inside the authenticated
+     *                              OFW portal: "View all updates" then links to
+     *                              an authenticated milestone route instead of
+     *                              the public tracking-session route, which
+     *                              would 404 because the OFW never completed
+     *                              the anonymous /track OTP binding.
+     */
+    public function buildTrackingData(CaseFile $case, bool $forOfwPortal = false): array
     {
-        return CacheHelper::safeRemember(self::trackingDataCacheKey($case->id), 90, function () use ($case) {
+        return CacheHelper::safeRemember(self::trackingDataCacheKey($case->id), 90, function () use ($case, $forOfwPortal) {
             $client = $case->client;
             $referrals = $case->referrals;
             $caseNotifications = [];
@@ -138,7 +148,7 @@ class TrackingService
                 ->get();
 
             // Agency cards with dynamic step progress
-            $agencyCards = $referrals->map(function ($ref) use ($case) {
+            $agencyCards = $referrals->map(function ($ref) use ($case, $forOfwPortal) {
                 $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
                 $hasCompliance = $ref->status === 'FOR_COMPLIANCE';
 
@@ -150,10 +160,12 @@ class TrackingService
                     'milestoneCount' => $ref->milestones->count(),
                     'steps' => $this->buildAgencySteps($ref),
                     'latestMilestoneLabel' => $latestMilestone?->title,
-                    'milestonesUrl' => route('track.milestones', [
-                        'tracker_number' => $case->tracker_number,
-                        'referral' => $ref->id,
-                    ]),
+                    'milestonesUrl' => $forOfwPortal
+                        ? route('ofw.case.milestones', ['case' => $case->id, 'referral' => $ref->id])
+                        : route('track.milestones', [
+                            'tracker_number' => $case->tracker_number,
+                            'referral' => $ref->id,
+                        ]),
                     'services' => $ref->services->pluck('name')->toArray(),
                 ];
             })->toArray();

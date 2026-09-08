@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
+use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\User;
@@ -22,6 +23,43 @@ class AuditLogFormatter
         'category_id' => [CaseCategory::class, 'name'],
         'case_issue_id' => [CaseIssue::class, 'name'],
         'client_id' => [Client::class, 'first_name', 'last_name'],
+    ];
+
+    /**
+     * Free-text fields are excluded from the safe audit response: their raw
+     * stored value passes through formatFieldValue() unchanged, so surfacing
+     * them would re-disclose legacy/free text the guardrail forbids.
+     */
+    private const FREE_TEXT_FIELDS = [
+        'notes',
+        'summary',
+        'description',
+        'content',
+        'draft_client_data',
+        'decision_comment',
+        'address',
+        'street',
+        'city_municipality',
+        'province',
+        'barangay',
+        'region',
+        'employer_name',
+        'last_country',
+        'last_position',
+        'position',
+        'comments',
+    ];
+
+    /**
+     * Fields whose raw (unformatted) value is still safe to surface on the
+     * audit page even though formatFieldValue() leaves it unchanged.
+     */
+    private const CONTROLLED_FIELDS = [
+        'decision',
+        'case_number',
+        'tracker_number',
+        'date_of_birth',
+        'sex',
     ];
 
     public function format(AuditLog $log): string
@@ -254,6 +292,11 @@ class AuditLogFormatter
      * later classified-event policy may opt individual, approved summaries back
      * in; until then this deliberately exposes only event metadata.
      *
+     * The message appends a resolved entity identifier (case number, or a
+     * short UUID for referrals/milestones) when that is safe to disclose, and
+     * `changes` carries an after-only payload of fields whose formatted value
+     * is a controlled transformation (free-text fields are never surfaced).
+     *
      * @return array{
      *     id: string,
      *     action: string,
@@ -262,7 +305,7 @@ class AuditLogFormatter
      *     category: string|null,
      *     message: string,
      *     detail: string,
-     *     changes: array<never>,
+     *     changes: array<int, array{field:string, fieldLabel:string, new:string}>,
      *     actor: string,
      *     timestamp: string|null,
      *     hasChanges: bool
@@ -276,6 +319,9 @@ class AuditLogFormatter
         $module = $auditModule?->value ?? 'other';
         $moduleLabel = $auditModule?->label() ?? 'Other activity';
         $category = in_array($log->category, AuditCategory::ALL, true) ? $log->category : null;
+        $classifiable = $auditModule !== null && $action !== 'UNKNOWN';
+
+        $identifier = $classifiable ? $this->resolveEntityIdentifier($log, $auditModule) : null;
 
         return [
             'id' => (string) $log->getKey(),
@@ -283,13 +329,93 @@ class AuditLogFormatter
             'module' => $module,
             'formatted_module' => $moduleLabel,
             'category' => $category,
-            'message' => $this->formatSafeMessage($actor, $action, $moduleLabel),
+            'message' => $this->formatSafeMessage($actor, $action, $moduleLabel, $identifier),
             'detail' => '',
-            'changes' => [],
+            'changes' => $classifiable ? $this->getSafeAfterChanges($log, $action) : [],
             'actor' => $actor,
             'timestamp' => $log->timestamp?->toISOString(),
             'hasChanges' => $log->old_value !== null || $log->new_value !== null,
         ];
+    }
+
+    /**
+     * Resolve a safe display identifier for the affected entity, derived from
+     * the stored entity_id (never echoed back as a raw UUID into the message).
+     */
+    private function resolveEntityIdentifier(AuditLog $log, AuditModule $module): ?string
+    {
+        $entityId = $log->entity_id;
+
+        if (! is_string($entityId) || $entityId === '' || ! Str::isUuid($entityId)) {
+            return null;
+        }
+
+        return match ($module) {
+            AuditModule::CASE => $this->resolveCaseNumber($entityId),
+            AuditModule::REFERRAL => 'Referral ID '.substr($entityId, 0, 8),
+            AuditModule::MILESTONE => 'Milestone ID '.substr($entityId, 0, 8),
+            default => null,
+        };
+    }
+
+    private function resolveCaseNumber(string $caseId): ?string
+    {
+        $number = cache()->remember(
+            "audit_case_number:{$caseId}",
+            now()->addHour(),
+            fn () => CaseFile::query()->whereKey($caseId)->value('case_number'),
+        );
+
+        return is_string($number) && $number !== '' ? "Case {$number}" : null;
+    }
+
+    /**
+     * After-only safe changes for the audit response.
+     *
+     * Only fields whose formatted value is a controlled transformation may
+     * surface: raw free text passes through formatFieldValue() unchanged and is
+     * dropped, while mapped statuses, booleans, roles, resolved names, list
+     * summaries and a small allow-list of controlled fields are kept.
+     *
+     * @return array<int, array{field:string, fieldLabel:string, new:string}>
+     */
+    private function getSafeAfterChanges(AuditLog $log, string $action): array
+    {
+        $new = $log->new_value;
+
+        if (! is_array($new) || $new === []) {
+            return [];
+        }
+
+        $excludeFields = array_merge(
+            $this->noiseFields,
+            $action === 'CREATE' ? $this->createNoiseFields : [],
+            self::FREE_TEXT_FIELDS,
+        );
+
+        $changes = [];
+
+        foreach ($new as $field => $value) {
+            if (in_array($field, $excludeFields, true)) {
+                continue;
+            }
+
+            $formatted = $this->formatFieldValue('', (string) $field, $value);
+            $raw = is_scalar($value) ? (string) $value : json_encode($value);
+
+            if (! in_array($field, self::CONTROLLED_FIELDS, true) && $formatted === $raw) {
+                // Raw value passed through unchanged — treat as unsafe free text.
+                continue;
+            }
+
+            $changes[] = [
+                'field' => $field,
+                'fieldLabel' => $this->formatFieldName((string) $field),
+                'new' => $formatted,
+            ];
+        }
+
+        return $changes;
     }
 
     public function getStructuredChanges(?array $old, ?array $new, string $action = 'UPDATE'): array
@@ -546,7 +672,7 @@ class AuditLogFormatter
         return sprintf('%s published %s', $userName, strtolower($module));
     }
 
-    private function formatSafeMessage(string $actor, string $action, string $module): string
+    private function formatSafeMessage(string $actor, string $action, string $module, ?string $identifier = null): string
     {
         return match ($action) {
             'LOGIN' => sprintf('%s signed in', $actor),
@@ -554,7 +680,7 @@ class AuditLogFormatter
             'LOGIN_FAILED' => 'A sign-in attempt failed',
             'EXPORT' => sprintf('%s requested an audit log export', $actor),
             'UNKNOWN' => 'An unclassified activity was recorded',
-            default => sprintf('%s %s %s', $actor, $this->formatAction($action), strtolower($module)),
+            default => sprintf('%s %s %s', $actor, $this->formatAction($action), $identifier ?? strtolower($module)),
         };
     }
 

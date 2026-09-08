@@ -34,6 +34,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSurveyController;
 use App\Http\Controllers\ReferralClientRequestController;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\ReferralMessageController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\StakeholderController;
 use App\Http\Controllers\SurveyFormController;
@@ -100,6 +101,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/referrals/{referral}/comments', [ReferralController::class, 'addComment'])->name('referrals.comments.store');
     Route::post('/referrals/{referral}/comments/{comment}/reply', [ReferralController::class, 'replyToComment'])->name('referrals.comments.reply');
+
+    // Agency message thread ("Other Agencies on This Case" section)
+    Route::get('/api/referrals/{referral}/messages', [ReferralMessageController::class, 'index'])->name('api.referrals.messages.index');
+    Route::post('/referrals/{referral}/messages', [ReferralMessageController::class, 'store'])->name('referrals.messages.store');
+    Route::post('/referrals/{referral}/messages/read', [ReferralMessageController::class, 'markRead'])->name('referrals.messages.read');
     Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store');
     Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace');
     Route::post('/referrals/{referral}/attachments/{attachment}/remove', [ReferralController::class, 'deleteAttachment'])->name('referrals.attachments.delete');
@@ -436,6 +442,7 @@ Route::prefix('help')->name('helpdesk.')->group(function () {
 Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->group(function () {
     // Client selection for case creation form
     Route::get('/clients', [ClientSelectController::class, 'search']);
+    Route::get('/clients/email-check', [ClientSelectController::class, 'checkEmail'])->name('api.clients.email-check');
     Route::get('/clients/{client}', [ClientSelectController::class, 'show']);
 
 });
@@ -449,6 +456,7 @@ Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group
     Route::get('/', [OfwDashboardController::class, 'index'])->name('dashboard');
     Route::get('/notifications', [OfwDashboardController::class, 'notifications'])->name('notifications');
     Route::patch('/notifications/{id}/read', [OfwDashboardController::class, 'markNotificationAsRead'])->name('notifications.mark-as-read');
+    Route::get('/{case}/agencies/{referral}/milestones', [OfwDashboardController::class, 'agencyMilestones'])->name('case.milestones');
     Route::get('/profile', [OfwProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [OfwProfileController::class, 'update'])->name('profile.update');
     Route::get('/{id}', [OfwDashboardController::class, 'show'])->name('case.show');

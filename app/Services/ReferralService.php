@@ -53,6 +53,7 @@ class ReferralService
         private readonly NotificationService $notificationService,
         private readonly CaseEventRecorder $eventRecorder,
         private readonly ReferralClientRequestService $clientRequestService,
+        private readonly ReferralMessageService $messageService,
     ) {}
 
     public static function referralStatsCacheKey(?string $userAgencyId, ?string $userRole, ?string $userId): string
@@ -333,9 +334,9 @@ class ReferralService
      * Get all other referrals on the same case (excluding the current one).
      * Shows which agencies are involved in supporting this case.
      */
-    public function getRelatedReferrals(Referral $referral): Collection
+    public function getRelatedReferrals(Referral $referral, ?User $actor = null): Collection
     {
-        return Referral::where('case_id', $referral->case_id)
+        $relatedReferrals = Referral::where('case_id', $referral->case_id)
             ->where('id', '!=', $referral->id)
             ->with([
                 'agency',
@@ -345,6 +346,18 @@ class ReferralService
             ])
             ->orderBy('created_at', 'asc')
             ->get();
+
+        $unreadCounts = $actor !== null
+            ? $this->messageService->unreadCountsByReferral($relatedReferrals->pluck('id')->all(), $actor)
+            : [];
+
+        foreach ($relatedReferrals as $item) {
+            $canMessage = $actor !== null && $this->messageService->canAccessThread($item, $actor);
+            $item->setAttribute('can_message', $canMessage);
+            $item->setAttribute('unread_count', $canMessage ? ($unreadCounts[$item->id] ?? 0) : 0);
+        }
+
+        return $relatedReferrals;
     }
 
     /**

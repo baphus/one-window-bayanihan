@@ -572,14 +572,17 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
 function PersonalStep({ formData, updateField, errors, identityLocked = false, onNext, onBack }) {
   const [stepErrors, setStepErrors] = useState({});
   const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  // Applicants must be 15–100 years old (ISO date strings compare chronologically).
+  const dobMax = `${now.getFullYear() - 15}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const dobMin = `${now.getFullYear() - 100}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const validate = () => {
     const errs = {};
     if (!formData.client.first_name.trim()) errs.first_name = 'Please provide your first name.';
     if (!formData.client.last_name.trim()) errs.last_name = 'Please provide your last name.';
     if (!identityLocked && !formData.client.date_of_birth) errs.date_of_birth = 'Please provide your date of birth.';
-    if (formData.client.date_of_birth && formData.client.date_of_birth > today) errs.date_of_birth = 'Date of birth cannot be in the future.';
+    if (formData.client.date_of_birth && formData.client.date_of_birth > dobMax) errs.date_of_birth = 'Applicant must be at least 15 years old.';
+    else if (formData.client.date_of_birth && formData.client.date_of_birth < dobMin) errs.date_of_birth = 'Applicant cannot be over 100 years old.';
     if (!formData.client.contact_number.trim()) errs.contact_number = 'Please provide your contact number.';
     if (!identityLocked && !formData.client.sex) errs.sex = 'Please select your sex.';
     setStepErrors(errs);
@@ -628,7 +631,7 @@ function PersonalStep({ formData, updateField, errors, identityLocked = false, o
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Birth *</label>
-          <input type="date" value={formData.client.date_of_birth} max={today} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => { updateField('client.date_of_birth', e.target.value); clearError('date_of_birth'); }}
+          <input type="date" value={formData.client.date_of_birth} max={dobMax} min={dobMin} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => { updateField('client.date_of_birth', e.target.value); clearError('date_of_birth'); }}
             className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''} ${stepErrors.date_of_birth ? 'border-error' : ''}`} />
           {stepErrors.date_of_birth && <p className="mt-1 text-xs text-error">{stepErrors.date_of_birth}</p>}
         </div>

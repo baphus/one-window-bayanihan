@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useAutoSave from '@/Hooks/useAutoSave';
@@ -23,6 +23,35 @@ const STEPS = [
 ];
 
 const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
+
+// Applicants must be 15–100 years old (ISO date strings compare chronologically).
+const DOB_BOUNDS = (() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+
+    return {
+        min: `${now.getFullYear() - 100}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+        max: `${now.getFullYear() - 15}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    };
+})();
+
+// Today (ISO date string) — employment start/end dates may be today but not later.
+const TODAY = (() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+})();
+
+// Employment cannot start before the worker reaches minimum working age (15),
+// matching the DOB floor. Without this a 21-year-old could report a 10-year span.
+const WORKING_AGE_FLOOR_YEARS = 15;
+function employmentStartFloor(dob) {
+    if (!dob) return '';
+    const [y, m, d] = dob.split('-').map(Number);
+    const floor = new Date(y + WORKING_AGE_FLOOR_YEARS, m - 1, d);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${floor.getFullYear()}-${pad(floor.getMonth() + 1)}-${pad(floor.getDate())}`;
+}
 
 // Older drafts expose category_id/category; the form now always sends category_ids.
 function normalizeCategoryIds(value) {
@@ -100,7 +129,7 @@ function Subsection({ title, children }) {
     );
 }
 
-function Input({ value, onChange, placeholder, type = 'text', maxLength, minLength, readOnly, required, onBlur, className = '' }) {
+function Input({ value, onChange, placeholder, type = 'text', maxLength, minLength, readOnly, required, onBlur, min, max, className = '' }) {
     return (
         <input
             type={type}
@@ -112,6 +141,8 @@ function Input({ value, onChange, placeholder, type = 'text', maxLength, minLeng
             minLength={minLength}
             readOnly={readOnly}
             required={required}
+            min={min}
+            max={max}
             className={`h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${readOnly ? 'bg-slate-50' : ''} ${className}`}
         />
     );
@@ -435,6 +466,7 @@ export default function CaseCreate() {
         selected_client_id: '',
         is_draft: false,
         case_issue_id: '',
+        confirm_duplicate_client: false,
     });
 
     const toast = useToast();
@@ -454,6 +486,8 @@ export default function CaseCreate() {
     const restoredRef = useRef(false);
     const [searchResults, setSearchResults] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
+    const [emailDupClient, setEmailDupClient] = useState(null);
+    const [emailDupChecking, setEmailDupChecking] = useState(false);
     const [showAddIssue, setShowAddIssue] = useState(false);
     const [newIssueName, setNewIssueName] = useState('');
     const [addingIssue, setAddingIssue] = useState(false);
@@ -477,6 +511,7 @@ export default function CaseCreate() {
             consent: false,
             is_draft: false,
             case_issue_id: '',
+            confirm_duplicate_client: false,
         },
         clientSource: 'new',
     });
@@ -521,7 +556,8 @@ export default function CaseCreate() {
             && a.selected_nok_index === b.selected_nok_index
             && a.consent === b.consent
             && a.is_draft === b.is_draft
-            && a.case_issue_id === b.case_issue_id;
+            && a.case_issue_id === b.case_issue_id
+            && !!a.confirm_duplicate_client === !!b.confirm_duplicate_client;
     }
 
     const hasDirty = useMemo(() => {
@@ -598,6 +634,25 @@ export default function CaseCreate() {
             });
         return () => { cancelled = true; };
     }, [debouncedSearch]);
+
+    function checkEmailDuplicate(email) {
+        const val = (email || '').trim();
+        if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            setEmailDupClient(null);
+            return;
+        }
+        setEmailDupChecking(true);
+        window.axios.get(route('api.clients.email-check'), { params: { email: val } })
+            .then((res) => {
+                if (res.data?.duplicate && res.data?.client) {
+                    setEmailDupClient(res.data.client);
+                } else {
+                    setEmailDupClient(null);
+                }
+            })
+            .catch(() => setEmailDupClient(null))
+            .finally(() => setEmailDupChecking(false));
+    }
 
     useEffect(() => {
         if (client) {
@@ -722,6 +777,7 @@ export default function CaseCreate() {
                     consent: false,
                     is_draft: false,
                     case_issue_id: '',
+                    confirm_duplicate_client: false,
                 },
                 clientSource: 'existing',
             };
@@ -966,6 +1022,7 @@ export default function CaseCreate() {
                 consent: clientData?.consent ?? false,
                 is_draft: true,
                 case_issue_id: existingDraft.case_issue_id || '',
+                confirm_duplicate_client: false,
             },
             clientSource: src,
         };
@@ -1198,6 +1255,14 @@ export default function CaseCreate() {
                 setError('client.date_of_birth', 'Date of birth is required.');
                 isValid = false;
                 missing.push('Date of Birth');
+            } else if (data.client.date_of_birth > DOB_BOUNDS.max) {
+                setError('client.date_of_birth', 'Applicant must be at least 15 years old.');
+                isValid = false;
+                missing.push('Date of Birth');
+            } else if (data.client.date_of_birth < DOB_BOUNDS.min) {
+                setError('client.date_of_birth', 'Applicant cannot be over 100 years old.');
+                isValid = false;
+                missing.push('Date of Birth');
             }
             if (!data.client.sex) {
                 setError('client.sex', 'Gender is required.');
@@ -1268,6 +1333,22 @@ export default function CaseCreate() {
                 setError('employment.end_date', 'End date must be on or after the start date.');
                 isValid = false;
                 missing.push('Employment End Date (invalid range)');
+            }
+            const minStartDate = employmentStartFloor(data.client.date_of_birth);
+            if (data.employment.start_date && minStartDate && data.employment.start_date < minStartDate) {
+                setError('employment.start_date', 'Employment dates are inconsistent with the client profile. Please review and correct them.');
+                isValid = false;
+                missing.push('Employment Start Date (before working age)');
+            }
+            if (data.employment.start_date && data.employment.start_date > TODAY) {
+                setError('employment.start_date', 'Employment start date cannot be in the future.');
+                isValid = false;
+                missing.push('Employment Start Date (future)');
+            }
+            if (data.employment.end_date && !data.employment.is_present && data.employment.end_date > TODAY) {
+                setError('employment.end_date', 'Employment end date cannot be in the future.');
+                isValid = false;
+                missing.push('Employment End Date (future)');
             }
 
             data.next_of_kin.forEach((nok, idx) => {
@@ -1455,21 +1536,27 @@ export default function CaseCreate() {
 
         if (existingDraft) {
             // Publishing does NOT send form data — publishes the draft as last saved.
-            // User should save via "Update Draft" first.
-            post(route('cases.publish', existingDraft.id), {
-                onSuccess: () => { clearLocalBackup(); },
-                onError: (errors) => {
-                    const msgs = Object.values(errors);
-                    toast.error(msgs[0] || 'Validation failed.');
+            // User should save via "Update Draft" first. The duplicate-confirmation
+            // flag is the only field that travels with the publish request.
+            router.post(
+                route('cases.publish', existingDraft.id),
+                { confirm_duplicate_client: data.confirm_duplicate_client || false },
+                {
+                    onSuccess: () => { clearLocalBackup(); },
+                    onError: (errors) => {
+                        const msgs = Object.values(errors);
+                        toast.error(msgs[0] || 'Validation failed.');
+                    },
+                    preserveScroll: true,
                 },
-                preserveScroll: true,
-            });
+            );
             return;
         }
 
-        // Inertia v2's useForm.post ignores options.data — set is_draft directly
-        // on the form state so the backend receives the correct flag.
+        // Inertia v2's useForm.post ignores options.data — set flags directly
+        // on the form state so the backend receives them.
         setData('is_draft', false);
+        setData('confirm_duplicate_client', !!data.confirm_duplicate_client);
 
         post(route('cases.store'), {
             onSuccess: () => { clearLocalBackup(); },
@@ -1513,6 +1600,7 @@ export default function CaseCreate() {
                 consent: false,
                 is_draft: false,
                 case_issue_id: '',
+                confirm_duplicate_client: false,
             },
             clientSource: 'new',
         };
@@ -1635,6 +1723,7 @@ function handleConfirmClient(client) {
             consent: false,
             is_draft: false,
             case_issue_id: '',
+            confirm_duplicate_client: false,
         },
         clientSource: 'existing',
     };
@@ -1859,7 +1948,7 @@ function handleConfirmClient(client) {
                                                                                 {getInitial(c.first_name)}
                                                                             </span>
                                                                         </div>
-                                                                        <div className="min-w-0 flex-1 grid grid-cols-5 gap-2 text-[13px]">
+                                                                        <div className="min-w-0 flex-1 grid grid-cols-6 gap-2 text-[13px]">
                                                                             <div className="col-span-2">
                                                                                 <p className="font-bold text-slate-900 truncate">{c.full_name}</p>
                                                                             </div>
@@ -1870,6 +1959,10 @@ function handleConfirmClient(client) {
                                                                             <div>
                                                                                 <span className="text-slate-400 text-[11px]">DOB:</span>{' '}
                                                                                 <span className="text-slate-700">{c.date_of_birth || '-'}</span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-slate-400 text-[11px]">Email:</span>{' '}
+                                                                                <span className="text-slate-700 truncate block">{c.email || '-'}</span>
                                                                             </div>
                                                                             <div>
                                                                                 <span className="text-slate-400 text-[11px]">Contact:</span>{' '}
@@ -1916,6 +2009,7 @@ function handleConfirmClient(client) {
                                                                                 )}
                                                                                 {c.sex && <span>Sex: <span className="font-medium text-slate-700">{c.sex}</span></span>}
                                                                                 {c.date_of_birth && <span>DOB: <span className="font-medium text-slate-700">{c.date_of_birth}</span></span>}
+                                                                                {c.email && <span className="truncate max-w-full">Email: <span className="font-medium text-slate-700">{c.email}</span></span>}
                                                                             </div>
                                                                         </div>
                                                                     </button>
@@ -1947,7 +2041,7 @@ function handleConfirmClient(client) {
                                                         <Select value={data.client.suffix} onChange={(e) => handleClientChange('suffix', e.target.value)} options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))} placeholder="None" />
                                                     </Field>
                                                     <Field label="Date of Birth" required>
-                                                        <Input type="date" value={data.client.date_of_birth} onChange={(e) => handleClientChange('date_of_birth', e.target.value)} required />
+                                                        <Input type="date" value={data.client.date_of_birth} onChange={(e) => handleClientChange('date_of_birth', e.target.value)} min={DOB_BOUNDS.min} max={DOB_BOUNDS.max} required />
                                                     </Field>
                                                     <Field label="Sex" required>
                                                         <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} required />
@@ -1961,14 +2055,26 @@ function handleConfirmClient(client) {
                                                         <Input
                                                             type="email"
                                                             value={data.client.email}
-                                                            onChange={(e) => handleClientChange('email', e.target.value)}
+                                                            onChange={(e) => {
+                                                                handleClientChange('email', e.target.value);
+                                                                if (emailDupClient) setEmailDupClient(null);
+                                                                // Changing the email invalidates any prior duplicate-confirmation;
+                                                                // re-arm the publish-time backstop for the new value.
+                                                                setData('confirm_duplicate_client', false);
+                                                            }}
                                                             onBlur={() => {
                                                                 const val = data.client.email.trim();
                                                                 if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
                                                                     setError('client.email', 'Please provide a valid OFW email address.');
                                                                     toast.error('Please provide a valid OFW email address.');
+                                                                    setEmailDupClient(null);
                                                                 } else {
                                                                     clearErrors('client.email');
+                                                                    if (val && !data.selected_client_id) {
+                                                                        checkEmailDuplicate(val);
+                                                                    } else {
+                                                                        setEmailDupClient(null);
+                                                                    }
                                                                 }
                                                             }}
                                                             placeholder="ofw@email.com"
@@ -1976,6 +2082,44 @@ function handleConfirmClient(client) {
                                                             maxLength={255}
                                                         />
                                                         <InputError message={errors['client.email']} className="mt-1" />
+                                                        {emailDupChecking && (
+                                                            <p className="mt-1 text-xs text-slate-400">Checking for existing client records…</p>
+                                                        )}
+                                                        {emailDupClient && (
+                                                            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                                                                <p className="text-sm font-medium text-amber-800">
+                                                                    A client record already exists for this email: {[emailDupClient.first_name, emailDupClient.middle_name, emailDupClient.last_name].filter(Boolean).join(' ')}
+                                                                    {emailDupClient.case_file ? ` (Case ${emailDupClient.case_file.case_number})` : ''}
+                                                                </p>
+                                                                <p className="mt-1 text-xs text-amber-700">
+                                                                    Linking the existing record avoids creating a duplicate client.
+                                                                </p>
+                                                                <div className="mt-2 flex flex-wrap gap-2">
+<button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    // Full-detail fetch + profile review (same path as the
+                                                                    // search picker) so the CM verifies before linking.
+                                                                    handleClientSelect(emailDupClient);
+                                                                    setEmailDupClient(null);
+                                                                }}
+                                                                className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                                                            >
+                                                                Link existing client
+                                                            </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setEmailDupClient(null);
+                                                                            setData('confirm_duplicate_client', true);
+                                                                        }}
+                                                                        className="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                                                                    >
+                                                                        Create new record anyway
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </Field>
                                                 </div>
                                             </Subsection>
@@ -2014,6 +2158,7 @@ function handleConfirmClient(client) {
                                                                 type="date"
                                                                 value={data.employment.start_date}
                                                                 onChange={(e) => handleEmploymentChange('start_date', e.target.value)}
+                                                                min={data.client.date_of_birth ? employmentStartFloor(data.client.date_of_birth) : undefined}
                                                                 className="h-10 flex-1 min-w-0 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                             />
                                                             <span className="text-[11px] font-bold text-slate-400 shrink-0">to</span>

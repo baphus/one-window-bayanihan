@@ -65,11 +65,14 @@ function InfoCard({ icon, label, value, tone = 'slate' }) {
   );
 }
 
-export default function AgencyMilestones({ trackingId, trackedCase, agencyMilestones }) {
+export default function AgencyMilestones({ trackingId, trackedCase, agencyMilestones, backUrl }) {
   const config = STATUS_CONFIG[trackedCase?.status] ?? STATUS_CONFIG.UNKNOWN;
   const milestoneCount = agencyMilestones?.milestoneCount ?? 0;
   const milestones = agencyMilestones?.milestones ?? [];
   const latestUpdate = agencyMilestones?.latestUpdate;
+  // backUrl is supplied by the authenticated OFW portal (ofw.case.milestones);
+  // the public tracking flow falls back to the session-bound track.show route.
+  const backHref = backUrl ?? route('track.show', { tracker_number: trackingId });
 
   return (
     <div className="min-h-screen bg-slate-50 font-body text-slate-800">
@@ -79,7 +82,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
       <main className="mx-auto w-full max-w-7xl px-4 pt-8 pb-12 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-3 pt-20">
           <Link
-            href={route('track.show', { tracker_number: trackingId })}
+            href={backHref}
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>

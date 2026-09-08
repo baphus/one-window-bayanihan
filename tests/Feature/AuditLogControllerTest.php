@@ -132,7 +132,7 @@ class AuditLogControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_advances_cursor_and_honours_per_page(): void
+    public function it_paginates_with_numeric_pages_and_honours_per_page(): void
     {
         foreach (range(1, 17) as $i) {
             AuditLog::create([
@@ -150,7 +150,11 @@ class AuditLogControllerTest extends TestCase
         $first->assertStatus(200);
         $payload = $first->json('props.logs');
         $this->assertCount(15, $payload['data']);
+        $this->assertSame(1, $payload['current_page']);
+        $this->assertSame(2, $payload['last_page']);
+        $this->assertSame(16, $payload['total']);
         $this->assertNotEmpty($payload['next_page_url']);
+        $this->assertStringContainsString('page=2', $payload['next_page_url']);
         $this->assertStringContainsString('action=UPDATE', $payload['next_page_url']);
         $this->assertStringContainsString('per_page=15', $payload['next_page_url']);
 
@@ -161,6 +165,7 @@ class AuditLogControllerTest extends TestCase
         $second->assertStatus(200);
         $secondPayload = $second->json('props.logs');
         $this->assertCount(1, $secondPayload['data']);
+        $this->assertSame(2, $secondPayload['current_page']);
         $this->assertStringContainsString('action=UPDATE', $secondPayload['prev_page_url']);
         $this->assertStringContainsString('per_page=15', $secondPayload['prev_page_url']);
         $this->assertNotSame($payload['data'][0]['id'], $second->json('props.logs.data.0.id'));
@@ -372,5 +377,97 @@ class AuditLogControllerTest extends TestCase
         $this->assertCount(1, $data);
         $this->assertSame('CREATE', $data[0]['action']);
         $this->assertArrayNotHasKey('description', $data[0]);
+    }
+
+    #[Test]
+    public function it_searches_audit_logs_by_actor_name(): void
+    {
+        $matched = User::factory()->create(['role' => 'ADMIN', 'name' => 'Zenaida Villanueva']);
+        $other = User::factory()->create(['role' => 'ADMIN', 'name' => 'Rogelio Santos']);
+
+        $matchLog = AuditLog::create([
+            'user_id' => $matched->id,
+            'action' => 'UPDATE',
+            'module' => 'clients',
+            'timestamp' => now(),
+        ]);
+        AuditLog::create([
+            'user_id' => $other->id,
+            'action' => 'CREATE',
+            'module' => 'clients',
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?search=Villanueva');
+
+        $response->assertStatus(200);
+        $data = $response->json('props.logs.data');
+        $this->assertCount(1, $data);
+        $this->assertSame($matchLog->id, $data[0]['id']);
+    }
+
+    #[Test]
+    public function it_searches_audit_logs_by_case_number(): void
+    {
+        $case = CaseFile::factory()->create([
+            'user_id' => $this->user->id,
+            'case_number' => 'OWB-2026-01234',
+        ]);
+
+        $caseLog = AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'entity_id' => $case->id,
+            'timestamp' => now(),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'clients',
+            'timestamp' => now(),
+        ]);
+
+        // Matching a distinctive part of the resolved case number.
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?search=01234');
+
+        $response->assertStatus(200);
+        $data = $response->json('props.logs.data');
+        $this->assertCount(1, $data);
+        $this->assertSame($caseLog->id, $data[0]['id']);
+    }
+
+    #[Test]
+    public function it_searches_audit_logs_by_uuid_prefix(): void
+    {
+        $referralId = (string) Str::uuid();
+
+        $referralLog = AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'entity_id' => $referralId,
+            'timestamp' => now(),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->user->id,
+            'action' => 'CREATE',
+            'module' => 'clients',
+            'timestamp' => now(),
+        ]);
+
+        // Matching the first 8 chars of the raw entity UUID (the short ID label).
+        $response = $this->actingAs($this->user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?search='.substr($referralId, 0, 8));
+
+        $response->assertStatus(200);
+        $data = $response->json('props.logs.data');
+        $this->assertCount(1, $data);
+        $this->assertSame($referralLog->id, $data[0]['id']);
     }
 }

@@ -416,7 +416,7 @@ class CaseDraftTest extends TestCase
             [
                 'selected_client_id' => $client->id,
                 'client_type' => 'OFW',
-                'address' => ['region' => 'NCR'],
+                'address' => ['region' => '0700000000'],
                 'employment' => ['start_date' => '2020-01-01', 'end_date' => '2024-01-01', 'is_present' => true],
             ],
             ['Accept' => 'application/json']
@@ -426,7 +426,7 @@ class CaseDraftTest extends TestCase
 
         $this->assertDatabaseHas('client_addresses', [
             'client_id' => $client->id,
-            'region' => 'NCR',
+            'region' => 'Region VII (Central Visayas)',
         ]);
         $this->assertDatabaseHas('client_employments', [
             'client_id' => $client->id,

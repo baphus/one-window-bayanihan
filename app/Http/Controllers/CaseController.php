@@ -90,7 +90,11 @@ class CaseController extends Controller
         $isDraft = $request->validated()['is_draft'] ?? true;
 
         if (! $isDraft) {
-            $case = $this->caseService->publishDraft($case->id, $request->user()->id);
+            $case = $this->caseService->publishDraft(
+                $case->id,
+                $request->user()->id,
+                (bool) ($request->validated()['confirm_duplicate_client'] ?? false),
+            );
 
             app(OnboardingService::class)
                 ->markChecklistItemQuietly($request->user(), 'create-first-case');
@@ -257,7 +261,11 @@ class CaseController extends Controller
     {
         $this->authorizeCaseAccess($case, $request->user());
 
-        $case = $this->caseService->publishDraft($case->id, $request->user()->id);
+        $case = $this->caseService->publishDraft(
+            $case->id,
+            $request->user()->id,
+            $request->boolean('confirm_duplicate_client'),
+        );
 
         app(OnboardingService::class)
             ->markChecklistItemQuietly($request->user(), 'create-first-case');
