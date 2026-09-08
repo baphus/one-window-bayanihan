@@ -93,7 +93,7 @@ class OfwCaseDetailTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('component', 'Tracking/AgencyMilestones');
-        $this->assertSame($referral->id, $response->json('props.agencyMilestones.referralId') ?? $referral->id);
+        $this->assertSame($referral->id, $response->json('props.agencyMilestones.referralId'));
     }
 
     #[Test]
