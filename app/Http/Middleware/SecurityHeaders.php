@@ -20,6 +20,9 @@ class SecurityHeaders
     {
         $response = $next($request);
 
+        $response->headers->remove('X-Powered-By');
+        $response->headers->remove('Server');
+
         if (! app()->environment('local')) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
             $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');

@@ -66,6 +66,26 @@ class ContentSecurityPolicyNonceTest extends TestCase
         $this->assertNotSame($first, $second);
     }
 
+    public function test_rendered_login_scripts_and_preloads_carry_the_policy_nonce(): void
+    {
+        $response = $this->get('/login')->assertOk();
+        $nonce = $this->cspNonceFromHeader($response->baseResponse);
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $scripts = $document->getElementsByTagName('script');
+        $this->assertGreaterThan(1, $scripts->length, 'Expected Ziggy and Vite scripts.');
+
+        foreach ($scripts as $script) {
+            $this->assertSame($nonce, $script->getAttribute('nonce'), 'An emitted script would be blocked by CSP.');
+        }
+
+        foreach ($document->getElementsByTagName('link') as $link) {
+            if ($link->getAttribute('rel') === 'modulepreload') {
+                $this->assertSame($nonce, $link->getAttribute('nonce'));
+            }
+        }
+    }
+
     private function handleThroughCspMiddleware(): Response
     {
         return (new ContentSecurityPolicy)->handle(
