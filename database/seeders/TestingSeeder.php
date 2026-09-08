@@ -26,6 +26,7 @@ namespace Database\Seeders;
  * └─────────────────────────────────────────────────────────────────────────────
  */
 
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -1087,6 +1088,75 @@ class TestingSeeder extends Seeder
                 ];
             }
         }
+
+        // Hash-chain the audit rows in chain_seq (insertion) order. Bulk
+        // inserts bypass the AuditLog::creating hook, so link prev_hash here
+        // using the exact chainDigest() serialisation. Digests are computed
+        // after the timeline above is fully built because the shared Carbon
+        // instances keep being mutated as later rows are appended. Works on
+        // an empty table (first row is the chain root, prev_hash null) and
+        // chains off the existing last row otherwise.
+        $previousDigest = AuditLog::orderBy('chain_seq', 'desc')->first()?->chainDigest();
+
+        // old_value/new_value are jsonb columns: PostgreSQL normalises the
+        // stored document (newer versions also reorder object keys), so the
+        // digest must be computed from the normalised form the verifier will
+        // read back — not from the raw pre-insert strings. Normalise through
+        // the database itself so this stays correct on any server version.
+        $rawPayloads = [];
+        foreach ($auditLogs as $auditRow) {
+            foreach (['old_value', 'new_value'] as $column) {
+                if ($auditRow[$column] !== null) {
+                    $rawPayloads[] = $auditRow[$column];
+                }
+            }
+        }
+
+        $normalisedByRaw = [];
+        foreach (array_chunk(array_values(array_unique($rawPayloads)), 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '(?)'));
+            $normalisedRows = DB::select(
+                "SELECT (col::jsonb)::text AS normalised FROM (VALUES {$placeholders}) AS v(col)",
+                $chunk
+            );
+            foreach ($chunk as $index => $raw) {
+                $normalisedByRaw[$raw] = $normalisedRows[$index]->normalised;
+            }
+        }
+        unset($rawPayloads);
+
+        $chainDigestOf = function (array $row, ?string $prevHash) use ($normalisedByRaw): string {
+            $encodeJson = static function (?string $json) use ($normalisedByRaw): string {
+                if ($json === null) {
+                    return json_encode(null, JSON_UNESCAPED_SLASHES);
+                }
+
+                return json_encode(json_decode($normalisedByRaw[$json], true), JSON_UNESCAPED_SLASHES);
+            };
+
+            $content = implode('|', [
+                $row['id'],
+                $row['action'],
+                $row['module'],
+                $row['entity_id'] ?? '',
+                $row['user_id'] ?? '',
+                $row['timestamp'] instanceof \DateTimeInterface
+                    ? Carbon::parse($row['timestamp'])->toIso8601String()
+                    : '',
+                $encodeJson($row['old_value'] ?? null),
+                $encodeJson($row['new_value'] ?? null),
+                $row['ip_address'] ?? '',
+                $prevHash ?? '',
+            ]);
+
+            return hash('sha256', $content);
+        };
+
+        foreach ($auditLogs as &$auditRow) {
+            $auditRow['prev_hash'] = $previousDigest;
+            $previousDigest = $chainDigestOf($auditRow, $previousDigest);
+        }
+        unset($auditRow);
 
         foreach (array_chunk($auditLogs, 200) as $chunk) {
             DB::table('audit_logs')->insert($chunk);

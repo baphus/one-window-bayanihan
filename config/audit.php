@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Agency;
 use App\Models\CaseCategory;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\CaseStatus;
@@ -15,8 +17,14 @@ use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientRequest;
 use App\Models\ReferralClientRequestItem;
+use App\Models\ReferralComment;
+use App\Models\ReferralServiceRequirement;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
+use App\Models\SurveyForm;
+use App\Models\SurveyInvitation;
+use App\Models\SurveyQuestion;
+use App\Models\SurveyResponse;
 use App\Models\User;
 
 return [
@@ -95,6 +103,14 @@ return [
         ReferralClientRequestItem::class,
         ReferralClientMessage::class,
         ReferralClientAccessLink::class,
+        ReferralComment::class,
+        ReferralServiceRequirement::class,
+        Agency::class,
+        CaseDocument::class,
+        SurveyForm::class,
+        SurveyQuestion::class,
+        SurveyInvitation::class,
+        SurveyResponse::class,
     ],
 
     /*

@@ -16,6 +16,16 @@ class SurveyResponse extends Model
      */
     const UPDATED_AT = null;
 
+    public static array $auditExclude = [
+        'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
+        'survey_invitation_id', 'survey_form_id', 'case_id', 'agency_id',
+    ];
+
+    public function getAuditModuleName(): string
+    {
+        return 'survey_response';
+    }
+
     protected $fillable = [
         'survey_invitation_id',
         'survey_question_id',

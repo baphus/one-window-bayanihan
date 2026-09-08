@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditAction;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,5 +67,14 @@ class ActiveSessionsTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('success', 'Session terminated.');
         $this->assertDatabaseMissing('sessions', ['id' => $sessionId]);
+
+        // Exactly one session-termination audit row (written by SessionService).
+        $this->assertDatabaseHas('audit_logs', [
+            'module' => 'session',
+            'action' => AuditAction::DELETE->value,
+            'description' => 'User session terminated (…'.substr($sessionId, -6).')',
+            'user_id' => $this->admin->id,
+        ]);
+        $this->assertSame(1, DB::table('audit_logs')->where('module', 'session')->count());
     }
 }
