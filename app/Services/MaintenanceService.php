@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
 use Illuminate\Support\Facades\Artisan;
 
 class MaintenanceService
@@ -33,6 +34,13 @@ class MaintenanceService
             throw new \RuntimeException('Maintenance mode is already enabled.');
         }
 
+        SecurityAuditLogger::log(
+            'maintenance',
+            'Maintenance mode was enabled',
+            null,
+            AuditAction::UPDATE->value,
+        );
+
         $params = ['--secret' => $secret];
 
         if ($retryMinutes) {
@@ -47,6 +55,13 @@ class MaintenanceService
         if (! $this->getStatus()['active']) {
             throw new \RuntimeException('Maintenance mode is not enabled.');
         }
+
+        SecurityAuditLogger::log(
+            'maintenance',
+            'Maintenance mode was disabled',
+            null,
+            AuditAction::UPDATE->value,
+        );
 
         Artisan::call('up');
     }

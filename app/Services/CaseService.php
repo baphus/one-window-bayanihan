@@ -25,6 +25,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CaseService
@@ -198,7 +199,11 @@ class CaseService
             throw new AuthorizationException('You do not own this draft.');
         }
 
-        DB::transaction(function () use ($case) {
+        DB::transaction(function () use ($case, $userId) {
+            $caseId = $case->id;
+            $caseNumber = $case->case_number ?? null;
+            $clientName = trim(($case->client->first_name ?? '').' '.($case->client->last_name ?? ''));
+
             CaseFile::withoutEvents(function () use ($case) {
                 $client = $case->client;
 
@@ -218,6 +223,28 @@ class CaseService
 
                 $case->forceDelete();
             });
+
+            // Manual DELETE audit: the deletion above runs inside withoutEvents
+            // so the observer never fires. Written here — inside the transaction
+            // but outside withoutEvents — so it commits atomically with the delete.
+            $request = request();
+            AuditLog::create([
+                'action' => AuditAction::DELETE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $caseId,
+                'description' => sprintf(
+                    'Draft case %s for %s was permanently deleted',
+                    $caseNumber ?? 'N/A',
+                    $clientName !== '' ? $clientName : 'unknown client',
+                ),
+                'user_id' => $userId,
+                'timestamp' => now(),
+                'ip_address' => $request?->ip() ?? 'cli',
+                'user_agent' => $request?->userAgent() ?? 'cli',
+                'request_id' => $request?->attributes->get('correlation_id')
+                    ?? $request?->header('X-Request-ID')
+                    ?? (string) Str::uuid(),
+            ]);
         });
     }
 

@@ -12,6 +12,16 @@ class SurveyForm extends Model
 {
     use HasFactory, UsesUuid;
 
+    public static array $auditExclude = [
+        'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
+        'agency_id',
+    ];
+
+    public function getAuditModuleName(): string
+    {
+        return 'survey_form';
+    }
+
     protected $fillable = [
         'agency_id',
         'title',

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -42,6 +43,17 @@ class SessionService
         if (config('session.driver') === 'redis' || session()->getId() === $sessionId) {
             return;
         }
+
+        // NOTE: the raw session id is deliberately NOT used as entity_id —
+        // sessions.id is an opaque string (not a UUID) while
+        // audit_logs.entity_id is UUID-typed, so it would fail the DB cast.
+        // The logger falls back to Auth::id() when entity is null.
+        SecurityAuditLogger::log(
+            'session',
+            sprintf('User session terminated (…%s)', substr($sessionId, -6)),
+            null,
+            AuditAction::DELETE->value,
+        );
 
         DB::table('sessions')->where('id', $sessionId)->delete();
     }

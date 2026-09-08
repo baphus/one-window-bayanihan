@@ -32,6 +32,13 @@ enum AuditModule: string
     case REFERRAL_CLIENT_REQUEST_ITEM = 'referral_client_request_item';
     case REFERRAL_CLIENT_MESSAGE = 'referral_client_message';
     case REFERRAL_CLIENT_ACCESS_LINK = 'referral_client_access_link';
+    case REFERRAL_COMMENT = 'referral_comment';
+    case REFERRAL_SERVICE_REQUIREMENT = 'referral_service_requirement';
+    case CASE_DOCUMENT = 'case_document';
+    case SURVEY_FORM = 'survey_form';
+    case SURVEY_QUESTION = 'survey_question';
+    case SURVEY_INVITATION = 'survey_invitation';
+    case SURVEY_RESPONSE = 'survey_response';
     case FEEDBACK = 'feedback';
     case NEXT_OF_KIN = 'next_of_kin';
 
@@ -73,6 +80,13 @@ enum AuditModule: string
         'referrals' => self::REFERRAL,
         'milestones' => self::MILESTONE,
         'referral_attachments' => self::REFERRAL_ATTACHMENT,
+        'referral_comments' => self::REFERRAL_COMMENT,
+        'referral_service_requirements' => self::REFERRAL_SERVICE_REQUIREMENT,
+        'case_documents' => self::CASE_DOCUMENT,
+        'survey_forms' => self::SURVEY_FORM,
+        'survey_questions' => self::SURVEY_QUESTION,
+        'survey_invitations' => self::SURVEY_INVITATION,
+        'survey_responses' => self::SURVEY_RESPONSE,
         'feedbacks' => self::FEEDBACK,
         'next_of_kins' => self::NEXT_OF_KIN,
         'users' => self::USER,
