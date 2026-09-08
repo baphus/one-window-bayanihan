@@ -266,6 +266,30 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
   );
   const [caseIssueId, setCaseIssueId] = useState(caseFile.case_issue_id || '');
 
+  // Local issues list + quick-add state (matches Case Create behavior)
+  const [localIssues, setLocalIssues] = useState(caseIssues);
+  const [showAddIssue, setShowAddIssue] = useState(false);
+  const [newIssueName, setNewIssueName] = useState('');
+  const [addingIssue, setAddingIssue] = useState(false);
+
+  async function handleQuickAddIssue() {
+    const name = newIssueName.trim();
+    if (!name || addingIssue) return;
+    setAddingIssue(true);
+    try {
+      const res = await window.axios.post(route('case-issues.quick'), { name });
+      const newIssue = res.data;
+      setLocalIssues((prev) => [...prev, newIssue]);
+      setCaseIssueId(newIssue.id);
+      setNewIssueName('');
+      setShowAddIssue(false);
+    } catch (err) {
+      alert(err.response?.data?.errors?.name?.[0] || 'Failed to add issue.');
+    } finally {
+      setAddingIssue(false);
+    }
+  }
+
   // Reject state
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -893,19 +917,60 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                 )}
               </div>
 
-              {/* Issue/Concern */}
+              {/* Issue/Concern — matches Case Create quick-add */}
               <div>
                 <FieldLabel>Issue / Concern</FieldLabel>
-                <select
-                  value={caseIssueId}
-                  onChange={(e) => setCaseIssueId(e.target.value)}
-                  className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="">Select an issue…</option>
-                  {caseIssues.map((issue) => (
-                    <option key={issue.id} value={issue.id}>{issue.name}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={caseIssueId}
+                    onChange={(e) => setCaseIssueId(e.target.value)}
+                    className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">Select an issue…</option>
+                    {localIssues.map((issue) => (
+                      <option key={issue.id} value={issue.id}>{issue.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-indigo-300 text-indigo-600 transition hover:bg-indigo-50"
+                    title="Add new issue"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">add</span>
+                  </button>
+                </div>
+                {showAddIssue && (
+                  <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">New Issue Name</label>
+                    <input
+                      type="text"
+                      value={newIssueName}
+                      onChange={(e) => setNewIssueName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
+                      placeholder="Enter new issue name..."
+                      className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      autoFocus
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleQuickAddIssue}
+                        disabled={addingIssue || !newIssueName.trim()}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {addingIssue ? 'Adding...' : 'Add'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
+                        className="text-[12px] font-medium text-slate-500 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
