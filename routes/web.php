@@ -42,7 +42,6 @@ use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\TrackRegistrationController;
 use App\Models\Agency;
-use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -60,9 +59,10 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-        'agencies' => Agency::where('is_active', true)->get()->toArray(),
+        'agencies' => Agency::where('is_active', true)->get([
+            'id', 'name', 'short', 'slug', 'logo_url',
+            'map_link', 'latitude', 'longitude', 'location_query',
+        ])->toArray(),
     ]);
 });
 
@@ -345,8 +345,6 @@ Route::get('/partners/{agency}', function (string $agency) {
         'agency' => $agency->toArray(),
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
     ]);
 })->name('partners.show');
 
