@@ -77,6 +77,19 @@ jobs:
       - name: Run NPM Audit
         run: npm audit --audit-level=high
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+
+      - name: Install Ward
+        run: |
+          go install github.com/eljakani/ward@v0.4.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Run Ward security scan
+        run: ward scan . --output json,sarif --baseline .ward-baseline.json --fail-on high
+
       - name: Run TypeScript Check
         run: npm run typecheck
 
