@@ -304,6 +304,7 @@ class TrackingService
                     },
                 ],
                 'agencyMilestones' => [
+                    'referralId' => $referral->id,
                     'agencyName' => $agencyName,
                     'status' => $referral->status,
                     'requiredServices' => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
