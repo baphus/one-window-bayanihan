@@ -22,9 +22,8 @@ Developer → Push/PR → CI (lint · audit · test · E2E) → Deploy trigger �
 | Workflow | Trigger | Purpose |
 |---|---|---|
 | `ci.yml` | PR to `main` | Lint, dependency audit, backend/frontend tests, E2E |
-| `deploy-staging.yml` | Push/merge to `main` + manual | Tests, then automatic staging rollout |
 | `deploy-production.yml` | Manual (`workflow_dispatch`) | Guarded production rollout |
-| `reset-staging-data.yml` | Scheduled daily + manual | Rebuild staging data (fresh migrate + seed) |
+| `deploy.yml` | Reusable workflow | Production deployment, snapshot, readiness, and release gates |
 
 The workflows currently run on the repository's hosted CI. The stage definitions
 are portable: any runner that provides PHP 8.3+, Node 22+, and a PostgreSQL 17
@@ -95,15 +94,12 @@ environment contract in `DEPLOYMENT_GUIDE_v3.0.0.md` §4.
 
 ## 3. Deploy workflows
 
-### Staging (`deploy-staging.yml`)
+### Staging
 
-```
-Push to main → tests → trigger platform rollout → health-gate /up → notify
-```
-
-Fully automatic: every merge to `main` reaches staging within minutes. The deploy
-job is skipped (not failed) when the deploy variables are unset, so a fork or a
-platform-less checkout still runs green.
+There is currently no staging environment. It was decommissioned before the
+current production deployment workflow was introduced. Do not add a staging
+caller until the container service, database, object-storage buckets, secrets,
+DNS, and GitHub Environment have been provisioned and verified.
 
 ### Production (`deploy-production.yml`)
 
@@ -118,11 +114,6 @@ Safeguards:
 - Full test suite runs before the deploy step
 - Protected CI environment (`production`) with optional required reviewers
 - Health gate polls `/up` for ~3 minutes (12 attempts × 15 s) before declaring success
-
-### Staging data reset (`reset-staging-data.yml`)
-
-Triggers a staging rollout with a fresh migrate + seed, then health-checks the
-staging URL. Never point this workflow at production credentials.
 
 ---
 

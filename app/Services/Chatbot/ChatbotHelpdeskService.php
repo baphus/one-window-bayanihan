@@ -57,7 +57,7 @@ class ChatbotHelpdeskService
         }
         sort($parts);
 
-        return md5(implode("\n", $parts));
+        return hash('sha256', implode("\n", $parts));
     }
 
     /**
