@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
-import { formatRelativeTime, formatDateGroup, formatTimeAgo } from '@/lib/relativeTime';
-import { ChangesTable, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
+import { formatRelativeTime, formatDateGroup, formatDisplayDateTime } from '@/lib/relativeTime';
+import { ChangesList, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
 
 /**
  * @param {Object} props
@@ -12,7 +12,7 @@ import { ChangesTable, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
  * @param {Object[]} [props.availableModules=[]] - Available modules for filter dropdown
  * @param {Object} [props.availableModulesLabels={}] - Maps module -> human label for filter dropdown
  * @param {Object} [props.filterValues={}] - Current filter state
- * @param {Object} [props.pagination] - Pagination info with total, currentPage, totalPages
+ * @param {Object} [props.pagination] - Pagination info: total, currentPage, totalPages, from, to, perPage
  * @param {Function} [props.onPageChange] - Callback for page change
  */
 export function AuditTimeline({
@@ -101,7 +101,14 @@ export function AuditTimeline({
                 </div>
             )}
 
-            {pagination && <Pagination pagination={pagination} onPageChange={onPageChange} />}
+            {pagination && (
+                <Pagination
+                    pagination={pagination}
+                    onPageChange={onPageChange}
+                    perPage={filterValues?.per_page ?? pagination.perPage}
+                    onPerPageChange={(n) => onFilterChange({ ...filterValues, per_page: n })}
+                />
+            )}
         </div>
     );
 }
@@ -139,7 +146,7 @@ function TimelineEntry({ log }) {
                             {log.action}
                         </span>
                         <div className="text-xs text-slate-500 whitespace-nowrap">
-                            {formatTimeAgo(log.timestamp)}
+                            <span>{formatDisplayDateTime(log.timestamp)}</span>
                         </div>
                     </div>
                 </div>
@@ -152,10 +159,10 @@ function TimelineEntry({ log }) {
                     </p>
                 </div>
 
-                {/* Row 3: Always-visible changes table */}
+                {/* Row 3: Always-visible changes list */}
                 {changes.length > 0 && (
                     <div className="ml-11 mt-3">
-                        <ChangesTable changes={changes} />
+                        <ChangesList changes={changes} />
                     </div>
                 )}
 
@@ -258,7 +265,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     </span>
                     <input
                         type="text"
-                        placeholder="Search logs..."
+                        placeholder="Search action, module, actor, or ID..."
                         value={localSearch}
                         onChange={handleSearchChange}
                         className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
@@ -390,69 +397,98 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
     );
 }
 
-function Pagination({ pagination, onPageChange }) {
-    if (!pagination || pagination.totalPages <= 1) return null;
-    
-    const { currentPage, totalPages, total } = pagination;
-    
-    // Simple page array generation
-    let pages = [];
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
-            pages.push(i);
-        } else if (pages[pages.length - 1] !== '...') {
-            pages.push('...');
-        }
-    }
+function Pagination({ pagination, onPageChange, perPage = 15, onPerPageChange }) {
+    if (!pagination) return null;
+    if (!pagination.total) return null;
+
+    const { currentPage, totalPages, total, from, to } = pagination;
+
+    // Numbered window around the current page — mirrors UnifiedTable.
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+    const pages = [];
+    for (let i = start; i <= end; i++) pages.push(i);
 
     return (
-        <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 rounded-lg shadow-sm mt-6">
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                    <p className="text-sm text-slate-700">
-                        Showing <span className="font-medium">{total ? total : 'results'}</span> results
-                    </p>
-                </div>
-                <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                        <button
-                            onClick={() => onPageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 disabled:opacity-50 focus:z-20 focus:outline-offset-0"
+        <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 rounded-md border border-slate-300 bg-slate-50 px-6 py-4">
+            <div className="text-[13px] text-slate-500 text-left">
+                Showing <span className="font-bold text-slate-700">{from ?? 0}–{to ?? 0}</span> of <span className="font-bold text-slate-700">{(total ?? 0).toLocaleString()}</span> records
+            </div>
+
+            <div className="flex flex-wrap items-center gap-6">
+                {onPerPageChange && (
+                    <div className="flex items-center gap-3">
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Rows per page:</label>
+                        <select
+                            value={perPage}
+                            onChange={(e) => onPerPageChange(Number(e.target.value))}
+                            className="bg-white border border-slate-300 text-[13px] font-bold text-slate-700 rounded-[2px] pl-3 pr-7 py-1.5 outline-none focus:ring-1 focus:ring-blue-900"
                         >
-                            <span className="sr-only">Previous</span>
-                            <span className="material-symbols-outlined text-[20px]">chevron_left</span>
-                        </button>
-                        
-                        {pages.map((p, i) => (
-                            p === '...' ? (
-                                <span key={i} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-300 focus:outline-offset-0">
-                                    ...
-                                </span>
-                            ) : (
+                            {[15, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+                        </select>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-1.5 text-slate-300">
+                    <button
+                        onClick={() => onPageChange?.(1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-300 hover:text-slate-700 transition"
+                    >
+                        <span className="material-symbols-outlined text-[20px] font-bold">first_page</span>
+                    </button>
+                    <button
+                        onClick={() => onPageChange?.(Math.max(1, currentPage - 1))}
+                        className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-300 hover:text-slate-700 transition"
+                    >
+                        <span className="material-symbols-outlined text-[20px] font-bold">chevron_left</span>
+                    </button>
+                    <div className="flex items-center gap-1 px-3">
+                        {start > 1 && (
+                            <>
                                 <button
-                                    key={i}
-                                    onClick={() => onPageChange(p)}
-                                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
-                                        p === currentPage
-                                        ? 'z-10 bg-blue-900 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-900'
-                                        : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50'
-                                    }`}
+                                    onClick={() => onPageChange?.(1)}
+                                    className="w-[30px] h-[30px] flex items-center justify-center rounded-[2px] hover:bg-slate-100 text-slate-700 text-[13px] font-bold transition"
                                 >
-                                    {p}
+                                    1
                                 </button>
-                            )
+                                <span className="w-[30px] h-[30px] flex items-center justify-center text-slate-400 text-[13px] font-bold">...</span>
+                            </>
+                        )}
+                        {pages.map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => onPageChange?.(p)}
+                                className={`w-[30px] h-[30px] flex items-center justify-center rounded-[2px] text-[13px] font-bold shadow-sm transition ${p === currentPage ? "bg-blue-900 text-white" : "hover:bg-slate-100 text-slate-700"}`}
+                            >
+                                {p}
+                            </button>
                         ))}
-                        
-                        <button
-                            onClick={() => onPageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                            className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 disabled:opacity-50 focus:z-20 focus:outline-offset-0"
-                        >
-                            <span className="sr-only">Next</span>
-                            <span className="material-symbols-outlined text-[20px]">chevron_right</span>
-                        </button>
-                    </nav>
+                        {end < totalPages && (
+                            <>
+                                <span className="w-[30px] h-[30px] flex items-center justify-center text-slate-400 text-[13px] font-bold">...</span>
+                                <button
+                                    onClick={() => onPageChange?.(totalPages)}
+                                    className="w-[30px] h-[30px] flex items-center justify-center rounded-[2px] hover:bg-slate-100 text-slate-700 text-[13px] font-bold transition"
+                                >
+                                    {totalPages}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => onPageChange?.(Math.min(totalPages, currentPage + 1))}
+                        className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-700 hover:text-slate-900 transition"
+                    >
+                        <span className="material-symbols-outlined text-[20px] font-bold">chevron_right</span>
+                    </button>
+                    <button
+                        onClick={() => onPageChange?.(totalPages)}
+                        className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-700 hover:text-slate-900 transition"
+                    >
+                        <span className="material-symbols-outlined text-[20px] font-bold">last_page</span>
+                    </button>
                 </div>
             </div>
         </div>

@@ -1109,6 +1109,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         }}
         onCancel={() => setConfirmToggleStatus(false)}
       />
+      <ConfirmDialog
+        open={!!confirmUnarchive}
+        title="Restore from Archive"
+        message={`Are you sure you want to restore case ${caseFile.case_number} from archive? It will return to closed status.`}
+        confirmLabel="Restore"
+        tone="info"
+        onConfirm={() => {
+          handleUnarchive();
+          setConfirmUnarchive(false);
+        }}
+        onCancel={() => setConfirmUnarchive(false)}
+      />
 
       {/* Deletion reason modal for archived cases */}
       {showDeleteModal && (

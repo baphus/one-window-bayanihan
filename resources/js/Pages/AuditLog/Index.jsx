@@ -168,37 +168,24 @@ export default function AuditLogIndex({
     router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs', 'filterValues', 'activeCategories'] }));
   }, [withLoading]);
 
-  const handleCursorChange = useCallback((cursorUrl) => {
-    if (!cursorUrl) return;
-    router.get(cursorUrl, {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs'] }));
-  }, [withLoading]);
-
-  const handlePerPageChange = useCallback((event) => {
-    handleFilterChange({ ...(filterValues ?? {}), per_page: event.target.value });
+  const handlePageChange = useCallback((page) => {
+    handleFilterChange({ ...(filterValues ?? {}), page });
   }, [filterValues, handleFilterChange]);
 
-  /* Cursor pagination has no numeric page/current page metadata. */
-  const pagination = null;
-  /*
-    const url = new URL(window.location);
-    url.searchParams.set('page', page);
-    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs'] }));
-  }, [withLoading]);
-
-  const pagination = {
+  /* Numeric (offset) pagination metadata served by the paginator. */
+  const pagination = logs ? {
     total: logs.total,
     currentPage: logs.current_page,
     totalPages: logs.last_page,
     from: logs.from,
     to: logs.to,
     perPage: logs.per_page,
-  };
-  */
+  } : null;
 
   return (
     <AppLayout title={viewTitle}>
       <Head title={viewTitle} />
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl">
         <div data-tour="audit-header" className="mb-8 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="hidden sm:flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-900 ring-1 ring-blue-100">
@@ -241,22 +228,9 @@ export default function AuditLogIndex({
             activeCategories={activeCategories ?? []}
             filterValues={filterValues ?? {}}
             onFilterChange={handleFilterChange}
+            pagination={pagination}
+            onPageChange={handlePageChange}
           />
-          <div className="mt-6 flex items-center justify-between gap-4 text-sm text-slate-600">
-            <label className="flex items-center gap-2">
-              <span>Per page</span>
-              <select value={filterValues?.per_page ?? logs.per_page ?? 15} onChange={handlePerPageChange}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1">
-                {[15, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
-              </select>
-            </label>
-            <div className="flex gap-2">
-              <button type="button" disabled={!logs.prev_page_url} onClick={() => handleCursorChange(logs.prev_page_url)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
-              <button type="button" disabled={!logs.next_page_url} onClick={() => handleCursorChange(logs.next_page_url)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
-            </div>
-          </div>
           {tableLoading && <TableLoadingOverlay variant="list" />}
         </div>
       </div>

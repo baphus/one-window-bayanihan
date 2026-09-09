@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 const toneConfig = {
   default: { button: 'bg-blue-900 hover:bg-blue-800', icon: 'help', iconColor: 'text-blue-600', iconBg: 'bg-blue-50' },
+  info: { button: 'bg-blue-900 hover:bg-blue-800', icon: 'info', iconColor: 'text-blue-600', iconBg: 'bg-blue-50' },
   danger: { button: 'bg-red-600 hover:bg-red-700', icon: 'warning', iconColor: 'text-red-600', iconBg: 'bg-red-50' },
 };
 

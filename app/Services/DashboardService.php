@@ -44,8 +44,12 @@ class DashboardService
         $first = $changes[0];
         $summary = $first['fieldLabel'].': ';
 
-        if ($first['old'] !== null && $first['old'] !== 'not set') {
-            $summary .= $first['old'].' → ';
+        // The audit response carries after-only changes (no `old` key), so a
+        // missing old value simply starts the summary at the new value.
+        $old = $first['old'] ?? null;
+
+        if ($old !== null && $old !== 'not set') {
+            $summary .= $old.' → ';
         }
 
         $summary .= $first['new'] ?? '';

@@ -97,6 +97,9 @@ class AuditLogIntegrationTest extends TestCase
         $this->assertArrayHasKey('path', $props['logs']);
         $this->assertArrayHasKey('per_page', $props['logs']);
         $this->assertArrayHasKey('next_page_url', $props['logs']);
+        $this->assertArrayHasKey('current_page', $props['logs']);
+        $this->assertArrayHasKey('last_page', $props['logs']);
+        $this->assertArrayHasKey('total', $props['logs']);
 
         $filtered = $this->actingAs($this->user)
             ->withHeader('X-Inertia', 'true')
