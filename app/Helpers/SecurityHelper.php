@@ -14,7 +14,6 @@ class SecurityHelper
      *
      * @param  string  $payload  Serialized payload.
      * @param  array<int, class-string>  $allowedClasses  List of fully-qualified class names allowed.
-     * @return mixed The unserialized object if valid, or null on failure/mismatch.
      *
      * @throws \InvalidArgumentException When $allowedClasses is empty.
      */
@@ -49,8 +48,6 @@ class SecurityHelper
      *
      * This is intended for inspection of queue metadata only. Callers must
      * treat the returned object graph as inert and never invoke its methods.
-     *
-     * @return object|null
      */
     public static function unserializeWithoutClasses(string $payload): ?object
     {
@@ -61,8 +58,6 @@ class SecurityHelper
 
     /**
      * Return properties from an inert serialized object.
-     *
-     * @return array<string|int, mixed>|null
      */
     public static function serializedObjectProperties(mixed $value): ?array
     {
