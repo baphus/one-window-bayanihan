@@ -1,0 +1,1183 @@
+{
+  "version": "1.0",
+  "created_at": "2026-09-09T17:30:28.6855907Z",
+  "updated_at": "2026-09-09T17:30:28.6855907Z",
+  "entries": [
+    {
+      "fingerprint": "911b39bd5da18ba6ad64fc2d",
+      "id": "ENV-002",
+      "file": ".env",
+      "line": 6,
+      "title": "APP_DEBUG is enabled",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "6a61e57da725c65529b49734",
+      "id": "ENV-005",
+      "file": ".env",
+      "line": 4,
+      "title": "APP_ENV is set to 'local'",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "f04aa993db71fe77fefb6d0c",
+      "id": "ENV-006",
+      "file": ".env",
+      "line": 38,
+      "title": "Database password is empty",
+      "severity": "Low"
+    },
+    {
+      "fingerprint": "5b4ee483e1db84f6e4ed8176",
+      "id": "AUTH-001",
+      "file": "routes\\web.php",
+      "line": 374,
+      "title": "Route without middleware",
+      "severity": "Low"
+    },
+    {
+      "fingerprint": "49fd629ab6315a83bb75a3a0",
+      "id": "AUTH-004",
+      "file": "tests\\Feature\\OfwProfileTest.php",
+      "line": 167,
+      "title": "Sensitive action without password confirmation",
+      "severity": "Low"
+    },
+    {
+      "fingerprint": "61e7ace5b529ef35df9e7cff",
+      "id": "CRYPTO-002",
+      "file": "app\\Providers\\AppServiceProvider.php",
+      "line": 142,
+      "title": "sha1() used for security purposes",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "a5ed28b5801254b7054cd4cd",
+      "id": "CRYPTO-002",
+      "file": "tests\\Feature\\Auth\\EmailVerificationTest.php",
+      "line": 34,
+      "title": "sha1() used for security purposes",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "55453ece6c2ac14bca0c3287",
+      "id": "CRYPTO-002",
+      "file": "tests\\Feature\\Auth\\EmailVerificationTest.php",
+      "line": 51,
+      "title": "sha1() used for security purposes",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "2706ef39271ed717770e5f5a",
+      "id": "CRYPTO-002",
+      "file": "tests\\Feature\\IntakeSubmitThrottleTest.php",
+      "line": 15,
+      "title": "sha1() used for security purposes",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "073fa5f71f27573eaa88d929",
+      "id": "CRYPTO-003",
+      "file": ".omo\\seed_test_data.php",
+      "line": 48,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "927fc2522bd13eb1156a46a2",
+      "id": "CRYPTO-003",
+      "file": ".omo\\seed_test_data.php",
+      "line": 54,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "fbc6bf0e19eb8cdeb767e570",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 338,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "64292f894ec7450e10e4eae5",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 339,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "5dcb7473b45eddcec6902caf",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 341,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b464e54b92c85ce59153efd3",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 342,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "594ffc07459162c611a94125",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 343,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "97e71d10c828c175658eb5bb",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 349,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "4ffc027844ec80585cf03738",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 350,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "86503058f06259620b6cc1b7",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 354,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "2d56f39cfe9cc055cc811aa0",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 355,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "c01a60f0d46c7bad488c7883",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 356,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "7b8a3d8458e30a1e3b8489c4",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 393,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "68f817334e8966c2188a9cce",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 394,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b1706ba19ae4a56c32c15307",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 395,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "4a94f3181f33fa73ea52459d",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 417,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "3eacddee750733afb97e3c3e",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 418,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "7194a7799cc9d03658b0469b",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 419,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "5bfa7ed5200641bd8bf60b87",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 424,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "64912c50c6d7cbc46354326b",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 425,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "4b3ba28e7fababbd874e5849",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 426,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "a4da92616c42a93ecc2691fc",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 428,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "f2947d269abb8b08bc7496cf",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 429,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "e4100000ab2afc836b72eed1",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 430,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "d8ad5876a3c8db3b6d38bfaf",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 431,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "2227f3261b363456bd98a6ed",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 432,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "366c43309b54b399a211e6bd",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 457,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "89d4b4624aaf2886491a5392",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 466,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "758c105783f3d978f98878dc",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 467,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "e5e73e3e11b1df613cd5fcfb",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 468,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9053add2572df31c0c3951af",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 470,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "3e4843e879347b5150e3c87e",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 471,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "f696c764c8fb30669ce4f714",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 472,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "2daff06195e0c1da71c8a991",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 477,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "5234fe82f5494aa9c1704ae0",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 478,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "746712cb1e6867a54f69ee2b",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 480,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "51706c8c7444da9162cb1d70",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 485,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "d9cd312c314ecc0bafcded1a",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 488,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "89e2f51d2863dcd592d1a1cb",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 493,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "e7af3e260c521bdb2db2e20b",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 494,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "812c842370c6ecd3baa4c488",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 495,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "24c7210a6c0ada515cd18eb1",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 496,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "821120ee89ebf038bfa90a2a",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 498,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "10cfc3631b48c0d645354d02",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 499,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "06078d89f4473d742a3cf0fd",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 500,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "df68471f567cc12e88c5e991",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 505,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "eac8ebba4a1801c7ce6bd48d",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 506,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "f741f2083efd7998e64d0be6",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 508,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "ef2187d35b0f17da9fe713e8",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 575,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b99012dc1c0d363cc2712693",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 578,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "cd57f9298ed15f9bc9802381",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 585,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "66d274cdca0503e034c2fe76",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 586,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "eed4763a99871c64b1644cc3",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 587,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9f3263160e61f2c3fc71c6ce",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 591,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "35c64151835289b0075d4486",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 610,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9d14560945cdfea88309357d",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 620,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "6c79f8d2b4697c6688c6ce56",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 622,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "573e75119ec53763e3c7d74e",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 688,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "4aa489c023d68e630f00494c",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 690,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "fe26d7f67ecf9214375d981f",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 693,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "3cde7390db731676e2005bb9",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 705,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "640d11d6d5e649523a232719",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 706,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9d1f5953ae5487e935c2aea4",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 707,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "e4b812112c112b0d5b76e9e6",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 717,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "75a19cd884049d24403a5a8f",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 719,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "82b50c417e6cb65e7d879022",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 720,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "d40da8350777184cd4ac032d",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 722,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "a3cca9923063973636e26de0",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 723,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b7238db2649e1cdc311016a2",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 732,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9cf76c9449d7f87c982a9e44",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 770,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9778a1c7c80ab0695c17e9b1",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 776,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "58f5a3b4823eeb6238decb8b",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 780,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b0bd39604bbf22f2bdc17f07",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 786,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "040a34f9bd4ce3bd0b0d0fda",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 793,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "048c6eb36fbb72eaae0c125f",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 799,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "7df24ffb75d8134596cd5e2a",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 803,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "675ec0cc388cfa99f7d9a1c7",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 809,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b46148cba467e14b99258dda",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 816,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "7021de70b7e42bbc58a92cdf",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 822,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "1bf1033b107d5548aa6fa2c5",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 826,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "cab8f279ced31650bcc32d9a",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 832,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9883953dcd0299013aa571e3",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 836,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "ea042f273bdf9c813812fd42",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 842,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "a8ea3b967c77d30cb3b434f3",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 846,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "79bac0e2456c44bba7079484",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 852,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "476cb389698d7bb442262c47",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 859,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "12ce44fa46a8d82217ed1f39",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 865,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "462b13b01c14d1d8b179faf7",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 918,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "f503080b48c54cc8922d1b59",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 919,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "2b07f328eb5b908b7bb492ed",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 920,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "12e4dc446add25e426a331b9",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 949,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "0ab393bf9b2ba97e0cb3c605",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 950,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "628645ebe4738a7a784dbbf7",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 951,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "23a4855c0ae21427c85c090e",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 1015,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "d0f52cb18469d9ffe8d28302",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 1034,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "ecdb019ec83951604a28ba3b",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 1053,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "56f4a9ba75048a2fbe8304b5",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 1073,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "448522e903f983c52cf2595d",
+      "id": "CRYPTO-003",
+      "file": "database\\seeders\\TestingSeeder.php",
+      "line": 1174,
+      "title": "Weak random number generation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "aa1cfdfc8df0330c563a294c",
+      "id": "INJECT-001",
+      "file": "app\\Services\\Export\\DataExportQueries.php",
+      "line": 103,
+      "title": "DB::raw() with variable interpolation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "c484f087a7a8bb6cdfa35086",
+      "id": "INJECT-001",
+      "file": "app\\Services\\Export\\DataExportQueries.php",
+      "line": 166,
+      "title": "DB::raw() with variable interpolation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b62784875d9a7288da0234c8",
+      "id": "INJECT-002",
+      "file": "app\\Ai\\Tools\\GetAgencyServices.php",
+      "line": 34,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9a6f33d285009f6f1fcc1684",
+      "id": "INJECT-002",
+      "file": "app\\Console\\Commands\\PruneAuditLogs.php",
+      "line": 133,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "7be97dccfe54d3759eda5d24",
+      "id": "INJECT-002",
+      "file": "app\\Http\\Controllers\\Api\\ClientSelectController.php",
+      "line": 70,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "4977f800ba7c95ef7c94fb6c",
+      "id": "INJECT-002",
+      "file": "app\\Http\\Controllers\\IntakeRegistrationController.php",
+      "line": 95,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "679ae9a4a4f655ad17a8e6d0",
+      "id": "INJECT-002",
+      "file": "app\\Services\\CaseService.php",
+      "line": 448,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "c2e8effb512c52b6a39c7382",
+      "id": "INJECT-002",
+      "file": "app\\Services\\CaseService.php",
+      "line": 449,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "78edc03f6651677cbd2dc4f8",
+      "id": "INJECT-002",
+      "file": "app\\Services\\CaseService.php",
+      "line": 787,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "9c6f3ff207063b6aac1aef5f",
+      "id": "INJECT-002",
+      "file": "app\\Services\\IntakeService.php",
+      "line": 236,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "19940b80d1c12d09fcc3e217",
+      "id": "INJECT-002",
+      "file": "app\\Services\\NotificationService.php",
+      "line": 189,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "e59f8671a83352378b16e715",
+      "id": "INJECT-002",
+      "file": "app\\Services\\Reports\\ReportsExportService.php",
+      "line": 343,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "b51b419e3ed1366cf5c0f198",
+      "id": "INJECT-002",
+      "file": "app\\Services\\Reports\\ReportsExportService.php",
+      "line": 389,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "e8810743e246b76f40ee019c",
+      "id": "INJECT-002",
+      "file": "app\\Services\\Reports\\ReportsExportService.php",
+      "line": 723,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "4adfd0cb98e3388cf9242d67",
+      "id": "INJECT-002",
+      "file": "app\\Services\\Reports\\ReportsExportService.php",
+      "line": 759,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "ee0efe7b50b2283870c26765",
+      "id": "INJECT-002",
+      "file": "database\\migrations\\2026_07_27_000001_create_case_number_counters_table.php",
+      "line": 51,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "d7a68dea48acd8066db8d9ef",
+      "id": "INJECT-002",
+      "file": "database\\migrations\\2026_07_27_000002_backfill_address_codes_to_names.php",
+      "line": 65,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "86c705bd06704767bef9d633",
+      "id": "INJECT-002",
+      "file": "database\\migrations\\2026_07_28_000001_switch_case_number_counters_to_monthly_periods.php",
+      "line": 75,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "237817e8933171b869e5da5e",
+      "id": "INJECT-002",
+      "file": "database\\migrations\\2026_07_28_000001_switch_case_number_counters_to_monthly_periods.php",
+      "line": 76,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "f8bc3fd23465f7238c8f377d",
+      "id": "INJECT-002",
+      "file": "database\\migrations\\2026_07_28_000001_switch_case_number_counters_to_monthly_periods.php",
+      "line": 77,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "1b8d0d116cec57d14fe540ca",
+      "id": "INJECT-002",
+      "file": "database\\migrations\\2026_07_28_000001_switch_case_number_counters_to_monthly_periods.php",
+      "line": 78,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "34c54b6416a42c057490c7b4",
+      "id": "INJECT-002",
+      "file": "app\\Services\\ReferralService.php",
+      "line": 214,
+      "title": "Raw query methods with variable concatenation",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "412a312c013237fa991a6418",
+      "id": "INJECT-003",
+      "file": ".omo\\seed_audit_logs.php",
+      "line": 15,
+      "title": "Shell command execution function",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "61782a7e5deb8a00168c6323",
+      "id": "INJECT-005",
+      "file": "app\\Helpers\\SecurityHelper.php",
+      "line": 27,
+      "title": "Unsafe deserialization with unserialize()",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "8e07f99fb2659f3039ba151d",
+      "id": "INJECT-005",
+      "file": "app\\Helpers\\SecurityHelper.php",
+      "line": 57,
+      "title": "Unsafe deserialization with unserialize()",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "49d0e1b18dcf747cf712ad2a",
+      "id": "SECRET-001",
+      "file": "tests\\Feature\\AdminUserControllerTest.php",
+      "line": 198,
+      "title": "Hardcoded password in PHP source",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "af067d9d4c69fdc704002d62",
+      "id": "SECRET-001",
+      "file": "tests\\Feature\\Security\\MfaDisablePasswordTest.php",
+      "line": 18,
+      "title": "Hardcoded password in PHP source",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "f4e3bbb2875a916c623c4f89",
+      "id": "SECRET-007",
+      "file": ".omo\\seed_audit_logs.php",
+      "line": 11,
+      "title": "Hardcoded database credentials in PHP",
+      "severity": "High"
+    },
+    {
+      "fingerprint": "7f68dd657f2e3d5dd07b124b",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 232,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "b9e9f45113184b9455a220b6",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 255,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "546e7e175fa0e6417f94789a",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 302,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "cd6888a53cc298ae8982de7d",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 333,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "b201beec4b85b78d2a3e348b",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 364,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "253f2de526a6ca26c375efdb",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 393,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "3206e8a7e0e4f258d47a17cb",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 409,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "0d9b82c299475e707640f57b",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 438,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "c66203829b3e06a1d54d5e5b",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 472,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "9c784037df728ebec0d1dbb9",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 512,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "a4aed5ac1e45e7703eb07f09",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 514,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    },
+    {
+      "fingerprint": "a1d7357975df92e6c8f04a7c",
+      "id": "XSS-001",
+      "file": "resources\\views\\pdf\\report.blade.php",
+      "line": 541,
+      "title": "Unescaped Blade output {!! !!}",
+      "severity": "Medium"
+    }
+  ]
+}

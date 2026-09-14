@@ -48,7 +48,7 @@ class ReportsService
         }
 
         // Build cache key from all parameters that affect the output
-        $cacheKey = 'reports:payload:'.md5(implode('|', [
+        $cacheKey = 'reports:payload:'.hash('sha256', implode('|', [
             $userId ?? '', $role ?? '', $agencyId ?? '',
             $fromDate ?? '', $toDate ?? '', $dateScope,
             $province ?? '', $city ?? '',
@@ -1485,7 +1485,7 @@ class ReportsService
             return [];
         }
 
-        $cacheKey = 'reports:agency_options:'.md5(($userId ?? '').'|'.($role ?? ''));
+        $cacheKey = 'reports:agency_options:'.hash('sha256', ($userId ?? '').'|'.($role ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () {
             // Admin / CASE_MANAGER: all active agencies.
@@ -1504,7 +1504,7 @@ class ReportsService
             return [];
         }
 
-        $cacheKey = 'reports:province_options:'.md5(($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
+        $cacheKey = 'reports:province_options:'.hash('sha256', ($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($agencyId) {
             $query = DB::table('client_addresses')
@@ -1542,7 +1542,7 @@ class ReportsService
             return [];
         }
 
-        $cacheKey = 'reports:city_options:'.md5(($province ?? '').'|'.($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
+        $cacheKey = 'reports:city_options:'.hash('sha256', ($province ?? '').'|'.($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($province, $agencyId) {
             $query = DB::table('client_addresses')

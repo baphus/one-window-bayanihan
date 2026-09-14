@@ -6,8 +6,8 @@ return [
 
     'dsn' => env('SENTRY_LARAVEL_DSN', env('SENTRY_DSN')),
 
-    // Capture release version from git
-    'release' => trim(env('SENTRY_RELEASE') ?: (function_exists('exec') ? @exec('git log --pretty="%h" -n1 HEAD') : '')),
+    // Capture the release supplied by the deployment environment.
+    'release' => env('SENTRY_RELEASE'),
 
     // Capture environment
     'environment' => env('APP_ENV'),

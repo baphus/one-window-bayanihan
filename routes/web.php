@@ -103,7 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals/{referral}/comments/{comment}/reply', [ReferralController::class, 'replyToComment'])->name('referrals.comments.reply');
 
     // Agency message thread ("Other Agencies on This Case" section)
-    Route::get('/api/referrals/{referral}/messages', [ReferralMessageController::class, 'index'])->name('api.referrals.messages.index');
+    Route::get('/api/referrals/{referral}/messages', [ReferralMessageController::class, 'index'])->name('api.referrals.messages.index')->middleware('throttle:api-global');
     Route::post('/referrals/{referral}/messages', [ReferralMessageController::class, 'store'])->name('referrals.messages.store');
     Route::post('/referrals/{referral}/messages/read', [ReferralMessageController::class, 'markRead'])->name('referrals.messages.read');
     Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store');
@@ -112,7 +112,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals/{referral}/attachments/{attachment}/download', [ReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
 
-    Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs');
+    Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs')->middleware('throttle:api-global');
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:reports-view');
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
@@ -159,7 +159,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // here so Agency Focal never sees an export surface.
         Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
 
-        Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs');
+        Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs')->middleware('throttle:api-global');
     });
 
     // Activity/Audit log viewer — CASE_MANAGER + ADMIN + AGENCY. Each role's
