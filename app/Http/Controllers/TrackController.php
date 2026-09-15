@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Track\StoreTrackingRequest;
+use App\Http\Requests\Track\UpdateTrackingRequest;
 use App\Models\Referral;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -22,15 +24,12 @@ class TrackController extends Controller
         ]);
     }
 
-    public function sendOtp(Request $request)
+    public function sendOtp(StoreTrackingRequest $request)
     {
-        $request->validate([
-            'tracker_number' => ['required', 'string'],
-            'email' => ['required', 'string', 'email'],
-        ]);
+        $validated = $request->validated();
 
-        $trackerNumber = $request->input('tracker_number');
-        $email = strtolower(trim($request->input('email')));
+        $trackerNumber = $validated['tracker_number'];
+        $email = strtolower(trim($validated['email']));
         $case = $this->trackingService->findCaseByTracker($trackerNumber);
         if (! $case || ! $this->trackingService->emailMatchesCase($case, $email)) {
             $request->session()->forget(TrackingService::SESSION_KEY);
@@ -51,23 +50,19 @@ class TrackController extends Controller
             : $email;
 
         return Inertia::render('Tracking/Verify', [
-            'tracker_number' => $request->input('tracker_number'),
+            'tracker_number' => $validated['tracker_number'],
             'email' => $email,
             'hint' => $hint,
             'debug_otp' => (SystemSetting::getValue('debug_tracking_otp_enabled', false) && app()->environment('local', 'testing')) ? $otp : null,
         ]);
     }
 
-    public function verifyOtp(Request $request)
+    public function verifyOtp(UpdateTrackingRequest $request)
     {
-        $request->validate([
-            'tracker_number' => ['required', 'string'],
-            'email' => ['required', 'string', 'email'],
-            'otp' => ['required', 'string', 'size:6'],
-        ]);
+        $validated = $request->validated();
 
-        $trackerNumber = $request->input('tracker_number');
-        $email = strtolower(trim($request->input('email')));
+        $trackerNumber = $validated['tracker_number'];
+        $email = strtolower(trim($validated['email']));
         $case = $this->trackingService->findCaseByTracker($trackerNumber);
         if (! $case || ! $this->trackingService->emailMatchesCase($case, $email)) {
             $request->session()->forget(TrackingService::SESSION_KEY);
@@ -77,7 +72,7 @@ class TrackController extends Controller
 
         $verified = $this->trackingService->verifyOtp(
             $email,
-            $request->input('otp'),
+            $validated['otp'],
             'track',
         );
 

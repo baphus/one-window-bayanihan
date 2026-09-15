@@ -24,6 +24,7 @@ use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -1107,14 +1108,15 @@ class ReferralService
             'actor' => $createLog?->user?->name ?? $referral->caseFile?->user?->name ?? 'System',
         ]);
 
-        // 2. Status changes from AuditLog (observer-created, module='referral')
-        $statusLogs = AuditLog::with('user')
-            ->where('module', 'referral')
-            ->where('entity_id', $referral->id)
+        // 2. Status changes from AuditLog (observer-created, module='referral').
+        //    The status-change predicate runs in SQL (jsonb) so the full log
+        //    history is never hydrated into PHP for filtering.
+        $statusLogs = AuditLog::forReferral($referral->id)
+            ->withUser()
             ->where('action', 'UPDATE')
+            ->whereRaw("(old_value->>'status' IS DISTINCT FROM new_value->>'status')")
             ->orderBy('timestamp')
-            ->get()
-            ->filter(fn (AuditLog $log) => ($log->old_value['status'] ?? null) !== ($log->new_value['status'] ?? null));
+            ->get();
 
         foreach ($statusLogs as $log) {
             $events->push([
@@ -1188,6 +1190,20 @@ class ReferralService
         }
 
         return $events->sortBy('timestamp')->values()->toArray();
+    }
+
+    /**
+     * Paginated audit trail for a referral (newest first).
+     *
+     * SQL-side filtering via scopes: no PHP filter(fn). latest('timestamp')
+     * is used because audit_logs has no created_at column.
+     */
+    public function getReferralAuditLogs(string $referralId, int $perPage = 25): LengthAwarePaginator
+    {
+        return AuditLog::forReferral($referralId)
+            ->withUser()
+            ->latest('timestamp')
+            ->paginate($perPage);
     }
 
     public function getAttachmentVersions(string $referralId, string $versionGroupId)

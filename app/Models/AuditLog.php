@@ -193,6 +193,27 @@ class AuditLog extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function scopeForReferral($query, string $referralId)
+    {
+        return $query->where('entity_id', $referralId)
+            ->whereIn('module', ['referral', 'referrals', 'REFERRAL']);
+    }
+
+    public function scopeWithUser($query)
+    {
+        return $query->select([
+            'id',
+            'action',
+            'module',
+            'entity_id',
+            'description',
+            'old_value',
+            'new_value',
+            'user_id',
+            'timestamp',
+        ])->with('user:id,name');
+    }
+
     public function scopeForClient($query, string $clientId, ?string $caseId = null, array $referralIds = [])
     {
         return $query->where(function ($q) use ($clientId, $caseId, $referralIds) {

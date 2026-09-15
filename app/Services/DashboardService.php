@@ -487,48 +487,51 @@ class DashboardService
         $ofwCount = (int) ($clientCounts['ofw'] ?? 0);
         $nokCount = (int) ($clientCounts['nok'] ?? 0);
 
-        // Recent activity — DATA category only (no security/admin/system events)
-        $recentActivity = AuditLog::with('user')
-            ->where('category', AuditCategory::DATA)
-            ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
-            ->orderBy('timestamp', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function ($log) use ($formatter) {
-                try {
-                    $display = $formatter->formatForAuditResponse($log);
-                } catch (\Throwable $e) {
-                    $display = [
-                        'id' => (string) $log->getKey(),
-                        'message' => 'Activity recorded',
-                        'detail' => '',
-                        'changes' => [],
-                        'action' => $log->action,
-                        'module' => 'other',
-                        'actor' => 'System',
-                        'timestamp' => $log->timestamp?->toISOString(),
-                        'hasChanges' => false,
+        // Recent activity — DATA category only (no security/admin/system events).
+        // Cached 300s; invalidated by CacheInvalidationObserver on case/referral writes.
+        $recentActivity = CacheHelper::safeRemember('dashboard:cm_recent_activity', 300, function () use ($formatter) {
+            return AuditLog::with('user')
+                ->where('category', AuditCategory::DATA)
+                ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
+                ->orderBy('timestamp', 'desc')
+                ->take(10)
+                ->get()
+                ->map(function ($log) use ($formatter) {
+                    try {
+                        $display = $formatter->formatForAuditResponse($log);
+                    } catch (\Throwable $e) {
+                        $display = [
+                            'id' => (string) $log->getKey(),
+                            'message' => 'Activity recorded',
+                            'detail' => '',
+                            'changes' => [],
+                            'action' => $log->action,
+                            'module' => 'other',
+                            'actor' => 'System',
+                            'timestamp' => $log->timestamp?->toISOString(),
+                            'hasChanges' => false,
+                        ];
+                    }
+
+                    $changes = $display['changes'] ?? [];
+
+                    return [
+                        'id' => $log->id,
+                        'title' => $display['message'],
+                        'desc' => $this->formatChangeSummary($changes),
+                        'time' => $this->safeRelativeTime($log->timestamp),
+                        'logoSrc' => '/logo.png',
+                        'message' => $display['message'],
+                        'detail' => $display['detail'],
+                        'changes' => $changes,
+                        'actionType' => $display['action'],
+                        'module' => $display['module'],
+                        'actor' => $display['actor'],
+                        'timestamp' => $display['timestamp'],
                     ];
-                }
-
-                $changes = $display['changes'] ?? [];
-
-                return [
-                    'id' => $log->id,
-                    'title' => $display['message'],
-                    'desc' => $this->formatChangeSummary($changes),
-                    'time' => $this->safeRelativeTime($log->timestamp),
-                    'logoSrc' => '/logo.png',
-                    'message' => $display['message'],
-                    'detail' => $display['detail'],
-                    'changes' => $changes,
-                    'actionType' => $display['action'],
-                    'module' => $display['module'],
-                    'actor' => $display['actor'],
-                    'timestamp' => $display['timestamp'],
-                ];
-            })
-            ->toArray();
+                })
+                ->toArray();
+        });
 
         // Load allCases (trimmed: no 'user' eager load, only needed columns)
         $allCases = CaseFile::with(['client'])
@@ -729,52 +732,55 @@ class DashboardService
             $this->queueItem('returnedReferrals', 'Rejected', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
         ];
 
-        // Recent activity via subquery instead of loading all referral IDs
-        $recentActivity = AuditLog::whereIn('entity_id', function ($query) use ($agencyId) {
-            $query->select('id')
-                ->from('referrals')
-                ->where('agcy_id', $agencyId)
-                ->where('is_deleted', false);
-        })
-            ->whereIn('module', ['referral', 'referrals'])
-            ->orderBy('timestamp', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function ($log) use ($formatter) {
-                try {
-                    $display = $formatter->formatForAuditResponse($log);
-                } catch (\Throwable $e) {
-                    $display = [
-                        'id' => (string) $log->getKey(),
-                        'message' => 'Activity recorded',
-                        'detail' => '',
-                        'changes' => [],
-                        'action' => $log->action,
-                        'module' => 'other',
-                        'actor' => 'System',
-                        'timestamp' => $log->timestamp?->toISOString(),
-                        'hasChanges' => false,
-                    ];
-                }
-
-                $changes = $display['changes'] ?? [];
-
-                return [
-                    'id' => $log->id,
-                    'title' => $display['message'],
-                    'desc' => $this->formatChangeSummary($changes),
-                    'time' => $this->safeRelativeTime($log->timestamp),
-                    'logoSrc' => '/logo.png',
-                    'message' => $display['message'],
-                    'detail' => $display['detail'],
-                    'changes' => $changes,
-                    'actionType' => $display['action'],
-                    'module' => $display['module'],
-                    'actor' => $display['actor'],
-                    'timestamp' => $display['timestamp'],
-                ];
+        // Recent activity via subquery instead of loading all referral IDs.
+        // Cached 300s per agency; invalidated by CacheInvalidationObserver on referral writes.
+        $recentActivity = CacheHelper::safeRemember('dashboard:agency_recent_activity:'.$agencyId, 300, function () use ($agencyId, $formatter) {
+            return AuditLog::whereIn('entity_id', function ($query) use ($agencyId) {
+                $query->select('id')
+                    ->from('referrals')
+                    ->where('agcy_id', $agencyId)
+                    ->where('is_deleted', false);
             })
-            ->toArray();
+                ->whereIn('module', ['referral', 'referrals'])
+                ->orderBy('timestamp', 'desc')
+                ->take(10)
+                ->get()
+                ->map(function ($log) use ($formatter) {
+                    try {
+                        $display = $formatter->formatForAuditResponse($log);
+                    } catch (\Throwable $e) {
+                        $display = [
+                            'id' => (string) $log->getKey(),
+                            'message' => 'Activity recorded',
+                            'detail' => '',
+                            'changes' => [],
+                            'action' => $log->action,
+                            'module' => 'other',
+                            'actor' => 'System',
+                            'timestamp' => $log->timestamp?->toISOString(),
+                            'hasChanges' => false,
+                        ];
+                    }
+
+                    $changes = $display['changes'] ?? [];
+
+                    return [
+                        'id' => $log->id,
+                        'title' => $display['message'],
+                        'desc' => $this->formatChangeSummary($changes),
+                        'time' => $this->safeRelativeTime($log->timestamp),
+                        'logoSrc' => '/logo.png',
+                        'message' => $display['message'],
+                        'detail' => $display['detail'],
+                        'changes' => $changes,
+                        'actionType' => $display['action'],
+                        'module' => $display['module'],
+                        'actor' => $display['actor'],
+                        'timestamp' => $display['timestamp'],
+                    ];
+                })
+                ->toArray();
+        });
 
         return [
             'totalReferrals' => $totalReferrals,
@@ -971,43 +977,47 @@ class DashboardService
             ])
             ->toArray();
 
-        $recentLogs = AuditLog::with('user')
-            ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
-            ->orderBy('timestamp', 'desc')
-            ->take(8)
-            ->get()
-            ->map(function ($log) use ($formatter) {
-                try {
-                    $display = $formatter->formatForAuditResponse($log);
-                } catch (\Throwable $e) {
-                    $display = [
-                        'id' => (string) $log->getKey(),
-                        'message' => 'Activity recorded',
-                        'detail' => '',
-                        'changes' => [],
-                        'action' => $log->action,
-                        'module' => 'other',
-                        'actor' => $log->user?->name ?? 'System',
-                        'timestamp' => $log->timestamp?->toISOString(),
-                        'hasChanges' => false,
+        // Recent audit activity. Cached 300s; invalidated by
+        // CacheInvalidationObserver on case/referral writes.
+        $recentLogs = CacheHelper::safeRemember('dashboard:admin_recent_logs', 300, function () use ($formatter) {
+            return AuditLog::with('user')
+                ->whereNotIn('module', ['clients', 'client', 'client_addresses', 'client_address', 'client_employments', 'client_employment', 'milestones', 'milestone', 'referral_attachments', 'referral_attachment'])
+                ->orderBy('timestamp', 'desc')
+                ->take(8)
+                ->get()
+                ->map(function ($log) use ($formatter) {
+                    try {
+                        $display = $formatter->formatForAuditResponse($log);
+                    } catch (\Throwable $e) {
+                        $display = [
+                            'id' => (string) $log->getKey(),
+                            'message' => 'Activity recorded',
+                            'detail' => '',
+                            'changes' => [],
+                            'action' => $log->action,
+                            'module' => 'other',
+                            'actor' => $log->user?->name ?? 'System',
+                            'timestamp' => $log->timestamp?->toISOString(),
+                            'hasChanges' => false,
+                        ];
+                    }
+
+                    $changes = $display['changes'] ?? [];
+
+                    return [
+                        'id' => $display['id'],
+                        'action' => $display['action'],
+                        'module' => $display['module'],
+                        'timestamp' => $display['timestamp'],
+                        'message' => $display['message'],
+                        'detail' => $display['detail'],
+                        'changes' => $changes,
+                        'actor' => $display['actor'],
+                        'hasChanges' => $display['hasChanges'],
                     ];
-                }
-
-                $changes = $display['changes'] ?? [];
-
-                return [
-                    'id' => $display['id'],
-                    'action' => $display['action'],
-                    'module' => $display['module'],
-                    'timestamp' => $display['timestamp'],
-                    'message' => $display['message'],
-                    'detail' => $display['detail'],
-                    'changes' => $changes,
-                    'actor' => $display['actor'],
-                    'hasChanges' => $display['hasChanges'],
-                ];
-            })
-            ->toArray();
+                })
+                ->toArray();
+        });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:admin_cases_by_category', 300, function () {
             // Keep category counts additive across assignments while excluding

@@ -23,6 +23,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\IntakeController;
 use App\Http\Controllers\IntakeRegistrationController;
 use App\Http\Controllers\MfaController;
@@ -56,16 +57,7 @@ Route::post('/survey/{token}', [PublicSurveyController::class, 'submit'])
     ->name('survey.public.submit')
     ->middleware('throttle:survey-submit');
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'agencies' => Agency::where('is_active', true)->get([
-            'id', 'name', 'short', 'slug', 'logo_url',
-            'map_link', 'latitude', 'longitude', 'location_query',
-        ])->toArray(),
-    ]);
-});
+Route::get('/', [HomeController::class, 'index']);
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

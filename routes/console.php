@@ -44,7 +44,7 @@ $reportFailure = function (array $context = []) {
 Schedule::command('helpcenter:sync')->hourly()->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'helpcenter:sync']));
 
-Schedule::command('logs:cleanup')->dailyAt('03:00')
+Schedule::command('logs:cleanup')->dailyAt('03:00')->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'logs:cleanup']));
 
 // Audit lifecycle: archive expired months to immutable bundles first, then
@@ -56,7 +56,7 @@ Schedule::command('audit:prune --force')->monthlyOn(1, '02:30')->withoutOverlapp
 Schedule::command('audit:verify')->weeklyOn(1, '04:00')->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'audit:verify']));
 
-Schedule::command('storage:cleanup-orphans')->daily()
+Schedule::command('storage:cleanup-orphans')->daily()->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'storage:cleanup-orphans']));
 
 // Permanently delete soft-deleted cases older than the retention window.

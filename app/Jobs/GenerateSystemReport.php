@@ -22,9 +22,14 @@ class GenerateSystemReport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 1;
+    public int $tries = 3;
 
     public int $timeout = 300;
+
+    public function backoff(): array
+    {
+        return [30, 120, 600];
+    }
 
     /**
      * @param  string  $documentId  UUID of the pre-created GeneratedDocument record.
