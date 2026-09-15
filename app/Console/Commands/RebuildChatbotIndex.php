@@ -9,7 +9,7 @@ class RebuildChatbotIndex extends Command
 {
     protected $signature = 'chatbot:index';
 
-    protected $description = 'Refresh parsed helpdesk content for chatbot tools (no embeddings)';
+    protected $description = 'Warm parsed helpdesk cache for chatbot tools (cache-warmer, no embeddings; content-hash auto-invalidates)';
 
     public function handle(ChatbotHelpdeskService $helpdesk): int
     {

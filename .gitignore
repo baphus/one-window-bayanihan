@@ -46,3 +46,5 @@ openspec
 /deploy/**/*.local.json
 .env.staging
 .env.local.backup
+.openspec
+.slim
