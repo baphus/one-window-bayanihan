@@ -124,6 +124,8 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:cm_priority_cases');
         Cache::forget('dashboard:cm_aging_open_count');
         Cache::forget('dashboard:cm_no_referral_count');
+        Cache::forget('dashboard:cm_recent_activity');
+        Cache::forget('dashboard:admin_recent_logs');
 
         // Invalidate tracking cache for this specific case
         if ($case) {
@@ -145,6 +147,9 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:cm_priority_cases');
         Cache::forget('dashboard:cm_aging_open_count');
         Cache::forget('dashboard:cm_no_referral_count');
+        Cache::forget('dashboard:cm_recent_activity');
+        Cache::forget('dashboard:admin_recent_logs');
+        Cache::forget('dashboard:agency_recent_activity:'.$referral->agcy_id);
         Cache::forget('stakeholder:agencies_list');
         // Agency-specific keys cleared via pattern (agcy_id may not be reliably available)
 

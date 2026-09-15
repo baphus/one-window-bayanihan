@@ -1,22 +1,8 @@
 {
     "agents": [
-        "claude_code",
-        "codex",
-        "copilot",
-        "kiro",
         "opencode"
     ],
-    "cloud": false,
-    "guidelines": true,
     "mcp": true,
     "nightwatch": false,
-    "sail": false,
-    "skills": [
-        "infer-conventions",
-        "ai-sdk-development",
-        "laravel-best-practices",
-        "testing-best-practices",
-        "inertia-react-development",
-        "tailwindcss-development"
-    ]
+    "sail": false
 }

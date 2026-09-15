@@ -1671,6 +1671,105 @@ class CaseService
     }
 
     /**
+     * Client directory stats (Task 2.2).
+     *
+     * Eloquent/query-builder replacement for the two DB::selectOne raw queries
+     * previously in ClientController::getClientStats. Same result shape:
+     * total/ofw/nok clients, per-marker vulnerability counts, open-case
+     * client count, and total referrals. All constraints are bound parameters.
+     */
+    public function getClientDirectoryStats(?User $user): array
+    {
+        if ($user?->isAgency() && ! $user->agcy_id) {
+            return [
+                'total_clients' => 0,
+                'ofw_clients' => 0,
+                'nok_clients' => 0,
+                'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
+                'clients_with_open_cases' => 0,
+                'total_referrals' => 0,
+            ];
+        }
+
+        $agencyId = ($user?->isAgency() && $user->agcy_id) ? $user->agcy_id : null;
+
+        $totalClients = $user?->isAdmin()
+            ? Client::where('is_deleted', false)->withoutUnacceptedIntake()->count()
+            : $this->countDistinctClientsWithCases($agencyId, function ($q) {
+                // No extra case constraint: any live case qualifies (matches the
+                // COUNT DISTINCT ... THEN cl.id join in the legacy query).
+            }, function ($clients) {
+                // Legacy parity: the non-admin COUNT(DISTINCT CASE WHEN ...)
+                // applied the unaccepted-intake exclusion too, or the tile
+                // counts filers the listing hides.
+                $clients->withoutUnacceptedIntake();
+            });
+
+        $ofwClients = $this->countDistinctClientsWithCases($agencyId, function ($q) {
+            $q->withVisibleStatus()->ofClientType(CaseFile::CLIENT_TYPE_OFW);
+        });
+
+        $nokClients = $this->countDistinctClientsWithCases($agencyId, function ($q) {
+            $q->withVisibleStatus()->ofClientType(CaseFile::CLIENT_TYPE_NEXT_OF_KIN);
+        });
+
+        $vulnerabilityCounts = [];
+        foreach (['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'] as $marker) {
+            $vulnerabilityCounts[$marker] = $this->countDistinctClientsWithCases($agencyId, function ($q) use ($marker) {
+                $q->withVisibleStatus()->withVulnerabilityMarker($marker);
+            });
+        }
+
+        $clientsWithOpenCases = $this->countDistinctClientsWithCases($agencyId, function ($q) {
+            $q->withOpenStatus();
+        });
+
+        $totalReferrals = Referral::where('is_deleted', false)
+            ->whereHas('caseFile', function ($q) {
+                $q->live();
+            })
+            ->when($agencyId, function ($q) use ($agencyId) {
+                $q->where('agcy_id', $agencyId);
+            })
+            ->count();
+
+        return [
+            'total_clients' => (int) $totalClients,
+            'ofw_clients' => (int) $ofwClients,
+            'nok_clients' => (int) $nokClients,
+            'vulnerability_counts' => [
+                'PWD' => (int) $vulnerabilityCounts['PWD'],
+                'Senior Citizen' => (int) $vulnerabilityCounts['Senior Citizen'],
+                'Solo Parent' => (int) $vulnerabilityCounts['Solo Parent'],
+                'Indigenous Person' => (int) $vulnerabilityCounts['Indigenous Person'],
+            ],
+            'clients_with_open_cases' => (int) $clientsWithOpenCases,
+            'total_referrals' => (int) $totalReferrals,
+        ];
+    }
+
+    /**
+     * Distinct clients having at least one live case matching the given
+     * constraints (plus agency scope). Equivalent to
+     * COUNT(DISTINCT CASE WHEN ... THEN cl.id END) over the clients/cases join.
+     */
+    private function countDistinctClientsWithCases(?string $agencyId, callable $constraints, ?callable $clientConstraints = null): int
+    {
+        $clients = Client::where('clients.is_deleted', false);
+
+        if ($clientConstraints !== null) {
+            $clientConstraints($clients);
+        }
+
+        return $clients
+            ->whereHas('caseFiles', function ($q) use ($agencyId, $constraints) {
+                $q->live()->forAgency($agencyId);
+                $constraints($q);
+            })
+            ->count();
+    }
+
+    /**
      * Normalize a job position string for consistent storage.
      * Trims whitespace and applies title case so "caregiver" and "CAREGIVER"
      * both resolve to "Caregiver", preventing duplicates in the dropdown.

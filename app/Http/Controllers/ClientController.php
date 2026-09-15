@@ -4,20 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
 use App\Http\Requests\ProfilePictureRequest;
-use App\Models\Agency;
 use App\Models\AuditLog;
-use App\Models\CaseFile;
 use App\Models\Client;
-use App\Models\Referral;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
+use App\Services\CaseService;
 use App\Services\CloudinaryAvatarService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferenceDataService;
 use App\Support\CategoryFilter;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ClientController extends Controller
@@ -167,91 +164,9 @@ class ClientController extends Controller
         $cacheKey = 'client_stats:'.$user?->id;
 
         return CacheHelper::safeRemember($cacheKey, 30, function () use ($user) {
-            // Clients hidden from the listing must not be counted by the tile
-            // above it, or the directory shows N rows and claims N+1 total. The
-            // other tiles are already safe: they all filter to cases with a
-            // status NOT IN ('DRAFT','ARCHIVED'), which no unaccepted intake has.
-            $excludeUnacceptedIntake = "NOT EXISTS (
-                    SELECT 1 FROM cases cp
-                    WHERE cp.client_id = %s
-                      AND cp.source = '".CaseFile::SOURCE_SELF_FILED."'
-                      AND cp.status = 'DRAFT'
-                ) OR EXISTS (
-                    SELECT 1 FROM cases cr
-                    WHERE cr.client_id = %s
-                      AND cr.is_deleted = false
-                      AND cr.deleted_at IS NULL
-                      AND (cr.source <> '".CaseFile::SOURCE_SELF_FILED."' OR cr.status <> 'DRAFT')
-                )";
-
-            // Single query with conditional aggregation — replaces 10 separate count queries
-            $totalClientsExpression = $user?->isAdmin()
-                ? '(SELECT COUNT(*) FROM clients WHERE is_deleted = false AND ('.sprintf($excludeUnacceptedIntake, 'clients.id', 'clients.id').'))'
-                : 'COUNT(DISTINCT CASE WHEN ('.sprintf($excludeUnacceptedIntake, 'cl.id', 'cl.id').') THEN cl.id END)';
-            $sql = "SELECT
-                {$totalClientsExpression} AS total_clients,
-                COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS ofw_clients,
-                COUNT(DISTINCT CASE WHEN c.client_type = '".CaseFile::CLIENT_TYPE_NEXT_OF_KIN."' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS nok_clients,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%PWD%' OR c.nok_vulnerability_indicator LIKE '%PWD%') THEN cl.id END) AS vuln_pwd,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Senior Citizen%' OR c.nok_vulnerability_indicator LIKE '%Senior Citizen%') THEN cl.id END) AS vuln_senior,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Solo Parent%' OR c.nok_vulnerability_indicator LIKE '%Solo Parent%') THEN cl.id END) AS vuln_solo,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Indigenous Person%' OR c.nok_vulnerability_indicator LIKE '%Indigenous Person%') THEN cl.id END) AS vuln_indigenous,
-                COUNT(DISTINCT CASE WHEN c.status = 'OPEN' THEN cl.id END) AS open_cases
-            FROM clients cl
-            JOIN cases c ON c.client_id = cl.id AND c.is_deleted = false
-            WHERE cl.is_deleted = false";
-
-            $bindings = [];
-
-            if ($user?->isAgency() && ! $user->agcy_id) {
-                return [
-                    'total_clients' => 0,
-                    'ofw_clients' => 0,
-                    'nok_clients' => 0,
-                    'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
-                    'clients_with_open_cases' => 0,
-                    'total_referrals' => 0,
-                ];
-            }
-
-            // AGENCY users see only cases with referrals to their agency; ADMIN and CASE_MANAGER see all
-            if ($user && $user->isAgency() && $user->agcy_id) {
-                $sql .= ' AND c.id IN (SELECT ref.case_id FROM referrals ref WHERE ref.agcy_id = ? AND ref.is_deleted = false)';
-                $bindings[] = $user->agcy_id;
-            } elseif ($user && $user->isAgency() && ! $user->agcy_id) {
-                $sql .= ' AND 1 = 0';
-            }
-
-            $row = DB::selectOne($sql, $bindings);
-
-            // Referrals count (separate query — different base table)
-            $refSql = 'SELECT COUNT(*) AS total FROM referrals r
-                JOIN cases c ON r.case_id = c.id AND c.is_deleted = false
-                WHERE r.is_deleted = false';
-            $refBindings = [];
-
-            if ($user && $user->isAgency() && $user->agcy_id) {
-                $refSql .= ' AND r.agcy_id = ?';
-                $refBindings[] = $user->agcy_id;
-            } elseif ($user && $user->isAgency() && ! $user->agcy_id) {
-                $refSql .= ' AND 1 = 0';
-            }
-
-            $refRow = DB::selectOne($refSql, $refBindings);
-
-            return [
-                'total_clients' => (int) ($row->total_clients ?? 0),
-                'ofw_clients' => (int) ($row->ofw_clients ?? 0),
-                'nok_clients' => (int) ($row->nok_clients ?? 0),
-                'vulnerability_counts' => [
-                    'PWD' => (int) ($row->vuln_pwd ?? 0),
-                    'Senior Citizen' => (int) ($row->vuln_senior ?? 0),
-                    'Solo Parent' => (int) ($row->vuln_solo ?? 0),
-                    'Indigenous Person' => (int) ($row->vuln_indigenous ?? 0),
-                ],
-                'clients_with_open_cases' => (int) ($row->open_cases ?? 0),
-                'total_referrals' => (int) ($refRow->total ?? 0),
-            ];
+            // Task 2.2: stats query lives in CaseService (Eloquent/query-builder,
+            // bound parameters). The controller only handles HTTP + caching.
+            return app(CaseService::class)->getClientDirectoryStats($user);
         });
     }
 

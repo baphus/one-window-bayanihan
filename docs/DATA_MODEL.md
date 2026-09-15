@@ -10,6 +10,7 @@
 - **Timestamps:** `created_at`, `updated_at` (Laravel standard)
 - **Extensions:** `pg_trgm` (trigram search), `pgcrypto` (UUID generation)
 - **Row-Level Security:** Enabled on core tables via migrations
+- **Migration convention:** New tables use UUID primary keys (`$table->uuid('id')->primary()`), foreign keys are declared on uuid-typed columns with `foreignUuid()->constrained()`, and migrations never contain seed data — reference rows belong in `database/seeders/` (see `ReferenceDataSeeder`). Guarded by `tests/Feature/Database/MigrationConventionTest.php`.
 
 ## Table Summary
 

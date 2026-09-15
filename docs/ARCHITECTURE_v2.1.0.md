@@ -295,6 +295,7 @@ at a mail-catcher container of your choice.
 - **Cached data:** Config, routes, views (production)
 - **No application-level caching** of business data currently
 - **TanStack Query** client-side: 5-minute stale time for notifications
+- **Atomic locks:** The canonical cache driver is Redis (`CACHE_STORE=redis`), which provides atomic `Cache::lock()` semantics used by `withoutOverlapping()` schedules; the `database` fallback is likewise lock-capable via the `cache_locks` table and the `array` driver used in tests supports in-memory locks, so every environment (test, staging, production) must run a lock-capable store to preserve parity — clear stale schedule locks with `php artisan schedule:clear-cache`.
 
 ## 14. Error Handling
 
