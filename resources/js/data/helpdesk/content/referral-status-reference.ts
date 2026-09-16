@@ -12,6 +12,28 @@ Referral statuses show where an agency referral stands. They are separate from c
 | COMPLETED | Agency action is finished. | Review outcome and update the case. |
 | REJECTED | Referral cannot be processed as sent. | Review reason and create a corrected referral if needed. |
 
+## Allowed transitions
+
+The system enforces a transition matrix. Only these moves are accepted:
+
+- **PENDING** → PENDING, PROCESSING, FOR_COMPLIANCE, REJECTED
+- **PROCESSING** → PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED
+- **FOR_COMPLIANCE** → FOR_COMPLIANCE, PROCESSING, COMPLETED, REJECTED
+- **COMPLETED** → COMPLETED (terminal lock)
+- **REJECTED** → REJECTED (terminal lock)
+
+Three rules follow from the matrix:
+
+1. **Idempotent self-transitions** — setting the same status again is a harmless no-op and does not re-fire notifications.
+2. **PENDING cannot jump to COMPLETED** — move through PROCESSING (or FOR_COMPLIANCE where applicable) first.
+3. **Terminal lock** — COMPLETED and REJECTED referrals cannot be reopened through a status change.
+
+New referrals start as **PENDING**, or as **FOR_COMPLIANCE** when compliance requirements are attached at creation.
+
+## Completion effects
+
+When a referral becomes **COMPLETED**, completion handling runs: a client survey invitation is issued against the agency's active survey form, and notifications go out to relevant users. Add a closing milestone so the outcome is recorded.
+
 ## How to use statuses
 
 Case managers should monitor PENDING, PROCESSING, and FOR_COMPLIANCE referrals regularly. Agency users should add clear milestone notes when changing status so the case record explains what happened and why.

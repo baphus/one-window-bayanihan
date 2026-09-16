@@ -30,8 +30,9 @@ Email preferences only affect emails; critical in-app visibility is preserved so
 ## Tips per role
 
 - **Case Managers**: treat the feed as your work queue between dashboard checks — referral status changes and compliance fulfillments show up here first.
-- **Agency Focal Persons**: new referrals assigned to your agency and comment replies are the ones to watch; open them via **View** to act directly.
+- **Agency Focal Persons**: new referrals assigned to your agency and comment replies are the ones to watch; open them via **View** to act directly. Completion of your referral also triggers the client survey invitation.
 - **Administrators**: notifications complement, but don't replace, the audit log and email logs for oversight.
+- **Clients (OFW)**: you don't use this feed — follow your case through the public tracking portal and the **My Cases** page, where status updates and client-request messages appear.
 
 > Notifications link to the underlying record. If a **View** link leads to something you can no longer access (for example, a case reassigned away from you), the page will say so — that's expected, not an error.
 `;

@@ -6,20 +6,24 @@ Administrators control platform-wide security posture from **System → Security
 
 ## Security settings
 
-The **Security** page manages these policies:
+The **Security** page manages these policies (bounds enforced by the security settings service):
 
 **Password policy**
 - **Minimum length** (6–64 characters)
 - **Require special characters** and **require numbers**
 - **Password expiry** in days (0 disables expiry, up to 365)
 
+New staff passwords require a minimum of 8 characters with mixed case, numbers, and symbols (see *User management guide*).
+
 **Sign-in protection**
 - **Session lifetime** in minutes (15–1440) — how long an idle session stays valid.
 - **Max login attempts** (1–50) and **lockout duration** in minutes — brute-force protection.
-- **Require two-factor authentication** — makes MFA mandatory instead of optional (see *Securing your account: password and MFA*).
+- **Require two-factor authentication** — makes authenticator (TOTP) MFA mandatory instead of optional (see *Securing your account: password and MFA*).
+
+Sign-in is password plus optional authenticator — there is no login email-OTP.
 
 **Admin IP whitelist**
-- **Enable IP whitelist** plus the list of allowed IPs. When enabled, admin-only pages are reachable only from those addresses.
+- **Enable IP whitelist** plus the list of allowed IPs. When enabled, \`ip.whitelist\` gates every \`/admin/*\` page so they are reachable only from those addresses.
 
 > **Lock-out warning:** before enabling the IP whitelist, confirm your own current IP is on the list — the setting takes effect immediately for admin pages, including this one. Keep at least one known-good address (e.g., the office network) whitelisted.
 

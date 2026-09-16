@@ -1,50 +1,37 @@
-const content = `# Building SERVQUAL Feedback Questionnaires
+const content = `# Building Client Survey Forms
 
-Agencies control the questions clients answer when they rate a completed service. Feedback forms are managed on the **SERVQUAL Configurations** page, available to Agency Focal Person accounts under **Feedback → SERVQUAL Configurations**.
-
-![SERVQUAL configurations list](/assets/helpdesk/servqual-config-index.png)
+Agencies control the questions clients answer when they rate a completed service. Survey forms are managed on the **Survey Forms** page, available to Agency Focal Person accounts under **Feedback → Survey Forms** (AGENCY only).
 
 ## How forms are chosen for a client
 
-Two kinds of forms exist, and the system picks between them automatically when a feedback invitation is sent:
+Each agency has **one active form** at a time. When a referral is completed and a survey invitation is sent, the client's link uses your agency's currently active form. Activating a different form changes future invitations only — links already sent keep working against the form they were issued with.
 
-- **Agency default** — a form not assigned to any service. It is used for every service that has no override. Only one default can be **active** at a time.
-- **Service override** — a form assigned to one specific service. Overrides are always active independently, and each service can have at most one override.
-
-> When an invitation is sent to a client, the form questions are **snapshotted** into that invitation. Editing a form later changes future invitations only — links already sent keep the questions they were issued with.
+Invitations expire after **30 days**. Expired links stop accepting answers; complete a new referral cycle to issue a fresh invitation.
 
 ## Creating a form
 
-1. Open **Feedback → SERVQUAL Configurations** and select **Create configuration**.
-2. Enter a **Form name** (for example, *Default Client Satisfaction Form*). This name is for your team; clients do not see it.
-3. Optionally assign the form to one of your services. Leave it unassigned to create an agency default.
-4. Review the questions. New forms start with the **22 standard SERVQUAL questions** across five dimensions:
-   - **Tangibles** (4 questions) — facilities, equipment, staff appearance
-   - **Reliability** (5 questions) — keeping promises, dependable service, accurate records
-   - **Responsiveness** (4 questions) — prompt service and willingness to help
-   - **Assurance** (4 questions) — trust, safety, politeness
-   - **Empathy** (5 questions) — individual attention and convenient hours
-5. Edit question text, remove questions, or select **+ Add question** to add your own.
-6. Select **Save Configuration**.
+1. Open **Feedback → Survey Forms** and select **Create form**.
+2. Enter a **Title** (for example, *Client Satisfaction Survey*) and an optional **Description**. The title is for your team; clients see the questions, not the form name.
+3. Add questions with **+ Add question**. Each question has a type:
+   - **Likert** — five-point agree/disagree scale with faces (Strongly Disagree → Strongly Agree).
+   - **Rating** — five-star scale (Poor → Excellent).
+   - **Text** — free-written answer.
+   - **Radio** — single choice from a list.
+   - **Checkbox** — multiple choices from a list.
+4. Mark required questions where an answer must be given.
+5. Select **Save**. New forms start inactive.
 
-Your first agency default is activated automatically. Additional default forms are saved as **Inactive** until you make one active.
+## Activating a form
 
-> Several standard SERVQUAL questions (in Responsiveness and Empathy) are deliberately phrased negatively — for example, "The agency's employees are NOT always willing to help you." This is part of the original SERVQUAL instrument. You may reword them if your team prefers consistently positive phrasing.
+Only one form per agency can be active. Open the form and select **Activate** — the previously active form is deactivated automatically, and new invitations start using the newly activated one.
 
-![SERVQUAL configuration form](/assets/helpdesk/servqual-config-form.png)
+## Editing and deleting
 
-## Managing forms from the list
-
-The configuration list shows each form's **Assignment**, **Questions** count, **Status**, and **Created** date, with these actions:
-
-- **Make active** — promote an inactive default form. The previously active default is deactivated automatically.
-- **Assign service** — turn a form into a service override. Choose the service in the dialog and select **Assign**. A service that already has a form cannot receive a second one.
-- **Unassign** — remove a service override. If an agency default exists, the override is deleted and the default takes over for that service; if no default exists, the form becomes your agency default.
-- **Edit** — change the name, assignment, or questions.
-- **Delete** — remove a form. The active default cannot be deleted while other forms exist; activate another default first.
+- A form can be edited only while **no invitations have been sent from it**. Once invitations exist, the form becomes immutable and the system asks you to **create a replacement form instead** — this protects the meaning of answers already collected.
+- Inactive forms with no invitations can be deleted. An active form cannot be deleted while other forms exist; activate another form first.
 
 ## Where responses go
 
-Client answers appear on your **Feedback Dashboard**, scored per question (expectation and experience ratings from 1 to 5) and averaged per SERVQUAL dimension. See *Reading your agency feedback dashboard* for how to interpret the results.
+Client answers appear under **Feedback → Survey Responses**, one row per submitted invitation. See *Reading your agency feedback* for how to interpret the results.
 `;
 export default content;

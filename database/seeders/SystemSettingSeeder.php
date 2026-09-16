@@ -33,10 +33,5 @@ class SystemSettingSeeder extends Seeder
             ['key' => 'debug_tracking_otp_enabled'],
             ['value' => 'false'],
         );
-
-        SystemSetting::firstOrCreate(
-            ['key' => 'default_servqual_questions'],
-            ['value' => '[]'],
-        );
     }
 }

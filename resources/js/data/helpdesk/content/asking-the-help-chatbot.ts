@@ -21,6 +21,10 @@ article title to read the full guide. An answer can cite more than one article;
 agency directory information is labeled separately. If the available content does
 not answer your question, the assistant will say so or ask you to clarify.
 
+## How it finds answers
+
+The chatbot is a public endpoint (**POST /chatbot/message**) answered by the HelpdeskAgent. It matches your question against the help center using in-memory weighted token matching — title words count most, then section headings, then body text — over the cached parsed article corpus. There is no vector database and no embedding index; the cache is pre-warmed by an index command and invalidates automatically when article content changes. Requests pass bot protection and rate limiting, so very rapid repeat messages may be throttled.
+
 ## What it's good at
 
 - Explaining how things work: tracking, feedback, requirements, which agency handles what.
@@ -29,7 +33,7 @@ not answer your question, the assistant will say so or ask you to clarify.
 
 ## What it can't do
 
-- **It cannot see your case.** For your actual status, use the [tracking portal](/track) with your tracker number and OTP — the chatbot will point you there.
+- **It cannot see your case.** For your actual status, use the [tracking portal](/track) with your tracker number and the OTP emailed to your registered address — the chatbot will point you there.
 - It can't change anything on your behalf or contact an agency for you.
 - Like any AI assistant it can occasionally be imprecise — for decisions that matter, confirm against the linked help article or ask staff via the [contact page](/contact).
 

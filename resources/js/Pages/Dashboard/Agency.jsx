@@ -145,10 +145,9 @@ export default function AgencyDashboard({ dashboard = {} }) {
                     <SectionCard title="Client feedback" action={<ViewAllLink href="/surveys" />}>
                         {hasPulse ? (
                             <div className="space-y-3">
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 gap-2">
                                     <PulseStat label="Response" value={`${formatCount(pulse.responseRate)}%`} />
                                     <PulseStat label="Rating" value={pulse.avgRating ?? '—'} />
-                                    <PulseStat label="SERVQUAL" value={pulse.avgServqual ?? '—'} />
                                 </div>
                                 <p className="text-xs text-slate-500">
                                     {formatCount(pulse.totalSubmitted)} of {formatCount(pulse.totalSent)} invitations answered.

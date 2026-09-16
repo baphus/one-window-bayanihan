@@ -10,7 +10,7 @@ Only **OPEN** cases can be referred. Search by tracker number, case number, or t
 
 ## Step 2 — Select Agency
 
-Choose the receiving agency. If the case **already has a referral to that agency**, the wizard flags it and blocks the duplicate — coordinate on the existing referral instead of creating a second one. To compare agencies before choosing, see *Using the stakeholder directory*.
+Choose the receiving agency. If the case **already has an active referral to that agency** (any referral still **PENDING**, **PROCESSING**, or **FOR_COMPLIANCE**), the wizard flags it and blocks the duplicate — coordinate on the existing referral instead of creating a second one. To compare agencies before choosing, see *Using the stakeholder directory*.
 
 ## Step 3 — Select Service and attach requirements
 
@@ -27,9 +27,11 @@ Documents attached in the wizard become the referral's attachments, labeled per 
 
 ## After sending
 
-- Track the referral's status (*Pending → Processing → … → Completed*) and milestones on the referral page — see *Referral status reference*.
+- Track the referral's status (**PENDING → PROCESSING → … → COMPLETED**, with **FOR_COMPLIANCE** and **REJECTED** as branches) and milestones on the referral page — see *Referral status reference*. There is no direct **PENDING → COMPLETED** jump, and repeating the current status is a harmless no-op.
+- Services can still be adjusted afterwards: add a service or remove one from the referral page, and manage each service's document requirements (add, update, or delete) as needs change.
+- For document handoffs that need the client directly, agencies can open a client-request thread (secure token link plus the track-request exchange) instead of routing everything through comments.
 - Use referral **comments** to coordinate with the agency, choosing the right visibility for each note — see *Using referral comments*.
-- Watch aging referrals on the **Overdue referrals** page and your notifications feed.
+- Watch aging referrals on the **Overdue referrals** page and your notifications feed. When the referral is finally marked **COMPLETED**, the client automatically receives a survey invitation.
 
 > A well-targeted referral — right service, complete documents — is the single biggest factor in fast processing. Referrals with missing documents typically bounce back as *For Compliance*, adding days of back-and-forth.
 `;

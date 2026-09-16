@@ -126,38 +126,6 @@ class StagingSeeder extends Seeder
         'Passport copy', 'Employment contract copy', 'Barangay clearance',
     ];
 
-    /**
-     * Classic 22-item SERVQUAL instrument (Tangibles 4, Reliability 5,
-     * Responsiveness 4, Assurance 4, Empathy 5). Used when the
-     * default_servqual_questions system setting is empty (it ships as '[]').
-     *
-     * @var list<array{question: string, dimension: string}>
-     */
-    private const SERVQUAL_INSTRUMENT = [
-        ['question' => 'Up-to-date equipment and facilities', 'dimension' => 'Tangibles'],
-        ['question' => 'Visually appealing physical facilities', 'dimension' => 'Tangibles'],
-        ['question' => 'Neat and professional staff appearance', 'dimension' => 'Tangibles'],
-        ['question' => 'Physical facilities in keeping with the service', 'dimension' => 'Tangibles'],
-        ['question' => 'Promises are fulfilled on time', 'dimension' => 'Reliability'],
-        ['question' => 'Sincere interest in solving client problems', 'dimension' => 'Reliability'],
-        ['question' => 'Service performed right the first time', 'dimension' => 'Reliability'],
-        ['question' => 'Service provided at the promised time', 'dimension' => 'Reliability'],
-        ['question' => 'Accurate records and documentation', 'dimension' => 'Reliability'],
-        ['question' => 'Staff inform clients when services will be performed', 'dimension' => 'Responsiveness'],
-        ['question' => 'Prompt service to clients', 'dimension' => 'Responsiveness'],
-        ['question' => 'Willingness to help clients', 'dimension' => 'Responsiveness'],
-        ['question' => 'Staff are never too busy to respond', 'dimension' => 'Responsiveness'],
-        ['question' => 'Staff behavior instills confidence', 'dimension' => 'Assurance'],
-        ['question' => 'Clients feel safe in transactions', 'dimension' => 'Assurance'],
-        ['question' => 'Staff are consistently courteous', 'dimension' => 'Assurance'],
-        ['question' => 'Staff have knowledge to answer questions', 'dimension' => 'Assurance'],
-        ['question' => 'Individual attention to clients', 'dimension' => 'Empathy'],
-        ['question' => 'Convenient operating hours', 'dimension' => 'Empathy'],
-        ['question' => 'Personal attention from staff', 'dimension' => 'Empathy'],
-        ['question' => 'Best interests of clients at heart', 'dimension' => 'Empathy'],
-        ['question' => 'Understanding of specific client needs', 'dimension' => 'Empathy'],
-    ];
-
     private StagingDataFactory $factory;
 
     private TemporalEngine $time;
@@ -261,8 +229,6 @@ class StagingSeeder extends Seeder
         'survey_questions',
         'survey_invitations',
         'survey_responses',
-        'feedback',
-        'feedback_servqual_responses',
         'email_logs',
         'email_events',
     ];
@@ -296,7 +262,7 @@ class StagingSeeder extends Seeder
             $this->seedReferrals();
             $this->seedCollaboration();
             $this->seedClientRequests();
-            $this->seedSurveysAndFeedback();
+            $this->seedSurveys();
             $this->seedEmailLogs();
             $this->seedAuditTrail();
         });
@@ -1546,17 +1512,15 @@ class StagingSeeder extends Seeder
     }
 
     // ------------------------------------------------------------------
-    // T8 — surveys + feedback
+    // T8 — surveys
     // ------------------------------------------------------------------
 
-    private function seedSurveysAndFeedback(): void
+    private function seedSurveys(): void
     {
         $formRows = [];
         $questionRows = [];
         $invitationRows = [];
         $responseRows = [];
-        $feedbackRows = [];
-        $servqualRows = [];
 
         $activeByAgency = [];
 
@@ -1631,7 +1595,6 @@ class StagingSeeder extends Seeder
         $this->chunkInsert('survey_questions', $questionRows);
 
         $usedTokens = [];
-        $completedReferralIds = [];
 
         foreach ($this->referrals as $referralId => $referral) {
             $case = $this->cases[$referral['case_id']];
@@ -1702,85 +1665,12 @@ class StagingSeeder extends Seeder
                 );
             }
 
-            if ($referral['status'] === 'COMPLETED') {
-                $completedReferralIds[] = $referralId;
-            }
         }
 
         $this->chunkInsert('survey_invitations', $invitationRows, 500);
         $this->chunkInsert('survey_responses', $responseRows, 500);
 
-        // Feedback on a distinct subset of COMPLETED referrals (UNIQUE
-        // case/agency/referral guard holds by construction).
-        $completedReferralIds = $this->factory->shuffle($completedReferralIds);
-        $feedbackTargets = array_slice($completedReferralIds, 0, VolumeModel::FEEDBACK);
-        $servqualQuestions = $this->servqualQuestions();
-
-        foreach ($feedbackTargets as $referralId) {
-            $referral = $this->referrals[$referralId];
-            $case = $this->cases[$referral['case_id']];
-
-            if ($case['is_deleted'] || $referral['is_deleted']) {
-                continue;
-            }
-
-            $created = $this->time->clientDateTime(
-                $referral['completed_at']->copy()->addDays($this->factory->int(1, 10))
-            );
-            $created = $this->noLaterThan($created);
-
-            if ($created->lt($referral['completed_at'])) {
-                $created = $referral['completed_at']->copy();
-            }
-
-            $feedbackId = $this->factory->uuid();
-            $feedbackRows[] = [
-                'id' => $feedbackId,
-                'case_id' => $referral['case_id'],
-                'agency_id' => $referral['agency_id'],
-                'referral_id' => $referralId,
-                'service_name' => $referral['service'],
-                'overall_rating' => $this->factory->int(1, 100) <= 20 ? 3 : $this->factory->pick([4, 5]),
-                'comments' => $this->factory->feedbackComment(),
-                'created_at' => $created,
-                'updated_at' => $created,
-            ];
-
-            foreach ($servqualQuestions as $item) {
-                // A response session can run up to 2h; keep every item
-                // inside client hours (07:00–21:00) instead of spilling
-                // past 21:00 on late-evening feedback.
-                $eveningEnd = $created->copy()->setTime(21, 0, 0);
-                $at = $this->noLaterThan($created->copy()->addMinutes($this->factory->int(1, 120)));
-
-                if ($at->gt($eveningEnd)) {
-                    $at = $eveningEnd->copy();
-                }
-                $servqualRows[] = [
-                    'id' => $this->factory->uuid(),
-                    'feedback_id' => $feedbackId,
-                    'question_id' => $this->factory->uuid(),
-                    'question_text' => $item['question'],
-                    'dimension' => $item['dimension'],
-                    'expectation' => $this->factory->int(3, 5),
-                    'perception' => $this->factory->int(1, 5),
-                    'created_at' => $at,
-                    'updated_at' => $at,
-                ];
-            }
-
-            $this->pushEmail(
-                $case['email'],
-                'Thank you for your feedback',
-                'App\\Mail\\ClientUpdateMail',
-                $created
-            );
-        }
-
-        $this->chunkInsert('feedback', $feedbackRows, 500);
-        $this->chunkInsert('feedback_servqual_responses', $servqualRows, 500);
-
-        unset($formRows, $questionRows, $invitationRows, $responseRows, $feedbackRows, $servqualRows);
+        unset($formRows, $questionRows, $invitationRows, $responseRows);
     }
 
     private function agencySurveyTitle(string $slug): string
@@ -1833,28 +1723,6 @@ class StagingSeeder extends Seeder
             'text' => $this->factory->feedbackComment(),
             default => null,
         };
-    }
-
-    /**
-     * SERVQUAL items: system setting wins when populated, otherwise the
-     * built-in 22-item instrument.
-     *
-     * @return list<array{question: string, dimension: string}>
-     */
-    private function servqualQuestions(): array
-    {
-        $raw = DB::table('system_settings')->where('key', 'default_servqual_questions')->value('value');
-        $decoded = json_decode($raw ?? '[]', true);
-
-        if (is_array($decoded) && $decoded !== []) {
-            return array_values(array_filter(
-                $decoded,
-                fn ($item) => is_array($item) && isset($item['question'])
-                    && isset($item['dimension'])
-            ));
-        }
-
-        return self::SERVQUAL_INSTRUMENT;
     }
 
     // ------------------------------------------------------------------
@@ -1968,7 +1836,7 @@ class StagingSeeder extends Seeder
         $this->seedReferralAudit($writer);
         $this->seedTimelineAudit($writer);
         $this->seedRequestAudit($writer);
-        $this->seedFeedbackSurveyAudit($writer);
+        $this->seedSurveyAudit($writer);
 
         $inserted = $writer->finalize();
         $this->stats['audit_logs'] = ($this->stats['audit_logs'] ?? 0) + $inserted;
@@ -2317,17 +2185,11 @@ class StagingSeeder extends Seeder
     }
 
     /**
-     * Feedback submits, survey invitation sends and client responses —
-     * client-side events, so no user_id/ip is attributed.
+     * Survey invitation sends and client responses — client-side events, so
+     * no user_id/ip is attributed.
      */
-    private function seedFeedbackSurveyAudit(AuditChainWriter $writer): void
+    private function seedSurveyAudit(AuditChainWriter $writer): void
     {
-        DB::table('feedback')->select('id', 'created_at')->orderBy('created_at')->orderBy('id')->chunk(1000, function ($rows) use ($writer) {
-            foreach ($rows as $row) {
-                $this->pushAudit($writer, AuditAction::CREATE->value, AuditModule::FEEDBACK->value, $row->id, null, $this->auditLag(Carbon::parse($row->created_at), 30), null, null, null);
-            }
-        });
-
         DB::table('survey_invitations')->select('id', 'created_at')->orderBy('created_at')->orderBy('id')->chunk(1000, function ($rows) use ($writer) {
             foreach ($rows as $row) {
                 $this->pushAudit($writer, AuditAction::CREATE->value, AuditModule::SURVEY_INVITATION->value, $row->id, null, $this->auditLag(Carbon::parse($row->created_at), 30), null, null, null);

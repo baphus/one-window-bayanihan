@@ -1,6 +1,6 @@
 const content = `# User Management Guide
 
-Administrators manage staff accounts from **Admin → Users**. User management controls who can access cases, referrals, reports, and administrative functions. The page shows totals for active users, case managers, agency focals, and admins, and can be filtered by search, role, active status, and agency.
+Administrators manage staff accounts from **Admin → Users**. User management controls who can access cases, referrals, reports, and administrative functions. The page shows totals for active users, case managers, agency focals, and admins, and can be filtered by search, role, active status, and agency. Client (OFW) accounts are excluded from this staff list.
 
 ![Admin users](/assets/helpdesk/admin-users.png)
 
@@ -14,21 +14,21 @@ Assign the least-privileged role that supports the user's work:
 
 ## Creating an account
 
-New accounts need a name, email, role, and a strong password (minimum 8 characters with mixed case, numbers, and symbols). Accounts are created active with a verified email — the user can sign in immediately and should change their password and set up MFA (see *Securing your account: password and MFA*).
+Staff accounts are invite-only:
+
+1. Create the invite from **Admin → Users** with name, email, role (and agency for AGENCY accounts), and a strong password (minimum 8 characters with mixed case, numbers, and symbols).
+2. The invited user completes registration through the invite token link (\`invite/{token}\`).
+3. The user signs in with password plus optional authenticator (TOTP). There is no login email-OTP — sign-in codes are never emailed.
+
+New users should change their password and set up MFA promptly (see *Securing your account: password and MFA*).
 
 ## Verifying and unverifying
 
 The **verify** action toggles a user's email-verified state. Unverifying blocks access to routes requiring a verified account; use it when an email address is in doubt. Deleted or deactivated users cannot be toggled.
 
-## Changing a user's email (OTP flow)
+## Changing a user's email
 
-Email changes are deliberately high-friction:
-
-1. Start the email change from the user's record. You must confirm **your own admin password**.
-2. A **6-digit one-time code** is sent for confirmation.
-3. Enter the code to complete the change. The user is notified their email was changed.
-
-This prevents silent account takeover through a compromised admin session.
+Email changes are deliberately high-friction and verified with a one-time code sent for confirmation. This prevents silent account takeover through a compromised admin session. The user is notified their email was changed.
 
 ## Deactivating and deleting
 

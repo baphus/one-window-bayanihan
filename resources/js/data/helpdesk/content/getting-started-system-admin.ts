@@ -8,13 +8,11 @@ This tutorial is for users with the **ADMIN** role. Administrators maintain the 
 
 1. Open the login page from an approved network location if IP restrictions are enabled.
 2. Enter your administrator **email address** and **password**.
-3. Complete OTP/MFA verification.
+3. If MFA is enabled on your account, complete the MFA challenge with your authenticator app code or a recovery code.
 
-![OTP verification](/assets/helpdesk/login-otp.png)
+> **Important:** Never ask another user to share a code or password. Each person must use their own invited account so the audit trail stays accurate.
 
-> **Important:** OTP codes expire after **5 minutes**. Request a new code if the first one expires. Never ask another user to share an OTP.
-
-After successful verification, you will see the administrator dashboard.
+After successful sign-in, you will see the administrator dashboard.
 
 ![Admin dashboard](/assets/helpdesk/dashboard-admin.png)
 
@@ -37,7 +35,7 @@ Use the least-privilege principle: assign users only the role they need.
 
 ![Admin users](/assets/helpdesk/admin-users.png)
 
-Go to the administrator user-management area to create or maintain accounts.
+Go to the administrator user-management area to create or maintain accounts. Staff accounts are created by invitation; there is no open self-registration for staff roles.
 
 The supported application roles are:
 
@@ -46,6 +44,7 @@ The supported application roles are:
 | **CASE_MANAGER** | DMW staff who create cases, manage drafts, publish cases, create referrals, monitor dashboards, and view reports. |
 | **AGENCY** | Partner agency focal persons who work only on referrals scoped to their agency. |
 | **ADMIN** | System administrators who maintain users, agencies, services, settings, audit logs, and maintenance/security pages. |
+| **OFW** | OFWs and authorized contacts who file requests through public intake and follow their own cases in the OFW portal. |
 
 When creating or editing a user:
 

@@ -2,6 +2,8 @@ const content = `# Referral Documents and Compliance Uploads
 
 Documents reach a referral in two ways: they are **attached while creating the referral**, or they are **uploaded later to fulfill a compliance requirement** that was deferred at creation. This article walks both flows and the rules that apply to every file.
 
+Note the split: **case documents** (the case-level file store) and **referral attachments** (files tied to one referral) are separate stores with separate permissions. Case documents can be read by Case Managers, Agency Focal Persons, and Admins, but only Case Managers and Admins can upload or delete them.
+
 ![For Compliance section on a referral](/assets/helpdesk/referrals-compliance.png)
 
 ## Who can work with referral documents
@@ -37,15 +39,15 @@ To fulfill a pending requirement, use **Upload to Fulfill** and pick the file. T
 ## File rules
 
 > **Accepted types:** PDF, DOC, DOCX, JPG, JPEG, PNG.
-> **Size limit:** up to 20 MB per file (default; your administrator can change this).
+> **Size limit:** up to 20 MB per file by default (set by the upload-size configuration; your administrator can change it — the referral creation form may enforce a smaller per-file cap, so follow the on-screen message if an upload is rejected for size).
 
-Uploads that fail these checks are rejected with an error before anything is saved.
+Uploads that fail these checks are rejected with an error before anything is saved, and every file is malware-scanned on upload — infected files are rejected.
 
 ## Behind the scenes
 
 - Every document upload is recorded in the **audit log** automatically.
-- Files are stored securely and served through expiring links rather than public URLs.
-- The system keeps earlier versions of a replaced document server-side, but a per-file version history is not currently exposed anywhere in the app's pages.
+- Files live in object storage and are served through expiring links (24-hour validity) rather than public URLs.
+- Replacing an attachment keeps the earlier copy server-side: the per-file version history is available through the attachment-versions endpoint on the referral, so prior versions are retrievable instead of lost.
 
 ## Related articles
 

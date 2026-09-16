@@ -1,6 +1,6 @@
 # Data Model
 
-> **Version:** 2.2.0 | **Updated:** 2026-09-15 | **Source:** `database/migrations/` (57 files), `app/Models/*.php` (40 models + 4 concerns), `config/audit.php`, `config/filesystems.php`, `phpunit.xml`
+> **Version:** 2.2.0 | **Updated:** 2026-09-15 | **Source:** `database/migrations/` (59 files), `app/Models/*.php` (40 models + 4 concerns), `config/audit.php`, `config/filesystems.php`, `phpunit.xml`
 
 ## Overview
 
@@ -95,10 +95,10 @@ Reports, dashboard, and referral code leans on PostgreSQL functions — not port
 | 33 | `referral_client_message_attachments` | **NEW** Inbox message attachments | `2026_08_13_000002` |
 | 34 | `referral_messages` | **NEW** Agency-to-agency message threads | `2026_09_08_000001` |
 | 35 | `agency_thread_reads` | **NEW** Per-user agency thread read markers (composite PK) | `2026_09_08_000001` |
-| 36 | `feedback` | SERVQUAL feedback responses | Feedback |
-| 37 | `feedback_servqual_responses` | Individual SERVQUAL question responses | Feedback |
-| 38 | `servqual_configs` | Agency feedback form configurations | Feedback |
-| 39 | `feedback_invitations` | Token-based feedback invitations | `2026_07_04_000001` |
+| 36 | ~~`feedback`~~ | **DROPPED** `2026_09_16_000002` (Gen 1 SERVQUAL stack retired; live feedback runs on `survey_*` below) | — |
+| 37 | ~~`feedback_servqual_responses`~~ | **DROPPED** `2026_09_16_000002` | — |
+| 38 | ~~`servqual_configs`~~ | **DROPPED** `2026_09_16_000002` | — |
+| 39 | ~~`feedback_invitations`~~ | **DROPPED** `2026_09_16_000002` | — |
 | 40 | `survey_forms` | **NEW** Survey forms (one active per agency) | `2026_07_14_000001` |
 | 41 | `survey_questions` | **NEW** Survey form questions | `2026_07_14_000001` |
 | 42 | `survey_invitations` | **NEW** Hashed-token survey invitations | `2026_07_14_000001` + `000002` |
@@ -112,7 +112,7 @@ Reports, dashboard, and referral code leans on PostgreSQL functions — not port
 | 50 | `case_number_counters` | **NEW** Monthly (`YYYYMM`) case-number allocation | `2026_07_27_000001` → monthly `2026_07_28_000001` |
 | 51 | `generated_documents` | **NEW** Async export/report job records | `2026_07_24_051214` |
 | 52 | `user_invites` | **NEW** Staff invitation tokens | `2026_07_20_000001` |
-| 53 | `chatbot_embeddings` | **NEW** Chatbot corpus table (no Eloquent model; retired from query path) | `2026_07_26_120000` + FTS `134507` |
+| 53 | ~~`chatbot_embeddings`~~ | **DROPPED** `2026_09_16_000001` (retired vector corpus; no Eloquent model was ever used — chatbot uses the file-based helpdesk corpus) | — |
 
 Dropped before v2.1.0 (noted for migration archaeology, no sections below): `case_comments` (`2026_07_02`), `philippine_addresses` (`2026_07_08_000001` — addresses are stateless files now, see `docs/PSGC_ADDRESSES_v1.0.0.md`), `referrals.type` column (`2026_07_03`), `cases.escalated_at` (`2026_07_08_000002`).
 
@@ -645,75 +645,9 @@ Append-only, client-facing case history. Rows are never updated or deleted — c
 
 **Indexes:** `(case_id, client_email)`, `(read_at)`. No `SoftDeleteFlag` (deletion semantics unverified).
 
-### feedback
+### feedback, feedback_servqual_responses, servqual_configs, feedback_invitations — DROPPED (2026-09-16)
 
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | uuid | PK | |
-| `case_id` | uuid | FK → cases.id | |
-| `agency_id` | uuid | FK → agencies.id, nullable | |
-| `referral_id` | uuid | FK → referrals.id, nullable | |
-| `service_id` | uuid | FK → services.id, nullable | Added `2026_07_10_000001` |
-| `service_name` | string | nullable | Denormalized |
-| `overall_rating` | integer | nullable | |
-| `comments` | text | nullable | |
-| `created_at` / `updated_at` | timestamp | | |
-
-**Unique:** `(case_id, agency_id, referral_id)`
-
-### feedback_servqual_responses
-
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | uuid | PK | |
-| `feedback_id` | uuid | FK → feedback.id (CASCADE) | |
-| `question_id` | string | NOT NULL | |
-| `question_text` | text | NOT NULL | Snapshot |
-| `dimension` | string | NOT NULL | SERVQUAL dimension |
-| `expectation` | integer | nullable | 1-7 scale |
-| `perception` | integer | nullable | 1-7 scale |
-| `created_at` / `updated_at` | timestamp | | |
-
-### servqual_configs
-
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | uuid | PK | |
-| `agency_id` | uuid | FK → agencies.id | |
-| `service_id` | uuid | FK → services.id, nullable | Added `2026_07_10_000001` |
-| `name` | string | nullable | Config display name |
-| `service_name` | string | NOT NULL | Legacy name field |
-| `questions` | json | NOT NULL | Question definitions |
-| `is_active` | boolean | default: false | |
-| `activated_at` | timestamp | nullable | |
-| `created_at` / `updated_at` | timestamp | | |
-
-**Partial unique indexes:**
-- `(agency_id) WHERE service_id IS NULL` — one default config per agency
-- `(agency_id, service_id) WHERE service_id IS NOT NULL` — one config per agency+service
-
-### feedback_invitations
-
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | uuid | PK | |
-| `case_id` | uuid | FK → cases.id | |
-| `agency_id` | uuid | FK → agencies.id | |
-| `referral_id` | uuid | FK → referrals.id | |
-| `service_id` | uuid | FK → services.id, nullable | |
-| `client_email` | string | nullable | |
-| `token_prefix` | string(16) | NOT NULL | URL-safe prefix |
-| `token_hash` | string(64) | NOT NULL | SHA-256 hash |
-| `service_name` | string | nullable | |
-| `snapshot_source` | string(32) | default: 'agency_active_form' | |
-| `form_snapshot` | json | NOT NULL | Frozen form at invite time |
-| `rating_labels` | json | NOT NULL | Scale labels |
-| `expires_at` | timestamp | NOT NULL | |
-| `submitted_at` | timestamp | nullable | |
-| `used_feedback_id` | uuid | FK → feedback.id, UNIQUE, nullable | |
-| `created_at` / `updated_at` | timestamp | | |
-
-**Unique:** `(case_id, agency_id, referral_id)`
+Gen 1 SERVQUAL stack, dropped by `2026_09_16_000002` (see `docs/FEEDBACK_FEATURE_RESEARCH_2026-09-16.md`). Had no models, routes, or controllers — only export reads. Live feedback runs on `survey_forms` / `survey_questions` / `survey_invitations` / `survey_responses` below. Full pre-drop schema preserved in git history.
 
 ### survey_forms — NEW (2026-07-14)
 
@@ -923,9 +857,9 @@ Async export/report job records (case PDFs, system reports, CSV exports, admin f
 
 No `SoftDeleteFlag` (deletion semantics unverified).
 
-### chatbot_embeddings — NEW (2026-07-26)
+### chatbot_embeddings — DROPPED (2026-09-16)
 
-Corpus table with FTS index (`2026_07_26_134507`). No Eloquent model; retired from the query path (the chatbot now uses an in-memory weighted token match over the cached parsed helpdesk corpus — pre-warm via `php artisan chatbot:index`).
+Retired vector corpus table, dropped by `2026_09_16_000001`. It had no Eloquent model and was already retired from the query path; the chatbot uses an in-memory weighted token match over the cached parsed helpdesk corpus — pre-warm via `php artisan chatbot:index`. The original create migrations (`2026_07_26_120000`, `2026_07_26_134507`) are stubbed no-ops kept for migration identity.
 
 ---
 
@@ -947,12 +881,9 @@ users ─┬── agencies (agcy_id)
 agencies ─┬── users (agcy_id)
           ├── services (agcy_id)
           ├── referrals (agcy_id)
-          ├── survey_forms (agency_id)
-          ├── survey_invitations (agency_id)
-          ├── agency_thread_reads (peer_agency_id)
-          ├── feedback (agency_id)
-          ├── servqual_configs (agency_id)
-          └── feedback_invitations (agency_id)
+           ├── survey_forms (agency_id)
+           ├── survey_invitations (agency_id)
+           └── agency_thread_reads (peer_agency_id)
 
 services ─┬── service_requirements (service_id)
           ├── referral_services >── referrals
@@ -971,8 +902,7 @@ cases ─┬── referrals (case_id)
        ├── case_events (case_id)
        ├── referral_messages via referrals
        ├── agency_thread_reads (case_id)
-       ├── survey_invitations (case_id)
-       └── feedback (case_id)
+   └── survey_invitations (case_id)
 
 referrals ─┬── milestones (refr_id)
            ├── referral_attachments (referral_id)

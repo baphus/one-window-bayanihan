@@ -28,13 +28,17 @@ Compliance requirements have statuses such as **PENDING** and **COMPLIED** and a
 
 Confirm the record explains the original concern, client circumstances, vulnerability indicators, agencies involved, compliance requested and received, referral outcomes, final action, and any instructions given to the client.
 
+## Status transitions are guarded
+
+Referral statuses follow a fixed transition map with idempotent self-transitions: repeating the current status is a harmless no-op. Note there is no direct **PENDING → COMPLETED** path — a referral must move through **PROCESSING** (or **FOR_COMPLIANCE**) first. Marking a referral **COMPLETED** fires the completion event, which queues a survey invitation so the client can give feedback.
+
 ## Closure steps
 
 1. Open the case details page.
 2. Review the summary and referrals.
 3. Add missing milestones or comments before changing status.
-4. Mark the case **CLOSED**.
+4. Mark the case **CLOSED** (toggle-status).
 5. Confirm the closure date is reflected.
-6. Tell the client how to use tracking and feedback when appropriate.
+6. Tell the client how to use tracking and feedback when appropriate — completed referrals already trigger a survey invitation automatically.
 `;
 export default content;

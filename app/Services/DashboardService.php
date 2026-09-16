@@ -393,7 +393,6 @@ class DashboardService
                 'totalSubmitted' => 0,
                 'responseRate' => 0,
                 'avgRating' => null,
-                'avgServqual' => null,
                 'href' => '/surveys',
             ];
         }
@@ -414,7 +413,6 @@ class DashboardService
             'totalSubmitted' => $totalSubmitted,
             'responseRate' => $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0,
             'avgRating' => null,
-            'avgServqual' => null,
             'href' => '/surveys',
         ];
     }

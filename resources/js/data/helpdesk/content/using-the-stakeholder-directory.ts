@@ -9,7 +9,7 @@ The **Stakeholders** page gives Case Managers and Administrators an internal dir
 Each active agency appears with its services and referral activity. Opening an agency shows:
 
 - **Services with requirements** — every service the agency offers and the documents each service needs. This is the same requirement list that referral creation will ask you to satisfy.
-- **Referral statistics** — total referrals, **active** referrals (Pending, Processing, or For Compliance), and **completed** referrals with this agency.
+- **Referral statistics** — total referrals, **active** referrals (**PENDING**, **PROCESSING**, or **FOR_COMPLIANCE**), and **COMPLETED** referrals with this agency.
 
 ## How this helps your referrals
 

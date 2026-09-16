@@ -1,6 +1,6 @@
 const content = `# Managing Compliance Requirements
 
-Compliance requirements track documents or proof needed before a referral can proceed. They use statuses such as **PENDING** and **COMPLIED** and are fulfilled through attachments.
+Compliance requirements track documents or proof needed before a referral can proceed. They are managed per referral service and use statuses such as **PENDING** and **COMPLIED**, fulfilled through attachments (stored in S3-compatible object storage).
 
 ![Referral compliance requirements](/assets/helpdesk/referrals-compliance.png)
 
@@ -12,7 +12,7 @@ Examples include clear passport copies, employment contract pages, proof of repa
 
 ## Writing good requirements
 
-Be specific. Instead of “documents needed,” write “Clear copy of employment contract showing employer name and signature page.” Include document name, quality requirement, deadline if any, and upload instructions.
+Be specific. Instead of "documents needed," write "Clear copy of employment contract showing employer name and signature page." Include document name, quality requirement, deadline if any, and upload instructions.
 
 ## Fulfilling requirements
 
@@ -27,6 +27,6 @@ Be specific. Instead of “documents needed,” write “Clear copy of employmen
 
 ## Common mistakes
 
-Avoid marking **COMPLIED** before review, combining unrelated documents in one requirement, using comments instead of compliance records for required attachments, completing a referral while items remain **PENDING**, or uploading documents to the wrong referral.
+Avoid marking **COMPLIED** before review, combining unrelated documents in one requirement, using comments instead of compliance records for required attachments, completing a referral while items remain **PENDING** (see *Referral status reference* — a referral with pending compliance should not be treated as complete), or uploading documents to the wrong referral.
 `;
 export default content;
