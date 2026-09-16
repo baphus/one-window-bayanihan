@@ -14,10 +14,8 @@ namespace Database\Seeders;
  * │   5. cases                      (FK → clients.id, case_categories.id, case_issues.id, users.id)
  * │   6. referrals                  (FK → cases.id, agencies.id)
  * │   7. he geomilestones                 (FK → referrals.id, users.id)
- * │   8. feedback                   (FK → cases.id, agencies.id, referrals.id; UNIQUE case+agency+referral)
- * │   9. feedback_servqual_responses (FK → feedback.id)
- * │  10. alerts                     (FK → users.id)
- * │  11. audit_logs                 (FK → users.id)
+ * │   8. alerts                     (FK → users.id)
+ * │   9. audit_logs                 (FK → users.id)
  * │
  * │ Total rows: ~4000
  * │ Works on: PostgreSQL
@@ -176,11 +174,6 @@ class TestingSeeder extends Seeder
             $firstServicePerAgency[$agency->id] = $name ?? 'General Assistance';
         }
 
-        $servqualSettings = DB::table('system_settings')
-            ->where('key', 'default_servqual_questions')
-            ->value('value');
-        $servqualQuestions = json_decode($servqualSettings ?? '[]', true);
-
         // ---------------------------------------------------------------------
         // Filipino name pools
         // ---------------------------------------------------------------------
@@ -296,21 +289,6 @@ class TestingSeeder extends Seeder
         ];
 
         $relationships = ['Spouse', 'Parent', 'Sibling', 'Child'];
-
-        $feedbackComments = [
-            'Maayos ang serbisyo ng ahensya. Salamat po!',
-            'Mabilis ang processing ng mga documents.',
-            'Magalang at matulungin ang mga staff.',
-            'Sana po mapabilis pa ang proseso.',
-            'Satisfied naman ako sa assistance na natanggap.',
-            'Mabagal minsan ang response pero okay naman ang resulta.',
-            'Malaking tulong ito sa mga OFW na katulad ko.',
-            'Maayos ang pag-handle ng aking kaso.',
-            'Salamat sa mabilis na action sa aking reklamo.',
-            'Maganda ang serbisyo, maraming salamat!',
-            'Excellent service from the agency staff.',
-            'Very helpful and responsive to my concerns.',
-        ];
 
         // Shuffle name pools for better distribution
         shuffle($femaleNames);
@@ -660,8 +638,6 @@ class TestingSeeder extends Seeder
 
         $referrals = [];
         $referralIds = [];
-        $completedReferralIds = []; // for feedback later
-        $completedReferralInfo = []; // [refId => ['case_id' => ..., 'agcy_id' => ...]]
 
         DB::beginTransaction();
 
@@ -705,12 +681,6 @@ class TestingSeeder extends Seeder
                     $firstActionAt = $refCreatedAt->copy()->addDays(rand(1, 5));
                     $referralAssignedAt = $refCreatedAt->copy()->addDays(rand(1, 3));
                     $refUpdatedAt = $firstActionAt->copy()->addDays(rand(7, 30));
-
-                    $completedReferralIds[] = $refId;
-                    $completedReferralInfo[$refId] = [
-                        'case_id' => $caseId,
-                        'agcy_id' => $agencyId,
-                    ];
                 } elseif ($refStatus === 'REJECTED') {
                     $decision = 'REJECT';
                     $decisionComment = 'Requirements not met';
@@ -881,89 +851,7 @@ class TestingSeeder extends Seeder
         unset($milestones);
 
         // =====================================================================
-        // 8. FEEDBACK  (50 rows — random subset of COMPLETED referrals)
-        //    Uses $usedFeedbackKeys set to avoid UNIQUE(case_id, agency_id, referral_id)
-        // =====================================================================
-
-        // Pick 50 completed referrals (shuffle the list first)
-        shuffle($completedReferralIds);
-        $feedbackTargets = array_slice($completedReferralIds, 0, 50);
-
-        $feedbackRecords = [];
-        $feedbackIds = [];
-        $usedFeedbackKeys = [];
-
-        DB::beginTransaction();
-
-        foreach ($feedbackTargets as $refId) {
-            $info = $completedReferralInfo[$refId] ?? null;
-            if (! $info) {
-                continue;
-            }
-
-            $key = $info['case_id'].'|'.$info['agcy_id'].'|'.$refId;
-            if (isset($usedFeedbackKeys[$key])) {
-                continue;
-            }
-            $usedFeedbackKeys[$key] = true;
-
-            $fbId = (string) Str::uuid();
-            $feedbackIds[] = $fbId;
-            $feedbackRecords[] = [
-                'id' => $fbId,
-                'case_id' => $info['case_id'],
-                'agency_id' => $info['agcy_id'],
-                'referral_id' => $refId,
-                'service_name' => DB::table('referrals')->where('id', $refId)->value('required_services'),
-                'overall_rating' => rand(0, 100) < 20 ? 3 : (rand(0, 1) ? 4 : 5),
-                'comments' => $feedbackComments[array_rand($feedbackComments)],
-                'created_at' => now()->subDays(rand(0, 180)),
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach (array_chunk($feedbackRecords, 50) as $chunk) {
-            DB::table('feedback')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($feedbackRecords);
-
-        // =====================================================================
-        // 9. FEEDBACK SERVQUAL RESPONSES  (22 per feedback = 1100+ rows)
-        // =====================================================================
-
-        $servqualRows = [];
-
-        DB::beginTransaction();
-
-        foreach ($feedbackIds as $fbId) {
-            foreach ($servqualQuestions as $q) {
-                $servqualRows[] = [
-                    'id' => (string) Str::uuid(),
-                    'feedback_id' => $fbId,
-                    'question_id' => (string) Str::uuid(),
-                    'question_text' => $q['question'] ?? 'Service quality question',
-                    'dimension' => $q['dimension'] ?? 'General',
-                    'expectation' => rand(3, 5),
-                    'perception' => rand(1, 5),
-                    'created_at' => now()->subDays(rand(0, 180)),
-                    'updated_at' => $now,
-                ];
-            }
-        }
-
-        foreach (array_chunk($servqualRows, 100) as $chunk) {
-            DB::table('feedback_servqual_responses')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($servqualRows);
-
-        // =====================================================================
-        // 10. AUDIT LOGS  (event-driven timeline, sequenced per case)
+        // 8. AUDIT LOGS  (event-driven timeline, sequenced per case)
         //     Order per case: Case CREATED → Referral CREATED → Milestones →
         //     Referral COMPLETED/REJECTED → Case CLOSED/ARCHIVED
         // =====================================================================

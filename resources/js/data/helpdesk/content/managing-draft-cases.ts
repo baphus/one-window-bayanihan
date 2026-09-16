@@ -12,11 +12,11 @@ Do not treat a draft as an active case. Public tracking, formal referrals, and c
 
 ## Editing a draft
 
-1. Open the drafts page.
-2. Select your draft.
+1. Open the drafts page (**Cases → Drafts**).
+2. Select your draft to open the edit-draft view.
 3. Review each intake section.
 4. Complete missing information.
-5. Save again or publish when ready.
+5. Save again (save-draft) or publish when ready (publish moves the case to **OPEN**). A draft you no longer need can be permanently deleted (destroy-draft).
 
 ![Client information section](/assets/helpdesk/cases-create-client.png)
 ![Address section](/assets/helpdesk/cases-create-address.png)

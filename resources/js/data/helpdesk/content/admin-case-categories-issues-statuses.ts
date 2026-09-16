@@ -18,11 +18,11 @@ Categories, issues, and statuses can be active or inactive. Inactive values shou
 
 ## Deleting records
 
-The project uses a soft-delete flag pattern. Removed records are marked as deleted rather than physically erased. System statuses cannot be deleted because they are required by case workflow and reporting.
+The project uses a soft-delete flag pattern (\`is_deleted\`, \`deleted_at\`, \`deleted_by\`). Removed records are marked as deleted rather than physically erased, preserving history in PostgreSQL 17. System statuses cannot be deleted because they are required by case workflow and reporting.
 
 ## Status reference
 
-The core case statuses are DRAFT, OPEN, CLOSED, and ARCHIVED. Do not rename these casually; changing labels can confuse users and reports.
+The core case statuses are DRAFT, OPEN, CLOSED, and ARCHIVED. Do not rename these casually; changing labels can confuse users and reports. Referral statuses (PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED) are a separate workflow — see *Referral status reference*.
 
 ## Maintenance tips
 

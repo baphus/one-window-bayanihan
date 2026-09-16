@@ -332,10 +332,9 @@ Rows are scoped per role inside the controllers — admin sees all, case manager
 | GET | `/referrals/{referral}/client-requests` | `ReferralClientRequestController@index` | `referrals.client-requests.index` |
 | GET | `/referrals/{referral}/client-requests/attachments/{attachment}/download` | `ReferralClientRequestController@downloadAgencyAttachment` | `referrals.client-requests.attachments.download` |
 | POST | `/client-access-links/{accessLink}/revoke` | `ReferralClientRequestController@revoke` | `referrals.client-requests.access.revoke` |
-| GET | `/feedbacks` | `FeedbackController@dashboard` | `feedbacks.index` |
-| GET | `/feedbacks/servqual-config` | `FeedbackController@servqualConfig` | `feedbacks.servqual-config` |
-| GET | `/feedbacks/export-excel` | `FeedbackController@exportExcel` | `feedbacks.export-excel` |
-| GET | `/feedbacks/{feedback}` | `FeedbackController@show` | `feedbacks.show` |
+| GET | `/survey-forms` | `SurveyFormController@index` | `survey.forms.index` |
+| GET | `/surveys` | `SurveyResponseController@index` | `survey.responses.index` |
+| GET | `/survey/{token}` | `PublicSurveyController@show` (public, token-based) | `survey.public.show` |
 
 ### CASE_MANAGER + ADMIN (Documents — Write)
 

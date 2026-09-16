@@ -1,21 +1,17 @@
 const content = `# Getting Started for Agency Focal Persons
 
-This tutorial is for users with the **AGENCY** role. Agency users work on referrals assigned to their agency, update the referral status, add milestones, comments, and attachments, and respond to compliance requirements when the interface makes those actions available.
+This tutorial is for users with the **AGENCY** role. Agency users work on referrals assigned to their agency, update the referral status, add milestones, comments, and attachments, and respond to compliance requirements when the interface makes those actions available. (The platform has four roles in total: **CASE_MANAGER**, **AGENCY**, **ADMIN**, and **OFW**.)
 
-## 1. Sign in and complete OTP
+## 1. Sign in with your email and password
 
 ![Login page](/assets/helpdesk/login-page.png)
 
 1. Open the One Window Bayanihan login page.
 2. Enter your registered **email address** and **password**.
-3. Continue to the OTP/MFA screen.
-4. Enter the one-time password for your account.
+3. If MFA is enabled on your account, enter the 6-digit code from your authenticator app on the MFA challenge screen (or a recovery code if you don't have your device).
+4. Staff accounts are created by invitation — an administrator invites you and you register through the invite link. There is no open self-registration.
 
-![OTP verification](/assets/helpdesk/login-otp.png)
-
-> **Important:** OTP codes expire after **5 minutes**. If your code expires, request a new one and enter the latest code.
-
-After verification, the system opens the agency workspace for referrals linked to your agency account.
+After sign-in, the system opens the agency workspace for referrals linked to your agency account.
 
 ## 2. Read the agency dashboard
 
@@ -137,7 +133,7 @@ If you cannot edit a needed agency setting, coordinate with a System Administrat
 
 ## 11. Where to go deeper
 
-- **Service quality**: *Building SERVQUAL feedback questionnaires* and *Reading your agency feedback dashboard* — how clients rate your completed work.
+- **Service quality**: *Building client survey forms* and *Reading your agency feedback* — how clients rate your completed work.
 - **Compliance**: *Managing compliance requirements*.
 - **Your account**: *Securing your account: password and MFA* and *Notifications: staying on top of updates*.
 

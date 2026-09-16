@@ -1,6 +1,6 @@
 const content = `# Monitoring Queue Jobs and System Health
 
-Administrators use the maintenance and log pages to monitor background work and system health. This includes queue-related issues, email delivery checks, application logs, and operational maintenance tasks.
+Administrators use the maintenance and log pages to monitor background work and system health. This includes queue-related issues, email delivery checks, application logs, and operational maintenance tasks. The stack runs on PostgreSQL 17 with background queues — most user-visible delays trace back to one of these areas.
 
 ![Admin maintenance](/assets/helpdesk/admin-maintenance.png)
 

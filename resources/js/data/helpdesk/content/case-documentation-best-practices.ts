@@ -10,13 +10,13 @@ Good documentation makes a case easier to act on, review, and close. A case reco
 - **tracker_number**: public reference, **OWBAP-XXXXXXXXXX**.
 - **client_type** and client profile: identify who is assisted.
 - **vulnerability_indicator** and **nok_vulnerability_indicator**: record relevant risks factually.
-- **category_id** and **case_issue_id**: select the best match.
+- **category_ids** (canonical; a legacy single **category_id** is still accepted — never send both) and **case_issue_id**: select the best match.
 - **summary**: explain concern, prior actions, and next steps.
 - **status**: use **DRAFT**, **OPEN**, **CLOSED**, or **ARCHIVED**.
 
 ## Intake sections
 
-The create form captures client data, address, employment, optional next-of-kin entries, consent, category, issue, and summary. Review all sections before publishing.
+The create form captures client data, address (region → province → city → barangay cascades backed by the address lookup reference data), employment, optional next-of-kin entries, consent, categories (**category_ids**), issue, and summary. Cases are draft-first and owner-only while **DRAFT**; self-filed intakes wait in the intake queue for accept/reject. Review all sections before publishing.
 
 ![Case create top section](/assets/helpdesk/cases-create-top.png)
 ![Client information section](/assets/helpdesk/cases-create-client.png)

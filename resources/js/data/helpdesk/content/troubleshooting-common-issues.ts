@@ -5,15 +5,34 @@ Use this guide before escalating a support issue. Capture the user, time, page, 
 ## Login or access problems
 
 - Confirm the user is using the correct account.
-- Check whether the role is correct: CASE_MANAGER, AGENCY, or ADMIN.
+- Check whether the role is correct: CASE_MANAGER, AGENCY, ADMIN, or OFW (OFW users work under /my-cases, not the staff console).
 - For admin-only pages, confirm the user is an administrator and any required security restrictions are satisfied.
 - If a session issue is suspected, administrators can review ActiveSessions.
+- For MFA trouble, remember sign-in uses TOTP codes from an authenticator app; recovery codes are the fallback when the device is unavailable.
 
 ## Cannot find a case
 
 ![Cases index](/assets/helpdesk/cases-index.png)
 
-Search by case number, tracker number, OFW name, or other available filters. Remember that access is role-based. Agency users normally work from referrals assigned to their agency, not from unrestricted case search.
+Search by case number (**OWB-YYYYMM-NNNNN**), tracker number (**OWBAP-XXXXXXXXXX**), OFW name, or other available filters. Remember that access is role-based. Agency users normally work from referrals assigned to their agency, not from unrestricted case search.
+
+## Tracking portal and OTP problems
+
+- The portal needs the tracker number **including OWBAP-** plus the registered email address — both must match the case record.
+- OTPs are delivered by **email only**. Ask the client to check spam/junk, wait a minute for delivery, then request a fresh code.
+- A generic "unable to process" error is intentional so tracker numbers cannot be enumerated — re-check both fields for typos before retrying.
+- If the registered email changed, update it on the case record first; otherwise the code keeps going to the old address.
+
+## Intake submission blocked
+
+- "You already have an active case" means the email has an OPEN or DRAFT case — direct the client to the tracking portal instead of filing again.
+- Email verification must complete before submission; signed-in OFW users skip that step automatically.
+
+## Survey link problems
+
+- Survey links (**/survey/{token}**) are one-shot and expire after 30 days: "already submitted" and "expired" are expected states, not bugs.
+- A missing invitation usually means the referral is not COMPLETED yet, the agency has no active form, or there is no client email on file.
+- Staff must never fill in a survey on a client's behalf.
 
 ## Referral not moving forward
 
@@ -27,7 +46,7 @@ If an Excel export or report does not appear correct, confirm the filters, date 
 
 ## Email or notification issue
 
-Administrators should review EmailLogs and LogViewer for errors around the time the user expected the message. Confirm the record action was saved before assuming a notification problem.
+Administrators should review EmailLogs and LogViewer for errors around the time the user expected the message. Confirm the record action was saved before assuming a notification problem. This covers tracking OTPs, intake confirmations, and survey invitations alike.
 
 ## When to escalate
 

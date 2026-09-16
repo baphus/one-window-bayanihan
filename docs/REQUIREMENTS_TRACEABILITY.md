@@ -159,10 +159,10 @@
 
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
-| FR-FBK-001 | OFW feedback after closure | `FeedbackController` + `feedback` table | Route check | ✅ |
-| FR-FBK-002 | SERVQUAL evaluation | `feedback_servqual_responses` + `servqual_configs` tables | Schema check | ✅ |
-| FR-FBK-003 | Feedback linked to case | `feedback.case_id` FK | Schema check | ✅ |
-| FR-FBK-004 | Feedback available for reporting | `feedbacks.index` route | Route check | ✅ |
+| FR-FBK-001 | OFW feedback after closure | `PublicSurveyController` + `survey_invitations` table (Gen 1 `feedback` table dropped `2026_09_16_000002`) | Route check | ✅ |
+| FR-FBK-002 | SERVQUAL evaluation | `survey_forms`/`survey_questions` per-agency questionnaires (Gen 1 `feedback_servqual_responses` + `servqual_configs` dropped `2026_09_16_000002`) | Schema check | ✅ |
+| FR-FBK-003 | Feedback linked to case | `survey_invitations.case_id` FK | Schema check | ✅ |
+| FR-FBK-004 | Feedback available for reporting | `survey.responses.index` route | Route check | ✅ |
 | FR-FBK-005 | Reject invalid submissions | Form Request validation | Validation test | ✅ |
 | FR-FBK-006 | No confidential data in feedback | Feedback form is public-facing | Design review | ✅ |
 

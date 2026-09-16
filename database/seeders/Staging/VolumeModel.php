@@ -8,7 +8,7 @@ namespace Database\Seeders\Staging;
  *
  * Targets are approximate ("~" in the plan) — the seeding phases use them
  * as exact loop bounds and reconcile documented ratios (e.g. referrals land
- * at ~1.8/case via DRAFT×0 / others×2, SERVQUAL at exactly 22/feedback).
+ * at ~1.8/case via DRAFT×0 / others×2).
  * Structural rates stated in the plan live here too, with derived-total
  * helpers so later phases never hardcode arithmetic.
  */
@@ -92,14 +92,6 @@ class VolumeModel
     // Feedback + surveys
     // ------------------------------------------------------------------
 
-    /** ~20% of COMPLETED referrals. */
-    public const FEEDBACK = 540;
-
-    /** Exactly 22/feedback (540 × 22 = 11,880 ≈ ~12,000). */
-    public const SERVQUAL_RESPONSES = 12000;
-
-    public const SERVQUAL_PER_FEEDBACK = 22;
-
     /** 1 per agency (10) + 1 DMW. */
     public const SURVEY_FORMS = 11;
 
@@ -182,8 +174,6 @@ class VolumeModel
             'referral_client_request_item' => self::CLIENT_REQUEST_ITEMS,
             'referral_client_message' => self::CLIENT_MESSAGES,
             'referral_client_access_link' => self::CLIENT_ACCESS_LINKS,
-            'feedback' => self::FEEDBACK,
-            'feedback_servqual_responses' => self::SERVQUAL_RESPONSES,
             'survey_forms' => self::SURVEY_FORMS,
             'survey_questions' => self::SURVEY_QUESTIONS,
             'survey_invitations' => self::SURVEY_INVITATIONS,

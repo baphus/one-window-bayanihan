@@ -197,26 +197,6 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="services-list"]', title: 'Manage Services', description: 'Search or filter the list, edit a service and its required documents, or click + New Service to add an offering to your catalog.', side: 'top' },
         ],
     },
-    'feedbacks.index': {
-        title: 'Feedback Dashboard',
-        helpdeskSlug: 'feedback-dashboards-for-case-managers-and-admins',
-        steps: [
-            { element: '[data-tour="feedbacks-header"]', title: 'Client Feedback Hub', description: 'Monitor how clients rate the services they received — response volume, satisfaction scores, and individual submissions in one place.', side: 'bottom' },
-            { element: '[data-tour="feedbacks-filters"]', title: 'Filter the Data', description: 'Narrow results to a specific time window — or by agency, service, and rating where available. Every section below updates to match.', side: 'bottom' },
-            { element: '[data-tour="feedbacks-kpis"]', title: 'Response Snapshot', description: 'Compare invitations sent against responses received, and watch the response rate and average ratings for early warning signs.', side: 'bottom' },
-            { element: '[data-tour="feedbacks-breakdown"]', title: 'Score Breakdowns', description: 'See how ratings distribute from 1 to 5 stars and how each SERVQUAL dimension scores. Low dimensions point to what needs improving.', side: 'top' },
-            { element: '[data-tour="feedbacks-list"]', title: 'Read Submissions', description: 'Browse the latest feedback records and click View to open a full response, including per-question SERVQUAL answers.', side: 'top' },
-        ],
-    },
-    'servqual-configs.index': {
-        title: 'SERVQUAL Questionnaires',
-        helpdeskSlug: 'building-servqual-feedback-questionnaires',
-        steps: [
-            { element: '[data-tour="servqual-header"]', title: 'Questionnaire Builder', description: 'This is where you manage the SERVQUAL forms clients answer after a service. One default form applies everywhere; overrides target specific services.', side: 'bottom' },
-            { element: '[data-tour="servqual-list"]', title: 'Your Configurations', description: 'Each row shows a form, its assignment, and question count. Use Make Active to set the default, or Assign to attach a form to one service.', side: 'top' },
-            { element: '[data-tour="servqual-create"]', title: 'Build a New Form', description: 'Click Add New to create a questionnaire — choose questions per SERVQUAL dimension, then activate or assign it when ready.', side: 'left' },
-        ],
-    },
     'survey.forms.index': {
         title: 'Survey Forms',
         helpdeskSlug: 'building-servqual-feedback-questionnaires',
@@ -363,11 +343,6 @@ export const pageGuides: Record<string, PageGuide> = {
         ],
     },
 };
-
-// Admins reach the feedback dashboard via a dedicated route
-// (`/feedbacks` redirects ADMIN there); alias the same guide so the [?]
-// launcher works on both.
-pageGuides['admin.feedbacks.dashboard'] = pageGuides['feedbacks.index'];
 
 /**
  * Role‑specific guide overrides keyed by `<ROLE>:<route-name>`.

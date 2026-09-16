@@ -120,14 +120,6 @@ export default function SystemSettings({
                     </dl>
                 </div>
 
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-                    <h3 className="text-base font-semibold text-slate-900 mb-4">SERVQUAL Configuration</h3>
-                    <p className="text-sm text-slate-600">
-                        SERVQUAL (Service Quality) dimensions and parameters are used to measure client satisfaction across agencies.
-                        Configuration management will be available in a future update.
-                    </p>
-                </div>
-
                 <div data-tour="settings-overdue-threshold" className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
                     <h3 className="text-base font-semibold text-slate-900 mb-4">Referral Overdue Threshold</h3>
                     <p className="text-sm text-slate-600 mb-4">

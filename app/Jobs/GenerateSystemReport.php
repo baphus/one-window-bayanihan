@@ -115,7 +115,6 @@ class GenerateSystemReport implements ShouldQueue
             'services' => fn () => $queries->getServices(),
             'milestones' => fn () => $queries->getMilestones($user),
             'next_of_kin' => fn () => $queries->getNextOfKins($user),
-            'feedback' => fn () => $queries->getFeedbacks($user),
             'case_documents' => fn () => $queries->getCaseDocuments($user),
             'client_addresses' => fn () => $queries->getClientAddresses($user),
             'client_employments' => fn () => $queries->getClientEmployments($user),
