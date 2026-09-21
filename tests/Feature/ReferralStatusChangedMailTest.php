@@ -243,7 +243,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         Notification::fake();
@@ -275,7 +274,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
@@ -305,7 +303,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
@@ -337,7 +334,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
@@ -368,7 +364,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         Notification::fake();

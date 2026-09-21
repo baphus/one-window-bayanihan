@@ -113,7 +113,6 @@ class TrackingCacheInvalidationTest extends TestCase
         app(ReferralService::class)->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'services' => [],
         ], $user->id);
 
         // The tracking cache is invalidated immediately so the new agency card shows up.

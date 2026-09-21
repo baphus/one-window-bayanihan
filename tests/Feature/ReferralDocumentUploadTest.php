@@ -97,7 +97,6 @@ class ReferralDocumentUploadTest extends TestCase
             [
                 'case_id' => $this->case->id,
                 'agcy_id' => $this->agency->id,
-                'required_services' => 'Test',
                 'documents' => [$file],
             ],
         );
@@ -119,7 +118,6 @@ class ReferralDocumentUploadTest extends TestCase
             [
                 'case_id' => $this->case->id,
                 'agcy_id' => $this->agency->id,
-                'required_services' => 'Test',
                 'documents' => [$file],
             ],
         );
@@ -160,7 +158,6 @@ class ReferralDocumentUploadTest extends TestCase
             [
                 'case_id' => $case->id,
                 'agcy_id' => $this->agency->id,
-                'required_services' => 'Test',
                 'documents' => [$file],
             ],
         );
@@ -171,7 +168,6 @@ class ReferralDocumentUploadTest extends TestCase
         $this->assertDatabaseMissing('referrals', [
             'case_id' => $case->id,
             'agcy_id' => $this->agency->id,
-            'required_services' => 'Test',
         ]);
         $this->assertDatabaseCount('case_documents', 0);
     }

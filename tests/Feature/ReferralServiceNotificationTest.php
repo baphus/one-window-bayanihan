@@ -79,7 +79,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         Notification::fake();
@@ -98,7 +97,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
@@ -120,7 +118,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         Notification::fake();
@@ -148,7 +145,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         Notification::fake();
@@ -167,7 +163,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->addMilestone($referral->id, 'First Milestone', 'Description', $caseManager->id);
@@ -196,7 +191,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
-            'required_services' => 'Service A',
         ], $caseManager->id);
 
         Notification::fake();
@@ -206,7 +200,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyB->id,
-            'required_services' => 'Service B',
         ], $caseManager->id);
 
         Notification::assertSentTo($agencyAUser, PeerReferralCreated::class);
@@ -229,7 +222,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
-            'required_services' => 'Service A',
         ], $caseManager->id);
 
         Notification::fake();
@@ -238,7 +230,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
-            'required_services' => 'Service A2',
         ], $caseManager->id);
 
         Notification::assertNotSentTo($agencyAUser, PeerReferralCreated::class);
@@ -262,7 +253,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Service',
         ], $caseManager->id);
 
         Notification::assertNotSentTo($agencyUser, PeerReferralCreated::class);
@@ -277,7 +267,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
@@ -297,7 +286,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'FOR_COMPLIANCE', 'ACCEPT', null, $caseManager->id);
@@ -315,7 +303,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
