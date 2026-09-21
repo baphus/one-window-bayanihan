@@ -216,13 +216,13 @@ class DashboardService
 
         return array_map(fn ($row) => [
             'id' => $row->id,
-            'caseId' => $row->case_id,
-            'caseNo' => $row->case_number ?? 'N/A',
-            'clientName' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'N/A',
+            'case_id' => $row->case_id,
+            'case_number' => $row->case_number ?? 'N/A',
+            'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unnamed',
             'service' => $row->service_names ?: 'Service not specified',
-            'agencyName' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
+            'agency_name' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
             'status' => $row->status,
-            'ageDays' => (int) round($row->age_days),
+            'age_days' => (int) round($row->age_days),
             'href' => '/referrals/'.$row->id,
         ], $rows);
     }
@@ -254,11 +254,13 @@ class DashboardService
         return array_map(fn ($row) => [
             'agencyId' => $row->agcy_id,
             'agencyName' => $row->agency_name ?? 'Unassigned agency',
+            'totalReferrals' => (int) $row->total,
             'activeCount' => (int) $row->active_count,
             'overdueCount' => (int) $row->overdue_count,
             'completedCount' => (int) $row->completed_count,
             'averageCompletionDays' => $row->avg_days !== null ? round((float) $row->avg_days, 1) : null,
             'completionRate' => (int) $row->total > 0 ? (int) round(((int) $row->completed_count / (int) $row->total) * 100) : 0,
+            'overdueRate' => (int) $row->active_count > 0 ? (int) round(((int) $row->overdue_count / (int) $row->active_count) * 100) : 0,
             'href' => '/referrals',
         ], $rows);
     }
@@ -350,6 +352,70 @@ class DashboardService
             'reason' => $row->reason,
             'href' => '/cases/'.$row->id,
         ], $rows);
+    }
+
+    /**
+     * Aggregate referral stats for a set of case IDs in a single query.
+     * Returns [case_id => [...aggregates...]].
+     *
+     * Status severity (most → least): REJECTED > FOR_COMPLIANCE > PENDING > PROCESSING > COMPLETED
+     */
+    private function buildRecentCasesReferralAggregates(array $caseIds): array
+    {
+        if (empty($caseIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($caseIds), '?'));
+        $overdueThreshold = now()->subDays(self::OVERDUE_DAYS);
+
+        // Single query: per-case aggregates for total, active, overdue counts,
+        // worst status, and max age of active referrals.
+        $rows = DB::select("
+            SELECT
+                r.case_id,
+                COUNT(*)::int AS referral_count,
+                COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE'))::int AS active_referral_count,
+                COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND r.created_at < ?)::int AS overdue_referral_count,
+                MAX(CASE WHEN r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')
+                    THEN EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                    ELSE NULL END) AS max_referral_age_days,
+                MAX(CASE
+                    WHEN r.status = 'REJECTED' THEN 5
+                    WHEN r.status = 'FOR_COMPLIANCE' THEN 4
+                    WHEN r.status = 'PENDING' THEN 3
+                    WHEN r.status = 'PROCESSING' THEN 2
+                    WHEN r.status = 'COMPLETED' THEN 1
+                    ELSE 0
+                END) AS worst_severity
+            FROM referrals r
+            WHERE r.case_id IN ({$placeholders}) AND r.is_deleted = false
+            GROUP BY r.case_id
+        ", array_merge([$overdueThreshold], $caseIds));
+
+        $severityToStatus = [
+            5 => 'REJECTED',
+            4 => 'FOR_COMPLIANCE',
+            3 => 'PENDING',
+            2 => 'PROCESSING',
+            1 => 'COMPLETED',
+        ];
+
+        $result = [];
+        foreach ($rows as $row) {
+            $maxAge = $row->max_referral_age_days !== null ? (float) $row->max_referral_age_days : null;
+            $overdueCount = (int) $row->overdue_referral_count;
+            $result[$row->case_id] = [
+                'referral_count' => (int) $row->referral_count,
+                'active_referral_count' => (int) $row->active_referral_count,
+                'overdue_referral_count' => $overdueCount,
+                'worst_referral_status' => $severityToStatus[(int) $row->worst_severity] ?? null,
+                'max_referral_age_days' => $maxAge !== null ? (int) round($maxAge) : null,
+                'is_overdue' => $overdueCount > 0 || ($maxAge !== null && $maxAge >= self::OVERDUE_DAYS),
+            ];
+        }
+
+        return $result;
     }
 
     private function buildAgencyServiceDemand(?string $agencyId): array
@@ -875,6 +941,7 @@ class DashboardService
                 'tone' => 'blue',
                 'icon' => 'folder_open',
                 'href' => '/cases?status=OPEN',
+                'worstAgeDays' => $worstAges['open_cases_worst'] ?? null,
             ],
             [
                 'key' => 'pendingReferrals',
@@ -884,6 +951,7 @@ class DashboardService
                 'tone' => 'amber',
                 'icon' => 'schedule',
                 'href' => '/referrals?status=PENDING',
+                'worstAgeDays' => $worstAges['pending_worst'] ?? null,
             ],
             [
                 'key' => 'processingReferrals',
@@ -893,6 +961,7 @@ class DashboardService
                 'tone' => 'cyan',
                 'icon' => 'sync',
                 'href' => '/referrals?status=PROCESSING',
+                'worstAgeDays' => $worstAges['processing_worst'] ?? null,
             ],
             [
                 'key' => 'forComplianceReferrals',
@@ -902,6 +971,7 @@ class DashboardService
                 'tone' => 'orange',
                 'icon' => 'fact_check',
                 'href' => '/referrals?status=FOR_COMPLIANCE',
+                'worstAgeDays' => $worstAges['compliance_worst'] ?? null,
             ],
             [
                 'key' => 'overdueReferrals',
@@ -911,6 +981,7 @@ class DashboardService
                 'tone' => 'rose',
                 'icon' => 'warning',
                 'href' => '/overdue-referrals',
+                'worstAgeDays' => $worstAges['overdue_worst'] ?? null,
             ],
         ];
 
@@ -954,25 +1025,70 @@ class DashboardService
                 ->toArray();
         });
 
+        // Agency response scorecard — worst-performing agencies first (cached 120s).
+        $agencyScorecard = CacheHelper::safeRemember('dashboard:admin_agency_scorecard', 120, function () {
+            return array_map(fn (array $row) => [
+                'id' => $row['agencyId'],
+                'name' => $row['agencyName'],
+                'totalReferrals' => $row['totalReferrals'],
+                'activeReferrals' => $row['activeCount'],
+                'overdueReferrals' => $row['overdueCount'],
+                'overdueRate' => $row['overdueRate'],
+                'avgDaysToComplete' => $row['averageCompletionDays'],
+            ], array_slice($this->buildAgencyResponseScorecardSQL(), 0, 5));
+        });
+
+        // Worst-case age per queue for triage severity (cached 60s).
+        $worstAges = CacheHelper::safeRemember('dashboard:admin_worst_ages', 60, function () {
+            $overdueThreshold = now()->subDays(self::OVERDUE_DAYS);
+
+            return (array) DB::selectOne("
+                SELECT
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM cases WHERE status = 'OPEN' AND is_deleted = false) AS open_cases_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'PENDING' AND is_deleted = false) AS pending_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'PROCESSING' AND is_deleted = false) AS processing_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'FOR_COMPLIANCE' AND is_deleted = false) AS compliance_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND created_at < ? AND is_deleted = false) AS overdue_worst
+            ", [$overdueThreshold]);
+        });
+
         $recentCases = CaseFile::with(['client', 'user', 'category'])
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->where('is_deleted', false)
             ->orderBy('updated_at', 'desc')
             ->take(6)
-            ->get()
-            ->map(fn ($c) => [
-                'id' => $c->id,
-                'case_number' => $c->case_number,
-                'tracker_number' => $c->tracker_number,
-                'client_name' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
-                'client_type' => $c->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
-                'status' => $c->status,
-                'created_at' => $c->created_at?->toISOString() ?? now()->toISOString(),
-                'updated_at' => $c->updated_at?->toISOString() ?? now()->toISOString(),
-                'case_owner' => $c->user?->name,
-                'category' => $c->category?->name,
-                'last_activity' => $this->safeRelativeTime($c->updated_at),
-            ])
+            ->get();
+
+        // Aggregate referral stats for recent cases in a single query (no N+1).
+        $recentCaseIds = $recentCases->pluck('id')->all();
+        $referralAggregates = $recentCaseIds
+            ? $this->buildRecentCasesReferralAggregates($recentCaseIds)
+            : [];
+
+        $recentCases = $recentCases
+            ->map(function ($c) use ($referralAggregates) {
+                $agg = $referralAggregates[$c->id] ?? null;
+
+                return [
+                    'id' => $c->id,
+                    'case_number' => $c->case_number,
+                    'tracker_number' => $c->tracker_number,
+                    'client_name' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
+                    'client_type' => $c->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                    'status' => $c->status,
+                    'created_at' => $c->created_at?->toISOString() ?? now()->toISOString(),
+                    'updated_at' => $c->updated_at?->toISOString() ?? now()->toISOString(),
+                    'case_owner' => $c->user?->name,
+                    'category' => $c->category?->name,
+                    'last_activity' => $this->safeRelativeTime($c->updated_at),
+                    'referral_count' => $agg['referral_count'] ?? 0,
+                    'active_referral_count' => $agg['active_referral_count'] ?? 0,
+                    'overdue_referral_count' => $agg['overdue_referral_count'] ?? 0,
+                    'worst_referral_status' => $agg['worst_referral_status'] ?? null,
+                    'max_referral_age_days' => $agg['max_referral_age_days'] ?? null,
+                    'is_overdue' => $agg['is_overdue'] ?? false,
+                ];
+            })
             ->toArray();
 
         // Recent audit activity. Cached 300s; invalidated by
@@ -1015,6 +1131,16 @@ class DashboardService
                     ];
                 })
                 ->toArray();
+        });
+
+        // Priority referrals — top 5 highest-priority across all agencies.
+        $adminPriorityReferrals = CacheHelper::safeRemember('dashboard:admin_priority_referrals', 60, function () {
+            return $this->buildPriorityReferralsSQL(null, 5, true);
+        });
+
+        // Referral aging bands — global view for frontend aging visualization.
+        $adminReferralAgingBands = CacheHelper::safeRemember('dashboard:admin_aging_bands', 60, function () {
+            return $this->buildReferralAgingBandsSQL();
         });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:admin_cases_by_category', 300, function () {
@@ -1076,9 +1202,12 @@ class DashboardService
             'referralStatusDistribution' => $referralStatusDistribution,
             'usersByRole' => $usersByRole,
             'topAgencies' => $topAgencies,
+            'agencyScorecard' => $agencyScorecard,
             'recentCases' => $recentCases,
             'recentLogs' => $recentLogs,
             'casesByCategory' => $casesByCategory,
+            'priorityReferrals' => $adminPriorityReferrals,
+            'referralAgingBands' => $adminReferralAgingBands,
         ];
     }
 }

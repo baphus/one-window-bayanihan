@@ -122,7 +122,7 @@ class DashboardServiceTest extends TestCase
         $this->assertContains('11+ days', array_column($data['referralAgingBands'], 'label'));
         $this->assertCount(2, $data['priorityReferrals']);
         $this->assertContains($oldPending->id, array_column($data['priorityReferrals'], 'id'));
-        $this->assertNull($data['priorityReferrals'][0]['agencyName']);
+        $this->assertNull($data['priorityReferrals'][0]['agency_name']);
         $this->assertSame($service->name, $data['serviceDemand'][0]['serviceName']);
         $this->assertTrue($data['feedbackPulse']['hasData']);
         $this->assertLessThanOrEqual(8, count($data['priorityReferrals']));

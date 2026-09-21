@@ -73,28 +73,12 @@ class ReferralService
     {
         $referral = DB::transaction(function () use ($data, $userId) {
             $referral = Referral::create([
-                'required_services' => $data['required_services'] ?? '',
+                'required_services' => '',
                 'notes' => $data['notes'] ?? null,
                 'status' => 'PENDING',
                 'case_id' => $data['case_id'],
                 'agcy_id' => $data['agcy_id'],
             ]);
-
-            // Attach selected services by name lookup
-            if (! empty($data['services']) && is_array($data['services'])) {
-                $serviceIds = Service::whereIn('name', $data['services'])
-                    ->where('agcy_id', $data['agcy_id'])
-                    ->pluck('id');
-                $referral->services()->sync($serviceIds);
-
-                // Copy requirements for each attached service
-                foreach ($serviceIds as $serviceId) {
-                    $service = Service::find($serviceId);
-                    if ($service) {
-                        $this->copyServiceRequirements($referral, $service);
-                    }
-                }
-            }
 
             // Reload services so event recorder and timeline reflect actual service names
             $referral->load('services');
@@ -481,6 +465,8 @@ class ReferralService
         // Copy global service requirements to per-referral requirements
         $this->copyServiceRequirements($referral, $service);
 
+        $this->syncRequiredServicesText($referral);
+
         return $referral->load('services');
     }
 
@@ -526,7 +512,20 @@ class ReferralService
 
         $referral->services()->detach($serviceId);
 
+        $this->syncRequiredServicesText($referral);
+
         return $referral->load('services');
+    }
+
+    /**
+     * Recompute the legacy `required_services` text from the pivot so all
+     * downstream readers (notifications, emails, reports, exports, PDFs)
+     * stay consistent after any service mutation.
+     */
+    private function syncRequiredServicesText(Referral $referral): void
+    {
+        $names = $referral->services()->orderBy('name')->pluck('name');
+        $referral->forceFill(['required_services' => $names->implode(', ')])->save();
     }
 
     public function addRequirement(Referral $referral, string $serviceId, array $data): ReferralServiceRequirement

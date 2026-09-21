@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\Milestone;
+use App\Models\Referral;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -859,6 +862,73 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         // The assertion is that the message (description) doesn't contain UUIDs, which it doesn't
     }
 
+    public function test_publish_audit_response_surfaces_new_publish_payload_fields(): void
+    {
+        // The enriched PUBLISH payload produced by CaseService::publishDraft():
+        // a single entry carrying case number, client details and case details.
+        $log = AuditLog::create([
+            'action' => 'PUBLISH',
+            'module' => 'CASE',
+            'entity_id' => 'd31e0a57-85f4-4f17-9b34-7699c787dfea',
+            'entity_label' => 'CASE-2026-00001',
+            'new_value' => [
+                'case_number' => 'CASE-2026-00001',
+                'tracker_number' => 'OWBAP-KCNHW6UO',
+                'status' => 'OPEN',
+                'client_type' => 'OFW',
+                'summary' => 'Contract dispute filed by the client',
+                'category_ids' => [
+                    '11111111-1111-4111-8111-111111111111',
+                    '22222222-2222-4222-8222-222222222222',
+                ],
+                'category_names' => ['Contract Dispute', 'Wage Claim'],
+                'case_issue' => 'Contract Dispute',
+                'client' => [
+                    'first_name' => 'Juan',
+                    'middle_name' => 'M.',
+                    'last_name' => 'Dela Cruz',
+                    'suffix' => 'Jr.',
+                    'sex' => 'M',
+                    'date_of_birth' => '1990-01-01',
+                    'contact_number' => '09171234567',
+                ],
+                'next_of_kin_count' => 2,
+            ],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log);
+
+        $changes = $response['changes'];
+        $byField = collect($changes)->keyBy('field');
+
+        // Case identifiers and status surface with friendly labels
+        $this->assertSame('case number', $byField['case_number']['fieldLabel']);
+        $this->assertSame('tracker number', $byField['tracker_number']['fieldLabel']);
+        $this->assertSame('Open', $byField['status']['new']);
+        $this->assertSame('OFW', $byField['client_type']['new']);
+
+        // New PUBLISH payload fields render meaningfully
+        $this->assertSame('case issue', $byField['case_issue']['fieldLabel']);
+        $this->assertSame('Contract Dispute', $byField['case_issue']['new']);
+
+        $this->assertSame('categories', $byField['category_names']['fieldLabel']);
+        $this->assertStringContainsString('Contract Dispute', $byField['category_names']['new']);
+        $this->assertStringContainsString('Wage Claim', $byField['category_names']['new']);
+
+        $this->assertSame('client', $byField['client']['fieldLabel']);
+        $this->assertSame('Juan M. Dela Cruz Jr.', $byField['client']['new']);
+
+        $this->assertSame('next of kin count', $byField['next_of_kin_count']['fieldLabel']);
+        $this->assertSame('2', $byField['next_of_kin_count']['new']);
+
+        // Suppressed: raw category UUIDs (redundant with category_names) and
+        // the free-text summary
+        $this->assertArrayNotHasKey('category_ids', $byField);
+        $this->assertArrayNotHasKey('summary', $byField);
+    }
+
     // ========================================================================
     //  TEST SUITE 7: Hidden/transient fields are excluded from changes
     // ========================================================================
@@ -1010,5 +1080,101 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $this->assertEquals('User', $this->formatter->formatModule('user'));
         $this->assertEquals('Agency', $this->formatter->formatModule('agency'));
         $this->assertEquals('Milestone', $this->formatter->formatModule('milestone'));
+    }
+
+    // ========================================================================
+    //  TEST SUITE 10: formatForAuditResponse entity resolution
+    // ========================================================================
+
+    public function test_milestone_create_resolves_title_in_message(): void
+    {
+        $milestone = Milestone::factory()->create(['title' => 'Document Submission']);
+
+        $log = AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'milestone',
+            'entity_id' => $milestone->getKey(),
+            'entity_label' => $milestone->title,
+            'new_value' => [
+                'title' => 'Document Submission',
+                'description' => 'Client submitted requirements',
+                'status' => 'OPEN',
+            ],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log);
+
+        $this->assertStringContainsString('Document Submission', $response['message']);
+        $this->assertStringNotContainsString('Milestone ID', $response['message']);
+        $this->assertDoesNotMatchRegularExpression(
+            '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i',
+            $response['message'],
+        );
+
+        // title should appear in changes list since it is now in CONTROLLED_FIELDS
+        $changeFields = array_column($response['changes'], 'field');
+        $this->assertContains('title', $changeFields, 'Title should appear in the changes list');
+    }
+
+    public function test_referral_create_resolves_service_label_and_agency_in_message(): void
+    {
+        $agency = Agency::factory()->create(['name' => 'DMW Cebu']);
+        $referral = Referral::factory()->create([
+            'required_services' => 'Medical Assistance',
+            'agcy_id' => $agency->getKey(),
+        ]);
+
+        $log = AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'referral',
+            'entity_id' => $referral->getKey(),
+            'entity_label' => $referral->required_services,
+            'new_value' => [
+                'required_services' => 'Medical Assistance',
+                'agcy_id' => $agency->getKey(),
+                'status' => 'PENDING',
+            ],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log);
+
+        // Message should contain the entity_label (service label) from entity_label snapshot
+        $this->assertStringContainsString('Medical Assistance', $response['message']);
+        $this->assertStringNotContainsString('Referral ID', $response['message']);
+
+        // agcy_id UUID should resolve to agency name in changes list
+        $agcyChange = collect($response['changes'])->firstWhere('field', 'agcy_id');
+        $this->assertNotNull($agcyChange, 'agcy_id should appear in changes');
+        $this->assertStringContainsString('DMW Cebu', $agcyChange['new']);
+    }
+
+    public function test_entity_label_snapshot_preferred_over_live_lookup(): void
+    {
+        $milestone = Milestone::factory()->create(['title' => 'Original Title']);
+
+        // Build a log with entity_label set to "Snapshot Label" but the live
+        // entity has a different title, proving the snapshot is preferred.
+        $log = AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'milestone',
+            'entity_id' => $milestone->getKey(),
+            'entity_label' => 'Snapshot Label',
+            'new_value' => [
+                'title' => 'Snapshot Label',
+                'description' => 'Test',
+            ],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log);
+
+        // Should use the snapshot, not the live title
+        $this->assertStringContainsString('Snapshot Label', $response['message']);
+        $this->assertStringContainsString("Milestone 'Snapshot Label'", $response['message']);
     }
 }

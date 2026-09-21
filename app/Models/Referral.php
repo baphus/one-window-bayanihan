@@ -24,6 +24,11 @@ class Referral extends Model
         return 'referral';
     }
 
+    public function getAuditEntityLabel(): ?string
+    {
+        return $this->required_services ?: null;
+    }
+
     protected $fillable = [
         'required_services',
         'notes',

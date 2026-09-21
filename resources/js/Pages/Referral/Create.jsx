@@ -12,7 +12,7 @@ import { useToast } from '@/Hooks/useToast';
 const STEPS = [
     { id: 1, title: 'Select Case', description: 'Choose the case to refer' },
     { id: 2, title: 'Select Agency', description: 'Pick the receiving agency' },
-    { id: 3, title: 'Select Service', description: 'Choose services and review requirements' },
+    { id: 3, title: 'Details', description: 'Add remarks and supporting documents' },
 ];
 
 function Field({ label, required, children, className }) {
@@ -49,7 +49,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
         case_id: case_id || '',
         agcy_id: '',
-        services: [],
         notes: '',
         documents: [],
     });
@@ -89,14 +88,13 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
         return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [agencies, agencyDebouncedSearch]);
 
-    const initialFormRef = useRef({ case_id: data.case_id, agcy_id: '', services: [] });
+    const initialFormRef = useRef({ case_id: data.case_id, agcy_id: '' });
     const hasDirty = useMemo(() => (
         data.case_id !== initialFormRef.current.case_id
         || data.agcy_id !== initialFormRef.current.agcy_id
-        || JSON.stringify(data.services) !== JSON.stringify(initialFormRef.current.services)
         || notesValue !== ''
         || data.documents.length > 0
-    ), [data.case_id, data.agcy_id, data.services, notesValue, data.documents.length]);
+    ), [data.case_id, data.agcy_id, notesValue, data.documents.length]);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
     const selectedCase = useMemo(() => {
         if (!data.case_id) return null;
@@ -111,44 +109,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     }, [data.case_id, caseReferrals]);
 
     const selectedAgencyIsReferred = data.agcy_id && referredAgencyIds.has(data.agcy_id);
-
-    const availableServices = useMemo(() => {
-        if (!data.agcy_id || !selectedAgency) return [];
-        const agency = agencies.find((a) => a.id === data.agcy_id);
-        return agency?.services?.map((s) => s.name) || [];
-    }, [data.agcy_id, agencies, selectedAgency]);
-
-    const selectedServiceDetails = useMemo(() => {
-        if (!data.agcy_id || !data.services.length) return [];
-        const agency = agencies.find((a) => a.id === data.agcy_id);
-        if (!agency?.services) return [];
-        const selectedSet = new Set(data.services);
-        return agency.services.filter((s) => selectedSet.has(s.name));
-    }, [data.agcy_id, data.services, agencies]);
-
-    const selectedServiceRequirements = useMemo(() => {
-        return selectedServiceDetails.flatMap((service) =>
-            (service.requirements || []).map((req) => ({
-                key: `${service.name}::${req.name}`,
-                serviceTitle: service.name,
-                requirement: req.name,
-            }))
-        );
-    }, [selectedServiceDetails]);
-
-    useEffect(() => {
-        if (!data.case_id || !data.agcy_id) return;
-        const agency = agencies.find((a) => a.id === data.agcy_id);
-        if (!agency?.services?.length) return;
-
-        const current = data.services;
-        const valid = current.filter((s) => agency.services.some((as) => as.name === s));
-        if (valid.length) {
-            setData('services', valid);
-        } else {
-            setData('services', [agency.services[0].name]);
-        }
-    }, [data.agcy_id]);
 
     useEffect(() => {
         if (case_id) {
@@ -174,9 +134,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
 
     const isStepOneValid = Boolean(selectedCase);
     const isStepTwoValid = Boolean(data.agcy_id) && !selectedAgencyIsReferred;
-    const isStepThreeValid = Boolean(
-        data.case_id && data.agcy_id && data.services.length > 0
-    );
+    const isStepThreeValid = Boolean(data.case_id && data.agcy_id);
 
     const stepProgress = Math.round((createStep / STEPS.length) * 100);
 
@@ -188,19 +146,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     function goToPreviousStep() {
         if (createStep === 2) { setCreateStep(1); return; }
         if (createStep === 3) { setCreateStep(2); }
-    }
-
-    function toggleServiceSelection(service) {
-        setData('services',
-            data.services.includes(service)
-                ? data.services.filter((item) => item !== service)
-                : [...data.services, service]
-        );
-    }
-
-    function parseRequiredDocs(service) {
-        if (!service?.requirements) return [];
-        return service.requirements.map(r => r.name);
     }
 
     function submitReferral(e) {
@@ -295,13 +240,13 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                     {createStep === 2 && (
                                         <>
                                             <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Choose the agency to refer to.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Services will be loaded based on agency.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add remarks and documents in the next step.</span></li>
                                         </>
                                     )}
                                     {createStep === 3 && (
                                         <>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Select services and review requirements.</span></li>
                                             <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add optional remarks for the agency.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Attach supporting documents.</span></li>
                                         </>
                                     )}
                                 </ul>
@@ -365,7 +310,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                                         onClick={() => {
                                                                             setData('case_id', item.id);
                                                                             setData('agcy_id', '');
-                                                                            setData('services', []);
                                                                             setNotesValue('');
                                                                         }}
                                                                         className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
@@ -572,10 +516,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                                             type="button"
                                                                             onClick={() => {
                                                                                 if (alreadyReferred) return;
-                                                                                const nextServices = agency.services?.map((s) => s.name) || [];
-                                                                                const valid = data.services.filter((s) => nextServices.includes(s));
                                                                                 setData('agcy_id', agency.id);
-                                                                                setData('services', valid.length ? valid : (nextServices.length ? [nextServices[0]] : []));
                                                                             }}
                                                                             disabled={alreadyReferred}
                                                                             className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
@@ -683,63 +624,6 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
 
                                 {createStep === 3 && (
                                     <div className="space-y-5">
-                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Services</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Select one or more services offered by {selectedAgency?.name || 'the agency'}.</p>
-                                            <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
-                                                {availableServices.length ? (
-                                                    <div className="space-y-2">
-                                                        {availableServices.map((service) => (
-                                                            <label key={service} className="flex items-center gap-3 text-[13px] text-slate-700 cursor-pointer py-1">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={data.services.includes(service)}
-                                                                    onChange={() => toggleServiceSelection(service)}
-                                                                    className="h-4 w-4 rounded border-slate-200 text-indigo-600 focus:ring-indigo-500"
-                                                                />
-                                                                <span>{service}</span>
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-[12px] text-slate-500">No available services for this agency.</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <InputError message={errors.services} className="mt-1" />
-
-                                        {selectedServiceDetails.length > 0 && (
-                                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                                <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Service Requirements</h3>
-                                                <p className="mt-2 text-[13px] text-slate-500">Required documents for each selected service.</p>
-                                                <div className="mt-4 space-y-4">
-                                                    {selectedServiceDetails.map((service) => {
-                                                        const docs = parseRequiredDocs(service);
-                                                        return (
-                                                            <div key={service.name} className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-                                                                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">{service.name}</p>
-                                                                <p className="mt-1 text-[12px] text-slate-500">
-                                                                    Processing Time: <span className="font-semibold text-indigo-600">{service.processing_days || 'N/A'} business days</span>
-                                                                </p>
-                                                                {docs.length ? (
-                                                                    <ul className="mt-3 space-y-1.5">
-                                                                        {docs.map((requirement, idx) => (
-                                                                            <li key={idx} className="flex items-start gap-2 text-[12px] text-slate-700">
-                                                                                <span className="material-symbols-outlined text-[14px] text-slate-400 mt-0.5 shrink-0">chevron_right</span>
-                                                                                <span>{requirement}</span>
-                                                                            </li>
-                                                                        ))}
-                                                                    </ul>
-                                                                ) : (
-                                                                    <p className="mt-2 text-[12px] text-slate-500">No listed requirements for this service.</p>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Remarks</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Add optional context for the receiving agency.</p>

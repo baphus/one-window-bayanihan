@@ -43,6 +43,11 @@ class CaseFile extends Model
         return 'case';
     }
 
+    public function getAuditEntityLabel(): ?string
+    {
+        return $this->case_number;
+    }
+
     /**
      * Cases a client may access through self-service surfaces (public tracking
      * and the OFW portal).

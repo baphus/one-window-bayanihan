@@ -12,27 +12,28 @@ class SessionService
     {
         try {
             $sessions = DB::table('sessions')
+                ->whereNotNull('user_id')
                 ->orderBy('last_activity', 'desc')
                 ->get();
 
             return $sessions->map(function ($session) {
-                $user = null;
+                $user = User::find($session->user_id);
 
-                if ($session->user_id) {
-                    $user = User::find($session->user_id);
+                if (! $user) {
+                    return null;
                 }
 
                 return [
                     'id' => $session->id,
-                    'user_name' => $user?->name ?? 'Guest',
-                    'user_email' => $user?->email ?? 'N/A',
+                    'user_name' => $user->name,
+                    'user_email' => $user->email,
                     'user_id' => $session->user_id,
                     'ip_address' => $session->ip_address,
                     'user_agent' => $session->user_agent,
                     'last_activity' => date('Y-m-d H:i:s', $session->last_activity),
                     'is_current' => session()->getId() === $session->id,
                 ];
-            })->toArray();
+            })->filter()->values()->toArray();
         } catch (\Exception $e) {
             return [];
         }

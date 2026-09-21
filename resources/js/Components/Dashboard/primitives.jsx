@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import {
@@ -10,7 +11,9 @@ import {
     Legend,
 } from 'chart.js';
 import KpiCard from '@/Components/ui/KpiCard';
+import StatusBadge from '@/Components/ui/StatusBadge';
 import ActivityItem from '@/Components/Dashboard/ActivityItem';
+import { formatStatusLabel } from '@/lib/utils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -112,6 +115,7 @@ export function StatRow({ stats, dataTour }) {
                     iconBg={stat.iconBg ?? 'bg-blue-50'}
                     iconColor={stat.iconColor ?? 'text-primary'}
                     description={stat.description}
+                    trend={stat.trend}
                 />
             ))}
         </section>
@@ -126,6 +130,31 @@ export function SectionCard({ title, action, children, dataTour, className = '',
                 {action ?? null}
             </div>
             <div className={bodyClassName}>{children}</div>
+        </section>
+    );
+}
+
+/**
+ * Collapsible variant of SectionCard. Header is a toggle button;
+ * chevron rotates to indicate state. Used for demoted/secondary widgets.
+ */
+export function CollapsibleSectionCard({ title, defaultOpen = false, children, dataTour, className = '', bodyClassName = 'p-5' }) {
+    const [open, setOpen] = useState(defaultOpen);
+
+    return (
+        <section data-tour={dataTour} className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 text-left transition-colors hover:bg-slate-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+            >
+                <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">{title}</h2>
+                <MaterialSymbol
+                    name="expand_more"
+                    className={`text-[18px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                />
+            </button>
+            {open ? <div className={bodyClassName}>{children}</div> : null}
         </section>
     );
 }
@@ -184,7 +213,9 @@ export function TriageStrip({ items, dataTour }) {
                         <Link
                             key={item.key ?? index}
                             href={item.href ?? '#'}
-                            className="group flex flex-col gap-1 bg-white px-4 py-3.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                            className={`group flex flex-col gap-1 px-4 py-3.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+                                urgent ? 'bg-rose-50/40' : 'bg-white'
+                            }`}
                         >
                             <span className="flex items-center gap-1.5">
                                 <span className={`h-1.5 w-1.5 rounded-circle ${toneDot(item.tone)}`} />
@@ -193,7 +224,9 @@ export function TriageStrip({ items, dataTour }) {
                             <span className={`text-xl font-black ${count === 0 ? 'text-slate-300' : urgent ? 'text-rose-600' : 'text-slate-900'}`}>
                                 {formatCount(count)}
                             </span>
-                            <span className="hidden truncate text-[11px] text-slate-500 md:block">{item.note}</span>
+                            <span className={`hidden truncate text-[11px] md:block ${urgent ? 'font-medium text-rose-500' : 'text-slate-500'}`}>
+                                {item.note}
+                            </span>
                         </Link>
                     );
                 })}
@@ -338,15 +371,15 @@ export function TrendBar({ labels = [], data = [] }) {
     );
 }
 
-export function ActivityFeed({ items, limit = 6 }) {
+export function ActivityFeed({ items, limit = 6, empty }) {
     const rows = safeArray(items).slice(0, limit);
 
     if (rows.length === 0) {
-        return <p className="text-sm text-slate-500">No recent activity.</p>;
+        return empty ?? <p className="px-5 py-6 text-sm text-slate-500">No recent activity.</p>;
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 px-5 py-4">
             {rows.map((activity) => (
                 <ActivityItem
                     key={activity.id}
@@ -360,6 +393,215 @@ export function ActivityFeed({ items, limit = 6 }) {
                     detail={activity.detail}
                 />
             ))}
+        </div>
+    );
+}
+
+/**
+ * Attention-aware case activity row. Two-line scannable layout:
+ *   Line 1: pill(case_number) + client_name + category
+ *   Line 2: owner · referrals · worst status
+ *   Line 3: updated time
+ *   Right:  StatusBadge + SLA pill
+ */
+export function CaseActivityRow({
+    href,
+    caseNumber,
+    clientName,
+    category,
+    caseOwner,
+    referralCount = 0,
+    worstReferralStatus,
+    isOverdue,
+    maxReferralAgeDays,
+    updatedAt,
+    status,
+}) {
+    const slaLabel = isOverdue
+        ? `OVERDUE${maxReferralAgeDays ? ` ${maxReferralAgeDays}d` : ''}`
+        : referralCount > 0 && worstReferralStatus
+            ? `${referralCount} referral${referralCount === 1 ? '' : 's'} · ${formatStatusLabel(worstReferralStatus).toLowerCase()}`
+            : referralCount > 0
+                ? `${referralCount} referral${referralCount === 1 ? '' : 's'}`
+                : null;
+
+    const slaTone =
+        isOverdue || worstReferralStatus === 'REJECTED'
+            ? 'rose'
+            : worstReferralStatus === 'FOR_COMPLIANCE' || worstReferralStatus === 'PENDING'
+                ? 'amber'
+                : 'slate';
+
+    const slaClasses = {
+        rose: 'border-rose-200 bg-rose-50 text-rose-700',
+        amber: 'border-amber-200 bg-amber-50 text-amber-700',
+        slate: 'border-slate-200 bg-slate-100 text-slate-600',
+    };
+
+    const secondaryParts = [];
+    if (caseOwner) secondaryParts.push(caseOwner);
+    if (referralCount > 0) secondaryParts.push(`${referralCount} referral${referralCount === 1 ? '' : 's'}`);
+    if (worstReferralStatus && worstReferralStatus !== 'PENDING') {
+        secondaryParts.push(formatStatusLabel(worstReferralStatus).toLowerCase());
+    }
+
+    return (
+        <Link
+            href={href}
+            className="flex items-start gap-3 px-5 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        >
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                    {caseNumber ? (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                            {caseNumber}
+                        </span>
+                    ) : null}
+                    <span className="truncate text-sm font-bold text-slate-900">
+                        {clientName || 'Unnamed client'}
+                    </span>
+                    {category ? (
+                        <span className="text-[11px] font-medium text-slate-400">{category}</span>
+                    ) : null}
+                </div>
+                {secondaryParts.length > 0 ? (
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {secondaryParts.join(' · ')}
+                    </p>
+                ) : null}
+                {updatedAt ? (
+                    <p className="mt-0.5 text-[11px] text-slate-400">{updatedAt}</p>
+                ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                <StatusBadge status={status} />
+                {slaLabel ? (
+                    <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${slaClasses[slaTone]}`}
+                    >
+                        {slaLabel}
+                    </span>
+                ) : null}
+                <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
+            </div>
+        </Link>
+    );
+}
+
+/**
+ * Compact filter chip for client-side list filtering.
+ */
+export function FilterChip({ label, count, active, onClick }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                active
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+            }`}
+        >
+            {label}
+            {count != null && count > 0 ? (
+                <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                        active ? 'bg-white/20' : 'bg-slate-100 text-slate-500'
+                    }`}
+                >
+                    {count}
+                </span>
+            ) : null}
+        </button>
+    );
+}
+
+/**
+ * Priority referral row — compact variant for the priority referrals card.
+ */
+export function PriorityReferralRow({ href, caseNumber, clientName, agencyName, status, ageDays }) {
+    return (
+        <Link
+            href={href}
+            className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        >
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                    {caseNumber ? (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                            {caseNumber}
+                        </span>
+                    ) : null}
+                    <span className="truncate text-sm font-bold text-slate-900">{clientName || 'Unnamed'}</span>
+                </div>
+                <p className="mt-0.5 truncate text-xs text-slate-500">
+                    {[agencyName, ageDays != null ? `${ageDays}d old` : null].filter(Boolean).join(' · ')}
+                </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+                <StatusBadge status={status} />
+                <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
+            </div>
+        </Link>
+    );
+}
+
+/**
+ * Agency response scorecard — compact table-like list showing active, overdue,
+ * overdue rate, and average completion time per agency. Sorted worst-first
+ * by the backend.
+ */
+export function AgencyScorecard({ agencies, empty }) {
+    const rows = safeArray(agencies);
+    if (rows.length === 0) return empty ?? null;
+
+    return (
+        <div className="divide-y divide-slate-100">
+            {rows.map((agency) => {
+                const active = Number(agency.activeReferrals ?? 0);
+                const overdue = Number(agency.overdueReferrals ?? 0);
+                const rate = Number(agency.overdueRate ?? 0);
+                const avgDays = agency.avgDaysToComplete != null ? Number(agency.avgDaysToComplete) : null;
+
+                const rateTone = rate >= 20 ? 'rose' : rate >= 10 ? 'amber' : 'slate';
+                const rateClasses = {
+                    rose: 'bg-rose-50 text-rose-700',
+                    amber: 'bg-amber-50 text-amber-700',
+                    slate: 'bg-slate-100 text-slate-600',
+                };
+
+                return (
+                    <Link
+                        key={agency.id ?? agency.name}
+                        href={agency.id ? `/agencies/${agency.id}` : '/admin/agencies'}
+                        className="block px-5 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    >
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate text-sm font-bold text-slate-900">{agency.name}</span>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                                <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                                    {formatCount(active)} active
+                                </span>
+                                <span
+                                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                        overdue > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                >
+                                    {formatCount(overdue)} overdue
+                                </span>
+                            </div>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${rateClasses[rateTone]}`}>
+                                {rate.toFixed(0)}% overdue
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                                {avgDays != null ? `Avg ${avgDays.toFixed(1)}d` : '—'}
+                            </span>
+                        </div>
+                    </Link>
+                );
+            })}
         </div>
     );
 }

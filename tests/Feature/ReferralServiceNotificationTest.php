@@ -45,7 +45,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test Service',
             'notes' => 'Test notes',
         ], $caseManager->id);
 
@@ -61,7 +60,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test Service',
         ], $caseManager->id);
 
         $this->assertDatabaseHas('case_notifications', [

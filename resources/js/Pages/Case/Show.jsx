@@ -75,7 +75,7 @@ function formatNokAddress(nok) {
   return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
-export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [] }) {
+export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], categories = [], caseIssues = [] }) {
   const EVENT_CONFIG = {
     case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
     referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
@@ -168,7 +168,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [deletionReasonError, setDeletionReasonError] = useState('');
   const [deletingArchived, setDeletingArchived] = useState(false);
   const [formStatus, setFormStatus] = useState(caseFile.status);
-  const [formClientType, setFormClientType] = useState(caseFile.client_type);
+  const [formIssueId, setFormIssueId] = useState(caseFile.case_issue_id || '');
+  const [formCategoryIds, setFormCategoryIds] = useState(getCaseCategories(caseFile).map(c => c.id));
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
   const [nokVulnerability, setNokVulnerability] = useState(caseFile.nok_vulnerability_indicator || '');
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
@@ -179,21 +180,23 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     setConfirmDeleteDoc(docId);
   }
 
-  const initialEditRef = useRef({ status: caseFile.status, clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
+  const initialEditRef = useRef({ status: caseFile.status, issueId: caseFile.case_issue_id || '', categoryIds: getCaseCategories(caseFile).map(c => c.id), vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
   const editIntentHandledRef = useRef(false);
   const hasEditDirty = useMemo(() => (
     formStatus !== initialEditRef.current.status
-    || formClientType !== initialEditRef.current.clientType
+    || formIssueId !== initialEditRef.current.issueId
+    || JSON.stringify(formCategoryIds) !== JSON.stringify(initialEditRef.current.categoryIds)
     || formVulnerability !== initialEditRef.current.vulnerability
     || nokVulnerability !== initialEditRef.current.nokVulnerability
     || formSummary !== initialEditRef.current.summary
-  ), [formStatus, formClientType, formVulnerability, nokVulnerability, formSummary]);
+  ), [formStatus, formIssueId, formCategoryIds, formVulnerability, nokVulnerability, formSummary]);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
   function openEditDetails() {
     const initial = {
       status: caseFile.status,
-      clientType: caseFile.client_type,
+      issueId: caseFile.case_issue_id || '',
+      categoryIds: getCaseCategories(caseFile).map(c => c.id),
       vulnerability: caseFile.vulnerability_indicator || '',
       nokVulnerability: caseFile.nok_vulnerability_indicator || '',
       summary: caseFile.summary || '',
@@ -201,7 +204,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
     initialEditRef.current = initial;
     setFormStatus(initial.status);
-    setFormClientType(initial.clientType);
+    setFormIssueId(initial.issueId);
+    setFormCategoryIds(initial.categoryIds);
     setFormVulnerability(initial.vulnerability);
     setNokVulnerability(initial.nokVulnerability);
     setFormSummary(initial.summary);
@@ -273,7 +277,14 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       key: 'agency',
       title: 'AGENCY',
       className: 'w-[34%] whitespace-normal leading-5 align-top',
-      render: (row) => <span className="text-[12px] font-semibold text-slate-700">{row.agency}</span>,
+      render: (row) => (
+        <span className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
+          {row.isOverdue && (
+            <span className="material-symbols-outlined text-[13px] text-amber-600 shrink-0" title="Overdue">warning</span>
+          )}
+          {row.agency}
+        </span>
+      ),
     },
     {
       key: 'referralStatus',
@@ -312,18 +323,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     if (saving) return;
     setSaving(true);
     bypassNext();
-    const category_ids = getCaseCategories(caseFile)
-      .map((category) => category?.id)
-      .filter((id) => id !== null && id !== undefined && id !== '');
     router.patch(route('cases.update', caseFile.id), {
       status: formStatus,
-      client_type: formClientType,
+      case_issue_id: formIssueId || null,
       vulnerability_indicator: formVulnerability,
       nok_vulnerability_indicator: nokVulnerability,
       summary: formSummary,
-      // The update request is partial, but category_ids must still be sent so
-      // editing unrelated details does not discard existing assignments.
-      category_ids,
+      category_ids: formCategoryIds,
     }, {
       preserveScroll: true,
       onSuccess: () => {
@@ -546,12 +552,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <span className="text-[11px] text-slate-600">
               <span className="font-semibold text-slate-800">{clientTypeLabel}</span>
             </span>
-            {getCaseCategories(caseFile).length > 0 && (
-              <>
-                <span className="text-[11px] text-slate-300 select-none">|</span>
-                <CategoryBadges caseFile={caseFile} />
-              </>
-            )}
           </div>
 
           <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
@@ -576,28 +576,33 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             )}
           </CardSection>
 
-          {/* Referrals table — unchanged */}
+          {/* Referrals table */}
           <CardSection data-tour="case-referrals" title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Agency Referrals</h4>
                 {hasOverdueReferrals && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowOverdueInfo((prev) => !prev)}
-                      className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-red-500 hover:bg-red-100 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">info</span>
-                    </button>
-                    {showOverdueInfo && (
-                      <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-md border border-red-200 bg-red-50 px-3 py-2 shadow-md">
-                        <p className="text-[10px] leading-5 text-red-800">
-                          A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  <>
+                    <span
+                      className="material-symbols-outlined text-[14px] text-amber-600 shrink-0"
+                      title={`${referralRows.filter((r) => r.isOverdue).length} overdue referral(s)`}
+                    >warning</span>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowOverdueInfo((prev) => !prev)}
+                        className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">info</span>
+                      </button>
+                      {showOverdueInfo && (
+                        <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 shadow-md">
+                          <p className="text-[10px] leading-5 text-amber-800">
+                            A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
               <Link
@@ -980,14 +985,19 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               </div>
 
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Client Type</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Issue/Concern</label>
                 <select
-                  value={formClientType}
-                  onChange={(e) => setFormClientType(e.target.value)}
+                  value={formIssueId}
+                  onChange={(e) => setFormIssueId(e.target.value)}
                   className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
-                  <option value="OFW">Overseas Filipino Worker</option>
-                  <option value="NEXT_OF_KIN">Next of Kin</option>
+                  <option value="">None</option>
+                  {caseFile.case_issue && !caseIssues.some(i => i.id === caseFile.case_issue_id) && (
+                    <option value={caseFile.case_issue_id}>{caseFile.case_issue.name}</option>
+                  )}
+                  {caseIssues.map((issue) => (
+                    <option key={issue.id} value={issue.id}>{issue.name}</option>
+                  ))}
                 </select>
               </div>
 
@@ -1038,6 +1048,34 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                       </label>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Category</label>
+                <div className="flex flex-wrap gap-3">
+                  {categories.map((cat) => {
+                    const checked = formCategoryIds.includes(cat.id);
+                    return (
+                      <label key={cat.id} className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setFormCategoryIds(prev => checked ? prev.filter(id => id !== cat.id) : [...prev, cat.id]);
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="inline-flex items-center gap-1.5 text-[13px] text-slate-700">
+                          {cat.color && <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />}
+                          {cat.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {categories.length === 0 && (
+                    <span className="text-[12px] text-slate-400">No categories available.</span>
+                  )}
                 </div>
               </div>
 
