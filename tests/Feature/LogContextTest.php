@@ -4,11 +4,14 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\LogContext;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class LogContextTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_middleware_adds_request_id_to_context(): void
     {
         Log::shouldReceive('withContext')
