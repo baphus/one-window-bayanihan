@@ -1013,7 +1013,11 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                         />
                                     ))
                                 ) : (
-                                    <span className="text-[12px] text-slate-500 italic">None selected</span>
+                                    <span className="text-[12px] text-slate-500 italic">
+                                        {isAgency
+                                            ? 'No services assigned yet — add the services this referral will apply for.'
+                                            : 'No services assigned yet. The agency focal will assign services for this referral.'}
+                                    </span>
                                 )}
                             </div>
 

@@ -4,11 +4,14 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\Client;
+use App\Models\Milestone;
+use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Support\Str;
 
@@ -23,6 +26,10 @@ class AuditLogFormatter
         'category_id' => [CaseCategory::class, 'name'],
         'case_issue_id' => [CaseIssue::class, 'name'],
         'client_id' => [Client::class, 'first_name', 'last_name'],
+        'agcy_id' => [Agency::class, 'name'],
+        'refr_id' => [Referral::class, 'required_services'],
+        'milestone_id' => [Milestone::class, 'title'],
+        'case_id' => [CaseFile::class, 'case_number'],
     ];
 
     /**
@@ -60,6 +67,11 @@ class AuditLogFormatter
         'tracker_number',
         'date_of_birth',
         'sex',
+        'title',
+        'client_type',
+        'case_issue',
+        'next_of_kin_count',
+        'category_names',
     ];
 
     public function format(AuditLog $log): string
@@ -150,7 +162,10 @@ class AuditLogFormatter
             'consent_given_at' => 'consent date',
             'escalation_reason' => 'escalation reason',
             'case_issue_id' => 'case issue',
+            'case_issue' => 'case issue',
             'category_id' => 'category',
+            'category_names' => 'categories',
+            'next_of_kin_count' => 'next of kin count',
             default => str_replace('_', ' ', $field),
         };
     }
@@ -186,6 +201,22 @@ class AuditLogFormatter
             }
 
             return $parts !== [] ? 'Client: '.implode(' ', $parts) : sprintf('%d fields', count($value));
+        }
+
+        // Summarize the PUBLISH client snapshot — show the full name instead of
+        // a raw field count. Sensitive snapshot keys (contact number, birth
+        // date, sex) stay in the JSONB evidence and are not surfaced here.
+        if ($field === 'client' && is_array($value)) {
+            $nameParts = array_filter([
+                $value['first_name'] ?? '',
+                $value['middle_name'] ?? '',
+                $value['last_name'] ?? '',
+                $value['suffix'] ?? '',
+            ], fn ($part) => $part !== '' && $part !== null);
+
+            $name = trim(implode(' ', $nameParts));
+
+            return $name !== '' ? $name : sprintf('%d fields', count($value));
         }
 
         if (is_array($value)) {
@@ -350,10 +381,21 @@ class AuditLogFormatter
             return null;
         }
 
+        // Prefer the durable entity_label snapshot when present.
+        $label = is_string($log->entity_label ?? null) && $log->entity_label !== ''
+            ? $log->entity_label
+            : null;
+
         return match ($module) {
-            AuditModule::CASE => $this->resolveCaseNumber($entityId),
-            AuditModule::REFERRAL => 'Referral ID '.substr($entityId, 0, 8),
-            AuditModule::MILESTONE => 'Milestone ID '.substr($entityId, 0, 8),
+            AuditModule::CASE => $label !== null
+                ? "Case {$label}"
+                : $this->resolveCaseNumber($entityId),
+            AuditModule::REFERRAL => $label !== null
+                ? "Referral — {$label}"
+                : $this->resolveReferralLabel($entityId),
+            AuditModule::MILESTONE => $label !== null
+                ? "Milestone '{$label}'"
+                : $this->resolveMilestoneTitle($entityId),
             default => null,
         };
     }
@@ -367,6 +409,42 @@ class AuditLogFormatter
         );
 
         return is_string($number) && $number !== '' ? "Case {$number}" : null;
+    }
+
+    private function resolveReferralLabel(string $referralId): ?string
+    {
+        $label = cache()->remember("audit_referral_label:{$referralId}", now()->addHour(), function () use ($referralId) {
+            $referral = Referral::query()->with('agency')->find($referralId);
+
+            if ($referral === null) {
+                return null;
+            }
+
+            $serviceName = $referral->services()->pluck('name')->implode(', ');
+
+            $label = $serviceName !== '' ? $serviceName : ($referral->required_services ?: null);
+
+            if ($label !== null && $referral->agency !== null) {
+                $label .= " ({$referral->agency->name})";
+            }
+
+            return $label;
+        });
+
+        return is_string($label) && $label !== '' ? "Referral — {$label}" : 'Referral ID '.substr($referralId, 0, 8);
+    }
+
+    private function resolveMilestoneTitle(string $milestoneId): ?string
+    {
+        $title = cache()->remember(
+            "audit_milestone_title:{$milestoneId}",
+            now()->addHour(),
+            fn () => Milestone::query()->whereKey($milestoneId)->value('title'),
+        );
+
+        return is_string($title) && $title !== ''
+            ? "Milestone '{$title}'"
+            : 'Milestone ID '.substr($milestoneId, 0, 8);
     }
 
     /**
@@ -390,6 +468,7 @@ class AuditLogFormatter
         $excludeFields = array_merge(
             $this->noiseFields,
             $action === 'CREATE' ? $this->createNoiseFields : [],
+            $action === 'PUBLISH' ? ['category_ids'] : [],
             self::FREE_TEXT_FIELDS,
         );
 

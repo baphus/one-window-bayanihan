@@ -57,6 +57,7 @@ class AuditObserver
             'action' => $action,
             'module' => method_exists($model, 'getAuditModuleName') ? $model->getAuditModuleName() : $model->getTable(),
             'entity_id' => $model->getKey(),
+            'entity_label' => method_exists($model, 'getAuditEntityLabel') ? $model->getAuditEntityLabel() : null,
             'old_value' => $old,
             'new_value' => $new,
             'user_id' => Auth::id(),

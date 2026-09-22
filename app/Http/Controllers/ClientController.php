@@ -175,6 +175,7 @@ class ClientController extends Controller
         $client = Client::with([
             'addresses',
             'employments',
+            'nextOfKin',
         ])->findOrFail($id);
 
         // Same rule as the directory listing: an unaccepted self-filed intake is
@@ -184,7 +185,8 @@ class ClientController extends Controller
         $user = $request->user();
         $caseQuery = $client->caseFiles()
             ->where('cases.is_deleted', false)
-            ->with(['user']);
+            ->with(['user', 'category', 'caseIssue'])
+            ->withCount(['referrals' => fn ($q) => $q->where('is_deleted', false)]);
 
         // ADMIN/CASE_MANAGER: all cases. AGENCY: own referral cases only.
         if ($user?->isAgency()) {
@@ -205,7 +207,11 @@ class ClientController extends Controller
             }
         }]);
 
-        $case = $caseQuery->latest('cases.created_at')->latest('cases.id')->first();
+        $cases = $caseQuery->orderBy('cases.created_at', 'desc')
+            ->orderBy('cases.id', 'desc')
+            ->get();
+
+        $case = $cases->first();
         // Admin and CASE_MANAGER may view any client even without an associated case file.
         // Agency access remains limited to clients with a referral to their agency.
         if (! $case && ! $user->isAdmin() && ! $user->isCaseManager()) {
@@ -215,34 +221,37 @@ class ClientController extends Controller
         // The relationship is explicitly replaced with the authorized case;
         // never serialize Client::caseFile's global latest case here.
         $client->setRelation('caseFile', $case);
+        $client->setRelation('cases', $cases);
+
+        // Audit logs scoped to all authorized cases + their referrals/milestones.
+        $caseIds = $cases->pluck('id');
+        $allReferralIds = $cases->flatMap->referrals->pluck('id');
+        $allMilestoneIds = $cases->flatMap->referrals->flatMap->milestones->pluck('id');
 
         $auditLogs = AuditLog::with('user')
-            ->where(function ($q) use ($client) {
-                // Direct client changes
+            ->where(function ($q) use ($client, $caseIds, $allReferralIds, $allMilestoneIds) {
                 // Direct client changes (from AuditObserver on Client model)
                 $q->whereIn('module', ['clients', 'client'])->where('entity_id', $client->id);
 
-                // Case file changes if client has case (from AuditObserver + CaseService)
-                if ($client->caseFile) {
-                    $q->orWhere(function ($q2) use ($client) {
-                        $q2->whereIn('module', ['CASE', 'cases', 'case_files', 'case'])->where('entity_id', $client->caseFile->id);
+                // Case file changes across all authorized cases
+                if ($caseIds->isNotEmpty()) {
+                    $q->orWhere(function ($q2) use ($caseIds) {
+                        $q2->whereIn('module', ['CASE', 'cases', 'case_files', 'case'])->whereIn('entity_id', $caseIds);
                     });
+                }
 
-                    // Referral changes (from AuditObserver + ReferralService)
-                    $referralIds = $client->caseFile->referrals->pluck('id');
-                    if ($referralIds->isNotEmpty()) {
-                        $q->orWhere(function ($q2) use ($referralIds) {
-                            $q2->whereIn('module', ['REFERRAL', 'referrals', 'referral'])->whereIn('entity_id', $referralIds);
-                        });
+                // Referral changes (from AuditObserver + ReferralService)
+                if ($allReferralIds->isNotEmpty()) {
+                    $q->orWhere(function ($q2) use ($allReferralIds) {
+                        $q2->whereIn('module', ['REFERRAL', 'referrals', 'referral'])->whereIn('entity_id', $allReferralIds);
+                    });
+                }
 
-                        // Milestone changes (from ReferralService)
-                        $milestoneIds = $client->caseFile->referrals->flatMap->milestones->pluck('id');
-                        if ($milestoneIds->isNotEmpty()) {
-                            $q->orWhere(function ($q2) use ($milestoneIds) {
-                                $q2->whereIn('module', ['MILESTONE', 'milestones', 'milestone'])->whereIn('entity_id', $milestoneIds);
-                            });
-                        }
-                    }
+                // Milestone changes (from ReferralService)
+                if ($allMilestoneIds->isNotEmpty()) {
+                    $q->orWhere(function ($q2) use ($allMilestoneIds) {
+                        $q2->whereIn('module', ['MILESTONE', 'milestones', 'milestone'])->whereIn('entity_id', $allMilestoneIds);
+                    });
                 }
             })
             ->orderBy('timestamp', 'desc')
@@ -258,6 +267,7 @@ class ClientController extends Controller
 
         return Inertia::render('Client/Show', [
             'client' => $client,
+            'cases' => $cases,
             'auditLogs' => $formattedLogs,
         ]);
     }

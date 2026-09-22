@@ -86,10 +86,10 @@ export default function AgencyDashboard({ dashboard = {} }) {
                                 <EntityRow
                                     key={item.id}
                                     href={item.href ?? `/referrals/${item.id}`}
-                                    pill={item.caseNo}
-                                    title={item.clientName}
+                                    pill={item.case_number}
+                                    title={item.client_name}
                                     note={item.service}
-                                    age={formatAge(item.ageDays)}
+                                    age={formatAge(item.age_days)}
                                     right={<StatusBadge status={item.status} />}
                                 />
                             ))}

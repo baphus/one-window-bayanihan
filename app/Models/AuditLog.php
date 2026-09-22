@@ -22,6 +22,7 @@ class AuditLog extends Model
         'module',
         'category',
         'entity_id',
+        'entity_label',
         'description',
         'old_value',
         'new_value',

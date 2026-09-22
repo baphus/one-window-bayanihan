@@ -25,9 +25,23 @@ export default function AppFooter({ showImage = true }) {
           <p className="text-[12px] leading-relaxed text-slate-500">
             A centralized digital infrastructure for the Department of Migrant Workers, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
           </p>
-          <p className="mt-2 text-[10px] font-medium tracking-tight text-slate-400">
+          <div className="mt-2 text-[10px] font-medium tracking-tight text-slate-400">
             In compliance with the Data Privacy Act of 2012 (RA 10173).
-          </p>
+          </div>
+
+          {/* CTU Partnership Credit */}
+          <div className="mt-3 flex items-center gap-2.5 border-t border-slate-200 pt-3">
+            <img
+              src="/images/landing/ctu_no_bg.png"
+              alt="Cebu Technological University Official Seal"
+              className="h-8 w-8 flex-shrink-0 rounded-full object-contain"
+            />
+            <div className="text-[10px] leading-snug text-slate-500">
+              <span className="font-semibold text-slate-600">Developed in partnership with</span>
+              <br />
+              Cebu Technological University
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-6 md:items-end">

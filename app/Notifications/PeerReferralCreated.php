@@ -45,6 +45,7 @@ class PeerReferralCreated extends Notification implements ShouldQueue
         $services = $newReferral->relationLoaded('services')
             ? $newReferral->services->pluck('name')->implode(', ')
             : $newReferral->required_services;
+        $servicesDisplay = $services !== '' ? $services : 'Services pending agency assignment';
 
         return [
             'type' => 'peer_referral_created',
@@ -53,9 +54,8 @@ class PeerReferralCreated extends Notification implements ShouldQueue
             'case_id' => $newReferral->case_id,
             'case_number' => $caseNumber,
             'new_agency' => $newAgencyName,
-            'required_services' => $services,
-            'message' => "Case {$caseNumber} was referred to {$newAgencyName}"
-                .($services ? " — {$services}" : ''),
+            'required_services' => $servicesDisplay,
+            'message' => "Case {$caseNumber} was referred to {$newAgencyName} — {$servicesDisplay}",
             'url' => "/referrals/{$peerReferral->id}",
         ];
     }

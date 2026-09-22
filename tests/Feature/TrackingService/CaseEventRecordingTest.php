@@ -9,7 +9,6 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Client;
 use App\Models\ClientAddress;
-use App\Models\Service;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\ReferralService;
@@ -42,15 +41,10 @@ class CaseEventRecordingTest extends TestCase
     {
         [$case, $user] = $this->makeCase();
         $agency = Agency::factory()->create();
-        $service = Service::create([
-            'name' => 'Legal Assistance',
-            'agcy_id' => $agency->id,
-        ]);
 
         $referral = app(ReferralService::class)->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'services' => ['Legal Assistance'],
         ], $user->id);
 
         $event = CaseEvent::where('referral_id', $referral->id)
@@ -60,7 +54,6 @@ class CaseEventRecordingTest extends TestCase
         $this->assertNotNull($event);
         $this->assertEquals($case->id, $event->case_id);
         $this->assertStringContainsString($agency->name, $event->title);
-        $this->assertStringContainsString('Legal Assistance', $event->description);
     }
 
     public function test_every_intermediate_status_transition_is_recorded(): void

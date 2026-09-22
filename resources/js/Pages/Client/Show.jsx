@@ -1,25 +1,24 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, Link } from '@inertiajs/react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
-import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
 import AuditLogTimeline from '@/Components/AuditLogTimeline';
 import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
 import CaseManagerAvatar from '@/Components/CaseManagerAvatar';
 import { formatDisplayDate } from '@/lib/utils';
 
-export default function ClientShow({ client, auditLogs }) {
-    const [contextMenu, setContextMenu] = useState(null);
+export default function ClientShow({ client, cases: casesProp, auditLogs }) {
+    const cases = casesProp ?? client.caseFiles ?? [];
     const fullName = [client.first_name, client.middle_name, client.last_name, client.suffix]
         .filter(Boolean)
         .join(' ');
 
-    function handleRowContextMenu(e, row) {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, row });
-    }
+    const totalReferrals = cases.reduce(
+        (sum, c) => sum + (c.referrals_count ?? c.referrals?.length ?? 0),
+        0,
+    );
+    const activeCases = cases.filter((c) => c.status === 'OPEN' || c.status === 'IN_PROGRESS').length;
 
     return (
         <AppLayout title={fullName}>
@@ -42,6 +41,43 @@ export default function ClientShow({ client, auditLogs }) {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
+                    {/* Cases */}
+                    {cases.length > 0 && (
+                        <CardSection title={`Cases (${cases.length})`}>
+                            <UnifiedTable
+                                columns={[
+                                    {
+                                        key: 'case_number',
+                                        title: 'Case Number',
+                                        render: (row) => (
+                                            <Link href={route('cases.show', row.id)} className="text-indigo-600 hover:text-indigo-900 font-medium">
+                                                {row.case_number}
+                                            </Link>
+                                        ),
+                                    },
+                                    { key: 'type', title: 'Type', render: (row) => row.client_type === 'OFW' ? 'OFW' : 'Next of Kin' },
+                                    { key: 'status', title: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+                                    { key: 'manager', title: 'Manager', render: (row) => <CaseManagerAvatar user={row.user} size="sm" /> },
+                                    { key: 'date_filed', title: 'Date Filed', render: (row) => formatDisplayDate(row.created_at) },
+                                    { key: 'referrals', title: 'Referrals', render: (row) => row.referrals_count ?? row.referrals?.length ?? 0 },
+                                    {
+                                        key: 'actions',
+                                        title: '',
+                                        render: (row) => (
+                                            <Link href={route('cases.show', row.id)} className="text-indigo-600 hover:text-indigo-900">View</Link>
+                                        ),
+                                    },
+                                ]}
+                                data={cases}
+                                keyExtractor={(row) => row.id}
+                                variant="embedded"
+                                hideControlBar
+                                hidePagination
+                            />
+                        </CardSection>
+                    )}
+
+                    {/* Client Information */}
                     <CardSection title="Client Information">
                         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-surface-variant border-b border-surface-variant">
                             <InfoCell label="Full Name" value={
@@ -53,19 +89,18 @@ export default function ClientShow({ client, auditLogs }) {
                             <InfoCell label="Sex" value={client.sex || 'N/A'} />
                             <InfoCell label="Date of Birth" value={client.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
                         </div>
-                        {client.caseFile && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-surface-variant">
-                                <InfoCell label="Case Number" value={
-                                    <Link href={route('cases.show', client.caseFile.id)} className="text-indigo-600 hover:text-indigo-900">
-                                        {client.caseFile.case_number}
-                                    </Link>
-                                } />
-                                <InfoCell label="Client Type" value={
-                                    client.caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'
-                                } />
-                                <InfoCell label="Case Status" value={<StatusBadge status={client.caseFile.status} />} />
-                            </div>
-                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-surface-variant">
+                            <InfoCell label="Email" value={
+                                client.email
+                                    ? <a href={`mailto:${client.email}`} className="text-indigo-600 hover:text-indigo-900">{client.email}</a>
+                                    : 'N/A'
+                            } />
+                            <InfoCell label="Contact Number" value={
+                                client.contact_number
+                                    ? <a href={`tel:${client.contact_number}`} className="text-indigo-600 hover:text-indigo-900">{client.contact_number}</a>
+                                    : 'N/A'
+                            } />
+                        </div>
                     </CardSection>
 
                     {client.caseFile?.summary && (
@@ -74,10 +109,34 @@ export default function ClientShow({ client, auditLogs }) {
                         </CardSection>
                     )}
 
+                    {/* Next of Kin */}
+                    <CardSection title="Next of Kin">
+                        {client.nextOfKin?.length > 0 ? (
+                            <div className="space-y-3">
+                                {client.nextOfKin.map((nok) => (
+                                    <div key={nok.id} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <MetaTile label="Name" value={
+                                            [nok.first_name, nok.middle_name, nok.last_name].filter(Boolean).join(' ') || 'N/A'
+                                        } />
+                                        <MetaTile label="Relationship" value={nok.relationship || 'N/A'} />
+                                        <MetaTile label="Contact" value={
+                                            nok.phone_number
+                                                ? <a href={`tel:${nok.phone_number}`} className="text-indigo-600 hover:text-indigo-900">{nok.phone_number}</a>
+                                                : (nok.email ? <a href={`mailto:${nok.email}`} className="text-indigo-600 hover:text-indigo-900">{nok.email}</a> : 'N/A')
+                                        } />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-500">No next of kin on file.</p>
+                        )}
+                    </CardSection>
+
+                    {/* Addresses */}
                     {client.addresses?.length > 0 && (
                         <CardSection title="Addresses">
-                            {client.addresses.map((addr) => (
-                                <SubsectionCard key={addr.id} title="Address">
+                            {client.addresses.map((addr, idx) => (
+                                <SubsectionCard key={addr.id} title={`Address ${idx + 1}`}>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <MetaTile label="Region" value={addr.region || 'N/A'} />
                                         <MetaTile label="Province" value={addr.province || 'N/A'} />
@@ -146,37 +205,35 @@ export default function ClientShow({ client, auditLogs }) {
                 </div>
 
                 <div className="space-y-6">
-                    <CardSection title="Overview">
+                    <CardSection title="Quick Facts">
                         <div className="space-y-2">
                             <MetaTile label="Full Name" value={fullName} />
-                            <MetaTile label="Sex" value={client.sex || 'N/A'} />
-                            <MetaTile label="Date of Birth" value={client.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'} />
-                            {client.caseFile && (
-                                <>
-                                    <MetaTile label="Case Number" value={
-                                        <Link href={route('cases.show', client.caseFile.id)} className="text-indigo-600 hover:text-indigo-900">
-                                            {client.caseFile.case_number}
-                                        </Link>
-                                    } />
-                                    <MetaTile label="Client Type" value={client.caseFile.client_type === 'OFW' ? 'OFW' : 'Next of Kin'} />
-                                    <MetaTile label="Referrals" value={client.caseFile.referrals?.length ?? 0} />
-                                </>
-                            )}
-                            <MetaTile label="Created" value={formatDisplayDate(client.created_at)} />
+                            <MetaTile label="Contact" value={
+                                client.contact_number
+                                    ? <a href={`tel:${client.contact_number}`} className="text-indigo-600 hover:text-indigo-900">{client.contact_number}</a>
+                                    : 'N/A'
+                            } />
+                            <MetaTile label="Email" value={
+                                client.email
+                                    ? <a href={`mailto:${client.email}`} className="text-indigo-600 hover:text-indigo-900">{client.email}</a>
+                                    : 'N/A'
+                            } />
+                            <MetaTile label="Total Cases" value={cases.length} />
+                            <MetaTile label="Active Cases" value={activeCases} />
+                            <MetaTile label="Referrals" value={totalReferrals} />
+                            <MetaTile label="Client Since" value={formatDisplayDate(client.created_at)} />
                         </div>
-                        {!client.caseFile && (
-                            <div className="mt-4">
-                                <Link
-                                    href={route('cases.create', { client_id: client.id })}
-                                    className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                                >
-                                    <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
-                                    Create New Case
-                                </Link>
-                            </div>
-                        )}
+                        <div className="mt-4">
+                            <Link
+                                href={route('cases.create', { client_id: client.id })}
+                                className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                            >
+                                <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                Create New Case
+                            </Link>
+                        </div>
                     </CardSection>
                 </div>
             </div>

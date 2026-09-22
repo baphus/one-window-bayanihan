@@ -18,6 +18,11 @@ class Milestone extends Model
         return 'milestone';
     }
 
+    public function getAuditEntityLabel(): ?string
+    {
+        return $this->title;
+    }
+
     protected $fillable = [
         'title',
         'description',

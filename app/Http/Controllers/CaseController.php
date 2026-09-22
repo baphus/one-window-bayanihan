@@ -224,10 +224,15 @@ class CaseController extends Controller
 
         $trackingData = $this->trackingService->buildTrackingData($case);
 
+        $categories = $this->referenceData->getActiveCategories();
+        $caseIssues = $this->referenceData->getActiveIssues();
+
         return Inertia::render('Case/Show', [
             'case' => $case,
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $trackingData['milestoneTimeline'],
+            'categories' => $categories,
+            'caseIssues' => $caseIssues,
         ]);
     }
 
