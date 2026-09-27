@@ -35,7 +35,16 @@ class CheckMfaEnrolled
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! config('mfa.enrollment_enforcement_enabled')) {
+        $isProduction = function_exists('app');
+        if ($isProduction) {
+            try {
+                $isProduction = app()->isProduction();
+            } catch (\Throwable $e) {
+                $isProduction = false;
+            }
+        }
+
+        if (! $isProduction && ! config('mfa.enrollment_enforcement_enabled')) {
             return $next($request);
         }
 
@@ -45,11 +54,10 @@ class CheckMfaEnrolled
         }
 
         // Enrollment policy is intentionally separate from login challenge policy.
-        // Which roles must enrol is configuration, not a hardcoded constant: this
-        // check previously covered ADMIN only, so case managers and agency focals
-        // reached OFW personal data with a password alone.
-        $enforcedRoles = (array) config('mfa.enrollment_enforced_roles', ['ADMIN']);
-        if (! in_array($request->user()->role, $enforcedRoles, true)) {
+        // Single source of truth: User::isInMfaEnforcedRole(). In production it
+        // returns true for every role (ADMIN, CASE_MANAGER, AGENCY, OFW), so the
+        // production override applies here automatically.
+        if (! $request->user()->isInMfaEnforcedRole()) {
             return $next($request);
         }
 
