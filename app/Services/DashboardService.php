@@ -175,13 +175,17 @@ class DashboardService
         ], $bands);
     }
 
-    private function buildPriorityReferralsSQL(?string $agencyId = null, int $limit = 8, bool $includeAgency = true): array
+    private function buildPriorityReferralsSQL(?string $agencyId = null, int $limit = 8, bool $includeAgency = true, ?string $status = null): array
     {
         $agencyFilter = '';
         $bindings = [];
         if ($agencyId) {
             $agencyFilter = 'AND r.agcy_id = ?';
             $bindings[] = $agencyId;
+        }
+        if ($status) {
+            $agencyFilter .= ' AND r.status = ?';
+            $bindings[] = $status;
         }
         $bindings[] = $limit;
 
@@ -338,6 +342,74 @@ class DashboardService
                 WHERE c.status = 'OPEN' AND c.is_deleted = false
             ) sub
             ORDER BY priority_score DESC
+            LIMIT ?
+        ", [$limit]);
+
+        return array_map(fn ($row) => [
+            'id' => $row->id,
+            'caseNo' => $row->case_number ?? 'N/A',
+            'trackerNumber' => $row->tracker_number,
+            'clientName' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'N/A',
+            'status' => $row->status,
+            'latestReferralStatus' => $row->latest_referral_status,
+            'ageDays' => (int) round(Carbon::parse($row->created_at)->diffInDays(now())),
+            'reason' => $row->reason,
+            'href' => '/cases/'.$row->id,
+        ], $rows);
+    }
+
+    /**
+     * Intake-review list: the manager's own DRAFTs plus unassigned self-filed
+     * intakes awaiting review. Oldest first so the longest-waiting intake
+     * surfaces at the top. Capped to keep the deferred payload light.
+     */
+    private function buildIntakeReviewList(?string $userId, int $limit = 8): array
+    {
+        return CaseFile::with(['client'])
+            ->select('id', 'case_number', 'tracker_number', 'client_id', 'client_type', 'status', 'source', 'user_id', 'created_at', 'updated_at')
+            ->where('status', 'DRAFT')
+            ->where('is_deleted', false)
+            ->where(function ($q) use ($userId) {
+                $q->where('source', CaseFile::SOURCE_SELF_FILED);
+                if ($userId) {
+                    $q->orWhere('user_id', $userId);
+                }
+            })
+            ->orderBy('created_at', 'asc')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'caseNo' => $c->case_number,
+                'trackerNumber' => $c->tracker_number,
+                'clientName' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
+                'status' => $c->status,
+                'source' => $c->source,
+                'isOwnDraft' => $userId ? $c->user_id === $userId : false,
+                'createdAt' => $c->created_at?->toISOString() ?? now()->toISOString(),
+                'href' => '/cases/'.$c->id,
+            ])
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Ready-to-close list: OPEN cases that have at least one referral and
+     * zero non-COMPLETED referrals. Row shape mirrors buildPriorityCasesSQL.
+     */
+    private function buildReadyToCloseListSQL(int $limit = 8): array
+    {
+        $rows = DB::select("
+            SELECT c.id, c.case_number, c.tracker_number, c.status, c.created_at,
+                cl.first_name, cl.last_name,
+                'Ready to close' AS reason,
+                'COMPLETED' AS latest_referral_status
+            FROM cases c
+            LEFT JOIN clients cl ON cl.id = c.client_id
+            WHERE c.status = 'OPEN' AND c.is_deleted = false
+                AND EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND is_deleted = false)
+                AND NOT EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND status != 'COMPLETED' AND is_deleted = false)
+            ORDER BY c.updated_at DESC
             LIMIT ?
         ", [$limit]);
 
@@ -597,7 +669,8 @@ class DashboardService
                 ->toArray();
         });
 
-        // Load allCases (trimmed: no 'user' eager load, only needed columns)
+        // New-cases preview: 5 newest OPEN (or created <30d) rows. Count
+        // totals above stay exact — this trim only affects the preview list.
         $allCases = CaseFile::with(['client'])
             ->select('id', 'case_number', 'tracker_number', 'client_id', 'client_type', 'status', 'created_at', 'updated_at')
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
@@ -606,7 +679,7 @@ class DashboardService
                     ->orWhere('created_at', '>', now()->subDays(30));
             })
             ->orderBy('created_at', 'desc')
-            ->limit(200)
+            ->limit(5)
             ->get()
             ->map(fn ($c) => [
                 'id' => $c->id,
@@ -673,6 +746,26 @@ class DashboardService
         $agencyBreakdown = CacheHelper::safeRemember('dashboard:cm_agency_breakdown', 60, function () {
             return $this->buildAgencyBreakdownSQL();
         });
+        $intakeReview = CacheHelper::safeRemember('dashboard:cm_intake_review:'.($user?->id ?? 'guest'), 60, function () use ($user) {
+            return $this->buildIntakeReviewList($user?->id, 8);
+        });
+        $forComplianceList = CacheHelper::safeRemember('dashboard:cm_for_compliance_list', 60, function () {
+            return $this->buildPriorityReferralsSQL(null, 8, true, 'FOR_COMPLIANCE');
+        });
+        $readyToClose = CacheHelper::safeRemember('dashboard:cm_ready_to_close', 60, function () {
+            return $this->buildReadyToCloseListSQL(8);
+        });
+
+        // Trend datasets for the Numbers block chart toggle. Reuses the
+        // existing ReportsService builders behind the same 300s cache-key
+        // pattern as the admin case-trends payload.
+        $reportsService = app(ReportsService::class);
+        $casesOverTime = CacheHelper::safeRemember('dashboard:cm_cases_over_time', 300, function () use ($reportsService) {
+            return $reportsService->getCasesOverTime(null, 'CASE_MANAGER');
+        });
+        $referralTrends = CacheHelper::safeRemember('dashboard:cm_referral_trends', 300, function () use ($reportsService) {
+            return $reportsService->getReferralTrends(null, 'CASE_MANAGER');
+        });
 
         // Work queue counts via targeted SQL
         $agingOpenCasesCount = CacheHelper::safeRemember('dashboard:cm_aging_open_count', 60, function () {
@@ -690,12 +783,36 @@ class DashboardService
             ")->cnt;
         });
 
+        $intakeReviewCount = CacheHelper::safeRemember('dashboard:cm_intake_review_count:'.($user?->id ?? 'guest'), 60, function () use ($user) {
+            return (int) CaseFile::where('status', 'DRAFT')
+                ->where('is_deleted', false)
+                ->where(function ($q) use ($user) {
+                    $q->where('source', CaseFile::SOURCE_SELF_FILED);
+                    if ($user) {
+                        $q->orWhere('user_id', $user->id);
+                    }
+                })
+                ->count();
+        });
+
+        $readyToCloseCount = CacheHelper::safeRemember('dashboard:cm_ready_to_close_count', 60, function () {
+            return (int) DB::selectOne("
+                SELECT COUNT(*) AS cnt FROM cases c
+                WHERE c.status = 'OPEN' AND c.is_deleted = false
+                    AND EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND is_deleted = false)
+                    AND NOT EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND status != 'COMPLETED' AND is_deleted = false)
+            ")->cnt;
+        });
+
         $workQueue = [
             $this->queueItem('agingOpenCases', 'Aging open cases', $agingOpenCasesCount, 'Open seven days or more.', 'amber', 'folder_clock', '/cases?status=OPEN&age_min_days=7'),
             $this->queueItem('pendingReferrals', 'Pending referrals', $pendingReferrals, 'Waiting for agency action.', 'amber', 'schedule', '/referrals?status=PENDING'),
             $this->queueItem('rejectedReferrals', 'Rejected referrals', $rejectedReferrals, 'Needs reassignment or follow-up.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
             $this->queueItem('draftCases', 'Draft cases', $myDraftCount, 'Your unfinished case drafts.', 'slate', 'edit_note', '/cases/drafts'),
             $this->queueItem('casesWithoutReferrals', 'Cases without referrals', $casesWithoutReferrals, 'Open cases that may need routing.', 'blue', 'hub', '/cases?status=OPEN&referral_state=none'),
+            $this->queueItem('intakeReview', 'Intake to review', $intakeReviewCount, 'Your drafts plus self-filed intakes awaiting review.', 'cyan', 'pending_actions', '/cases/intake-queue'),
+            $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals?status=FOR_COMPLIANCE'),
+            $this->queueItem('readyToClose', 'Ready to close', $readyToCloseCount, 'Open cases with all referrals completed.', 'emerald', 'task_alt', '/cases?status=OPEN'),
         ];
 
         return [
@@ -723,6 +840,11 @@ class DashboardService
             'myDraftCount' => $myDraftCount,
             'allCases' => $allCases,
             'agencyBreakdown' => $agencyBreakdown,
+            'intakeReview' => $intakeReview,
+            'forComplianceList' => $forComplianceList,
+            'readyToClose' => $readyToClose,
+            'casesOverTime' => $casesOverTime,
+            'referralTrends' => $referralTrends,
         ];
     }
 
