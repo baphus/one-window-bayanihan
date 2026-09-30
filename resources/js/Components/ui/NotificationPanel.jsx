@@ -60,7 +60,7 @@ export default function NotificationPanel() {
   const rawNotifications = notifData?.data ?? [];
 
   // Normalize Laravel notifications to display format
-  const notifications = rawNotifications.map(normalizeNotification);
+  const notifications = rawNotifications.map((row) => normalizeNotification(row));
 
   // ── Take top 10 notifications ──
   const mergedItems = notifications.slice(0, 10);
