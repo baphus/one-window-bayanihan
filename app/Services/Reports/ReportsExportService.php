@@ -395,6 +395,11 @@ class ReportsExportService
      * sheets consume. Trends are computed from the (identically filtered) detail
      * bases so both PDF and Excel always have month-by-month series regardless
      * of the role-specific keys getAll() returns.
+     *
+     * Passing through report['caseTrends']/['referralTrends'] instead would
+     * change behaviour: those keys are role-specific, use a fixed 12-month
+     * window, and honour no geo filter. ReportsExportParityTest asserts the
+     * recompute agrees with the service methods under matching filters.
      */
     private function summaryFromReport(array $report, $refBase, $caseBase, array $c): array
     {
@@ -402,9 +407,11 @@ class ReportsExportService
         $kpis = $report['kpis'] ?? [];
 
         // getAll agency scorecard uses `avgDays`; the Blade/Excel expect `avg_days`.
+        // `active` matches the on-screen definition: total minus completed.
         $scorecard = collect($report['agencyScorecard'] ?? [])->map(function ($row) {
             $row = (array) $row;
             $row['avg_days'] = $row['avgDays'] ?? ($row['avg_days'] ?? null);
+            $row['active'] = max(0, (int) ($row['total'] ?? 0) - (int) ($row['completed'] ?? 0));
 
             return $row;
         })->all();
@@ -433,6 +440,12 @@ class ReportsExportService
             'cycleTimeDistribution' => $report['cycleTimeDistribution'] ?? ['labels' => [], 'data' => []],
             'geographicDistribution' => $report['geographicDistribution'] ?? ['labels' => [], 'data' => []],
             'employmentDistribution' => $report['employmentDistribution'] ?? ['labels' => [], 'data' => []],
+            'geographicMapData' => $report['geographicMapData'] ?? ['provinces' => []],
+            // Only the AGENCY payload carries avgReferralCompletion; every
+            // other role falls back to the same computation directly so the
+            // Trends section can cite the on-screen average finish time.
+            'avgReferralCompletion' => $report['avgReferralCompletion']
+                ?? $this->reports->getAvgReferralCompletionDays($role === 'AGENCY' ? 'AGENCY' : null, $c['agency_id']),
             'caseTrends' => $this->trendFromBase($caseBase, 'cases.created_at'),
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
         ];
@@ -510,6 +523,13 @@ class ReportsExportService
             'employmentOccupationBreakdown' => $this->reports->getEmploymentOccupationBreakdown($userId, $role, $agency, $from, $to, $prov, $city),
             'overdueReferrals' => $this->overdueFromBase($refBase),
             'mostRequestedService' => $this->reports->getMostRequestedService($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'rejectionReasonDistribution' => $this->reports->getRejectionReasonDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'closedCasesOverTime' => $this->reports->getClosedCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'caseSourceDistribution' => $this->reports->getCaseSourceDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'reopenedStats' => $this->reports->getReopenedStats($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'caseEventActorDistribution' => $this->reports->getCaseEventActorDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'agencyFirstResponse' => $this->reports->getAgencyFirstResponse($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'clientRequestTypeDistribution' => $this->reports->getClientRequestTypeDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
         ];
     }
 
@@ -536,6 +556,13 @@ class ReportsExportService
             'employmentOccupationBreakdown' => $emptyDist,
             'overdueReferrals' => ['count' => 0, 'threshold_days' => 14],
             'mostRequestedService' => ['name' => 'N/A', 'value' => 0],
+            'rejectionReasonDistribution' => $emptyDist,
+            'closedCasesOverTime' => ['labels' => [], 'datasets' => [['data' => []]]],
+            'caseSourceDistribution' => $emptyDist,
+            'reopenedStats' => ['reopenedCount' => 0, 'repeatClients' => 0, 'totalClients' => 0, 'repeatClientRate' => 0],
+            'caseEventActorDistribution' => $emptyDist,
+            'agencyFirstResponse' => [],
+            'clientRequestTypeDistribution' => $emptyDist,
         ];
     }
 
@@ -910,7 +937,7 @@ class ReportsExportService
             ['title' => 'Referral Aging', 'columnMap' => $dist, 'rows' => $distRows($p['referralAging']), 'chart' => 'bar'],
             ['title' => 'Cycle Time', 'columnMap' => $dist, 'rows' => $distRows($p['cycleTimeDistribution']), 'chart' => 'bar'],
             ['title' => 'Overdue Referrals', 'columnMap' => $kv, 'rows' => collect([
-                ['metric' => 'Overdue referrals', 'value' => (string) ($p['overdueReferrals']['count'] ?? 0)],
+                ['metric' => 'Overdue referrals (due within selected period)', 'value' => (string) ($p['overdueReferrals']['count'] ?? 0)],
                 ['metric' => 'Overdue after (days)', 'value' => (string) ($p['overdueReferrals']['threshold_days'] ?? 14)],
             ])],
             ['title' => 'Most Requested Service', 'columnMap' => $kv, 'rows' => collect([
@@ -1046,11 +1073,11 @@ class ReportsExportService
             ['Referral Funnel', 'Share', 'Stage count as a share of all referrals in range', '%'],
             ['Referral Aging', 'Label', 'Age band of referrals still awaiting action', 'band'],
             ['Cycle Time', 'Label', 'Elapsed time band for completed referrals', 'band'],
-            ['Overdue Referrals', 'Overdue referrals', 'Active referrals older than the threshold, within the selected filters', 'count'],
+            ['Overdue Referrals', 'Overdue referrals (due within selected period)', 'Active referrals older than the threshold, counted within the selected period — not the same query as any unwindowed overdue figure elsewhere', 'count'],
             ['Trends', 'Period', 'Calendar month, YYYY-MM, in UTC', 'month'],
             ['All sheets', 'Timestamps', 'Created At, Updated At, Completed At and Closed At are UTC, as stored; the selected date range filters the same values', 'UTC'],
             ['Gender / Age Groups / Vulnerability / Client Type / Employment', 'Count', 'Buckets below the suppression threshold are withheld — see Report Info', 'count'],
-            ['All sheets', 'Scope', 'Every figure honours the date range, date scope, province, city and agency filters shown on Report Info', 'n/a'],
+            ['All sheets', 'Scope', 'Every figure honours the date range, date scope, province, city and agency filters shown on Report Info, except Agency Workload (date range and agency only — its service signature takes no province or city)', 'n/a'],
         ])->map(fn ($r) => ['sheet' => $r[0], 'column' => $r[1], 'meaning' => $r[2], 'units' => $r[3]]);
     }
 

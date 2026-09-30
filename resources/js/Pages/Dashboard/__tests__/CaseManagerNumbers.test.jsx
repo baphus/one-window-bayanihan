@@ -54,7 +54,7 @@ vi.mock('@/Components/GettingStartedChecklist', () => ({
 }));
 
 vi.mock('@/Components/ui/StatusBadge', () => ({
-    default: ({ status }) => <span>{status}</span>,
+    default: ({ status, label }) => <span>{label ?? status}</span>,
 }));
 
 const dashboard = {
@@ -121,24 +121,24 @@ describe('CaseManager Numbers block', () => {
     it('shows exact case and referral counts with matching status badges', () => {
         const numbers = renderNumbers();
 
-        // Case counts: DRAFT / OPEN / CLOSED.
+        // Case counts with humanized badges.
         expect(numbers.getByText('2')).toBeInTheDocument();
         expect(numbers.getByText('5')).toBeInTheDocument();
         expect(numbers.getByText('3')).toBeInTheDocument();
-        expect(numbers.getByText('DRAFT')).toBeInTheDocument();
-        expect(numbers.getByText('OPEN')).toBeInTheDocument();
-        expect(numbers.getByText('CLOSED')).toBeInTheDocument();
+        expect(numbers.getByText('Draft')).toBeInTheDocument();
+        expect(numbers.getByText('Open')).toBeInTheDocument();
+        expect(numbers.getByText('Closed')).toBeInTheDocument();
 
-        // Referral counts: PENDING / PROCESSING / FOR_COMPLIANCE / COMPLETED / REJECTED.
+        // Referral counts with humanized badges.
         expect(numbers.getByText('4')).toBeInTheDocument();
         expect(numbers.getByText('7')).toBeInTheDocument();
         expect(numbers.getByText('6')).toBeInTheDocument();
         expect(numbers.getByText('8')).toBeInTheDocument();
-        expect(numbers.getByText('PENDING')).toBeInTheDocument();
-        expect(numbers.getByText('PROCESSING')).toBeInTheDocument();
-        expect(numbers.getByText('FOR_COMPLIANCE')).toBeInTheDocument();
-        expect(numbers.getByText('COMPLETED')).toBeInTheDocument();
-        expect(numbers.getByText('REJECTED')).toBeInTheDocument();
+        expect(numbers.getByText('Pending')).toBeInTheDocument();
+        expect(numbers.getByText('Processing')).toBeInTheDocument();
+        expect(numbers.getByText('For Compliance')).toBeInTheDocument();
+        expect(numbers.getByText('Completed')).toBeInTheDocument();
+        expect(numbers.getByText('Rejected')).toBeInTheDocument();
     });
 
     it('toggles Line and Bar views while keeping the same dataset', () => {
@@ -200,8 +200,8 @@ describe('CaseManager Numbers block', () => {
         expect(numbers.getByText('The trend appears as case activity accumulates.')).toBeInTheDocument();
 
         // Counts and badges still render — only the chart is empty.
-        expect(numbers.getByText('DRAFT')).toBeInTheDocument();
-        expect(numbers.getByText('FOR_COMPLIANCE')).toBeInTheDocument();
+        expect(numbers.getByText('Draft')).toBeInTheDocument();
+        expect(numbers.getByText('For Compliance')).toBeInTheDocument();
     });
 });
 
@@ -228,7 +228,7 @@ describe('CaseManager status pies', () => {
         renderNumbers(dashboardWithAgencies);
 
         const cases = pieSlices('dashboard-pie-cases');
-        expect(cases.labels).toEqual(['DRAFT', 'OPEN', 'CLOSED']);
+        expect(cases.labels).toEqual(['Draft', 'Open', 'Closed']);
         expect(cases.values).toEqual([2, 5, 3]);
 
         const agencies = pieSlices('dashboard-pie-agencies');
@@ -236,12 +236,12 @@ describe('CaseManager status pies', () => {
         expect(agencies.values).toEqual([4, 2]);
 
         const status = pieSlices('dashboard-pie-status');
-        expect(status.labels).toEqual(['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED']);
+        expect(status.labels).toEqual(['Pending', 'Processing', 'For Compliance', 'Completed', 'Rejected']);
         expect(status.values).toEqual([4, 7, 6, 8, 1]);
 
-        // Legends carry the exact status text with counts.
-        expect(cases.card.getByText('DRAFT')).toBeInTheDocument();
-        expect(status.card.getByText('FOR_COMPLIANCE')).toBeInTheDocument();
+        // Legends carry the humanized status text with counts.
+        expect(cases.card.getByText('Draft')).toBeInTheDocument();
+        expect(status.card.getByText('For Compliance')).toBeInTheDocument();
         expect(agencies.card.getByText('OWWA')).toBeInTheDocument();
     });
 
@@ -285,7 +285,7 @@ describe('CaseManager Intake Queue block', () => {
         expect(names).toEqual(['Juan Dela Cruz', 'Maria Santos']);
 
         expect(intake.getAllByText('Portal')).toHaveLength(2);
-        expect(intake.getAllByText('DRAFT')).toHaveLength(2);
+        expect(intake.getAllByText('Draft')).toHaveLength(2);
 
         const reviews = intake.getAllByRole('link', { name: 'Review' }).map((node) => node.getAttribute('href'));
         expect(reviews).toEqual(['/cases/case-1/review-intake', '/cases/case-2/review-intake']);

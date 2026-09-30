@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Agency;
+use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\CaseStatus;
 use App\Models\Client;
 use App\Models\ClientEmployment;
 use App\Models\Referral;
+use App\Models\ReferralClientRequest;
 use App\Models\User;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -236,5 +238,218 @@ class ReportsMetricsTest extends TestCase
 
         $this->assertSame(1, $kpis['totalReferrals']);
         $this->assertSame(1, $kpis['totalCases']);
+    }
+
+    #[Test]
+    public function case_source_distribution_groups_internal_and_self_filed(): void
+    {
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'source' => 'internal']);
+        CaseFile::factory()->count(2)->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'source' => CaseFile::SOURCE_SELF_FILED]);
+
+        $distribution = $this->service->getCaseSourceDistribution($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(['Internal', 'Self-filed'], $distribution['labels']);
+        $this->assertSame([1, 2], array_map('intval', $distribution['data']));
+    }
+
+    #[Test]
+    public function closed_cases_over_time_buckets_closures_by_close_month(): void
+    {
+        CaseFile::factory()->closed()->create([
+            'user_id' => $this->managerA->id,
+            'created_at' => '2026-02-10 08:00:00',
+            'closed_at' => '2026-02-15 10:00:00',
+        ]);
+        CaseFile::factory()->count(2)->closed()->create([
+            'user_id' => $this->managerA->id,
+            'created_at' => '2026-03-05 08:00:00',
+            'closed_at' => '2026-03-20 10:00:00',
+        ]);
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+
+        $trend = $this->service->getClosedCasesOverTime($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(['2026-02', '2026-03'], $trend['labels']);
+        $this->assertSame('Cases Closed', $trend['datasets'][0]['label']);
+        $this->assertSame([1, 2], array_map('intval', $trend['datasets'][0]['data']));
+    }
+
+    #[Test]
+    public function reopened_stats_counts_reopens_and_repeat_clients(): void
+    {
+        $client = Client::factory()->create();
+        $caseA = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $client->id, 'status' => 'OPEN']);
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $client->id, 'status' => 'OPEN']);
+        CaseEvent::create([
+            'case_id' => $caseA->id,
+            'type' => CaseEvent::TYPE_CASE_REOPENED,
+            'title' => 'Case reopened',
+            'actor_type' => 'case_manager',
+            'occurred_at' => now(),
+        ]);
+
+        $stats = $this->service->getReopenedStats($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(1, $stats['reopenedCount']);
+        $this->assertSame(1, $stats['repeatClients']);
+        $this->assertSame(1, $stats['totalClients']);
+        $this->assertSame(100.0, $stats['repeatClientRate']);
+    }
+
+    #[Test]
+    public function case_status_distribution_includes_draft_slice(): void
+    {
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        CaseFile::factory()->closed()->create(['user_id' => $this->managerA->id]);
+        CaseFile::factory()->draft()->create(['user_id' => $this->managerA->id]);
+
+        $distribution = $this->service->getCaseStatusDistribution($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(['OPEN', 'CLOSED', 'DRAFT'], $distribution['labels']);
+        $this->assertSame([1, 1, 1], array_map('intval', $distribution['data']));
+    }
+
+    #[Test]
+    public function case_event_actor_distribution_groups_by_actor(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        foreach (['agency', 'agency', 'system'] as $actor) {
+            CaseEvent::create([
+                'case_id' => $case->id,
+                'type' => CaseEvent::TYPE_MILESTONE_ADDED,
+                'title' => 'Activity',
+                'actor_type' => $actor,
+                'occurred_at' => now(),
+            ]);
+        }
+
+        $distribution = $this->service->getCaseEventActorDistribution($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(['Agency', 'Case manager', 'System'], $distribution['labels']);
+        $this->assertSame([2, 0, 1], array_map('intval', $distribution['data']));
+    }
+
+    #[Test]
+    public function agency_scorecard_rows_carry_overdue_counts(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        Referral::factory()->pending()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $this->agency->id,
+            'created_at' => now()->subDays(20),
+            'updated_at' => now()->subDays(20),
+        ]);
+        Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
+
+        $scorecard = $this->service->getAgencyScorecard($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertCount(1, $scorecard);
+        $this->assertSame(2, $scorecard[0]['total']);
+        $this->assertSame(1, $scorecard[0]['overdue']);
+    }
+
+    #[Test]
+    public function agency_first_response_reports_median_days_per_agency(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        $fast = Referral::factory()->processing()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $this->agency->id,
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ]);
+        $slow = Referral::factory()->processing()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $this->agency->id,
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ]);
+        foreach ([[$fast, 4], [$slow, 2]] as [$referral, $daysAgo]) {
+            CaseEvent::create([
+                'case_id' => $case->id,
+                'referral_id' => $referral->id,
+                'type' => CaseEvent::TYPE_REFERRAL_STATUS_CHANGED,
+                'title' => 'Accepted',
+                'meta' => ['from' => 'PENDING', 'to' => 'PROCESSING'],
+                'actor_type' => 'agency',
+                'occurred_at' => now()->subDays($daysAgo),
+            ]);
+        }
+
+        $response = $this->service->getAgencyFirstResponse($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertCount(1, $response);
+        $this->assertSame($this->agency->name, $response[0]['agency']);
+        $this->assertSame(7.0, $response[0]['medianDays']);
+        $this->assertSame(2, $response[0]['samples']);
+    }
+
+    #[Test]
+    public function client_request_type_distribution_groups_by_type(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        $referral = Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
+        ReferralClientRequest::factory()->count(2)->create([
+            'referral_id' => $referral->id,
+            'type' => ReferralClientRequest::TYPE_DOCUMENT_REQUEST,
+        ]);
+        ReferralClientRequest::factory()->create([
+            'referral_id' => $referral->id,
+            'type' => ReferralClientRequest::TYPE_QUESTION,
+        ]);
+
+        $distribution = $this->service->getClientRequestTypeDistribution($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(['Document request', 'Question', 'Information update'], $distribution['labels']);
+        $this->assertSame([2, 1, 0], array_map('intval', $distribution['data']));
+    }
+
+    #[Test]
+    public function empty_report_payload_carries_zero_shapes_for_new_aggregates(): void
+    {
+        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+
+        $payload = $this->service->getAll(
+            userId: $agencyless->id,
+            role: 'AGENCY',
+            agencyId: null,
+            fromDate: '2026-01-01',
+            toDate: '2026-12-31',
+        );
+
+        $this->assertSame([0, 0], $payload['caseSourceDistribution']['data']);
+        $this->assertSame([], $payload['closedCasesOverTime']);
+        $this->assertSame(0, $payload['reopenedStats']['reopenedCount']);
+        $this->assertSame(0, $payload['reopenedStats']['repeatClientRate']);
+        $this->assertSame([0, 0, 0], $payload['caseEventActorDistribution']['data']);
+        $this->assertSame([], $payload['agencyFirstResponse']);
+        $this->assertSame([0, 0, 0], $payload['clientRequestTypeDistribution']['data']);
+    }
+
+    #[Test]
+    public function rejection_reason_distribution_groups_rejected_referrals(): void
+    {
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        Referral::factory()->count(2)->rejected()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $this->agency->id,
+            'rejection_reason' => 'INCOMPLETE_REQUIREMENTS',
+        ]);
+        Referral::factory()->rejected()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $this->agency->id,
+            'rejection_reason' => 'OTHER',
+        ]);
+        Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
+
+        $distribution = $this->service->getRejectionReasonDistribution($this->managerA->id, 'CASE_MANAGER');
+
+        $this->assertSame(Referral::REJECTION_REASONS, $distribution['labels']);
+        $this->assertCount(6, $distribution['data']);
+        $combined = array_combine($distribution['labels'], $distribution['data']);
+        $this->assertSame(2, (int) $combined['INCOMPLETE_REQUIREMENTS']);
+        $this->assertSame(1, (int) $combined['OTHER']);
+        $this->assertSame(0, (int) $combined['DUPLICATE_REFERRAL']);
+        $this->assertSame(3, array_sum(array_map('intval', $distribution['data'])));
     }
 }

@@ -17,6 +17,33 @@ class Referral extends Model
      */
     protected array $cascadeSoftDeletes = ['comments', 'attachments'];
 
+    /**
+     * Controlled rejection-reason vocabulary (mirrors the
+     * referrals_rejection_reason_check constraint).
+     */
+    public const REJECTION_REASONS = [
+        'INCOMPLETE_REQUIREMENTS',
+        'OUTSIDE_MANDATE',
+        'DUPLICATE_REFERRAL',
+        'CLIENT_WITHDREW',
+        'NO_SERVICE_CAPACITY',
+        'OTHER',
+    ];
+
+    public const REJECTION_REASON_LABELS = [
+        'INCOMPLETE_REQUIREMENTS' => 'Incomplete requirements',
+        'OUTSIDE_MANDATE' => 'Outside mandate',
+        'DUPLICATE_REFERRAL' => 'Duplicate referral',
+        'CLIENT_WITHDREW' => 'Client withdrew',
+        'NO_SERVICE_CAPACITY' => 'No service capacity',
+        'OTHER' => 'Other',
+    ];
+
+    // Deliberately audited: rejection_reason is a controlled-vocabulary enum
+    // like `decision` (safe for the audit page), not free text like
+    // `decision_comment` (excluded from the safe audit response). The reason
+    // stays out of per-row exports — it is served aggregate-only via
+    // ReportsService::getRejectionReasonDistribution().
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'case_id'];
 
     public function getAuditModuleName(): string
@@ -35,6 +62,7 @@ class Referral extends Model
         'status',
         'decision',
         'decision_comment',
+        'rejection_reason',
         'case_id',
         'agcy_id',
     ];
@@ -89,6 +117,15 @@ class Referral extends Model
         ];
     }
 
+    public function rejectionReasonLabel(): ?string
+    {
+        if ($this->rejection_reason === null) {
+            return null;
+        }
+
+        return self::REJECTION_REASON_LABELS[$this->rejection_reason] ?? $this->rejection_reason;
+    }
+
     /**
      * Get a human-readable description for the current referral status.
      */
@@ -99,7 +136,9 @@ class Referral extends Model
             'PROCESSING' => 'Accepted — now processing',
             'FOR_COMPLIANCE' => 'Set as For Compliance',
             'COMPLETED' => 'Completed',
-            'REJECTED' => 'Rejected'.($this->decision_comment ? ': '.$this->decision_comment : ''),
+            'REJECTED' => 'Rejected'
+                .($this->rejection_reason ? ' ('.$this->rejectionReasonLabel().')' : '')
+                .($this->decision_comment ? ': '.$this->decision_comment : ''),
             default => 'Status updated to '.$this->status,
         };
     }

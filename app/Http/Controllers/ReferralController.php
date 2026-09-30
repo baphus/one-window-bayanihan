@@ -221,6 +221,7 @@ class ReferralController extends Controller
                 $request->input('decision'),
                 $request->input('decision_comment'),
                 $request->user()->id,
+                $request->input('rejection_reason'),
             );
         } catch (\InvalidArgumentException $e) {
             return redirect()

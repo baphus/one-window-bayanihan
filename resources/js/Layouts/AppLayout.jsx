@@ -1,6 +1,5 @@
 import AppSidebar from '@/Components/AppSidebar';
 import { Head, usePage } from '@inertiajs/react';
-import ChatBot from '@/Components/ChatBot';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import { useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
@@ -99,10 +98,6 @@ export default function AppLayout({ title, children }) {
           {children}
         </main>
       </div>
-      {/* Hide ChatBot only while the welcome modal is up; during tours it
-          stays mounted so tour steps can highlight its launcher (the tour
-          overlay renders above it). */}
-      {phase !== 'welcome' && <ChatBot />}
 
       {/* Onboarding UI — use show prop so Headless UI Dialog properly cleans up on close */}
       <WelcomeModal
