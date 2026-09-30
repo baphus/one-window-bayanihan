@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Dashboard from '../Pages/Dashboard.jsx';
 import { agencyTour } from '../Onboarding/configs/agency';
@@ -19,6 +19,9 @@ vi.mock('chart.js', () => ({
     LinearScale: {},
     BarElement: {},
     ArcElement: {},
+    LineElement: {},
+    PointElement: {},
+    Filler: {},
     Title: {},
     Tooltip: {},
     Legend: {},
@@ -26,7 +29,15 @@ vi.mock('chart.js', () => ({
 
 vi.mock('react-chartjs-2', () => ({
     Doughnut: () => <div data-testid="doughnut-chart" />,
-    Bar: () => <div data-testid="bar-chart" />,
+    Bar: (props) => <div data-testid="bar-chart" data-props={JSON.stringify(props.data ?? null)} />,
+    Line: (props) => <div data-testid="line-chart" data-props={JSON.stringify(props.data ?? null)} />,
+    Pie: () => <div data-testid="pie-chart" />,
+}));
+
+vi.mock('@tanstack/react-query', () => ({
+    useQuery: () => ({ data: undefined, isLoading: false }),
+    useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+    useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
 vi.mock('@/Layouts/AppLayout', () => ({
@@ -109,7 +120,7 @@ describe('Dashboard role insights', () => {
         expect(screen.getByText('Priority referrals')).toBeInTheDocument();
     });
 
-    it('renders case manager coordination sections and priority lists', () => {
+    it('renders case manager 7-block sections and newest cases', () => {
         Object.assign(pageProps, {
             auth: { user: { role: 'CASE_MANAGER' } },
             dashboard: {
@@ -124,6 +135,10 @@ describe('Dashboard role insights', () => {
                 agencyBreakdown: [{ agencyId: 'agency-1', agencyName: 'OWWA', count: 1, overdueCount: 1 }],
                 allCases: [{ id: 'case-1', caseNo: 'CASE-001', clientName: 'Juan Dela Cruz', status: 'OPEN' }],
                 allReferrals: [{ id: 'ref-1', caseNo: 'CASE-002', clientName: 'Maria Santos', service: 'Assistance', agencyName: 'OWWA', status: 'PENDING' }],
+                intakeReview: [
+                    { id: 'case-2', caseNo: 'CASE-002', trackerNumber: 'TRK-002', clientName: 'Maria Santos', status: 'DRAFT', source: 'self_filed', isOwnDraft: false, createdAt: '2026-09-20T00:00:00Z', href: '/cases/case-2' },
+                    { id: 'case-1', caseNo: 'CASE-001', clientName: 'Juan Dela Cruz', status: 'DRAFT', source: 'self_filed', isOwnDraft: false, createdAt: '2026-09-10T00:00:00Z', href: '/cases/case-1' },
+                ],
                 casesOverTime: [],
                 recentActivity: [],
             },
@@ -134,9 +149,25 @@ describe('Dashboard role insights', () => {
         );
 
         expect(screen.getByText('Case manager')).toBeInTheDocument();
-        expect(screen.getByText('Aging open cases')).toBeInTheDocument();
-        expect(screen.getByText('Agency load')).toBeInTheDocument();
-        expect(screen.getByText('Recent case activity')).toBeInTheDocument();
-        expect(screen.getByText('CASE-001')).toBeInTheDocument();
+        expect(screen.getByText('Numbers')).toBeInTheDocument();
+        expect(screen.getByText('Notifications')).toBeInTheDocument();
+        expect(screen.getByText('No notifications.')).toBeInTheDocument();
+        expect(screen.getByText('Needs You')).toBeInTheDocument();
+        expect(screen.getByText('Intake Queue')).toBeInTheDocument();
+        expect(screen.getByText('Referral News')).toBeInTheDocument();
+        expect(screen.getByText('Agencies Handling')).toBeInTheDocument();
+        expect(screen.getByText('Case Activity Log')).toBeInTheDocument();
+        expect(screen.getByText('Cases by status')).toBeInTheDocument();
+        expect(screen.getByText('Referrals by agency')).toBeInTheDocument();
+        expect(screen.getByText('Referrals by status')).toBeInTheDocument();
+        expect(screen.getAllByText('OWWA').length).toBeGreaterThanOrEqual(2);
+
+        const intake = within(document.querySelector('[data-tour="dashboard-intake-queue"]'));
+        const rows = intake.getAllByText(/Juan Dela Cruz|Maria Santos/).map((node) => node.textContent);
+        expect(rows).toEqual(['Juan Dela Cruz', 'Maria Santos']);
+        expect(intake.getAllByText('Portal')).toHaveLength(2);
+        expect(intake.getAllByText('DRAFT')).toHaveLength(2);
+        const reviews = intake.getAllByRole('link', { name: 'Review' }).map((node) => node.getAttribute('href'));
+        expect(reviews).toEqual(['/cases/case-1/review-intake', '/cases/case-2/review-intake']);
     });
 });
