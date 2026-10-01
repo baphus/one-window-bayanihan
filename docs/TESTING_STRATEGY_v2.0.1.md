@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `TESTING_STRATEGY_v2.1.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Testing Strategy
 
 > **Version:** 2.0.1 | **Updated:** 2026-07-27 | **Source:** `phpunit.xml`, `vitest.config.ts`, `playwright.config.ts`, `tests/`

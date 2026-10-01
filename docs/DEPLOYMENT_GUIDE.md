@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `DEPLOYMENT_GUIDE_v3.1.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Deployment Guide
 
 > **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Source:** `Dockerfile`, `docker-compose.yml`, `composer.json`

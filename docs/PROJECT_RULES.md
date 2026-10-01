@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `PROJECT_RULES_v2.1.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Project Rules
 
 > **Version:** 2.0.0 | **Updated:** 2026-07-11 | **Verified against:** actual source code

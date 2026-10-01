@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `SECURITY_REQUIREMENTS_v2.2.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Security Requirements
 
 > **Version:** 2.1.0 | **Updated:** 2026-07-27 | **Source:** `bootstrap/app.php`, middleware files, actual implementation
