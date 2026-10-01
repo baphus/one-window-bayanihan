@@ -7,6 +7,7 @@ use App\Http\Requests\Track\UpdateTrackingRequest;
 use App\Models\Referral;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\CaseSwimlaneService;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,6 +16,7 @@ class TrackController extends Controller
 {
     public function __construct(
         private readonly TrackingService $trackingService,
+        private readonly CaseSwimlaneService $swimlaneService,
     ) {}
 
     public function index(Request $request)
@@ -107,6 +109,13 @@ class TrackController extends Controller
         }
 
         $data = $this->trackingService->buildTrackingData($case);
+
+        // The public page keeps the default (non-portal) payload: the OFW
+        // milestones route behind forOfwPortal:true requires an authenticated
+        // OFW session (routes/web.php auth + role:OFW group), which an
+        // OTP-bound public visitor never has — flipping the flag would turn
+        // every "View all updates" link into a login redirect / 404.
+        $data['clientSwimlaneTimeline'] = $this->swimlaneService->buildClientSwimlaneTimeline($case);
 
         // Whether the verified OFW can still create an account from the portal.
         // Only relevant to guests — a signed-in OFW already has an account.

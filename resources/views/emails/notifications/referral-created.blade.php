@@ -15,10 +15,6 @@ A referral has been assigned to your agency. Please review the details and respo
 ['label' => 'Response Due', 'value' => $referral->created_at->addDays(5)->format('M d, Y')],
 ]" />
 
-<p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 28px 0 8px 0;">Required Services</p>
-
-<p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 24px 0;">{{ $referral->required_services }}</p>
-
 @if($referral->requirements && count($referral->requirements) > 0)
 <p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 0 0 8px 0;">Required Documents</p>
 
@@ -34,10 +30,6 @@ A referral has been assigned to your agency. Please review the details and respo
 @endif
 
 <x-mail::action-card url="{{ $url }}" label="Review Referral" :urgency="true" />
-
-<p style="font-size: 13px; line-height: 1.7; color: #71717a; margin: 0;">
-If your agency cannot provide these services, contact the case manager to discuss.
-</p>
 
 <x-mail::contact-footer />
 </x-mail::message>

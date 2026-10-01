@@ -1277,6 +1277,7 @@ class CaseService
             'referrals.milestones',
             'referrals.agency',
             'referrals.attachments.user',
+            'caseEvents',
             'user',
             'category',
             'categories',

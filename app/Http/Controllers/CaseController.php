@@ -10,6 +10,7 @@ use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Services\AddressNameResolver;
 use App\Services\CaseService;
+use App\Services\CaseSwimlaneService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
@@ -27,6 +28,7 @@ class CaseController extends Controller
         private readonly CaseService $caseService,
         private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
+        private readonly CaseSwimlaneService $swimlaneService,
         private readonly ReferenceDataService $referenceData,
         private readonly AddressNameResolver $addressNames,
     ) {}
@@ -231,6 +233,7 @@ class CaseController extends Controller
             'case' => $case,
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $trackingData['milestoneTimeline'],
+            'swimlaneTimeline' => $this->swimlaneService->buildSwimlaneTimeline($case),
             'categories' => $categories,
             'caseIssues' => $caseIssues,
         ]);

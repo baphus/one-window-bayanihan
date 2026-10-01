@@ -958,13 +958,6 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         Audit Log
                     </button>
                     <Link
-                        href={route('cases.show', referral.case_id)}
-                        className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
-                    >
-                        <span className="material-symbols-outlined text-[16px]">folder_open</span>
-                        View Case
-                    </Link>
-                    <Link
                         href={route('referrals.index')}
                         className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
                     >
@@ -973,8 +966,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-                <div className="xl:col-span-8 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-4">
+                <div className="lg:col-span-2 xl:col-span-12">
                     <div data-tour="referral-info">
                     <CardSection title="Referral Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {isOverdue && (
@@ -999,9 +992,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 )}
                             </div>
                         )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
-                            <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border border-slate-200">
                             <InfoCell label="Status" value={<StatusBadge status={referral.status} />} />
+                            <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
                             <InfoCell label="Associated Case No." value={
                                 <Link href={route('cases.show', referral.case_id)} className="text-blue-900 hover:underline">
                                     {referral.case_file?.case_number ?? 'N/A'}
@@ -1011,66 +1004,61 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             <InfoCell label="Date Referred" value={formatDisplayDateTime(referral.created_at)} />
                             <InfoCell label="Last Updated" value={formatDisplayDateTime(referral.updated_at)} />
                         </div>
-                        <div className="px-3 py-2 border-b border-slate-200">
-                            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
-                            <div className="mt-1 space-y-2">
-                                {referral.services?.length > 0 ? (
-                                    referral.services.map((service) => (
-                                        <ServiceCard
-                                            key={service.id}
-                                            service={service}
-                                            referral={referral}
-                                            isAgency={isAgency}
-                                            serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
-                                        />
-                                    ))
-                                ) : (
-                                    <span className="text-[12px] text-slate-500 italic">
-                                        {isAgency
-                                            ? 'No services assigned yet — add the services this referral will apply for.'
-                                            : 'No services assigned yet. The agency focal will assign services for this referral.'}
-                                    </span>
+                        <div className="mt-3 border-t border-slate-200 pt-3">
+                            <div className="px-3 py-2 border-b border-slate-200">
+                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
+                                <div className="mt-1 space-y-2">
+                                    {referral.services?.length > 0 ? (
+                                        referral.services.map((service) => (
+                                            <ServiceCard
+                                                key={service.id}
+                                                service={service}
+                                                referral={referral}
+                                                isAgency={isAgency}
+                                                serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
+                                            />
+                                        ))
+                                    ) : (
+                                        <span className="text-[12px] text-slate-500 italic">
+                                            {isAgency
+                                                ? 'No services assigned yet — add the services this referral will apply for.'
+                                                : 'No services assigned yet. The agency focal will assign services for this referral.'}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {isAgency && referral.status !== 'COMPLETED' && (
+                                    <ServiceAddDropdown
+                                        referralId={referral.id}
+                                        selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
+                                        serviceRequirements={serviceRequirements}
+                                    />
                                 )}
                             </div>
-
-                            {isAgency && referral.status !== 'COMPLETED' && (
-                                <ServiceAddDropdown
-                                    referralId={referral.id}
-                                    selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
-                                    serviceRequirements={serviceRequirements}
-                                />
+                            {referral.notes && (
+                                <div className="px-3 py-2 border-b border-slate-200">
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Notes</p>
+                                    <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.notes}</p>
+                                </div>
+                            )}
+                            {referral.decision && (
+                                <div className="px-3 py-2 border-b border-slate-200">
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision</p>
+                                    <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision}</p>
+                                </div>
+                            )}
+                            {referral.decision_comment && (
+                                <div className="px-3 py-2">
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision Comment</p>
+                                    <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.decision_comment}</p>
+                                </div>
                             )}
                         </div>
-                        {referral.notes && (
-                            <div className="px-3 py-2 border-b border-slate-200">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Notes</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.notes}</p>
-                            </div>
-                        )}
-                        {referral.decision && (
-                            <div className="px-3 py-2 border-b border-slate-200">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision}</p>
-                            </div>
-                        )}
-                        {referral.decision_comment && (
-                            <div className="px-3 py-2">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision Comment</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.decision_comment}</p>
-                            </div>
-                        )}
                     </CardSection>
                     </div>
+                </div>
 
-                    <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
-                            <InfoCell label="Case Status" value={caseFile?.status ? <StatusBadge status={caseFile.status} /> : 'N/A'} />
-                            <InfoCell label="Tracker Number" value={caseFile?.tracker_number ?? 'N/A'} />
-                            <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
-                            <InfoCell label="Issue / Concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
-                        </div>
-                    </CardSection>
-
+                <div className="lg:col-span-1 xl:col-span-8 space-y-4">
                     <CardSection title="Client Details" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         <div className="space-y-4 p-4">
                             {/* Avatar + Name row */}
@@ -1109,7 +1097,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Age</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'}</p>
                                 </div>
-                                <div className="col-span-2">
+                                <div className="col-span-2 sm:col-span-1">
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Vulnerability</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700">
                                         {(() => {
@@ -1120,9 +1108,14 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                         })()}
                                     </p>
                                 </div>
+                                <div className="col-span-2 sm:col-span-1">
+                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
+                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{formatAddress(clientAddress)}</p>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Contact — stacked single column so long emails read clearly */}
+                            <div className="grid grid-cols-1 gap-3">
                                 <div>
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Email</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.email || 'N/A'}</p>
@@ -1130,13 +1123,6 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 <div>
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Contact Number</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.contact_number || 'N/A'}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{formatAddress(clientAddress)}</p>
                                 </div>
                             </div>
 
@@ -1228,41 +1214,15 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             )}
                         </div>
                     </CardSection>
-                    {/* Service Requirements — live reference from service definitions */}
-                    <div data-tour="referral-documents">
-                        <CardSection title="Service Requirements" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            {serviceRequirements.length > 0 ? (
-                                <div className="space-y-4">
-                                    {serviceRequirements
-                                        .filter((svc) => {
-                                            const selected = (referral.services ?? []).map((s) => s.name);
-                                            return selected.length === 0 || selected.includes(svc.title);
-                                        })
-                                        .map((svc) => (
-                                        <div key={svc.title} className="rounded-md border border-slate-100 bg-slate-50/50 p-3">
-                                            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">{svc.title}</p>
-                                            {svc.requiredDocuments?.length > 0 ? (
-                                                <ul className="mt-2 space-y-1">
-                                                    {svc.requiredDocuments.map((doc, idx) => (
-                                                        <li key={idx} className="flex items-start gap-2 text-[11px] text-slate-600">
-                                                            <span className="material-symbols-outlined text-[13px] text-slate-400 mt-0.5 shrink-0">description</span>
-                                                            <span>{doc}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <p className="mt-1 text-[11px] text-slate-400 italic">No standard requirements defined.</p>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-[12px] text-slate-500 italic">No service requirements defined for this agency.</p>
-                            )}
 
-
-                        </CardSection>
-                    </div>
+                    <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-slate-200">
+                            <InfoCell label="Case Status" value={caseFile?.status ? <StatusBadge status={caseFile.status} /> : 'N/A'} />
+                            <InfoCell label="Tracker Number" value={caseFile?.tracker_number ?? 'N/A'} />
+                            <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
+                            <InfoCell label="Issue / Concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
+                        </div>
+                    </CardSection>
 
                     {/* Uploaded Documents / Attachments */}
                     {(referral.attachments ?? []).filter((att) => !att.is_archived).length > 0 && (
@@ -1401,7 +1361,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                     />
                 </div>
 
-                <aside className="xl:col-span-4 space-y-4">
+                <aside className="lg:col-span-1 xl:col-span-4 space-y-4">
                     <div data-tour="referral-timeline">
                     <CardSection title="Referral Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         <UnifiedTimeline

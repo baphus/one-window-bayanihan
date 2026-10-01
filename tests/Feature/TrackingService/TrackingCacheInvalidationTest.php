@@ -56,14 +56,14 @@ class TrackingCacheInvalidationTest extends TestCase
         $service->buildAgencyMilestonesData($case, $referral);
 
         $this->assertSame('PENDING', $service->buildTrackingData($this->loadRelations($case))['trackingAgencies'][0]['status']);
-        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKey($case->id)));
+        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
         $this->assertTrue(Cache::has(TrackingService::trackingMilestonesCacheKey($case->id, $referral->id)));
 
         // The agency accepts the referral (PENDING → PROCESSING).
         app(ReferralService::class)->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $user->id);
 
         // The tracking cache is invalidated immediately — no 90s staleness.
-        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKey($case->id)));
+        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
         $this->assertFalse(Cache::has(TrackingService::trackingMilestonesCacheKey($case->id, $referral->id)));
 
         // The very next read is already fresh.
@@ -83,14 +83,14 @@ class TrackingCacheInvalidationTest extends TestCase
         $service->buildTrackingData($this->loadRelations($case));
         $service->buildAgencyMilestonesData($case, $referral);
 
-        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKey($case->id)));
+        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
         $this->assertTrue(Cache::has(TrackingService::trackingMilestonesCacheKey($case->id, $referral->id)));
 
         // The agency adds a milestone.
         app(ReferralService::class)->addMilestone($referral->id, 'Initial review done', 'All documents verified', $user->id);
 
         // Both tracking caches are invalidated immediately — no 120s staleness.
-        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKey($case->id)));
+        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
         $this->assertFalse(Cache::has(TrackingService::trackingMilestonesCacheKey($case->id, $referral->id)));
 
         // The very next read already shows the new milestone.
@@ -106,7 +106,7 @@ class TrackingCacheInvalidationTest extends TestCase
 
         $service = app(TrackingService::class);
         $this->assertCount(0, $service->buildTrackingData($this->loadRelations($case))['trackingAgencies']);
-        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKey($case->id)));
+        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
 
         // The case manager creates a new referral.
         $agency = Agency::factory()->create();
@@ -116,7 +116,7 @@ class TrackingCacheInvalidationTest extends TestCase
         ], $user->id);
 
         // The tracking cache is invalidated immediately so the new agency card shows up.
-        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKey($case->id)));
+        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
         $this->assertCount(1, $service->buildTrackingData($this->loadRelations($case))['trackingAgencies']);
     }
 }

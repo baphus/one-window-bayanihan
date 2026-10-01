@@ -16,7 +16,7 @@ import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import AuditLogModal from '@/Components/AuditLogModal';
-import UnifiedTimeline from '@/Components/Timeline';
+import CaseSwimlane from '@/Components/CaseSwimlane';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -48,13 +48,6 @@ function CategoryBadges({ caseFile }) {
   );
 }
 
-function getCaseAgeDays(createdAt, status, updatedAt) {
-  const created = new Date(createdAt).getTime();
-  const end = status === 'CLOSED' ? new Date(updatedAt).getTime() : Date.now();
-  const days = Math.max(1, Math.round((end - created) / (1000 * 60 * 60 * 24)));
-  return `${days} day${days > 1 ? 's' : ''}`;
-}
-
 function getClientAge(dob) {
   if (!dob) return '\u2014';
   const birth = new Date(dob);
@@ -76,16 +69,7 @@ function formatNokAddress(nok) {
   return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
-export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], categories = [], caseIssues = [] }) {
-  const EVENT_CONFIG = {
-    case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
-    referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
-    referral_status_changed: { dot: 'bg-amber-50 border-amber-200 text-amber-600',       icon: 'sync_alt' },
-    milestone_added:         { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag' },
-    case_closed:             { dot: 'bg-slate-100 border-slate-200 text-slate-600',     icon: 'lock' },
-    case_reopened:           { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'lock_open' },
-  };
-
+export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], categories = [], caseIssues = [], swimlaneTimeline = null }) {
   const EVENT_TYPE_OPTIONS = [
     { value: 'ALL',          label: 'All Events' },
     { value: 'case_opened',  label: 'Case Opened' },
@@ -116,9 +100,23 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     } else if (timelineTypeFilter !== 'ALL') {
       items = items.filter(i => i.type === timelineTypeFilter);
     }
-    // Newest-first ordering is enforced inside UnifiedTimeline — never reverse here.
+    // The swimlane always shows every referral lane; filters only dim lanes
+    // (agency) or highlight matching events on the axis (type).
     return items;
   }, [milestoneTimeline, timelineAgencyFilter, timelineTypeFilter]);
+
+  // Event-type highlights drawn on the swimlane's shared date ruler. The
+  // swimlane itself always shows the WHOLE case (agency selection only dims
+  // lanes), so these markers carry the filtered event story on the axis.
+  const swimlaneAxisMarkers = useMemo(() => {
+    return filteredTimeline
+      .map((item) => ({
+        at: item.date ?? item.timestamp ?? item.created_at ?? item.createdAt ?? null,
+        type: item.type,
+        title: item.title,
+      }))
+      .filter((marker) => marker.at);
+  }, [filteredTimeline]);
 
   const hasActiveFilters = timelineAgencyFilter !== 'ALL' || timelineTypeFilter !== 'ALL';
 
@@ -502,34 +500,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <main className="xl:col-span-8 space-y-4">
-          {/* Key Stats Ribbon */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-md border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-            <StatusBadge status={caseFile.status} size="sm" />
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)}</span>
-              <span className="text-slate-400 ml-1">since created</span>
-            </span>
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{(caseFile.referrals || []).length}</span>
-              <span className="text-slate-400 ml-1">referral{(caseFile.referrals || []).length !== 1 ? 's' : ''}</span>
-            </span>
-            {hasOverdueReferrals && (
-              <>
-                <span className="text-[11px] text-slate-300 select-none">|</span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-red-600 font-semibold">
-                  <span className="material-symbols-outlined text-[14px]">warning</span>
-                  {referralRows.filter(r => r.isOverdue).length} overdue
-                </span>
-              </>
-            )}
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{clientTypeLabel}</span>
-            </span>
-          </div>
-
           <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               <MetaTile label="Case No." value={caseFile.case_number} />
@@ -610,13 +580,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           <CardSection title="Activity Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Chronological Events</span>
-                {milestoneTimeline && milestoneTimeline.length > 0 && (
-                  <span className="text-[10px] text-slate-400">({milestoneTimeline.length} event{milestoneTimeline.length !== 1 ? 's' : ''})</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Proportional Timeline</span>
+                {swimlaneTimeline?.totals && (
+                  <span className="text-[10px] text-slate-400">({swimlaneTimeline.totals.referrals} referral{swimlaneTimeline.totals.referrals !== 1 ? 's' : ''} &middot; {swimlaneTimeline.totals.milestones} milestone{swimlaneTimeline.totals.milestones !== 1 ? 's' : ''})</span>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {/* Agency filter */}
+                {/* Agency filter — dims non-matching lanes, never removes them */}
                 {timelineAgencyNames.length > 0 && (
                   <select
                     value={timelineAgencyFilter}
@@ -627,7 +597,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                     {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 )}
-                {/* Type filter */}
+                {/* Type filter — matching event types are highlighted on the axis */}
                 <select
                   value={timelineTypeFilter}
                   onChange={e => setTimelineTypeFilter(e.target.value)}
@@ -653,21 +623,21 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             {milestoneTimeline && milestoneTimeline.length > 0 && (
               <p className="mt-2 text-[10px] text-slate-400 font-medium px-0.5">
                 Showing {filteredTimeline.length} of {milestoneTimeline.length} events
+                {timelineTypeFilter !== 'ALL' && swimlaneAxisMarkers.length > 0 && ' highlighted on the axis'}
+                {timelineAgencyFilter !== 'ALL' && ' · other agency lanes dimmed'}
               </p>
             )}
 
-            <UnifiedTimeline
-              items={filteredTimeline}
-              eventConfig={EVENT_CONFIG}
-              emptyTitle="No activity matches your filters."
-              emptyAction={
-                hasActiveFilters ? (
-                  <button onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
-                    Clear filters
-                  </button>
-                ) : null
-              }
-            />
+            <div className="mt-3">
+              <CaseSwimlane
+                swimlaneTimeline={swimlaneTimeline}
+                agencyFilter={timelineAgencyFilter}
+                axisMarkers={swimlaneAxisMarkers}
+                onSelectReferral={(referral) => {
+                  if (referral?.id) router.visit(route('referrals.show', referral.id));
+                }}
+              />
+            </div>
           </CardSection>
           </div>
 

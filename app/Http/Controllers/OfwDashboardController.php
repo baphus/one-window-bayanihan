@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Referral;
+use App\Services\CaseSwimlaneService;
 use App\Services\TrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class OfwDashboardController extends Controller
 {
     public function __construct(
         private readonly TrackingService $trackingService,
+        private readonly CaseSwimlaneService $swimlaneService,
     ) {}
 
     /**
@@ -76,6 +78,7 @@ class OfwDashboardController extends Controller
         // trackingAgencies, caseNotifications, and rejectedCount directly.
         return Inertia::render('OFW/CaseDetail', array_merge($trackingData, [
             'case' => $case,
+            'clientSwimlaneTimeline' => $this->swimlaneService->buildClientSwimlaneTimeline($case),
         ]));
     }
 

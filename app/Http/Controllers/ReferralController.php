@@ -462,7 +462,7 @@ class ReferralController extends Controller
         ]);
 
         try {
-            $this->referralService->addService($referral, $validated['service_id']);
+            $this->referralService->addService($referral, $validated['service_id'], $request->user()->id);
 
             return redirect()->back()->with('success', 'Service added to referral.');
         } catch (\InvalidArgumentException $e) {

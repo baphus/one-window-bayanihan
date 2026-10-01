@@ -458,7 +458,7 @@ class ReferralService
         })->toArray();
     }
 
-    public function addService(Referral $referral, string $serviceId): Referral
+    public function addService(Referral $referral, string $serviceId, string $userId): Referral
     {
         if ($referral->status === 'COMPLETED') {
             throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
@@ -468,14 +468,31 @@ class ReferralService
             ->where('agcy_id', $referral->agcy_id)
             ->firstOrFail();
 
-        $referral->services()->syncWithoutDetaching([$service->id]);
+        return DB::transaction(function () use ($referral, $service, $userId) {
+            $alreadyAttached = $referral->services()->where('services.id', $service->id)->exists();
 
-        // Copy global service requirements to per-referral requirements
-        $this->copyServiceRequirements($referral, $service);
+            $referral->services()->syncWithoutDetaching([$service->id]);
 
-        $this->syncRequiredServicesText($referral);
+            // Copy global service requirements to per-referral requirements
+            $this->copyServiceRequirements($referral, $service);
 
-        return $referral->load('services');
+            $this->syncRequiredServicesText($referral);
+
+            if (! $alreadyAttached) {
+                $actorName = User::whereKey($userId)->value('name');
+
+                $milestone = Milestone::create([
+                    'title' => "Service assigned: {$service->name}",
+                    'description' => $actorName !== null ? "Added by {$actorName}" : null,
+                    'refr_id' => $referral->id,
+                    'user_id' => $userId,
+                ]);
+
+                $this->eventRecorder->milestoneAdded($referral, $milestone, $userId);
+            }
+
+            return $referral->load('services');
+        });
     }
 
     /**
@@ -666,6 +683,11 @@ class ReferralService
                 // Also create OFW notification (plain language, no status codes)
                 if ($referral->caseFile->client && $referral->caseFile->client->email) {
                     $referral->loadMissing('agency');
+                    // The track.show fallback used to receive the raw case UUID
+                    // when the tracker number was missing, producing a dead
+                    // link (findCaseByTracker matches tracker numbers only).
+                    // Omit the URL in that anomalous case instead.
+                    $trackerNumber = $referral->caseFile->tracker_number ?? null;
                     $this->notificationService->notifyOfw(
                         $referral->caseFile,
                         $referral->caseFile->client->email,
@@ -677,7 +699,7 @@ class ReferralService
                             'old_status' => $oldStatus,
                             'new_status' => $status,
                         ],
-                        route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
+                        $trackerNumber ? route('track.show', $trackerNumber) : null,
                     );
                 }
             }

@@ -1,28 +1,25 @@
 import { Link } from '@inertiajs/react';
 import OfwLayout from '@/Layouts/OfwLayout';
-
-function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-PH', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-    });
-}
+import { TimelineEmptyState } from '@/Components/Timeline';
+import { formatClientDateTime as formatDate } from '@/Components/clientDates';
 
 function NotificationItem({ notification }) {
     const isUnread = !notification.read_at;
+    // Same destination the header bell uses: the per-item action URL when the
+    // payload carries one, otherwise the case detail page for the
+    // notification's case. Items without a destination stay static text.
+    const href = notification.action_url
+        ?? (notification.case_id ? route('ofw.case.show', notification.case_id) : null);
+    const Wrapper = href ? Link : 'div';
 
     return (
-        <div
-            className={`rounded-lg border p-4 transition-colors ${
+        <Wrapper
+            {...(href ? { href } : {})}
+            className={`block rounded-md border p-4 transition-colors ${
                 isUnread
                     ? 'border-blue-200 bg-blue-50/50'
                     : 'border-slate-200 bg-white'
-            }`}
+            } ${href ? 'hover:border-primary/40 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary' : ''}`}
         >
             <div className="flex items-start gap-3">
                 {/* Unread indicator */}
@@ -47,20 +44,27 @@ function NotificationItem({ notification }) {
                         {formatDate(notification.created_at)}
                     </p>
                 </div>
+                {href && (
+                    <span aria-hidden="true" className="material-symbols-outlined mt-1 shrink-0 text-[18px] text-slate-300">
+                        chevron_right
+                    </span>
+                )}
             </div>
-        </div>
+        </Wrapper>
     );
 }
 
 function EmptyState() {
     return (
-        <div className="rounded-lg border-2 border-dashed border-slate-200 bg-white px-6 py-16 text-center">
-            <span className="material-symbols-outlined text-5xl text-slate-300">notifications_off</span>
-            <h2 className="mt-4 text-lg font-semibold text-slate-800">No notifications</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
-                You'll receive notifications here when there are updates to your cases.
-            </p>
-        </div>
+        <TimelineEmptyState
+            icon="notifications_off"
+            title="No notifications"
+            action={
+                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                    You&apos;ll receive notifications here when there are updates to your cases.
+                </p>
+            }
+        />
     );
 }
 

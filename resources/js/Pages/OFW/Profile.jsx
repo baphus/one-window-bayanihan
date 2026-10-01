@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { z } from 'zod';
 import OfwLayout from '@/Layouts/OfwLayout';
@@ -17,7 +17,7 @@ const MAX = 'Must be 255 characters or fewer.';
 
 function Card({ id, children, className = '' }) {
     return (
-        <div id={id} className={`scroll-mt-24 rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+        <div id={id} className={`scroll-mt-24 rounded-md border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
             {children}
         </div>
     );
@@ -57,7 +57,7 @@ function IntroRow({ icon, label, value }) {
                 {icon}
             </span>
             <div className="min-w-0">
-                <p className="truncate">{value}</p>
+                <p className="truncate" title={value}>{value}</p>
                 {label && <p className="text-xs text-slate-400">{label}</p>}
             </div>
         </div>
@@ -381,6 +381,27 @@ export default function Profile({ user, client }) {
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // Keep the tab highlight honest on manual scroll: the section occupying
+    // the upper third of the viewport owns the active state. Clicks still
+    // set it immediately (scrollToSection); the observer corrects it after.
+    useEffect(() => {
+        if (typeof IntersectionObserver === 'undefined') return;
+        const sections = NAV_TABS
+            .map((tab) => document.getElementById(tab.id))
+            .filter(Boolean);
+        if (sections.length === 0) return;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) setActiveTab(entry.target.id);
+                }
+            },
+            { rootMargin: '-25% 0px -65% 0px' },
+        );
+        sections.forEach((section) => observer.observe(section));
+        return () => observer.disconnect();
+    }, [client]);
+
     return (
         <OfwLayout title="Profile">
             <Link
@@ -392,7 +413,7 @@ export default function Profile({ user, client }) {
             </Link>
 
             {/* ---------- Facebook-style cover + avatar header ---------- */}
-            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
                 <div className="relative h-36 w-full bg-primary sm:h-52">
                     <div className="absolute inset-0 bg-black/10" />
                 </div>
@@ -458,7 +479,7 @@ export default function Profile({ user, client }) {
             </div>
 
             {!client ? (
-                <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                     We don't have a complete client record linked to your account yet. Contact your case manager
                     to update your details.
                 </div>
@@ -726,7 +747,7 @@ export default function Profile({ user, client }) {
             )}
 
             {!client && (
-                <form onSubmit={handlePasswordSubmit} className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <form onSubmit={handlePasswordSubmit} className="mt-6 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
                     <SectionHeader
                         icon="password"
                         title="Change Password"

@@ -93,30 +93,6 @@ class DashboardService
         return trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: 'N/A';
     }
 
-    private function statusLabel(string $status): string
-    {
-        return match ($status) {
-            'PENDING' => 'Pending',
-            'PROCESSING' => 'Processing',
-            'FOR_COMPLIANCE' => 'For compliance',
-            'COMPLETED' => 'Completed',
-            'REJECTED' => 'Rejected',
-            default => str($status)->replace('_', ' ')->title()->toString(),
-        };
-    }
-
-    private function statusTone(string $status): string
-    {
-        return match ($status) {
-            'PENDING' => 'amber',
-            'PROCESSING' => 'blue',
-            'FOR_COMPLIANCE' => 'orange',
-            'COMPLETED' => 'emerald',
-            'REJECTED' => 'rose',
-            default => 'slate',
-        };
-    }
-
     private function buildStatusDistributionFromCounts(array $statusCounts, int $total): array
     {
         $total = max($total, 1);
@@ -124,10 +100,10 @@ class DashboardService
         return collect($statusCounts)
             ->map(fn (int $count, string $status) => [
                 'status' => $status,
-                'label' => $this->statusLabel($status),
+                'label' => ReferralStatusPresentation::dashboardLabel($status),
                 'count' => $count,
                 'percent' => (int) round(($count / $total) * 100),
-                'tone' => $this->statusTone($status),
+                'tone' => ReferralStatusPresentation::tone($status),
             ])
             ->filter(fn (array $item) => $item['count'] > 0)
             ->values()
