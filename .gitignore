@@ -48,3 +48,5 @@ openspec
 .env.local.backup
 .openspec
 .slim
+# Local-only agent notes (e.g. workstation AWS setup). Never track.
+AGENTS.local.md
