@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from '@inertiajs/react';
 import OfwLayout from '@/Layouts/OfwLayout';
+import UnifiedTimeline from '@/Components/Timeline';
 
 /**
  * My Cases — case record detail.
@@ -19,24 +20,6 @@ const REFERRAL_STAMP = {
     REJECTED: { label: 'Unable to assist', border: 'border-red-400', text: 'text-red-500' },
 };
 
-const EVENT_ICON = {
-    case_opened: 'folder_open',
-    referral_sent: 'send',
-    referral_status_changed: 'sync_alt',
-    milestone_added: 'flag',
-    case_closed: 'verified',
-    case_reopened: 'restart_alt',
-};
-
-const EVENT_ICON_COLOR = {
-    case_opened: 'text-blue-500',
-    referral_sent: 'text-emerald-500',
-    referral_status_changed: 'text-amber-500',
-    milestone_added: 'text-orange-500',
-    case_closed: 'text-green-600',
-    case_reopened: 'text-purple-500',
-};
-
 function formatLongDate(dateStr) {
     if (!dateStr) return '—';
     return new Date(dateStr).toLocaleDateString('en-PH', {
@@ -44,58 +27,6 @@ function formatLongDate(dateStr) {
         month: 'long',
         year: 'numeric',
     });
-}
-
-function formatShortDate(dateStr) {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-PH', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
-function formatTime(dateStr) {
-    return new Date(dateStr).toLocaleTimeString('en-PH', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-    });
-}
-
-function relativeDays(dateStr) {
-    const diffDays = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-    if (diffDays <= 0) return 'today';
-    if (diffDays === 1) return 'yesterday';
-    if (diffDays < 30) return `${diffDays} days ago`;
-    const months = Math.floor(diffDays / 30);
-    return months === 1 ? 'about a month ago' : `about ${months} months ago`;
-}
-
-/** Two-column ledger row: fixed date column, entry on the right. */
-function EventRow({ item }) {
-    return (
-        <li className="grid grid-cols-1 gap-x-5 gap-y-0.5 border-t border-slate-200 py-3 first:border-t-0 sm:grid-cols-[7.5rem_1fr]">
-            <div className="pt-0.5">
-                <p className="font-mono text-xs tabular-nums text-slate-500">{formatShortDate(item.date)}</p>
-                <p className="hidden font-mono text-[11px] tabular-nums text-slate-400 sm:block">{formatTime(item.date)}</p>
-            </div>
-            <div className="min-w-0">
-                <div className="flex items-start gap-2">
-                    <span aria-hidden="true" className={`material-symbols-outlined mt-px text-[16px] ${EVENT_ICON_COLOR[item.type] ?? 'text-slate-400'}`}>
-                        {EVENT_ICON[item.type] ?? 'flag'}
-                    </span>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold leading-snug text-slate-800">{item.title}</p>
-                        {item.description && (
-                            <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-slate-600">{item.description}</p>
-                        )}
-                        <p className="mt-0.5 text-[11px] text-slate-400">{relativeDays(item.date)}</p>
-                    </div>
-                </div>
-            </div>
-        </li>
-    );
 }
 
 function StepBar({ steps }) {
@@ -219,11 +150,9 @@ function AgencyChapter({ agency, events, defaultOpen = false }) {
                         )}
 
                         {events.length > 0 && (
-                            <ul className="mt-5">
-                                {events.map((item, index) => (
-                                    <EventRow key={`${item.date}-${index}`} item={item} />
-                                ))}
-                            </ul>
+                            <div className="mt-5">
+                                <UnifiedTimeline variant="ledger" items={events} />
+                            </div>
                         )}
 
                         {agency.status === 'PENDING' && (
@@ -466,11 +395,11 @@ export default function CaseDetail({
                                     {milestoneTimeline.length} {milestoneTimeline.length === 1 ? 'entry' : 'entries'}
                                 </p>
                             </header>
-                            <ul className="max-h-[calc(100vh-12rem)] overflow-y-auto px-4 pb-4 pt-2 owb-scroll-wide rounded-b-md">
-                                {milestoneTimeline.map((item, index) => (
-                                    <EventRow key={`${item.date}-${index}`} item={item} />
-                                ))}
-                            </ul>
+                            <UnifiedTimeline
+                                variant="ledger"
+                                items={milestoneTimeline}
+                                listClassName="max-h-[calc(100vh-12rem)] overflow-y-auto px-4 pb-4 pt-2 owb-scroll-wide rounded-b-md"
+                            />
                         </section>
                     </aside>
                 )}

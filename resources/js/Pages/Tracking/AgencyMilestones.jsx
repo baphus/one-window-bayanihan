@@ -2,6 +2,11 @@ import { Head, Link } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
+import UnifiedTimeline from '@/Components/Timeline';
+
+const MILESTONE_EVENT_CONFIG = {
+  milestone_added: { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag_circle' },
+};
 
 const STATUS_CONFIG = {
   IN_PROGRESS: { label: 'In Progress', icon: 'radio_button_checked', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -200,26 +205,10 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             </article>
           ) : (
             <article className="rounded-md border border-slate-300 bg-white p-6 shadow-sm sm:p-8">
-              <div className="relative">
-                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
-                <div className="space-y-6">
-                  {milestones.map((milestone) => (
-                    <div key={`${milestone.date}-${milestone.title}`} className="relative flex gap-4 items-start">
-                      <div className="z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm">
-                        <span className="material-symbols-outlined text-[14px]">flag_circle</span>
-                      </div>
-                      <div className="min-w-0 flex-1 pt-0.5">
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                          <span className="text-[11px] font-bold uppercase tracking-tight text-slate-500">{formatHumanDate(milestone.date)}</span>
-                          <span className="text-[11px] font-semibold text-slate-400">{milestone.by}</span>
-                        </div>
-                        <h3 className="mt-1 text-sm font-bold text-slate-900 leading-snug">{milestone.title}</h3>
-                        {milestone.description && <p className="mt-1 text-sm leading-relaxed text-slate-600 max-w-prose">{milestone.description}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <UnifiedTimeline
+                items={milestones.map((milestone) => ({ ...milestone, actor: milestone.by }))}
+                eventConfig={MILESTONE_EVENT_CONFIG}
+              />
             </article>
           )}
         </section>

@@ -9,11 +9,14 @@ export const referralSchema = z.object({
     .string()
     .min(1, 'Agency ID is required.')
     .uuid('Invalid Agency ID format.'),
-  services: z
-    .array(z.string())
-    .min(1, 'At least one service must be selected.'),
   notes: z
     .string()
-    .optional(),
+    .max(5000, 'Remarks must not exceed 5000 characters.')
+    .optional()
+    .nullable(),
+  documents: z
+    .array(z.any())
+    .optional()
+    .nullable(),
 });
 
