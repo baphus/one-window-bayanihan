@@ -114,7 +114,7 @@ describe('Dashboard role insights', () => {
         );
 
         expect(screen.getByText('Agency focal')).toBeInTheDocument();
-        expect(screen.getByText('Referral status')).toBeInTheDocument();
+        expect(screen.getByText('My referrals')).toBeInTheDocument();
         expect(screen.getAllByText('Pending').length).toBeGreaterThan(0);
         expect(screen.getByText('Feedback signals appear once clients respond to invitations.')).toBeInTheDocument();
         expect(screen.getByText('Priority referrals')).toBeInTheDocument();
