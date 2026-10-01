@@ -1198,13 +1198,30 @@ class ReferralService
             ->get();
 
         foreach ($statusLogs as $log) {
+            // Timeline is metadata-only: surface only the controlled-vocabulary
+            // `status` key. Never include free-text fields (decision_comment,
+            // private_note, description, etc.) or the raw audit description.
+            $oldStatus = self::extractTimelineStatus($log->old_value);
+            $newStatus = self::extractTimelineStatus($log->new_value);
+            $oldLabel = $oldStatus !== null ? self::humanizeReferralStatus($oldStatus) : null;
+            $newLabel = $newStatus !== null ? self::humanizeReferralStatus($newStatus) : null;
+
+            $title = 'Referral status updated';
+            $description = '';
+
+            if ($newLabel !== null) {
+                $title = "Referral status updated to {$newLabel}";
+
+                if ($oldLabel !== null) {
+                    $description = "Changed from {$oldLabel} to {$newLabel}";
+                }
+            }
+
             $events->push([
                 'id' => 'status-'.$log->id,
                 'type' => 'referral_status',
-                // The audit row may include internal free text or additional
-                // fields beside status. Keep this timeline metadata-only.
-                'title' => 'Referral status updated',
-                'description' => '',
+                'title' => $title,
+                'description' => $description,
                 'timestamp' => $log->timestamp->toISOString(),
                 'actor' => $log->user?->name ?? 'System',
             ]);
@@ -1289,8 +1306,50 @@ class ReferralService
     {
         return ReferralAttachment::where('referral_id', $referralId)
             ->where('version_group_id', $versionGroupId)
-            ->with('user')
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    /**
+     * Extract the controlled-vocabulary referral status from an audit
+     * old_value/new_value payload. Payloads may be arrays (Eloquent cast)
+     * or raw JSON strings. Only the `status` key is used; anything else
+     * (free text, notes, diffs) is ignored so it can never leak into
+     * the timeline.
+     */
+    private static function extractTimelineStatus(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (! is_array($decoded)) {
+                return null;
+            }
+
+            $value = $decoded;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $status = $value['status'] ?? null;
+
+        if (! is_string($status) || trim($status) === '') {
+            return null;
+        }
+
+        $normalized = strtoupper(trim($status));
+
+        if (! in_array($normalized, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'], true)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private static function humanizeReferralStatus(string $status): string
+    {
+        return ucwords(strtolower(str_replace('_', ' ', $status)));
     }
 }

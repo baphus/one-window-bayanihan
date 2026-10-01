@@ -227,6 +227,57 @@ class DashboardService
             'agency_name' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
             'status' => $row->status,
             'age_days' => (int) round($row->age_days),
+            'referred_at' => Carbon::parse($row->created_at)->toISOString(),
+            'href' => '/referrals/'.$row->id,
+        ], $rows);
+    }
+
+    /**
+     * Agency dashboard lists. Same SELECT and row shape as
+     * buildPriorityReferralsSQL but without priority scoring: simple
+     * oldest-first queues (LIMIT 5) for the simplified agency dashboard.
+     */
+    private function buildAgencyReferralListSQL(string $agencyId, ?string $status = null, bool $overdueOnly = false, int $limit = 5): array
+    {
+        $filter = 'AND r.agcy_id = ?';
+        $bindings = [$agencyId];
+        if ($status !== null) {
+            $filter .= ' AND r.status = ?';
+            $bindings[] = $status;
+        }
+        if ($overdueOnly) {
+            $filter .= " AND r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5";
+        }
+        $bindings[] = $limit;
+
+        $rows = DB::select("
+            SELECT r.id, r.case_id, r.status,
+                COALESCE(
+                    (SELECT STRING_AGG(s.name, ', ' ORDER BY s.name) FROM referral_services rs JOIN services s ON s.id = rs.service_id WHERE rs.referral_id = r.id),
+                    r.required_services
+                ) AS service_names,
+                r.created_at,
+                a.name AS agency_name, c.case_number, cl.first_name, cl.last_name,
+                EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days
+            FROM referrals r
+            LEFT JOIN agencies a ON a.id = r.agcy_id
+            LEFT JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
+            LEFT JOIN clients cl ON cl.id = c.client_id
+            WHERE r.is_deleted = false {$filter}
+            ORDER BY r.created_at ASC
+            LIMIT ?
+        ", $bindings);
+
+        return array_map(fn ($row) => [
+            'id' => $row->id,
+            'case_id' => $row->case_id,
+            'case_number' => $row->case_number ?? 'N/A',
+            'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unnamed',
+            'service' => $row->service_names ?: 'Service not specified',
+            'agency_name' => null,
+            'status' => $row->status,
+            'age_days' => (int) round($row->age_days),
+            'referred_at' => $row->created_at ? Carbon::parse($row->created_at)->toISOString() : null,
             'href' => '/referrals/'.$row->id,
         ], $rows);
     }
@@ -884,8 +935,11 @@ class DashboardService
         $referralAgingBands = CacheHelper::safeRemember('dashboard:agency_aging_bands:'.$agencyId, 60, function () use ($agencyId) {
             return $this->buildReferralAgingBandsSQL($agencyId);
         });
-        $priorityReferrals = CacheHelper::safeRemember('dashboard:agency_priority:'.$agencyId, 60, function () use ($agencyId) {
-            return $this->buildPriorityReferralsSQL($agencyId, 8, false);
+        $pendingReferralsList = CacheHelper::safeRemember('dashboard:agency_pending_referrals:'.$agencyId, 60, function () use ($agencyId) {
+            return $this->buildAgencyReferralListSQL($agencyId, 'PENDING', false, 5);
+        });
+        $overdueReferralsList = CacheHelper::safeRemember('dashboard:agency_overdue_referrals:'.$agencyId, 60, function () use ($agencyId) {
+            return $this->buildAgencyReferralListSQL($agencyId, null, true, 5);
         });
         $serviceDemand = CacheHelper::safeRemember('dashboard:agency_service_demand:'.$agencyId, 120, function () use ($agencyId) {
             return $this->buildAgencyServiceDemand($agencyId);
@@ -970,16 +1024,16 @@ class DashboardService
 
         return [
             'totalReferrals' => $totalReferrals,
-            'pendingReferrals' => $pendingReferrals,
+            'pendingReferrals' => $pendingReferralsList,
             'processingReferrals' => $processingReferrals,
             'forComplianceReferrals' => $forComplianceReferrals,
             'completedReferrals' => $completedReferrals,
             'rejectedReferrals' => $rejectedReferrals,
+            'overdueReferrals' => $overdueReferralsList,
             'recentActivity' => $recentActivity,
             'workQueue' => $workQueue,
             'referralStatusDistribution' => $referralStatusDistribution,
             'referralAgingBands' => $referralAgingBands,
-            'priorityReferrals' => $priorityReferrals,
             'serviceDemand' => $serviceDemand,
             'feedbackPulse' => $feedbackPulse,
         ];

@@ -1,5 +1,8 @@
 import { Link, usePage } from '@inertiajs/react';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
+import StatusBadge from '@/Components/ui/StatusBadge';
+import { humanizeStatus } from '@/lib/statusLabels';
+import { formatRelativeTime } from '@/lib/relativeTime';
 import {
     ActivityFeed,
     BarList,
@@ -41,6 +44,23 @@ function AgeFlag({ days }) {
     );
 }
 
+function formatReferredAt(iso) {
+    if (!iso) {
+        return '';
+    }
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    const short = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+    return `${short} · ${formatRelativeTime(iso)}`;
+}
+
+function referralNote(item) {
+    const stamp = formatReferredAt(item.referred_at);
+    return [item.service, stamp || null].filter(Boolean).join(' · ');
+}
+
 function PulseStat({ label, value }) {
     return (
         <div className="rounded-lg bg-slate-50 px-3 py-2.5">
@@ -56,7 +76,8 @@ export default function AgencyDashboard({ dashboard = {} }) {
     const { auth } = usePage().props;
     const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
 
-    const priorityReferrals = safeArray(dashboard.priorityReferrals).slice(0, 5);
+    const pendingReferrals = safeArray(dashboard.pendingReferrals).slice(0, 5);
+    const overdueReferrals = safeArray(dashboard.overdueReferrals).slice(0, 5);
     const serviceDemand = safeArray(dashboard.serviceDemand).slice(0, 6);
     const pulse = dashboard.feedbackPulse ?? {};
     const hasPulse = Boolean(pulse.hasData);
@@ -117,20 +138,40 @@ export default function AgencyDashboard({ dashboard = {} }) {
             <div className="mt-6 grid gap-6 xl:grid-cols-12">
                 <div className="space-y-6 xl:col-span-8">
                     <SectionCard
-                        title="Priority referrals"
+                        title="Pending referrals"
                         dataTour="dashboard-agency-referrals"
-                        action={<ViewAllLink href="/referrals" />}
+                        action={<ViewAllLink href="/referrals?status=PENDING" />}
                         bodyClassName=""
                     >
-                        <EntityList empty={<EmptyState message="No referrals need action right now." href="/referrals" actionLabel="Open referrals" />}>
-                            {priorityReferrals.map((item) => (
+                        <EntityList empty={<EmptyState message="No pending referrals." href="/referrals" actionLabel="Open referrals" />}>
+                            {pendingReferrals.map((item) => (
                                 <EntityRow
                                     key={item.id}
                                     href={item.href ?? `/referrals/${item.id}`}
                                     pill={item.case_number}
                                     title={item.client_name}
-                                    note={item.service}
+                                    note={referralNote(item)}
                                     age={<AgeFlag days={item.age_days} />}
+                                />
+                            ))}
+                        </EntityList>
+                    </SectionCard>
+
+                    <SectionCard
+                        title="Overdue referrals"
+                        action={<ViewAllLink href="/overdue-referrals" />}
+                        bodyClassName=""
+                    >
+                        <EntityList empty={<EmptyState message="Nothing is late." href="/overdue-referrals" actionLabel="Check overdue" />}>
+                            {overdueReferrals.map((item) => (
+                                <EntityRow
+                                    key={item.id}
+                                    href={item.href ?? `/referrals/${item.id}`}
+                                    pill={item.case_number}
+                                    title={item.client_name}
+                                    note={referralNote(item)}
+                                    age={<AgeFlag days={item.age_days} />}
+                                    right={<StatusBadge status={item.status} label={humanizeStatus(item.status)} />}
                                 />
                             ))}
                         </EntityList>
@@ -142,7 +183,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                 </div>
 
                 <div className="space-y-6 xl:col-span-4">
-                    <SectionCard title="Service demand">
+                    <SectionCard title="Services applied">
                         {serviceDemand.length > 0 ? (
                             <BarList
                                 items={serviceDemand.map((item) => ({
@@ -154,7 +195,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                                 }))}
                             />
                         ) : (
-                            <p className="text-sm text-slate-500">Demand appears once referrals request your services.</p>
+                            <p className="text-sm text-slate-500">Applied services appear once your services are added to referrals.</p>
                         )}
                     </SectionCard>
 
