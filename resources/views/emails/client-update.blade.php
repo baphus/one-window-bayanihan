@@ -1,7 +1,7 @@
 <x-mail::message>
 <x-mail::status-badge status="{{ strtolower($case->status) }}" label="{{ ucwords(strtolower(str_replace('_', ' ', $case->status))) }}" />
 
-<p style="color: #a1a1aa; font-size: 12px; margin: 12px 0 24px 0;">Case {{ $case->case_number }}</p>
+<p style="color: #a1a1aa; font-size: 12px; margin: 12px 0 24px 0;">Tracking Number {{ $case->tracker_number }}</p>
 
 # Case Update
 
