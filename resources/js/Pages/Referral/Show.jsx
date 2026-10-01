@@ -16,6 +16,7 @@ import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { formatResolvedAddress } from '@/lib/addressResolver';
+import UnifiedTimeline from '@/Components/Timeline';
 
 const TIMELINE_EVENT_CONFIG = {
   referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600', icon: 'forward_to_inbox' },
@@ -1403,49 +1404,21 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 <aside className="xl:col-span-4 space-y-4">
                     <div data-tour="referral-timeline">
                     <CardSection title="Referral Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        {timeline.length > 0 ? (
-                            <div className="mt-1 relative pl-4">
-                                <div className="absolute left-[4px] top-1 bottom-1 w-px bg-slate-200" />
-                                <div className="flex flex-col-reverse gap-4">
-                                    {[...timeline].reverse().map((item) => {
-                                        const cfg = TIMELINE_EVENT_CONFIG[item.type] ?? TIMELINE_EVENT_CONFIG.milestone;
-                                        return (
-                                            <div key={item.id} className="relative flex items-start gap-3">
-                                                <div className={`mt-0.5 -ml-[18px] h-5 w-5 overflow-hidden rounded-full border border-white shadow-sm z-10 flex items-center justify-center ${cfg.dot}`}>
-                                                    <span className="material-symbols-outlined text-[12px]">{cfg.icon}</span>
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                                                            {formatRelativeTime(item.timestamp)}
-                                                        </span>
-                                                        <span className="text-[9px] text-slate-400">
-                                                            {formatDisplayDateTime(item.timestamp)}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-[11px] leading-5 font-semibold text-slate-700 mt-0.5">{item.title}</p>
-                                                    {item.description && (
-                                                        <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
-                                                    )}
-                                                    <p className="mt-0.5 text-[10px] text-slate-400">{item.actor}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-[11px] text-slate-500 py-2">No timeline events recorded.</p>
-                        )}
-                        {canAddMilestone && (
-                            <button
-                                type="button"
-                                onClick={() => setShowMilestoneModal(true)}
-                                className="mt-3 h-[28px] w-full px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors"
-                            >
-                                + Add Milestone
-                            </button>
-                        )}
+                        <UnifiedTimeline
+                            items={timeline}
+                            eventConfig={TIMELINE_EVENT_CONFIG}
+                            footerActions={
+                                canAddMilestone ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMilestoneModal(true)}
+                                        className="mt-3 h-[28px] w-full px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors"
+                                    >
+                                        + Add Milestone
+                                    </button>
+                                ) : null
+                            }
+                        />
                     </CardSection>
                     </div>
 

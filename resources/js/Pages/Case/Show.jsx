@@ -16,6 +16,7 @@ import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import AuditLogModal from '@/Components/AuditLogModal';
+import UnifiedTimeline from '@/Components/Timeline';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -94,32 +95,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     { value: 'case_closed',  label: 'Case Closed' },
   ];
 
-  function formatEventDate(dateStr) {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) {
-      return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-
-  function formatHumanDate(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }) + ' at ' + date.toLocaleTimeString('en-PH', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  }
-
   const [timelineAgencyFilter, setTimelineAgencyFilter] = useState('ALL');
   const [timelineTypeFilter, setTimelineTypeFilter] = useState('ALL');
 
@@ -141,7 +116,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     } else if (timelineTypeFilter !== 'ALL') {
       items = items.filter(i => i.type === timelineTypeFilter);
     }
-    return items.reverse();
+    // Newest-first ordering is enforced inside UnifiedTimeline — never reverse here.
+    return items;
   }, [milestoneTimeline, timelineAgencyFilter, timelineTypeFilter]);
 
   const hasActiveFilters = timelineAgencyFilter !== 'ALL' || timelineTypeFilter !== 'ALL';
@@ -680,52 +656,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               </p>
             )}
 
-            {filteredTimeline.length === 0 ? (
-              <div className="mt-4 bg-white rounded-xl border border-slate-200 p-10 text-center">
-                <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">history</span>
-                <p className="text-sm text-slate-500">No activity matches your filters.</p>
-                {hasActiveFilters && (
+            <UnifiedTimeline
+              items={filteredTimeline}
+              eventConfig={EVENT_CONFIG}
+              emptyTitle="No activity matches your filters."
+              emptyAction={
+                hasActiveFilters ? (
                   <button onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
                     Clear filters
                   </button>
-                )}
-              </div>
-            ) : (
-              <div className="relative mt-4">
-                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
-                <div className="space-y-6">
-                  {filteredTimeline.map((item, index) => {
-                    const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone_added;
-                    return (
-                      <div key={`${item.date}-${index}`} className="relative flex gap-4 items-start group">
-                        <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white ${cfg.dot} shadow-sm shrink-0`}>
-                          <span className="material-symbols-outlined text-[14px]">{cfg.icon}</span>
-                        </div>
-                        <div className="min-w-0 pt-0.5 flex-1">
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
-                              {formatEventDate(item.date)}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                              {formatHumanDate(item.date)}
-                            </span>
-                            {item.agency && (
-                              <span className="text-[11px] font-semibold text-slate-400 border-l border-slate-200 pl-2">
-                                {item.agency}
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="text-sm font-bold text-slate-900 mt-1 leading-snug">{item.title}</h4>
-                          {item.description && (
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-prose">{item.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                ) : null
+              }
+            />
           </CardSection>
           </div>
 

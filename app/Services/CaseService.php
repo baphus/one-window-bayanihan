@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
+use App\Mail\CaseCreatedMail;
 use App\Mail\IntakePublishedMail;
 use App\Mail\IntakeRejectedMail;
 use App\Models\AuditLog;
@@ -722,7 +723,9 @@ class CaseService
 
             // Notify OFW when their self-filed intake is accepted/published
             if ($case->source === CaseFile::SOURCE_SELF_FILED) {
-                $clientEmail = $case->client?->email;
+                $clientEmail = ! empty($draftClientData['email'] ?? null)
+                    ? $draftClientData['email']
+                    : ($client?->email ?? $case->client?->email ?? null);
 
                 if ($clientEmail) {
                     $this->notificationService->notifyOfw(
@@ -743,6 +746,32 @@ class CaseService
                     );
 
                     Mail::to($clientEmail)->queue(new IntakePublishedMail($case));
+                }
+            } else {
+                // Notify OFW when a case manager creates a case for them.
+                $clientEmail = ! empty($draftClientData['email'] ?? null)
+                    ? $draftClientData['email']
+                    : ($client?->email ?? $case->client?->email ?? null);
+
+                if ($clientEmail) {
+                    $this->notificationService->notifyOfw(
+                        $case,
+                        $clientEmail,
+                        'case_created',
+                        'Case Created',
+                        "A case has been created for you. Your tracker number is {$case->tracker_number}. A Case Manager has been assigned to coordinate your case.",
+                        [
+                            'case_number' => $case->case_number,
+                            'tracker_number' => $case->tracker_number,
+                        ],
+                        route('track.show', $case->tracker_number),
+                        // The dedicated CaseCreatedMail below is the client's
+                        // creation email; skip the generic ClientUpdateMail so
+                        // they do not receive two emails for this event.
+                        false,
+                    );
+
+                    Mail::to($clientEmail)->queue(new CaseCreatedMail($case));
                 }
             }
 

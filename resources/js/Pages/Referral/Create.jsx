@@ -46,7 +46,7 @@ function formatFileSize(bytes) {
 export default function ReferralCreate({ case_id, agencies, cases: paginatedCases, caseReferrals = {}, filters = {} }) {
     const cases = paginatedCases.data || [];
     const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases.meta || {};
-    const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
+    const { data, setData, post, processing, errors, setError, clearErrors, transform } = useForm({
         case_id: case_id || '',
         agcy_id: '',
         notes: '',
@@ -151,16 +151,23 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     function submitReferral(e) {
         if (e) e.preventDefault();
         clearErrors();
-        if (!validate()) return;
-        if (!isStepThreeValid) return;
-
-        setData('notes', notesValue);
+        if (!validate()) {
+            toast.error('Please fix the highlighted errors before submitting.');
+            return;
+        }
+        if (!isStepThreeValid) {
+            toast.error('Please select a case and an agency before submitting.');
+            return;
+        }
 
         bypassNext();
+
+        transform((current) => ({ ...current, notes: notesValue }));
 
         post(route('referrals.store'), {
             onSuccess: () => { toast.success('Referral submitted successfully!'); },
             onError: (errs) => { const msgs = Object.values(errs); toast.error(msgs[0] || 'Failed to submit referral.'); },
+            onFinish: () => { transform((current) => current); },
         });
     }
 
@@ -310,6 +317,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                                         onClick={() => {
                                                                             setData('case_id', item.id);
                                                                             setData('agcy_id', '');
+                                                                            setData('notes', '');
                                                                             setNotesValue('');
                                                                         }}
                                                                         className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
@@ -631,7 +639,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                 <textarea
                                                     rows={4}
                                                     value={notesValue}
-                                                    onChange={(e) => setNotesValue(e.target.value)}
+                                                    onChange={(e) => { setNotesValue(e.target.value); setData('notes', e.target.value); }}
                                                     placeholder="Optional context for the receiving agency..."
                                                     className="w-full rounded-md border border-slate-200 px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                 />

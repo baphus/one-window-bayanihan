@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { formatRelativeTime, formatDateGroup, formatDisplayDateTime } from '@/lib/relativeTime';
 import { ChangesList, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
+import { sortTimelineItems } from '@/Components/Timeline';
 
 /**
  * @param {Object} props
@@ -32,7 +33,8 @@ export function AuditTimeline({
         const groups = {};
         const groupOrder = [];
 
-        logs.forEach(log => {
+        // Newest-first ordering enforced with the shared timeline sorter.
+        sortTimelineItems(logs).forEach(log => {
             const groupLabel = formatDateGroup(log.timestamp);
             if (!groups[groupLabel]) {
                 groups[groupLabel] = [];
